@@ -1,0 +1,9 @@
+.navbar {
+	width: 100%;
+	background-color: #c0c0c0;
+	&__item {
+		text-transform: uppercase;
+		color: black;
+		font-weight: bold;
+	}
+}

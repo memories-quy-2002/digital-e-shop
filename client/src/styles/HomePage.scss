@@ -1,0 +1,80 @@
+.home {
+	&__hero {
+		background-color: #01b9e2;
+		position: relative;
+		width: 90%;
+		height: 500px;
+		margin: 2rem auto 8rem auto;
+		&__overlap {
+			height: 100%;
+			left: 83px;
+			position: absolute;
+			width: 486px;
+			&__upto {
+				color: white;
+				font-size: 54px;
+				font-weight: 400;
+				height: 100%;
+				position: absolute;
+				top: 25%;
+				letter-spacing: 0;
+				line-height: normal;
+				&__wrapper {
+					color: white;
+				}
+			}
+			&__button {
+				background-color: black;
+				color: #ffffff;
+				font-size: 20px;
+				font-weight: 400;
+				height: 65px;
+				left: 1px;
+				position: absolute;
+				text-align: center;
+				top: 347px;
+				width: 251px;
+			}
+			&__iphone {
+				height: 100%;
+				left: 1163px;
+				object-fit: cover;
+				position: absolute;
+				top: 0;
+				width: 372px;
+				mix-blend-mode: multiply;
+			}
+		}
+	}
+	&__product {
+		width: 90%;
+		margin: 2rem auto;
+		&__title {
+			font-weight: bold;
+			margin-bottom: 2rem;
+		}
+		&__menu {
+			display: grid;
+			grid-template-columns: repeat(4, 1fr);
+			gap: 20px;
+			&__item {
+				height: fit-content;
+				box-shadow: 0 4px 4px 0 #00000030;
+				&__image {
+					height: 50%;
+					width: 100%;
+					margin-bottom: 1rem;
+				}
+				button {
+					background-color: #0047ff;
+					color: white;
+					width: 113px;
+					height: 44px;
+					border: none;
+					font-weight: bold;
+					border-radius: 20px;
+				}
+			}
+		}
+	}
+}
