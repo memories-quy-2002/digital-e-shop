@@ -1,4 +1,3 @@
-const { response } = require('express');
 const mysql = require('mysql');
 const pool = mysql.createPool({
 	host: "localhost",
@@ -21,7 +20,23 @@ const getUserLogin = (request, response) => {
 			console.error(error);
 		} else {
 			const user = results[0];
-			response.status(200).json(user)
+			response.status(200).json({
+				user
+			})
+		}
+	});
+};
+
+const getUserLoginById = (request, response) => {
+	const uid = request.params.uid;
+	pool.query("SELECT * FROM user WHERE UID = ?", [uid], (error, results) => {
+		if (error) {
+			console.error(error);
+		} else {
+			const user = results[0];
+			response.status(200).json({
+				user
+			})
 		}
 	});
 };
@@ -35,6 +50,7 @@ const userLogin = (request, response) => {
 				msg: 'Invalid username or password or role'
 			})
 		}
+		const getUser = results[0];
 		const resultPassword = results[0].UPassword;
 		const resultRole = results[0].URole;
 		if (password !== resultPassword){
@@ -48,9 +64,11 @@ const userLogin = (request, response) => {
 			})
 		}
 		else {
+			
 			pool.query("UPDATE user SET ULast_login=CURRENT_TIMESTAMP WHERE UName=?", [username])
 			response.status(200).json({
-				msg: 'Login success',
+				user: getUser,
+				msg: 'Login successfully',
 			})
 		}
 		
@@ -62,17 +80,26 @@ const addUser = (request, response) => {
 	const {user} = request.body;
 	pool.query("INSERT INTO user (UName, UEmail, UPassword, URole) VALUES (?, ?, ?, ?)", [user.username, user.email, user.password, user.role], (error, results) => {
 		if (error) {
-			console.error(error);
+			throw error;
 		} else {
-			response.status(200).json({
-				msg: 'Add user successfully',
+			pool.query("SELECT * FROM user WHERE UEmail = ?", [user.email], (error, results) => {
+				if (error) {
+					throw error;
+				}
+				const getUser = results[0];
+				response.status(200).json({
+					user: getUser,
+					msg: 'Add user successfully',
+				})
 			})
+			
 		}
 	});
 };
 
 module.exports = {
 	getUserLogin,
+	getUserLoginById,
 	addUser,
 	userLogin,
 };

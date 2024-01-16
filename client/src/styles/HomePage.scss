@@ -56,14 +56,18 @@
 		&__menu {
 			display: grid;
 			grid-template-columns: repeat(4, 1fr);
-			gap: 20px;
+			gap: 40px;
 			&__item {
 				height: fit-content;
-				box-shadow: 0 4px 4px 0 #00000030;
+				box-shadow: 0 4px 10px 3px rgba(0, 0, 0, 0.1882352941);
 				&__image {
-					height: 50%;
+					height: 320px;
 					width: 100%;
+
 					margin-bottom: 1rem;
+					img {
+						object-fit: contain;
+					}
 				}
 				button {
 					background-color: #0047ff;

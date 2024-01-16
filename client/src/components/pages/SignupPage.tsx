@@ -1,19 +1,15 @@
 import React, { useState } from "react";
 import { Button, Container, Form } from "react-bootstrap";
-import "../../styles/SignupPage.scss";
-import axios from "../../api/axios";
 import { useNavigate } from "react-router-dom";
-
-enum UserRole {
-	Customer = "Customer",
-	Admin = "Admin",
-}
+import axios from "../../api/axios";
+import "../../styles/SignupPage.scss";
+import { Role } from "../../utils/interface";
 interface User {
 	username: string;
 	email: string;
 	password: string;
 	confirm: string;
-	role: UserRole;
+	role: Role;
 }
 const SignupPage = () => {
 	const navigate = useNavigate();
@@ -22,33 +18,42 @@ const SignupPage = () => {
 		email: "",
 		password: "",
 		confirm: "",
-		role: UserRole.Customer,
+		role: Role.Customer,
 	});
 
 	const [errors, setErrors] = useState<string[]>([]);
 
-	const validateForm = (): void => {
+	const validateForm = (): string[] => {
 		const errorsList: string[] = [];
-		var emailFormat =
+		const usernamePattern = /^[a-zA-Z0-9._-]{3,15}$/; // Allow letters, numbers, ., _, -, length 3-15
+		const passwordPattern =
+			/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+		const emailPattern =
 			/^([A-Za-z0-9_\-\.])+\@([A-Za-z0-9_\-\.])+\.([A-Za-z]{2,4})$/;
 		if (!user.username) {
 			errorsList.push("Username is required");
+		} else if (!usernamePattern.test(user.username)) {
+			errorsList.push(
+				"Username must be 3-15 characters long and contain only letters, numbers, periods, underscores, or hyphens."
+			);
 		}
 		if (!user.email) {
 			errorsList.push("Email is required");
-		} else if (!user.email.match(emailFormat)) {
+		} else if (!user.email.match(emailPattern)) {
 			errorsList.push("Invalid email format");
 		}
 		if (!user.password) {
 			errorsList.push("Password is required");
-		} else if (user.password.length < 8) {
-			errorsList.push("Password should be from 8 letters or more");
+		} else if (!passwordPattern.test(user.password)) {
+			errorsList.push(
+				"Password must be at least 8 characters long, contain at least one lowercase letter, one uppercase letter, one number, and one special character."
+			);
 		} else if (!user.confirm) {
 			errorsList.push("Confirm password is required");
 		} else if (user.password !== user.confirm) {
 			errorsList.push("Confirm password is not match");
 		}
-		setErrors(errorsList);
+		return errorsList;
 	};
 
 	const handleChangeInput = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -56,22 +61,26 @@ const SignupPage = () => {
 		setUser({ ...user, [name]: value });
 	};
 	const handleChangeRadio = (event: React.ChangeEvent<HTMLInputElement>) => {
-		const selectedRole = event.target.value as UserRole;
+		const selectedRole = event.target.value as Role;
 		setUser({ ...user, role: selectedRole });
 	};
 	const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
-		try {
-			validateForm();
-			const response = await axios.post("/post/user", { user });
-			if (response.status === 200) {
-				console.log(response.data.msg);
-				if (errors.length === 0) {
+		const errorsList: string[] = validateForm();
+
+		if (errorsList.length > 0) {
+			setErrors(errorsList); // Display errors, no need to proceed further
+			return;
+		} else {
+			try {
+				const response = await axios.post("/post/signup", { user });
+				if (response.status === 200) {
+					sessionStorage.setItem("user", response.data.user.UID);
 					navigate("/");
 				}
+			} catch (err) {
+				throw err;
 			}
-		} catch (err) {
-			throw err;
 		}
 	};
 
@@ -176,25 +185,27 @@ const SignupPage = () => {
 							<Form.Check
 								inline
 								type="radio"
-								name="signup-role"
+								name="signup-role-1"
 								label="Customer"
-								value={UserRole.Customer}
-								checked={user.role === UserRole.Customer}
+								value={Role.Customer}
+								checked={user.role === Role.Customer}
 								onChange={handleChangeRadio}
 							/>
 							<Form.Check
 								inline
 								type="radio"
-								name="signup-role"
+								name="signup-role-2"
 								label="Admin"
-								value={UserRole.Admin}
-								checked={user.role === UserRole.Admin}
+								value={Role.Admin}
+								checked={user.role === Role.Admin}
 								onChange={handleChangeRadio}
 							/>
 						</Form.Group>
 						<div className="mb-5">
-							{errors.map((error) => (
-								<div className="text-danger mb-2">{error}</div>
+							{errors.map((error, id) => (
+								<div key={id} className="text-danger mb-2">
+									{error}
+								</div>
 							))}
 						</div>
 						<Button

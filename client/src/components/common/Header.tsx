@@ -1,10 +1,24 @@
-import React from "react";
+import React, { useContext, useEffect, useState } from "react";
 import "../../styles/Header.scss";
 import { IoCall, IoCart, IoHeart, IoHome, IoMailSharp } from "react-icons/io5";
 import { Navbar } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
+import { AuthContext } from "../../context/AuthProvider";
+import { User } from "../../utils/interface";
+
+interface Auth {
+	isAuthenticated: boolean;
+	user: User;
+}
 export const Header = (): JSX.Element => {
 	const navigate = useNavigate();
+	const { isAuthenticated, user } = useContext(AuthContext) as Auth;
+
+	const handleLogout = () => {
+		localStorage.removeItem("user");
+		sessionStorage.removeItem("user");
+	};
+
 	return (
 		<div className="header__container">
 			<div className="header__container__info">
@@ -23,15 +37,28 @@ export const Header = (): JSX.Element => {
 					</div>
 				</div>
 				<div className="header__container__info__auth">
-					<strong>Welcome Anonymous</strong>
+					<strong>
+						Welcome {isAuthenticated ? user.UName : "Anonymous"}
+					</strong>
+
 					<div className="header__container__info__auth__button">
-						<div>
-							<a href="/login">Login</a>
-						</div>
-						<div>|</div>
-						<div>
-							<a href="/signup">Signup</a>
-						</div>
+						{isAuthenticated ? (
+							<div>
+								<a href="/" onClick={handleLogout}>
+									Logout
+								</a>
+							</div>
+						) : (
+							<>
+								<div>
+									<a href="/login">Login</a>
+								</div>
+								<div>|</div>
+								<div>
+									<a href="/signup">Signup</a>
+								</div>
+							</>
+						)}
 					</div>
 				</div>
 			</div>
@@ -52,7 +79,9 @@ export const Header = (): JSX.Element => {
 						placeholder="Search product..."
 						className="header__container__main__search__bar"
 					/>
-					<button onClick={() => navigate("/product?id=1")}>Search</button>
+					<button onClick={() => navigate("/product?id=1")}>
+						Search
+					</button>
 				</div>
 				<div className="header__container__main__group">
 					<div

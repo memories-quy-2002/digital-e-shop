@@ -19,5 +19,6 @@ app.listen(PORT, () => {
 });
 
 app.get("/get/user", db.getUserLogin);
-app.post("/post/user", db.addUser);
+app.get("/get/user/:uid", db.getUserLoginById)
+app.post("/post/signup", db.addUser);
 app.post("/post/login", db.userLogin);

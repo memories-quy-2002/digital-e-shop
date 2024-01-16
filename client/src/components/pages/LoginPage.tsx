@@ -1,36 +1,44 @@
 import React, { useState } from "react";
 import { Button, Container, Form } from "react-bootstrap";
-import "../../styles/LoginPage.scss";
-import axios from "../../api/axios";
 import { useNavigate } from "react-router-dom";
-enum UserRole {
-	Customer = "Customer",
-	Admin = "Admin",
-}
+import axios from "../../api/axios";
+import "../../styles/LoginPage.scss";
+import { Role } from "../../utils/interface";
+
 interface User {
 	username: string;
 	password: string;
-	role: UserRole;
+	role: Role;
 }
 const LoginPage = () => {
 	const navigate = useNavigate();
 	const [user, setUser] = useState<User>({
 		username: "",
 		password: "",
-		role: UserRole.Customer,
+		role: Role.Customer,
 	});
+	const [remember, setRemember] = useState<boolean>(false);
 
 	const [errors, setErrors] = useState<string[]>([]);
 
 	const validateForm = (): string[] => {
 		const errorsList: string[] = [];
+		const usernamePattern = /^[a-zA-Z0-9._-]{3,15}$/; // Allow letters, numbers, ., _, -, length 3-15
+		const passwordPattern =
+			/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 		if (!user.username) {
 			errorsList.push("Username is required");
+		} else if (!usernamePattern.test(user.username)) {
+			errorsList.push(
+				"Username must be 3-15 characters long and contain only letters, numbers, periods, underscores, or hyphens."
+			);
 		}
 		if (!user.password) {
 			errorsList.push("Password is required");
-		} else if (user.password.length < 8) {
-			errorsList.push("Password should be from 8 letters or more");
+		} else if (!passwordPattern.test(user.password)) {
+			errorsList.push(
+				"Password must be at least 8 characters long, contain at least one lowercase letter, one uppercase letter, one number, and one special character."
+			);
 		}
 		return errorsList;
 	};
@@ -40,9 +48,13 @@ const LoginPage = () => {
 		setUser({ ...user, [name]: value });
 	};
 	const handleChangeRadio = (event: React.ChangeEvent<HTMLInputElement>) => {
-		const selectedRole = event.target.value as UserRole;
+		const selectedRole = event.target.value as Role;
 		setUser({ ...user, role: selectedRole });
 	};
+	const handleChangeCheckbox = () => {
+		setRemember((remember) => !remember);
+	};
+
 	const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 
@@ -54,6 +66,13 @@ const LoginPage = () => {
 		try {
 			const response = await axios.post("/post/login", { user });
 			if (response.status === 200) {
+				if (remember) {
+					localStorage.setItem("user", response.data.user.UID);
+					sessionStorage.removeItem("user");
+				} else {
+					sessionStorage.setItem("user", response.data.user.UID);
+					localStorage.removeItem("user");
+				}
 				navigate("/");
 			}
 		} catch (err: any) {
@@ -136,8 +155,8 @@ const LoginPage = () => {
 								type="radio"
 								name="signup-role"
 								label="Customer"
-								value={UserRole.Customer}
-								checked={user.role === UserRole.Customer}
+								value={Role.Customer}
+								checked={user.role === Role.Customer}
 								onChange={handleChangeRadio}
 							/>
 							<Form.Check
@@ -145,8 +164,8 @@ const LoginPage = () => {
 								type="radio"
 								name="signup-role"
 								label="Admin"
-								value={UserRole.Admin}
-								checked={user.role === UserRole.Admin}
+								value={Role.Admin}
+								checked={user.role === Role.Admin}
 								onChange={handleChangeRadio}
 							/>
 						</Form.Group>
@@ -158,12 +177,16 @@ const LoginPage = () => {
 								inline
 								type="checkbox"
 								name="signup-role"
+								checked={remember === true}
+								onChange={handleChangeCheckbox}
 								label="Remember me"
 							/>
 						</Form.Group>
 						<div className="mb-5">
-							{errors.map((error) => (
-								<div className="text-danger mb-2">{error}</div>
+							{errors.map((error, id) => (
+								<div className="text-danger mb-2" key={id}>
+									{error}
+								</div>
 							))}
 						</div>
 						<Button

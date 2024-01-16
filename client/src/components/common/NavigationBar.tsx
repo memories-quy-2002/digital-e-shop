@@ -18,8 +18,9 @@ const NavigationBar = () => {
 					<Nav.Link href={`/home`} className="navbar__item">
 						Home
 					</Nav.Link>
-					{navItems.map((item) => (
+					{navItems.map((item, id) => (
 						<Nav.Link
+							key={id}
 							href={`/${item.replace(" ", "-")}`}
 							className="navbar__item"
 						>
