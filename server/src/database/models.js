@@ -1,4 +1,6 @@
-const mysql = require('mysql');
+const mysql = require("mysql");
+const jwt = require("jsonwebtoken");
+const { hashPassword } = require("../utils/hashPassword");
 const pool = mysql.createPool({
 	host: "localhost",
 	user: "root",
@@ -14,92 +16,212 @@ pool.getConnection((err) => {
 	}
 });
 
-const getUserLogin = (request, response) => {
-	pool.query("SELECT * FROM user", (error, results) => {
-		if (error) {
-			console.error(error);
-		} else {
-			const user = results[0];
-			response.status(200).json({
-				user
-			})
-		}
-	});
-};
-
 const getUserLoginById = (request, response) => {
-	const uid = request.params.uid;
-	pool.query("SELECT * FROM user WHERE UID = ?", [uid], (error, results) => {
+	const uid = request.params.id;
+	pool.query("SELECT * FROM users WHERE id = ?", [uid], (error, results) => {
 		if (error) {
 			console.error(error);
 		} else {
-			const user = results[0];
+			const userData = results[0];
 			response.status(200).json({
-				user
-			})
+				userData,
+			});
 		}
 	});
 };
 
 const userLogin = (request, response) => {
-	const {user} = request.body
-	const {username, password, role} = user;
-	pool.query("SELECT * FROM user WHERE UName = ?", [username], (error, results) => {
+	const { uid, role } = request.body;
+	pool.query("SELECT * FROM users WHERE id = ?", [uid], (error, results) => {
 		if (results.length === 0) {
 			response.status(401).json({
-				msg: 'Invalid username or password or role'
-			})
+				msg: "Invalid username or password or role",
+			});
 		}
-		const getUser = results[0];
-		const resultPassword = results[0].UPassword;
-		const resultRole = results[0].URole;
-		if (password !== resultPassword){
+		const userId = results[0].id;
+		const userRole = results[0].role;
+		const userToken = results[0].token;
+		if (role !== userRole) {
 			response.status(401).json({
-				msg: 'Invalid username or password or role'
-			})
+				msg: "Invalid username or password or role",
+			});
+		} else {
+			try {
+				const payload = jwt.verify(userToken, "secret-key");
+				pool.query(
+					"SELECT * FROM users WHERE id = ?",
+					[payload.id],
+					(error, results) => {
+						if (results.length > 0) {
+							pool.query(
+								"UPDATE users SET last_login=CURRENT_TIMESTAMP WHERE id=?",
+								[userId]
+							);
+							response.cookie(
+								"user",
+								JSON.stringify({ userId, userToken }),
+								{
+									httpOnly: false,
+									// Consider using Secure flag if using HTTPS
+									maxAge: 1000 * 60 * 60 * 24 * 7, // Expires in 7 days (adjust as needed)
+								}
+							);
+							response.status(200).json({
+								uid: userId,
+								token: userToken,
+								msg: "Login successfully",
+							});
+						} else {
+							response
+								.status(401)
+								.json({ msg: "User not exists" });
+							return;
+						}
+					}
+				);
+			} catch (err) {
+				response.status(401).json({ msg: "JWT Expired" });
+				return;
+			}
 		}
-		else if (role !== resultRole) {
-			response.status(401).json({
-				msg: 'Invalid username or password or role'
-			})
-		}
-		else {
-			
-			pool.query("UPDATE user SET ULast_login=CURRENT_TIMESTAMP WHERE UName=?", [username])
-			response.status(200).json({
-				user: getUser,
-				msg: 'Login successfully',
-			})
-		}
-		
 	});
 };
 
-
 const addUser = (request, response) => {
-	const {user} = request.body;
-	pool.query("INSERT INTO user (UName, UEmail, UPassword, URole) VALUES (?, ?, ?, ?)", [user.username, user.email, user.password, user.role], (error, results) => {
-		if (error) {
-			throw error;
-		} else {
-			pool.query("SELECT * FROM user WHERE UEmail = ?", [user.email], (error, results) => {
+	const { uid, user } = request.body;
+	(async () => {
+		const hashedPassword = await hashPassword(user.password);
+
+		// Create and set the "Remember Me" cookie
+
+		pool.query(
+			"INSERT INTO users (id, username, email, password, role) VALUES (?, ?, ?, ?, ?)",
+			[uid, user.username, user.email, hashedPassword, user.role],
+			(error, results) => {
 				if (error) {
 					throw error;
+				} else {
+					const token = jwt.sign(
+						{ id: uid, email: user.email },
+						"secret-key",
+						{
+							expiresIn: "30d",
+						}
+					);
+					pool.query(
+						"UPDATE users SET token = ? WHERE id = ?",
+						[token, uid],
+						(error, results) => {
+							if (error) {
+								throw error;
+							}
+							response.cookie(
+								"user",
+								JSON.stringify({ uid, token }),
+								{
+									httpOnly: false,
+									// Consider using Secure flag if using HTTPS
+									maxAge: 1000 * 60 * 60 * 24 * 7, // Expires in 7 days (adjust as needed)
+								}
+							);
+							response.status(200).json({
+								token,
+								msg: "User created successfully",
+							});
+						}
+					);
 				}
-				const getUser = results[0];
+			}
+		);
+	})();
+};
+
+const getSingleProduct = (request, response) => {
+	const pid = request.params.id;
+	pool.query(
+		`SELECT
+		products.id,
+		products.name,
+		description,
+		categories.name AS category,
+		brands.name AS brand,
+		price,
+		sale_price,
+		stock,
+		main_image,
+		image_gallery,
+		specifications,
+		rating,
+		reviews
+		FROM
+			products
+		JOIN categories ON categories.id = products.category_id
+		JOIN brands ON brands.id = products.brand_id
+		WHERE
+			products.id = ?`,
+		[pid],
+		(error, results) => {
+			if (error) {
+				throw error;
+			}
+			if (results.length > 0) {
+				const product = results[0];
 				response.status(200).json({
-					user: getUser,
-					msg: 'Add user successfully',
-				})
-			})
-			
+					product,
+					msg: "Get product successfully with id = " + pid,
+				});
+			} else {
+				response.status(401).json({
+					msg: "No product exists with id = " + pid,
+				});
+			}
 		}
-	});
+	);
+};
+
+const getListProduct = (request, response) => {
+	pool.query(
+		`SELECT
+			products.id,
+			products.name,
+			description,
+			categories.name AS category,
+			brands.name AS brand,
+			price,
+			sale_price,
+			stock,
+			main_image,
+			image_gallery,
+			specifications,
+			rating,
+			reviews
+		FROM
+			products
+		JOIN categories ON categories.id = products.category_id
+		JOIN brands ON brands.id = products.brand_id`,
+		(error, results) => {
+			if (error) {
+				throw error;
+			}
+			if (results.length > 0) {
+				response.status(200).json({
+					products: results,
+					msg: "Get list products successfully",
+				});
+			} else {
+				console.log("There is no product");
+				response.status(200).json({
+					msg: "There is no product in store",
+				});
+			}
+		}
+	);
 };
 
 module.exports = {
-	getUserLogin,
 	getUserLoginById,
 	addUser,
 	userLogin,
+	getSingleProduct,
+	getListProduct,
 };

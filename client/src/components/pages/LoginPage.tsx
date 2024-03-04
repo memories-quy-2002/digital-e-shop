@@ -4,34 +4,36 @@ import { useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
 import "../../styles/LoginPage.scss";
 import { Role } from "../../utils/interface";
-
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../../services/firebase";
+import Cookies from "universal-cookie";
+import { stringify } from "querystring";
 interface User {
-	username: string;
+	email: string;
 	password: string;
 	role: Role;
 }
 const LoginPage = () => {
 	const navigate = useNavigate();
 	const [user, setUser] = useState<User>({
-		username: "",
+		email: "",
 		password: "",
 		role: Role.Customer,
 	});
-	const [remember, setRemember] = useState<boolean>(false);
+	const [rememberMe, setRememberMe] = useState<boolean>(false);
 
 	const [errors, setErrors] = useState<string[]>([]);
 
 	const validateForm = (): string[] => {
 		const errorsList: string[] = [];
-		const usernamePattern = /^[a-zA-Z0-9._-]{3,15}$/; // Allow letters, numbers, ., _, -, length 3-15
+		const emailPattern =
+			/^([A-Za-z0-9_\-.])+@([A-Za-z0-9_\-.])+\.([A-Za-z]{2,4})$/;
 		const passwordPattern =
 			/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-		if (!user.username) {
-			errorsList.push("Username is required");
-		} else if (!usernamePattern.test(user.username)) {
-			errorsList.push(
-				"Username must be 3-15 characters long and contain only letters, numbers, periods, underscores, or hyphens."
-			);
+		if (!user.email) {
+			errorsList.push("Email is required");
+		} else if (!user.email.match(emailPattern)) {
+			errorsList.push("Invalid email format");
 		}
 		if (!user.password) {
 			errorsList.push("Password is required");
@@ -52,7 +54,7 @@ const LoginPage = () => {
 		setUser({ ...user, role: selectedRole });
 	};
 	const handleChangeCheckbox = () => {
-		setRemember((remember) => !remember);
+		setRememberMe((rememberMe) => !rememberMe);
 	};
 
 	const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -64,19 +66,41 @@ const LoginPage = () => {
 			return;
 		}
 		try {
-			const response = await axios.post("/post/login", { user });
+			const userCredential = await signInWithEmailAndPassword(
+				auth,
+				user.email,
+				user.password
+			);
+			const uid = userCredential.user.uid;
+			const response = await axios.post("/api/users/login", {
+				uid,
+				role: user.role,
+			});
 			if (response.status === 200) {
-				if (remember) {
-					localStorage.setItem("user", response.data.user.UID);
-					sessionStorage.removeItem("user");
+				const token = response.data.token;
+				const cookies = new Cookies();
+				const cookieData = {
+					uid,
+					token,
+				};
+				if (rememberMe) {
+					cookies.set("rememberMe", JSON.stringify(cookieData), {
+						httpOnly: false,
+						// Consider using Secure flag if using HTTPS
+						maxAge: 1000 * 60 * 60 * 24 * 7, // Expires in 7 days (adjust as needed)
+					});
 				} else {
-					sessionStorage.setItem("user", response.data.user.UID);
-					localStorage.removeItem("user");
+					sessionStorage.setItem(
+						"rememberMe",
+						JSON.stringify(cookieData)
+					);
 				}
 				navigate("/");
 			}
 		} catch (err: any) {
-			setErrors([err.response.data.msg]);
+			console.log(err.response);
+
+			console.error(err);
 		}
 	};
 
@@ -116,14 +140,14 @@ const LoginPage = () => {
 							className="login__form__container__group mb-3"
 							controlId="formBasicUserName"
 						>
-							<Form.Label>Username</Form.Label>
+							<Form.Label>Email</Form.Label>
 							<Form.Control
-								type="text"
-								name="username"
+								type="email"
+								name="email"
 								className="login__form__container__group__input"
 								required
 								autoComplete="off"
-								value={user.username}
+								value={user.email}
 								onChange={handleChangeInput}
 							/>
 						</Form.Group>
@@ -177,7 +201,7 @@ const LoginPage = () => {
 								inline
 								type="checkbox"
 								name="signup-role"
-								checked={remember === true}
+								checked={rememberMe === true}
 								onChange={handleChangeCheckbox}
 								label="Remember me"
 							/>

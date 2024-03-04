@@ -1,22 +1,27 @@
-import React, { useContext, useEffect, useState } from "react";
-import "../../styles/Header.scss";
-import { IoCall, IoCart, IoHeart, IoHome, IoMailSharp } from "react-icons/io5";
+import { useContext, useEffect } from "react";
 import { Navbar } from "react-bootstrap";
+import { IoCall, IoCart, IoHeart, IoHome, IoMailSharp } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
-import { AuthContext } from "../../context/AuthProvider";
-import { User } from "../../utils/interface";
+import Cookies from "universal-cookie";
+import { UserContext } from "../../context/UserDataProvider";
+import "../../styles/Header.scss";
 
-interface Auth {
-	isAuthenticated: boolean;
-	user: User;
-}
 export const Header = (): JSX.Element => {
 	const navigate = useNavigate();
-	const { isAuthenticated, user } = useContext(AuthContext) as Auth;
+	const cookies = new Cookies();
+	const uid =
+		cookies.get("rememberMe")?.uid ||
+		(sessionStorage["rememberMe"]
+			? JSON.parse(sessionStorage["rememberMe"]).uid
+			: "");
+	const { userData, loading, fetchUserData } = useContext(UserContext);
+	useEffect(() => {
+		fetchUserData(uid);
+	}, [uid]);
 
 	const handleLogout = () => {
-		localStorage.removeItem("user");
-		sessionStorage.removeItem("user");
+		sessionStorage.removeItem("rememberMe");
+		cookies.remove("rememberMe");
 	};
 
 	return (
@@ -38,11 +43,12 @@ export const Header = (): JSX.Element => {
 				</div>
 				<div className="header__container__info__auth">
 					<strong>
-						Welcome {isAuthenticated ? user.UName : "Anonymous"}
+						Welcome{" "}
+						{userData && !loading ? userData.username : "Anonymous"}
 					</strong>
 
 					<div className="header__container__info__auth__button">
-						{isAuthenticated ? (
+						{userData && !loading ? (
 							<div>
 								<a href="/" onClick={handleLogout}>
 									Logout

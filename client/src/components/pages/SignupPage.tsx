@@ -1,9 +1,17 @@
+import { createUserWithEmailAndPassword } from "firebase/auth";
 import React, { useState } from "react";
 import { Button, Container, Form } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
+import { auth } from "../../services/firebase";
 import "../../styles/SignupPage.scss";
 import { Role } from "../../utils/interface";
+import Cookies from "universal-cookie";
+
+const cookies = new Cookies();
+
+console.log(cookies.get("rememberMe"));
+
 interface User {
 	username: string;
 	email: string;
@@ -29,7 +37,7 @@ const SignupPage = () => {
 		const passwordPattern =
 			/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 		const emailPattern =
-			/^([A-Za-z0-9_\-\.])+\@([A-Za-z0-9_\-\.])+\.([A-Za-z]{2,4})$/;
+			/^([A-Za-z0-9_\-.])+@([A-Za-z0-9_\-.])+\.([A-Za-z]{2,4})$/;
 		if (!user.username) {
 			errorsList.push("Username is required");
 		} else if (!usernamePattern.test(user.username)) {
@@ -73,9 +81,28 @@ const SignupPage = () => {
 			return;
 		} else {
 			try {
-				const response = await axios.post("/post/signup", { user });
+				const userCredential = await createUserWithEmailAndPassword(
+					auth,
+					user.email,
+					user.password
+				);
+				const uid = userCredential.user.uid;
+
+				const response = await axios.post("/api/users", {
+					user,
+					uid,
+				});
 				if (response.status === 200) {
-					sessionStorage.setItem("user", response.data.user.UID);
+					const token = response.data.token;
+					const cookieData = {
+						uid,
+						token,
+					};
+					cookies.set("rememberMe", JSON.stringify(cookieData), {
+						httpOnly: false,
+						// Consider using Secure flag if using HTTPS
+						maxAge: 1000 * 60 * 60 * 24 * 7, // Expires in 7 days (adjust as needed)
+					});
 					navigate("/");
 				}
 			} catch (err) {
