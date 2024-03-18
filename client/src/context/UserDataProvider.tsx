@@ -1,5 +1,4 @@
-import React, { createContext, useState, useEffect } from "react";
-import { Role } from "../utils/interface";
+import React, { createContext, useState } from "react";
 import axios from "../api/axios";
 
 interface UserDataContext {
@@ -26,7 +25,7 @@ const UserDataProvider: React.FC<UserProps> = ({ children }) => {
 		setLoading(true);
 		if (userId) {
 			try {
-				const response = await axios.get(`/get/user/${userId}/`);
+				const response = await axios.get(`/api/users/${userId}/`);
 				if (response.status === 200) {
 					setUserData(response.data.userData);
 				}

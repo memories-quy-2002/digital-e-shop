@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Mar 04, 2024 at 01:29 AM
+-- Generation Time: Mar 18, 2024 at 01:20 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -51,6 +51,48 @@ INSERT INTO `brands` (`id`, `name`) VALUES
 (1, 'Samsung'),
 (10, 'Sonos'),
 (3, 'Sony');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `cart`
+--
+
+CREATE TABLE `cart` (
+  `id` int(11) NOT NULL,
+  `user_id` varchar(255) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `done` tinyint(1) NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `cart`
+--
+
+INSERT INTO `cart` (`id`, `user_id`, `created_at`, `done`) VALUES
+(3, 'ljul8hizGLbsDwKUIjHIJYXCnFF3', '2024-03-06 18:33:42', 0);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `cart_items`
+--
+
+CREATE TABLE `cart_items` (
+  `id` int(11) NOT NULL,
+  `cart_id` int(11) NOT NULL,
+  `product_id` int(11) NOT NULL,
+  `quantity` int(11) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `cart_items`
+--
+
+INSERT INTO `cart_items` (`id`, `cart_id`, `product_id`, `quantity`, `created_at`) VALUES
+(4, 3, 2, 3, '2024-03-06 18:41:35'),
+(11, 3, 5, 1, '2024-03-06 18:47:05');
 
 -- --------------------------------------------------------
 
@@ -149,7 +191,28 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `email`, `password`, `username`, `first_name`, `last_name`, `role`, `token`, `created_at`, `last_login`) VALUES
-('ljul8hizGLbsDwKUIjHIJYXCnFF3', 'test1@gmail.com', '$2b$10$hI67QaYzryi9sCUz7y34Suip3fMIx2rrFvQnraE6BKRR9MFc/tHsG', 'memories2002', NULL, NULL, 'Customer', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImxqdWw4aGl6R0xic0R3S1VJakhJSllYQ25GRjMiLCJlbWFpbCI6InRlc3QxQGdtYWlsLmNvbSIsImlhdCI6MTcwOTM0OTk4MSwiZXhwIjoxNzExOTQxOTgxfQ.7za82_X9r0uBYLPnzPTCa5QqThLsxnFlmjX2de3EoZI', '2024-03-02 10:26:21', '2024-03-02 10:36:20');
+('ljul8hizGLbsDwKUIjHIJYXCnFF3', 'test1@gmail.com', '$2b$10$hI67QaYzryi9sCUz7y34Suip3fMIx2rrFvQnraE6BKRR9MFc/tHsG', 'memories2002', NULL, NULL, 'Customer', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImxqdWw4aGl6R0xic0R3S1VJakhJSllYQ25GRjMiLCJlbWFpbCI6InRlc3QxQGdtYWlsLmNvbSIsImlhdCI6MTcwOTM0OTk4MSwiZXhwIjoxNzExOTQxOTgxfQ.7za82_X9r0uBYLPnzPTCa5QqThLsxnFlmjX2de3EoZI', '2024-03-02 10:26:21', '2024-03-15 18:08:04');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `wishlist`
+--
+
+CREATE TABLE `wishlist` (
+  `id` int(11) NOT NULL,
+  `user_id` varchar(255) NOT NULL,
+  `product_id` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `wishlist`
+--
+
+INSERT INTO `wishlist` (`id`, `user_id`, `product_id`) VALUES
+(7, 'ljul8hizGLbsDwKUIjHIJYXCnFF3', 2),
+(6, 'ljul8hizGLbsDwKUIjHIJYXCnFF3', 3),
+(4, 'ljul8hizGLbsDwKUIjHIJYXCnFF3', 5);
 
 --
 -- Indexes for dumped tables
@@ -161,6 +224,21 @@ INSERT INTO `users` (`id`, `email`, `password`, `username`, `first_name`, `last_
 ALTER TABLE `brands`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `name` (`name`);
+
+--
+-- Indexes for table `cart`
+--
+ALTER TABLE `cart`
+  ADD PRIMARY KEY (`id`,`user_id`) USING BTREE,
+  ADD KEY `FK_CartUser` (`user_id`);
+
+--
+-- Indexes for table `cart_items`
+--
+ALTER TABLE `cart_items`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `cart_id` (`cart_id`,`product_id`),
+  ADD KEY `FK_CartItemProduct` (`product_id`);
 
 --
 -- Indexes for table `categories`
@@ -186,6 +264,14 @@ ALTER TABLE `users`
   ADD UNIQUE KEY `email` (`email`) USING BTREE;
 
 --
+-- Indexes for table `wishlist`
+--
+ALTER TABLE `wishlist`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `UC_Wishlist` (`user_id`,`product_id`),
+  ADD KEY `FK_WishlistProduct` (`product_id`);
+
+--
 -- AUTO_INCREMENT for dumped tables
 --
 
@@ -196,14 +282,45 @@ ALTER TABLE `brands`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
+-- AUTO_INCREMENT for table `cart`
+--
+ALTER TABLE `cart`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+
+--
+-- AUTO_INCREMENT for table `cart_items`
+--
+ALTER TABLE `cart_items`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+
+--
 -- AUTO_INCREMENT for table `categories`
 --
 ALTER TABLE `categories`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
+-- AUTO_INCREMENT for table `wishlist`
+--
+ALTER TABLE `wishlist`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+
+--
 -- Constraints for dumped tables
 --
+
+--
+-- Constraints for table `cart`
+--
+ALTER TABLE `cart`
+  ADD CONSTRAINT `FK_CartUser` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
+
+--
+-- Constraints for table `cart_items`
+--
+ALTER TABLE `cart_items`
+  ADD CONSTRAINT `FK_CartItemCart` FOREIGN KEY (`cart_id`) REFERENCES `cart` (`id`),
+  ADD CONSTRAINT `FK_CartItemProduct` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`);
 
 --
 -- Constraints for table `products`
@@ -211,6 +328,13 @@ ALTER TABLE `categories`
 ALTER TABLE `products`
   ADD CONSTRAINT `FK_ProductBrand` FOREIGN KEY (`brand_id`) REFERENCES `brands` (`id`),
   ADD CONSTRAINT `FK_ProductCategory` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`);
+
+--
+-- Constraints for table `wishlist`
+--
+ALTER TABLE `wishlist`
+  ADD CONSTRAINT `FK_WishlistProduct` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`),
+  ADD CONSTRAINT `FK_WishlistUser` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

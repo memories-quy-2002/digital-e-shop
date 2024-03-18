@@ -20,7 +20,7 @@ const getUserLoginById = (request, response) => {
 	const uid = request.params.id;
 	pool.query("SELECT * FROM users WHERE id = ?", [uid], (error, results) => {
 		if (error) {
-			console.error(error);
+			console.error(error.message);
 		} else {
 			const userData = results[0];
 			response.status(200).json({
@@ -33,6 +33,9 @@ const getUserLoginById = (request, response) => {
 const userLogin = (request, response) => {
 	const { uid, role } = request.body;
 	pool.query("SELECT * FROM users WHERE id = ?", [uid], (error, results) => {
+		if (error) {
+			console.error(error.message);
+		}
 		if (results.length === 0) {
 			response.status(401).json({
 				msg: "Invalid username or password or role",
@@ -99,7 +102,7 @@ const addUser = (request, response) => {
 			[uid, user.username, user.email, hashedPassword, user.role],
 			(error, results) => {
 				if (error) {
-					throw error;
+					console.error(error.message);
 				} else {
 					const token = jwt.sign(
 						{ id: uid, email: user.email },
@@ -162,7 +165,7 @@ const getSingleProduct = (request, response) => {
 		[pid],
 		(error, results) => {
 			if (error) {
-				throw error;
+				console.error(error.message);
 			}
 			if (results.length > 0) {
 				const product = results[0];
@@ -201,7 +204,7 @@ const getListProduct = (request, response) => {
 		JOIN brands ON brands.id = products.brand_id`,
 		(error, results) => {
 			if (error) {
-				throw error;
+				console.error(error.message);
 			}
 			if (results.length > 0) {
 				response.status(200).json({
@@ -218,10 +221,143 @@ const getListProduct = (request, response) => {
 	);
 };
 
+const addItemToWishlist = (request, response) => {
+	const { uid, pid } = request.body;
+	console.log({ uid, pid });
+	pool.query(
+		`INSERT INTO wishlist (user_id, product_id)
+		VALUES (?, ?)
+		ON DUPLICATE KEY IGNORE;
+		`,
+		[uid, pid],
+		(error, results) => {
+			if (error) {
+				console.error(error.message);
+			}
+			response.status(200).json({
+				msg: `Product with id = ${pid} has been added successfully to the user id = ${uid}`,
+			});
+		}
+	);
+};
+
+const getWishlist = (request, response) => {
+	const uid = request.params.uid;
+	pool.query(
+		`SELECT * FROM wishlist WHERE user_id = ?`,
+		[uid],
+		(error, results) => {
+			if (error) {
+				console.error(error.message);
+			}
+			response.status(200).json({
+				wishlist: results,
+				msg: `Get wishlist with user_id = ${uid} successfully`,
+			});
+		}
+	);
+};
+
+const addItemToCart = (request, response) => {
+	const { pid, uid } = request.body;
+	var cartId = 0;
+	pool.query(
+		`INSERT INTO cart (user_id)
+		SELECT ? 
+		WHERE NOT EXISTS ( 
+			SELECT 1 FROM cart WHERE user_id = ? AND done = 0);`,
+		[uid],
+		(error, results) => {
+			if (error) {
+				console.error(error.message);
+			}
+			pool.query(
+				"SELECT id FROM cart WHERE user_id = ? AND done = 0",
+				[uid],
+				(error, results) => {
+					if (error) {
+						console.error(error.message);
+					}
+					cartId = results[0].id;
+					pool.query(
+						`INSERT INTO cart_items (cart_id, product_id, quantity)
+						VALUES (?, ?, 1)
+						ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity);`,
+						[cartId, pid],
+						(error, results) => {
+							if (error) {
+								console.error(error.message);
+							}
+							response.status(200).json({
+								msg: `Product with id = ${pid} has been added to the cart id = ${cartId}`,
+							});
+						}
+					);
+				}
+			);
+		}
+	);
+};
+
+const getCartItems = (request, response) => {
+	const uid = request.params.uid;
+	pool.query(
+		`SELECT id FROM cart WHERE user_id = ? AND done = 0`,
+		[uid],
+		(error, results) => {
+			if (error) {
+				console.error(error.message);
+			}
+			if (results.length > 0) {
+				const cartId = results[0].id;
+				pool.query(
+					`SELECT
+					ci.id AS cart_item_id,
+					p.id AS product_id,
+					p.name AS product_name,
+					b.name AS brand,
+					c.name AS category,
+					p.price,
+					p.sale_price,
+					p.main_image,
+					ci.quantity
+				FROM
+					cart_items ci
+				JOIN products p ON
+					ci.product_id = p.id
+				JOIN brands b ON
+					p.brand_id = b.id
+				JOIN categories c ON
+					p.category_id = c.id
+				WHERE ci.cart_id = ?;  `,
+					[cartId],
+					(error, results) => {
+						if (error) {
+							console.error(error.message);
+						}
+						response.status(200).json({
+							cartItems: results,
+							msg: `Get cart items of user_id = ${cartId} successfully`,
+						});
+					}
+				);
+			} else {
+				response.status(401).json({
+					msg: `No cart exist with user_id = ${uid}`,
+				});
+			}
+		}
+	);
+};
+
 module.exports = {
 	getUserLoginById,
 	addUser,
 	userLogin,
 	getSingleProduct,
 	getListProduct,
+	addItemToWishlist,
+	getWishlist,
+	addItemToCart,
+	getCartItems,
 };

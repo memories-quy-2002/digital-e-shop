@@ -1,0 +1,147 @@
+.cart {
+	&__container {
+		padding: 2rem 2rem 2rem 3rem;
+		height: max(fit-content, 100vh);
+		&__title {
+			text-transform: uppercase;
+			font-weight: bold;
+			margin-bottom: 3rem;
+		}
+		&__box {
+			display: flex;
+			gap: 3rem;
+
+			&__main {
+				flex: 5;
+				&__list {
+					&__item {
+						display: flex;
+						flex-direction: row;
+						height: fit-content;
+						justify-content: space-between;
+						padding: 0 2rem;
+						width: 100%;
+						margin-bottom: 2rem;
+						box-shadow: 4px 4px 6px 0 rgba(0, 0, 0, 0.25);
+						&__image {
+							img {
+								height: 180px;
+								width: 180px;
+							}
+						}
+						&__info {
+							align-self: center;
+							width: 40%;
+							margin: 0 1rem;
+							display: flex;
+							flex-direction: column;
+							strong {
+								font-size: 1.2rem;
+								margin-bottom: 1rem;
+							}
+							p {
+								color: rgba(0, 0, 0, 0.5);
+								font-weight: 600;
+							}
+						}
+
+						input {
+							align-self: center;
+							text-align: center;
+							padding: 0.5rem;
+							margin-right: 1rem;
+							height: 3rem;
+							width: 4.5rem;
+						}
+						&__price {
+							width: 10%;
+							text-align: center;
+							align-self: center;
+							margin: 0 2rem;
+						}
+						button {
+							align-self: center;
+							padding: 0.5rem;
+							height: 3rem;
+							width: 7rem;
+							font-weight: bold;
+						}
+					}
+				}
+				&__buttons {
+					display: flex;
+					flex-direction: row;
+					justify-content: space-between;
+					margin-bottom: 1.5rem;
+					&__continue,
+					&__purchase {
+						width: 200px;
+						padding: 1rem;
+						box-shadow: 0 4px 4px 0 #00000025;
+					}
+					&__purchase {
+						background-color: #315cf4;
+						color: white;
+						border: none;
+					}
+				}
+
+				&__notification {
+					display: flex;
+					background-color: #00ff3731;
+					color: #21451b;
+					height: 100px;
+					padding: 1rem;
+					align-items: center;
+				}
+			}
+			&__aside {
+				display: flex;
+				width: 420px;
+				&__box {
+					width: 100%;
+					box-shadow: 4px 4px 6px 0 #00000025;
+					height: fit-content;
+					padding: 1rem 1.5rem;
+					border: 1px solid black;
+					&__coupon {
+						&__title {
+							margin: 1.5rem 0;
+							font-weight: bolder;
+							font-size: 32;
+						}
+						&__input {
+							display: flex;
+							flex-direction: row;
+							justify-content: center;
+							margin-bottom: 1rem;
+							input {
+								width: 100%;
+								padding: 0.5rem;
+							}
+							button {
+								padding: 0.5rem;
+								background-color: #315cf4;
+								color: white;
+							}
+						}
+					}
+					&__price {
+						&__list {
+							list-style-type: none;
+							padding: 0;
+							li {
+								display: flex;
+								flex-direction: row;
+								justify-content: space-between;
+								margin-bottom: 1.25rem;
+							}
+						}
+					}
+					&__payment {
+					}
+				}
+			}
+		}
+	}
+}

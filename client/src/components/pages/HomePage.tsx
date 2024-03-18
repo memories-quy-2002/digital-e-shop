@@ -1,13 +1,16 @@
+import { useEffect, useState } from "react";
+import { BsHeart } from "react-icons/bs";
 import { IoArrowForward } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
+import Cookies from "universal-cookie";
+import axios from "../../api/axios";
 import iphone from "../../assets/images/iphone.jpg";
 import "../../styles/HomePage.scss";
 import ratingStar from "../../utils/ratingStar";
 import NavigationBar from "../common/NavigationBar";
 import Layout from "../layout/Layout";
-import { useEffect, useState } from "react";
-import axios from "../../api/axios";
 
+const cookies = new Cookies();
 interface Product {
 	id: number;
 	name: string;
@@ -22,6 +25,11 @@ const HomePage = () => {
 	const navigate = useNavigate();
 	const [products, setProducts] = useState<Product[]>([]);
 	const [categories, setCategories] = useState<string[]>([]);
+	const uid =
+		cookies.get("rememberMe")?.uid ||
+		(sessionStorage["rememberMe"]
+			? JSON.parse(sessionStorage["rememberMe"]).uid
+			: "");
 	useEffect(() => {
 		const fetchProducts = async () => {
 			try {
@@ -43,6 +51,23 @@ const HomePage = () => {
 			...new Set(products.map((product) => product.category)),
 		]);
 	}, [products]);
+
+	const onAddingWishlist = async (user_id: string, product_id: number) => {
+		if (uid === "") {
+			navigate("/login");
+		}
+		try {
+			const response = await axios.post("/api/wishlist/", {
+				uid: user_id,
+				pid: product_id,
+			});
+			if (response.status === 200) {
+				console.log(response.data.msg);
+			}
+		} catch (err) {
+			throw err;
+		}
+	};
 
 	return (
 		<Layout>
@@ -105,7 +130,10 @@ const HomePage = () => {
 										className="home__product__menu__item"
 										key={product.id}
 									>
-										<div className="home__product__menu__item__image">
+										<div
+											className="home__product__menu__item__image"
+											onClick={() => navigate(`/product`)}
+										>
 											<img
 												src={
 													product.image
@@ -114,6 +142,22 @@ const HomePage = () => {
 												}
 												alt="Empty"
 											/>
+										</div>
+
+										<div className="home__product__menu__item__wishlist">
+											0
+										</div>
+
+										<div
+											className="home__product__menu__item__like"
+											onClick={() =>
+												onAddingWishlist(
+													uid,
+													product.id
+												)
+											}
+										>
+											<BsHeart size={24} />
 										</div>
 
 										<p
@@ -140,7 +184,7 @@ const HomePage = () => {
 												textAlign: "center",
 												fontWeight: "bold",
 												fontSize: "20px",
-												color: "#0C4AE7",
+												color: "red",
 											}}
 										>
 											${product.price}

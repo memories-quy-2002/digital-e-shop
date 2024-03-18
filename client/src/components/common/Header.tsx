@@ -92,14 +92,14 @@ export const Header = (): JSX.Element => {
 				<div className="header__container__main__group">
 					<div
 						className="header__container__main__group__item"
-						onClick={() => navigate("/wishlist")}
+						onClick={() => navigate(uid ? "/wishlist" : "/login")}
 					>
 						<IoHeart size={28} />
 						Wishlist
 					</div>
 					<div
 						className="header__container__main__group__item"
-						onClick={() => navigate("/cart")}
+						onClick={() => navigate(uid ? "/cart" : "/login")}
 					>
 						<IoCart size={28} />
 						Shopping Cart
