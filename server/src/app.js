@@ -37,3 +37,6 @@ app.get("/api/wishlist/:uid", db.getWishlist);
 // Cart
 app.post("/api/cart/", db.addItemToCart);
 app.get("/api/cart/:uid", db.getCartItems);
+
+// Purchase
+app.post("/api/purchase/:uid", db.makePurchase);

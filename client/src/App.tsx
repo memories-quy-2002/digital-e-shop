@@ -1,13 +1,13 @@
-import React from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import "./App.css";
+import CartPage from "./components/pages/CartPage";
+import CategoryPage from "./components/pages/CategoryPage";
+import CheckoutSuccessPage from "./components/pages/CheckoutSuccessPage";
 import HomePage from "./components/pages/HomePage";
 import LoginPage from "./components/pages/LoginPage";
-import SignupPage from "./components/pages/SignupPage";
 import ProductPage from "./components/pages/ProductPage";
-import CartPage from "./components/pages/CartPage";
+import SignupPage from "./components/pages/SignupPage";
 import WishlistPage from "./components/pages/WishlistPage";
-import CheckoutSuccessPage from "./components/pages/CheckoutSuccessPage";
 
 function App() {
 	return (
@@ -19,6 +19,23 @@ function App() {
 				<Route path="/product" element={<ProductPage />} />
 				<Route path="/cart" element={<CartPage />} />
 				<Route path="/wishlist" element={<WishlistPage />} />
+				<Route
+					path="/smartphones"
+					element={<CategoryPage category="smartphones" />}
+				/>
+				<Route
+					path="/televisions"
+					element={<CategoryPage category="televisions" />}
+				/>
+				<Route
+					path="/laptops"
+					element={<CategoryPage category="laptops" />}
+				/>
+				<Route
+					path="/cameras"
+					element={<CategoryPage category="cameras" />}
+				/>
+
 				<Route
 					path="/checkout-success"
 					element={<CheckoutSuccessPage />}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Container } from "react-bootstrap";
+import { Container, Modal, Button } from "react-bootstrap";
 import { BsArrowLeft, BsArrowRight, BsBank } from "react-icons/bs";
 import { FaBitcoin, FaCcVisa } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
@@ -37,6 +37,10 @@ const CartPage = () => {
 	const [cart, setCart] = useState<CartItem[]>([]);
 	const [totalPrice, setTotalPrice] = useState<number>(0);
 	const [discount, setDiscount] = useState<number>(0);
+	const [show, setShow] = useState<boolean>(false);
+
+	const handleShow = () => setShow(true);
+	const handleClose = () => setShow(false);
 	const updateQuantity = (
 		cart: CartItem[],
 		itemId: number,
@@ -57,7 +61,18 @@ const CartPage = () => {
 	) => {
 		const newQuantity = parseInt(event.target.value, 10);
 		updateQuantity(cart, itemId, newQuantity);
-		console.log(cart);
+	};
+
+	const handlePurchase = async () => {
+		try {
+			const response = await axios.post(`/api/purchase/${uid}`, cart);
+			if (response.status === 200) {
+				console.log(response.data.msg);
+				navigate("/checkout-success");
+			}
+		} catch (err) {
+			console.error(err);
+		}
 	};
 
 	useEffect(() => {
@@ -151,7 +166,7 @@ const CartPage = () => {
 							</button>
 							<button
 								className="cart__container__box__main__buttons__purchase"
-								onClick={() => navigate("/checkout-success")}
+								onClick={handleShow}
 							>
 								Make purchase <BsArrowRight />
 							</button>
@@ -181,11 +196,11 @@ const CartPage = () => {
 								<ul className="cart__container__box__aside__box__price__list">
 									<li>
 										<p>Total price: </p>
-										<p>${totalPrice}</p>
+										<p>${totalPrice.toFixed(2)}</p>
 									</li>
 									<li>
 										<p>Discount: </p>
-										<p>${discount}</p>
+										<p>${discount.toFixed(2)}</p>
 									</li>
 									<li
 										style={{
@@ -194,7 +209,10 @@ const CartPage = () => {
 										}}
 									>
 										<p>Subtotal: </p>
-										<p>${totalPrice - discount}</p>
+										<p>
+											$
+											{(totalPrice - discount).toFixed(2)}
+										</p>
 									</li>
 								</ul>
 							</div>
@@ -222,6 +240,20 @@ const CartPage = () => {
 						</div>
 					</div>
 				</div>
+				<Modal show={show} onHide={handleClose} animation={false}>
+					<Modal.Header closeButton>
+						<Modal.Title>Purchase Confirmation</Modal.Title>
+					</Modal.Header>
+					<Modal.Body>Are you sure to make purchase?</Modal.Body>
+					<Modal.Footer>
+						<Button variant="secondary" onClick={handleClose}>
+							Close
+						</Button>
+						<Button variant="primary" onClick={handlePurchase}>
+							Confirm
+						</Button>
+					</Modal.Footer>
+				</Modal>
 			</Container>
 		</Layout>
 	);

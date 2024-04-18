@@ -175,7 +175,7 @@ const getSingleProduct = (request, response) => {
 				});
 			} else {
 				response.status(401).json({
-					msg: "No product exists with id = " + pid,
+					msg: "Product not found",
 				});
 			}
 		}
@@ -350,6 +350,22 @@ const getCartItems = (request, response) => {
 	);
 };
 
+const makePurchase = (request, response) => {
+	const uid = request.params.uid;
+	pool.query(
+		`UPDATE cart SET done = 1 WHERE user_id = ?`,
+		[uid],
+		(error, results) => {
+			if (error) {
+				console.error(error.message);
+			}
+			response.status(200).json({
+				msg: `Make purchase successfully with uid = ${uid}`,
+			});
+		}
+	);
+};
+
 module.exports = {
 	getUserLoginById,
 	addUser,
@@ -360,4 +376,5 @@ module.exports = {
 	getWishlist,
 	addItemToCart,
 	getCartItems,
+	makePurchase,
 };

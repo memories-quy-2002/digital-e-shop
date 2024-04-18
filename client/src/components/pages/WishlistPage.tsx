@@ -43,7 +43,16 @@ const WishlistPage = () => {
 	}, [uid]);
 	console.log(wishlist);
 
-	return <Layout>Wishlist Page</Layout>;
+	return (
+		<Layout>
+			<div>Wishlist</div>
+			<div>
+				{wishlist.map((item) => (
+					<div>{item.quantity}</div>
+				))}
+			</div>
+		</Layout>
+	);
 };
 
 export default WishlistPage;
