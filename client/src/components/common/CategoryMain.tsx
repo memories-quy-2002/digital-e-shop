@@ -8,10 +8,11 @@ type CategoryMainProps = {
 };
 
 const CategoryMain = ({ products, uid }: CategoryMainProps) => {
+	
 	return (
 		<div>
 			{products.map((product) => (
-				<ProductItem key={product.id} product={product} uid={uid} />
+				<ProductItem key={product.id} product={product} uid={uid} isWishlist={false}/>
 			))}
 		</div>
 	);

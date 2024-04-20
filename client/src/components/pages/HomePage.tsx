@@ -16,6 +16,7 @@ const HomePage = () => {
 	const navigate = useNavigate();
 	const [products, setProducts] = useState<Product[]>([]);
 	const [categories, setCategories] = useState<string[]>([]);
+	const [wishlist, setWishlist] = useState<Product[]>([])
 	const uid =
 		cookies.get("rememberMe")?.uid ||
 		(sessionStorage["rememberMe"]
@@ -42,6 +43,22 @@ const HomePage = () => {
 			...new Set(products.map((product) => product.category)),
 		]);
 	}, [products]);
+
+	useEffect(() => {
+		const fetchWishlist = async () => {
+			try {
+				const response = await axios.get(`/api/wishlist/${uid}`);
+				if (response.status === 200) {
+					setWishlist(response.data.wishlist);
+
+					console.log(response.data.msg);
+				}
+			} catch (err) {
+				console.error(err);
+			}
+		};
+		fetchWishlist();
+	}, [uid]);
 
 	return (
 		<Layout>
@@ -105,6 +122,7 @@ const HomePage = () => {
 										key={product.id}
 										product={product}
 										uid={uid}
+										isWishlist={wishlist.some((item) => item.id === product.id)}
 									/>
 								))}
 						</div>

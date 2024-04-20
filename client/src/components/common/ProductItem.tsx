@@ -1,13 +1,13 @@
 import React from "react";
 import { Product } from "../../utils/interface";
 import { useNavigate } from "react-router-dom";
-import { BsHeart } from "react-icons/bs";
+import { BsHeart, BsHeartFill } from "react-icons/bs";
 import ratingStar from "../../utils/ratingStar";
 import axios from "../../api/axios";
 
-type Props = { product: Product; uid: string };
+type Props = { product: Product; uid: string, isWishlist: boolean };
 
-const ProductItem = ({ product, uid }: Props) => {
+const ProductItem = ({ product, uid, isWishlist }: Props) => {
 	const onAddingWishlist = async (user_id: string, product_id: number) => {
 		if (uid === "") {
 			navigate("/login");
@@ -24,6 +24,23 @@ const ProductItem = ({ product, uid }: Props) => {
 			throw err;
 		}
 	};
+	const onAddingCart = async (user_id: string, product_id: number) => {
+		if (uid === "") {
+			navigate("/login")
+			
+		}
+		try {
+			const response = await axios.post("/api/cart/", {
+				uid: user_id,
+				pid: product_id,
+			});
+			if (response.status === 200) {
+				console.log(response.data.msg);
+			}
+		} catch (err) {
+			throw err;
+		}
+	}
 	const navigate = useNavigate();
 	return (
 		<div className="home__product__menu__item" key={product.id}>
@@ -33,8 +50,8 @@ const ProductItem = ({ product, uid }: Props) => {
 			>
 				<img
 					src={
-						product.image
-							? require(`../../assets/images/${product.image}.jpg`)
+						product.main_image
+							? require(`../../assets/images/${product.main_image}.jpg`)
 							: require(`../../assets/images/product_placeholder.jpg`)
 					}
 					alt="Empty"
@@ -47,7 +64,7 @@ const ProductItem = ({ product, uid }: Props) => {
 				className="home__product__menu__item__like"
 				onClick={() => onAddingWishlist(uid, product.id)}
 			>
-				<BsHeart size={24} />
+				{isWishlist ? <BsHeartFill size={24} color="red"/> : <BsHeart size={24} color="red"/>}
 			</div>
 
 			<p
@@ -99,9 +116,9 @@ const ProductItem = ({ product, uid }: Props) => {
 
 				<button
 					type="button"
-					onClick={() => navigate(`/product?id=${product.id}`)}
+					onClick={() => onAddingCart(uid, product.id)}
 				>
-					View
+					Add to cart
 				</button>
 			</div>
 		</div>

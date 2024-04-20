@@ -73,7 +73,19 @@ const CartPage = () => {
 		} catch (err) {
 			console.error(err);
 		}
+		
 	};
+	const handleRemove = async (cartItemId: number) => {
+		try {
+			const response = await axios.post(`/api/cart/delete`, {cartItemId});
+			if (response.status === 200) {
+				console.log(response.data.msg);
+				window.location.reload()
+			}
+		} catch (err) {
+			console.error(err);
+		}
+	}
 
 	useEffect(() => {
 		setTotalPrice(
@@ -86,7 +98,6 @@ const CartPage = () => {
 			try {
 				const response = await axios.get(`/api/cart/${uid}`);
 				if (response.status === 200) {
-					console.log(response.data.msg);
 					const cartItems: CartItem[] = response.data.cartItems.map(
 						(item: any) => {
 							return {
@@ -153,7 +164,7 @@ const CartPage = () => {
 										</strong>
 										<p>${item.price} each</p>
 									</div>
-									<button>Remove</button>
+									<button type="button" onClick={() => handleRemove(item.cartItemId)}>Remove</button>
 								</div>
 							))}
 						</div>

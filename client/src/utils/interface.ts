@@ -17,13 +17,13 @@ export interface Product {
 	name: string;
 	category: string;
 	price: number;
-	sale_price: number;
+	sale_price: number | null;
 	rating: number;
 	reviews: number;
 	warranty: number;
-	image: string;
-	image_gallery: string[];
+	main_image: string | null;
+	image_gallery: string[] | null;
 	stock: number;
 	description: string;
-	specifications: string[];
+	specifications: string[] | null;
 }

@@ -212,7 +212,6 @@ const getListProduct = (request, response) => {
 					msg: "Get list products successfully",
 				});
 			} else {
-				console.log("There is no product");
 				response.status(200).json({
 					msg: "There is no product in store",
 				});
@@ -223,11 +222,10 @@ const getListProduct = (request, response) => {
 
 const addItemToWishlist = (request, response) => {
 	const { uid, pid } = request.body;
-	console.log({ uid, pid });
 	pool.query(
 		`INSERT INTO wishlist (user_id, product_id)
 		VALUES (?, ?)
-		ON DUPLICATE KEY IGNORE;
+		ON DUPLICATE KEY UPDATE product_id = product_id;
 		`,
 		[uid, pid],
 		(error, results) => {
@@ -266,7 +264,7 @@ const addItemToCart = (request, response) => {
 		SELECT ? 
 		WHERE NOT EXISTS ( 
 			SELECT 1 FROM cart WHERE user_id = ? AND done = 0);`,
-		[uid],
+		[uid, uid],
 		(error, results) => {
 			if (error) {
 				console.error(error.message);
@@ -350,6 +348,23 @@ const getCartItems = (request, response) => {
 	);
 };
 
+const deleteCartItem = (request, response) => {
+	const {cartItemId} = request.body;
+	console.log(cartItemId);
+	pool.query(
+		`DELETE FROM cart_items WHERE id = ?`,
+		[cartItemId],
+		(error, results) => {
+			if (error) {
+				console.error(error.message);
+			}
+			response.status(200).json({
+				msg: `Cart Item with id = ${cartItemId} is deleted successfully`,
+			});
+		}
+	);
+};
+
 const makePurchase = (request, response) => {
 	const uid = request.params.uid;
 	pool.query(
@@ -376,5 +391,6 @@ module.exports = {
 	getWishlist,
 	addItemToCart,
 	getCartItems,
+	deleteCartItem,
 	makePurchase,
 };
