@@ -92,16 +92,25 @@ const ProductPage = () => {
                 if (response.status === 200) {
                     const newRelevantProducts: relevantProductsItem[] =
                         response.data.relevantProducts;
-                    console.log(newRelevantProducts);
                     const relevantProductsIds: number[] =
                         newRelevantProducts.map(
                             (product) => product.product_id
                         );
 
                     setRelevantProducts(
-                        products.filter((product) =>
-                            relevantProductsIds.includes(product.id)
-                        )
+                        products
+                            .filter((product) =>
+                                relevantProductsIds.includes(product.id)
+                            )
+                            .sort((a, b) => {
+                                const indexA = relevantProductsIds.indexOf(
+                                    a.id
+                                );
+                                const indexB = relevantProductsIds.indexOf(
+                                    b.id
+                                );
+                                return indexA - indexB;
+                            })
                     );
 
                     console.log(response.data.msg);
@@ -113,9 +122,9 @@ const ProductPage = () => {
         fetchRelevantProducts();
 
         return () => {};
-    });
+    }, [products, pid]);
 
-    console.log(productDetail.rating);
+    console.log(relevantProducts);
 
     const checkImageExists = (imageName: string | null) => {
         try {

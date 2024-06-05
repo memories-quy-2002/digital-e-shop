@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jun 04, 2024 at 01:29 PM
+-- Generation Time: Jun 05, 2024 at 07:45 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -64,7 +64,7 @@ INSERT INTO `brands` (`id`, `name`) VALUES
 -- Table structure for table `cart`
 --
 -- Creation: Mar 06, 2024 at 11:19 AM
--- Last update: Jun 04, 2024 at 11:26 AM
+-- Last update: Jun 05, 2024 at 05:06 AM
 --
 
 CREATE TABLE `cart` (
@@ -144,7 +144,10 @@ INSERT INTO `cart` (`id`, `user_id`, `created_at`, `done`) VALUES
 (72, 'yGbezIdeDnPB6kSlVxFKQsO4tvD3', '2024-06-04 18:24:54', 1),
 (73, 'yGbezIdeDnPB6kSlVxFKQsO4tvD3', '2024-06-04 18:25:22', 1),
 (74, 'yGbezIdeDnPB6kSlVxFKQsO4tvD3', '2024-06-04 18:25:30', 1),
-(75, 'yGbezIdeDnPB6kSlVxFKQsO4tvD3', '2024-06-04 18:27:38', 1);
+(75, 'yGbezIdeDnPB6kSlVxFKQsO4tvD3', '2024-06-04 18:27:38', 1),
+(76, 'ljul8hizGLbsDwKUIjHIJYXCnFF3', '2024-06-05 09:31:14', 1),
+(77, 'ljul8hizGLbsDwKUIjHIJYXCnFF3', '2024-06-05 11:43:36', 1),
+(78, 'ljul8hizGLbsDwKUIjHIJYXCnFF3', '2024-06-05 12:04:23', 1);
 
 -- --------------------------------------------------------
 
@@ -152,7 +155,7 @@ INSERT INTO `cart` (`id`, `user_id`, `created_at`, `done`) VALUES
 -- Table structure for table `cart_items`
 --
 -- Creation: May 28, 2024 at 05:32 AM
--- Last update: Jun 04, 2024 at 11:27 AM
+-- Last update: Jun 05, 2024 at 05:04 AM
 --
 
 CREATE TABLE `cart_items` (
@@ -368,7 +371,17 @@ INSERT INTO `cart_items` (`id`, `cart_id`, `product_id`, `quantity`, `created_at
 (276, 74, 15, 1, '2024-06-04 18:23:30'),
 (277, 74, 7, 1, '2024-06-04 18:23:30'),
 (278, 74, 18, 1, '2024-06-04 18:23:31'),
-(279, 75, 21, 1, '2024-06-04 18:23:38');
+(279, 75, 21, 1, '2024-06-04 18:23:38'),
+(280, 76, 21, 1, '2024-06-05 09:31:14'),
+(281, 76, 15, 1, '2024-06-05 09:31:14'),
+(282, 76, 26, 1, '2024-06-05 09:34:29'),
+(283, 76, 13, 1, '2024-06-05 09:34:30'),
+(284, 76, 20, 1, '2024-06-05 09:34:31'),
+(285, 77, 21, 1, '2024-06-05 11:43:36'),
+(286, 77, 15, 1, '2024-06-05 11:43:42'),
+(287, 77, 30, 1, '2024-06-05 11:44:37'),
+(288, 77, 1, 1, '2024-06-05 11:44:38'),
+(289, 78, 15, 1, '2024-06-05 12:04:23');
 
 -- --------------------------------------------------------
 
@@ -410,7 +423,7 @@ INSERT INTO `categories` (`id`, `name`) VALUES
 -- Table structure for table `orders`
 --
 -- Creation: May 29, 2024 at 04:11 AM
--- Last update: Jun 04, 2024 at 11:27 AM
+-- Last update: Jun 05, 2024 at 05:06 AM
 --
 
 CREATE TABLE `orders` (
@@ -491,7 +504,10 @@ INSERT INTO `orders` (`id`, `date_added`, `user_id`, `status`, `total_price`) VA
 (67, '2024-06-04 18:24:58', 'yGbezIdeDnPB6kSlVxFKQsO4tvD3', 0, 1998.00),
 (68, '2024-06-04 18:25:27', 'yGbezIdeDnPB6kSlVxFKQsO4tvD3', 0, 597.00),
 (69, '2024-06-04 18:25:35', 'yGbezIdeDnPB6kSlVxFKQsO4tvD3', 0, 7146.00),
-(70, '2024-06-04 18:25:42', 'yGbezIdeDnPB6kSlVxFKQsO4tvD3', 0, 149.00);
+(70, '2024-06-04 18:25:42', 'yGbezIdeDnPB6kSlVxFKQsO4tvD3', 0, 149.00),
+(71, '2024-06-05 09:34:57', 'ljul8hizGLbsDwKUIjHIJYXCnFF3', 0, 2774.93),
+(72, '2024-06-05 11:46:19', 'ljul8hizGLbsDwKUIjHIJYXCnFF3', 0, 2904.84),
+(73, '2024-06-05 12:06:30', 'ljul8hizGLbsDwKUIjHIJYXCnFF3', 0, 448.00);
 
 -- --------------------------------------------------------
 
@@ -499,7 +515,7 @@ INSERT INTO `orders` (`id`, `date_added`, `user_id`, `status`, `total_price`) VA
 -- Table structure for table `order_items`
 --
 -- Creation: May 28, 2024 at 05:32 AM
--- Last update: Jun 04, 2024 at 11:25 AM
+-- Last update: Jun 05, 2024 at 05:06 AM
 --
 
 CREATE TABLE `order_items` (
@@ -710,7 +726,17 @@ INSERT INTO `order_items` (`id`, `order_id`, `quantity`, `product_id`) VALUES
 (205, 69, 1, 7),
 (206, 69, 1, 15),
 (207, 69, 1, 18),
-(208, 70, 1, 21);
+(208, 70, 1, 21),
+(209, 71, 1, 15),
+(210, 71, 1, 13),
+(211, 71, 1, 26),
+(212, 71, 1, 20),
+(213, 71, 1, 21),
+(214, 72, 1, 15),
+(215, 72, 1, 21),
+(216, 72, 1, 1),
+(217, 72, 1, 30),
+(218, 73, 1, 15);
 
 -- --------------------------------------------------------
 
@@ -718,7 +744,7 @@ INSERT INTO `order_items` (`id`, `order_id`, `quantity`, `product_id`) VALUES
 -- Table structure for table `products`
 --
 -- Creation: May 30, 2024 at 11:46 AM
--- Last update: Jun 04, 2024 at 10:53 AM
+-- Last update: Jun 05, 2024 at 05:45 AM
 --
 
 CREATE TABLE `products` (
@@ -754,27 +780,27 @@ CREATE TABLE `products` (
 INSERT INTO `products` (`id`, `name`, `description`, `category_id`, `brand_id`, `price`, `sale_price`, `stock`, `main_image`, `image_gallery`, `specifications`, `created_at`, `updated_at`, `rating`, `reviews`) VALUES
 (1, 'Samsung QN900B Neo QLED 8K Smart TV', 'High-end QLED 8K Smart TV with stunning picture quality', 1, 1, 2217.85, NULL, 3, 'samsung_qn900b', NULL, NULL, '2024-03-02 17:57:16', '2024-03-02 17:57:16', 5.0, 0),
 (2, 'LG G2 OLED evo Gallery Edition TV', 'Gallery Edition TV with OLED 4K display', 1, 2, 3199.99, NULL, 2, 'lg_g2', NULL, NULL, '2024-03-02 17:57:57', '2024-03-02 17:57:57', 5.0, 0),
-(3, 'Sony Bravia XR A95K OLED 4K Smart TV', '', 1, 3, 3499.99, 3499.99, 4, 'sony_bravia_a95k', NULL, NULL, '2024-03-02 18:00:17', '2024-03-02 18:00:17', 5.0, 0),
-(4, 'Dell XPS 13 OLED 9320', '', 2, 4, 999.00, 599.00, 2, 'dell_xps13', NULL, NULL, '2024-03-02 18:00:55', '2024-03-02 18:00:55', 5.0, 0),
-(5, 'HP Spectre x360 14-ef0023dx', '', 2, 6, 679.99, NULL, 2, 'hp_x360', NULL, NULL, '2024-03-02 18:05:22', '2024-03-02 18:05:22', 5.0, 0),
-(6, 'Apple MacBook Air M2', '', 2, 5, 1299.00, NULL, 2, 'apple_macbook_air_m2', NULL, NULL, '2024-03-02 18:05:59', '2024-03-02 18:05:59', 5.0, 0),
-(7, 'MSI MEG Trident X Gaming Desktop', '', 3, 7, 5699.00, NULL, 0, 'msi_trident_x', NULL, NULL, '2024-03-02 18:06:36', '2024-03-02 18:06:36', 5.0, 0),
+(3, 'Sony Bravia XR A95K OLED 4K Smart TV', '', 1, 3, 3499.99, 3299.99, 4, 'sony_bravia_a95k', NULL, NULL, '2024-03-02 18:00:17', '2024-03-02 18:00:17', 5.0, 0),
+(4, 'Dell XPS 13 OLED 9320', 'Ultra-thin and powerful laptop with Intel Core i7 processor.', 2, 4, 999.00, 599.00, 2, 'dell_xps13', NULL, NULL, '2024-03-02 18:00:55', '2024-03-02 18:00:55', 5.0, 0),
+(5, 'HP Spectre x360 14-ef0023dx', 'Convertible laptop with touch screen and sleek des...', 2, 6, 679.99, NULL, 2, 'hp_x360', NULL, NULL, '2024-03-02 18:05:22', '2024-03-02 18:05:22', 5.0, 0),
+(6, 'Apple MacBook Air M2', '', 2, 5, 1299.00, 1000.00, 2, 'apple_macbook_air_m2', NULL, NULL, '2024-03-02 18:05:59', '2024-03-02 18:05:59', 5.0, 0),
+(7, 'MSI MEG Trident X Gaming Desktop', '', 3, 7, 5699.00, 4000.11, 0, 'msi_trident_x', NULL, NULL, '2024-03-02 18:06:36', '2024-03-02 18:06:36', 5.0, 0),
 (8, 'iPhone 14 Pro Max', '', 4, 5, 799.00, NULL, 13, 'iphone_14_pro_max', NULL, NULL, '2024-03-02 18:08:23', '2024-03-02 18:08:23', 5.0, 0),
 (9, 'Samsung Galaxy S23 Ultra', '', 4, 1, 1099.99, NULL, 13, 'samsung_galaxy_s23', NULL, NULL, '2024-03-02 18:08:56', '2024-03-02 18:08:56', 5.0, 0),
 (10, 'Sony WH-1000XM5 Wireless Noise-Cancelling Headphones', '', 11, 3, 279.49, NULL, 7, 'sony_wh1000xm5', NULL, NULL, '2024-03-02 18:10:24', '2024-03-02 18:10:24', 5.0, 0),
 (11, 'Bose QuietComfort 45 Headphones', '', 11, 9, 279.00, NULL, 7, 'bose_qc45', NULL, NULL, '2024-03-02 18:10:58', '2024-03-02 18:10:58', 5.0, 0),
 (12, 'Sonos Arc Soundbar', '', 6, 10, 814.50, NULL, 3, 'sonos_arc', NULL, NULL, '2024-03-02 18:11:48', '2024-03-02 18:11:48', 5.0, 0),
-(13, 'JBL Flip 5 Portable Bluetooth Speaker', '', 6, 11, 79.93, NULL, 1, 'jbl_flip5', NULL, NULL, '2024-03-02 18:12:19', '2024-03-02 18:12:19', 5.0, 0),
+(13, 'JBL Flip 5 Portable Bluetooth Speaker', 'Portable waterproof Bluetooth speaker for outdoor use.', 6, 11, 79.93, 60.99, 1, 'jbl_flip5', NULL, NULL, '2024-03-02 18:12:19', '2024-03-02 18:12:19', 5.0, 0),
 (15, 'Microsoft Xbox Series X', '', 8, 12, 448.00, NULL, 1, 'microsoft_xbox', NULL, NULL, '2024-03-02 18:15:56', '2024-03-02 18:15:56', 5.0, 0),
-(16, 'Nvidia GeForce RTX 3080', '', 9, 13, 519.00, NULL, 10, 'rtx_3080', NULL, NULL, '2024-03-02 18:16:46', '2024-03-02 18:16:46', 5.0, 0),
+(16, 'Nvidia GeForce RTX 3080', 'High-end graphics card for gaming and 3D rendering...', 9, 13, 519.00, 509.99, 10, 'rtx_3080', NULL, NULL, '2024-03-02 18:16:46', '2024-03-02 18:16:46', 5.0, 0),
 (17, 'AMD Ryzen 7 Processor', 'High-performance processor for gaming and content creation.', 3, 14, 300.00, NULL, 50, 'amd_ryzen7', NULL, NULL, '2024-05-30 18:41:07', '2024-05-30 18:41:07', 5.0, 0),
-(18, 'Apple iPhone 13', 'Latest iPhone model with advanced camera features and iOS 15.', 9, 5, 999.00, NULL, 100, 'apple_iphone13', NULL, NULL, '2024-05-30 18:41:07', '2024-05-30 18:41:07', 5.0, 0),
+(18, 'Apple iPhone 13', 'Latest iPhone model with advanced camera features and iOS 15.', 4, 5, 999.00, 599.99, 100, 'apple_iphone13', NULL, NULL, '2024-05-30 18:41:07', '2024-05-30 18:41:07', 5.0, 0),
 (19, 'Bose QuietComfort 35 II', 'Noise-canceling wireless headphones for immersive audio experience.', 11, 9, 249.00, NULL, 30, 'bose_qc35', NULL, NULL, '2024-05-30 18:41:07', '2024-05-30 18:41:07', 5.0, 0),
-(20, 'Dell XPS 13 Laptop', 'Ultra-thin and powerful laptop with Intel Core i7 processor.', 2, 4, 1299.00, NULL, 20, 'dell_xps13', NULL, NULL, '2024-05-30 18:41:07', '2024-05-30 18:41:07', 5.0, 0),
+(20, 'Dell XPS 13 Laptop', 'Ultra-thin and powerful laptop with Intel Core i7 processor.', 2, 4, 1299.00, 799.99, 20, 'dell_xps13', NULL, NULL, '2024-05-30 18:41:07', '2024-05-30 18:41:07', 5.0, 0),
 (21, 'Google Nest Hub', 'Smart display with Google Assistant for home automation and entertainment.', 5, 8, 149.00, NULL, 15, 'google_nest', NULL, NULL, '2024-05-30 18:41:07', '2024-05-30 18:41:07', 5.0, 0),
 (22, 'HP Spectre x360', 'Convertible laptop with touch screen and sleek design.', 2, 6, 1199.00, NULL, 25, 'hp_x360', NULL, NULL, '2024-05-30 18:41:07', '2024-05-30 18:41:07', 5.0, 0),
-(23, 'JBL Flip 5', 'Portable waterproof Bluetooth speaker for outdoor use.', 6, 11, 99.00, NULL, 40, 'jbl_flip5', NULL, NULL, '2024-05-30 18:41:07', '2024-05-30 18:41:07', 5.0, 0),
-(25, 'Microsoft Surface Pro 7', 'Versatile 2-in-1 tablet/laptop with Windows 10 and Surface Pen support.', 2, 12, 899.00, NULL, 35, 'microsoft_surface', NULL, NULL, '2024-05-30 18:41:07', '2024-05-30 18:41:07', 5.0, 0),
+(23, 'JBL Flip 5', 'Portable waterproof Bluetooth speaker for outdoor use.', 6, 11, 99.00, 69.25, 40, 'jbl_flip5', NULL, NULL, '2024-05-30 18:41:07', '2024-05-30 18:41:07', 5.0, 0),
+(25, 'Microsoft Surface Pro 7', 'Versatile 2-in-1 tablet/laptop with Windows 10 and Surface Pen support.', 2, 12, 899.00, 599.88, 35, 'microsoft_surface', NULL, NULL, '2024-05-30 18:41:07', '2024-05-30 18:41:07', 5.0, 0),
 (26, 'MSI GeForce RTX 3080', 'High-end graphics card for gaming and 3D rendering.', 9, 7, 799.00, NULL, 5, 'rtx_3080', NULL, NULL, '2024-05-30 18:41:07', '2024-05-30 18:41:07', 5.0, 0),
 (27, 'XYZ Smartwatch', 'Stylish smartwatch with health tracking features.', 10, 5, 149.99, NULL, 30, 'xyz_smartwatch', NULL, NULL, '2024-05-30 18:44:42', '2024-05-30 18:44:42', 5.0, 0),
 (28, 'SoundWave Pro', 'True wireless earbuds with noise cancellation.', 6, 9, 79.99, NULL, 50, 'soundwave_pro', NULL, NULL, '2024-05-30 18:44:42', '2024-05-30 18:44:42', 5.0, 0),
@@ -787,7 +813,7 @@ INSERT INTO `products` (`id`, `name`, `description`, `category_id`, `brand_id`, 
 -- Table structure for table `users`
 --
 -- Creation: Mar 02, 2024 at 02:39 AM
--- Last update: Jun 04, 2024 at 11:16 AM
+-- Last update: Jun 05, 2024 at 05:08 AM
 --
 
 CREATE TABLE `users` (
@@ -812,10 +838,10 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `email`, `password`, `username`, `first_name`, `last_name`, `role`, `token`, `created_at`, `last_login`) VALUES
-('3jrrdvJWJkhtyEk8qGIJmJJk8M92', 'test3@gmail.com', '$2b$10$4qaTwuUrYvjY3N1g1Gp1AeOkPitaZcif7s.nqSaUnGGmgEBqsdDsa', 'customer2', NULL, NULL, 'Customer', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjNqcnJkdkpXSmtodHlFazhxR0lKbUpKazhNOTIiLCJlbWFpbCI6InRlc3QzQGdtYWlsLmNvbSIsImlhdCI6MTcxNzA4MTQ3MSwiZXhwIjoxNzE5NjczNDcxfQ.Fslw7WL2biTS_9XXuDCQtsF0_9yAFztuXBxcKJtmJ-k', '2024-05-30 22:04:31', '2024-06-04 17:57:52'),
-('ljul8hizGLbsDwKUIjHIJYXCnFF3', 'test1@gmail.com', '$2b$10$hI67QaYzryi9sCUz7y34Suip3fMIx2rrFvQnraE6BKRR9MFc/tHsG', 'customer1', NULL, NULL, 'Customer', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImxqdWw4aGl6R0xic0R3S1VJakhJSllYQ25GRjMiLCJlbWFpbCI6InRlc3QxQGdtYWlsLmNvbSIsImlhdCI6MTcxNzM3ODk4OSwiZXhwIjoxNzE5OTcwOTg5fQ.SJ7NrABvZFbiy6Cg058wsPz8Ls-UscAqDB52zahdkQM', '2024-03-02 10:26:21', '2024-06-04 18:08:52'),
-('S4eQ5Rh524MyjdHQ2EKBZHpjoCv1', 'test2@gmail.com', '$2b$10$dVYe4JIupYWsluoE1/vES.oUeFSjTaokJ7x47Exg5ne/UzCkpzR8O', 'admin123', NULL, NULL, 'Admin', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IlM0ZVE1Umg1MjRNeWpkSFEyRUtCWkhwam9DdjEiLCJlbWFpbCI6InRlc3QyQGdtYWlsLmNvbSIsImlhdCI6MTcxNzA0MDk3NCwiZXhwIjoxNzE5NjMyOTc0fQ.nS0q13LC3CR_68DmE_kQ9opO6r9B0KLeq4Q9RP5Wvvk', '2024-05-30 10:49:33', '2024-05-31 10:20:03'),
-('yGbezIdeDnPB6kSlVxFKQsO4tvD3', 'test4@gmail.com', '$2b$10$QS.HJbO/ZFmjEFfvO1D1PusEMQBwFQfDcof7xvf/ZyU5dhpdmV52C', 'customer3', NULL, NULL, 'Customer', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InlHYmV6SWRlRG5QQjZrU2xWeEZLUXNPNHR2RDMiLCJlbWFpbCI6InRlc3Q0QGdtYWlsLmNvbSIsImlhdCI6MTcxNzA4MTU3MiwiZXhwIjoxNzE5NjczNTcyfQ.V3qT_-H6Al5j95qiaB-0dHgC49jn5uU1KS_PVC9LdkY', '2024-05-30 22:06:12', '2024-06-04 18:16:47');
+('3jrrdvJWJkhtyEk8qGIJmJJk8M92', 'test3@gmail.com', '$2b$10$4qaTwuUrYvjY3N1g1Gp1AeOkPitaZcif7s.nqSaUnGGmgEBqsdDsa', 'customer2', NULL, NULL, 'Customer', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjNqcnJkdkpXSmtodHlFazhxR0lKbUpKazhNOTIiLCJlbWFpbCI6InRlc3QzQGdtYWlsLmNvbSIsImlhdCI6MTcxNzA4MTQ3MSwiZXhwIjoxNzE5NjczNDcxfQ.Fslw7WL2biTS_9XXuDCQtsF0_9yAFztuXBxcKJtmJ-k', '2024-05-30 22:04:31', '2024-06-05 09:23:17'),
+('ljul8hizGLbsDwKUIjHIJYXCnFF3', 'test1@gmail.com', '$2b$10$hI67QaYzryi9sCUz7y34Suip3fMIx2rrFvQnraE6BKRR9MFc/tHsG', 'customer1', NULL, NULL, 'Customer', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImxqdWw4aGl6R0xic0R3S1VJakhJSllYQ25GRjMiLCJlbWFpbCI6InRlc3QxQGdtYWlsLmNvbSIsImlhdCI6MTcxNzM3ODk4OSwiZXhwIjoxNzE5OTcwOTg5fQ.SJ7NrABvZFbiy6Cg058wsPz8Ls-UscAqDB52zahdkQM', '2024-03-02 10:26:21', '2024-06-05 12:08:27'),
+('S4eQ5Rh524MyjdHQ2EKBZHpjoCv1', 'test2@gmail.com', '$2b$10$dVYe4JIupYWsluoE1/vES.oUeFSjTaokJ7x47Exg5ne/UzCkpzR8O', 'admin123', NULL, NULL, 'Admin', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IlM0ZVE1Umg1MjRNeWpkSFEyRUtCWkhwam9DdjEiLCJlbWFpbCI6InRlc3QyQGdtYWlsLmNvbSIsImlhdCI6MTcxNzA0MDk3NCwiZXhwIjoxNzE5NjMyOTc0fQ.nS0q13LC3CR_68DmE_kQ9opO6r9B0KLeq4Q9RP5Wvvk', '2024-05-30 10:49:33', '2024-06-05 12:06:44'),
+('yGbezIdeDnPB6kSlVxFKQsO4tvD3', 'test4@gmail.com', '$2b$10$QS.HJbO/ZFmjEFfvO1D1PusEMQBwFQfDcof7xvf/ZyU5dhpdmV52C', 'customer3', NULL, NULL, 'Customer', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InlHYmV6SWRlRG5QQjZrU2xWeEZLUXNPNHR2RDMiLCJlbWFpbCI6InRlc3Q0QGdtYWlsLmNvbSIsImlhdCI6MTcxNzA4MTU3MiwiZXhwIjoxNzE5NjczNTcyfQ.V3qT_-H6Al5j95qiaB-0dHgC49jn5uU1KS_PVC9LdkY', '2024-05-30 22:06:12', '2024-06-05 09:28:03');
 
 -- --------------------------------------------------------
 
@@ -823,7 +849,7 @@ INSERT INTO `users` (`id`, `email`, `password`, `username`, `first_name`, `last_
 -- Table structure for table `wishlist`
 --
 -- Creation: Mar 09, 2024 at 04:01 AM
--- Last update: Jun 04, 2024 at 11:06 AM
+-- Last update: Jun 05, 2024 at 05:05 AM
 --
 
 CREATE TABLE `wishlist` (
@@ -847,10 +873,8 @@ CREATE TABLE `wishlist` (
 INSERT INTO `wishlist` (`id`, `user_id`, `product_id`) VALUES
 (32, '3jrrdvJWJkhtyEk8qGIJmJJk8M92', 18),
 (30, '3jrrdvJWJkhtyEk8qGIJmJJk8M92', 27),
-(21, 'ljul8hizGLbsDwKUIjHIJYXCnFF3', 1),
 (25, 'ljul8hizGLbsDwKUIjHIJYXCnFF3', 5),
 (23, 'ljul8hizGLbsDwKUIjHIJYXCnFF3', 7),
-(20, 'ljul8hizGLbsDwKUIjHIJYXCnFF3', 8),
 (9, 'ljul8hizGLbsDwKUIjHIJYXCnFF3', 10),
 (17, 'ljul8hizGLbsDwKUIjHIJYXCnFF3', 11),
 (28, 'ljul8hizGLbsDwKUIjHIJYXCnFF3', 15),
@@ -943,13 +967,13 @@ ALTER TABLE `brands`
 -- AUTO_INCREMENT for table `cart`
 --
 ALTER TABLE `cart`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=76;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=79;
 
 --
 -- AUTO_INCREMENT for table `cart_items`
 --
 ALTER TABLE `cart_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=280;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=290;
 
 --
 -- AUTO_INCREMENT for table `categories`
@@ -961,19 +985,19 @@ ALTER TABLE `categories`
 -- AUTO_INCREMENT for table `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=71;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=74;
 
 --
 -- AUTO_INCREMENT for table `order_items`
 --
 ALTER TABLE `order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=209;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=219;
 
 --
 -- AUTO_INCREMENT for table `wishlist`
 --
 ALTER TABLE `wishlist`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
 
 --
 -- Constraints for dumped tables

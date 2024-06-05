@@ -17,7 +17,6 @@ const RecommendedProduct = ({ pid, randomProducts }: RecommendedProps) => {
             return false;
         }
     };
-    console.log(randomProducts);
 
     return (
         <div className="product__container__recommended">
