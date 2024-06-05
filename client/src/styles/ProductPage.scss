@@ -2,24 +2,157 @@
     &__container {
         display: flex;
         flex-direction: column;
-        &__main {
+        padding: 3rem 15rem;
+        gap: 4rem;
+        &__detail {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-around;
+            height: 600px;
+            &__img {
+                width: 500px;
+                &__main {
+                    img {
+                        width: 100%;
+                    }
+                }
+                &__sub {
+                    margin-top: 1.5rem;
+                    display: flex;
+                    flex-direction: row;
+                    justify-content: space-between;
+                    img {
+                        height: 100px;
+                    }
+                }
+            }
+            &__info {
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+            }
+            &__quantity {
+                height: 45px;
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
 
+                button {
+                    width: 60px;
+                    height: 47px;
+                    padding: 0;
+                    font-size: 24px;
+                }
+                input {
+                    height: 47px;
+                    width: 70px;
+                    text-align: center;
+                    font-size: 24px;
+                    padding: 0;
+                    border: 2px solid black;
+                }
+            }
+            &__btn {
+                display: flex;
+                flex-direction: row;
+                gap: 2rem;
+                button {
+                    width: 250px;
+                    height: 80px;
+                    font-size: 24px;
+                    text-transform: uppercase;
+                    border-radius: 20px;
+                }
+            }
+        }
+        &__navigation {
+            width: 100%;
+            &__btn {
+                width: 100%;
+                display: flex;
+                flex-direction: row;
+                &__empty {
+                    width: 100%;
+                    border-bottom: 2px solid #ccc;
+                }
+            }
+
+            button {
+                width: 250px;
+                color: #3d3d3d;
+                border: none;
+                border-bottom: 2px solid #ccc;
+                outline: none;
+                cursor: pointer;
+                background-color: white;
+                margin: 0;
+            }
+            .active {
+                color: black;
+                border-bottom: 2px solid #000;
+            }
+        }
+        &__description {
+            text-align: justify;
+            h5 {
+                font-size: 28px;
+                margin-bottom: 1.25rem;
+            }
+        }
+        &__review {
+            display: flex;
+            flex-direction: column;
+            gap: 3rem;
+            h5 {
+                font-size: 28px;
+                margin-bottom: 1.25rem;
+            }
+            &__rating {
+                strong {
+                    font-size: 32px;
+                }
+                &__score {
+                    display: flex;
+                    flex-direction: row;
+                    align-items: center;
+                    gap: 1rem;
+                }
+            }
+            &__text {
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+                button {
+                    width: 100px;
+                }
+                textarea {
+                    padding: 1rem;
+                    width: 40%;
+                }
+            }
+            &__list {
+                h6 {
+                    margin: 0;
+                    font-size: 24px;
+                }
+            }
         }
         &__recommended {
             &__title {
                 font-size: 24px;
                 font-weight: bold;
-                margin-left: 1rem;
                 margin-top: 4rem;
             }
             &__list {
                 display: grid;
-                grid-template-columns: repeat(5, 1fr);
+                grid-template-columns: repeat(10, 1fr);
+                overflow-x: auto;
                 gap: 1rem;
-                margin: 1.5rem 1rem 2rem 1rem;
+                margin: 2rem 0;
+                padding: 2rem 0;
                 &__item {
                     position: relative;
-                    padding-top: 1rem;
+                    padding: 1rem 0.5rem;
                     height: fit-content;
                     box-shadow: 0 4px 10px 3px rgba(0, 0, 0, 0.1882352941);
                     &__image {
@@ -36,7 +169,7 @@
                             object-fit: contain;
                         }
                     }
-                    
+
                     button {
                         background-color: white;
                         color: #0047ff;
@@ -59,7 +192,6 @@
                     }
                 }
             }
-            
         }
     }
 }

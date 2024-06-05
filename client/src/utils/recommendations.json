@@ -1,0 +1,65 @@
+[
+    {
+        "user_id": "yGbezIdeDnPB6kSlVxFKQsO4tvD3",
+        "products": [
+            19,
+            11,
+            10,
+            4,
+            16,
+            17,
+            5,
+            15,
+            21,
+            7,
+            13,
+            23,
+            18,
+            12,
+            28,
+            29
+        ]
+    },
+    {
+        "user_id": "ljul8hizGLbsDwKUIjHIJYXCnFF3",
+        "products": [
+            21,
+            15,
+            16,
+            17,
+            7,
+            11,
+            18,
+            10,
+            26,
+            1,
+            23,
+            30,
+            13,
+            20,
+            27,
+            3
+        ]
+    },
+    {
+        "user_id": "3jrrdvJWJkhtyEk8qGIJmJJk8M92",
+        "products": [
+            5,
+            22,
+            13,
+            21,
+            12,
+            23,
+            9,
+            17,
+            27,
+            30,
+            26,
+            25,
+            3,
+            1,
+            7,
+            6
+        ]
+    }
+]

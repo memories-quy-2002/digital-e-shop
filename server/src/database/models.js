@@ -1,5 +1,7 @@
 const mysql = require("mysql");
 const jwt = require("jsonwebtoken");
+const { ServerApiVersion } = require('mongodb');
+const MongoClient = require('mongodb').MongoClient;
 const { hashPassword } = require("../utils/hashPassword");
 const pool = mysql.createPool({
 	host: "localhost",
@@ -7,6 +9,8 @@ const pool = mysql.createPool({
 	password: "",
 	database: "e-commerce-shop",
 });
+
+const uri = `mongodb+srv://vinhluu2608:vuongtranlinhlinh123456789@cluster0.teog563.mongodb.net/?retryWrites=true&w=majority`;
 
 pool.getConnection((err) => {
 	if (err) {
@@ -83,8 +87,48 @@ const userLogin = (request, response) => {
 					}
 				);
 			} catch (err) {
-				response.status(401).json({ msg: "JWT Expired" });
-				return;
+				pool.query(
+					"SELECT * FROM users WHERE id = ?",
+					[userId],
+					(error, results) => {
+						if (results.length > 0) {
+							const token = jwt.sign(
+								{ id: uid, email: results[0].email },
+								"secret-key",
+								{
+									expiresIn: "30d",
+								}
+							);
+							pool.query(
+								"UPDATE users SET token = ?, last_login=CURRENT_TIMESTAMP WHERE id = ?",
+								[token, uid],
+								(error, results) => {
+									if (error) {
+										throw error;
+									}
+									response.cookie(
+										"user",
+										JSON.stringify({ uid, token }),
+										{
+											httpOnly: false,
+											// Consider using Secure flag if using HTTPS
+											maxAge: 1000 * 60 * 60 * 24 * 30, // Expires in 30 days (adjust as needed)
+										}
+									);
+									response.status(200).json({
+										token,
+										msg: "User login successfully",
+									});
+								}
+							);
+						} else {
+							response
+								.status(401)
+								.json({ msg: "User not exists" });
+							return;
+						}
+					}
+				);
 			}
 		}
 	});
@@ -124,7 +168,7 @@ const addUser = (request, response) => {
 								{
 									httpOnly: false,
 									// Consider using Secure flag if using HTTPS
-									maxAge: 1000 * 60 * 60 * 24 * 7, // Expires in 7 days (adjust as needed)
+									maxAge: 1000 * 60 * 60 * 24 * 30, // Expires in 7 days (adjust as needed)
 								}
 							);
 							response.status(200).json({
@@ -137,6 +181,28 @@ const addUser = (request, response) => {
 			}
 		);
 	})();
+};
+
+const getAllUsers = (request, response) => {
+	pool.query(
+		`SELECT * FROM users`,
+		(error, results) => {
+			if (error) {
+				console.error(error.message);
+			}
+			if (results.length > 0) {
+
+				response.status(200).json({
+					accounts: results,
+					msg: "Get users successfully"
+				});
+			} else {
+				response.status(401).json({
+					msg: "Users not found",
+				});
+			}
+		}
+	);
 };
 
 const getSingleProduct = (request, response) => {
@@ -220,7 +286,24 @@ const getListProduct = (request, response) => {
 	);
 };
 
+const deleteProduct = (request, response) => {
+	const { pid } = request.body
+	pool.query(
+		`DELETE FROM products WHERE id = ?`, [pid],
+		(error, results) => {
+			if (error) {
+				console.error(error.message);
+			}
+			response.status(200).json({
+				msg: `Delete product with id = ${pid} successfully`,
+			});
+
+		}
+	);
+};
+
 const addItemToWishlist = (request, response) => {
+	console.log("Hello");
 	const { uid, pid } = request.body;
 	pool.query(
 		`INSERT INTO wishlist (user_id, product_id)
@@ -242,7 +325,27 @@ const addItemToWishlist = (request, response) => {
 const getWishlist = (request, response) => {
 	const uid = request.params.uid;
 	pool.query(
-		`SELECT * FROM wishlist WHERE user_id = ?`,
+		`SELECT 
+			wishlist.id,
+			products.id AS product_id,
+			products.name,
+			description,
+			categories.name AS category,
+			brands.name AS brand,
+			price,
+			sale_price,
+			stock,
+			main_image,
+			image_gallery,
+			specifications,
+			rating,
+			reviews
+		FROM
+			products
+		JOIN wishlist ON wishlist.product_id = products.id
+		JOIN categories ON categories.id = products.category_id
+		JOIN brands ON brands.id = products.brand_id 
+		WHERE user_id = ?`,
 		[uid],
 		(error, results) => {
 			if (error) {
@@ -256,8 +359,21 @@ const getWishlist = (request, response) => {
 	);
 };
 
+const deleteWishlistItem = (request, response) => {
+	const wid = request.params.wid;
+	console.log(wid);
+	pool.query(`DELETE FROM wishlist WHERE id = ?`, [wid], (error, results) => {
+		if (error) {
+			console.error(error.message);
+		}
+		response.status(200).json({
+			msg: `Delete wishlist items with user_id = ${wid} successfully`,
+		});
+	})
+}
+
 const addItemToCart = (request, response) => {
-	const { pid, uid } = request.body;
+	const { pid, uid, quantity } = request.body;
 	var cartId = 0;
 	pool.query(
 		`INSERT INTO cart (user_id)
@@ -279,9 +395,9 @@ const addItemToCart = (request, response) => {
 					cartId = results[0].id;
 					pool.query(
 						`INSERT INTO cart_items (cart_id, product_id, quantity)
-						VALUES (?, ?, 1)
+						VALUES (?, ?, ?)
 						ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity);`,
-						[cartId, pid],
+						[cartId, pid, quantity],
 						(error, results) => {
 							if (error) {
 								console.error(error.message);
@@ -349,7 +465,7 @@ const getCartItems = (request, response) => {
 };
 
 const deleteCartItem = (request, response) => {
-	const {cartItemId} = request.body;
+	const { cartItemId } = request.body;
 	console.log(cartItemId);
 	pool.query(
 		`DELETE FROM cart_items WHERE id = ?`,
@@ -367,6 +483,7 @@ const deleteCartItem = (request, response) => {
 
 const makePurchase = (request, response) => {
 	const uid = request.params.uid;
+	const { totalPrice, cart } = request.body;
 	pool.query(
 		`UPDATE cart SET done = 1 WHERE user_id = ?`,
 		[uid],
@@ -374,23 +491,91 @@ const makePurchase = (request, response) => {
 			if (error) {
 				console.error(error.message);
 			}
-			response.status(200).json({
-				msg: `Make purchase successfully with uid = ${uid}`,
-			});
+			else {
+				pool.query('INSERT INTO orders (user_id, total_price) VALUE (?, ?)', [uid, totalPrice], (error, results) => {
+					if (error) {
+						console.error(error.message);
+					}
+					else {
+						const orderId = results.insertId
+						for (let product of cart) {
+							pool.query(
+								`INSERT INTO order_items (order_id, product_id, quantity)
+									VALUES (?, ?, ?)
+									`,
+								[orderId, product.productId, product.quantity],
+								(error, results) => {
+									if (error) {
+										console.error(error.message);
+									}
+
+								}
+							);
+						}
+						response.status(200).json({
+							msg: `The order items has been added to the order with id = ${orderId}`,
+						});
+					}
+
+				})
+			}
+
 		}
 	);
 };
 
+const getOrders = (request, response) => {
+	pool.query(
+		`SELECT * FROM orders`,
+		(error, results) => {
+			if (error) {
+				console.error(error.message);
+			}
+			else {
+				response.status(200).json({
+					orders: results,
+					msg: `Orders have been received successfully`,
+				});
+			}
+		}
+	);
+};
+
+const retrieveRelevantProducts = async (request, response) => {
+	const pid = request.params.pid
+	try {
+		const client = new MongoClient(uri, { serverApi: ServerApiVersion.v1 });
+		await client.connect();
+		const db = client.db('e_commerce');
+		const collection = db.collection('relevant_product');
+
+		const documents = await collection.find({ product_id: parseInt(pid) }).toArray();
+
+		await client.close();
+		response.status(200).json({
+			relevantProducts: documents[0].relevant_products,
+			msg: `Retrieved products relevant with product id = ${pid} successfully`,
+		});
+	} catch (error) {
+		console.error('Error retrieving relevant products:', error);
+	}
+}
+
 module.exports = {
 	getUserLoginById,
 	addUser,
+	getAllUsers,
 	userLogin,
 	getSingleProduct,
 	getListProduct,
+	deleteProduct,
 	addItemToWishlist,
 	getWishlist,
+	deleteWishlistItem,
 	addItemToCart,
 	getCartItems,
 	deleteCartItem,
 	makePurchase,
+	getOrders,
+	retrieveRelevantProducts,
 };

@@ -1,0 +1,200 @@
+.shops {
+    padding: 3rem;
+
+    &__container {
+        display: flex;
+        flex-direction: row;
+        gap: 2rem;
+        &__aside {
+            flex: 2;
+            box-shadow: 0px 4px 4px 1px rgb(0, 0, 0, 0.25);
+            display: flex;
+            flex-direction: column;
+            padding: 12px 1rem;
+            &__search {
+                input {
+                    border: none;
+                    width: 100%;
+                    height: 3rem;
+                    box-shadow: inset 0 0 4px 2px rgb(0, 0, 0, 0.25);
+                    padding: 1rem;
+                }
+                margin-bottom: 1.5rem;
+            }
+            &__categories,
+            &__brands,
+            &__price {
+                padding: 1rem;
+                box-shadow: 0 0 4px 1px rgb(0, 0, 0, 0.25);
+                h4 {
+                    font-family: "Inter";
+                    font-weight: 700;
+                    font-size: 24px;
+                    line-height: 29px;
+                    display: flex;
+                    align-items: center;
+                    color: #0066ff;
+                    margin-bottom: 1.5rem;
+                }
+            }
+            &__categories {
+                ul {
+                    list-style-type: none;
+                    padding: 0;
+                    li {
+                        margin-bottom: 6px;
+                    }
+                    a {
+                        text-decoration: none;
+                        color: black;
+                    }
+                }
+            }
+            &__brands {
+                label {
+                    display: block;
+                    position: relative;
+                    padding-left: 2rem;
+                    margin-bottom: 12px;
+                    cursor: pointer;
+                    -webkit-user-select: none;
+                    -moz-user-select: none;
+                    -ms-user-select: none;
+                    user-select: none;
+                    input {
+                        &:checked ~ .checkmark {
+                            background-color: #0066ff;
+                        }
+                        &:checked ~ .checkmark:after {
+                            display: block;
+                        }
+                        position: absolute;
+                        opacity: 0;
+                        cursor: pointer;
+                        height: 0;
+                        width: 0;
+                    }
+                }
+                label .checkmark:after {
+                    top: 3px;
+                    left: 7px;
+                    width: 6px;
+                    height: 12px;
+                    border: solid white;
+                    border-width: 0 2px 2px 0;
+                    -webkit-transform: rotate(45deg);
+                    -ms-transform: rotate(45deg);
+                    transform: rotate(45deg);
+                }
+                /* Create a custom checkbox */
+                .checkmark {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    height: 24px;
+                    width: 24px;
+                    border-radius: 8px;
+                    border: 2px solid #0066ff;
+                }
+                .checkmark:after {
+                    content: "";
+                    position: absolute;
+                    display: none;
+                }
+            }
+            &__price {
+                &__slider {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    flex-direction: column;
+                    &__num {
+                        width: 100%;
+                        display: flex;
+                        flex-direction: row;
+                        justify-content: space-between;
+                        margin-top: 1.5rem;
+                    }
+                    span {
+                        text-align: center;
+                    }
+                    .horizontal-slider {
+                        width: 100%;
+                        max-width: 500px;
+                        margin: 6px 12px;
+                        .example-thumb {
+                            bottom: -13.2px;
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background-color: #0066ff;
+                            color: white;
+                            cursor: pointer;
+                            box-sizing: border-box;
+                        }
+                        .example-track {
+                            height: 6px;
+                        }
+                    }
+
+                    .example-track.example-track-0 {
+                        background: #d9d9d9;
+                    }
+
+                    .example-track.example-track-1 {
+                        background: #17bfbf;
+                    }
+
+                    .example-track.example-track-2 {
+                        background: #d9d9d9;
+                    }
+                }
+            }
+        }
+        &__main {
+            flex: 6;
+            &__pagination {
+                &__list {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 1rem;
+                    height: 1069px;
+                }
+                &__items {
+                    display: flex;
+                    justify-content: center;
+                    flex-direction: row;
+                    list-style-type: none;
+                    gap: 2rem;
+                    li {
+                        /* Rectangle 89 */
+                        height: 42px;
+                        min-width: 42px;
+                        /* 2 */
+
+                        font-weight: 700;
+                        font-size: 16px;
+                        line-height: 19px;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                    }
+                    a {
+                        width: 100%;
+                        display: inline-block;
+                        text-align: center;
+                        text-decoration: none;
+                        color: black;
+                    }
+                    .disabled a {
+                        color: #d9d9d9;
+                    }
+                    .selected {
+                        background: #0066ff;
+                        border-radius: 10px;
+                    }
+                }
+            }
+        }
+    }
+}
