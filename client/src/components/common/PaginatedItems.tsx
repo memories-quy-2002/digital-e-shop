@@ -1,11 +1,10 @@
-import React, { useState } from "react";
+import { useEffect, useState } from "react";
 import ReactPaginate from "react-paginate";
+import axios from "../../api/axios";
+import { useToast } from "../../context/ToastContext";
 import { Product } from "../../utils/interface";
 import ProductItem from "./ProductItem";
 import WishlistItem from "./WishlistItem";
-import axios from "../../api/axios";
-import { useNavigate } from "react-router-dom";
-import { Toast, ToastContainer } from "react-bootstrap";
 
 interface Item {
     id: number;
@@ -16,7 +15,7 @@ type PaginatedProps = {
     itemsPerPage: number;
     items: Product[] | Item[];
     uid: string;
-    wishlist: Product[];
+    wishlist: Item[];
 };
 
 const PaginatedItems = ({
@@ -25,32 +24,103 @@ const PaginatedItems = ({
     uid,
     wishlist,
 }: PaginatedProps) => {
-    const [show, setShow] = useState<boolean>(false);
-    const [msg, setMsg] = useState<string>("");
-    const toggleShow = () => setShow(!show);
-    const navigate = useNavigate();
-    const onAddingWishlist = async (user_id: string, product_id: number) => {
+    const { addToast } = useToast();
+    const [currentWishlist, setCurrentWishlist] = useState<Item[]>([]);
+    const [itemOffset, setItemOffset] = useState(0);
+
+    useEffect(() => {
+        if (wishlist.length > 0) {
+            setCurrentWishlist(wishlist);
+        }
+    }, [wishlist]);
+
+    const handleAddingWishlist = async (
+        user_id: string,
+        product_id: number
+    ) => {
         if (uid === "") {
-            navigate("/login");
+            addToast(
+                "Login required",
+                "You need to login to use this feature."
+            );
+            return;
         }
         try {
-            const response = await axios.post("/api/wishlist/", {
-                uid: user_id,
-                pid: product_id,
-            });
-            if (response.status === 200) {
-                console.log(response.data.msg);
-                setShow(!show);
+            if (
+                currentWishlist.some((item) => item.product.id === product_id)
+            ) {
+                const response = await axios.post(
+                    `/api/wishlist/delete/${product_id}`
+                );
+                if (response.status === 200) {
+                    console.log(response.data.msg);
+                    setCurrentWishlist((prevWishlist) =>
+                        prevWishlist.filter(
+                            (item) => item.product.id !== product_id
+                        )
+                    );
+                    addToast(
+                        "Remove wishlist item",
+                        "Item removed from wishlist successfully"
+                    );
+                }
+            } else {
+                const response = await axios.post("/api/wishlist/", {
+                    uid: user_id,
+                    pid: product_id,
+                });
+                if (response.status === 200) {
+                    console.log(response.data.msg);
+                    const newProduct = (items as Product[]).filter(
+                        (product) => product.id === product_id
+                    )[0];
+                    setCurrentWishlist((list) => [
+                        ...list,
+                        {
+                            id: product_id,
+                            product: newProduct,
+                        },
+                    ]);
+                    addToast(
+                        "Add wishlist item",
+                        "Item added to wishlist successfully"
+                    );
+                }
             }
-            console.log(show);
         } catch (err) {
-            throw err;
+            console.error(err);
         }
     };
-    const onAddingCart = async (user_id: string, product_id: number) => {
-        if (uid === "") {
-            navigate("/login");
+
+    const handleRemoveWishlist = async (removeId: number) => {
+        try {
+            const response = await axios.post(
+                `/api/wishlist/delete/${removeId}`
+            );
+            if (response.status === 200) {
+                console.log(response.data.msg);
+                addToast(
+                    "Remove wishlist item",
+                    "Item removed from wishlist successfully."
+                );
+                setCurrentWishlist((prevWishlist) =>
+                    prevWishlist.filter((item) => item.id !== removeId)
+                );
+            }
+        } catch (err) {
+            console.error(err);
         }
+    };
+
+    const handleAddingCart = async (user_id: string, product_id: number) => {
+        if (uid === "") {
+            addToast(
+                "Login required",
+                "You need to login to use this feature."
+            );
+            return;
+        }
+
         try {
             const response = await axios.post("/api/cart/", {
                 uid: user_id,
@@ -59,18 +129,12 @@ const PaginatedItems = ({
             });
             if (response.status === 200) {
                 console.log(response.data.msg);
-                setShow(!show);
-                setMsg("You added a product to your cart successfully");
+                addToast("Add cart item", "Product added to cart successfully");
             }
         } catch (err) {
-            throw err;
+            console.error(err);
         }
     };
-    const [itemOffset, setItemOffset] = useState(0);
-    const endOffset = itemOffset + itemsPerPage;
-    console.log(`Loading items from ${itemOffset} to ${endOffset}`);
-    const currentItems = items.slice(itemOffset, endOffset);
-    const pageCount = Math.ceil(items.length / itemsPerPage);
 
     const handlePageClick = (event: any) => {
         const newOffset = (event.selected * itemsPerPage) % items.length;
@@ -79,6 +143,11 @@ const PaginatedItems = ({
         );
         setItemOffset(newOffset);
     };
+
+    const endOffset = itemOffset + itemsPerPage;
+    const currentItems = items.slice(itemOffset, endOffset);
+    const pageCount = Math.ceil(items.length / itemsPerPage);
+    const wishlistPageCount = Math.ceil(currentWishlist.length / itemsPerPage);
 
     return (
         <div className="shops__container__main__pagination">
@@ -91,36 +160,50 @@ const PaginatedItems = ({
                                     key={item.id}
                                     product={item as Product}
                                     uid={uid}
-                                    isWishlist={wishlist.some(
+                                    isWishlist={currentWishlist.some(
                                         (wishlistProduct) =>
-                                            wishlistProduct.id === item.id
-                                    )}
-                                    onAddingWishlist={() =>
-                                        onAddingWishlist(
-                                            uid,
+                                            wishlistProduct.product.id ===
                                             (item as Product).id
-                                        )
-                                    }
-                                    onAddingCart={() =>
-                                        onAddingCart(uid, (item as Product).id)
-                                    }
+                                    )}
+                                    onAddingWishlist={handleAddingWishlist}
+                                    onAddingCart={handleAddingCart}
                                 />
                             );
                         })}
                     </div>
                 ) : (
                     <div className="wishlist__main">
-                        {currentItems.map((item) => {
-                            return (
-                                <WishlistItem
-                                    key={item.id}
-                                    item={item as Item}
-                                />
-                            );
-                        })}
+                        {currentWishlist
+                            .slice(itemOffset, endOffset)
+                            .map((item) => {
+                                return (
+                                    <WishlistItem
+                                        key={item.id}
+                                        item={item as Item}
+                                        uid={uid}
+                                        onRemoveWishlist={handleRemoveWishlist}
+                                        onAddingCart={handleAddingCart}
+                                    />
+                                );
+                            })}
                     </div>
                 )
-            ) : null}
+            ) : (
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        height: "400px",
+                    }}
+                >
+                    <strong style={{ fontSize: "1.5rem" }}>
+                        {currentWishlist.length === 0
+                            ? "There is no product in your wishlist"
+                            : "There is no products matched your filters"}
+                    </strong>
+                </div>
+            )}
             <div style={{ display: "flex", justifyContent: "center" }}>
                 <ReactPaginate
                     className="shops__container__main__pagination__items"
@@ -128,29 +211,16 @@ const PaginatedItems = ({
                     nextLabel="Next"
                     onPageChange={handlePageClick}
                     pageRangeDisplayed={5}
-                    pageCount={pageCount}
+                    pageCount={
+                        currentItems.length !== 0 &&
+                        !("product" in currentItems[0])
+                            ? pageCount
+                            : wishlistPageCount
+                    }
                     previousLabel="Previous"
                     renderOnZeroPageCount={null}
                 />
             </div>
-            <ToastContainer
-                className="p-3"
-                position="bottom-end"
-                style={{
-                    zIndex: 1,
-                    position: "fixed",
-                    bottom: 0,
-                    right: 0,
-                }}
-            >
-                <Toast show={show} onClose={toggleShow} delay={3000} autohide>
-                    <Toast.Header>
-                        <strong className="me-auto">DIGITAL-E</strong>
-                        <small>Just now</small>
-                    </Toast.Header>
-                    <Toast.Body>{msg}</Toast.Body>
-                </Toast>
-            </ToastContainer>
         </div>
     );
 };

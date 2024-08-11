@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { Button, Modal } from "react-bootstrap";
 import { IoTrashBinOutline } from "react-icons/io5";
-import { Product } from "../../utils/interface";
-import axios from "../../api/axios";
 import { useNavigate } from "react-router-dom";
+import { Product } from "../../utils/interface";
 
 interface Item {
     id: number;
@@ -12,32 +11,23 @@ interface Item {
 
 type WishlistItemProps = {
     item: Item;
+    uid: string;
+    onAddingCart: (user_id: string, product_id: number) => void;
+    onRemoveWishlist: (removeId: number) => void;
 };
 
-const WishlistItem = ({ item }: WishlistItemProps) => {
-    const { product } = item;
+const WishlistItem = ({
+    item,
+    uid,
+    onAddingCart,
+    onRemoveWishlist,
+}: WishlistItemProps) => {
+    const { id, product } = item;
     const [show, setShow] = useState<boolean>(false);
-    const [removeId, setRemoveId] = useState<number>(0);
     const navigate = useNavigate();
-
     const handleClose = () => setShow(false);
     const handleClickRemove = (id: number) => {
         setShow(true);
-        setRemoveId(id);
-    };
-    const handleRemoveWishlist = async () => {
-        try {
-            const response = await axios.post(
-                `/api/wishlist/delete/${removeId}`
-            );
-            if (response.status === 200) {
-                console.log(response.data.msg);
-                setShow(false);
-                window.location.reload();
-            }
-        } catch (err) {
-            console.error(err);
-        }
     };
 
     const checkImageExists = (imageName: string | null) => {
@@ -77,12 +67,17 @@ const WishlistItem = ({ item }: WishlistItemProps) => {
                 {product.stock > 0 ? "In stock" : "Out of stock"}{" "}
             </div>
             <div className="wishlist__main__item__button">
-                <button type="button">Add to cart</button>
+                <button
+                    type="button"
+                    onClick={() => onAddingCart(uid, product.id)}
+                >
+                    Add to cart
+                </button>
             </div>
             <div className="wishlist__main__item__delete">
                 <button
                     type="button"
-                    onClick={() => handleClickRemove(item.id)}
+                    onClick={() => handleClickRemove(id)}
                     style={{ border: "none" }}
                 >
                     <IoTrashBinOutline size={32} />
@@ -99,7 +94,10 @@ const WishlistItem = ({ item }: WishlistItemProps) => {
                     </Button>
                     <Button
                         variant="primary"
-                        onClick={() => handleRemoveWishlist()}
+                        onClick={() => {
+                            onRemoveWishlist(item.id);
+                            setShow(false);
+                        }}
                     >
                         Save Changes
                     </Button>

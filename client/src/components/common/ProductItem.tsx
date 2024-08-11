@@ -44,8 +44,6 @@ const ProductItem = ({
                 />
             </div>
 
-            <div className="home__product__menu__item__wishlist">0</div>
-
             <div
                 className="home__product__menu__item__like"
                 onClick={() => onAddingWishlist(uid, product.id)}

@@ -9,6 +9,8 @@ import AsideCart from "../common/AsideCart";
 import CartItem from "../common/CartItem";
 import Layout from "../layout/Layout";
 import CheckoutPaymentPage from "./CheckoutPaymentPage";
+import { useToast } from "../../context/ToastContext";
+import NavigationBar from "../common/NavigationBar";
 
 const cookies = new Cookies();
 
@@ -30,9 +32,12 @@ const CartPage = () => {
         (sessionStorage["rememberMe"]
             ? JSON.parse(sessionStorage["rememberMe"]).uid
             : "");
+    const { addToast } = useToast();
     const [cart, setCart] = useState<CartProps[]>([]);
     const [totalPrice, setTotalPrice] = useState<number>(0);
     const [discount, setDiscount] = useState<number>(0);
+    const [subtotal, setSubtotal] = useState<number>(0);
+    const [error, setError] = useState<string>("");
     const [show, setShow] = useState<boolean>(false);
     const [isPayment, setIsPayment] = useState<boolean>(false);
 
@@ -40,7 +45,8 @@ const CartPage = () => {
         setTotalPrice(
             cart.reduce((acc, item) => acc + item.price * item.quantity, 0)
         );
-    }, [cart]);
+        setSubtotal(totalPrice - discount);
+    }, [cart, totalPrice, discount]);
 
     const handleShow = () => setShow(true);
     const handleClose = () => setShow(false);
@@ -79,9 +85,41 @@ const CartPage = () => {
             });
             if (response.status === 200) {
                 console.log(response.data.msg);
-                window.location.reload();
+                setCart((cart) =>
+                    cart.filter((cart) => cart.cartItemId !== cartItemId)
+                );
+                addToast(
+                    "Remove Cart item",
+                    "Item removed from cart successfully"
+                );
             }
         } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const applyDiscount = async (discountCode: string, price: number) => {
+        try {
+            const response = await axios.post(`/api/discount`, {
+                discountCode,
+                price,
+            });
+            // console.log(response);
+            if (response.status === 200) {
+                var newPrice = response.data.newPrice;
+                setDiscount(totalPrice - newPrice);
+                setSubtotal(newPrice);
+                addToast(
+                    "Applying Coupon",
+                    "Coupon has been applied successfully"
+                );
+                console.log(response.data.msg);
+            } else if (response.status === 204) {
+                setError("");
+                setError("Discount not found");
+                console.log(response.data.msg);
+            }
+        } catch (err: any) {
             console.error(err);
         }
     };
@@ -110,10 +148,11 @@ const CartPage = () => {
         };
         fetchCartItems();
     }, [uid]);
-    console.log(cart);
+    // console.log(cart);
 
     return (
         <Layout>
+            <NavigationBar />
             <Container fluid className="cart__container">
                 {isPayment ? (
                     <CheckoutPaymentPage
@@ -121,6 +160,7 @@ const CartPage = () => {
                         cart={cart}
                         totalPrice={totalPrice}
                         discount={discount}
+                        subtotal={subtotal}
                     />
                 ) : (
                     <>
@@ -163,6 +203,9 @@ const CartPage = () => {
                             <AsideCart
                                 totalPrice={totalPrice}
                                 discount={discount}
+                                subtotal={subtotal}
+                                error={error}
+                                applyDiscount={applyDiscount}
                             />
                         </div>{" "}
                     </>

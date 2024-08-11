@@ -59,32 +59,34 @@ const WishlistPage = () => {
                 <div className="wishlist__title">
                     <h2>MY WISHLIST</h2>
                 </div>
-                <div className="wishlist__category">
-                    <div
-                        id="wishlist_product"
-                        className="wishlist__category__item"
-                    >
-                        Product
+                {wishlist.length > 0 ?? (
+                    <div className="wishlist__category">
+                        <div
+                            id="wishlist_product"
+                            className="wishlist__category__item"
+                        >
+                            Product
+                        </div>
+                        <div
+                            id="wishlist_price"
+                            className="wishlist__category__item"
+                        >
+                            Price
+                        </div>
+                        <div
+                            id="wishlist_stock"
+                            className="wishlist__category__item"
+                        >
+                            Stock status
+                        </div>
                     </div>
-                    <div
-                        id="wishlist_price"
-                        className="wishlist__category__item"
-                    >
-                        Price
-                    </div>
-                    <div
-                        id="wishlist_stock"
-                        className="wishlist__category__item"
-                    >
-                        Stock status
-                    </div>
-                </div>
+                )}
 
                 <PaginatedItems
                     items={wishlist}
                     itemsPerPage={4}
                     uid={uid}
-                    wishlist={[]}
+                    wishlist={wishlist}
                 />
             </div>
         </Layout>

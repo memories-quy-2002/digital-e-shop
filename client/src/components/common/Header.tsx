@@ -3,13 +3,15 @@ import { Navbar } from "react-bootstrap";
 import { IoCall, IoCart, IoHeart, IoHome, IoMailSharp } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import Cookies from "universal-cookie";
-import { UserContext } from "../../context/UserDataProvider";
+import { UserContext } from "../../context/UserDataContext";
 import "../../styles/Header.scss";
+import { useToast } from "../../context/ToastContext";
 
 const cookies = new Cookies();
 
 export const Header = (): JSX.Element => {
     const navigate = useNavigate();
+    const { addToast } = useToast();
     const uid =
         cookies.get("rememberMe")?.uid ||
         (sessionStorage["rememberMe"]
@@ -24,6 +26,14 @@ export const Header = (): JSX.Element => {
         sessionStorage.removeItem("rememberMe");
         cookies.remove("rememberMe");
         window.location.reload();
+    };
+
+    const handleRequireLogin = (place: string) => {
+        if (uid) {
+            navigate(place);
+        } else {
+            addToast("Login required", "You need to login to use this feature");
+        }
     };
 
     return (
@@ -94,14 +104,14 @@ export const Header = (): JSX.Element => {
                 <div className="header__container__main__group">
                     <div
                         className="header__container__main__group__item"
-                        onClick={() => navigate(uid ? "/wishlist" : "/login")}
+                        onClick={() => handleRequireLogin("/wishlist")}
                     >
                         <IoHeart size={28} />
                         Wishlist
                     </div>
                     <div
                         className="header__container__main__group__item"
-                        onClick={() => navigate(uid ? "/cart" : "/login")}
+                        onClick={() => handleRequireLogin("/cart")}
                     >
                         <IoCart size={28} />
                         Shopping Cart

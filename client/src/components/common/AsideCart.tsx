@@ -1,8 +1,13 @@
 import { BsBank } from "react-icons/bs";
 import { FaBitcoin, FaCcVisa } from "react-icons/fa";
+import { useState } from "react";
+import { useToast } from "../../context/ToastContext";
 type AsideCartProps = {
     totalPrice: number;
     discount: number;
+    subtotal: number;
+    error: string;
+    applyDiscount: (discountCode: string, totalPrice: number) => void;
 };
 
 const paymentMethods: any[] = [
@@ -11,7 +16,20 @@ const paymentMethods: any[] = [
     <FaBitcoin size={36} />,
 ];
 
-const AsideCart = ({ totalPrice, discount }: AsideCartProps) => {
+const AsideCart = ({
+    totalPrice,
+    discount,
+    subtotal,
+    error,
+    applyDiscount,
+}: AsideCartProps) => {
+    const [discountCode, setDiscountCode] = useState<string>("");
+    const onChangeDiscountCode = (
+        event: React.ChangeEvent<HTMLInputElement>
+    ) => {
+        const { value } = event.target;
+        setDiscountCode(value);
+    };
     return (
         <div className="cart__container__box__aside">
             <div className="cart__container__box__aside__box">
@@ -24,10 +42,21 @@ const AsideCart = ({ totalPrice, discount }: AsideCartProps) => {
                             type="text"
                             name="coupon"
                             id="coupon"
-                            placeholder="Coupon code"
+                            onChange={onChangeDiscountCode}
+                            style={{
+                                textTransform: "uppercase",
+                            }}
                         />
-                        <button>Apply</button>
+                        <button
+                            type="button"
+                            onClick={() =>
+                                applyDiscount(discountCode, totalPrice)
+                            }
+                        >
+                            Apply
+                        </button>
                     </div>
+                    <p className="text-danger mb-2">{error}</p>
                 </div>
                 <hr />
                 <div className="cart__container__box__aside__box__price">
@@ -47,7 +76,7 @@ const AsideCart = ({ totalPrice, discount }: AsideCartProps) => {
                             }}
                         >
                             <p>Subtotal: </p>
-                            <p>${(totalPrice - discount).toFixed(2)}</p>
+                            <p>${subtotal.toFixed(2)}</p>
                         </li>
                     </ul>
                 </div>
@@ -64,8 +93,10 @@ const AsideCart = ({ totalPrice, discount }: AsideCartProps) => {
                                 padding: "0",
                             }}
                         >
-                            {paymentMethods.map((icon) => (
-                                <li style={{ cursor: "pointer" }}>{icon}</li>
+                            {paymentMethods.map((icon, index) => (
+                                <li style={{ cursor: "pointer" }} key={index}>
+                                    {icon}
+                                </li>
                             ))}
                         </ul>
                     </div>

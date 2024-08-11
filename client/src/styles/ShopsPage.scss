@@ -37,20 +37,9 @@
                     margin-bottom: 1.5rem;
                 }
             }
+
+            &__brands,
             &__categories {
-                ul {
-                    list-style-type: none;
-                    padding: 0;
-                    li {
-                        margin-bottom: 6px;
-                    }
-                    a {
-                        text-decoration: none;
-                        color: black;
-                    }
-                }
-            }
-            &__brands {
                 label {
                     display: block;
                     position: relative;
@@ -148,6 +137,22 @@
                     .example-track.example-track-2 {
                         background: #d9d9d9;
                     }
+                }
+            }
+            &__button {
+                margin: 1rem 0rem;
+                width: 100%;
+                background-color: #0066ff;
+                color: #fff;
+                border: none;
+                padding: 0.75rem;
+                cursor: pointer;
+                font-weight: bold;
+                font-size: 18px;
+                transition: background-color 0.3s;
+
+                &:hover {
+                    background-color: #0056b3;
                 }
             }
         }

@@ -12,12 +12,13 @@ import AdminProductPage from "./components/pages/admin/AdminProductPage";
 import AdminOrderPage from "./components/pages/admin/AdminOrderPage";
 import AdminAccountPage from "./components/pages/admin/AdminAccountPage";
 import AdminAddProductPage from "./components/pages/admin/AdminAddProductPage";
+import NoPage from "./components/pages/NoPage";
 
 function App() {
     return (
         <BrowserRouter>
             <Routes>
-                <Route path="/" element={<HomePage />} />
+                <Route path="/" index element={<HomePage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />
                 <Route path="/product" element={<ProductPage />} />
@@ -28,6 +29,7 @@ function App() {
                 <Route path="/admin/order" element={<AdminOrderPage />} />
                 <Route path="/admin/account" element={<AdminAccountPage />} />
                 <Route path="/admin/add" element={<AdminAddProductPage />} />
+                <Route path="*" element={<NoPage />} />
                 <Route
                     path="/checkout-success"
                     element={<CheckoutSuccessPage />}

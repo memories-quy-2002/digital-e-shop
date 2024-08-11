@@ -12,13 +12,18 @@ const pool = mysql.createPool({
 
 const uri = `mongodb+srv://vinhluu2608:vuongtranlinhlinh123456789@cluster0.teog563.mongodb.net/?retryWrites=true&w=majority`;
 
-pool.getConnection((err) => {
-	if (err) {
-		console.error("Error connecting to the MySQL database: ", err);
-	} else {
-		console.log("Connected to MySQL database");
-	}
-});
+/* Check database connection */
+const checkDbConnection = (req, res, next) => {
+	pool.getConnection((err) => {
+		if (err) {
+			console.error("Error connecting to the MySQL database: ", err);
+			return res.status(503).json({ error: 'Service Unavailable' });
+		} else {
+			console.log("Connected to MySQL database");
+		}
+		next();
+	});
+};
 
 const getUserLoginById = (request, response) => {
 	const uid = request.params.id;
@@ -26,10 +31,15 @@ const getUserLoginById = (request, response) => {
 		if (error) {
 			console.error(error.message);
 		} else {
-			const userData = results[0];
-			response.status(200).json({
-				userData,
-			});
+			if (results.length > 0) {
+				const userData = results[0];
+				response.status(200).json({
+					userData,
+					msg: 'User logon successfully'
+				});
+			} else {
+				response.status(401).json({ error: 'Unauthorized' })
+			}
 		}
 	});
 };
@@ -80,7 +90,7 @@ const userLogin = (request, response) => {
 							});
 						} else {
 							response
-								.status(401)
+								.status(204)
 								.json({ msg: "User not exists" });
 							return;
 						}
@@ -124,7 +134,7 @@ const userLogin = (request, response) => {
 						} else {
 							response
 								.status(401)
-								.json({ msg: "User not exists" });
+								.json({ msg: "User not found" });
 							return;
 						}
 					}
@@ -197,7 +207,7 @@ const getAllUsers = (request, response) => {
 					msg: "Get users successfully"
 				});
 			} else {
-				response.status(401).json({
+				response.status(204).json({
 					msg: "Users not found",
 				});
 			}
@@ -240,7 +250,7 @@ const getSingleProduct = (request, response) => {
 					msg: "Get product successfully with id = " + pid,
 				});
 			} else {
-				response.status(401).json({
+				response.status(204).json({
 					msg: "Product not found",
 				});
 			}
@@ -278,7 +288,7 @@ const getListProduct = (request, response) => {
 					msg: "Get list products successfully",
 				});
 			} else {
-				response.status(200).json({
+				response.status(204).json({
 					msg: "There is no product in store",
 				});
 			}
@@ -303,7 +313,6 @@ const deleteProduct = (request, response) => {
 };
 
 const addItemToWishlist = (request, response) => {
-	console.log("Hello");
 	const { uid, pid } = request.body;
 	pool.query(
 		`INSERT INTO wishlist (user_id, product_id)
@@ -456,7 +465,7 @@ const getCartItems = (request, response) => {
 					}
 				);
 			} else {
-				response.status(401).json({
+				response.status(204).json({
 					msg: `No cart exist with user_id = ${uid}`,
 				});
 			}
@@ -482,47 +491,53 @@ const deleteCartItem = (request, response) => {
 };
 
 const makePurchase = (request, response) => {
-	const uid = request.params.uid;
-	const { totalPrice, cart } = request.body;
-	pool.query(
-		`UPDATE cart SET done = 1 WHERE user_id = ?`,
-		[uid],
-		(error, results) => {
-			if (error) {
-				console.error(error.message);
+	try {
+		const uid = request.params.uid;
+		const { totalPrice, cart, discount, subtotal } = request.body;
+		var orderId;
+
+		// Bắt đầu transaction
+		pool.query('START TRANSACTION');
+
+		// Update cart to set done = 1
+		pool.query('UPDATE cart SET done = 1 WHERE user_id = ?', [uid]);
+
+		// Insert into orders
+		pool.query(
+			'INSERT INTO orders (user_id, total_price, discount, subtotal) VALUES (?, ?, ?, ?)',
+			[uid, totalPrice, discount, subtotal], (error, results) => {
+				orderId = results.insertId
+				cart.map(async (product) => {
+					pool.query(
+						'INSERT INTO order_items (order_id, product_id, quantity) VALUES (?, ?, ?)',
+						[orderId, product.productId, product.quantity]
+					);
+					pool.query(
+						'UPDATE products SET stock = stock - ? WHERE id = ?',
+						[product.quantity, product.productId]
+					);
+				});
 			}
-			else {
-				pool.query('INSERT INTO orders (user_id, total_price) VALUE (?, ?)', [uid, totalPrice], (error, results) => {
-					if (error) {
-						console.error(error.message);
-					}
-					else {
-						const orderId = results.insertId
-						for (let product of cart) {
-							pool.query(
-								`INSERT INTO order_items (order_id, product_id, quantity)
-									VALUES (?, ?, ?)
-									`,
-								[orderId, product.productId, product.quantity],
-								(error, results) => {
-									if (error) {
-										console.error(error.message);
-									}
+		);
 
-								}
-							);
-						}
-						response.status(200).json({
-							msg: `The order items has been added to the order with id = ${orderId}`,
-						});
-					}
+		// Commit transaction nếu mọi thứ đều ổn
+		pool.query('COMMIT');
 
-				})
-			}
-
-		}
-	);
+		// Gửi phản hồi thành công
+		response.status(200).json({
+			msg: `The order items have been added to the order with id = ${orderId}`,
+		});
+	} catch (error) {
+		// Rollback nếu có lỗi
+		pool.query('ROLLBACK');
+		console.error(error.message);
+		response.status(500).json({
+			msg: 'Error processing the purchase',
+			error: error.message,
+		});
+	}
 };
+
 
 const getOrders = (request, response) => {
 	pool.query(
@@ -532,10 +547,17 @@ const getOrders = (request, response) => {
 				console.error(error.message);
 			}
 			else {
-				response.status(200).json({
-					orders: results,
-					msg: `Orders have been received successfully`,
-				});
+				if (results.length > 0) {
+					response.status(200).json({
+						orders: results,
+						msg: `Orders have been received successfully`,
+					});
+				}
+				else {
+					response.status(204).json({
+						msg: 'Order not found'
+					})
+				}
 			}
 		}
 	);
@@ -561,7 +583,87 @@ const retrieveRelevantProducts = async (request, response) => {
 	}
 }
 
+
+/* Reviews */
+
+const addReview = (request, response) => {
+	const { uid, pid, rating, reviewText } = request.body
+	pool.query(
+		`INSERT INTO reviews (user_id, product_id, rating, review_text) VALUE (?, ?, ?, ?)`,
+		[uid, pid, rating, reviewText],
+		(error, results) => {
+			if (error) {
+				console.error(error.message);
+			}
+			else {
+				response.status(200).json({
+					msg: `The review has been added to the product with id = ${pid}`,
+				})
+			}
+		}
+	);
+}
+
+const getReviews = (request, response) => {
+	const pid = request.params.pid
+	console.log(pid);
+
+	pool.query(
+		`SELECT u.username, r.rating, r.review_text, r.created_at FROM reviews r JOIN users u ON u.id = r.user_id WHERE r.product_id = ?`, [pid],
+		(error, results) => {
+			if (error) {
+				console.error(error.message);
+			}
+			else {
+				if (results.length > 0) {
+					response.status(200).json({
+						reviews: results,
+						msg: `Reviews of product id = ${pid} have been retrieved successfully`,
+					})
+				}
+				else {
+					response.status(204).json({
+						msg: 'Review not found'
+					})
+				}
+			}
+		}
+	);
+}
+
+/* Discount code */
+
+const applyDiscount = (request, response) => {
+	const { discountCode, price } = request.body
+	pool.query(
+		`SELECT * FROM discount WHERE discount_code = ?`,
+		[discountCode],
+		(error, results) => {
+			if (error) {
+				console.error(error.message);
+			}
+			else {
+				if (results.length > 0) {
+					var discountPercent = results[0].discount_percent
+					var newPrice = price * (100 - discountPercent) / 100;
+					response.status(200).json({
+						newPrice: newPrice,
+						msg: `Discount code has been applied successfully`,
+					})
+				}
+				else {
+					response.status(204).json({
+						msg: `Discount not found`,
+					})
+				}
+
+			}
+		}
+	);
+}
+
 module.exports = {
+	checkDbConnection,
 	getUserLoginById,
 	addUser,
 	getAllUsers,
@@ -578,4 +680,7 @@ module.exports = {
 	makePurchase,
 	getOrders,
 	retrieveRelevantProducts,
+	addReview,
+	getReviews,
+	applyDiscount
 };

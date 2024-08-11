@@ -21,6 +21,7 @@ type CheckoutPaymentProps = {
     cart: CartProps[];
     totalPrice: number;
     discount: number;
+    subtotal: number;
 };
 
 const CheckoutPaymentPage = ({
@@ -28,6 +29,7 @@ const CheckoutPaymentPage = ({
     cart,
     totalPrice,
     discount,
+    subtotal,
 }: CheckoutPaymentProps) => {
     const navigate = useNavigate();
     const uid =
@@ -40,6 +42,8 @@ const CheckoutPaymentPage = ({
             const response = await axios.post(`/api/purchase/${uid}`, {
                 cart,
                 totalPrice,
+                discount,
+                subtotal,
             });
             if (response.status === 200) {
                 console.log(response.data.msg);
@@ -257,7 +261,9 @@ const CheckoutPaymentPage = ({
                     </div>
 
                     {/* Checkout Button */}
-                    <button onClick={handlePurchase}>PROCESS CHECKOUT</button>
+                    <button type="button" onClick={handlePurchase}>
+                        PROCESS CHECKOUT
+                    </button>
                 </div>
             </div>
         </div>

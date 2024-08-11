@@ -2,7 +2,7 @@ import { useContext, useEffect } from "react";
 import { FaBox, FaCartShopping, FaUser } from "react-icons/fa6";
 import { useNavigate } from "react-router-dom";
 import Cookies from "universal-cookie";
-import { UserContext } from "../../../context/UserDataProvider";
+import { UserContext } from "../../../context/UserDataContext";
 
 const cookies = new Cookies();
 
@@ -13,7 +13,7 @@ const AdminSidebar = () => {
     const navigate = useNavigate();
     const url = window.location.href;
     const paramItem = url.split("/admin/")[1];
-    console.log(paramItem);
+    // console.log(paramItem);
 
     const uid =
         cookies.get("rememberMe")?.uid ||

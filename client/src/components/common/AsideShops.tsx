@@ -1,34 +1,39 @@
-import React, { useEffect, useState } from "react";
-import { Product } from "../../utils/interface";
+import { useEffect, useState } from "react";
 import ReactSlider from "react-slider";
+import { Product } from "../../utils/interface";
+
+type Filters = {
+    categories: string[];
+    brands: string[];
+    priceRange: [number, number];
+};
 
 type AsideShopsProps = {
     products: Product[];
+    filters: Filters;
+    onCheckboxChange: (type: "categories" | "brands", value: string) => void;
+    onPriceRangeChange: (newValue: [number, number]) => void;
+    onApplyFilters: () => void;
 };
 
-const AsideShops = ({ products }: AsideShopsProps) => {
+const AsideShops = ({
+    products,
+    filters,
+    onCheckboxChange,
+    onPriceRangeChange,
+    onApplyFilters,
+}: AsideShopsProps) => {
     const [categories, setCategories] = useState<string[]>([]);
     const [brands, setBrands] = useState<string[]>([]);
-    const [priceRange, setPriceRange] = useState<[number, number]>([0, 1500]);
-    const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
     const [searchTerm, setSearchTerm] = useState<string>("");
-    const handleCheckboxChange = (brand: string) => {
-        const newSelectedBrands = [...selectedBrands];
-        const index = newSelectedBrands.indexOf(brand);
-        if (index > -1) {
-            newSelectedBrands.splice(index, 1); // Remove if already selected
-        } else {
-            newSelectedBrands.push(brand); // Add if not selected
-        }
-        setSelectedBrands(newSelectedBrands);
-    };
+
     useEffect(() => {
         setCategories([
             ...new Set(products.map((product) => product.category)),
         ]);
         setBrands([...new Set(products.map((product) => product.brand))]);
     }, [products]);
-    console.log(priceRange);
+    console.log(filters);
 
     return (
         <div className="shops__container__aside">
@@ -43,17 +48,29 @@ const AsideShops = ({ products }: AsideShopsProps) => {
             <div className="shops__container__aside__categories">
                 <div>
                     <h4>Categories</h4>
-                    <ul>
-                        {categories.map((category) => (
-                            <li>
-                                <a
-                                    href={`/shops?category=${category.toLowerCase()}`}
-                                >
+                    {categories.map((category, index) => {
+                        return (
+                            <div key={index}>
+                                <label className="container">
                                     {category}
-                                </a>
-                            </li>
-                        ))}
-                    </ul>
+                                    <input
+                                        type="checkbox"
+                                        id={category}
+                                        checked={filters.categories.includes(
+                                            category
+                                        )}
+                                        onChange={() =>
+                                            onCheckboxChange(
+                                                "categories",
+                                                category
+                                            )
+                                        }
+                                    />
+                                    <span className="checkmark"></span>
+                                </label>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
             <div className="shops__container__aside__brands">
@@ -67,9 +84,9 @@ const AsideShops = ({ products }: AsideShopsProps) => {
                                     <input
                                         type="checkbox"
                                         id={brand}
-                                        checked={selectedBrands.includes(brand)}
+                                        checked={filters.brands.includes(brand)}
                                         onChange={() =>
-                                            handleCheckboxChange(brand)
+                                            onCheckboxChange("brands", brand)
                                         }
                                     />
                                     <span className="checkmark"></span>
@@ -90,16 +107,23 @@ const AsideShops = ({ products }: AsideShopsProps) => {
                         min={0}
                         max={5000}
                         minDistance={100}
-                        onChange={(priceRange: [number, number]) =>
-                            setPriceRange(priceRange)
+                        onChange={(newValue: [number, number]) =>
+                            onPriceRangeChange(newValue)
                         }
                     />
                     <div className="shops__container__aside__price__slider__num">
-                        <span>{priceRange[0]}</span>
-                        <span>{priceRange[1]}</span>
+                        <span>{filters.priceRange[0]}</span>
+                        <span>{filters.priceRange[1]}</span>
                     </div>
                 </div>
             </div>
+            <button
+                type="button"
+                className="btn btn-info shops__container__aside__button"
+                onClick={() => onApplyFilters()}
+            >
+                Apply
+            </button>
         </div>
     );
 };

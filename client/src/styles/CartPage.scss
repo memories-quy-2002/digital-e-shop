@@ -15,9 +15,9 @@
                 flex: 5;
                 &__list {
                     &__item {
+                        height: 190px;
                         display: flex;
                         flex-direction: row;
-                        height: fit-content;
                         justify-content: space-between;
                         padding: 0.5rem 2rem;
                         width: 100%;
@@ -26,9 +26,14 @@
                         &__image {
                             margin-left: 1rem;
                             margin-right: 2rem;
+                            padding: 1rem;
+                            object-fit: cover;
                             img {
-                                height: 150px;
-                                width: 225px;
+                                display: inline-block;
+                                text-align: center;
+                                height: 100%;
+                                width: 200px;
+                                object-fit: contain;
                             }
                         }
                         &__info {

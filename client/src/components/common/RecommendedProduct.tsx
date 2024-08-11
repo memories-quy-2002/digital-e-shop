@@ -31,9 +31,10 @@ const RecommendedProduct = ({ pid, randomProducts }: RecommendedProps) => {
                     >
                         <div
                             className="product__container__recommended__list__item__image"
-                            onClick={() =>
-                                navigate(`/product?id=${product.id}`)
-                            }
+                            onClick={() => {
+                                navigate(`/product?id=${product.id}`);
+                                window.location.reload();
+                            }}
                         >
                             <img
                                 src={

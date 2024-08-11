@@ -48,7 +48,6 @@ const AdminAccountPage = () => {
                         }
                     );
                     setAccounts(newAccounts);
-                    console.log(response.data.msg);
                 }
             } catch (err) {
                 console.error(err);
@@ -57,7 +56,7 @@ const AdminAccountPage = () => {
         fetchOrders();
         return () => {};
     }, []);
-    console.log(accounts);
+    // console.log(accounts);
     return (
         <AdminLayout>
             <div className="admin__account">

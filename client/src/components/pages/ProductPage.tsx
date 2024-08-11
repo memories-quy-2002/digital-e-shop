@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { BsStar, BsStarFill } from "react-icons/bs";
-import { useNavigate } from "react-router-dom";
 import Cookies from "universal-cookie";
 import axios from "../../api/axios";
+import { useToast } from "../../context/ToastContext";
 import "../../styles/ProductPage.scss";
 import { Product } from "../../utils/interface";
 import ratingStar from "../../utils/ratingStar";
@@ -12,15 +12,21 @@ import Layout from "../layout/Layout";
 import ErrorPage from "./ErrorPage";
 
 const cookies = new Cookies();
-
 interface relevantProductsItem {
     product_id: number;
     product_name: string;
 }
 
+interface Review {
+    username: string;
+    rating: number;
+    reviewText: string;
+    created_at: Date;
+}
+
 const ProductPage = () => {
-    const navigate = useNavigate();
     const url = new URLSearchParams(window.location.search);
+    const { addToast } = useToast();
     const productId = url.get("id");
     const uid =
         cookies.get("rememberMe")?.uid ||
@@ -31,9 +37,6 @@ const ProductPage = () => {
     const pid = productId !== null ? parseInt(productId) : 0;
     const [error, setError] = useState<string>("");
     const [products, setProducts] = useState<Product[]>([]);
-    const [relevantProducts, setRelevantProducts] = useState<Product[]>([]);
-    const [toggle, setToggle] = useState<boolean>(false);
-    const [ratingScore, setRatingScore] = useState<number>(0);
     const [productDetail, setProductDetail] = useState<Product>({
         id: 0,
         name: "",
@@ -49,6 +52,14 @@ const ProductPage = () => {
         description: "",
         specifications: [],
     });
+    const [relevantProducts, setRelevantProducts] = useState<Product[]>([]);
+
+    const [ratingScore, setRatingScore] = useState<number>(0);
+    const [reviewText, setReviewText] = useState<string>("");
+    const [reviews, setReviews] = useState<Review[]>([]);
+
+    const [toggle, setToggle] = useState<boolean>(false);
+    const [quantity, setQuantity] = useState<number>(0);
 
     useEffect(() => {
         const fetchProduct = async () => {
@@ -63,6 +74,7 @@ const ProductPage = () => {
             }
         };
         fetchProduct();
+        setQuantity(productDetail.stock);
         return () => {};
     }, [pid]);
 
@@ -79,7 +91,6 @@ const ProductPage = () => {
             }
         };
         fetchProducts();
-
         return () => {};
     }, []);
 
@@ -90,6 +101,11 @@ const ProductPage = () => {
                     `/api/products/relevant/${pid}`
                 );
                 if (response.status === 200) {
+                    if (response.data.relevantProducts.length === 0) {
+                        setRelevantProducts(products);
+                        console.log(response.data.msg);
+                        return;
+                    }
                     const newRelevantProducts: relevantProductsItem[] =
                         response.data.relevantProducts;
                     const relevantProductsIds: number[] =
@@ -112,7 +128,6 @@ const ProductPage = () => {
                                 return indexA - indexB;
                             })
                     );
-
                     console.log(response.data.msg);
                 }
             } catch (err) {
@@ -124,7 +139,32 @@ const ProductPage = () => {
         return () => {};
     }, [products, pid]);
 
-    console.log(relevantProducts);
+    useEffect(() => {
+        const fetchReviews = async () => {
+            try {
+                const response = await axios.get(
+                    `/api/reviews/${productDetail.id}`
+                );
+                if (response.status === 200) {
+                    setReviews(
+                        response.data.reviews.map((review: any) => {
+                            return {
+                                username: review.username,
+                                rating: review.rating,
+                                reviewText: review.review_text,
+                                created_at: review.created_at,
+                            };
+                        })
+                    );
+                    console.log(response.data.msg);
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        };
+        fetchReviews();
+        return () => {};
+    }, [productDetail]);
 
     const checkImageExists = (imageName: string | null) => {
         try {
@@ -135,39 +175,48 @@ const ProductPage = () => {
         }
     };
 
-    const handleDecrease = () =>
-        setProductDetail((detail) => {
-            return {
-                ...detail,
-                stock: detail.stock - 1,
-            };
-        });
-
-    const handleIncrease = () =>
-        setProductDetail((detail) => {
-            return {
-                ...detail,
-                stock: detail.stock + 1,
-            };
-        });
-
+    const handleDecrease = () => setQuantity((quantity) => quantity - 1);
+    const handleIncrease = () => setQuantity((quantity) => quantity + 1);
     const handleStarClick = (rating: number) => {
         setRatingScore(rating);
     };
 
+    const handleReviewTextChange = (
+        event: React.ChangeEvent<HTMLTextAreaElement>
+    ) => {
+        setReviewText(event.target.value);
+    };
     const handleAddToCart = async (user_id: string, product: Product) => {
         if (uid === "") {
-            navigate("/login");
+            addToast(
+                "Login required",
+                "You need to login to use this feature."
+            );
+            return;
+        } else {
+            if (productDetail.stock === 0) {
+                addToast("Out of stock", "The product is out of stock.");
+                return;
+            } else if (quantity === 0) {
+                addToast(
+                    "Invalid action",
+                    "The quantity should be non-zero to complete the action."
+                );
+                return;
+            }
         }
         try {
             const response = await axios.post("/api/cart/", {
                 uid: user_id,
                 pid: product.id,
-                quantity: product.stock,
+                quantity: quantity,
             });
             if (response.status === 200) {
                 console.log(response.data.msg);
-                window.location.reload();
+                addToast(
+                    "Add cart item",
+                    "Product added to cart successfully."
+                );
             }
         } catch (err) {
             throw err;
@@ -176,7 +225,11 @@ const ProductPage = () => {
 
     const handleAddToWishlist = async (user_id: string, product_id: number) => {
         if (uid === "") {
-            navigate("/login");
+            addToast(
+                "Login required",
+                "You need to login to use this feature."
+            );
+            return;
         }
         try {
             const response = await axios.post("/api/wishlist/", {
@@ -185,6 +238,43 @@ const ProductPage = () => {
             });
             if (response.status === 200) {
                 console.log(response.data.msg);
+                addToast(
+                    "Add wishlist item",
+                    "Product added to wishlist successfully."
+                );
+            }
+        } catch (err) {
+            throw err;
+        }
+    };
+
+    const handleSubmitReview = async (
+        uid: string,
+        pid: number,
+        rating: number,
+        reviewText: string
+    ) => {
+        if (ratingScore === 0) {
+            addToast(
+                "Invalid rating",
+                "The rating score should be from 1 to 5"
+            );
+            return;
+        }
+        try {
+            const response = await axios.post("/api/reviews/", {
+                uid,
+                pid,
+                rating,
+                reviewText,
+            });
+
+            if (response.status === 200) {
+                console.log(response.data.msg);
+                addToast(
+                    "Submit review",
+                    "Review has been submitted successfully."
+                );
                 window.location.reload();
             }
         } catch (err) {
@@ -254,13 +344,18 @@ const ProductPage = () => {
                                 >
                                     {ratingStar(
                                         productDetail.rating,
-                                        "yellow",
-                                        36
+                                        "#FFCC4A",
+                                        24
                                     )}
                                 </div>
-                                <p style={{ fontSize: "28px", margin: "0" }}>
-                                    {productDetail.reviews} REVIEWS
-                                </p>
+                                <span
+                                    style={{
+                                        fontSize: "22px",
+                                    }}
+                                >
+                                    {productDetail.rating} (
+                                    {productDetail.reviews})
+                                </span>
                             </div>
                             <strong style={{ fontSize: "36px", width: "100%" }}>
                                 {productDetail.name}
@@ -283,6 +378,20 @@ const ProductPage = () => {
                             >
                                 <p>Category: {productDetail.category}</p>
                                 <p>Brand: {productDetail.brand}</p>
+                                <p>
+                                    Status:{" "}
+                                    <span
+                                        style={{
+                                            color: "red",
+                                            fontWeight: "bold",
+                                        }}
+                                    >
+                                        {" "}
+                                        {productDetail.stock > 0
+                                            ? "In stock"
+                                            : "Out of stock"}
+                                    </span>
+                                </p>
                             </div>
                         </div>
 
@@ -309,7 +418,7 @@ const ProductPage = () => {
                                     type="number"
                                     name="quantity"
                                     id="quantity"
-                                    value={productDetail.stock}
+                                    value={quantity}
                                     onChange={(e: any) =>
                                         setProductDetail((detail) => {
                                             return {
@@ -370,116 +479,157 @@ const ProductPage = () => {
                             className={toggle ? "active" : ""}
                             onClick={() => setToggle(true)}
                         >
-                            Review ({productDetail.reviews})
+                            Review ({reviews.length})
                         </button>
                         <div className="product__container__navigation__btn__empty"></div>
                     </div>
                 </div>
                 {toggle ? (
                     <div className="product__container__review">
-                        <div className="product__container__review__rating">
-                            <h5>Rating</h5>
-                            <div
-                                style={{
-                                    display: "flex",
-                                    flexDirection: "row",
-                                    alignItems: "center",
-                                    gap: "3rem",
-                                }}
-                            >
-                                <div className="product__container__review__rating__score">
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                        <span
-                                            key={star}
-                                            onClick={() =>
-                                                handleStarClick(star)
-                                            }
-                                            style={{
-                                                cursor: "pointer",
-                                            }}
-                                        >
-                                            {star <= ratingScore ? (
-                                                <BsStarFill
-                                                    size={24}
-                                                    color="#FFCC4A"
-                                                />
-                                            ) : (
-                                                <BsStar
-                                                    size={24}
-                                                    color="#FFCC4A"
-                                                />
-                                            )}
-                                        </span>
-                                    ))}
-                                    <span
+                        {!uid ? (
+                            <div className="product__container__review__rating">
+                                You need to login to use this feature
+                            </div>
+                        ) : (
+                            <>
+                                <div className="product__container__review__rating">
+                                    <h5>Rating</h5>
+                                    <div
                                         style={{
-                                            fontWeight: "bold",
-                                            fontSize: "24px",
-                                            marginLeft: "1.5rem",
+                                            display: "flex",
+                                            flexDirection: "row",
+                                            alignItems: "center",
+                                            gap: "3rem",
                                         }}
                                     >
-                                        ({ratingScore.toFixed(1)})
-                                    </span>
+                                        <div className="product__container__review__rating__score">
+                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                <span
+                                                    key={star}
+                                                    onClick={() =>
+                                                        handleStarClick(star)
+                                                    }
+                                                    style={{
+                                                        cursor: "pointer",
+                                                    }}
+                                                >
+                                                    {star <= ratingScore ? (
+                                                        <BsStarFill
+                                                            size={24}
+                                                            color="#FFCC4A"
+                                                        />
+                                                    ) : (
+                                                        <BsStar
+                                                            size={24}
+                                                            color="#FFCC4A"
+                                                        />
+                                                    )}
+                                                </span>
+                                            ))}
+                                            <span
+                                                style={{
+                                                    fontWeight: "bold",
+                                                    fontSize: "24px",
+                                                    marginLeft: "1.5rem",
+                                                }}
+                                            >
+                                                ({ratingScore.toFixed(1)})
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                        <div className="product__container__review__text">
-                            <h5>Review</h5>
-                            <textarea
-                                name="review"
-                                id="review"
-                                rows={10}
-                                placeholder="Enter your review"
-                            ></textarea>
-                            <button className="btn btn-primary" type="submit">
-                                Submit
-                            </button>
-                        </div>
-                        <div className="product__container__review__list">
-                            <h5>All reviews ({productDetail.reviews})</h5>
-                            <div
-                                style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: "1rem",
-                                }}
-                            >
-                                {Array(productDetail.reviews).map((review) => (
+                                <div className="product__container__review__text">
+                                    <h5>Review</h5>
+                                    <textarea
+                                        name="review"
+                                        id="review"
+                                        value={reviewText}
+                                        onChange={handleReviewTextChange}
+                                        rows={10}
+                                        placeholder="Enter your review"
+                                    ></textarea>
+                                    <button
+                                        className="btn btn-primary"
+                                        type="submit"
+                                        onClick={() =>
+                                            handleSubmitReview(
+                                                uid,
+                                                productDetail.id,
+                                                ratingScore,
+                                                reviewText
+                                            )
+                                        }
+                                        style={{
+                                            padding: "0.5rem 1rem",
+                                            fontSize: "1.25rem",
+                                            marginBottom: "3rem",
+                                        }}
+                                    >
+                                        Submit
+                                    </button>
+                                </div>
+                                <div className="product__container__review__list">
+                                    <h5>All reviews ({reviews.length})</h5>
                                     <div
                                         style={{
                                             display: "flex",
                                             flexDirection: "column",
-                                            gap: "2rem",
-                                            borderBottom: "1px solid black",
+                                            gap: "1rem",
+                                            marginTop: "2rem",
                                         }}
                                     >
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                flexDirection: "row",
-                                                gap: "2rem",
-                                                alignItems: "center",
-                                            }}
-                                        >
-                                            <h6>User</h6>
-                                            <span
+                                        {reviews.map((review) => (
+                                            <div
                                                 style={{
                                                     display: "flex",
-                                                    flexDirection: "row",
-                                                    gap: "0.5rem",
+                                                    flexDirection: "column",
+                                                    gap: "1rem",
+                                                    borderBottom:
+                                                        "1px solid black",
                                                 }}
                                             >
-                                                {ratingStar(4.0, "#FFCC4A", 24)}
-                                            </span>
-                                            <span>2 days ago</span>
-                                        </div>
-                                        <div style={{ marginBottom: "1.5rem" }}>
-                                            <p>Good </p>
-                                        </div>
+                                                <div
+                                                    style={{
+                                                        display: "flex",
+                                                        flexDirection: "row",
+                                                        gap: "2rem",
+                                                        alignItems: "center",
+                                                    }}
+                                                >
+                                                    <strong>
+                                                        {review.username}
+                                                    </strong>
+                                                    <span
+                                                        style={{
+                                                            display: "flex",
+                                                            flexDirection:
+                                                                "row",
+                                                            gap: "0.5rem",
+                                                        }}
+                                                    >
+                                                        {ratingStar(
+                                                            review.rating,
+                                                            "#FFCC4A",
+                                                            18
+                                                        )}
+                                                    </span>
+                                                    <span>
+                                                        {new Date(
+                                                            review.created_at
+                                                        ).toLocaleDateString(
+                                                            "en-GB"
+                                                        )}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <p>{review.reviewText}</p>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
-                        </div>
+                                </div>
+                            </>
+                        )}
                     </div>
                 ) : (
                     <div className="product__container__description">
@@ -504,6 +654,7 @@ const ProductPage = () => {
                             Accumsan tortor posuere ac ut consequat semper
                             viverra nam. Dictum sit amet justo donec. Ultricies
                             lacus sed turpis tincidunt id aliquet risus.
+                            {productDetail.description}
                         </p>
                     </div>
                 )}

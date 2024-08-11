@@ -1,6 +1,6 @@
 import React, { useContext, useEffect } from "react";
 import Layout from "../layout/Layout";
-import { UserContext } from "../../context/UserDataProvider";
+import { UserContext } from "../../context/UserDataContext";
 import Cookies from "universal-cookie";
 import "../../styles/CheckoutSuccessPage.scss";
 import { FiCheckCircle } from "react-icons/fi";

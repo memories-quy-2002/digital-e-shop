@@ -1,20 +1,20 @@
 import { useContext, useEffect, useState } from "react";
-import { Toast, ToastContainer } from "react-bootstrap";
 import { IoArrowForward } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import Cookies from "universal-cookie";
 import axios from "../../api/axios";
 import iphone from "../../assets/images/iphone.jpg";
-import { UserContext } from "../../context/UserDataProvider";
+import { UserContext } from "../../context/UserDataContext";
 import "../../styles/HomePage.scss";
 import { Product } from "../../utils/interface";
 import recommendations from "../../utils/recommendations.json";
 import NavigationBar from "../common/NavigationBar";
 import ProductItem from "../common/ProductItem";
 import Layout from "../layout/Layout";
+import { useToast } from "../../context/ToastContext";
 
 const cookies = new Cookies();
-
+const DISPLAYED_NUMBER = 12;
 interface Wishlist {
     id: number;
     product: Product;
@@ -24,41 +24,74 @@ const HomePage = () => {
     const navigate = useNavigate();
     const [products, setProducts] = useState<Product[]>([]);
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
-    const [show, setShow] = useState<boolean>(false);
-    const [msg, setMsg] = useState<string>("");
     const [userRecommendations, setUserRecommendations] = useState<number[]>(
         []
     );
-    const toggleShow = () => setShow(!show);
     const uid =
         cookies.get("rememberMe")?.uid ||
         (sessionStorage["rememberMe"]
             ? JSON.parse(sessionStorage["rememberMe"]).uid
             : "");
     const { userData, loading, fetchUserData } = useContext(UserContext);
+    const { addToast } = useToast();
 
     const onAddingWishlist = async (user_id: string, product_id: number) => {
         if (uid === "") {
-            navigate("/login");
+            addToast(
+                "Login required",
+                "You need to login to use this feature."
+            );
+            return;
         }
         try {
-            const response = await axios.post("/api/wishlist/", {
-                uid: user_id,
-                pid: product_id,
-            });
-            if (response.status === 200) {
-                console.log(response.data.msg);
-                setShow(!show);
-                setMsg("You added a product to wishlist successfully");
+            if (wishlist.some((item) => item.product.id === product_id)) {
+                const response = await axios.post(
+                    `/api/wishlist/delete/${product_id}`
+                );
+                if (response.status === 200) {
+                    console.log(response.data.msg);
+                    setWishlist((list) =>
+                        list.filter((item) => item.product.id !== product_id)
+                    );
+                    addToast(
+                        "Remove wishlist item",
+                        "Item removed from wishlist successfully"
+                    );
+                }
+            } else {
+                const response = await axios.post("/api/wishlist/", {
+                    uid: user_id,
+                    pid: product_id,
+                });
+                if (response.status === 200) {
+                    console.log(response.data.msg);
+                    const newProduct = products.filter(
+                        (product) => product.id === product_id
+                    )[0];
+                    setWishlist((list) => [
+                        ...list,
+                        {
+                            id: product_id,
+                            product: newProduct,
+                        },
+                    ]);
+                    addToast(
+                        "Add wishlist item",
+                        "Item added to wishlist successfully"
+                    );
+                }
             }
-            console.log(show);
         } catch (err) {
-            throw err;
+            console.error(err);
         }
     };
     const onAddingCart = async (user_id: string, product_id: number) => {
         if (uid === "") {
-            navigate("/login");
+            addToast(
+                "Login required",
+                "You need to login to use this feature."
+            );
+            return;
         }
         try {
             const response = await axios.post("/api/cart/", {
@@ -68,17 +101,17 @@ const HomePage = () => {
             });
             if (response.status === 200) {
                 console.log(response.data.msg);
-                setShow(!show);
-                setMsg("You added a product to your cart successfully");
+                addToast("Add cart item", "Product added to cart successfully");
             }
         } catch (err) {
-            throw err;
+            console.error(err);
         }
     };
     useEffect(() => {
         fetchUserData(uid);
         return () => {};
     }, [uid]);
+
     useEffect(() => {
         const fetchProducts = async () => {
             try {
@@ -99,23 +132,25 @@ const HomePage = () => {
     useEffect(() => {
         const fetchWishlist = async () => {
             try {
-                const response = await axios.get(`/api/wishlist/${uid}`);
-                if (response.status === 200) {
-                    const newWishlist: Wishlist[] = response.data.wishlist.map(
-                        (item: any) => {
-                            const { id, product_id, ...productProps } = item;
+                if (uid) {
+                    const response = await axios.get(`/api/wishlist/${uid}`);
+                    if (response.status === 200) {
+                        const newWishlist: Wishlist[] =
+                            response.data.wishlist.map((item: any) => {
+                                const { id, product_id, ...productProps } =
+                                    item;
 
-                            return {
-                                id,
-                                product: {
-                                    id: product_id,
-                                    ...productProps,
-                                },
-                            };
-                        }
-                    );
-                    setWishlist(newWishlist);
-                    console.log(response.data.msg);
+                                return {
+                                    id,
+                                    product: {
+                                        id: product_id,
+                                        ...productProps,
+                                    },
+                                };
+                            });
+                        setWishlist(newWishlist);
+                        console.log(response.data.msg);
+                    }
                 }
             } catch (err) {
                 console.error(err);
@@ -137,6 +172,8 @@ const HomePage = () => {
         }
         return () => {};
     }, [userData, loading]);
+
+    console.log(wishlist);
 
     return (
         <Layout>
@@ -191,9 +228,16 @@ const HomePage = () => {
                     </div>
                     <div className="home__product__menu">
                         {products
-                            .filter((product) =>
-                                userRecommendations.includes(product.id)
-                            )
+                            .filter((product) => {
+                                if (uid && userRecommendations.length > 0) {
+                                    return (
+                                        userRecommendations.includes(
+                                            product.id
+                                        ) && product.stock > 0
+                                    );
+                                } else return product.stock > 0;
+                            })
+                            .slice(0, DISPLAYED_NUMBER)
                             .map((product) => (
                                 <ProductItem
                                     key={product.id}
@@ -212,30 +256,6 @@ const HomePage = () => {
                             ))}
                     </div>
                 </div>
-
-                <ToastContainer
-                    className="p-3"
-                    position="bottom-end"
-                    style={{
-                        zIndex: 1,
-                        position: "fixed",
-                        bottom: 0,
-                        right: 0,
-                    }}
-                >
-                    <Toast
-                        show={show}
-                        onClose={toggleShow}
-                        delay={3000}
-                        autohide
-                    >
-                        <Toast.Header>
-                            <strong className="me-auto">DIGITAL-E</strong>
-                            <small>Just now</small>
-                        </Toast.Header>
-                        <Toast.Body>{msg}</Toast.Body>
-                    </Toast>
-                </ToastContainer>
             </div>
         </Layout>
     );
