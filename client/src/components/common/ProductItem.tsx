@@ -74,16 +74,43 @@ const ProductItem = ({
             >
                 {product.name}
             </p>
-            <p
-                style={{
-                    textAlign: "center",
-                    fontWeight: "bold",
-                    fontSize: "20px",
-                    color: "red",
-                }}
-            >
-                ${product.price}
-            </p>
+            {product.sale_price ? (
+                <div className="d-flex flex-row gap-3 justify-content-center">
+                    <p
+                        style={{
+                            textAlign: "center",
+                            fontWeight: "bold",
+                            fontSize: "20px",
+                            color: "gray",
+                            textDecoration: "line-through",
+                        }}
+                    >
+                        ${product.price}
+                    </p>
+                    <p
+                        style={{
+                            textAlign: "center",
+                            fontWeight: "bold",
+                            fontSize: "20px",
+                            color: "red",
+                        }}
+                    >
+                        ${product.sale_price}
+                    </p>
+                </div>
+            ) : (
+                <p
+                    style={{
+                        textAlign: "center",
+                        fontWeight: "bold",
+                        fontSize: "20px",
+                        color: "red",
+                    }}
+                >
+                    ${product.price}
+                </p>
+            )}
+
             <div
                 style={{
                     display: "flex",

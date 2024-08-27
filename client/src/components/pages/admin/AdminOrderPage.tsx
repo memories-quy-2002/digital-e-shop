@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
 import { Table } from "react-bootstrap";
-import { FaBox } from "react-icons/fa";
-import { FaMoneyBill } from "react-icons/fa6";
-import { IoCheckmarkDone } from "react-icons/io5";
 import ReactPaginate from "react-paginate";
 import axios from "../../../api/axios";
 import AdminLayout from "../../layout/AdminLayout";
@@ -46,59 +43,9 @@ const AdminOrderPage = () => {
         return () => {};
     }, []);
     console.log(orders);
-
-    const totalPrice = orders.reduce(
-        (accumulator, order) => accumulator + order.total_price,
-        0
-    );
-    const doneOrders = orders.reduce(
-        (accumulator, order) => accumulator + (order.status === 1 ? 1 : 0),
-        0
-    );
     return (
         <AdminLayout>
             <div className="admin__order">
-                <div className="admin__order__title">
-                    <h3>ORDERS DASHBOARD</h3>
-                </div>
-                <div className="admin__order__overview">
-                    <h4>Overview</h4>
-                    <div className="admin__order__overview__stat">
-                        <div className="admin__order__overview__stat__card">
-                            <div className="admin__order__overview__stat__card__icon">
-                                <i>
-                                    <FaBox size={115} />
-                                </i>
-                            </div>
-                            <div>
-                                <p>Number of orders</p>
-                                <h3>{orders.length}</h3>
-                            </div>
-                        </div>
-                        <div className="admin__order__overview__stat__card">
-                            <div className="admin__order__overview__stat__card__icon">
-                                <i>
-                                    <FaMoneyBill size={115} />
-                                </i>
-                            </div>
-                            <div>
-                                <p>Total Price</p>
-                                <h3>${totalPrice.toFixed(2)}</h3>
-                            </div>
-                        </div>
-                        <div className="admin__order__overview__stat__card">
-                            <div className="admin__order__overview__stat__card__icon">
-                                <i>
-                                    <IoCheckmarkDone size={115} />
-                                </i>
-                            </div>
-                            <div>
-                                <p>Completed Orders</p>
-                                <h3>{doneOrders}</h3>
-                            </div>
-                        </div>
-                    </div>
-                </div>
                 <div className="admin__order__list">
                     <div className="admin__order__list__search">
                         <div>

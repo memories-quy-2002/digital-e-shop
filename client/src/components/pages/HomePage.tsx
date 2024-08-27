@@ -1,9 +1,10 @@
 import { useContext, useEffect, useState } from "react";
 import { IoArrowForward } from "react-icons/io5";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Cookies from "universal-cookie";
 import axios from "../../api/axios";
 import iphone from "../../assets/images/iphone.jpg";
+import { useToast } from "../../context/ToastContext";
 import { UserContext } from "../../context/UserDataContext";
 import "../../styles/HomePage.scss";
 import { Product } from "../../utils/interface";
@@ -11,7 +12,6 @@ import recommendations from "../../utils/recommendations.json";
 import NavigationBar from "../common/NavigationBar";
 import ProductItem from "../common/ProductItem";
 import Layout from "../layout/Layout";
-import { useToast } from "../../context/ToastContext";
 
 const cookies = new Cookies();
 const DISPLAYED_NUMBER = 12;
@@ -35,7 +35,10 @@ const HomePage = () => {
     const { userData, loading, fetchUserData } = useContext(UserContext);
     const { addToast } = useToast();
 
-    const onAddingWishlist = async (user_id: string, product_id: number) => {
+    const handleAddingWishlist = async (
+        user_id: string,
+        product_id: number
+    ) => {
         if (uid === "") {
             addToast(
                 "Login required",
@@ -45,9 +48,10 @@ const HomePage = () => {
         }
         try {
             if (wishlist.some((item) => item.product.id === product_id)) {
-                const response = await axios.post(
-                    `/api/wishlist/delete/${product_id}`
-                );
+                const response = await axios.post(`/api/wishlist/delete/`, {
+                    uid: user_id,
+                    pid: product_id,
+                });
                 if (response.status === 200) {
                     console.log(response.data.msg);
                     setWishlist((list) =>
@@ -85,7 +89,7 @@ const HomePage = () => {
             console.error(err);
         }
     };
-    const onAddingCart = async (user_id: string, product_id: number) => {
+    const handleAddingCart = async (user_id: string, product_id: number) => {
         if (uid === "") {
             addToast(
                 "Login required",
@@ -172,9 +176,6 @@ const HomePage = () => {
         }
         return () => {};
     }, [userData, loading]);
-
-    console.log(wishlist);
-
     return (
         <Layout>
             <NavigationBar />
@@ -214,16 +215,15 @@ const HomePage = () => {
                             All products
                         </h3>
                         <div>
-                            <a
-                                href="/shops"
-                                target="blank"
+                            <Link
+                                to="/shops"
                                 style={{
                                     textDecoration: "none",
                                     fontSize: "20px",
                                 }}
                             >
                                 View all <IoArrowForward />
-                            </a>
+                            </Link>
                         </div>
                     </div>
                     <div className="home__product__menu">
@@ -247,10 +247,10 @@ const HomePage = () => {
                                         (item) => item.product.id === product.id
                                     )}
                                     onAddingWishlist={() =>
-                                        onAddingWishlist(uid, product.id)
+                                        handleAddingWishlist(uid, product.id)
                                     }
                                     onAddingCart={() =>
-                                        onAddingCart(uid, product.id)
+                                        handleAddingCart(uid, product.id)
                                     }
                                 />
                             ))}

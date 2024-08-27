@@ -13,7 +13,7 @@ type WishlistItemProps = {
     item: Item;
     uid: string;
     onAddingCart: (user_id: string, product_id: number) => void;
-    onRemoveWishlist: (removeId: number) => void;
+    onRemoveWishlist: (user_id: string, product_id: number) => void;
 };
 
 const WishlistItem = ({
@@ -95,7 +95,7 @@ const WishlistItem = ({
                     <Button
                         variant="primary"
                         onClick={() => {
-                            onRemoveWishlist(item.id);
+                            onRemoveWishlist(uid, item.product.id);
                             setShow(false);
                         }}
                     >

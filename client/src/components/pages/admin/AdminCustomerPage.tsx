@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Table } from "react-bootstrap";
-import { FaUser } from "react-icons/fa6";
 import ReactPaginate from "react-paginate";
 import axios from "../../../api/axios";
 import { Role } from "../../../utils/interface";
@@ -19,7 +18,7 @@ interface Account {
     showPassword: boolean;
 }
 
-const AdminAccountPage = () => {
+const AdminCustomerPage = () => {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [itemOffset, setItemOffset] = useState(0);
     const itemsPerPage = 5;
@@ -35,7 +34,7 @@ const AdminAccountPage = () => {
         setItemOffset(newOffset);
     };
     useEffect(() => {
-        const fetchOrders = async () => {
+        const fetchUsers = async () => {
             try {
                 const response = await axios.get(`/api/users/`);
                 if (response.status === 200) {
@@ -53,32 +52,13 @@ const AdminAccountPage = () => {
                 console.error(err);
             }
         };
-        fetchOrders();
+        fetchUsers();
         return () => {};
     }, []);
     // console.log(accounts);
     return (
         <AdminLayout>
             <div className="admin__account">
-                <div className="admin__account__title">
-                    <h3>ACCOUNTS DASHBOARD</h3>
-                </div>
-                <div className="admin__account__overview">
-                    <h4>Overview</h4>
-                    <div className="admin__account__overview__stat">
-                        <div className="admin__account__overview__stat__card">
-                            <div className="admin__account__overview__stat__card__icon">
-                                <i>
-                                    <FaUser size={115} />
-                                </i>
-                            </div>
-                            <div>
-                                <p>Number of accounts</p>
-                                <h3>{accounts.length}</h3>
-                            </div>
-                        </div>
-                    </div>
-                </div>
                 <div className="admin__account__list">
                     <div className="admin__account__list__search">
                         <div>
@@ -136,4 +116,4 @@ const AdminAccountPage = () => {
     );
 };
 
-export default AdminAccountPage;
+export default AdminCustomerPage;

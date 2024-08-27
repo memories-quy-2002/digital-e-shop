@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import ReactSlider from "react-slider";
 import { Product } from "../../utils/interface";
 
+const MAX_PRICE: number = 4000;
+
 type Filters = {
     categories: string[];
     brands: string[];
@@ -103,9 +105,9 @@ const AsideShops = ({
                         className="horizontal-slider"
                         thumbClassName="example-thumb"
                         trackClassName="example-track"
-                        defaultValue={[0, 5000]}
+                        defaultValue={[0, MAX_PRICE]}
                         min={0}
-                        max={5000}
+                        max={MAX_PRICE}
                         minDistance={100}
                         onChange={(newValue: [number, number]) =>
                             onPriceRangeChange(newValue)

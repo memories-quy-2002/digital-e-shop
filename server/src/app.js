@@ -26,10 +26,12 @@ app.use(
 app.use(limiter)
 
 // User
+app.get("/api/session/check", db.checkSessionToken)
 app.get("/api/users/:id", db.getUserLoginById);
+app.post("/api/users/login", db.userLogin);
+app.post("/api/users/logout", db.userLogout);
 app.get("/api/users/", db.getAllUsers)
 app.post("/api/users", db.addUser);
-app.post("/api/users/login", db.userLogin);
 
 // Product
 app.get("/api/products/:id", db.getSingleProduct);
@@ -40,7 +42,7 @@ app.get("/api/products/relevant/:pid", db.retrieveRelevantProducts)
 // Wishlist
 app.post("/api/wishlist/", db.addItemToWishlist);
 app.get("/api/wishlist/:uid", db.getWishlist);
-app.post("/api/wishlist/delete/:wid", db.deleteWishlistItem)
+app.post("/api/wishlist/delete/", db.deleteWishlistItem)
 
 // Cart
 app.post("/api/cart/", db.addItemToCart);
@@ -50,11 +52,24 @@ app.post("/api/cart/delete", db.deleteCartItem)
 // Purchase
 app.post("/api/purchase/:uid", db.makePurchase);
 app.get("/api/orders/", db.getOrders)
+app.get("/api/orders/item", db.getOrderItems)
 app.post("/api/discount", db.applyDiscount)
 
 // Review
 app.post("/api/reviews/", db.addReview)
 app.get("/api/reviews/:pid", db.getReviews)
+
+app.get('/getuser', (req, res) => {
+	//shows all the cookies 
+	res.send(req.cookies);
+});
+
+app.get('/clearuser', (request, response) => {
+	response.clearCookie("username");
+	response.clearCookie("userInfo");
+	response.clearCookie("rememberMe");
+	response.send("All cookies are clear")
+})
 
 app.listen(PORT, () => {
 	console.log(`Server is running on port ${PORT}.`);

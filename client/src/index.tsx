@@ -3,19 +3,13 @@ import ReactDOM from "react-dom/client";
 import "./index.css";
 import App from "./App";
 import reportWebVitals from "./reportWebVitals";
-import UserDataProvider from "./context/UserDataContext";
-import ToastProvider from "./context/ToastContext";
 
 const root = ReactDOM.createRoot(
     document.getElementById("root") as HTMLElement
 );
 root.render(
     <React.StrictMode>
-        <UserDataProvider>
-            <ToastProvider>
-                <App />
-            </ToastProvider>
-        </UserDataProvider>
+        <App />
     </React.StrictMode>
 );
 

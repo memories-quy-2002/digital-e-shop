@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react";
 import { Table } from "react-bootstrap";
-import { FaBox, FaRegEdit, FaRegTrashAlt } from "react-icons/fa";
-import { IoPricetagOutline } from "react-icons/io5";
-import { MdCategory } from "react-icons/md";
+import { FaRegEdit, FaRegTrashAlt } from "react-icons/fa";
 import ReactPaginate from "react-paginate";
+import { useNavigate } from "react-router-dom";
 import axios from "../../../api/axios";
 import { Product } from "../../../utils/interface";
 import AdminLayout from "../../layout/AdminLayout";
-import { useNavigate } from "react-router-dom";
 
 const AdminProductPage = () => {
     const navigate = useNavigate();
@@ -55,54 +53,9 @@ const AdminProductPage = () => {
             console.error(err);
         }
     };
-    const uniqueBrands = new Set(products.map((product) => product.brand));
-    const uniqueCategories = new Set(
-        products.map((product) => product.category)
-    );
     return (
         <AdminLayout>
             <div className="admin__product">
-                <div className="admin__product__title">
-                    <h3>PRODUCTS DASHBOARD</h3>
-                </div>
-                <div className="admin__product__overview">
-                    <h4>Overview</h4>
-                    <div className="admin__product__overview__stat">
-                        <div className="admin__product__overview__stat__card">
-                            <div className="admin__product__overview__stat__card__icon">
-                                <i>
-                                    <FaBox size={115} />
-                                </i>
-                            </div>
-                            <div>
-                                <p>Number of products</p>
-                                <h3>{products.length}</h3>
-                            </div>
-                        </div>
-                        <div className="admin__product__overview__stat__card">
-                            <div className="admin__product__overview__stat__card__icon">
-                                <i>
-                                    <IoPricetagOutline size={115} />
-                                </i>
-                            </div>
-                            <div>
-                                <p>Number of brands</p>
-                                <h3>{uniqueBrands.size}</h3>
-                            </div>
-                        </div>
-                        <div className="admin__product__overview__stat__card">
-                            <div className="admin__product__overview__stat__card__icon">
-                                <i>
-                                    <MdCategory size={115} />
-                                </i>
-                            </div>
-                            <div>
-                                <p>Number of categories</p>
-                                <h3>{uniqueCategories.size}</h3>
-                            </div>
-                        </div>
-                    </div>
-                </div>
                 <div className="admin__product__list">
                     <div className="admin__product__list__search">
                         <div>

@@ -1,4 +1,3 @@
-import queryString from "query-string";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Cookies from "universal-cookie";
@@ -47,14 +46,13 @@ const ShopsPage = () => {
             : "");
 
     const updateURL = (newFilters: Filters) => {
-        const queryParams = {
+        const queryParams = new URLSearchParams({
             categories: newFilters.categories.join(","),
             brands: newFilters.brands.join(","),
-            minPrice: newFilters.priceRange[0],
-            maxPrice: newFilters.priceRange[1],
-        };
-        const newQueryString = queryString.stringify(queryParams);
-        navigate(`${location.pathname}?${newQueryString}`);
+            minPrice: newFilters.priceRange[0].toString(),
+            maxPrice: newFilters.priceRange[1].toString(),
+        });
+        navigate(`${location.pathname}?${queryParams.toString()}`);
     };
 
     const handleCheckboxChange = (
@@ -112,17 +110,21 @@ const ShopsPage = () => {
     };
 
     useEffect(() => {
-        const queryParams = queryString.parse(location.search);
+        const queryParams = new URLSearchParams(location.search);
         const newFilters: Filters = {
-            categories: queryParams.categories
-                ? (queryParams.categories as string).split(",")
+            categories: queryParams.get("categories")
+                ? queryParams.get("categories")!.split(",")
                 : [],
-            brands: queryParams.brands
-                ? (queryParams.brands as string).split(",")
+            brands: queryParams.get("brands")
+                ? queryParams.get("brands")!.split(",")
                 : [],
             priceRange: [
-                queryParams.minPrice ? Number(queryParams.minPrice) : 0,
-                queryParams.maxPrice ? Number(queryParams.maxPrice) : 5000,
+                queryParams.get("minPrice")
+                    ? Number(queryParams.get("minPrice"))
+                    : 0,
+                queryParams.get("maxPrice")
+                    ? Number(queryParams.get("maxPrice"))
+                    : 5000,
             ],
         };
         setFilters(newFilters);

@@ -3,11 +3,17 @@ import { FaBox, FaCartShopping, FaUser } from "react-icons/fa6";
 import { useNavigate } from "react-router-dom";
 import Cookies from "universal-cookie";
 import { UserContext } from "../../../context/UserDataContext";
+import { AiFillDashboard } from "react-icons/ai";
 
 const cookies = new Cookies();
 
-const items = ["Product", "Order", "Account"];
-const itemIcons = [<FaBox />, <FaCartShopping />, <FaUser />];
+const items = ["Dashboard", "Products", "Orders", "Customers"];
+const itemIcons = [
+    <AiFillDashboard size={20} />,
+    <FaBox size={20} />,
+    <FaCartShopping size={20} />,
+    <FaUser size={20} />,
+];
 
 const AdminSidebar = () => {
     const navigate = useNavigate();
@@ -24,9 +30,14 @@ const AdminSidebar = () => {
     useEffect(() => {
         fetchUserData(uid);
     }, [uid]);
+    console.log(uid);
 
     const handleAdminNavigate = (item: string) => {
-        navigate(`/admin/${item}`);
+        if (item === "dashboard") {
+            navigate("/admin");
+        } else {
+            navigate(`/admin/${item}`);
+        }
     };
 
     return (
@@ -41,12 +52,13 @@ const AdminSidebar = () => {
                     alt="admin_avatar"
                     className="admin__layout__sidebar__information__img"
                 />
-                <div>
+                <div className="admin__layout__sidebar__information__user">
                     <strong>
-                        Welcome back,{" "}
                         {userData && !loading ? userData.username : "Anonymous"}
                     </strong>
-                    <p>{userData && !loading ? userData.email : "Anonymous"}</p>
+                    <span>
+                        {userData && !loading ? userData.email : "Anonymous"}
+                    </span>
                 </div>
             </div>
             <div className="admin__layout__sidebar__navigation">
@@ -59,11 +71,14 @@ const AdminSidebar = () => {
                                 handleAdminNavigate(item.toLowerCase())
                             }
                             className={
-                                paramItem === item.toLowerCase() ? "active" : ""
+                                paramItem === item.toLowerCase() ||
+                                (!paramItem && item === "Dashboard")
+                                    ? "active"
+                                    : ""
                             }
                         >
                             {itemIcons[index]}
-                            {item.toUpperCase() + "S"}
+                            {item}
                         </button>
                     );
                 })}

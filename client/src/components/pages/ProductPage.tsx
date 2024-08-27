@@ -17,12 +17,17 @@ interface relevantProductsItem {
     product_name: string;
 }
 
-interface Review {
+type Wishlist = {
+    id: number;
+    product: Product;
+};
+
+type Review = {
     username: string;
     rating: number;
     reviewText: string;
     created_at: Date;
-}
+};
 
 const ProductPage = () => {
     const url = new URLSearchParams(window.location.search);
@@ -57,12 +62,13 @@ const ProductPage = () => {
     const [ratingScore, setRatingScore] = useState<number>(0);
     const [reviewText, setReviewText] = useState<string>("");
     const [reviews, setReviews] = useState<Review[]>([]);
+    const [wishlist, setWishlist] = useState<Wishlist[]>([]);
 
     const [toggle, setToggle] = useState<boolean>(false);
     const [quantity, setQuantity] = useState<number>(0);
 
     useEffect(() => {
-        const fetchProduct = async () => {
+        const fetchSingleProduct = async () => {
             try {
                 const response = await axios.get(`/api/products/${pid}`);
                 if (response.status === 200) {
@@ -73,13 +79,13 @@ const ProductPage = () => {
                 setError(err.response.data.msg);
             }
         };
-        fetchProduct();
+        fetchSingleProduct();
         setQuantity(productDetail.stock);
         return () => {};
     }, [pid]);
 
     useEffect(() => {
-        const fetchProducts = async () => {
+        const fetchAllProducts = async () => {
             try {
                 const response = await axios.get("/api/products");
                 if (response.status === 200) {
@@ -90,9 +96,39 @@ const ProductPage = () => {
                 console.error(err);
             }
         };
-        fetchProducts();
+        fetchAllProducts();
         return () => {};
     }, []);
+
+    useEffect(() => {
+        const fetchWishlist = async () => {
+            try {
+                const response = await axios.get(`/api/wishlist/${uid}`);
+                if (response.status === 200) {
+                    const newWishlist: Wishlist[] = response.data.wishlist.map(
+                        (item: any) => {
+                            const { id, product_id, ...productProps } = item;
+
+                            return {
+                                id,
+                                product: {
+                                    id: product_id,
+                                    ...productProps,
+                                },
+                            };
+                        }
+                    );
+
+                    setWishlist(newWishlist);
+                    console.log(response.data.msg);
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        };
+        fetchWishlist();
+        return () => {};
+    }, [uid]);
 
     useEffect(() => {
         const fetchRelevantProducts = async () => {
@@ -186,7 +222,7 @@ const ProductPage = () => {
     ) => {
         setReviewText(event.target.value);
     };
-    const handleAddToCart = async (user_id: string, product: Product) => {
+    const handleAddingCart = async (user_id: string, product: Product) => {
         if (uid === "") {
             addToast(
                 "Login required",
@@ -223,7 +259,10 @@ const ProductPage = () => {
         }
     };
 
-    const handleAddToWishlist = async (user_id: string, product_id: number) => {
+    const handleAddingWishlist = async (
+        user_id: string,
+        product_id: number
+    ) => {
         if (uid === "") {
             addToast(
                 "Login required",
@@ -232,19 +271,46 @@ const ProductPage = () => {
             return;
         }
         try {
-            const response = await axios.post("/api/wishlist/", {
-                uid: user_id,
-                pid: product_id,
-            });
-            if (response.status === 200) {
-                console.log(response.data.msg);
-                addToast(
-                    "Add wishlist item",
-                    "Product added to wishlist successfully."
-                );
+            if (wishlist.some((item) => item.product.id === product_id)) {
+                const response = await axios.post(`/api/wishlist/delete/`, {
+                    uid: user_id,
+                    pid: product_id,
+                });
+                if (response.status === 200) {
+                    console.log(response.data.msg);
+                    setWishlist((list) =>
+                        list.filter((item) => item.product.id !== product_id)
+                    );
+                    addToast(
+                        "Remove wishlist item",
+                        "Item removed from wishlist successfully"
+                    );
+                }
+            } else {
+                const response = await axios.post("/api/wishlist/", {
+                    uid: user_id,
+                    pid: product_id,
+                });
+                if (response.status === 200) {
+                    console.log(response.data.msg);
+                    const newProduct = products.filter(
+                        (product) => product.id === product_id
+                    )[0];
+                    setWishlist((list) => [
+                        ...list,
+                        {
+                            id: product_id,
+                            product: newProduct,
+                        },
+                    ]);
+                    addToast(
+                        "Add wishlist item",
+                        "Item added to wishlist successfully"
+                    );
+                }
             }
         } catch (err) {
-            throw err;
+            console.error(err);
         }
     };
 
@@ -281,6 +347,8 @@ const ProductPage = () => {
             throw err;
         }
     };
+
+    console.log(wishlist);
 
     if (pid === 0) {
         return <ErrorPage error={error} />;
@@ -449,7 +517,7 @@ const ProductPage = () => {
                                     color: "white",
                                 }}
                                 onClick={() =>
-                                    handleAddToCart(uid, productDetail)
+                                    handleAddingCart(uid, productDetail)
                                 }
                             >
                                 Add to cart
@@ -457,10 +525,14 @@ const ProductPage = () => {
                             <button
                                 type="button"
                                 onClick={() =>
-                                    handleAddToWishlist(uid, productDetail.id)
+                                    handleAddingWishlist(uid, productDetail.id)
                                 }
                             >
-                                Add to wishlist
+                                {wishlist.some(
+                                    (item) => item.product.id === pid
+                                )
+                                    ? "Remove from wishlist"
+                                    : "Add to wishlist"}
                             </button>
                         </div>
                     </div>

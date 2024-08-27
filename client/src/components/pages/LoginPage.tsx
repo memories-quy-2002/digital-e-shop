@@ -86,7 +86,7 @@ const LoginPage = () => {
                     cookies.set("rememberMe", JSON.stringify(cookieData), {
                         httpOnly: false,
                         // Consider using Secure flag if using HTTPS
-                        maxAge: 1000 * 60 * 60 * 24 * 7, // Expires in 7 days (adjust as needed)
+                        maxAge: 1000 * 60 * 60 * 24 * 30,
                     });
                 } else {
                     sessionStorage.setItem(
@@ -97,7 +97,7 @@ const LoginPage = () => {
                 if (user.role === Role.Customer) {
                     navigate("/");
                 } else if (user.role === Role.Admin) {
-                    navigate("/admin/product");
+                    navigate("/admin");
                 }
             }
         } catch (err: any) {
@@ -147,6 +147,7 @@ const LoginPage = () => {
                             <Form.Control
                                 type="email"
                                 name="email"
+                                placeholder="Email"
                                 className="login__form__container__group__input"
                                 required
                                 autoComplete="off"
@@ -163,6 +164,7 @@ const LoginPage = () => {
                             <Form.Control
                                 type="password"
                                 name="password"
+                                placeholder="Password"
                                 className="login__form__container__group__input"
                                 required
                                 autoComplete="off"

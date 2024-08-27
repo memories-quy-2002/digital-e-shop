@@ -1,41 +1,77 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import "./App.css";
+import withSessionCheck from "./components/common/withSessionCheck";
 import CartPage from "./components/pages/CartPage";
 import CheckoutSuccessPage from "./components/pages/CheckoutSuccessPage";
 import HomePage from "./components/pages/HomePage";
 import LoginPage from "./components/pages/LoginPage";
+import NoPage from "./components/pages/NoPage";
 import ProductPage from "./components/pages/ProductPage";
 import ShopsPage from "./components/pages/ShopsPage";
 import SignupPage from "./components/pages/SignupPage";
 import WishlistPage from "./components/pages/WishlistPage";
-import AdminProductPage from "./components/pages/admin/AdminProductPage";
-import AdminOrderPage from "./components/pages/admin/AdminOrderPage";
-import AdminAccountPage from "./components/pages/admin/AdminAccountPage";
 import AdminAddProductPage from "./components/pages/admin/AdminAddProductPage";
-import NoPage from "./components/pages/NoPage";
+import AdminCustomerPage from "./components/pages/admin/AdminCustomerPage";
+import AdminDashboard from "./components/pages/admin/AdminDashboard";
+import AdminOrderPage from "./components/pages/admin/AdminOrderPage";
+import AdminProductPage from "./components/pages/admin/AdminProductPage";
+import ToastProvider from "./context/ToastContext";
+import UserDataProvider from "./context/UserDataContext";
+
+const ProtectedHomePage = withSessionCheck(HomePage);
+const ProtectedCartPage = withSessionCheck(CartPage);
+const ProtectedCheckoutSuccessPage = withSessionCheck(CheckoutSuccessPage);
+const ProtectedWishlistPage = withSessionCheck(WishlistPage);
+const ProtectedAdminDashboard = withSessionCheck(AdminDashboard);
+const ProtectedAdminProductPage = withSessionCheck(AdminProductPage);
+const ProtectedAdminCustomerPage = withSessionCheck(AdminCustomerPage);
+const ProtectedAdminOrderPage = withSessionCheck(AdminOrderPage);
 
 function App() {
     return (
-        <BrowserRouter>
-            <Routes>
-                <Route path="/" index element={<HomePage />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/signup" element={<SignupPage />} />
-                <Route path="/product" element={<ProductPage />} />
-                <Route path="/cart" element={<CartPage />} />
-                <Route path="/wishlist" element={<WishlistPage />} />
-                <Route path="/shops" element={<ShopsPage />} />
-                <Route path="/admin/product" element={<AdminProductPage />} />
-                <Route path="/admin/order" element={<AdminOrderPage />} />
-                <Route path="/admin/account" element={<AdminAccountPage />} />
-                <Route path="/admin/add" element={<AdminAddProductPage />} />
-                <Route path="*" element={<NoPage />} />
-                <Route
-                    path="/checkout-success"
-                    element={<CheckoutSuccessPage />}
-                />
-            </Routes>
-        </BrowserRouter>
+        <UserDataProvider>
+            <ToastProvider>
+                <BrowserRouter>
+                    <Routes>
+                        <Route path="/" index element={<ProtectedHomePage />} />
+                        <Route path="/login" element={<LoginPage />} />
+                        <Route path="/signup" element={<SignupPage />} />
+                        <Route path="/product" element={<ProductPage />} />
+                        <Route path="/cart" element={<ProtectedCartPage />} />
+                        <Route
+                            path="/wishlist"
+                            element={<ProtectedWishlistPage />}
+                        />
+                        <Route path="/shops" element={<ShopsPage />} />
+                        <Route
+                            path="/checkout-success"
+                            element={<ProtectedCheckoutSuccessPage />}
+                        />
+                        <Route
+                            path="/admin/"
+                            element={<ProtectedAdminDashboard />}
+                        />
+                        <Route
+                            path="/admin/products"
+                            element={<ProtectedAdminProductPage />}
+                        />
+                        <Route
+                            path="/admin/orders"
+                            element={<ProtectedAdminOrderPage />}
+                        />
+                        <Route
+                            path="/admin/customers"
+                            element={<ProtectedAdminCustomerPage />}
+                        />
+                        <Route
+                            path="/admin/add"
+                            element={<AdminAddProductPage />}
+                        />
+                        <Route path="*" element={<NoPage />} />
+                    </Routes>
+                </BrowserRouter>
+            </ToastProvider>
+        </UserDataProvider>
     );
 }
 

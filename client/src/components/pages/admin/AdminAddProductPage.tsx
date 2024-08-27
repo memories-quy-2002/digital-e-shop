@@ -1,31 +1,7 @@
-import { useEffect, useState } from "react";
 import { Button, Form } from "react-bootstrap";
-import { useNavigate } from "react-router-dom";
-import axios from "../../../api/axios";
-import { Product } from "../../../utils/interface";
 import AdminLayout from "../../layout/AdminLayout";
 
 const AdminAddProductPage = () => {
-    const navigate = useNavigate();
-    const [products, setProducts] = useState<Product[]>([]);
-
-    useEffect(() => {
-        const fetchProducts = async () => {
-            try {
-                const response = await axios.get("/api/products");
-                if (response.status === 200) {
-                    setProducts(response.data.products);
-
-                    console.log(response.data.msg);
-                }
-            } catch (err) {
-                console.error(err);
-            }
-        };
-        fetchProducts();
-        return () => {};
-    }, []);
-
     return (
         <AdminLayout>
             <div className="admin__product">
@@ -33,7 +9,7 @@ const AdminAddProductPage = () => {
                     <h3>ADD PRODUCT</h3>
                 </div>
                 <div>
-                    <div className="mb-3">
+                    <div className="mb-1">
                         <span className="cart__container__payment__form__required">
                             *
                         </span>{" "}

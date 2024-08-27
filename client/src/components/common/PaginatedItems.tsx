@@ -49,9 +49,10 @@ const PaginatedItems = ({
             if (
                 currentWishlist.some((item) => item.product.id === product_id)
             ) {
-                const response = await axios.post(
-                    `/api/wishlist/delete/${product_id}`
-                );
+                const response = await axios.post(`/api/wishlist/delete/`, {
+                    uid: user_id,
+                    pid: product_id,
+                });
                 if (response.status === 200) {
                     console.log(response.data.msg);
                     setCurrentWishlist((prevWishlist) =>
@@ -92,11 +93,15 @@ const PaginatedItems = ({
         }
     };
 
-    const handleRemoveWishlist = async (removeId: number) => {
+    const handleRemoveWishlist = async (
+        user_id: string,
+        product_id: number
+    ) => {
         try {
-            const response = await axios.post(
-                `/api/wishlist/delete/${removeId}`
-            );
+            const response = await axios.post(`/api/wishlist/delete/`, {
+                uid: user_id,
+                pid: product_id,
+            });
             if (response.status === 200) {
                 console.log(response.data.msg);
                 addToast(
@@ -104,7 +109,9 @@ const PaginatedItems = ({
                     "Item removed from wishlist successfully."
                 );
                 setCurrentWishlist((prevWishlist) =>
-                    prevWishlist.filter((item) => item.id !== removeId)
+                    prevWishlist.filter(
+                        (item) => item.product.id !== product_id
+                    )
                 );
             }
         } catch (err) {

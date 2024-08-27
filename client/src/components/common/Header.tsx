@@ -6,6 +6,7 @@ import Cookies from "universal-cookie";
 import { UserContext } from "../../context/UserDataContext";
 import "../../styles/Header.scss";
 import { useToast } from "../../context/ToastContext";
+import axios from "../../api/axios";
 
 const cookies = new Cookies();
 
@@ -22,10 +23,18 @@ export const Header = (): JSX.Element => {
         fetchUserData(uid);
     }, [uid]);
 
-    const handleLogout = () => {
-        sessionStorage.removeItem("rememberMe");
-        cookies.remove("rememberMe");
-        window.location.reload();
+    const handleLogout = async () => {
+        try {
+            const response = await axios.post("/api/users/logout");
+            if (response.status === 200) {
+                sessionStorage.removeItem("rememberMe");
+                cookies.remove("rememberMe");
+                addToast("Logout successfully", response.data.msg);
+                window.location.reload();
+            }
+        } catch (err) {
+            throw err;
+        }
     };
 
     const handleRequireLogin = (place: string) => {

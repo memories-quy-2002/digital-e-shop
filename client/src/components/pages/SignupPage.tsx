@@ -101,12 +101,12 @@ const SignupPage = () => {
                     cookies.set("rememberMe", JSON.stringify(cookieData), {
                         httpOnly: false,
                         // Consider using Secure flag if using HTTPS
-                        maxAge: 1000 * 60 * 60 * 24 * 7, // Expires in 7 days (adjust as needed)
+                        maxAge: 1000 * 60 * 60 * 24 * 30,
                     });
                     if (user.role === Role.Customer) {
                         navigate("/");
                     } else if (user.role === Role.Admin) {
-                        navigate("/admin/product");
+                        navigate("/admin");
                     }
                 }
             } catch (err) {

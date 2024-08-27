@@ -13,17 +13,59 @@ const pool = mysql.createPool({
 const uri = `mongodb+srv://vinhluu2608:vuongtranlinhlinh123456789@cluster0.teog563.mongodb.net/?retryWrites=true&w=majority`;
 
 /* Check database connection */
-const checkDbConnection = (req, res, next) => {
+const checkDbConnection = (request, response, next) => {
 	pool.getConnection((err) => {
 		if (err) {
 			console.error("Error connecting to the MySQL database: ", err);
-			return res.status(503).json({ error: 'Service Unavailable' });
+			return response.status(503).json({ error: 'Service Unavailable' });
 		} else {
 			console.log("Connected to MySQL database");
 		}
 		next();
 	});
 };
+
+const startSession = (userId) => {
+	return new Promise((resolve, reject) => {
+		const sessionStart = new Date();
+		const sessionMonth = sessionStart.getMonth() + 1; // Month (1-12)
+		const sessionYear = sessionStart.getFullYear(); // Year
+
+		pool.query(`
+            INSERT INTO customer_sessions (user_id, session_start, session_month, session_year)
+            VALUES (?, ?, ?, ?)
+        `, [userId, sessionStart, sessionMonth, sessionYear], (error, results) => {
+			if (error) {
+				console.error(error.message);
+				return reject(error);
+			}
+			resolve(results.insertId);
+		});
+	});
+};
+
+const checkSessionToken = (request, response) => {
+	const userInfo = request.cookies.userInfo; // Lấy thông tin userInfo từ cookies
+
+	if (!userInfo) {
+		return response.status(401).json({ sessionActive: false, msg: "No session information found" });
+	}
+
+	try {
+		const { token } = JSON.parse(userInfo); // Phân tích cookies JSON
+
+		const payload = jwt.verify(token, "secret-key");
+
+		if (payload) {
+			return response.status(200).json({ sessionActive: true });
+		}
+	} catch (err) {
+		console.error(err);
+		return response.status(401).json({ sessionActive: false, msg: "Session invalid or expired" });
+	}
+};
+
+
 
 const getUserLoginById = (request, response) => {
 	const uid = request.params.id;
@@ -46,111 +88,140 @@ const getUserLoginById = (request, response) => {
 
 const userLogin = (request, response) => {
 	const { uid, role } = request.body;
-	pool.query("SELECT * FROM users WHERE id = ?", [uid], (error, results) => {
+
+	pool.query("SELECT * FROM users WHERE id = ?", [uid], async (error, results) => {
 		if (error) {
 			console.error(error.message);
+			return response.status(500).json({ msg: "Internal server error" });
 		}
 		if (results.length === 0) {
-			response.status(401).json({
-				msg: "Invalid username or password or role",
-			});
+			return response.status(401).json({ msg: "Invalid username, password, or role" });
 		}
+
 		const userId = results[0].id;
 		const userRole = results[0].role;
 		const userToken = results[0].token;
+
 		if (role !== userRole) {
-			response.status(401).json({
-				msg: "Invalid username or password or role",
+			return response.status(401).json({ msg: "Invalid username, password, or role" });
+		}
+
+		try {
+			jwt.verify(userToken, "secret-key");
+
+			const sessionId = await startSession(userId);
+
+			pool.query("UPDATE users SET last_login=CURRENT_TIMESTAMP WHERE id=?", [userId]);
+
+			// Gửi cookies đến client
+			response.cookie("session", sessionId, {
+				httpOnly: true,
+				secure: false,
+				maxAge: 1000 * 60 * 60 * 24 * 30, // 30 ngày
 			});
-		} else {
-			try {
-				const payload = jwt.verify(userToken, "secret-key");
-				pool.query(
-					"SELECT * FROM users WHERE id = ?",
-					[payload.id],
-					(error, results) => {
-						if (results.length > 0) {
-							pool.query(
-								"UPDATE users SET last_login=CURRENT_TIMESTAMP WHERE id=?",
-								[userId]
-							);
-							response.cookie(
-								"user",
-								JSON.stringify({ userId, userToken }),
-								{
-									httpOnly: false,
-									// Consider using Secure flag if using HTTPS
-									maxAge: 1000 * 60 * 60 * 24 * 7, // Expires in 7 days (adjust as needed)
-								}
-							);
-							response.status(200).json({
-								uid: userId,
-								token: userToken,
-								msg: "Login successfully",
-							});
-						} else {
-							response
-								.status(204)
-								.json({ msg: "User not exists" });
-							return;
-						}
-					}
-				);
-			} catch (err) {
-				pool.query(
-					"SELECT * FROM users WHERE id = ?",
-					[userId],
-					(error, results) => {
-						if (results.length > 0) {
-							const token = jwt.sign(
-								{ id: uid, email: results[0].email },
-								"secret-key",
-								{
-									expiresIn: "30d",
-								}
-							);
-							pool.query(
-								"UPDATE users SET token = ?, last_login=CURRENT_TIMESTAMP WHERE id = ?",
-								[token, uid],
-								(error, results) => {
-									if (error) {
-										throw error;
-									}
-									response.cookie(
-										"user",
-										JSON.stringify({ uid, token }),
-										{
-											httpOnly: false,
-											// Consider using Secure flag if using HTTPS
-											maxAge: 1000 * 60 * 60 * 24 * 30, // Expires in 30 days (adjust as needed)
-										}
-									);
-									response.status(200).json({
-										token,
-										msg: "User login successfully",
-									});
-								}
-							);
-						} else {
-							response
-								.status(401)
-								.json({ msg: "User not found" });
-							return;
-						}
-					}
-				);
-			}
+
+			response.cookie("userInfo", JSON.stringify({ uid: userId, token: userToken }), {
+				httpOnly: true,
+				secure: false,
+				maxAge: 1000 * 60 * 60 * 24 * 30, // 30 ngày
+			});
+
+			return response.status(200).json({
+				uid: userId,
+				token: userToken,
+				msg: "Login successfully",
+			});
+
+		} catch (err) {
+			console.error("JWT Verification failed:", err);
+
+			const token = jwt.sign({ id: userId, email: results[0].email }, "secret-key", {
+				expiresIn: "30d",
+			});
+
+			pool.query("UPDATE users SET token = ?, last_login=CURRENT_TIMESTAMP WHERE id = ?", [token, userId], async (error) => {
+				if (error) {
+					console.error(error.message);
+					return response.status(500).json({ msg: "Internal server error" });
+				}
+
+				const sessionId = await startSession(userId);
+
+				response.cookie("session", sessionId, {
+					httpOnly: true,
+					maxAge: 1000 * 60 * 60 * 24 * 30, // 30 ngày
+				});
+
+				response.cookie("userInfo", JSON.stringify({ uid: userId, token }), {
+					httpOnly: true,
+					maxAge: 1000 * 60 * 60 * 24 * 30, // 30 ngày
+				});
+
+				return response.status(200).json({
+					token,
+					msg: "User login successfully",
+				});
+			});
 		}
 	});
 };
+
+
+const userLogout = (request, response) => {
+	const sessionId = request.cookies.session;
+	try {
+		const sessionEnd = new Date();
+		console.log('Cookies before logout:', request.cookies);
+		// Calculate session duration
+		pool.query(`SELECT session_start FROM customer_sessions WHERE id = ?`, [sessionId], (error, results) => {
+			var session_start = results[0].session_start;
+			const sessionDuration = Math.floor((sessionEnd - new Date(session_start)) / 1000);
+			pool.query(`
+				UPDATE customer_sessions
+				SET session_end = ?, session_duration = ?
+				WHERE id = ?
+			`, [sessionEnd, sessionDuration, parseInt(sessionId)], (error, results) => {
+				if (error) {
+					console.error(error.message);
+				} else {
+					response.clearCookie('session', {
+						httpOnly: true,
+						sameSite: 'strict',
+					});
+
+					// Xóa cookie 'userInfo'
+					response.clearCookie('userInfo', {
+						httpOnly: true,
+						sameSite: 'strict',
+					});
+
+					// Xóa cookie 'rememberMe' (nếu có)
+					if (request.cookies.rememberMe) {
+						response.clearCookie('rememberMe', {
+							httpOnly: true,
+							secure: process.env.NODE_ENV === 'production',
+							sameSite: 'strict',
+						});
+					}
+					console.log('Cookies after logout:', request.cookies);
+					response.status(200).json({
+						msg: "You have been logout successfully"
+					})
+				}
+			})
+		})
+
+	} catch (err) {
+		console.error(err);
+		return response.status(500).json({ msg: "Internal server error" });
+	}
+
+}
 
 const addUser = (request, response) => {
 	const { uid, user } = request.body;
 	(async () => {
 		const hashedPassword = await hashPassword(user.password);
-
-		// Create and set the "Remember Me" cookie
-
 		pool.query(
 			"INSERT INTO users (id, username, email, password, role) VALUES (?, ?, ?, ?, ?)",
 			[uid, user.username, user.email, hashedPassword, user.role],
@@ -170,15 +241,14 @@ const addUser = (request, response) => {
 						[token, uid],
 						(error, results) => {
 							if (error) {
-								throw error;
+								console.error(error)
 							}
 							response.cookie(
-								"user",
-								JSON.stringify({ uid, token }),
+								"userInfo",
+								{ uid, token },
 								{
-									httpOnly: false,
-									// Consider using Secure flag if using HTTPS
-									maxAge: 1000 * 60 * 60 * 24 * 30, // Expires in 7 days (adjust as needed)
+									httpOnly: true,
+									maxAge: 1000 * 60 * 60 * 24 * 30,
 								}
 							);
 							response.status(200).json({
@@ -369,14 +439,13 @@ const getWishlist = (request, response) => {
 };
 
 const deleteWishlistItem = (request, response) => {
-	const wid = request.params.wid;
-	console.log(wid);
-	pool.query(`DELETE FROM wishlist WHERE id = ?`, [wid], (error, results) => {
+	const { uid, pid } = request.body
+	pool.query(`DELETE FROM wishlist WHERE user_id = ? AND product_id = ?`, [uid, pid], (error, results) => {
 		if (error) {
 			console.error(error.message);
 		}
 		response.status(200).json({
-			msg: `Delete wishlist items with user_id = ${wid} successfully`,
+			msg: `Delete a wishlist item of user_id = ${uid} successfully`,
 		});
 	})
 }
@@ -475,7 +544,6 @@ const getCartItems = (request, response) => {
 
 const deleteCartItem = (request, response) => {
 	const { cartItemId } = request.body;
-	console.log(cartItemId);
 	pool.query(
 		`DELETE FROM cart_items WHERE id = ?`,
 		[cartItemId],
@@ -509,8 +577,8 @@ const makePurchase = (request, response) => {
 				orderId = results.insertId
 				cart.map(async (product) => {
 					pool.query(
-						'INSERT INTO order_items (order_id, product_id, quantity) VALUES (?, ?, ?)',
-						[orderId, product.productId, product.quantity]
+						'INSERT INTO order_items (order_id, product_id, quantity, total_price) VALUES (?, ?, ?, ?)',
+						[orderId, product.productId, product.quantity, (product.sale_price ? product.sale_price : product.price) * product.quantity]
 					);
 					pool.query(
 						'UPDATE products SET stock = stock - ? WHERE id = ?',
@@ -563,6 +631,46 @@ const getOrders = (request, response) => {
 	);
 };
 
+const getOrderItems = (request, response) => {
+	pool.query(
+		`SELECT 
+			p.id,
+			p.name,
+			p.price,
+			SUM(oi.quantity) AS sales,
+			SUM(oi.total_price) AS revenue
+		FROM 
+			products p
+		JOIN 
+			order_items oi ON p.id = oi.product_id
+		JOIN 
+			orders o ON oi.order_id = o.id
+		GROUP BY 
+			p.id, p.name, p.price
+		ORDER BY 
+			revenue DESC;
+		`,
+		(error, results) => {
+			if (error) {
+				console.error(error.message);
+			}
+			else {
+				if (results.length > 0) {
+					response.status(200).json({
+						orderItems: results,
+						msg: `Products sales and revenue have been retrieved successfully`,
+					});
+				}
+				else {
+					response.status(204).json({
+						msg: 'Items not found'
+					})
+				}
+			}
+		}
+	);
+};
+
 const retrieveRelevantProducts = async (request, response) => {
 	const pid = request.params.pid
 	try {
@@ -606,8 +714,6 @@ const addReview = (request, response) => {
 
 const getReviews = (request, response) => {
 	const pid = request.params.pid
-	console.log(pid);
-
 	pool.query(
 		`SELECT u.username, r.rating, r.review_text, r.created_at FROM reviews r JOIN users u ON u.id = r.user_id WHERE r.product_id = ?`, [pid],
 		(error, results) => {
@@ -664,10 +770,12 @@ const applyDiscount = (request, response) => {
 
 module.exports = {
 	checkDbConnection,
+	checkSessionToken,
 	getUserLoginById,
+	userLogin,
+	userLogout,
 	addUser,
 	getAllUsers,
-	userLogin,
 	getSingleProduct,
 	getListProduct,
 	deleteProduct,
@@ -679,6 +787,7 @@ module.exports = {
 	deleteCartItem,
 	makePurchase,
 	getOrders,
+	getOrderItems,
 	retrieveRelevantProducts,
 	addReview,
 	getReviews,
