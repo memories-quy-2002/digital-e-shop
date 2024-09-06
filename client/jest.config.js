@@ -2,7 +2,12 @@
 /** @type { import('jest').Config } **/
 const config = {
     preset: 'ts-jest',
-    testEnvironment: "jest-environment-node",
+    testEnvironment: "jsdom",
+    testEnvironmentOptions: {
+        url: 'https://localhost',
+        referrer: 'https://localhost',
+        performance: true,
+    },
     setupFilesAfterEnv: ['../client/src/setupTests.ts'],
     setupFiles: ["../client/jest.setup.ts"],
     transformIgnorePatterns: [

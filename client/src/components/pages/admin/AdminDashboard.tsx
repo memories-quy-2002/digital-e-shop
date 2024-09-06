@@ -81,7 +81,7 @@ const Card: React.FC<CardProps> = ({
     );
 };
 
-const AdminDashboard: React.FC = () => {
+const AdminDashboard = () => {
     const [products, setProducts] = useState<Product[]>([]);
     const [orders, setOrders] = useState<Order[]>([]);
     const [users, setUsers] = useState<User[]>([]);

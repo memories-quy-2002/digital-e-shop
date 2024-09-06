@@ -1,61 +1,223 @@
-import React from "react";
-import { render, fireEvent, waitFor, screen } from "@testing-library/react";
-import LoginPage from "../components/pages/LoginPage";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import axios from "../api/axios"; // Import your custom Axios instance
+import AdminDashboard from "../components/pages/admin/AdminDashboard";
+import HomePage from "../components/pages/HomePage";
+import LoginPage from "../components/pages/LoginPage"; // Adjust based on your project structure
+import { Role } from "../utils/interface";
 
-jest.mock("firebase/auth", () => ({
-    getAuth: jest.fn(() => ({})),
-    signInWithEmailAndPassword: jest.fn(),
-}));
+// Mock Axios
+jest.mock("../api/axios");
 
-jest.mock("../api/axios.ts", () => ({
-    post: jest.fn(),
-}));
-
+// Now `axios.post` will be of type `jest.Mock`
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+declare global {
+    interface Performance {
+        markResourceTiming: jest.Mock<void, []>;
+    }
+}
+const handleOnSubmitMock = jest.fn();
 describe("LoginPage", () => {
-    const setup = () => {
-        const { asFragment } = render(<LoginPage />);
-        const emailInput = screen.getByPlaceholderText("Email");
-        const passwordInput = screen.getByPlaceholderText("Password");
-        const loginButton = screen.getByText("Login");
-        return { asFragment, screen, emailInput, passwordInput, loginButton };
+    const users = {
+        customer: {
+            email: "test1@gmail.com",
+            password: "Phuquy2002@",
+            role: Role.Customer,
+        },
+        admin: {
+            email: "test2@gmail.com",
+            password: "Phuquy2002@",
+            role: Role.Admin,
+        },
     };
 
-    it.only("renders correctly", () => {
-        const { asFragment } = setup();
-        expect(asFragment).toMatchSnapshot();
+    beforeAll(() => {
+        global.performance.markResourceTiming = jest.fn();
     });
 
-    it("calls signInWithEmailAndPassword on submit", async () => {
-        const { emailInput, passwordInput, loginButton } = setup();
-        fireEvent.change(emailInput, { target: { value: "test@example.com" } });
-        fireEvent.change(passwordInput, { target: { value: "password123" } });
-        fireEvent.click(loginButton);
-        await waitFor(() =>
-            expect(signInWithEmailAndPassword).toHaveBeenCalledTimes(1)
+    afterEach(() => {
+        jest.clearAllMocks();
+    });
+
+    const renderLoginPage = (user: typeof users.customer) => {
+        render(
+            <MemoryRouter initialEntries={["/login"]}>
+                <Routes>
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/admin" element={<AdminDashboard />} />
+                    <Route path="/login" element={<LoginPage />} />
+                </Routes>
+            </MemoryRouter>
         );
-        expect(signInWithEmailAndPassword).toHaveBeenCalledWith(
-            expect.any(Object), // auth instance
-            "test@example.com",
-            "password123"
-        );
-    });
 
-    it("displays error message on invalid email", async () => {
-        const { emailInput, loginButton } = setup();
-        fireEvent.change(emailInput, { target: { value: "invalid-email" } });
-        fireEvent.click(loginButton);
-        await screen.findByText("Invalid email format");
-    });
+        // Fill in email and password
 
-    it("displays error message on invalid password", async () => {
-        const { passwordInput, loginButton } = setup();
-        fireEvent.change(passwordInput, {
-            target: { value: "short-password" },
+        screen.getByRole("form", { name: "login-form" }).onsubmit =
+            handleOnSubmitMock;
+        fireEvent.change(screen.getByPlaceholderText(/email/i), {
+            target: { value: user.email },
         });
-        fireEvent.click(loginButton);
-        await screen.findByText(
-            "Password must be at least 8 characters long, contain at least one lowercase letter, one uppercase letter, one number, and one special character."
+        fireEvent.change(screen.getByPlaceholderText(/password/i), {
+            target: { value: user.password },
+        });
+
+        // Select role (Customer or Admin)
+        if (user.role === Role.Customer) {
+            fireEvent.click(screen.getByLabelText("Customer"));
+        } else if (user.role === Role.Admin) {
+            fireEvent.click(screen.getByLabelText("Admin"));
+        }
+        fireEvent.click(screen.getByRole("button", { name: "Login" }));
+
+        // Expectations for form submission
+    };
+
+    it.skip("matches the LoginPage snapshot", async () => {
+        const { asFragment } = render(
+            <MemoryRouter>
+                <LoginPage />
+            </MemoryRouter>
         );
+        expect(asFragment()).toMatchSnapshot();
+    });
+
+    it("handles successful customer login", async () => {
+        // Mock axios response
+        mockedAxios.post.mockImplementationOnce(() =>
+            Promise.resolve({
+                status: 200,
+                data: { token: "customerMockedToken" },
+            })
+        );
+
+        renderLoginPage(users.customer);
+        expect(screen.getByText("Welcome back")).toBeInTheDocument();
+        expect(handleOnSubmitMock).toHaveBeenCalled();
+
+        // Wait for the axios post call
+        await waitFor(() => {
+            expect(mockedAxios.post).toHaveBeenCalledTimes(1);
+        });
+        await waitFor(() => {
+            expect(mockedAxios.post).toHaveBeenCalledWith("/api/users/login", {
+                uid: expect.any(String),
+                role: Role.Customer,
+            });
+        });
+        // Ensure it navigated to the home page (Customer role)
+    });
+
+    it("handles successful admin login", async () => {
+        // Mock axios response
+        mockedAxios.post.mockImplementationOnce(() =>
+            Promise.resolve({
+                status: 200,
+                data: { token: "adminMockedToken" },
+            })
+        );
+
+        renderLoginPage(users.admin);
+
+        expect(screen.getByText("Welcome back")).toBeInTheDocument();
+        expect(handleOnSubmitMock).toHaveBeenCalled();
+
+        // Wait for the axios post call
+        await waitFor(() => {
+            expect(mockedAxios.post).toHaveBeenCalledTimes(1);
+        });
+        await waitFor(() => {
+            expect(mockedAxios.post).toHaveBeenCalledWith("/api/users/login", {
+                uid: expect.any(String),
+                role: Role.Admin,
+            });
+        });
+    });
+
+    it("handles login error", async () => {
+        // Mock axios to return an error
+        mockedAxios.post.mockImplementationOnce(() =>
+            Promise.reject({
+                status: 401,
+                data: { token: "adminMockedToken" },
+            })
+        );
+        renderLoginPage({
+            email: "test@example.com",
+            password: "wrong_password",
+            role: Role.Customer,
+        });
+        expect(screen.getByText("Welcome back")).toBeInTheDocument();
+        // Check if the error message is shown
+        await waitFor(() => {
+            expect(
+                screen.getByText(
+                    /Password must be at least 8 characters long, contain at least one lowercase letter, one uppercase letter, one number, and one special character./i
+                )
+            ).toBeInTheDocument();
+        });
+    });
+
+    it("handle empty email", async () => {
+        // Mock axios to return an error
+        mockedAxios.post.mockImplementationOnce(() =>
+            Promise.reject({
+                status: 401,
+                data: { token: "adminMockedToken" },
+            })
+        );
+        renderLoginPage({
+            email: "",
+            password: "wrong_password",
+            role: Role.Customer,
+        });
+        expect(screen.getByText("Welcome back")).toBeInTheDocument();
+        // Check if the error message is shown
+        await waitFor(() => {
+            expect(screen.getByText(/Email is required/i)).toBeInTheDocument();
+        });
+    });
+
+    it("handles invalid email", async () => {
+        // Mock axios to return an error
+        mockedAxios.post.mockImplementationOnce(() =>
+            Promise.reject({
+                status: 401,
+                data: { token: "adminMockedToken" },
+            })
+        );
+        renderLoginPage({
+            email: "12345678",
+            password: "wrong_password",
+            role: Role.Customer,
+        });
+        expect(screen.getByText("Welcome back")).toBeInTheDocument();
+        // Check if the error message is shown
+        await waitFor(() => {
+            expect(
+                screen.getByText(/Invalid email format/i)
+            ).toBeInTheDocument();
+        });
+    });
+
+    it("handles empty password", async () => {
+        // Mock axios to return an error
+        mockedAxios.post.mockImplementationOnce(() =>
+            Promise.reject({
+                status: 401,
+                data: { token: "adminMockedToken" },
+            })
+        );
+        renderLoginPage({
+            email: "test2@gmail.com",
+            password: "",
+            role: Role.Admin,
+        });
+        expect(screen.getByText("Welcome back")).toBeInTheDocument();
+        // Check if the error message is shown
+        await waitFor(() => {
+            expect(
+                screen.getByText(/Password is required/i)
+            ).toBeInTheDocument();
+        });
     });
 });

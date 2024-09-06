@@ -17,6 +17,8 @@ import AdminOrderPage from "./components/pages/admin/AdminOrderPage";
 import AdminProductPage from "./components/pages/admin/AdminProductPage";
 import ToastProvider from "./context/ToastContext";
 import UserDataProvider from "./context/UserDataContext";
+import AboutUsPage from "./components/pages/AboutUsPage";
+import ContactUsPage from "./components/pages/ContactUsPage";
 
 const ProtectedHomePage = withSessionCheck(HomePage);
 const ProtectedCartPage = withSessionCheck(CartPage);
@@ -38,6 +40,8 @@ function App() {
                         <Route path="/signup" element={<SignupPage />} />
                         <Route path="/product" element={<ProductPage />} />
                         <Route path="/cart" element={<ProtectedCartPage />} />
+                        <Route path="/about-us" element={<AboutUsPage />} />
+                        <Route path="/contact-us" element={<ContactUsPage />} />
                         <Route
                             path="/wishlist"
                             element={<ProtectedWishlistPage />}
@@ -48,7 +52,7 @@ function App() {
                             element={<ProtectedCheckoutSuccessPage />}
                         />
                         <Route
-                            path="/admin/"
+                            path="/admin"
                             element={<ProtectedAdminDashboard />}
                         />
                         <Route

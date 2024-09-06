@@ -16,6 +16,7 @@ type PaginatedProps = {
     items: Product[] | Item[];
     uid: string;
     wishlist: Item[];
+    isWishlistPage: boolean; // Add this prop
 };
 
 const PaginatedItems = ({
@@ -23,6 +24,7 @@ const PaginatedItems = ({
     items,
     uid,
     wishlist,
+    isWishlistPage,
 }: PaginatedProps) => {
     const { addToast } = useToast();
     const [currentWishlist, setCurrentWishlist] = useState<Item[]>([]);
@@ -159,7 +161,7 @@ const PaginatedItems = ({
     return (
         <div className="shops__container__main__pagination">
             {currentItems.length > 0 ? (
-                !("product" in currentItems[0]) ? (
+                !isWishlistPage ? (
                     <div className="shops__container__main__pagination__list">
                         {currentItems.map((item) => {
                             return (
@@ -205,9 +207,9 @@ const PaginatedItems = ({
                     }}
                 >
                     <strong style={{ fontSize: "1.5rem" }}>
-                        {currentWishlist.length === 0
+                        {isWishlistPage
                             ? "There is no product in your wishlist"
-                            : "There is no products matched your filters"}
+                            : "There is no product matched the filters"}
                     </strong>
                 </div>
             )}

@@ -1,7 +1,7 @@
 import { useContext, useEffect } from "react";
 import { Navbar } from "react-bootstrap";
 import { IoCall, IoCart, IoHeart, IoHome, IoMailSharp } from "react-icons/io5";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Cookies from "universal-cookie";
 import { UserContext } from "../../context/UserDataContext";
 import "../../styles/Header.scss";
@@ -71,20 +71,16 @@ export const Header = (): JSX.Element => {
                     <div className="header__container__info__auth__button">
                         {userData && !loading ? (
                             <div>
-                                <a href="/" onClick={handleLogout}>
+                                <Link to="/" onClick={handleLogout}>
                                     Logout
-                                </a>
+                                </Link>
                             </div>
                         ) : (
-                            <>
-                                <div>
-                                    <a href="/login">Login</a>
-                                </div>
-                                <div>|</div>
-                                <div>
-                                    <a href="/signup">Signup</a>
-                                </div>
-                            </>
+                            <div>
+                                <Link to="/login">Login</Link>
+                                <span> | </span>
+                                <Link to="/signup">Signup</Link>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -103,7 +99,7 @@ export const Header = (): JSX.Element => {
                         type="text"
                         name=""
                         id=""
-                        placeholder="Search product..."
+                        placeholder="Search"
                         className="header__container__main__search__bar"
                     />
                     <button onClick={() => navigate("/product?id=1")}>

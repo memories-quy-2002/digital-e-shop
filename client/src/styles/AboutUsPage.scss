@@ -1,0 +1,23 @@
+.about-us {
+    padding: 40px;
+    height: 100vh;
+    background-color: #f5f7fa;
+    text-align: center;
+
+    &__container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    &__title {
+        font-size: 36px;
+        color: #003366;
+        margin-bottom: 20px;
+    }
+
+    &__description {
+        font-size: 18px;
+        color: #555555;
+        line-height: 1.6;
+    }
+}

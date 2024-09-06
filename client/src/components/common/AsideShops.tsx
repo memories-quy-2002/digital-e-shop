@@ -5,18 +5,20 @@ import { Product } from "../../utils/interface";
 const MAX_PRICE: number = 4000;
 
 type Filters = {
+    term: string;
     categories: string[];
     brands: string[];
     priceRange: [number, number];
 };
 
-type AsideShopsProps = {
+interface AsideShopsProps {
     products: Product[];
     filters: Filters;
     onCheckboxChange: (type: "categories" | "brands", value: string) => void;
     onPriceRangeChange: (newValue: [number, number]) => void;
     onApplyFilters: () => void;
-};
+    onTermChange: (e: React.ChangeEvent<HTMLInputElement>) => void; // Add this prop
+}
 
 const AsideShops = ({
     products,
@@ -24,10 +26,10 @@ const AsideShops = ({
     onCheckboxChange,
     onPriceRangeChange,
     onApplyFilters,
+    onTermChange,
 }: AsideShopsProps) => {
     const [categories, setCategories] = useState<string[]>([]);
     const [brands, setBrands] = useState<string[]>([]);
-    const [searchTerm, setSearchTerm] = useState<string>("");
 
     useEffect(() => {
         setCategories([
@@ -35,7 +37,8 @@ const AsideShops = ({
         ]);
         setBrands([...new Set(products.map((product) => product.brand))]);
     }, [products]);
-    console.log(filters);
+    console.log(products);
+    console.log("Brands: ", brands, "Categories: ", categories);
 
     return (
         <div className="shops__container__aside">
@@ -43,8 +46,13 @@ const AsideShops = ({
                 <input
                     type="text"
                     placeholder="Search product..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    value={filters.term}
+                    onChange={onTermChange}
+                    onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                            onApplyFilters();
+                        }
+                    }}
                 />
             </div>
             <div className="shops__container__aside__categories">
@@ -75,7 +83,10 @@ const AsideShops = ({
                     })}
                 </div>
             </div>
-            <div className="shops__container__aside__brands">
+            <div
+                className="shops__container__aside__brands"
+                data-testid="shops__aside__brand"
+            >
                 <div>
                     <h4>Brands</h4>
                     {brands.map((brand, index) => {

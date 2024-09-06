@@ -3,14 +3,16 @@ const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const rateLimit = require('express-rate-limit');
 const bodyParser = require("body-parser");
+const db = require("./database/models");
 
 const PORT = process.env.PORT || 4000;
-const db = require("./database/models");
+
 const limiter = rateLimit({
-	windowMs: 15 * 60 * 1000, // 15 phút
-	max: 1000, // Giới hạn mỗi IP chỉ được 100 request trong 15 phút
+	windowMs: 60 * 60 * 1000,
+	max: 100000,
 	message: 'Too many requests, please try again later.'
 });
+
 
 const app = express();
 
@@ -36,6 +38,7 @@ app.post("/api/users", db.addUser);
 // Product
 app.get("/api/products/:id", db.getSingleProduct);
 app.get("/api/products/", db.getListProduct);
+app.post("/api/products/add", db.addSingleProduct)
 app.post("/api/products/delete/", db.deleteProduct)
 app.get("/api/products/relevant/:pid", db.retrieveRelevantProducts)
 

@@ -1,0 +1,49 @@
+.contact-us {
+    padding: 40px;
+    background-color: #eef2f7;
+    text-align: center;
+
+    &__container {
+        max-width: 800px;
+        margin: 0 auto;
+        height: 90vh;
+    }
+
+    &__title {
+        font-size: 36px;
+        color: #002244;
+        margin-bottom: 20px;
+    }
+
+    &__description {
+        font-size: 18px;
+        color: #444444;
+        margin-bottom: 30px;
+    }
+
+    &__info {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+
+        @media (min-width: 600px) {
+            flex-direction: row;
+            justify-content: space-between;
+        }
+    }
+
+    &__section {
+        margin-bottom: 20px;
+
+        h2 {
+            font-size: 24px;
+            color: #003366;
+            margin-bottom: 10px;
+        }
+
+        p {
+            font-size: 16px;
+            color: #666666;
+        }
+    }
+}

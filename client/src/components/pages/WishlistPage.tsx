@@ -50,7 +50,7 @@ const WishlistPage = () => {
         fetchWishlist();
         return () => {};
     }, [uid]);
-    console.log(wishlist);
+    console.log("Wishlist:", wishlist);
 
     return (
         <Layout>
@@ -59,7 +59,7 @@ const WishlistPage = () => {
                 <div className="wishlist__title">
                     <h2>MY WISHLIST</h2>
                 </div>
-                {wishlist.length > 0 ?? (
+                {wishlist.length > 0 ? (
                     <div className="wishlist__category">
                         <div
                             id="wishlist_product"
@@ -80,6 +80,8 @@ const WishlistPage = () => {
                             Stock status
                         </div>
                     </div>
+                ) : (
+                    <div></div>
                 )}
 
                 <PaginatedItems
@@ -87,6 +89,7 @@ const WishlistPage = () => {
                     itemsPerPage={4}
                     uid={uid}
                     wishlist={wishlist}
+                    isWishlistPage={true}
                 />
             </div>
         </Layout>

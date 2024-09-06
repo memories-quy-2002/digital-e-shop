@@ -11,15 +11,15 @@ import Layout from "../layout/Layout";
 import ErrorPage from "./ErrorPage";
 
 const cookies = new Cookies();
-
 const ITEMS_PER_PAGE = 6;
 
-interface Wishlist {
+type Wishlist = {
     id: number;
     product: Product;
-}
+};
 
 type Filters = {
+    term: string;
     categories: string[];
     brands: string[];
     priceRange: [number, number];
@@ -32,9 +32,10 @@ const ShopsPage = () => {
     const [error, setError] = useState<string | null>(null);
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
     const [filters, setFilters] = useState<Filters>({
+        term: "",
         categories: [],
         brands: [],
-        priceRange: [0, 5000],
+        priceRange: [0, 4000],
     });
 
     const navigate = useNavigate();
@@ -51,8 +52,18 @@ const ShopsPage = () => {
             brands: newFilters.brands.join(","),
             minPrice: newFilters.priceRange[0].toString(),
             maxPrice: newFilters.priceRange[1].toString(),
+            term: newFilters.term,
         });
         navigate(`${location.pathname}?${queryParams.toString()}`);
+    };
+
+    const handleTermChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFilters((prevFilters) => {
+            return {
+                ...prevFilters,
+                term: e.target.value.trim(),
+            };
+        });
     };
 
     const handleCheckboxChange = (
@@ -78,56 +89,62 @@ const ShopsPage = () => {
         }));
     };
 
+    const getFilteredProducts = (
+        filters: Filters,
+        allProducts: Product[]
+    ): Product[] => {
+        const { term, categories, brands, priceRange } = filters;
+
+        return allProducts.filter((product) => {
+            const matchCategory =
+                categories.length === 0 ||
+                categories.includes(product.category);
+
+            const matchBrand =
+                brands.length === 0 || brands.includes(product.brand);
+
+            const matchPrice =
+                product.price >= priceRange[0] &&
+                product.price <= priceRange[1];
+
+            const matchTerm =
+                term.trim().toLowerCase() === ""
+                    ? true
+                    : product.name
+                          .toLowerCase()
+                          .includes(term.trim().toLowerCase());
+
+            // Trả về sản phẩm nếu thoả mãn tất cả các điều kiện
+            return matchCategory && matchBrand && matchPrice && matchTerm;
+        });
+    };
+
     const applyFilters = () => {
         updateURL(filters);
         setFilteredProducts(getFilteredProducts(filters, products));
     };
 
-    const getFilteredProducts = (
-        filters: Filters,
-        allProducts: Product[]
-    ): Product[] => {
-        const { categories, brands, priceRange } = filters;
-
-        return allProducts.filter((product) => {
-            // Kiểm tra filter categories
-            const matchCategory =
-                categories.length === 0 ||
-                categories.includes(product.category);
-
-            // Kiểm tra filter brands
-            const matchBrand =
-                brands.length === 0 || brands.includes(product.brand);
-
-            // Kiểm tra filter priceRange
-            const matchPrice =
-                product.price >= priceRange[0] &&
-                product.price <= priceRange[1];
-
-            // Trả về sản phẩm nếu thoả mãn tất cả các điều kiện
-            return matchCategory && matchBrand && matchPrice;
-        });
-    };
-
     useEffect(() => {
         const queryParams = new URLSearchParams(location.search);
         const newFilters: Filters = {
-            categories: queryParams.get("categories")
-                ? queryParams.get("categories")!.split(",")
-                : [],
-            brands: queryParams.get("brands")
-                ? queryParams.get("brands")!.split(",")
-                : [],
+            term: queryParams.get("term") ?? "",
+            categories:
+                queryParams
+                    .get("categories")
+                    ?.split(",")
+                    .filter((category) => category !== "") ?? [],
+            brands:
+                queryParams
+                    .get("brands")
+                    ?.split(",")
+                    .filter((brand) => brand !== "") ?? [],
             priceRange: [
-                queryParams.get("minPrice")
-                    ? Number(queryParams.get("minPrice"))
-                    : 0,
-                queryParams.get("maxPrice")
-                    ? Number(queryParams.get("maxPrice"))
-                    : 5000,
+                Number(queryParams.get("minPrice") ?? 0),
+                Number(queryParams.get("maxPrice") ?? 4000),
             ],
         };
         setFilters(newFilters);
+        return () => {};
     }, [location.search]);
 
     useEffect(() => {
@@ -154,23 +171,25 @@ const ShopsPage = () => {
     useEffect(() => {
         const fetchWishlist = async () => {
             try {
-                const response = await axios.get(`/api/wishlist/${uid}`);
-                if (response.status === 200) {
-                    const newWishlist: Wishlist[] = response.data.wishlist.map(
-                        (item: any) => {
-                            const { id, product_id, ...productProps } = item;
-                            return {
-                                id,
-                                product: {
-                                    id: product_id,
-                                    ...productProps,
-                                },
-                            };
-                        }
-                    );
+                if (uid) {
+                    const response = await axios.get(`/api/wishlist/${uid}`);
+                    if (response.status === 200) {
+                        const newWishlist: Wishlist[] =
+                            response.data.wishlist.map((item: any) => {
+                                const { id, product_id, ...productProps } =
+                                    item;
+                                return {
+                                    id,
+                                    product: {
+                                        id: product_id,
+                                        ...productProps,
+                                    },
+                                };
+                            });
 
-                    setWishlist(newWishlist);
-                    console.log(response.data.msg);
+                        setWishlist(newWishlist);
+                        console.log(response.data.msg);
+                    }
                 }
             } catch (err) {
                 console.error(err);
@@ -193,8 +212,12 @@ const ShopsPage = () => {
                         onCheckboxChange={handleCheckboxChange}
                         onPriceRangeChange={handlePriceRangeChange}
                         onApplyFilters={applyFilters}
+                        onTermChange={handleTermChange}
                     />
-                    <div className="shops__container__main">
+                    <div
+                        data-testid="shops__container"
+                        className="shops__container__main"
+                    >
                         {isLoading && <p>Loading products...</p>}
                         {error && <ErrorPage error={error} />}
                         <PaginatedItems
@@ -202,6 +225,7 @@ const ShopsPage = () => {
                             items={filteredProducts}
                             uid={uid}
                             wishlist={wishlist}
+                            isWishlistPage={false}
                         />
                     </div>
                 </div>
@@ -209,5 +233,4 @@ const ShopsPage = () => {
         </Layout>
     );
 };
-
 export default ShopsPage;

@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`HomePage matches the HomePage snapshot 1`] = `
+exports[`ShopsPage matches the ShopsPage snapshot 1`] = `
 <DocumentFragment>
   <div>
     <div
@@ -91,9 +91,11 @@ exports[`HomePage matches the HomePage snapshot 1`] = `
               >
                 Login
               </a>
-              <span>
-                 | 
-              </span>
+            </div>
+            <div>
+              |
+            </div>
+            <div>
               <a
                 href="/signup"
               >
@@ -240,239 +242,138 @@ exports[`HomePage matches the HomePage snapshot 1`] = `
       </div>
     </nav>
     <div
-      class="home"
+      class="shops"
     >
+      <h2
+        style="margin-bottom: 2rem; font-weight: bold;"
+      >
+        SHOPS PRODUCTS
+      </h2>
       <div
-        class="home__hero"
+        class="shops__container"
       >
         <div
-          class="home__hero__carousel"
+          class="shops__container__aside"
         >
           <div
-            class="home__hero__carousel__inner"
-            style="transform: translateX(0%); transition: transform 0.5s ease-in-out;"
+            class="shops__container__aside__search"
           >
-            <div
-              class="home__hero__carousel__item"
-            >
-              <img
-                alt="https://i.imgur.com/Gu5Cznz.jpg"
-                src="https://i.imgur.com/Gu5Cznz.jpg"
-              />
-              <div
-                class="home__hero__carousel__item__overlay"
-              >
-                <h2>
-                  Explore Our Latest Devices
-                </h2>
-                <p>
-                  Get the latest electronic devices and components at unbeatable prices
-                </p>
-                <button
-                  class="home__hero__carousel__item__button"
-                  type="button"
-                >
-                  Shop Now 
-                  <svg
-                    fill="currentColor"
-                    height="1em"
-                    stroke="currentColor"
-                    stroke-width="0"
-                    viewBox="0 0 512 512"
-                    width="1em"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="m268 112 144 144-144 144m124-144H100"
-                      fill="none"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="48"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div
-              class="home__hero__carousel__item"
-            >
-              <img
-                alt="https://i.imgur.com/idjXzVQ.jpg"
-                src="https://i.imgur.com/idjXzVQ.jpg"
-              />
-              <div
-                class="home__hero__carousel__item__overlay"
-              >
-                <h2>
-                  Discover Our Best Sellers
-                </h2>
-                <p>
-                  Check out our top-selling electronic devices and components
-                </p>
-                <button
-                  class="home__hero__carousel__item__button"
-                  type="button"
-                >
-                  Explore 
-                  <svg
-                    fill="currentColor"
-                    height="1em"
-                    stroke="currentColor"
-                    stroke-width="0"
-                    viewBox="0 0 512 512"
-                    width="1em"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="m268 112 144 144-144 144m124-144H100"
-                      fill="none"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="48"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div
-              class="home__hero__carousel__item"
-            >
-              <img
-                alt="https://i.imgur.com/8DYumaY.jpg"
-                src="https://i.imgur.com/8DYumaY.jpg"
-              />
-              <div
-                class="home__hero__carousel__item__overlay"
-              >
-                <h2>
-                  Get Ready for Upgrades
-                </h2>
-                <p>
-                  Upgrade your electronic devices and components with our latest offers
-                </p>
-                <button
-                  class="home__hero__carousel__item__button"
-                  type="button"
-                >
-                  Upgrade Now 
-                  <svg
-                    fill="currentColor"
-                    height="1em"
-                    stroke="currentColor"
-                    stroke-width="0"
-                    viewBox="0 0 512 512"
-                    width="1em"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="m268 112 144 144-144 144m124-144H100"
-                      fill="none"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="48"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div
-              class="home__hero__carousel__item"
-            >
-              <img
-                alt="https://i.imgur.com/8IuucQZ.jpg"
-                src="https://i.imgur.com/8IuucQZ.jpg"
-              />
-              <div
-                class="home__hero__carousel__item__overlay"
-              >
-                <h2>
-                  Experience the Future of Tech
-                </h2>
-                <p>
-                  Stay ahead of the curve with our latest electronic devices and components
-                </p>
-                <button
-                  class="home__hero__carousel__item__button"
-                  type="button"
-                >
-                  Explore 
-                  <svg
-                    fill="currentColor"
-                    height="1em"
-                    stroke="currentColor"
-                    stroke-width="0"
-                    viewBox="0 0 512 512"
-                    width="1em"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="m268 112 144 144-144 144m124-144H100"
-                      fill="none"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="48"
-                    />
-                  </svg>
-                </button>
-              </div>
+            <input
+              placeholder="Search product..."
+              type="text"
+              value=""
+            />
+          </div>
+          <div
+            class="shops__container__aside__categories"
+          >
+            <div>
+              <h4>
+                Categories
+              </h4>
             </div>
           </div>
           <div
-            class="home__hero__carousel__nav"
+            class="shops__container__aside__brands"
+            data-testid="shops__aside__brand"
           >
-            <button
-              class="home__hero__carousel__nav__prev"
-            >
-              ❮
-            </button>
-            <button
-              class="home__hero__carousel__nav__next"
-            >
-              ❯
-            </button>
+            <div>
+              <h4>
+                Brands
+              </h4>
+            </div>
           </div>
-        </div>
-      </div>
-      <div
-        class="home__product"
-      >
-        <div
-          class="home__product__header"
-        >
-          <h3
-            class="home__product__header__title"
+          <div
+            class="shops__container__aside__price"
           >
-            All products
-          </h3>
-          <div>
-            <a
-              href="/shops"
-              style="text-decoration: none; font-size: 20px;"
+            <h4>
+              Price range
+            </h4>
+            <div
+              class="shops__container__aside__price__slider"
             >
-              View all 
-              <svg
-                fill="currentColor"
-                height="1em"
-                stroke="currentColor"
-                stroke-width="0"
-                viewBox="0 0 512 512"
-                width="1em"
-                xmlns="http://www.w3.org/2000/svg"
+              <div
+                class="horizontal-slider"
+                style="position: relative;"
               >
-                <path
-                  d="m268 112 144 144-144 144m124-144H100"
-                  fill="none"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="48"
+                <div
+                  class="example-track example-track-0"
+                  style="position: absolute; left: 0px; right: 0px;"
                 />
-              </svg>
-            </a>
+                <div
+                  class="example-track example-track-1"
+                  style="position: absolute; left: 0px; right: 0px;"
+                />
+                <div
+                  class="example-track example-track-2"
+                  style="position: absolute; left: 0px; right: 0px;"
+                />
+                <div
+                  aria-disabled="false"
+                  aria-orientation="horizontal"
+                  aria-valuemax="4000"
+                  aria-valuemin="0"
+                  aria-valuenow="0"
+                  class="example-thumb example-thumb-0 "
+                  role="slider"
+                  style="position: absolute; z-index: 1; left: 0px;"
+                  tabindex="0"
+                />
+                <div
+                  aria-disabled="false"
+                  aria-orientation="horizontal"
+                  aria-valuemax="4000"
+                  aria-valuemin="0"
+                  aria-valuenow="4000"
+                  class="example-thumb example-thumb-1 "
+                  role="slider"
+                  style="position: absolute; z-index: 2; left: 0px;"
+                  tabindex="0"
+                />
+              </div>
+              <div
+                class="shops__container__aside__price__slider__num"
+              >
+                <span>
+                  0
+                </span>
+                <span>
+                  4000
+                </span>
+              </div>
+            </div>
           </div>
+          <button
+            class="btn btn-info shops__container__aside__button"
+            type="button"
+          >
+            Apply
+          </button>
         </div>
         <div
-          class="home__product__menu"
-        />
+          class="shops__container__main"
+          data-testid="shops__container"
+        >
+          <p>
+            Loading products...
+          </p>
+          <div
+            class="shops__container__main__pagination"
+          >
+            <div
+              style="display: flex; justify-content: center; align-items: center; height: 400px;"
+            >
+              <strong
+                style="font-size: 1.5rem;"
+              >
+                There is no product matched the filters
+              </strong>
+            </div>
+            <div
+              style="display: flex; justify-content: center;"
+            />
+          </div>
+        </div>
       </div>
     </div>
     <div

@@ -30,7 +30,6 @@ const AdminSidebar = () => {
     useEffect(() => {
         fetchUserData(uid);
     }, [uid]);
-    console.log(uid);
 
     const handleAdminNavigate = (item: string) => {
         if (item === "dashboard") {

@@ -75,6 +75,7 @@ const LoginPage = () => {
                 uid,
                 role: user.role,
             });
+
             if (response.status === 200) {
                 const token = response.data.token;
                 const cookies = new Cookies();
@@ -94,15 +95,13 @@ const LoginPage = () => {
                         JSON.stringify(cookieData)
                     );
                 }
-                if (user.role === Role.Customer) {
-                    navigate("/");
-                } else if (user.role === Role.Admin) {
+                if (user.role === Role.Admin) {
                     navigate("/admin");
+                } else {
+                    navigate("/");
                 }
             }
         } catch (err: any) {
-            console.log(err.response);
-
             console.error(err);
         }
     };
@@ -138,6 +137,8 @@ const LoginPage = () => {
                     <Form
                         className="login__form__container"
                         onSubmit={handleSubmit}
+                        name="login-form"
+                        aria-label="login-form"
                     >
                         <Form.Group
                             className="login__form__container__group mb-3"
@@ -173,30 +174,35 @@ const LoginPage = () => {
                             />
                         </Form.Group>
 
-                        <Form.Group
-                            className="login__form__container__group mb-5 mt-5"
-                            controlId="formBasicRadio"
-                        >
+                        <Form.Group className="login__form__container__group mb-5 mt-5">
                             <Form.Label>Login as:</Form.Label>
                             <br />
                             <Form.Check
                                 inline
                                 type="radio"
-                                name="signup-role"
-                                label="Customer"
+                                name="signup-customer"
+                                id="customer-radio"
                                 value={Role.Customer}
                                 checked={user.role === Role.Customer}
                                 onChange={handleChangeRadio}
                             />
+                            <Form.Label
+                                htmlFor="customer-radio"
+                                className="me-3"
+                            >
+                                Customer
+                            </Form.Label>
+
                             <Form.Check
                                 inline
                                 type="radio"
-                                name="signup-role"
-                                label="Admin"
+                                name="signup-admin"
+                                id="admin-radio"
                                 value={Role.Admin}
                                 checked={user.role === Role.Admin}
                                 onChange={handleChangeRadio}
                             />
+                            <Form.Label htmlFor="admin-radio">Admin</Form.Label>
                         </Form.Group>
                         <Form.Group
                             className="login__form__container__group mb-3 mt-5"
@@ -220,6 +226,7 @@ const LoginPage = () => {
                         </div>
                         <Button
                             variant="primary"
+                            name="login"
                             type="submit"
                             style={{
                                 width: "100%",

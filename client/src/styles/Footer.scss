@@ -1,36 +1,101 @@
 .footer {
-	background-color: black;
-	color: white;
-	display: flex;
-	flex-direction: row;
-	padding: 1.25rem 1rem;
-	&__about {
-		display: flex;
-		flex-direction: column;
-		flex: 2;
-		margin-left: 4rem;
-		gap: 1rem;
-	}
-	&__menuGroup {
-		flex: 3;
-		display: flex;
-		flex-direction: row;
-		justify-content: space-evenly;
-		gap: 1rem;
-		&__menu {
-			&__title {
-				text-transform: uppercase;
-				font-weight: bold;
-				margin-bottom: 1rem;
-			}
-			&__item {
-				margin-bottom: 0.4rem;
-				cursor: pointer;
-				transition: 0.3s all ease-in-out;
-				&:hover {
-					color: gray;
-				}
-			}
-		}
-	}
+    background-color: black;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    &__menuGroup {
+        background-color: black;
+        display: flex;
+        flex-direction: row;
+        padding: 2rem;
+        justify-content: space-between;
+        gap: 1rem;
+        &__menu {
+            &__title {
+                text-transform: uppercase;
+                font-weight: bold;
+                margin-bottom: 1rem;
+            }
+            &__item {
+                margin-bottom: 0.4rem;
+                cursor: pointer;
+                transition: 0.3s all ease-in-out;
+                color: white;
+                a {
+                    text-decoration: none;
+                    color: white;
+                    transition: 0.3s all ease-in-out;
+                    &:hover {
+                        color: gray;
+                    }
+                }
+                &-disabled {
+                    margin-bottom: 0.4rem;
+                    &:hover {
+                        color: white;
+                    }
+                }
+                &:hover {
+                    color: gray;
+                }
+            }
+        }
+    }
+    &__otherGroup {
+        background-color: rgb(29, 29, 29);
+        display: flex;
+        flex-direction: row;
+        padding: 2rem;
+        justify-content: space-between;
+        &__menu {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            &__title {
+                text-transform: uppercase;
+                font-weight: bold;
+                margin-bottom: 1.5rem;
+            }
+            &__item {
+                margin-bottom: 0.4rem;
+                cursor: pointer;
+                transition: 0.3s all ease-in-out;
+                color: white;
+                a {
+                    text-decoration: none;
+                    color: white;
+                    transition: 0.3s all ease-in-out;
+                    &:hover {
+                        color: gray;
+                    }
+                }
+                &-disabled {
+                    margin-bottom: 0.4rem;
+                    &:hover {
+                        color: white;
+                    }
+                }
+                &:hover {
+                    color: gray;
+                }
+            }
+            ul {
+                list-style-type: none;
+                padding: 0;
+                li > a {
+                    text-decoration: none;
+                    color: white;
+                }
+            }
+            button {
+                color: white;
+                background-color: blue;
+                font-weight: bold;
+                border-radius: 0;
+                &:hover {
+                    background-color: rgb(0, 0, 146);
+                }
+            }
+        }
+    }
 }

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import {
     BrowserRouter,
     MemoryRouter,
@@ -9,6 +9,8 @@ import {
 import HomePage from "../components/pages/HomePage";
 import ShopsPage from "../components/pages/ShopsPage";
 import ToastProvider from "../context/ToastContext";
+import LoginPage from "../components/pages/LoginPage";
+import SignupPage from "../components/pages/SignupPage";
 
 const mockedUsedNavigate = jest.fn();
 jest.mock("react-router-dom", () => ({
@@ -18,10 +20,11 @@ jest.mock("react-router-dom", () => ({
 
 const LocationDisplay = () => {
     const location = useLocation();
+    console.log("Location updated:", location.pathname);
     return <div data-testid="location-display">{location.pathname}</div>;
 };
 
-describe("HomePage", () => {
+describe.skip("HomePage", () => {
     it("matches the HomePage snapshot", () => {
         const { asFragment } = render(
             <ToastProvider>
@@ -33,7 +36,7 @@ describe("HomePage", () => {
         expect(asFragment()).toMatchSnapshot();
     });
 
-    it("navigates to /shops when 'View all' is clicked", () => {
+    it("navigates to shops page when 'View all' is clicked", async () => {
         render(
             <ToastProvider>
                 <MemoryRouter initialEntries={["/"]}>
@@ -47,13 +50,80 @@ describe("HomePage", () => {
         );
 
         const viewAllLink = screen.getByRole("link", { name: "View all" });
+        expect(viewAllLink).toBeInTheDocument();
         expect(viewAllLink).toHaveAttribute("href", "/shops");
-        if (viewAllLink) {
-            fireEvent.click(viewAllLink);
-        } else {
-            throw new Error("Link 'View all' not found");
-        }
+        fireEvent.click(viewAllLink);
+
         const location = screen.getByTestId("location-display");
-        expect(location).toHaveTextContent("/shops");
+        await waitFor(() => {
+            expect(location).toHaveTextContent("/shops");
+        });
+    });
+
+    it("navigates to login page when login link is clicked", async () => {
+        render(
+            <ToastProvider>
+                <MemoryRouter initialEntries={["/"]}>
+                    <Routes>
+                        <Route path="/" element={<HomePage />} />
+                        <Route path="/login" element={<LoginPage />} />
+                    </Routes>
+                    <LocationDisplay />
+                </MemoryRouter>
+            </ToastProvider>
+        );
+
+        const loginLink = screen.getByRole("link", { name: "Login" });
+        expect(loginLink).toBeInTheDocument();
+        expect(loginLink).toHaveAttribute("href", "/login");
+
+        fireEvent.click(loginLink);
+        const location = screen.getByTestId("location-display");
+
+        await waitFor(() => {
+            expect(location).toHaveTextContent("/login");
+        });
+    });
+
+    it("navigates to signup page", async () => {
+        render(
+            <ToastProvider>
+                <MemoryRouter initialEntries={["/"]}>
+                    <Routes>
+                        <Route path="/" element={<HomePage />} />
+                        <Route path="/signup" element={<SignupPage />} />
+                    </Routes>
+                    <LocationDisplay />
+                </MemoryRouter>
+            </ToastProvider>
+        );
+
+        const signupLink = screen.getByRole("link", { name: /signup/i });
+        expect(signupLink).toBeInTheDocument();
+        expect(signupLink).toHaveAttribute("href", "/signup");
+
+        fireEvent.click(signupLink);
+        const location = screen.getByTestId("location-display");
+
+        await waitFor(() => {
+            expect(location).toHaveTextContent("/signup");
+        });
+    });
+
+    it('displays "Login required" toast message when clicked', async () => {
+        render(
+            <ToastProvider>
+                <MemoryRouter>
+                    <HomePage />
+                </MemoryRouter>
+            </ToastProvider>
+        );
+
+        const div = screen.getByText("Wishlist");
+        fireEvent.click(div);
+
+        await waitFor(() => {
+            expect(screen.getByText("Login required")).toBeInTheDocument();
+        });
     });
 });

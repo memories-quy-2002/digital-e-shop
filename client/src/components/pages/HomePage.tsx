@@ -3,7 +3,6 @@ import { IoArrowForward } from "react-icons/io5";
 import { Link, useNavigate } from "react-router-dom";
 import Cookies from "universal-cookie";
 import axios from "../../api/axios";
-import iphone from "../../assets/images/iphone.jpg";
 import { useToast } from "../../context/ToastContext";
 import { UserContext } from "../../context/UserDataContext";
 import "../../styles/HomePage.scss";
@@ -15,6 +14,11 @@ import Layout from "../layout/Layout";
 
 const cookies = new Cookies();
 const DISPLAYED_NUMBER = 12;
+
+const bogliasco = "https://i.imgur.com/Gu5Cznz.jpg";
+const countyClare = "https://i.imgur.com/idjXzVQ.jpg";
+const craterRock = "https://i.imgur.com/8DYumaY.jpg";
+const giauPass = "https://i.imgur.com/8IuucQZ.jpg";
 interface Wishlist {
     id: number;
     product: Product;
@@ -27,6 +31,8 @@ const HomePage = () => {
     const [userRecommendations, setUserRecommendations] = useState<number[]>(
         []
     );
+    const [currentIndex, setCurrentIndex] = useState(0);
+
     const uid =
         cookies.get("rememberMe")?.uid ||
         (sessionStorage["rememberMe"]
@@ -34,6 +40,14 @@ const HomePage = () => {
             : "");
     const { userData, loading, fetchUserData } = useContext(UserContext);
     const { addToast } = useToast();
+
+    const handleNext = () => {
+        setCurrentIndex((currentIndex + 1) % 4);
+    };
+
+    const handlePrev = () => {
+        setCurrentIndex((currentIndex - 1 + 4) % 4);
+    };
 
     const handleAddingWishlist = async (
         user_id: string,
@@ -117,6 +131,14 @@ const HomePage = () => {
     }, [uid]);
 
     useEffect(() => {
+        const interval = setInterval(() => {
+            setCurrentIndex((prevIndex) => (prevIndex + 1) % 4);
+        }, 5000);
+
+        return () => clearInterval(interval); // Dọn dẹp interval khi component unmount
+    }, []);
+
+    useEffect(() => {
         const fetchProducts = async () => {
             try {
                 const response = await axios.get("/api/products");
@@ -176,37 +198,83 @@ const HomePage = () => {
         }
         return () => {};
     }, [userData, loading]);
+    console.log(currentIndex);
+
     return (
         <Layout>
             <NavigationBar />
             <div className="home">
                 <div className="home__hero">
-                    <div className="home__hero__overlap">
-                        <p className="home__hero__overlap__upto">
-                            <span className="home__hero__overlap__upto__wrapper">
-                                Up to 55% OFF
-                                <br />
-                            </span>
-                            <span
-                                className="home__hero__overlap__upto__wrapper"
-                                style={{ fontSize: "28px" }}
-                            >
-                                with the new devices
-                            </span>
-                        </p>
-                        <button
-                            type="button"
-                            className="home__hero__overlap__button"
-                            onClick={() => navigate("/")}
+                    <div className="home__hero__carousel">
+                        <div
+                            className="home__hero__carousel__inner"
+                            style={{
+                                transform: `translateX(${currentIndex * -25}%)`,
+                                transition: "transform 0.5s ease-in-out",
+                            }}
                         >
-                            BUY NOW <IoArrowForward />
-                        </button>
+                            {[bogliasco, countyClare, craterRock, giauPass].map(
+                                (image, index) => (
+                                    <div
+                                        className="home__hero__carousel__item"
+                                        key={index}
+                                    >
+                                        <img src={image} alt={image} />
+                                        <div className="home__hero__carousel__item__overlay">
+                                            <h2>
+                                                {index === 0
+                                                    ? "Explore Our Latest Devices"
+                                                    : index === 1
+                                                    ? "Discover Our Best Sellers"
+                                                    : index === 2
+                                                    ? "Get Ready for Upgrades"
+                                                    : "Experience the Future of Tech"}
+                                            </h2>
+                                            <p>
+                                                {index === 0
+                                                    ? "Get the latest electronic devices and components at unbeatable prices"
+                                                    : index === 1
+                                                    ? "Check out our top-selling electronic devices and components"
+                                                    : index === 2
+                                                    ? "Upgrade your electronic devices and components with our latest offers"
+                                                    : "Stay ahead of the curve with our latest electronic devices and components"}
+                                            </p>
+                                            <button
+                                                type="button"
+                                                className="home__hero__carousel__item__button"
+                                                onClick={() =>
+                                                    navigate("/shops")
+                                                }
+                                            >
+                                                {index === 0
+                                                    ? "Shop Now"
+                                                    : index === 1
+                                                    ? "Explore"
+                                                    : index === 2
+                                                    ? "Upgrade Now"
+                                                    : "Explore"}{" "}
+                                                <IoArrowForward />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )
+                            )}
+                        </div>
+                        <div className="home__hero__carousel__nav">
+                            <button
+                                className="home__hero__carousel__nav__prev"
+                                onClick={handlePrev}
+                            >
+                                &#10094;
+                            </button>
+                            <button
+                                className="home__hero__carousel__nav__next"
+                                onClick={handleNext}
+                            >
+                                &#10095;
+                            </button>
+                        </div>
                     </div>
-                    <img
-                        className="home__hero__overlap__iphone"
-                        alt="Iphone"
-                        src={iphone}
-                    />
                 </div>
 
                 <div className="home__product">

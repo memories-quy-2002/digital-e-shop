@@ -1,5 +1,8 @@
 const mysql = require("mysql");
 const jwt = require("jsonwebtoken");
+const fs = require('fs')
+const path = require('path')
+const multer = require('multer');
 const { ServerApiVersion } = require('mongodb');
 const MongoClient = require('mongodb').MongoClient;
 const { hashPassword } = require("../utils/hashPassword");
@@ -9,6 +12,9 @@ const pool = mysql.createPool({
 	password: "",
 	database: "e-commerce-shop",
 });
+
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 const uri = `mongodb+srv://vinhluu2608:vuongtranlinhlinh123456789@cluster0.teog563.mongodb.net/?retryWrites=true&w=majority`;
 
@@ -64,8 +70,6 @@ const checkSessionToken = (request, response) => {
 		return response.status(401).json({ sessionActive: false, msg: "Session invalid or expired" });
 	}
 };
-
-
 
 const getUserLoginById = (request, response) => {
 	const uid = request.params.id;
@@ -283,6 +287,102 @@ const getAllUsers = (request, response) => {
 			}
 		}
 	);
+};
+
+const addSingleProduct = (request, response) => {
+	const insertProduct = (productName, description, image, categoryId, brandId, specifications, price, inventory) => {
+		const imageName = productName.toLowerCase()
+			.replace(/ /g, '_')
+			.replace(/-/g, '_')
+		const imageBuffer = image.buffer
+		pool.query(
+			'INSERT INTO products (name, description, main_image, category_id, brand_id, specifications, price, stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+			[
+				productName,
+				description,
+				imageName ? imageName : null,
+				categoryId,
+				brandId,
+				specifications,
+				price,
+				inventory,
+			], (error, results) => {
+				if (error) {
+					console.error(error)
+					pool.query("ROLLBACK")
+					return response.status(500).json({ msg: 'Internal server error' });
+				} else {
+					const imagePath = path.join(__dirname, '..', '..', '..', 'client', 'src', 'assets', 'images', imageName + '.jpg',);
+					fs.writeFile(imagePath, imageBuffer, (err) => {
+						if (err) {
+							console.error('Error saving the image:', err);
+							return response.status(500).json({ msg: 'Failed to save image' });
+						}
+						pool.query("COMMIT");
+						response.status(200).json({
+							msg: 'Product added successfully',
+						});
+					});
+				}
+			}
+		);
+	}
+	upload.single('image')(request, response, (err) => {
+		if (err) {
+			return response.status(400).json({ msg: 'Error uploading file' });
+		}
+		const { name, description, category, brand, specifications, price, inventory } = request.body
+		const image = request.file;
+
+		// Check if all required fields are present
+		if (!name || !description || !category || !brand || !price || !inventory) {
+			return response.status(400).json({ msg: 'Please fill in all required fields' });
+		}
+
+		try {
+			pool.query('START TRANSACTION', (err) => {
+				if (err) throw err;
+
+				// Get or insert brand
+				pool.query('SELECT id FROM brands WHERE name = ?', [brand], (error, results) => {
+					if (error) throw error;
+
+					let brandId;
+					if (results.length > 0) {
+						brandId = results[0].id;
+					} else {
+						pool.query('INSERT INTO brands (name) VALUES (?)', [brand], (error, results) => {
+							if (error) throw error;
+							brandId = results.insertId;
+						});
+					}
+
+					// Get or insert category
+					pool.query('SELECT id FROM categories WHERE name = ?', [category], (error, results) => {
+						if (error) throw error;
+
+						let categoryId;
+						if (results.length > 0) {
+							categoryId = results[0].id;
+						} else {
+							pool.query('INSERT INTO categories (name) VALUES (?)', [category], (error, results) => {
+								if (error) throw error;
+								categoryId = results.insertId;
+							});
+						}
+
+						// Insert product only after both brandId and categoryId are obtained
+						insertProduct(name, description, image, categoryId, brandId, specifications, price, inventory);
+					});
+				});
+			});
+
+		} catch (error) {
+			console.error(error.message);
+			pool.query("ROLLBACK");
+			response.status(500).json({ msg: 'Internal server error' });
+		}
+	});
 };
 
 const getSingleProduct = (request, response) => {
@@ -776,6 +876,7 @@ module.exports = {
 	userLogout,
 	addUser,
 	getAllUsers,
+	addSingleProduct,
 	getSingleProduct,
 	getListProduct,
 	deleteProduct,
