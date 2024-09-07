@@ -6,6 +6,8 @@ import {
     FaInstagram,
     FaLinkedinIn,
 } from "react-icons/fa";
+import { useToast } from "../../context/ToastContext";
+import { useState } from "react";
 
 const Footer = () => {
     const socialLinks = [
@@ -30,6 +32,22 @@ const Footer = () => {
             icon: <FaLinkedinIn />,
         },
     ];
+    const [email, setEmail] = useState<string>("");
+    const { addToast } = useToast();
+    const handleSubscribe = () => {
+        // Add your email subscription logic here
+        const emailPattern =
+            /^([A-Za-z0-9_\-.])+@([A-Za-z0-9_\-.])+\.([A-Za-z]{2,4})$/;
+        if (email.match(emailPattern)) {
+            addToast(
+                "Subscribe to newsletter",
+                "Subscribe to newsletter successfully"
+            );
+            setEmail("");
+        } else {
+            addToast("Invalid email format", "Invalid email format");
+        }
+    };
     return (
         <div className="footer">
             <div className="footer__menuGroup">
@@ -145,8 +163,14 @@ const Footer = () => {
                             id="email_subs"
                             placeholder="Your email"
                             className="ps-2"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
                         />
-                        <button className="btn" type="button">
+                        <button
+                            className="btn"
+                            type="button"
+                            onClick={handleSubscribe}
+                        >
                             Go
                         </button>
                     </div>

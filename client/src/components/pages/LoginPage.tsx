@@ -1,7 +1,7 @@
 import { signInWithEmailAndPassword } from "firebase/auth";
 import React, { useState } from "react";
 import { Button, Container, Form } from "react-bootstrap";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Cookies from "universal-cookie";
 import axios from "../../api/axios";
 import { auth } from "../../services/firebase";
@@ -239,7 +239,7 @@ const LoginPage = () => {
                         </Button>
                         <div className="mt-4" style={{ textAlign: "center" }}>
                             Don't have an account?{" "}
-                            <a href="/signup">Register</a>
+                            <Link to="/signup">Register</Link>
                         </div>
                     </Form>
                 </div>

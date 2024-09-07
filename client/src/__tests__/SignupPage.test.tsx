@@ -1,83 +1,98 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { MemoryRouter } from "react-router-dom";
 import axios from "../api/axios"; // Import your custom Axios instance
-import AdminDashboard from "../components/pages/admin/AdminDashboard";
-import HomePage from "../components/pages/HomePage";
-import LoginPage from "../components/pages/LoginPage"; // Adjust based on your project structure
+import SignupPage from "../components/pages/SignupPage";
+import { auth } from "../services/firebase"; // This is the auth from your actual React code
 import { Role } from "../utils/interface";
-
+jest.mock("firebase/auth", () => ({
+    getAuth: jest.fn(),
+    createUserWithEmailAndPassword: jest.fn(),
+}));
 // Mock Axios
 jest.mock("../api/axios");
 
-// Now `axios.post` will be of type `jest.Mock`
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 declare global {
     interface Performance {
         markResourceTiming: jest.Mock<void, []>;
     }
 }
+
 const handleOnSubmitMock = jest.fn();
-describe.skip("LoginPage", () => {
+describe("SignupPage", () => {
     const users = {
         customer: {
-            email: "test1@gmail.com",
-            password: "Phuquy2002@",
+            username: "customer123",
+            email: "test6@gmail.com",
+            password: "Memories2002@",
+            confirm: "Memories2002@",
             role: Role.Customer,
         },
         admin: {
-            email: "test2@gmail.com",
-            password: "Phuquy2002@",
+            username: "admin123",
+            email: "test7@gmail.com",
+            password: "Memories2002@",
+            confirm: "Memories2002@",
             role: Role.Admin,
         },
     };
 
-    beforeAll(() => {
-        global.performance.markResourceTiming = jest.fn();
-    });
-
-    afterEach(() => {
-        jest.clearAllMocks();
+    beforeEach(() => {
+        jest.clearAllMocks(); // Clear mocks before each test
     });
 
     const renderLoginPage = (user: typeof users.customer) => {
         render(
             <MemoryRouter>
-                <LoginPage />
+                <SignupPage />
             </MemoryRouter>
         );
 
         // Fill in email and password
 
-        screen.getByRole("form", { name: "login-form" }).onsubmit =
+        screen.getByRole("form", { name: "signup-form" }).onsubmit =
             handleOnSubmitMock;
-        fireEvent.change(screen.getByPlaceholderText(/email/i), {
+        fireEvent.change(screen.getByPlaceholderText("Username"), {
+            target: { value: user.username },
+        });
+        fireEvent.change(screen.getByPlaceholderText("Email"), {
             target: { value: user.email },
         });
-        fireEvent.change(screen.getByPlaceholderText(/password/i), {
+        fireEvent.change(screen.getByPlaceholderText("Password"), {
             target: { value: user.password },
+        });
+
+        fireEvent.change(screen.getByPlaceholderText("Confirm Password"), {
+            target: { value: user.confirm },
         });
 
         // Select role (Customer or Admin)
         if (user.role === Role.Customer) {
-            fireEvent.click(screen.getByLabelText("Customer"));
+            const customerRadio = screen.getByLabelText("Customer");
+            fireEvent.click(customerRadio);
+            expect(customerRadio).toBeChecked();
         } else if (user.role === Role.Admin) {
-            fireEvent.click(screen.getByLabelText("Admin"));
+            const adminRadio = screen.getByLabelText("Admin");
+            fireEvent.click(adminRadio);
+            expect(adminRadio).toBeChecked();
         }
-        fireEvent.click(screen.getByRole("button", { name: "Login" }));
-
-        // Expectations for form submission
+        fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
     };
 
-    it.skip("matches the LoginPage snapshot", async () => {
+    it("matches the SignupPage snapshot", async () => {
         const { asFragment } = render(
             <MemoryRouter>
-                <LoginPage />
+                <SignupPage />
             </MemoryRouter>
         );
         expect(asFragment()).toMatchSnapshot();
     });
 
-    it("handles successful customer login", async () => {
+    it("handles successful customer signup", async () => {
+        (createUserWithEmailAndPassword as jest.Mock).mockResolvedValue({
+            user: { uid: "mock-user-id" },
+        });
         // Mock axios response
         mockedAxios.post.mockImplementationOnce(() =>
             Promise.resolve({
@@ -87,24 +102,30 @@ describe.skip("LoginPage", () => {
         );
 
         renderLoginPage(users.customer);
-        expect(screen.getByText("Welcome back")).toBeInTheDocument();
+        expect(screen.getByText("Create new account")).toBeInTheDocument();
         expect(handleOnSubmitMock).toHaveBeenCalled();
+        await waitFor(() => {
+            expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(
+                auth,
+                users.customer.email,
+                users.customer.password
+            );
+        });
 
         // Wait for the axios post call
         await waitFor(() => {
-            expect(mockedAxios.post).toHaveBeenCalledTimes(1);
-        });
-        await waitFor(() => {
-            expect(mockedAxios.post).toHaveBeenCalledWith("/api/users/login", {
-                uid: expect.any(String),
-                role: Role.Customer,
+            expect(mockedAxios.post).toHaveBeenCalledWith("/api/users", {
+                user: users.customer,
+                uid: "mock-user-id",
             });
         });
-        // Ensure it navigated to the home page (Customer role)
     });
 
-    it("handles successful admin login", async () => {
+    it("handles successful admin signup", async () => {
         // Mock axios response
+        (createUserWithEmailAndPassword as jest.Mock).mockResolvedValue({
+            user: { uid: "mock-user-id" },
+        });
         mockedAxios.post.mockImplementationOnce(() =>
             Promise.resolve({
                 status: 200,
@@ -114,35 +135,40 @@ describe.skip("LoginPage", () => {
 
         renderLoginPage(users.admin);
 
-        expect(screen.getByText("Welcome back")).toBeInTheDocument();
+        expect(screen.getByText("Create new account")).toBeInTheDocument();
         expect(handleOnSubmitMock).toHaveBeenCalled();
-
+        await waitFor(() => {
+            expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(
+                auth,
+                users.admin.email,
+                users.admin.password
+            );
+        });
         // Wait for the axios post call
         await waitFor(() => {
-            expect(mockedAxios.post).toHaveBeenCalledTimes(1);
-        });
-        await waitFor(() => {
-            expect(mockedAxios.post).toHaveBeenCalledWith("/api/users/login", {
-                uid: expect.any(String),
-                role: Role.Admin,
+            expect(mockedAxios.post).toHaveBeenCalledWith("/api/users", {
+                user: users.admin,
+                uid: "mock-user-id",
             });
         });
     });
 
-    it("handles login error", async () => {
+    it("handles signup error", async () => {
         // Mock axios to return an error
         mockedAxios.post.mockImplementationOnce(() =>
             Promise.reject({
                 status: 401,
-                data: { token: "adminMockedToken" },
+                data: { token: "customerMockedToken" },
             })
         );
         renderLoginPage({
+            username: "customer123",
             email: "test@example.com",
             password: "wrong_password",
+            confirm: "wrong_password",
             role: Role.Customer,
         });
-        expect(screen.getByText("Welcome back")).toBeInTheDocument();
+        expect(screen.getByText("Create new account")).toBeInTheDocument();
         // Check if the error message is shown
         await waitFor(() => {
             expect(
@@ -158,15 +184,17 @@ describe.skip("LoginPage", () => {
         mockedAxios.post.mockImplementationOnce(() =>
             Promise.reject({
                 status: 401,
-                data: { token: "adminMockedToken" },
+                data: { token: "customerMockedToken" },
             })
         );
         renderLoginPage({
+            username: "customer123",
             email: "",
             password: "wrong_password",
+            confirm: "wrong_password",
             role: Role.Customer,
         });
-        expect(screen.getByText("Welcome back")).toBeInTheDocument();
+        expect(screen.getByText("Create new account")).toBeInTheDocument();
         // Check if the error message is shown
         await waitFor(() => {
             expect(screen.getByText(/Email is required/i)).toBeInTheDocument();
@@ -178,15 +206,17 @@ describe.skip("LoginPage", () => {
         mockedAxios.post.mockImplementationOnce(() =>
             Promise.reject({
                 status: 401,
-                data: { token: "adminMockedToken" },
+                data: { token: "customerMockedToken" },
             })
         );
         renderLoginPage({
-            email: "12345678",
+            username: "customer123",
+            email: "test1@",
             password: "wrong_password",
+            confirm: "wrong_password",
             role: Role.Customer,
         });
-        expect(screen.getByText("Welcome back")).toBeInTheDocument();
+        expect(screen.getByText("Create new account")).toBeInTheDocument();
         // Check if the error message is shown
         await waitFor(() => {
             expect(
@@ -204,11 +234,13 @@ describe.skip("LoginPage", () => {
             })
         );
         renderLoginPage({
-            email: "test2@gmail.com",
+            username: "admin123",
+            email: "test@gmail.com",
             password: "",
+            confirm: "",
             role: Role.Admin,
         });
-        expect(screen.getByText("Welcome back")).toBeInTheDocument();
+        expect(screen.getByText("Create new account")).toBeInTheDocument();
         // Check if the error message is shown
         await waitFor(() => {
             expect(

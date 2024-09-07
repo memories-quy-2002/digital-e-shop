@@ -1,14 +1,7 @@
 import { Nav, Navbar } from "react-bootstrap";
 import "../../styles/NavBar.scss";
 
-const navItems = [
-    "shops",
-    "promotions",
-    "about us",
-    "contact us",
-    "support",
-    "news",
-];
+const navItems = ["shops", "about us", "contact us", "news", "support"];
 const NavigationBar = () => {
     return (
         <Navbar bg="gray">

@@ -9,7 +9,7 @@ import ratingStar from "../../utils/ratingStar";
 import NavigationBar from "../common/NavigationBar";
 import RecommendedProduct from "../common/RecommendedProduct";
 import Layout from "../layout/Layout";
-import ErrorPage from "./ErrorPage";
+import NoPage from "./NoPage";
 
 const cookies = new Cookies();
 interface relevantProductsItem {
@@ -40,7 +40,6 @@ const ProductPage = () => {
             : "");
 
     const pid = productId !== null ? parseInt(productId) : 0;
-    const [error, setError] = useState<string>("");
     const [products, setProducts] = useState<Product[]>([]);
     const [productDetail, setProductDetail] = useState<Product>({
         id: 0,
@@ -76,7 +75,7 @@ const ProductPage = () => {
                     console.log(response.data.msg);
                 }
             } catch (err: any) {
-                setError(err.response.data.msg);
+                console.error(err);
             }
         };
         fetchSingleProduct();
@@ -350,8 +349,8 @@ const ProductPage = () => {
 
     console.log(wishlist);
 
-    if (pid === 0) {
-        return <ErrorPage error={error} />;
+    if (pid <= 0) {
+        return <NoPage />;
     }
     return (
         <Layout>

@@ -8,7 +8,6 @@ import AsideShops from "../common/AsideShops";
 import NavigationBar from "../common/NavigationBar";
 import PaginatedItems from "../common/PaginatedItems";
 import Layout from "../layout/Layout";
-import ErrorPage from "./ErrorPage";
 
 const cookies = new Cookies();
 const ITEMS_PER_PAGE = 6;
@@ -29,7 +28,6 @@ const ShopsPage = () => {
     const [products, setProducts] = useState<Product[]>([]);
     const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(false);
-    const [error, setError] = useState<string | null>(null);
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
     const [filters, setFilters] = useState<Filters>({
         term: "",
@@ -150,7 +148,6 @@ const ShopsPage = () => {
     useEffect(() => {
         const fetchProducts = async () => {
             setIsLoading(true); // Set loading state to indicate data fetching
-            setError(null); // Clear any previous errors
             try {
                 const response = await axios.get("/api/products");
                 if (response.status === 200) {
@@ -159,7 +156,7 @@ const ShopsPage = () => {
                     console.log(response.data.msg);
                 }
             } catch (err: any) {
-                setError(err);
+                console.error(err);
             } finally {
                 setIsLoading(false);
             }
@@ -219,7 +216,6 @@ const ShopsPage = () => {
                         className="shops__container__main"
                     >
                         {isLoading && <p>Loading products...</p>}
-                        {error && <ErrorPage error={error} />}
                         <PaginatedItems
                             itemsPerPage={ITEMS_PER_PAGE}
                             items={filteredProducts}

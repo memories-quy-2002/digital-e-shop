@@ -1,7 +1,7 @@
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import React, { useState } from "react";
 import { Button, Container, Form } from "react-bootstrap";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
 import { auth } from "../../services/firebase";
 import "../../styles/SignupPage.scss";
@@ -146,6 +146,8 @@ const SignupPage = () => {
                     <Form
                         className="signup__form__container"
                         onSubmit={handleSubmit}
+                        name="signup-form"
+                        aria-label="signup-form"
                     >
                         <Form.Group
                             className="signup__form__container__group mb-3"
@@ -155,6 +157,7 @@ const SignupPage = () => {
                             <Form.Control
                                 type="text"
                                 name="username"
+                                placeholder="Username"
                                 className="signup__form__container__group__input"
                                 required
                                 autoComplete="off"
@@ -170,6 +173,7 @@ const SignupPage = () => {
                             <Form.Control
                                 type="email"
                                 name="email"
+                                placeholder="Email"
                                 className="signup__form__container__group__input"
                                 required
                                 autoComplete="off"
@@ -185,6 +189,7 @@ const SignupPage = () => {
                             <Form.Control
                                 type="password"
                                 name="password"
+                                placeholder="Password"
                                 className="signup__form__container__group__input"
                                 required
                                 autoComplete="off"
@@ -200,6 +205,7 @@ const SignupPage = () => {
                             <Form.Control
                                 type="password"
                                 name="confirm"
+                                placeholder="Confirm Password"
                                 className="signup__form__container__group__input"
                                 required
                                 autoComplete="off"
@@ -216,22 +222,31 @@ const SignupPage = () => {
                             <Form.Check
                                 inline
                                 type="radio"
-                                name="signup-role-1"
-                                label="Customer"
+                                name="signup-customer"
+                                id="customer-radio"
                                 value={Role.Customer}
                                 checked={user.role === Role.Customer}
                                 onChange={handleChangeRadio}
                             />
+                            <Form.Label
+                                htmlFor="customer-radio"
+                                className="me-3"
+                            >
+                                Customer
+                            </Form.Label>
+
                             <Form.Check
                                 inline
                                 type="radio"
-                                name="signup-role-2"
-                                label="Admin"
+                                name="signup-admin"
+                                id="admin-radio"
                                 value={Role.Admin}
                                 checked={user.role === Role.Admin}
                                 onChange={handleChangeRadio}
                             />
+                            <Form.Label htmlFor="admin-radio">Admin</Form.Label>
                         </Form.Group>
+
                         <div className="mb-5">
                             {errors.map((error, id) => (
                                 <div key={id} className="text-danger mb-2">
@@ -252,7 +267,7 @@ const SignupPage = () => {
                             Sign up
                         </Button>
                         <div className="mt-4" style={{ textAlign: "center" }}>
-                            Already registered? <a href="/login">Login</a>
+                            Already registered? <Link to="/login">Login</Link>
                         </div>
                     </Form>
                 </div>

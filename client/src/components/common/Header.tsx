@@ -1,4 +1,4 @@
-import { useContext, useEffect } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Navbar } from "react-bootstrap";
 import { IoCall, IoCart, IoHeart, IoHome, IoMailSharp } from "react-icons/io5";
 import { Link, useNavigate } from "react-router-dom";
@@ -13,6 +13,7 @@ const cookies = new Cookies();
 export const Header = (): JSX.Element => {
     const navigate = useNavigate();
     const { addToast } = useToast();
+    const [searchTerm, setSearchTerm] = useState<string>("");
     const uid =
         cookies.get("rememberMe")?.uid ||
         (sessionStorage["rememberMe"]
@@ -22,6 +23,10 @@ export const Header = (): JSX.Element => {
     useEffect(() => {
         fetchUserData(uid);
     }, [uid]);
+
+    const handleSearch = () => {
+        navigate(`/shops?term=${searchTerm}`);
+    };
 
     const handleLogout = async () => {
         try {
@@ -97,14 +102,14 @@ export const Header = (): JSX.Element => {
                 <div className="header__container__main__search">
                     <input
                         type="text"
-                        name=""
-                        id=""
+                        name="header_search"
+                        id="header_search"
                         placeholder="Search"
                         className="header__container__main__search__bar"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                    <button onClick={() => navigate("/product?id=1")}>
-                        Search
-                    </button>
+                    <button onClick={handleSearch}>Search</button>
                 </div>
                 <div className="header__container__main__group">
                     <div

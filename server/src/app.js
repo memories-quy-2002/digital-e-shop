@@ -6,22 +6,27 @@ const bodyParser = require("body-parser");
 const db = require("./database/models");
 
 const PORT = process.env.PORT || 4000;
-
 const limiter = rateLimit({
 	windowMs: 60 * 60 * 1000,
 	max: 100000,
 	message: 'Too many requests, please try again later.'
 });
-
-
+const allowedOrigins = ["http://localhost:3000", "http://192.168.100.8:3000", "https://e-commerce-website-1-1899.vercel.app/"];
 const app = express();
 
 /* Middleware */
 app.use(bodyParser.json());
 app.use(cookieParser());
+
 app.use(
 	cors({
-		origin: "http://localhost:3000",
+		origin: function (origin, callback) {
+			if (allowedOrigins.includes(origin)) {
+				callback(null, true);
+			} else {
+				callback(new Error("Not allowed by CORS"));
+			}
+		},
 		credentials: true,
 	})
 );

@@ -38,7 +38,7 @@ const AsideShops = ({
         setBrands([...new Set(products.map((product) => product.brand))]);
     }, [products]);
     console.log(products);
-    console.log("Brands: ", brands, "Categories: ", categories);
+    console.log("Filter: ", filters);
 
     return (
         <div className="shops__container__aside">
@@ -120,7 +120,7 @@ const AsideShops = ({
                         min={0}
                         max={MAX_PRICE}
                         minDistance={100}
-                        onChange={(newValue: [number, number]) =>
+                        onAfterChange={(newValue: [number, number]) =>
                             onPriceRangeChange(newValue)
                         }
                     />
