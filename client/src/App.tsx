@@ -19,6 +19,7 @@ import ToastProvider from "./context/ToastContext";
 import UserDataProvider from "./context/UserDataContext";
 import AboutUsPage from "./components/pages/AboutUsPage";
 import ContactUsPage from "./components/pages/ContactUsPage";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 const ProtectedHomePage = withSessionCheck(HomePage);
 const ProtectedCartPage = withSessionCheck(CartPage);
@@ -73,6 +74,7 @@ function App() {
                         />
                         <Route path="*" element={<NoPage />} />
                     </Routes>
+                    <SpeedInsights />
                 </BrowserRouter>
             </ToastProvider>
         </UserDataProvider>
