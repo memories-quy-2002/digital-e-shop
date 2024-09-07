@@ -452,7 +452,7 @@ const getListProduct = (request, response) => {
 			if (error) {
 				console.error(error.message);
 			}
-			if (results.length > 0) {
+			else if (results.length > 0) {
 				response.status(200).json({
 					products: results,
 					msg: "Get list products successfully",
