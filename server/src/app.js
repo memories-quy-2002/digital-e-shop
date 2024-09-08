@@ -13,13 +13,7 @@ const limiter = rateLimit({
 });
 const allowedOrigins = ["http://localhost:3000", "https://e-commerce-website-1-1899.vercel.app"];
 const app = express();
-
-/* Middleware */
-app.options('*', cors());
-app.use(bodyParser.json());
-app.use(cookieParser());
-
-app.use(cors({
+const corsOptions = {
 	origin: function (origin, callback) {
 		// Nếu không có origin hoặc origin nằm trong danh sách cho phép
 		if (!origin || allowedOrigins.indexOf(origin) !== -1) {
@@ -29,11 +23,17 @@ app.use(cors({
 		}
 	},
 	credentials: true, // Để cho phép credentials (cookies, authorization headers, etc.)
+	methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 	allowedHeaders: ['Content-Type', 'Authorization'], // Bổ sung các headers nếu cần
-}));
+}
+/* Middleware */
+app.options('*', cors(corsOptions));
+app.use(cors(corsOptions));
+
+app.use(bodyParser.json());
+app.use(cookieParser());
+
 app.use(limiter)
-
-
 
 // User
 app.get("/api/session/check", db.checkSessionToken)
