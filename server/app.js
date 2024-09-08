@@ -11,27 +11,28 @@ const limiter = rateLimit({
 	max: 100000,
 	message: 'Too many requests, please try again later.'
 });
-const allowedOrigins = ["http://localhost:3000", "http://192.168.100.8:3000", "https://e-commerce-website-1-1899.vercel.app"];
+const allowedOrigins = ["http://localhost:3000", "https://e-commerce-website-1-1899.vercel.app"];
 const app = express();
 
 /* Middleware */
-app.options('*', cors())
+app.options('*', cors());
 app.use(bodyParser.json());
 app.use(cookieParser());
 
-app.use(
-	cors({
-		origin: function (origin, callback) {
-			if (!origin || allowedOrigins.includes(origin)) {
-				callback(null, true);
-			} else {
-				callback(new Error('Not allowed by CORS'));
-			}
-		},
-		credentials: true, // Đảm bảo cookie sẽ được gửi kèm
-	})
-);
+app.use(cors({
+	origin: function (origin, callback) {
+		// Nếu không có origin hoặc origin nằm trong danh sách cho phép
+		if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+			callback(null, true);
+		} else {
+			callback(new Error('Not allowed by CORS'));
+		}
+	},
+	credentials: true, // Để cho phép credentials (cookies, authorization headers, etc.)
+	allowedHeaders: ['Content-Type', 'Authorization'], // Bổ sung các headers nếu cần
+}));
 app.use(limiter)
+
 
 
 // User
