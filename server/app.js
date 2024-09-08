@@ -32,8 +32,8 @@ app.use(
 );
 app.use(limiter)
 
-app.options('/login', function (req, res) {
-	res.header("Access-Control-Allow-Origin", "YOUR_URL"); // restrict it to the required domain
+app.options('*', function (req, res) {
+	res.header("Access-Control-Allow-Origin", "https://e-commerce-website-1-1899.vercel.app"); // restrict it to the required domain
 	res.header("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS");
 	// Set custom headers for CORS
 	res.header("Access-Control-Allow-Headers", "Content-type,Accept,X-Custom-Header");
