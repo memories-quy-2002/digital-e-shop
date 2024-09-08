@@ -32,6 +32,19 @@ app.use(
 );
 app.use(limiter)
 
+app.options('/login', function (req, res) {
+	res.header("Access-Control-Allow-Origin", "YOUR_URL"); // restrict it to the required domain
+	res.header("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS");
+	// Set custom headers for CORS
+	res.header("Access-Control-Allow-Headers", "Content-type,Accept,X-Custom-Header");
+
+	if (req.method === "OPTIONS") {
+		return res.status(200).end();
+	}
+
+	return next();
+});
+
 // User
 app.get("/api/session/check", db.checkSessionToken)
 app.get("/api/users/:id", db.getUserLoginById);
