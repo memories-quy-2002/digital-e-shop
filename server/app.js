@@ -11,7 +11,7 @@ const limiter = rateLimit({
 	max: 100000,
 	message: 'Too many requests, please try again later.'
 });
-const allowedOrigins = ["http://localhost:3000", "http://192.168.100.8:3000", "https://e-commerce-website-1-1899.vercel.app/"];
+const allowedOrigins = ["http://localhost:3000", "http://192.168.100.8:3000", "https://e-commerce-website-1-1899.vercel.app"];
 const app = express();
 
 /* Middleware */
@@ -33,7 +33,7 @@ app.use(
 app.use(limiter)
 
 app.options('/login', function (req, res) {
-	res.header("Access-Control-Allow-Origin", "YOUR_URL"); // restrict it to the required domain
+	res.header("Access-Control-Allow-Origin", "https://e-commerce-website-1-1899.vercel.app"); // restrict it to the required domain
 	res.header("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS");
 	// Set custom headers for CORS
 	res.header("Access-Control-Allow-Headers", "Content-type,Accept,X-Custom-Header");
@@ -42,7 +42,7 @@ app.options('/login', function (req, res) {
 		return res.status(200).end();
 	}
 
-	return next();
+	res.end();
 });
 
 // User
