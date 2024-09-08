@@ -93,7 +93,8 @@ const getUserLoginById = (request, response) => {
 
 const userLogin = (request, response) => {
 	const { uid, role } = request.body;
-
+	response.set('Access-Control-Allow-Origin', 'https://e-commerce-website-1-1899.vercel.app');  // Đảm bảo không có dấu *
+	response.set('Access-Control-Allow-Credentials', 'true');
 	pool.query("SELECT * FROM users WHERE id = ?", [uid], async (error, results) => {
 		if (error) {
 			console.error(error.message);
