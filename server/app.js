@@ -15,6 +15,7 @@ const allowedOrigins = ["http://localhost:3000", "http://192.168.100.8:3000", "h
 const app = express();
 
 /* Middleware */
+app.options('*', cors())
 app.use(bodyParser.json());
 app.use(cookieParser());
 
@@ -32,18 +33,6 @@ app.use(
 );
 app.use(limiter)
 
-app.options('*', function (req, res) {
-	res.header("Access-Control-Allow-Origin", "https://e-commerce-website-1-1899.vercel.app"); // restrict it to the required domain
-	res.header("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS");
-	// Set custom headers for CORS
-	res.header("Access-Control-Allow-Headers", "Content-type,Accept,X-Custom-Header");
-
-	if (req.method === "OPTIONS") {
-		return res.status(200).end();
-	}
-
-	res.end();
-});
 
 // User
 app.get("/api/session/check", db.checkSessionToken)
