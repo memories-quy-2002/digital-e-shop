@@ -4,15 +4,17 @@ const cookieParser = require("cookie-parser");
 const rateLimit = require('express-rate-limit');
 const bodyParser = require("body-parser");
 const db = require("./database/models");
-
-const PORT = process.env.PORT || 4000;
 const limiter = rateLimit({
 	windowMs: 60 * 60 * 1000,
 	max: 100000,
 	message: 'Too many requests, please try again later.'
 });
-const allowedOrigins = ["http://localhost:3000", "https://e-commerce-website-1-1899.vercel.app"];
+
+const PORT = process.env.PORT || 4000;
+
 const app = express();
+const allowedOrigins = ["http://localhost:3000", "https://e-commerce-website-1-1899.vercel.app"];
+
 const corsOptions = {
 	origin: function (origin, callback) {
 		// Nếu không có origin hoặc origin nằm trong danh sách cho phép
@@ -27,6 +29,7 @@ const corsOptions = {
 	allowedHeaders: ['Content-Type', 'Authorization'], // Bổ sung các headers nếu cần
 }
 /* Middleware */
+app.options('/api/users/login', cors(corsOptions));
 app.options('*', cors(corsOptions));
 app.use(cors(corsOptions));
 
@@ -38,7 +41,7 @@ app.use(limiter)
 // User
 app.get("/api/session/check", db.checkSessionToken)
 app.get("/api/users/:id", db.getUserLoginById);
-app.post("/api/users/login", db.userLogin);
+app.post("/api/users/login", cors(corsOptions), db.userLogin);
 app.post("/api/users/logout", db.userLogout);
 app.get("/api/users/", db.getAllUsers)
 app.post("/api/users", db.addUser);

@@ -205,7 +205,7 @@ const userLogout = (request, response) => {
 						response.clearCookie('rememberMe', {
 							httpOnly: true,
 							secure: process.env.NODE_ENV === 'production',
-							sameSite: 'strict',
+							sameSite: 'None',
 						});
 					}
 					console.log('Cookies after logout:', request.cookies);
