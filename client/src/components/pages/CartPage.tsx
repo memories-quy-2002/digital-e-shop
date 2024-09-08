@@ -109,6 +109,7 @@ const CartPage = () => {
                 var newPrice = response.data.newPrice;
                 setDiscount(totalPrice - newPrice);
                 setSubtotal(newPrice);
+                setError("");
                 addToast(
                     "Applying Coupon",
                     "Coupon has been applied successfully"

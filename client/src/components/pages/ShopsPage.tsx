@@ -101,10 +101,11 @@ const ShopsPage = () => {
             const matchBrand =
                 brands.length === 0 || brands.includes(product.brand);
 
-            const matchPrice =
-                product.price >= priceRange[0] &&
-                product.price <= priceRange[1];
-
+            const matchPrice = product.sale_price
+                ? product.sale_price >= priceRange[0] &&
+                  product.sale_price <= priceRange[1]
+                : product.price >= priceRange[0] &&
+                  product.price <= priceRange[1];
             const matchTerm =
                 term.trim().toLowerCase() === ""
                     ? true
