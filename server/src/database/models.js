@@ -1,35 +1,36 @@
+require('dotenv').config();
+
 const mysql = require("mysql");
 const jwt = require("jsonwebtoken");
 const fs = require('fs')
 const path = require('path')
 const multer = require('multer');
+
 const { ServerApiVersion } = require('mongodb');
 const MongoClient = require('mongodb').MongoClient;
 const { hashPassword } = require("../utils/hashPassword");
+
 const pool = mysql.createPool({
-	host: "localhost",
-	user: "root",
-	password: "",
-	database: "e-commerce-shop",
+	host: process.env.DB_HOST,
+	user: process.env.DB_USER,
+	password: process.env.DB_PASSWORD,
+	database: process.env.DB_NAME,
+	port: process.env.DB_PORT,
+});
+
+pool.getConnection((err, connection) => {
+	if (err) {
+		console.error('Error connecting to MySQL database:', err);
+		return;
+	}
+	console.log('Connected to MySQL database!');
+	connection.release();
 });
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 const uri = `mongodb+srv://vinhluu2608:vuongtranlinhlinh123456789@cluster0.teog563.mongodb.net/?retryWrites=true&w=majority`;
-
-/* Check database connection */
-const checkDbConnection = (request, response, next) => {
-	pool.getConnection((err) => {
-		if (err) {
-			console.error("Error connecting to the MySQL database: ", err);
-			return response.status(503).json({ error: 'Service Unavailable' });
-		} else {
-			console.log("Connected to MySQL database");
-		}
-		next();
-	});
-};
 
 const startSession = (userId) => {
 	return new Promise((resolve, reject) => {
@@ -796,20 +797,44 @@ const retrieveRelevantProducts = async (request, response) => {
 
 const addReview = (request, response) => {
 	const { uid, pid, rating, reviewText } = request.body
-	pool.query(
-		`INSERT INTO reviews (user_id, product_id, rating, review_text) VALUE (?, ?, ?, ?)`,
-		[uid, pid, rating, reviewText],
-		(error, results) => {
+	if (!pid || !rating) {
+		return response.status(400).json({ msg: 'Please provide productId and rating' });
+	}
+	pool.query('SELECT reviews, rating FROM products WHERE id = ?', [pid], (error, results) => {
+		if (error) {
+			console.error(error);
+			return response.status(500).json({ msg: 'Database error' });
+		}
+
+		if (results.length === 0) {
+			return response.status(404).json({ msg: 'Product not found' });
+		}
+
+		const currentReviews = results[0].reviews || 0;
+		const currentRating = results[0].rating || 0;
+
+
+		const newReviews = currentReviews + 1;
+		const newRating = (currentRating * currentReviews + rating) / newReviews;
+
+		pool.query('INSERT INTO reviews (user_id, product_id, rating, review_text) VALUES (?, ?, ?, ?)', [uid, pid, rating, reviewText], (error, results) => {
 			if (error) {
-				console.error(error.message);
+				console.error(error);
+				return response.status(500).json({ msg: 'Database error when adding review' });
 			}
-			else {
+
+			pool.query('UPDATE products SET reviews = ?, rating = ? WHERE id = ?', [newReviews, newRating, pid], (error, results) => {
+				if (error) {
+					console.error(error);
+					return response.status(500).json({ msg: 'Database error when updating product' });
+				}
+
 				response.status(200).json({
 					msg: `The review has been added to the product with id = ${pid}`,
 				})
-			}
-		}
-	);
+			});
+		});
+	});
 }
 
 const getReviews = (request, response) => {
@@ -869,7 +894,6 @@ const applyDiscount = (request, response) => {
 }
 
 module.exports = {
-	checkDbConnection,
 	checkSessionToken,
 	getUserLoginById,
 	userLogin,
