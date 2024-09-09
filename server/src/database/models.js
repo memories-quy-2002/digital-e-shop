@@ -174,6 +174,8 @@ const userLogin = (request, response) => {
 
 
 const userLogout = (request, response) => {
+	response.set('Access-Control-Allow-Origin', 'https://e-commerce-website-1-1899.vercel.app');
+	response.set('Access-Control-Allow-Credentials', 'true');
 	const sessionId = request.cookies.session;
 	try {
 		const sessionEnd = new Date();

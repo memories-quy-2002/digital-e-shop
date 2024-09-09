@@ -5,18 +5,14 @@ import { IoLogOutOutline, IoNotifications, IoSearch } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import Cookies from "universal-cookie";
 import axios from "../../../api/axios";
+import { useToast } from "../../../context/ToastContext";
 
 const cookies = new Cookies();
 
 const AdminHeader = () => {
-    const navigate = useNavigate();
+    const { addToast } = useToast();
     const [unreadCount, setUnreadCount] = useState<number>(1);
     const [show, setShow] = useState<boolean>(false);
-    const uid =
-        cookies.get("rememberMe")?.uid ||
-        (sessionStorage["rememberMe"]
-            ? JSON.parse(sessionStorage["rememberMe"]).uid
-            : "");
     const handleClick = () => {
         setShow(true);
     };
@@ -25,12 +21,13 @@ const AdminHeader = () => {
     };
     const handleLogout = async () => {
         try {
-            sessionStorage.removeItem("rememberMe");
-            cookies.remove("rememberMe");
-            navigate("/login");
-            // const response = await axios.post("/api/users/logout", { uid });
-            // if (response.status === 200) {
-            // }
+            const response = await axios.post("/api/users/logout");
+            if (response.status === 200) {
+                sessionStorage.removeItem("rememberMe");
+                cookies.remove("rememberMe");
+                addToast("Logout successfully", response.data.msg);
+                window.location.reload();
+            }
         } catch (err) {
             throw err;
         }

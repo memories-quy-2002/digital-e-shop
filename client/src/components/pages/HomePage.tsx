@@ -198,7 +198,6 @@ const HomePage = () => {
         }
         return () => {};
     }, [userData, loading]);
-    console.log(currentIndex);
 
     return (
         <Layout>

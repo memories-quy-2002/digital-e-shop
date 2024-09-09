@@ -17,9 +17,9 @@ const withSessionCheck = (WrappedComponent: React.ComponentType) => {
                         return;
                     }
                 } catch (error: any) {
-                    // if (error.response.status === 401) {
-                    //     navigate("/login");
-                    // }
+                    if (error.response.status === 401) {
+                        navigate("/login");
+                    }
                 }
             };
             checkSession();
