@@ -7,6 +7,7 @@ import { UserContext } from "../../context/UserDataContext";
 import "../../styles/Header.scss";
 import { useToast } from "../../context/ToastContext";
 import axios from "../../api/axios";
+import { Helmet } from "react-helmet";
 
 const cookies = new Cookies();
 
@@ -52,6 +53,9 @@ export const Header = (): JSX.Element => {
 
     return (
         <div className="header__container">
+            <Helmet>
+                <title>Digital-E</title>
+            </Helmet>
             <div className="header__container__info">
                 <div className="header__container__info__personal">
                     <div className="header__container__info__personal__item">

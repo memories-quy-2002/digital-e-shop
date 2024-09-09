@@ -104,10 +104,13 @@ const AdminProductPage = () => {
                                                         : require(`../../../assets/images/product_placeholder.jpg`)
                                                 }
                                                 alt={product.name}
-                                                style={{ height: "100px" }}
+                                                style={{
+                                                    height: "108px",
+                                                    width: "144px",
+                                                }}
                                             />
                                         </td>
-                                        <td width="500px">{product.name}</td>
+                                        <td width="450px">{product.name}</td>
                                         <td width="150px">
                                             {product.category}
                                         </td>
@@ -119,9 +122,9 @@ const AdminProductPage = () => {
                                         <td width="150px">{product.stock}</td>
                                         <td>
                                             <div>
-                                                <button type="button">
+                                                {/* <button type="button">
                                                     <FaRegEdit />
-                                                </button>
+                                                </button> */}
                                                 <button
                                                     type="button"
                                                     onClick={() =>

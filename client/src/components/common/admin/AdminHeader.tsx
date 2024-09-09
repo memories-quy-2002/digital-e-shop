@@ -2,10 +2,10 @@ import React, { useState } from "react";
 import { Button, Modal } from "react-bootstrap";
 import { FaHome } from "react-icons/fa";
 import { IoLogOutOutline, IoNotifications, IoSearch } from "react-icons/io5";
-import { useNavigate } from "react-router-dom";
 import Cookies from "universal-cookie";
 import axios from "../../../api/axios";
 import { useToast } from "../../../context/ToastContext";
+import { Helmet } from "react-helmet";
 
 const cookies = new Cookies();
 
@@ -35,6 +35,10 @@ const AdminHeader = () => {
 
     return (
         <div className="admin__layout__main__header">
+            <Helmet>
+                <title>Digital-E - Admin</title>
+            </Helmet>
+            F
             <div
                 style={{
                     display: "flex",

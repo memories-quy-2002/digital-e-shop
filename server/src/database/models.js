@@ -93,8 +93,6 @@ const getUserLoginById = (request, response) => {
 
 const userLogin = (request, response) => {
 	const { uid, role } = request.body;
-	response.set('Access-Control-Allow-Origin', 'https://e-commerce-website-1-1899.vercel.app');  // Đảm bảo không có dấu *
-	response.set('Access-Control-Allow-Credentials', 'true');
 	pool.query("SELECT * FROM users WHERE id = ?", [uid], async (error, results) => {
 		if (error) {
 			console.error(error.message);
@@ -122,13 +120,15 @@ const userLogin = (request, response) => {
 			// Gửi cookies đến client
 			response.cookie("session", sessionId, {
 				httpOnly: true,
-				secure: false,
+				secure: true,
+				sameSite: 'None',
 				maxAge: 1000 * 60 * 60 * 24 * 30, // 30 ngày
 			});
 
 			response.cookie("userInfo", JSON.stringify({ uid: userId, token: userToken }), {
 				httpOnly: true,
-				secure: false,
+				secure: true,
+				sameSite: 'None',
 				maxAge: 1000 * 60 * 60 * 24 * 30, // 30 ngày
 			});
 
@@ -747,6 +747,7 @@ const getOrderItems = (request, response) => {
 			p.id,
 			p.name,
 			p.price,
+			oi.order_id,
 			SUM(oi.quantity) AS sales,
 			SUM(oi.total_price) AS revenue
 		FROM 
@@ -756,7 +757,7 @@ const getOrderItems = (request, response) => {
 		JOIN 
 			orders o ON oi.order_id = o.id
 		GROUP BY 
-			p.id, p.name, p.price
+			p.id, p.name, p.price, oi.order_id
 		ORDER BY 
 			revenue DESC;
 		`,

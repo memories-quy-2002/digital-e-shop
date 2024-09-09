@@ -21,7 +21,6 @@ import AboutUsPage from "./components/pages/AboutUsPage";
 import ContactUsPage from "./components/pages/ContactUsPage";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
-const ProtectedHomePage = withSessionCheck(HomePage);
 const ProtectedCartPage = withSessionCheck(CartPage);
 const ProtectedCheckoutSuccessPage = withSessionCheck(CheckoutSuccessPage);
 const ProtectedWishlistPage = withSessionCheck(WishlistPage);
@@ -36,7 +35,7 @@ function App() {
             <ToastProvider>
                 <BrowserRouter>
                     <Routes>
-                        <Route path="/" index element={<ProtectedHomePage />} />
+                        <Route path="/" index element={<HomePage />} />
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/signup" element={<SignupPage />} />
                         <Route path="/product" element={<ProductPage />} />

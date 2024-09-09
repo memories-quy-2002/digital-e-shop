@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { FaBox, FaMoneyBill, FaShoppingCart, FaUser } from "react-icons/fa";
+import {
+    FaArrowDown,
+    FaArrowUp,
+    FaBox,
+    FaMoneyBill,
+    FaShoppingCart,
+    FaUser,
+} from "react-icons/fa";
 import axios from "../../../api/axios";
 import { Product, Role } from "../../../utils/interface";
 import {
@@ -21,6 +28,7 @@ interface CardProps {
     value: any;
     description: string;
     bgColor: string;
+    percentage?: number;
     icon: React.ReactNode;
 }
 
@@ -37,6 +45,8 @@ type Order = {
 type OrderItem = {
     id: number;
     name: string;
+    price: number;
+    order_id: number;
     sales: number;
     revenue: number;
 };
@@ -57,11 +67,17 @@ type MonthlyRevenue = {
     revenue: number;
 };
 
+type MonthlySales = {
+    name: string;
+    sales: number;
+};
+
 const Card: React.FC<CardProps> = ({
     title,
     value,
     description,
     bgColor,
+    percentage,
     icon,
 }) => {
     return (
@@ -76,6 +92,27 @@ const Card: React.FC<CardProps> = ({
             <div className="admin__dashboard-card__details">
                 <p>{value}</p>
                 <span>{description} </span>
+                {percentage && (
+                    <strong
+                        style={{
+                            display: "flex",
+                            marginTop: "2px",
+                            alignItems: "center",
+                            gap: "0.25rem",
+                        }}
+                    >
+                        {percentage > 0 ? (
+                            <>
+                                <FaArrowUp /> {percentage.toFixed(2)}%
+                            </>
+                        ) : (
+                            <>
+                                <FaArrowDown />{" "}
+                                {Math.abs(percentage).toFixed(2)}%
+                            </>
+                        )}
+                    </strong>
+                )}
             </div>
         </div>
     );
@@ -87,14 +124,6 @@ const AdminDashboard = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
 
-    const salesData = [
-        { name: "March", sales: 3000 },
-        { name: "April", sales: 5000 },
-        { name: "May", sales: 20000 },
-        { name: "June", sales: 30000 },
-        { name: "July", sales: 45000 },
-        { name: "August", sales: 10000 },
-    ];
     useEffect(() => {
         const fetchProducts = async () => {
             try {
@@ -157,6 +186,53 @@ const AdminDashboard = () => {
     }, []);
     console.log(orderItems);
 
+    const getMonthlySales = (
+        orders: Order[],
+        orderItems: OrderItem[]
+    ): MonthlySales[] => {
+        const monthlySalesMap: { [key: string]: number } = {};
+        const currentDate = new Date();
+
+        // Initialize sales for the last 6 months
+        for (let i = 5; i >= 0; i--) {
+            const date = new Date(
+                currentDate.getFullYear(),
+                currentDate.getMonth() - i,
+                1
+            );
+            const month = date.toLocaleString("default", { month: "long" });
+            const year = date.getFullYear();
+            const monthKey = `${month} ${year}`;
+            monthlySalesMap[monthKey] = 0;
+        }
+
+        // Calculate sales for each month based on the OrderItem sales
+        orders.forEach((order) => {
+            const date = new Date(order.date_added);
+            const month = date.toLocaleString("default", { month: "long" });
+            const year = date.getFullYear();
+            const monthKey = `${month} ${year}`;
+
+            // Find all items for the current order
+            const itemsInOrder = orderItems.filter(
+                (item) => item.order_id === order.id
+            );
+
+            if (monthlySalesMap[monthKey] !== undefined) {
+                // Sum the sales for all items in this order
+                itemsInOrder.forEach((item) => {
+                    monthlySalesMap[monthKey] += item.sales;
+                });
+            }
+        });
+
+        // Convert the map into an array of MonthlySales
+        return Object.entries(monthlySalesMap).map(([name, sales]) => ({
+            name,
+            sales,
+        }));
+    };
+
     const getMonthlyRevenues = (orders: Order[]): MonthlyRevenue[] => {
         const monthlyRevenueMap: { [key: string]: number } = {};
         const currentDate = new Date();
@@ -189,17 +265,32 @@ const AdminDashboard = () => {
         // Tạo mảng MonthlyRevenue từ map
         return Object.entries(monthlyRevenueMap).map(([name, revenue]) => ({
             name,
-            revenue,
+            revenue: parseFloat(revenue.toFixed(2)),
         }));
     };
     const totalSales = orderItems.reduce(
         (accumulate, item) => accumulate + item.sales,
         0
     );
-    const totalRevenue = orders.reduce(
-        (accumulate, order) => accumulate + order.subtotal,
-        0
+    const calculatePercentageChange = (
+        currentValue: number,
+        previousValue: number
+    ): number => {
+        return previousValue > 0
+            ? ((currentValue - previousValue) / previousValue) * 100
+            : 0;
+    };
+
+    const revenuePercentageChange = calculatePercentageChange(
+        getMonthlyRevenues(orders)[5].revenue,
+        getMonthlyRevenues(orders)[4].revenue
     );
+
+    const salesPercentageChange = calculatePercentageChange(
+        getMonthlySales(orders, orderItems)[5].sales,
+        getMonthlySales(orders, orderItems)[4].sales
+    );
+
     return (
         <AdminLayout>
             {" "}
@@ -214,26 +305,31 @@ const AdminDashboard = () => {
                         value={totalSales}
                         description="Total for this month"
                         bgColor="purple"
+                        percentage={salesPercentageChange}
                         icon={<FaShoppingCart />}
                     />
                     <Card
                         title="Revenue"
-                        value={"$" + totalRevenue.toFixed(2)}
+                        value={
+                            "$" +
+                            getMonthlyRevenues(orders)[5].revenue.toFixed(2)
+                        }
                         description="Total for this month"
                         bgColor="darkblue"
+                        percentage={revenuePercentageChange}
                         icon={<FaMoneyBill />}
                     />
                     <Card
                         title="Products"
                         value={products.length}
-                        description="Total for this month"
+                        description="Total"
                         bgColor="green"
                         icon={<FaBox />}
                     />
                     <Card
                         title="Users"
                         value={users.length}
-                        description="Total for this month"
+                        description="Total"
                         bgColor="blue"
                         icon={<FaUser />}
                     />
@@ -242,7 +338,9 @@ const AdminDashboard = () => {
                     <div style={{ flex: 1 }}>
                         <h3>Sales Over Time</h3>
                         <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={salesData}>
+                            <LineChart
+                                data={getMonthlySales(orders, orderItems)}
+                            >
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="name" />
                                 <YAxis />
@@ -289,7 +387,7 @@ const AdminDashboard = () => {
                         </thead>
                         <tbody>
                             {orderItems.map((product, index) => (
-                                <tr>
+                                <tr key={index}>
                                     <td width="50px">
                                         {orderItems.indexOf(product) + 1}
                                     </td>
