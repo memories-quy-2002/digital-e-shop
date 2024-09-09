@@ -268,10 +268,6 @@ const AdminDashboard = () => {
             revenue: parseFloat(revenue.toFixed(2)),
         }));
     };
-    const totalSales = orderItems.reduce(
-        (accumulate, item) => accumulate + item.sales,
-        0
-    );
     const calculatePercentageChange = (
         currentValue: number,
         previousValue: number
@@ -302,7 +298,7 @@ const AdminDashboard = () => {
                 <div className="admin__dashboard-cards">
                     <Card
                         title="Sales"
-                        value={totalSales}
+                        value={getMonthlySales(orders, orderItems)[5].sales}
                         description="Total for this month"
                         bgColor="purple"
                         percentage={salesPercentageChange}
