@@ -155,11 +155,15 @@ const userLogin = (request, response) => {
 
 				response.cookie("session", sessionId, {
 					httpOnly: true,
+					secure: true,
+					sameSite: 'None',
 					maxAge: 1000 * 60 * 60 * 24 * 30, // 30 ngày
 				});
 
 				response.cookie("userInfo", JSON.stringify({ uid: userId, token }), {
 					httpOnly: true,
+					secure: true,
+					sameSite: 'None',
 					maxAge: 1000 * 60 * 60 * 24 * 30, // 30 ngày
 				});
 
@@ -194,13 +198,15 @@ const userLogout = (request, response) => {
 				} else {
 					response.clearCookie('session', {
 						httpOnly: true,
-						sameSite: 'strict',
+						secure: true,
+						sameSite: 'None',
 					});
 
 					// Xóa cookie 'userInfo'
 					response.clearCookie('userInfo', {
 						httpOnly: true,
-						sameSite: 'strict',
+						secure: true,
+						sameSite: 'None',
 					});
 
 					// Xóa cookie 'rememberMe' (nếu có)

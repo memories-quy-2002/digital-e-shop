@@ -25,12 +25,15 @@ const corsOptions = {
 		}
 	},
 	credentials: true, // Để cho phép credentials (cookies, authorization headers, etc.)
-	methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-	allowedHeaders: ['Content-Type', 'Authorization'], // Bổ sung các headers nếu cần
 }
 /* Middleware */
 app.options('/api/users/login', cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.options('*', (req, res) => {
+	res.setHeader('Access-Control-Allow-Origin', 'https://e-commerce-website-1-1899.vercel.app');
+	res.setHeader('Access-Control-Allow-Credentials', 'true');
+	res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE');
+	res.sendStatus(204);  // Không có nội dung trong phản hồi OPTIONS
+});
 app.use(cors(corsOptions));
 
 app.use(bodyParser.json());
