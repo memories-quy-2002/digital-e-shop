@@ -77,6 +77,11 @@ app.post("/api/discount", db.applyDiscount)
 app.post("/api/reviews/", db.addReview)
 app.get("/api/reviews/:pid", db.getReviews)
 
+app.get('/', (req, res) => {
+	//shows all the cookies 
+	res.send("Hello World from Express");
+});
+
 app.get('/getuser', (req, res) => {
 	//shows all the cookies 
 	res.send(req.cookies);

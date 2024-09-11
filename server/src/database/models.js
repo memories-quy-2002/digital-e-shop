@@ -793,18 +793,19 @@ const retrieveRelevantProducts = async (request, response) => {
 		const documents = await collection.find({ product_id: parseInt(pid) }).toArray();
 
 		await client.close();
-		if (documents) {
+		if (documents.length > 0) {
 			response.status(200).json({
 				relevantProducts: documents[0].relevant_products,
 				msg: `Retrieved products relevant with product id = ${pid} successfully`,
 			});
 		}
 		else {
-			response.status(204).json({
+			response.status(200).json({
 				relevantProducts: [],
-				msg: `No relevant products found`,
-			});
+				msg: `No relevant products found for product id = ${pid}`,
+			})
 		}
+
 
 	} catch (error) {
 		console.error('Error retrieving relevant products:', error);

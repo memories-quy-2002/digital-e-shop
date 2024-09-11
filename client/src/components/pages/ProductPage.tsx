@@ -163,9 +163,6 @@ const ProductPage = () => {
                             })
                     );
                     console.log(response.data.msg);
-                } else if (response.status === 204) {
-                    setRelevantProducts(products);
-                    return;
                 }
             } catch (err) {
                 console.error(err);
@@ -734,7 +731,7 @@ const ProductPage = () => {
 
                 <RecommendedProduct
                     pid={productDetail.id}
-                    randomProducts={relevantProducts}
+                    relevantProducts={relevantProducts}
                 />
             </div>
         </Layout>

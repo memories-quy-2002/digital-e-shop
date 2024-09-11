@@ -4,10 +4,10 @@ import ratingStar from "../../utils/ratingStar";
 
 type RecommendedProps = {
     pid: number;
-    randomProducts: Product[];
+    relevantProducts: Product[];
 };
 
-const RecommendedProduct = ({ pid, randomProducts }: RecommendedProps) => {
+const RecommendedProduct = ({ pid, relevantProducts }: RecommendedProps) => {
     const navigate = useNavigate();
     const checkImageExists = (imageName: string | null) => {
         try {
@@ -24,7 +24,7 @@ const RecommendedProduct = ({ pid, randomProducts }: RecommendedProps) => {
                 People who bought this product also buy
             </h3>
             <div className="product__container__recommended__list">
-                {randomProducts.map((product) => (
+                {relevantProducts.slice(0, 9).map((product) => (
                     <div
                         className="product__container__recommended__list__item"
                         key={product.id}
