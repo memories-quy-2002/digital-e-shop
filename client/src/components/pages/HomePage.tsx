@@ -144,7 +144,6 @@ const HomePage = () => {
                 const response = await axios.get("/api/products");
                 if (response.status === 200) {
                     setProducts(response.data.products);
-
                     console.log(response.data.msg);
                 }
             } catch (err) {

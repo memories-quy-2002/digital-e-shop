@@ -29,10 +29,11 @@ const corsOptions = {
 /* Middleware */
 app.options('/api/users/login', cors(corsOptions));
 app.options('*', (req, res) => {
-	res.setHeader('Access-Control-Allow-Origin', 'https://e-commerce-website-1-1899.vercel.app');
-	res.setHeader('Access-Control-Allow-Credentials', 'true');
-	res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE');
-	res.sendStatus(204);  // Không có nội dung trong phản hồi OPTIONS
+	res.header("Access-Control-Allow-Origin", "https://e-commerce-website-1-1899.vercel.app");
+	res.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE");
+	res.header("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
+	res.header("Access-Control-Allow-Credentials", "true");
+	return res.status(200).end();
 });
 app.use(cors(corsOptions));
 

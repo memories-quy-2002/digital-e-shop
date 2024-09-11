@@ -16,7 +16,7 @@ jest.mock("../api/axios");
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
-describe.skip("ShopsPage", () => {
+describe("ShopsPage", () => {
     const products: Product[] = [
         {
             id: 1,

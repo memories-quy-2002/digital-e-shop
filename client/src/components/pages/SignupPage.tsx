@@ -213,10 +213,7 @@ const SignupPage = () => {
                                 onChange={handleChangeInput}
                             />
                         </Form.Group>
-                        <Form.Group
-                            className="signup__form__container__group mb-3 mt-5"
-                            controlId="formBasicRadio"
-                        >
+                        <Form.Group className="signup__form__container__group mb-3 mt-5">
                             <Form.Label>Signup as:</Form.Label>
                             <br />
                             <Form.Check

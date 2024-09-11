@@ -138,7 +138,6 @@ const ProductPage = () => {
                 if (response.status === 200) {
                     if (response.data.relevantProducts.length === 0) {
                         setRelevantProducts(products);
-                        console.log(response.data.msg);
                         return;
                     }
                     const newRelevantProducts: relevantProductsItem[] =
@@ -164,6 +163,9 @@ const ProductPage = () => {
                             })
                     );
                     console.log(response.data.msg);
+                } else if (response.status === 204) {
+                    setRelevantProducts(products);
+                    return;
                 }
             } catch (err) {
                 console.error(err);

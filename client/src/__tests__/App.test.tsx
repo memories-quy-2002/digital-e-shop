@@ -1,8 +1,7 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import { BrowserRouter } from "react-router-dom";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { BrowserRouter, MemoryRouter } from "react-router-dom";
 import App from "../App";
 import AdminDashboard from "../components/pages/admin/AdminDashboard";
-import LoginPage from "../components/pages/LoginPage";
 
 describe.skip("App", () => {
     it("matches the App snapshot", () => {
@@ -11,30 +10,44 @@ describe.skip("App", () => {
     });
 
     it("renders HomePage component on default route", async () => {
-        render(<App />);
+        render(
+            <MemoryRouter initialEntries={["/"]}>
+                <App />
+            </MemoryRouter>
+        );
 
+        // Assert that HomePage content is displayed
         await waitFor(() => {
             expect(
                 screen.getByText(/Explore Our Latest Devices/i)
             ).toBeInTheDocument();
         });
-
-        await waitFor(() => {
-            expect(
-                screen.getByText(
-                    /Get the latest electronic devices and components at unbeatable prices/i
-                )
-            ).toBeInTheDocument();
-        });
     });
 
-    it("renders LoginPage component on /login route", () => {
+    it("should render ProductPage when navigating to /product", () => {
         render(
-            <BrowserRouter>
-                <LoginPage />
-            </BrowserRouter>
+            <MemoryRouter initialEntries={["/product?id=1"]}>
+                <App />
+            </MemoryRouter>
         );
-        expect(screen.getByText(/Welcome back/i)).toBeInTheDocument();
+
+        // Assert that ProductPage content is displayed
+        expect(
+            screen.getByText("People who bought this product also buy")
+        ).toBeInTheDocument();
+    });
+
+    it("should display NotFoundPage for an invalid route", async () => {
+        render(
+            <MemoryRouter initialEntries={["/invalid-route"]}>
+                <App />
+            </MemoryRouter>
+        );
+
+        // Assert that NotFoundPage is rendered
+        await waitFor(() => {
+            expect(screen.getByText("404")).toBeInTheDocument();
+        });
     });
 
     it("redirects unauthenticated user from protected routes", () => {
@@ -48,5 +61,31 @@ describe.skip("App", () => {
         expect(link).toBeInTheDocument();
         expect(screen.getByText(/Download Report/i)).toBeInTheDocument();
         expect(screen.queryByText(/Login/i)).not.toBeInTheDocument();
+    });
+
+    it("should navigate between pages correctly", async () => {
+        render(
+            <MemoryRouter initialEntries={["/"]}>
+                <App />
+            </MemoryRouter>
+        );
+
+        // Assert HomePage is initially displayed
+        await waitFor(() => {
+            expect(
+                screen.getByText(/Explore Our Latest Devices/i)
+            ).toBeInTheDocument();
+        });
+
+        const viewAllLink = screen.getByRole("link", { name: "View all" });
+        expect(viewAllLink).toBeInTheDocument();
+        expect(viewAllLink).toHaveAttribute("href", "/shops");
+        fireEvent.click(viewAllLink);
+
+        await waitFor(() => {
+            expect(
+                screen.getByText("People who bought this product also buy")
+            ).toBeInTheDocument();
+        });
     });
 });

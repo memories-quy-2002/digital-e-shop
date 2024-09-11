@@ -130,7 +130,6 @@ exports[`SignupPage matches the SignupPage snapshot 1`] = `
           >
             <label
               class="form-label"
-              for="formBasicRadio"
             >
               Signup as:
             </label>

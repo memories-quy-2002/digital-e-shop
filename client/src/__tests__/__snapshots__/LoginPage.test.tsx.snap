@@ -41,7 +41,9 @@ exports[`LoginPage matches the LoginPage snapshot 1`] = `
           Welcome back
         </h3>
         <form
+          aria-label="login-form"
           class="login__form__container"
+          name="login-form"
         >
           <div
             class="login__form__container__group mb-3"
@@ -105,7 +107,7 @@ exports[`LoginPage matches the LoginPage snapshot 1`] = `
               />
             </div>
             <label
-              class="form-label"
+              class="me-3 form-label"
               for="customer-radio"
             >
               Customer

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Table } from "react-bootstrap";
-import { FaRegEdit, FaRegTrashAlt } from "react-icons/fa";
+import { FaRegTrashAlt } from "react-icons/fa";
 import ReactPaginate from "react-paginate";
 import { useNavigate } from "react-router-dom";
 import axios from "../../../api/axios";

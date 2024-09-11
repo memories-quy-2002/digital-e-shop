@@ -121,8 +121,8 @@ exports[`WishlistPage matches the WishlistPage snapshot 1`] = `
         >
           <input
             class="header__container__main__search__bar"
-            id=""
-            name=""
+            id="header_search"
+            name="header_search"
             placeholder="Search"
             type="text"
             value=""
@@ -205,13 +205,6 @@ exports[`WishlistPage matches the WishlistPage snapshot 1`] = `
         </a>
         <a
           class="navbar__item nav-link"
-          data-rr-ui-event-key="/promotions"
-          href="/promotions"
-        >
-          promotions
-        </a>
-        <a
-          class="navbar__item nav-link"
           data-rr-ui-event-key="/about-us"
           href="/about-us"
         >
@@ -226,17 +219,17 @@ exports[`WishlistPage matches the WishlistPage snapshot 1`] = `
         </a>
         <a
           class="navbar__item nav-link"
-          data-rr-ui-event-key="/support"
-          href="/support"
-        >
-          support
-        </a>
-        <a
-          class="navbar__item nav-link"
           data-rr-ui-event-key="/news"
           href="/news"
         >
           news
+        </a>
+        <a
+          class="navbar__item nav-link"
+          data-rr-ui-event-key="/support"
+          href="/support"
+        >
+          support
         </a>
       </div>
     </nav>

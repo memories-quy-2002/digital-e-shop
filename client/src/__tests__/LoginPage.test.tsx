@@ -1,8 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter } from "react-router-dom";
 import axios from "../api/axios"; // Import your custom Axios instance
-import AdminDashboard from "../components/pages/admin/AdminDashboard";
-import HomePage from "../components/pages/HomePage";
 import LoginPage from "../components/pages/LoginPage"; // Adjust based on your project structure
 import { Role } from "../utils/interface";
 
@@ -17,7 +15,7 @@ declare global {
     }
 }
 const handleOnSubmitMock = jest.fn();
-describe.skip("LoginPage", () => {
+describe("LoginPage", () => {
     const users = {
         customer: {
             email: "test1@gmail.com",
@@ -68,7 +66,7 @@ describe.skip("LoginPage", () => {
         // Expectations for form submission
     };
 
-    it.skip("matches the LoginPage snapshot", async () => {
+    it("matches the LoginPage snapshot", async () => {
         const { asFragment } = render(
             <MemoryRouter>
                 <LoginPage />
