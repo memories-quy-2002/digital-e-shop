@@ -3,7 +3,7 @@ import { Table } from "react-bootstrap";
 import ReactPaginate from "react-paginate";
 import axios from "../../../api/axios";
 import { Role } from "../../../utils/interface";
-import AccountItem from "../../common/admin/AccountItem";
+import AccountItem from "../../common/admin/AdminAccountItem";
 import AdminLayout from "../../layout/AdminLayout";
 
 interface Account {
@@ -18,35 +18,59 @@ interface Account {
     showPassword: boolean;
 }
 
-const AdminCustomerPage = () => {
+const ITEMS_PER_PAGE = 5;
+
+const AdminAccountPage = () => {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [itemOffset, setItemOffset] = useState(0);
-    const itemsPerPage = 5;
-    const endOffset = itemOffset + itemsPerPage;
-    const currentAccounts = accounts.slice(itemOffset, endOffset);
-    const pageCount = Math.ceil(accounts.length / itemsPerPage);
+    const [searchTerm, setSearchTerm] = useState<string>("");
+    const [filteredAccounts, setFilteredAccounts] = useState<Account[]>(accounts);
+    const endOffset = itemOffset + ITEMS_PER_PAGE;
+    const currentAccounts = filteredAccounts.slice(itemOffset, endOffset);
+    const pageCount = Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE);
 
     const handlePageClick = (event: any) => {
-        const newOffset = (event.selected * itemsPerPage) % accounts.length;
-        console.log(
-            `User requested page number ${event.selected}, which is offset ${newOffset}`
-        );
+        const newOffset = (event.selected * ITEMS_PER_PAGE) % accounts.length;
+        // console.log(`User requested page number ${event.selected}, which is offset ${newOffset}`);
         setItemOffset(newOffset);
     };
+    const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const searchValue = event.target.value;
+        setSearchTerm(searchValue);
+    };
+
+    // Filter products based on the search term
+    useEffect(() => {
+        const filtered = accounts.filter((account) => {
+            const lowerSearchTerm = searchTerm.toLowerCase();
+            return (
+                account.id.toLowerCase().includes(lowerSearchTerm) ||
+                account.username.toLowerCase().includes(lowerSearchTerm) ||
+                account.role.toLowerCase().includes(lowerSearchTerm) ||
+                account.email.toLowerCase().includes(lowerSearchTerm)
+            );
+        });
+        setFilteredAccounts(filtered);
+        return () => {};
+    }, [searchTerm, accounts]);
+
     useEffect(() => {
         const fetchUsers = async () => {
             try {
                 const response = await axios.get(`/api/users/`);
                 if (response.status === 200) {
-                    const newAccounts = response.data.accounts.map(
-                        (account: any) => {
-                            return {
-                                ...account,
-                                showPassword: false,
-                            };
-                        }
+                    const newAccounts: Account[] = response.data.accounts.map((account: any) => {
+                        return {
+                            ...account,
+                            showPassword: false,
+                        };
+                    });
+                    setAccounts(
+                        newAccounts.sort(
+                            (a: Account, b: Account) =>
+                                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                        )
                     );
-                    setAccounts(newAccounts);
                 }
             } catch (err) {
                 console.error(err);
@@ -67,7 +91,9 @@ const AdminCustomerPage = () => {
                                 type="text"
                                 name="product"
                                 id="product"
-                                placeholder="Search order"
+                                placeholder="Search customer"
+                                value={searchTerm}
+                                onChange={handleSearchChange}
                             />
                         </div>
                     </div>
@@ -78,6 +104,7 @@ const AdminCustomerPage = () => {
                                     <th>#</th>
                                     <th>Account ID</th>
                                     <th>Username</th>
+                                    <th>Role</th>
                                     <th>Email</th>
                                     <th>Password</th>
                                     <th>Date created</th>
@@ -85,10 +112,7 @@ const AdminCustomerPage = () => {
                             </thead>
                             <tbody>
                                 {currentAccounts.map((account) => (
-                                    <AccountItem
-                                        accounts={accounts}
-                                        account={account}
-                                    />
+                                    <AccountItem accounts={filteredAccounts} account={account} />
                                 ))}
                             </tbody>
                         </Table>
@@ -116,4 +140,4 @@ const AdminCustomerPage = () => {
     );
 };
 
-export default AdminCustomerPage;
+export default AdminAccountPage;

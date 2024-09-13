@@ -2,11 +2,15 @@ import React from "react";
 import "../../styles/AboutUsPage.scss";
 import NavigationBar from "../common/NavigationBar";
 import Layout from "../layout/Layout";
+import { Helmet } from "react-helmet";
 
 const AboutUsPage: React.FC = () => {
     return (
         <Layout>
             <NavigationBar />
+            <Helmet>
+                <title>About us</title>
+            </Helmet>
             <div className="about-us">
                 <div className="about-us__container">
                     <h1 className="about-us__title">About Us</h1>

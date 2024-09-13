@@ -78,12 +78,7 @@
                     cursor: pointer;
 
                     &:hover {
-                        background-color: rgba(
-                            255,
-                            255,
-                            255,
-                            0.2
-                        ); // Transparent hover effect
+                        background-color: rgba(255, 255, 255, 0.2); // Transparent hover effect
                     }
                 }
 
@@ -110,75 +105,98 @@
         }
 
         &__menu {
-            width: 100%;
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
+            grid-template-columns: repeat(1, 1fr);
+            gap: 1.5rem;
+
+            @media (min-width: 768px) {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            @media (min-width: 1024px) {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            @media (min-width: 1280px) {
+                grid-template-columns: repeat(4, 1fr);
+            }
             &__item {
                 position: relative;
-                padding-top: 1rem;
-                height: fit-content;
-                box-shadow: 0 4px 10px 3px rgba(0, 0, 0, 0.1882352941);
+                padding: 0.5rem;
+                box-shadow: 0 3px 8px 2px rgba(0, 0, 0, 0.15);
+
                 &__image {
                     display: flex;
                     justify-content: center;
                     align-items: center;
-                    height: 200px;
+                    height: 160px;
                     margin-bottom: 1rem;
-                    padding: 1rem;
+                    padding: 0.75rem;
                     cursor: pointer;
+
                     img {
                         display: inline-block;
-                        text-align: center;
                         height: 100%;
                         object-fit: contain;
                     }
                 }
-                &__wishlist {
-                    position: absolute;
-                    top: 10px;
-                    right: 10px;
-                    width: 40px;
-                    height: 30px;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    background-color: #347988;
-                    border-radius: 20px;
-                    color: white;
-                    opacity: 0;
-                    transition: 0.2s opacity ease-in-out;
-                }
+
                 &__like {
                     position: absolute;
-                    top: 10px;
-                    right: 10px;
-                    width: 40px;
-                    aspect-ratio: 1;
+                    top: 8px;
+                    right: 8px;
+                    width: 36px;
+                    height: 28px;
                     display: flex;
                     justify-content: center;
                     align-items: center;
+                    border-radius: 18px;
+                    color: white;
                     cursor: pointer;
                     opacity: 0;
                     transition: 0.2s opacity ease-in-out;
                 }
+
+                &__category,
+                &__name,
+                &__price {
+                    text-align: center;
+                    font-weight: bold;
+                }
+
+                &__name {
+                    font-size: 1.25rem;
+                    height: 50px;
+                }
+
+                &__price {
+                    font-size: 1.25rem;
+                    color: gray;
+                    text-decoration: line-through;
+                }
+
+                &__rating {
+                    display: flex;
+                    flex-direction: row;
+                    justify-content: space-between;
+                    padding: 0.75rem 1rem;
+                }
+
                 button {
                     background-color: white;
                     color: #0047ff;
-                    width: 113px;
-                    height: 44px;
+                    width: 120px;
+                    height: 40px;
                     border: 1px solid #0047ff;
                     font-weight: bold;
                     border-radius: 20px;
                     transition: 0.3s all ease-in-out;
+
                     &:hover {
                         background-color: #0047ff;
                         color: white;
                     }
                 }
-                &:hover &__like {
-                    opacity: 1;
-                }
+
+                &:hover &__like,
                 &:hover &__wishlist {
                     opacity: 1;
                 }

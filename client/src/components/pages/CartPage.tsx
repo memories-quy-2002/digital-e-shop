@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Button, Container, Modal } from "react-bootstrap";
 import { BsArrowLeft, BsArrowRight } from "react-icons/bs";
 import { useNavigate } from "react-router-dom";
@@ -11,6 +11,7 @@ import Layout from "../layout/Layout";
 import CheckoutPaymentPage from "./CheckoutPaymentPage";
 import { useToast } from "../../context/ToastContext";
 import NavigationBar from "../common/NavigationBar";
+import { Helmet } from "react-helmet";
 
 const cookies = new Cookies();
 
@@ -29,9 +30,7 @@ const CartPage = () => {
     const navigate = useNavigate();
     const uid =
         cookies.get("rememberMe")?.uid ||
-        (sessionStorage["rememberMe"]
-            ? JSON.parse(sessionStorage["rememberMe"]).uid
-            : "");
+        (sessionStorage["rememberMe"] ? JSON.parse(sessionStorage["rememberMe"]).uid : "");
     const { addToast } = useToast();
     const [cart, setCart] = useState<CartProps[]>([]);
     const [totalPrice, setTotalPrice] = useState<number>(0);
@@ -42,118 +41,103 @@ const CartPage = () => {
     const [isPayment, setIsPayment] = useState<boolean>(false);
 
     useEffect(() => {
-        setTotalPrice(
-            cart.reduce((acc, item) => acc + item.price * item.quantity, 0)
-        );
-        setSubtotal(totalPrice - discount);
-    }, [cart, totalPrice, discount]);
+        const newTotalPrice = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
+        setTotalPrice(newTotalPrice);
+        setSubtotal(newTotalPrice - discount);
+    }, [cart, discount]);
 
-    const handleShow = () => setShow(true);
-    const handleClose = () => setShow(false);
-    const togglePayment = () => setIsPayment(!isPayment);
-    const updateQuantity = (
-        cart: CartProps[],
-        itemId: number,
-        newQuantity: number
-    ) => {
+    const handleShow = useCallback(() => setShow(true), []);
+    const handleClose = useCallback(() => setShow(false), []);
+    const togglePayment = useCallback(() => setIsPayment((prev) => !prev), []);
+    const updateQuantity = (itemId: number, newQuantity: number) => {
         setCart((prevCart: CartProps[]) =>
-            prevCart.map((item) =>
-                item.cartItemId === itemId
-                    ? { ...item, quantity: newQuantity }
-                    : item
-            )
+            prevCart.map((item) => (item.cartItemId === itemId ? { ...item, quantity: newQuantity } : item))
         );
     };
 
-    const handleQuantityChange = (
-        itemId: number,
-        event: React.ChangeEvent<HTMLInputElement>
-    ) => {
+    const handleQuantityChange = (itemId: number, event: React.ChangeEvent<HTMLInputElement>) => {
         const newQuantity = parseInt(event.target.value, 10);
-        updateQuantity(cart, itemId, newQuantity);
+        updateQuantity(itemId, newQuantity);
     };
 
-    const handleClickPayment = () => {
+    const handleClickPayment = useCallback(() => {
         togglePayment();
         setShow(false);
-    };
+    }, [togglePayment]);
 
-    const handleRemove = async (cartItemId: number) => {
-        try {
-            const response = await axios.post(`/api/cart/delete`, {
-                cartItemId,
-            });
-            if (response.status === 200) {
-                console.log(response.data.msg);
-                setCart((cart) =>
-                    cart.filter((cart) => cart.cartItemId !== cartItemId)
-                );
-                addToast(
-                    "Remove Cart item",
-                    "Item removed from cart successfully"
-                );
+    const handleRemove = useCallback(
+        async (cartItemId: number) => {
+            try {
+                const response = await axios.post(`/api/cart/delete`, {
+                    cartItemId,
+                });
+                if (response.status === 200) {
+                    console.log(response.data.msg);
+                    setCart((cart) => cart.filter((cart) => cart.cartItemId !== cartItemId));
+                    addToast("Remove Cart item", "Item removed from cart successfully");
+                }
+            } catch (err) {
+                console.error(err);
             }
-        } catch (err) {
-            console.error(err);
-        }
-    };
+        },
+        [addToast]
+    );
 
-    const applyDiscount = async (discountCode: string, price: number) => {
-        try {
-            const response = await axios.post(`/api/discount`, {
-                discountCode,
-                price,
-            });
-            // console.log(response);
-            if (response.status === 200) {
-                var newPrice = response.data.newPrice;
-                setDiscount(totalPrice - newPrice);
-                setSubtotal(newPrice);
-                setError("");
-                addToast(
-                    "Applying Coupon",
-                    "Coupon has been applied successfully"
-                );
-                console.log(response.data.msg);
-            } else if (response.status === 204) {
-                setError("");
-                setError("Discount not found");
-                console.log(response.data.msg);
+    const applyDiscount = useCallback(
+        async (discountCode: string, price: number) => {
+            try {
+                const response = await axios.post(`/api/discount`, {
+                    discountCode,
+                    price,
+                });
+                if (response.status === 200) {
+                    const newPrice = response.data.newPrice;
+                    setDiscount(totalPrice - newPrice);
+                    setSubtotal(newPrice);
+                    setError("");
+                    addToast("Applying Coupon", "Coupon has been applied successfully");
+                    console.log(response.data.msg);
+                } else if (response.status === 204) {
+                    setError("Discount not found");
+                    console.log(response.data.msg);
+                }
+            } catch (err) {
+                console.error(err);
             }
-        } catch (err: any) {
-            console.error(err);
-        }
-    };
+        },
+        [addToast, totalPrice]
+    );
 
     useEffect(() => {
         const fetchCartItems = async () => {
             try {
                 const response = await axios.get(`/api/cart/${uid}`);
                 if (response.status === 200) {
-                    const cartItems: CartProps[] = response.data.cartItems.map(
-                        (item: any) => {
-                            return {
-                                ...item,
-                                cartItemId: item.cart_item_id,
-                                productId: item.product_id,
-                                productName: item.product_name,
-                                image: item.main_image,
-                            };
-                        }
-                    );
+                    const cartItems: CartProps[] = response.data.cartItems.map((item: any) => ({
+                        ...item,
+                        cartItemId: item.cart_item_id,
+                        productId: item.product_id,
+                        productName: item.product_name,
+                        image: item.main_image,
+                    }));
                     setCart(cartItems);
                 }
             } catch (err) {
                 console.error(err);
             }
         };
-        fetchCartItems();
+
+        if (uid) {
+            fetchCartItems();
+        }
     }, [uid]);
-    // console.log(cart);
 
     return (
         <Layout>
             <NavigationBar />
+            <Helmet>
+                <title>Cart</title>
+            </Helmet>
             <Container fluid className="cart__container">
                 {isPayment ? (
                     <CheckoutPaymentPage
@@ -166,9 +150,7 @@ const CartPage = () => {
                 ) : (
                     <>
                         {" "}
-                        <h3 className="cart__container__title">
-                            Shopping Cart
-                        </h3>
+                        <h3 className="cart__container__title">Shopping Cart</h3>
                         <div className="cart__container__box">
                             <div className="cart__container__box__main">
                                 <div className="cart__container__box__main__list">
@@ -176,9 +158,7 @@ const CartPage = () => {
                                         <CartItem
                                             key={item.cartItemId}
                                             item={item}
-                                            handleQuantityChange={
-                                                handleQuantityChange
-                                            }
+                                            handleQuantityChange={handleQuantityChange}
                                             handleRemove={handleRemove}
                                         />
                                     ))}

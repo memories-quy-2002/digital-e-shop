@@ -11,12 +11,12 @@ import ShopsPage from "./components/pages/ShopsPage";
 import SignupPage from "./components/pages/SignupPage";
 import WishlistPage from "./components/pages/WishlistPage";
 import AdminAddProductPage from "./components/pages/admin/AdminAddProductPage";
-import AdminCustomerPage from "./components/pages/admin/AdminCustomerPage";
+import AdminAccountPage from "./components/pages/admin/AdminAccountPage";
 import AdminDashboard from "./components/pages/admin/AdminDashboard";
 import AdminOrderPage from "./components/pages/admin/AdminOrderPage";
 import AdminProductPage from "./components/pages/admin/AdminProductPage";
 import ToastProvider from "./context/ToastContext";
-import UserDataProvider from "./context/UserDataContext";
+import { AuthProvider } from "./context/AuthContext";
 import AboutUsPage from "./components/pages/AboutUsPage";
 import ContactUsPage from "./components/pages/ContactUsPage";
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -26,12 +26,12 @@ const ProtectedCheckoutSuccessPage = withSessionCheck(CheckoutSuccessPage);
 const ProtectedWishlistPage = withSessionCheck(WishlistPage);
 const ProtectedAdminDashboard = withSessionCheck(AdminDashboard);
 const ProtectedAdminProductPage = withSessionCheck(AdminProductPage);
-const ProtectedAdminCustomerPage = withSessionCheck(AdminCustomerPage);
+const ProtectedAdminAccountPage = withSessionCheck(AdminAccountPage);
 const ProtectedAdminOrderPage = withSessionCheck(AdminOrderPage);
 
 function App() {
     return (
-        <UserDataProvider>
+        <AuthProvider>
             <ToastProvider>
                 <BrowserRouter>
                     <Routes>
@@ -42,41 +42,20 @@ function App() {
                         <Route path="/cart" element={<ProtectedCartPage />} />
                         <Route path="/about-us" element={<AboutUsPage />} />
                         <Route path="/contact-us" element={<ContactUsPage />} />
-                        <Route
-                            path="/wishlist"
-                            element={<ProtectedWishlistPage />}
-                        />
+                        <Route path="/wishlist" element={<ProtectedWishlistPage />} />
                         <Route path="/shops" element={<ShopsPage />} />
-                        <Route
-                            path="/checkout-success"
-                            element={<ProtectedCheckoutSuccessPage />}
-                        />
-                        <Route
-                            path="/admin"
-                            element={<ProtectedAdminDashboard />}
-                        />
-                        <Route
-                            path="/admin/products"
-                            element={<ProtectedAdminProductPage />}
-                        />
-                        <Route
-                            path="/admin/orders"
-                            element={<ProtectedAdminOrderPage />}
-                        />
-                        <Route
-                            path="/admin/customers"
-                            element={<ProtectedAdminCustomerPage />}
-                        />
-                        <Route
-                            path="/admin/add"
-                            element={<AdminAddProductPage />}
-                        />
+                        <Route path="/checkout-success" element={<ProtectedCheckoutSuccessPage />} />
+                        <Route path="/admin" element={<ProtectedAdminDashboard />} />
+                        <Route path="/admin/products" element={<ProtectedAdminProductPage />} />
+                        <Route path="/admin/orders" element={<ProtectedAdminOrderPage />} />
+                        <Route path="/admin/accounts" element={<ProtectedAdminAccountPage />} />
+                        <Route path="/admin/add" element={<AdminAddProductPage />} />
                         <Route path="*" element={<NoPage />} />
                     </Routes>
                     <SpeedInsights />
                 </BrowserRouter>
             </ToastProvider>
-        </UserDataProvider>
+        </AuthProvider>
     );
 }
 

@@ -1,13 +1,9 @@
-import { useContext, useEffect } from "react";
+import { AiFillDashboard } from "react-icons/ai";
 import { FaBox, FaCartShopping, FaUser } from "react-icons/fa6";
 import { useNavigate } from "react-router-dom";
-import Cookies from "universal-cookie";
-import { UserContext } from "../../../context/UserDataContext";
-import { AiFillDashboard } from "react-icons/ai";
+import { useAuth } from "../../../context/AuthContext";
 
-const cookies = new Cookies();
-
-const items = ["Dashboard", "Products", "Orders", "Customers"];
+const items = ["Dashboard", "Products", "Orders", "Accounts"];
 const itemIcons = [
     <AiFillDashboard size={20} />,
     <FaBox size={20} />,
@@ -20,16 +16,7 @@ const AdminSidebar = () => {
     const url = window.location.href;
     const paramItem = url.split("/admin/")[1];
     // console.log(paramItem);
-
-    const uid =
-        cookies.get("rememberMe")?.uid ||
-        (sessionStorage["rememberMe"]
-            ? JSON.parse(sessionStorage["rememberMe"]).uid
-            : "");
-    const { userData, loading, fetchUserData } = useContext(UserContext);
-    useEffect(() => {
-        fetchUserData(uid);
-    }, [uid]);
+    const { userData, loading } = useAuth();
 
     const handleAdminNavigate = (item: string) => {
         if (item === "dashboard") {
@@ -52,12 +39,8 @@ const AdminSidebar = () => {
                     className="admin__layout__sidebar__information__img"
                 />
                 <div className="admin__layout__sidebar__information__user">
-                    <strong>
-                        {userData && !loading ? userData.username : "Anonymous"}
-                    </strong>
-                    <span>
-                        {userData && !loading ? userData.email : "Anonymous"}
-                    </span>
+                    <strong>{userData && !loading ? userData.username : "Anonymous"}</strong>
+                    <span>{userData && !loading ? userData.email : "Anonymous"}</span>
                 </div>
             </div>
             <div className="admin__layout__sidebar__navigation">
@@ -66,14 +49,9 @@ const AdminSidebar = () => {
                         <button
                             type="button"
                             key={index}
-                            onClick={() =>
-                                handleAdminNavigate(item.toLowerCase())
-                            }
+                            onClick={() => handleAdminNavigate(item.toLowerCase())}
                             className={
-                                paramItem === item.toLowerCase() ||
-                                (!paramItem && item === "Dashboard")
-                                    ? "active"
-                                    : ""
+                                paramItem === item.toLowerCase() || (!paramItem && item === "Dashboard") ? "active" : ""
                             }
                         >
                             {itemIcons[index]}

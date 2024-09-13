@@ -6,6 +6,7 @@ import { Product } from "../../utils/interface";
 import "../../styles/WishlistPage.scss";
 import PaginatedItems from "../common/PaginatedItems";
 import NavigationBar from "../common/NavigationBar";
+import { Helmet } from "react-helmet";
 
 interface Wishlist {
     id: number;
@@ -55,6 +56,9 @@ const WishlistPage = () => {
     return (
         <Layout>
             <NavigationBar />
+            <Helmet>
+                <title>Wishlist</title>
+            </Helmet>
             <div className="wishlist">
                 <div className="wishlist__title">
                     <h2>MY WISHLIST</h2>

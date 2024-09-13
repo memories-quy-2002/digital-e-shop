@@ -5,6 +5,7 @@ import { useToast } from "../../context/ToastContext";
 import { Product } from "../../utils/interface";
 import ProductItem from "./ProductItem";
 import WishlistItem from "./WishlistItem";
+import ShopsItem from "./ShopsItem";
 
 interface Item {
     id: number;
@@ -19,13 +20,7 @@ type PaginatedProps = {
     isWishlistPage: boolean; // Add this prop
 };
 
-const PaginatedItems = ({
-    itemsPerPage,
-    items,
-    uid,
-    wishlist,
-    isWishlistPage,
-}: PaginatedProps) => {
+const PaginatedItems = ({ itemsPerPage, items, uid, wishlist, isWishlistPage }: PaginatedProps) => {
     const { addToast } = useToast();
     const [currentWishlist, setCurrentWishlist] = useState<Item[]>([]);
     const [itemOffset, setItemOffset] = useState(0);
@@ -36,36 +31,21 @@ const PaginatedItems = ({
         }
     }, [wishlist]);
 
-    const handleAddingWishlist = async (
-        user_id: string,
-        product_id: number
-    ) => {
+    const handleAddingWishlist = async (user_id: string, product_id: number) => {
         if (uid === "") {
-            addToast(
-                "Login required",
-                "You need to login to use this feature."
-            );
+            addToast("Login required", "You need to login to use this feature.");
             return;
         }
         try {
-            if (
-                currentWishlist.some((item) => item.product.id === product_id)
-            ) {
+            if (currentWishlist.some((item) => item.product.id === product_id)) {
                 const response = await axios.post(`/api/wishlist/delete/`, {
                     uid: user_id,
                     pid: product_id,
                 });
                 if (response.status === 200) {
                     console.log(response.data.msg);
-                    setCurrentWishlist((prevWishlist) =>
-                        prevWishlist.filter(
-                            (item) => item.product.id !== product_id
-                        )
-                    );
-                    addToast(
-                        "Remove wishlist item",
-                        "Item removed from wishlist successfully"
-                    );
+                    setCurrentWishlist((prevWishlist) => prevWishlist.filter((item) => item.product.id !== product_id));
+                    addToast("Remove wishlist item", "Item removed from wishlist successfully");
                 }
             } else {
                 const response = await axios.post("/api/wishlist/", {
@@ -74,9 +54,7 @@ const PaginatedItems = ({
                 });
                 if (response.status === 200) {
                     console.log(response.data.msg);
-                    const newProduct = (items as Product[]).filter(
-                        (product) => product.id === product_id
-                    )[0];
+                    const newProduct = (items as Product[]).filter((product) => product.id === product_id)[0];
                     setCurrentWishlist((list) => [
                         ...list,
                         {
@@ -84,10 +62,7 @@ const PaginatedItems = ({
                             product: newProduct,
                         },
                     ]);
-                    addToast(
-                        "Add wishlist item",
-                        "Item added to wishlist successfully"
-                    );
+                    addToast("Add wishlist item", "Item added to wishlist successfully");
                 }
             }
         } catch (err) {
@@ -95,10 +70,7 @@ const PaginatedItems = ({
         }
     };
 
-    const handleRemoveWishlist = async (
-        user_id: string,
-        product_id: number
-    ) => {
+    const handleRemoveWishlist = async (user_id: string, product_id: number) => {
         try {
             const response = await axios.post(`/api/wishlist/delete/`, {
                 uid: user_id,
@@ -106,15 +78,8 @@ const PaginatedItems = ({
             });
             if (response.status === 200) {
                 console.log(response.data.msg);
-                addToast(
-                    "Remove wishlist item",
-                    "Item removed from wishlist successfully."
-                );
-                setCurrentWishlist((prevWishlist) =>
-                    prevWishlist.filter(
-                        (item) => item.product.id !== product_id
-                    )
-                );
+                addToast("Remove wishlist item", "Item removed from wishlist successfully.");
+                setCurrentWishlist((prevWishlist) => prevWishlist.filter((item) => item.product.id !== product_id));
             }
         } catch (err) {
             console.error(err);
@@ -123,10 +88,7 @@ const PaginatedItems = ({
 
     const handleAddingCart = async (user_id: string, product_id: number) => {
         if (uid === "") {
-            addToast(
-                "Login required",
-                "You need to login to use this feature."
-            );
+            addToast("Login required", "You need to login to use this feature.");
             return;
         }
 
@@ -147,9 +109,7 @@ const PaginatedItems = ({
 
     const handlePageClick = (event: any) => {
         const newOffset = (event.selected * itemsPerPage) % items.length;
-        console.log(
-            `User requested page number ${event.selected}, which is offset ${newOffset}`
-        );
+        console.log(`User requested page number ${event.selected}, which is offset ${newOffset}`);
         setItemOffset(newOffset);
     };
 
@@ -165,14 +125,12 @@ const PaginatedItems = ({
                     <div className="shops__container__main__pagination__list">
                         {currentItems.map((item) => {
                             return (
-                                <ProductItem
+                                <ShopsItem
                                     key={item.id}
                                     product={item as Product}
                                     uid={uid}
                                     isWishlist={currentWishlist.some(
-                                        (wishlistProduct) =>
-                                            wishlistProduct.product.id ===
-                                            (item as Product).id
+                                        (wishlistProduct) => wishlistProduct.product.id === (item as Product).id
                                     )}
                                     onAddingWishlist={handleAddingWishlist}
                                     onAddingCart={handleAddingCart}
@@ -182,19 +140,17 @@ const PaginatedItems = ({
                     </div>
                 ) : (
                     <div className="wishlist__main">
-                        {currentWishlist
-                            .slice(itemOffset, endOffset)
-                            .map((item) => {
-                                return (
-                                    <WishlistItem
-                                        key={item.id}
-                                        item={item as Item}
-                                        uid={uid}
-                                        onRemoveWishlist={handleRemoveWishlist}
-                                        onAddingCart={handleAddingCart}
-                                    />
-                                );
-                            })}
+                        {currentWishlist.slice(itemOffset, endOffset).map((item) => {
+                            return (
+                                <WishlistItem
+                                    key={item.id}
+                                    item={item as Item}
+                                    uid={uid}
+                                    onRemoveWishlist={handleRemoveWishlist}
+                                    onAddingCart={handleAddingCart}
+                                />
+                            );
+                        })}
                     </div>
                 )
             ) : (
@@ -221,10 +177,7 @@ const PaginatedItems = ({
                     onPageChange={handlePageClick}
                     pageRangeDisplayed={5}
                     pageCount={
-                        currentItems.length !== 0 &&
-                        !("product" in currentItems[0])
-                            ? pageCount
-                            : wishlistPageCount
+                        currentItems.length !== 0 && !("product" in currentItems[0]) ? pageCount : wishlistPageCount
                     }
                     previousLabel="Previous"
                     renderOnZeroPageCount={null}

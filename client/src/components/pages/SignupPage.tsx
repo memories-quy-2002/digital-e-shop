@@ -7,6 +7,7 @@ import { auth } from "../../services/firebase";
 import "../../styles/SignupPage.scss";
 import { Role } from "../../utils/interface";
 import Cookies from "universal-cookie";
+import { Helmet } from "react-helmet";
 
 const cookies = new Cookies();
 
@@ -34,10 +35,8 @@ const SignupPage = () => {
     const validateForm = (): string[] => {
         const errorsList: string[] = [];
         const usernamePattern = /^[a-zA-Z0-9._-]{3,15}$/; // Allow letters, numbers, ., _, -, length 3-15
-        const passwordPattern =
-            /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-        const emailPattern =
-            /^([A-Za-z0-9_\-.])+@([A-Za-z0-9_\-.])+\.([A-Za-z]{2,4})$/;
+        const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        const emailPattern = /^([A-Za-z0-9_\-.])+@([A-Za-z0-9_\-.])+\.([A-Za-z]{2,4})$/;
         if (!user.username) {
             errorsList.push("Username is required");
         } else if (!usernamePattern.test(user.username)) {
@@ -81,13 +80,8 @@ const SignupPage = () => {
             return;
         } else {
             try {
-                const userCredential = await createUserWithEmailAndPassword(
-                    auth,
-                    user.email,
-                    user.password
-                );
+                const userCredential = await createUserWithEmailAndPassword(auth, user.email, user.password);
                 const uid = userCredential.user.uid;
-
                 const response = await axios.post("/api/users", {
                     user,
                     uid,
@@ -109,8 +103,25 @@ const SignupPage = () => {
                         navigate("/admin");
                     }
                 }
-            } catch (err) {
-                throw err;
+            } catch (err: any) {
+                if (err.response) {
+                    const status = err.response.status;
+                    setErrors([err.response.data.msg]);
+                    if (status === 401) {
+                        // Handle 401 Unauthorized
+                        console.error("Unauthorized access. Please check your credentials.");
+                    } else if (status === 500) {
+                        // Handle 500 Internal Server Error
+                        console.error("Internal Server Error. Please try again later.");
+                    } else {
+                        // Handle other errors
+                        console.error(`Error: ${err.response.status}`);
+                    }
+                } else {
+                    // Handle non-Axios errors
+                    console.error(err.message);
+                    setErrors(["An unexpected error occurred."]);
+                }
             }
         }
     };
@@ -125,6 +136,9 @@ const SignupPage = () => {
                 justifyContent: "center",
             }}
         >
+            <Helmet>
+                <title>Signup</title>
+            </Helmet>
             <div className="signup">
                 <div className="signup__image">
                     <img
@@ -133,12 +147,8 @@ const SignupPage = () => {
                         className="signup__image__background"
                     ></img>
                     <div className="signup__image__content">
-                        <strong className="signup__image__content__name">
-                            DIGITAL-E
-                        </strong>
-                        <p className="signup__image__content__desc">
-                            An E-commerce platforms of electronics devices
-                        </p>
+                        <strong className="signup__image__content__name">DIGITAL-E</strong>
+                        <p className="signup__image__content__desc">An E-commerce platforms of electronics devices</p>
                     </div>
                 </div>
                 <div className="signup__form">
@@ -149,10 +159,7 @@ const SignupPage = () => {
                         name="signup-form"
                         aria-label="signup-form"
                     >
-                        <Form.Group
-                            className="signup__form__container__group mb-3"
-                            controlId="formBasicUserName"
-                        >
+                        <Form.Group className="signup__form__container__group mb-3" controlId="formBasicUserName">
                             <Form.Label>Username</Form.Label>
                             <Form.Control
                                 type="text"
@@ -165,10 +172,7 @@ const SignupPage = () => {
                                 onChange={handleChangeInput}
                             />
                         </Form.Group>
-                        <Form.Group
-                            className="signup__form__container__group mb-3"
-                            controlId="formBasicEmail"
-                        >
+                        <Form.Group className="signup__form__container__group mb-3" controlId="formBasicEmail">
                             <Form.Label>Email address</Form.Label>
                             <Form.Control
                                 type="email"
@@ -181,10 +185,7 @@ const SignupPage = () => {
                                 onChange={handleChangeInput}
                             />
                         </Form.Group>
-                        <Form.Group
-                            className="signup__form__container__group mb-3"
-                            controlId="formBasicPassword"
-                        >
+                        <Form.Group className="signup__form__container__group mb-3" controlId="formBasicPassword">
                             <Form.Label>Password</Form.Label>
                             <Form.Control
                                 type="password"
@@ -225,10 +226,7 @@ const SignupPage = () => {
                                 checked={user.role === Role.Customer}
                                 onChange={handleChangeRadio}
                             />
-                            <Form.Label
-                                htmlFor="customer-radio"
-                                className="me-3"
-                            >
+                            <Form.Label htmlFor="customer-radio" className="me-3">
                                 Customer
                             </Form.Label>
 

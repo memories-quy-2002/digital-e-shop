@@ -13,7 +13,7 @@ type ProductProps = {
     onAddingCart: (user_id: string, product_id: number) => void;
 };
 
-const ProductItem = ({ product, uid, isWishlist, onAddingWishlist, onAddingCart }: ProductProps) => {
+const ShopsItem = ({ product, uid, isWishlist, onAddingWishlist, onAddingCart }: ProductProps) => {
     const navigate = useNavigate();
     const [image, setImage] = useState<string | null>(null);
 
@@ -58,8 +58,11 @@ const ProductItem = ({ product, uid, isWishlist, onAddingWishlist, onAddingCart 
     }, [imageUrl]);
 
     return (
-        <div className="home__product__menu__item" key={product.id}>
-            <div className="home__product__menu__item__image" onClick={() => navigate(`/product?id=${product.id}`)}>
+        <div className="shops__container__main__pagination__list__item" key={product.id}>
+            <div
+                className="shops__container__main__pagination__list__item__image"
+                onClick={() => navigate(`/product?id=${product.id}`)}
+            >
                 {image ? (
                     <img src={image} alt={product.name} />
                 ) : (
@@ -67,20 +70,23 @@ const ProductItem = ({ product, uid, isWishlist, onAddingWishlist, onAddingCart 
                 )}
             </div>
 
-            <div className="home__product__menu__item__like" onClick={() => onAddingWishlist(uid, product.id)}>
+            <div
+                className="shops__container__main__pagination__list__item__like"
+                onClick={() => onAddingWishlist(uid, product.id)}
+            >
                 {isWishlist ? <BsHeartFill size={24} color="red" /> : <BsHeart size={24} color="red" />}
             </div>
 
-            <p className="home__product__menu__item__category">{product.category}</p>
-            <p className="home__product__menu__item__name">{product.name}</p>
+            <p className="shops__container__main__pagination__list__item__category">{product.category}</p>
+            <p className="shops__container__main__pagination__list__item__name">{product.name}</p>
             {product.sale_price ? (
                 <div className="d-flex flex-row gap-3 justify-content-center">
-                    <p className="home__product__menu__item__price">${product.price}</p>
+                    <p className="shops__container__main__pagination__list__item__price">${product.price}</p>
                     <p
                         style={{
                             textAlign: "center",
                             fontWeight: "bold",
-                            fontSize: "20px",
+                            fontSize: "18px",
                             color: "red",
                         }}
                     >
@@ -89,20 +95,17 @@ const ProductItem = ({ product, uid, isWishlist, onAddingWishlist, onAddingCart 
                 </div>
             ) : (
                 <p
-                    className="home__product__menu__item__price"
-                    style={{
-                        color: "red",
-                        textDecoration: "none",
-                    }}
+                    className="shops__container__main__pagination__list__item__price"
+                    style={{ color: "red", textDecoration: "none" }}
                 >
                     ${product.price}
                 </p>
             )}
 
-            <div className="home__product__menu__item__rating">
+            <div className="shops__container__main__pagination__list__item__rating">
                 <div
                     style={{
-                        width: "10rem",
+                        width: "8rem",
                         display: "flex",
                         gap: "0.25rem",
                     }}
@@ -118,4 +121,4 @@ const ProductItem = ({ product, uid, isWishlist, onAddingWishlist, onAddingCart 
     );
 };
 
-export default ProductItem;
+export default ShopsItem;

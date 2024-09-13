@@ -7,6 +7,7 @@ import axios from "../../api/axios";
 import { auth } from "../../services/firebase";
 import "../../styles/LoginPage.scss";
 import { Role } from "../../utils/interface";
+import { Helmet } from "react-helmet";
 interface User {
     email: string;
     password: string;
@@ -20,15 +21,12 @@ const LoginPage = () => {
         role: Role.Customer,
     });
     const [rememberMe, setRememberMe] = useState<boolean>(false);
-
     const [errors, setErrors] = useState<string[]>([]);
 
     const validateForm = (): string[] => {
         const errorsList: string[] = [];
-        const emailPattern =
-            /^([A-Za-z0-9_\-.])+@([A-Za-z0-9_\-.])+\.([A-Za-z]{2,4})$/;
-        const passwordPattern =
-            /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        const emailPattern = /^([A-Za-z0-9_\-.])+@([A-Za-z0-9_\-.])+\.([A-Za-z]{2,4})$/;
+        const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
         if (!user.email) {
             errorsList.push("Email is required");
         } else if (!user.email.match(emailPattern)) {
@@ -65,11 +63,7 @@ const LoginPage = () => {
             return;
         }
         try {
-            const userCredential = await signInWithEmailAndPassword(
-                auth,
-                user.email,
-                user.password
-            );
+            const userCredential = await signInWithEmailAndPassword(auth, user.email, user.password);
             const uid = userCredential.user.uid;
             const response = await axios.post("/api/users/login", {
                 uid,
@@ -90,10 +84,7 @@ const LoginPage = () => {
                         maxAge: 1000 * 60 * 60 * 24 * 30,
                     });
                 } else {
-                    sessionStorage.setItem(
-                        "rememberMe",
-                        JSON.stringify(cookieData)
-                    );
+                    sessionStorage.setItem("rememberMe", JSON.stringify(cookieData));
                 }
                 if (user.role === Role.Admin) {
                     navigate("/admin");
@@ -102,7 +93,25 @@ const LoginPage = () => {
                 }
             }
         } catch (err: any) {
-            console.error(err);
+            if (err.response) {
+                // Handle specific status codes
+                const status = err.response.status;
+                setErrors([err.response.data.msg]);
+                if (status === 401) {
+                    // Handle 401 Unauthorized
+                    console.error("Unauthorized access. Please check your credentials.");
+                } else if (status === 500) {
+                    // Handle 500 Internal Server Error
+                    console.error("Internal Server Error. Please try again later.");
+                } else {
+                    // Handle other errors
+                    console.error(`Error: ${err.response.status}`);
+                }
+            } else {
+                // Handle non-Axios errors
+                console.error(err.message);
+                setErrors(["An unexpected error occurred."]);
+            }
         }
     };
 
@@ -116,6 +125,9 @@ const LoginPage = () => {
                 justifyContent: "center",
             }}
         >
+            <Helmet>
+                <title>Login</title>
+            </Helmet>
             <div className="login">
                 <div className="login__image">
                     <img
@@ -124,12 +136,8 @@ const LoginPage = () => {
                         className="login__image__background"
                     ></img>
                     <div className="login__image__content">
-                        <strong className="login__image__content__name">
-                            DIGITAL-E
-                        </strong>
-                        <p className="login__image__content__desc">
-                            An E-commerce platforms of electronics devices
-                        </p>
+                        <strong className="login__image__content__name">DIGITAL-E</strong>
+                        <p className="login__image__content__desc">An E-commerce platforms of electronics devices</p>
                     </div>
                 </div>
                 <div className="login__form">
@@ -140,10 +148,7 @@ const LoginPage = () => {
                         name="login-form"
                         aria-label="login-form"
                     >
-                        <Form.Group
-                            className="login__form__container__group mb-3"
-                            controlId="formBasicUserName"
-                        >
+                        <Form.Group className="login__form__container__group mb-3" controlId="formBasicUserName">
                             <Form.Label>Email</Form.Label>
                             <Form.Control
                                 type="email"
@@ -157,10 +162,7 @@ const LoginPage = () => {
                             />
                         </Form.Group>
 
-                        <Form.Group
-                            className="login__form__container__group mb-3"
-                            controlId="formBasicPassword"
-                        >
+                        <Form.Group className="login__form__container__group mb-3" controlId="formBasicPassword">
                             <Form.Label>Password</Form.Label>
                             <Form.Control
                                 type="password"
@@ -186,10 +188,7 @@ const LoginPage = () => {
                                 checked={user.role === Role.Customer}
                                 onChange={handleChangeRadio}
                             />
-                            <Form.Label
-                                htmlFor="customer-radio"
-                                className="me-3"
-                            >
+                            <Form.Label htmlFor="customer-radio" className="me-3">
                                 Customer
                             </Form.Label>
 
@@ -204,10 +203,7 @@ const LoginPage = () => {
                             />
                             <Form.Label htmlFor="admin-radio">Admin</Form.Label>
                         </Form.Group>
-                        <Form.Group
-                            className="login__form__container__group mb-3 mt-5"
-                            controlId="formBasicCheckbox"
-                        >
+                        <Form.Group className="login__form__container__group mb-3 mt-5" controlId="formBasicCheckbox">
                             <Form.Check
                                 inline
                                 type="checkbox"
@@ -238,8 +234,7 @@ const LoginPage = () => {
                             Login
                         </Button>
                         <div className="mt-4" style={{ textAlign: "center" }}>
-                            Don't have an account?{" "}
-                            <Link to="/signup">Register</Link>
+                            Don't have an account? <Link to="/signup">Register</Link>
                         </div>
                     </Form>
                 </div>

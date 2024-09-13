@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import axios from "../../api/axios";
 
 interface Item {
     cartItemId: number;
@@ -24,20 +25,59 @@ const CartItem = ({
     handleQuantityChange,
     handleRemove,
 }: CartItemProps) => {
+    const [image, setImage] = useState<string | null>(null);
+    const imageUrl = item.image ? item.image.replace(".jpg", "") : null;
+
+    useEffect(() => {
+        const fetchImage = async () => {
+            try {
+                if (imageUrl) {
+                    // Fetch image from the server
+                    const response = await axios.get(
+                        `/api/products/images/${imageUrl}`,
+                        { responseType: "blob" } // Request as blob
+                    );
+
+                    if (response.status === 200) {
+                        const blob = new Blob([response.data], {
+                            type: "image/jpeg",
+                        });
+                        const url = URL.createObjectURL(blob); // Create a Blob URL
+
+                        setImage(url); // Set the Blob URL as the image source
+                    } else {
+                        console.error("Error loading image");
+                    }
+                } else {
+                    console.error("Image not found");
+                }
+            } catch (error) {
+                console.error("Error fetching image:", error);
+            }
+        };
+
+        fetchImage();
+        // Clean up the Blob URL after component unmount
+        return () => {
+            if (image) {
+                URL.revokeObjectURL(image);
+            }
+        };
+    }, [imageUrl]);
     return (
         <div
             key={item.cartItemId}
             className="cart__container__box__main__list__item"
         >
             <div className="cart__container__box__main__list__item__image">
-                <img
-                    src={
-                        item.image
-                            ? require(`../../assets/images/${item.image}.jpg`)
-                            : require(`../../assets/images/product_placeholder.jpg`)
-                    }
-                    alt="Empty"
-                />
+                {image ? (
+                    <img src={image} alt={item.productName} />
+                ) : (
+                    <img
+                        src={require("../../assets/images/product_placeholder.jpg")}
+                        alt={item.productName}
+                    />
+                )}
             </div>
             <div className="cart__container__box__main__list__item__info">
                 <strong>{item.productName}</strong>

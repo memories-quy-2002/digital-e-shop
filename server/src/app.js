@@ -4,6 +4,7 @@ const cookieParser = require("cookie-parser");
 const rateLimit = require('express-rate-limit');
 const bodyParser = require("body-parser");
 const db = require("./database/models");
+const path = require("path");
 const limiter = rateLimit({
 	windowMs: 60 * 60 * 1000,
 	max: 100000,
@@ -28,8 +29,10 @@ const corsOptions = {
 }
 /* Middleware */
 app.options('/api/users/login', cors(corsOptions));
+app.options('/api/products/add', cors(corsOptions));
 app.options('*', (req, res) => {
 	res.header("Access-Control-Allow-Origin", "https://e-commerce-website-1-1899.vercel.app");
+	// res.header("Access-Control-Allow-Origin", "http://localhost:3000");
 	res.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE");
 	res.header("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
 	res.header("Access-Control-Allow-Credentials", "true");
@@ -56,6 +59,10 @@ app.get("/api/products/", db.getListProduct);
 app.post("/api/products/add", db.addSingleProduct)
 app.post("/api/products/delete/", db.deleteProduct)
 app.get("/api/products/relevant/:pid", db.retrieveRelevantProducts)
+app.get('/api/products/images/:filename', (req, res) => {
+	const imagePath = path.join(__dirname, '..', '..', 'server', 'src', 'uploads', req.params.filename + '.jpg')
+	res.sendFile(imagePath);
+});
 
 // Wishlist
 app.post("/api/wishlist/", db.addItemToWishlist);
@@ -69,7 +76,8 @@ app.post("/api/cart/delete", db.deleteCartItem)
 
 // Purchase
 app.post("/api/purchase/:uid", db.makePurchase);
-app.get("/api/orders/", db.getOrders)
+app.get("/api/orders/", db.getOrders);
+app.post("/api/orders/status/:oid", db.changeOrderStatus)
 app.get("/api/orders/item", db.getOrderItems)
 app.post("/api/discount", db.applyDiscount)
 

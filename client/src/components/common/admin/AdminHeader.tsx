@@ -8,10 +8,9 @@ import { useToast } from "../../../context/ToastContext";
 import { Helmet } from "react-helmet";
 
 const cookies = new Cookies();
-
+const UNREAD_COUNT = 1;
 const AdminHeader = () => {
     const { addToast } = useToast();
-    const [unreadCount, setUnreadCount] = useState<number>(1);
     const [show, setShow] = useState<boolean>(false);
     const handleClick = () => {
         setShow(true);
@@ -38,7 +37,6 @@ const AdminHeader = () => {
             <Helmet>
                 <title>Digital-E - Admin</title>
             </Helmet>
-            F
             <div
                 style={{
                     display: "flex",
@@ -75,9 +73,9 @@ const AdminHeader = () => {
                         size={28}
                         className="admin__layout__main__header__notifications__icon"
                     />
-                    {unreadCount > 0 && (
+                    {UNREAD_COUNT > 0 && (
                         <span className="admin__layout__main__header__notifications__badge">
-                            {unreadCount}
+                            {UNREAD_COUNT}
                         </span>
                     )}
                 </div>

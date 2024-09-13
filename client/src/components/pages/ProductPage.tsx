@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { BsStar, BsStarFill } from "react-icons/bs";
-import Cookies from "universal-cookie";
 import axios from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
 import "../../styles/ProductPage.scss";
@@ -10,8 +9,7 @@ import NavigationBar from "../common/NavigationBar";
 import RecommendedProduct from "../common/RecommendedProduct";
 import Layout from "../layout/Layout";
 import NoPage from "./NoPage";
-
-const cookies = new Cookies();
+import { useAuth } from "../../context/AuthContext";
 interface relevantProductsItem {
     product_id: number;
     product_name: string;
@@ -32,15 +30,11 @@ type Review = {
 const ProductPage = () => {
     const url = new URLSearchParams(window.location.search);
     const { addToast } = useToast();
+    const { uid } = useAuth();
     const productId = url.get("id");
-    const uid =
-        cookies.get("rememberMe")?.uid ||
-        (sessionStorage["rememberMe"]
-            ? JSON.parse(sessionStorage["rememberMe"]).uid
-            : "");
-
     const pid = productId !== null ? parseInt(productId) : 0;
     const [products, setProducts] = useState<Product[]>([]);
+    const [image, setImage] = useState<string | null>(null);
     const [productDetail, setProductDetail] = useState<Product>({
         id: 0,
         name: "",
@@ -57,12 +51,10 @@ const ProductPage = () => {
         specifications: [],
     });
     const [relevantProducts, setRelevantProducts] = useState<Product[]>([]);
-
     const [ratingScore, setRatingScore] = useState<number>(0);
     const [reviewText, setReviewText] = useState<string>("");
     const [reviews, setReviews] = useState<Review[]>([]);
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
-
     const [toggle, setToggle] = useState<boolean>(false);
     const [quantity, setQuantity] = useState<number>(0);
 
@@ -72,15 +64,45 @@ const ProductPage = () => {
                 const response = await axios.get(`/api/products/${pid}`);
                 if (response.status === 200) {
                     setProductDetail(response.data.product);
+                    // setQuantity(response.data.product.stock); // Cập nhật số lượng
                     console.log(response.data.msg);
+
+                    // Sau khi nhận được productDetail, bắt đầu fetch image
+                    const mainImage = response.data.product.main_image;
+                    const imageUrl = mainImage ? mainImage.replace(".jpg", "") : null;
+
+                    if (imageUrl) {
+                        // Fetch image từ server nếu imageUrl hợp lệ
+                        const imageResponse = await axios.get(`/api/products/images/${imageUrl}`, {
+                            responseType: "blob",
+                        });
+
+                        if (imageResponse.status === 200) {
+                            const blob = new Blob([imageResponse.data], {
+                                type: "image/jpeg",
+                            });
+                            const imageSrc = URL.createObjectURL(blob);
+                            setImage(imageSrc); // Set the Blob URL as the image source
+                        } else {
+                            console.error("Error loading image");
+                        }
+                    } else {
+                        console.error("Image not found");
+                    }
                 }
             } catch (err: any) {
                 console.error(err);
             }
         };
+
         fetchSingleProduct();
-        setQuantity(productDetail.stock);
-        return () => {};
+
+        // Clean up the Blob URL after component unmount
+        return () => {
+            if (image) {
+                URL.revokeObjectURL(image);
+            }
+        };
     }, [pid]);
 
     useEffect(() => {
@@ -104,19 +126,17 @@ const ProductPage = () => {
             try {
                 const response = await axios.get(`/api/wishlist/${uid}`);
                 if (response.status === 200) {
-                    const newWishlist: Wishlist[] = response.data.wishlist.map(
-                        (item: any) => {
-                            const { id, product_id, ...productProps } = item;
+                    const newWishlist: Wishlist[] = response.data.wishlist.map((item: any) => {
+                        const { id, product_id, ...productProps } = item;
 
-                            return {
-                                id,
-                                product: {
-                                    id: product_id,
-                                    ...productProps,
-                                },
-                            };
-                        }
-                    );
+                        return {
+                            id,
+                            product: {
+                                id: product_id,
+                                ...productProps,
+                            },
+                        };
+                    });
 
                     setWishlist(newWishlist);
                     console.log(response.data.msg);
@@ -132,33 +152,21 @@ const ProductPage = () => {
     useEffect(() => {
         const fetchRelevantProducts = async () => {
             try {
-                const response = await axios.get(
-                    `/api/products/relevant/${pid}`
-                );
+                const response = await axios.get(`/api/products/relevant/${pid}`);
                 if (response.status === 200) {
                     if (response.data.relevantProducts.length === 0) {
                         setRelevantProducts(products);
                         return;
                     }
-                    const newRelevantProducts: relevantProductsItem[] =
-                        response.data.relevantProducts;
-                    const relevantProductsIds: number[] =
-                        newRelevantProducts.map(
-                            (product) => product.product_id
-                        );
+                    const newRelevantProducts: relevantProductsItem[] = response.data.relevantProducts;
+                    const relevantProductsIds: number[] = newRelevantProducts.map((product) => product.product_id);
 
                     setRelevantProducts(
                         products
-                            .filter((product) =>
-                                relevantProductsIds.includes(product.id)
-                            )
+                            .filter((product) => relevantProductsIds.includes(product.id))
                             .sort((a, b) => {
-                                const indexA = relevantProductsIds.indexOf(
-                                    a.id
-                                );
-                                const indexB = relevantProductsIds.indexOf(
-                                    b.id
-                                );
+                                const indexA = relevantProductsIds.indexOf(a.id);
+                                const indexB = relevantProductsIds.indexOf(b.id);
                                 return indexA - indexB;
                             })
                     );
@@ -176,9 +184,7 @@ const ProductPage = () => {
     useEffect(() => {
         const fetchReviews = async () => {
             try {
-                const response = await axios.get(
-                    `/api/reviews/${productDetail.id}`
-                );
+                const response = await axios.get(`/api/reviews/${productDetail.id}`);
                 if (response.status === 200) {
                     setReviews(
                         response.data.reviews.map((review: any) => {
@@ -200,42 +206,22 @@ const ProductPage = () => {
         return () => {};
     }, [productDetail]);
 
-    const checkImageExists = (imageName: string | null) => {
-        try {
-            require(`../../assets/images/${imageName}.jpg`);
-            return true;
-        } catch (error) {
-            return false;
-        }
-    };
-
     const handleDecrease = () => setQuantity((quantity) => quantity - 1);
     const handleIncrease = () => setQuantity((quantity) => quantity + 1);
     const handleStarClick = (rating: number) => {
         setRatingScore(rating);
     };
 
-    const handleReviewTextChange = (
-        event: React.ChangeEvent<HTMLTextAreaElement>
-    ) => {
-        setReviewText(event.target.value);
-    };
     const handleAddingCart = async (user_id: string, product: Product) => {
         if (uid === "") {
-            addToast(
-                "Login required",
-                "You need to login to use this feature."
-            );
+            addToast("Login required", "You need to login to use this feature.");
             return;
         } else {
             if (productDetail.stock === 0) {
                 addToast("Out of stock", "The product is out of stock.");
                 return;
             } else if (quantity === 0) {
-                addToast(
-                    "Invalid action",
-                    "The quantity should be non-zero to complete the action."
-                );
+                addToast("Invalid action", "The quantity should be non-zero to complete the action.");
                 return;
             }
         }
@@ -247,25 +233,16 @@ const ProductPage = () => {
             });
             if (response.status === 200) {
                 console.log(response.data.msg);
-                addToast(
-                    "Add cart item",
-                    "Product added to cart successfully."
-                );
+                addToast("Add cart item", "Product added to cart successfully.");
             }
         } catch (err) {
             throw err;
         }
     };
 
-    const handleAddingWishlist = async (
-        user_id: string,
-        product_id: number
-    ) => {
+    const handleAddingWishlist = async (user_id: string, product_id: number) => {
         if (uid === "") {
-            addToast(
-                "Login required",
-                "You need to login to use this feature."
-            );
+            addToast("Login required", "You need to login to use this feature.");
             return;
         }
         try {
@@ -276,13 +253,8 @@ const ProductPage = () => {
                 });
                 if (response.status === 200) {
                     console.log(response.data.msg);
-                    setWishlist((list) =>
-                        list.filter((item) => item.product.id !== product_id)
-                    );
-                    addToast(
-                        "Remove wishlist item",
-                        "Item removed from wishlist successfully"
-                    );
+                    setWishlist((list) => list.filter((item) => item.product.id !== product_id));
+                    addToast("Remove wishlist item", "Item removed from wishlist successfully");
                 }
             } else {
                 const response = await axios.post("/api/wishlist/", {
@@ -291,9 +263,7 @@ const ProductPage = () => {
                 });
                 if (response.status === 200) {
                     console.log(response.data.msg);
-                    const newProduct = products.filter(
-                        (product) => product.id === product_id
-                    )[0];
+                    const newProduct = products.filter((product) => product.id === product_id)[0];
                     setWishlist((list) => [
                         ...list,
                         {
@@ -301,10 +271,7 @@ const ProductPage = () => {
                             product: newProduct,
                         },
                     ]);
-                    addToast(
-                        "Add wishlist item",
-                        "Item added to wishlist successfully"
-                    );
+                    addToast("Add wishlist item", "Item added to wishlist successfully");
                 }
             }
         } catch (err) {
@@ -312,17 +279,9 @@ const ProductPage = () => {
         }
     };
 
-    const handleSubmitReview = async (
-        uid: string,
-        pid: number,
-        rating: number,
-        reviewText: string
-    ) => {
+    const handleSubmitReview = async (uid: string, pid: number, rating: number, reviewText: string) => {
         if (ratingScore === 0) {
-            addToast(
-                "Invalid rating",
-                "The rating score should be from 1 to 5"
-            );
+            addToast("Invalid rating", "The rating score should be from 1 to 5");
             return;
         }
         try {
@@ -335,18 +294,13 @@ const ProductPage = () => {
 
             if (response.status === 200) {
                 console.log(response.data.msg);
-                addToast(
-                    "Submit review",
-                    "Review has been submitted successfully."
-                );
+                addToast("Submit review", "Review has been submitted successfully.");
                 window.location.reload();
             }
         } catch (err) {
             throw err;
         }
     };
-
-    console.log(wishlist);
 
     if (pid <= 0) {
         return <NoPage />;
@@ -358,14 +312,14 @@ const ProductPage = () => {
                 <div className="product__container__detail">
                     <div className="product__container__detail__img">
                         <div className="product__container__detail__img__main">
-                            <img
-                                src={
-                                    checkImageExists(productDetail.main_image)
-                                        ? require(`../../assets/images/${productDetail.main_image}.jpg`)
-                                        : require(`../../assets/images/product_placeholder.jpg`)
-                                }
-                                alt="Main"
-                            />
+                            {image ? (
+                                <img src={image} alt={productDetail.name} />
+                            ) : (
+                                <img
+                                    src={require("../../assets/images/product_placeholder.jpg")}
+                                    alt={productDetail.name}
+                                />
+                            )}
                         </div>
                         {/* <div className="product__container__detail__img__sub">
                             <img
@@ -408,31 +362,20 @@ const ProductPage = () => {
                                         flexDirection: "row",
                                     }}
                                 >
-                                    {ratingStar(
-                                        productDetail.rating,
-                                        "#FFCC4A",
-                                        24
-                                    )}
+                                    {ratingStar(productDetail.rating, "#FFCC4A", 24)}
                                 </div>
                                 <span
                                     style={{
                                         fontSize: "22px",
                                     }}
                                 >
-                                    {productDetail.rating} (
-                                    {productDetail.reviews})
+                                    {productDetail.rating} ({productDetail.reviews})
                                 </span>
                             </div>
-                            <strong style={{ fontSize: "36px", width: "100%" }}>
-                                {productDetail.name}
-                            </strong>
+                            <strong style={{ fontSize: "36px", width: "100%" }}>{productDetail.name}</strong>
                             <div>
-                                <strong
-                                    style={{ fontSize: "28px", color: "red" }}
-                                >
-                                    $
-                                    {productDetail.sale_price ||
-                                        productDetail.price}
+                                <strong style={{ fontSize: "28px", color: "red" }}>
+                                    ${productDetail.sale_price || productDetail.price}
                                 </strong>
                             </div>
                             <div
@@ -453,9 +396,7 @@ const ProductPage = () => {
                                         }}
                                     >
                                         {" "}
-                                        {productDetail.stock > 0
-                                            ? "In stock"
-                                            : "Out of stock"}
+                                        {productDetail.stock > 0 ? "In stock" : "Out of stock"}
                                     </span>
                                 </p>
                             </div>
@@ -514,21 +455,27 @@ const ProductPage = () => {
                                     backgroundColor: "#3D3D3d",
                                     color: "white",
                                 }}
-                                onClick={() =>
-                                    handleAddingCart(uid, productDetail)
-                                }
+                                onClick={() => {
+                                    if (uid) {
+                                        handleAddingCart(uid, productDetail);
+                                    } else {
+                                        addToast("Login required", "You need to login to use this feature.");
+                                    }
+                                }}
                             >
                                 Add to cart
                             </button>
                             <button
                                 type="button"
-                                onClick={() =>
-                                    handleAddingWishlist(uid, productDetail.id)
-                                }
+                                onClick={() => {
+                                    if (uid) {
+                                        handleAddingWishlist(uid, productDetail.id);
+                                    } else {
+                                        addToast("Login required", "You need to login to use this feature.");
+                                    }
+                                }}
                             >
-                                {wishlist.some(
-                                    (item) => item.product.id === pid
-                                )
+                                {wishlist.some((item) => item.product.id === pid)
                                     ? "Remove from wishlist"
                                     : "Add to wishlist"}
                             </button>
@@ -537,18 +484,10 @@ const ProductPage = () => {
                 </div>
                 <div className="product__container__navigation">
                     <div className="product__container__navigation__btn">
-                        <button
-                            type="button"
-                            className={!toggle ? "active" : ""}
-                            onClick={() => setToggle(false)}
-                        >
+                        <button type="button" className={!toggle ? "active" : ""} onClick={() => setToggle(false)}>
                             Description
                         </button>
-                        <button
-                            type="button"
-                            className={toggle ? "active" : ""}
-                            onClick={() => setToggle(true)}
-                        >
+                        <button type="button" className={toggle ? "active" : ""} onClick={() => setToggle(true)}>
                             Review ({reviews.length})
                         </button>
                         <div className="product__container__navigation__btn__empty"></div>
@@ -573,26 +512,18 @@ const ProductPage = () => {
                                         }}
                                     >
                                         <div className="product__container__review__rating__score">
-                                            {[1, 2, 3, 4, 5].map((star) => (
+                                            {[1, 2, 3, 4, 5].map((rating) => (
                                                 <span
-                                                    key={star}
-                                                    onClick={() =>
-                                                        handleStarClick(star)
-                                                    }
+                                                    key={rating}
+                                                    onClick={() => handleStarClick(rating)}
                                                     style={{
                                                         cursor: "pointer",
                                                     }}
                                                 >
-                                                    {star <= ratingScore ? (
-                                                        <BsStarFill
-                                                            size={24}
-                                                            color="#FFCC4A"
-                                                        />
+                                                    {rating <= ratingScore ? (
+                                                        <BsStarFill size={24} color="#FFCC4A" />
                                                     ) : (
-                                                        <BsStar
-                                                            size={24}
-                                                            color="#FFCC4A"
-                                                        />
+                                                        <BsStar size={24} color="#FFCC4A" />
                                                     )}
                                                 </span>
                                             ))}
@@ -614,7 +545,7 @@ const ProductPage = () => {
                                         name="review"
                                         id="review"
                                         value={reviewText}
-                                        onChange={handleReviewTextChange}
+                                        onChange={(event) => setReviewText(event.target.value)}
                                         rows={10}
                                         placeholder="Enter your review"
                                     ></textarea>
@@ -622,12 +553,7 @@ const ProductPage = () => {
                                         className="btn btn-primary"
                                         type="submit"
                                         onClick={() =>
-                                            handleSubmitReview(
-                                                uid,
-                                                productDetail.id,
-                                                ratingScore,
-                                                reviewText
-                                            )
+                                            handleSubmitReview(uid, productDetail.id, ratingScore, reviewText)
                                         }
                                         style={{
                                             padding: "0.5rem 1rem",
@@ -654,8 +580,7 @@ const ProductPage = () => {
                                                     display: "flex",
                                                     flexDirection: "column",
                                                     gap: "1rem",
-                                                    borderBottom:
-                                                        "1px solid black",
+                                                    borderBottom: "1px solid black",
                                                 }}
                                             >
                                                 <div
@@ -666,29 +591,18 @@ const ProductPage = () => {
                                                         alignItems: "center",
                                                     }}
                                                 >
-                                                    <strong>
-                                                        {review.username}
-                                                    </strong>
+                                                    <strong>{review.username}</strong>
                                                     <span
                                                         style={{
                                                             display: "flex",
-                                                            flexDirection:
-                                                                "row",
+                                                            flexDirection: "row",
                                                             gap: "0.5rem",
                                                         }}
                                                     >
-                                                        {ratingStar(
-                                                            review.rating,
-                                                            "#FFCC4A",
-                                                            18
-                                                        )}
+                                                        {ratingStar(review.rating, "#FFCC4A", 18)}
                                                     </span>
                                                     <span>
-                                                        {new Date(
-                                                            review.created_at
-                                                        ).toLocaleDateString(
-                                                            "en-GB"
-                                                        )}
+                                                        {new Date(review.created_at).toLocaleDateString("en-GB")}
                                                     </span>
                                                 </div>
                                                 <div>
@@ -705,34 +619,23 @@ const ProductPage = () => {
                     <div className="product__container__description">
                         <h5>Description</h5>
                         <p>
-                            Lorem ipsum dolor sit amet, consectetur adipiscing
-                            elit, sed do eiusmod tempor incididunt ut labore et
-                            dolore magna aliqua. Morbi tincidunt augue interdum
-                            velit euismod in pellentesque. Nunc sed id semper
-                            risus in hendrerit gravida. Diam vel quam elementum
-                            pulvinar etiam non quam lacus. Amet massa vitae
-                            tortor condimentum lacinia quis vel eros donec.
-                            Donec massa sapien faucibus et. Dui ut ornare lectus
-                            sit. Quam pellentesque nec nam aliquam sem.
-                            Ultricies integer quis auctor elit. Penatibus et
-                            magnis dis parturient montes nascetur ridiculus mus
-                            mauris. Euismod in pellentesque massa placerat duis
-                            ultricies. Donec enim diam vulputate ut pharetra sit
-                            amet. At tempor commodo ullamcorper a lacus
-                            vestibulum. Risus pretium quam vulputate dignissim.
-                            Tincidunt tortor aliquam nulla facilisi cras.
-                            Accumsan tortor posuere ac ut consequat semper
-                            viverra nam. Dictum sit amet justo donec. Ultricies
+                            Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut
+                            labore et dolore magna aliqua. Morbi tincidunt augue interdum velit euismod in pellentesque.
+                            Nunc sed id semper risus in hendrerit gravida. Diam vel quam elementum pulvinar etiam non
+                            quam lacus. Amet massa vitae tortor condimentum lacinia quis vel eros donec. Donec massa
+                            sapien faucibus et. Dui ut ornare lectus sit. Quam pellentesque nec nam aliquam sem.
+                            Ultricies integer quis auctor elit. Penatibus et magnis dis parturient montes nascetur
+                            ridiculus mus mauris. Euismod in pellentesque massa placerat duis ultricies. Donec enim diam
+                            vulputate ut pharetra sit amet. At tempor commodo ullamcorper a lacus vestibulum. Risus
+                            pretium quam vulputate dignissim. Tincidunt tortor aliquam nulla facilisi cras. Accumsan
+                            tortor posuere ac ut consequat semper viverra nam. Dictum sit amet justo donec. Ultricies
                             lacus sed turpis tincidunt id aliquet risus.
                             {productDetail.description}
                         </p>
                     </div>
                 )}
 
-                <RecommendedProduct
-                    pid={productDetail.id}
-                    relevantProducts={relevantProducts}
-                />
+                <RecommendedProduct pid={productDetail.id} relevantProducts={relevantProducts} />
             </div>
         </Layout>
     );

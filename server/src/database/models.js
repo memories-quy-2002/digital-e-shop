@@ -60,9 +60,7 @@ const checkSessionToken = (request, response) => {
 
 	try {
 		const { token } = JSON.parse(userInfo); // Phân tích cookies JSON
-
 		const payload = jwt.verify(token, "secret-key");
-
 		if (payload) {
 			return response.status(200).json({ sessionActive: true });
 		}
@@ -112,9 +110,7 @@ const userLogin = (request, response) => {
 
 		try {
 			jwt.verify(userToken, "secret-key");
-
 			const sessionId = await startSession(userId);
-
 			pool.query("UPDATE users SET last_login=CURRENT_TIMESTAMP WHERE id=?", [userId]);
 
 			// Gửi cookies đến client
@@ -178,8 +174,6 @@ const userLogin = (request, response) => {
 
 
 const userLogout = (request, response) => {
-	response.set('Access-Control-Allow-Origin', 'https://e-commerce-website-1-1899.vercel.app');
-	response.set('Access-Control-Allow-Credentials', 'true');
 	const sessionId = request.cookies.session;
 	try {
 		const sessionEnd = new Date();
@@ -232,50 +226,55 @@ const userLogout = (request, response) => {
 
 }
 
-const addUser = (request, response) => {
+const addUser = async (request, response) => {
 	const { uid, user } = request.body;
-	(async () => {
+	try {
+		// Băm mật khẩu
 		const hashedPassword = await hashPassword(user.password);
 		pool.query(
-			"INSERT INTO users (id, username, email, password, role) VALUES (?, ?, ?, ?, ?)",
-			[uid, user.username, user.email, hashedPassword, user.role],
-			(error, results) => {
+			"INSERT INTO users (id, username, email, password, role, token) VALUES (?, ?, ?, ?, ?, '')",
+			[uid, user.username, user.email, hashedPassword, user.role], (error, results) => {
 				if (error) {
 					console.error(error.message);
-				} else {
-					const token = jwt.sign(
-						{ id: uid, email: user.email },
-						"secret-key",
-						{
-							expiresIn: "30d",
-						}
-					);
-					pool.query(
-						"UPDATE users SET token = ? WHERE id = ?",
-						[token, uid],
-						(error, results) => {
-							if (error) {
-								console.error(error)
-							}
-							response.cookie(
-								"userInfo",
-								{ uid, token },
-								{
-									httpOnly: true,
-									maxAge: 1000 * 60 * 60 * 24 * 30,
-								}
-							);
-							response.status(200).json({
-								token,
-								msg: "User created successfully",
-							});
-						}
-					);
+					return response.status(500).json({ msg: "Internal server error" });
 				}
+				const token = jwt.sign(
+					{ id: uid, email: user.email },
+					"secret-key",
+					{ expiresIn: "30d" }
+				);
+				pool.query(
+					"UPDATE users SET token = ? WHERE id = ?",
+					[token, uid], (error, results) => {
+						if (error) {
+							console.error(error.message);
+							return response.status(500).json({ msg: "Internal server error" });
+						}
+						response.cookie("userInfo", JSON.stringify({ uid, token }), {
+							httpOnly: true,
+							secure: true,
+							sameSite: 'None',
+							maxAge: 1000 * 60 * 60 * 24 * 30, // 30 ngày
+						});
+
+						return response.status(200).json({
+							uid,
+							token,
+							msg: "User created successfully",
+						});
+					}
+				);
 			}
 		);
-	})();
+	} catch (error) {
+		console.error(error.message);
+		response.status(500).json({
+			msg: "Error creating user",
+			error: error.message,
+		});
+	}
 };
+
 
 const getAllUsers = (request, response) => {
 	pool.query(
@@ -322,7 +321,7 @@ const addSingleProduct = (request, response) => {
 					pool.query("ROLLBACK")
 					return response.status(500).json({ msg: 'Internal server error' });
 				} else {
-					const imagePath = path.join(__dirname, '..', '..', '..', 'client', 'src', 'assets', 'images', imageName + '.jpg',);
+					const imagePath = path.join(__dirname, '../uploads', imageName + '.jpg',);
 					fs.writeFile(imagePath, imageBuffer, (err) => {
 						if (err) {
 							console.error('Error saving the image:', err);
@@ -351,32 +350,49 @@ const addSingleProduct = (request, response) => {
 
 		try {
 			pool.query('START TRANSACTION', (err) => {
-				if (err) throw err;
+				if (err) {
+					console.error('Error starting transaction:', err);
+					throw err;
+				}
 
 				// Get or insert brand
 				pool.query('SELECT id FROM brands WHERE name = ?', [brand], (error, results) => {
-					if (error) throw error;
+					if (error) {
+						console.error('Error retrieving brand:', error);
+						throw error;
+					}
 
 					let brandId;
 					if (results.length > 0) {
 						brandId = results[0].id;
 					} else {
 						pool.query('INSERT INTO brands (name) VALUES (?)', [brand], (error, results) => {
-							if (error) throw error;
+							if (error) {
+								console.error('Error inserting brand:', error);
+								throw error;
+							}
+							console.log(results.insertId);
+
 							brandId = results.insertId;
 						});
 					}
 
 					// Get or insert category
 					pool.query('SELECT id FROM categories WHERE name = ?', [category], (error, results) => {
-						if (error) throw error;
+						if (error) {
+							console.error('Error retrieving category:', error);
+							throw error;
+						}
 
 						let categoryId;
 						if (results.length > 0) {
 							categoryId = results[0].id;
 						} else {
 							pool.query('INSERT INTO categories (name) VALUES (?)', [category], (error, results) => {
-								if (error) throw error;
+								if (error) {
+									console.error('Error inserting category:', error);
+									throw error;
+								}
 								categoryId = results.insertId;
 							});
 						}
@@ -669,52 +685,79 @@ const deleteCartItem = (request, response) => {
 };
 
 const makePurchase = (request, response) => {
-	try {
-		const uid = request.params.uid;
-		const { totalPrice, cart, discount, subtotal } = request.body;
-		var orderId;
+	const uid = request.params.uid;
+	const { totalPrice, cart, discount, subtotal, shippingAddress } = request.body;
 
-		// Bắt đầu transaction
-		pool.query('START TRANSACTION');
+	// Bắt đầu transaction
+	pool.query('START TRANSACTION', (err) => {
+		if (err) {
+			return response.status(500).json({ msg: 'Error starting transaction', error: err.message });
+		}
 
-		// Update cart to set done = 1
-		pool.query('UPDATE cart SET done = 1 WHERE user_id = ?', [uid]);
-
-		// Insert into orders
-		pool.query(
-			'INSERT INTO orders (user_id, total_price, discount, subtotal) VALUES (?, ?, ?, ?)',
-			[uid, totalPrice, discount, subtotal], (error, results) => {
-				orderId = results.insertId
-				cart.map(async (product) => {
-					pool.query(
-						'INSERT INTO order_items (order_id, product_id, quantity, total_price) VALUES (?, ?, ?, ?)',
-						[orderId, product.productId, product.quantity, (product.sale_price ? product.sale_price : product.price) * product.quantity]
-					);
-					pool.query(
-						'UPDATE products SET stock = stock - ? WHERE id = ?',
-						[product.quantity, product.productId]
-					);
-				});
+		// Update cart để set done = 1
+		pool.query('UPDATE cart SET done = 1 WHERE user_id = ?', [uid], (err) => {
+			if (err) {
+				pool.query('ROLLBACK');
+				return response.status(500).json({ msg: 'Error updating cart', error: err.message });
 			}
-		);
 
-		// Commit transaction nếu mọi thứ đều ổn
-		pool.query('COMMIT');
+			// Thêm thông tin vào bảng orders
+			pool.query(
+				'INSERT INTO orders (user_id, total_price, discount, subtotal, shipping_address) VALUES (?, ?, ?, ?, ?)',
+				[uid, totalPrice, discount, subtotal, shippingAddress],
+				(err, results) => {
+					if (err) {
+						pool.query('ROLLBACK');
+						return response.status(500).json({ msg: 'Error inserting into orders', error: err.message });
+					}
 
-		// Gửi phản hồi thành công
-		response.status(200).json({
-			msg: `The order items have been added to the order with id = ${orderId}`,
+					const orderId = results.insertId;
+
+					// Lặp qua giỏ hàng và thêm vào bảng order_items
+					cart.forEach((product, index) => {
+						pool.query(
+							'INSERT INTO order_items (order_id, product_id, quantity, total_price) VALUES (?, ?, ?, ?)',
+							[orderId, product.productId, product.quantity, (product.sale_price ? product.sale_price : product.price) * product.quantity],
+							(err) => {
+								if (err) {
+									pool.query('ROLLBACK');
+									return response.status(500).json({ msg: 'Error inserting order item', error: err.message });
+								}
+
+								// Cập nhật số lượng tồn kho
+								pool.query(
+									'UPDATE products SET stock = stock - ? WHERE id = ?',
+									[product.quantity, product.productId],
+									(err) => {
+										if (err) {
+											pool.query('ROLLBACK');
+											return response.status(500).json({ msg: 'Error updating product stock', error: err.message });
+										}
+
+										// Nếu đây là lần cuối cùng của vòng lặp, chúng ta commit transaction
+										if (index === cart.length - 1) {
+											pool.query('COMMIT', (err) => {
+												if (err) {
+													return response.status(500).json({ msg: 'Error committing transaction', error: err.message });
+												}
+
+												// Gửi phản hồi thành công
+												response.status(200).json({
+													msg: `The order items have been added to the order with id = ${orderId}`,
+												});
+											});
+										}
+									}
+								);
+							}
+						);
+					});
+				}
+			);
 		});
-	} catch (error) {
-		// Rollback nếu có lỗi
-		pool.query('ROLLBACK');
-		console.error(error.message);
-		response.status(500).json({
-			msg: 'Error processing the purchase',
-			error: error.message,
-		});
-	}
+	});
 };
+
 
 
 const getOrders = (request, response) => {
@@ -737,6 +780,31 @@ const getOrders = (request, response) => {
 					})
 				}
 			}
+		}
+	);
+};
+
+const changeOrderStatus = (request, response) => {
+	const orderId = request.params.oid
+	const { status } = request.body
+	pool.query(
+		`UPDATE orders SET status = ? WHERE id = ?`, [status, orderId],
+		(error, results) => {
+			if (error) {
+				console.error(error);
+				response.status(500).json({ error: 'Internal server error' });
+			}
+			pool.query(`SELECT * FROM orders WHERE id = ?`, [orderId], (error, results) => {
+				if (error) {
+					console.error(error);
+					response.status(500).json({ error: 'Internal server error' });
+				}
+				response.status(200).json({
+					order: results[0],
+					msg: 'Item updated successfully'
+				});
+			})
+
 		}
 	);
 };
@@ -932,6 +1000,7 @@ module.exports = {
 	deleteCartItem,
 	makePurchase,
 	getOrders,
+	changeOrderStatus,
 	getOrderItems,
 	retrieveRelevantProducts,
 	addReview,

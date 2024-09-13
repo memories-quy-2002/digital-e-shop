@@ -2,11 +2,15 @@ import React from "react";
 import "../../styles/ContactUsPage.scss";
 import Layout from "../layout/Layout";
 import NavigationBar from "../common/NavigationBar";
+import { Helmet } from "react-helmet";
 
 const ContactUsPage: React.FC = () => {
     return (
         <Layout>
             <NavigationBar />
+            <Helmet>
+                <title>Contact us</title>
+            </Helmet>
             <div className="contact-us">
                 <div className="contact-us__container">
                     <h1 className="contact-us__title">Contact Us</h1>

@@ -1,27 +1,47 @@
 import { useEffect, useState } from "react";
 import { Table } from "react-bootstrap";
-import { FaRegTrashAlt } from "react-icons/fa";
 import ReactPaginate from "react-paginate";
 import { useNavigate } from "react-router-dom";
 import axios from "../../../api/axios";
 import { Product } from "../../../utils/interface";
 import AdminLayout from "../../layout/AdminLayout";
+import AdminProductItem from "../../common/admin/AdminProductItem";
+
+const ITEMS_PER_PAGE = 5;
 
 const AdminProductPage = () => {
     const navigate = useNavigate();
     const [products, setProducts] = useState<Product[]>([]);
     const [itemOffset, setItemOffset] = useState(0);
-    const itemsPerPage = 5;
-    const endOffset = itemOffset + itemsPerPage;
-    console.log(`Loading products from ${itemOffset} to ${endOffset}`);
-    const currentProducts = products.slice(itemOffset, endOffset);
-    const pageCount = Math.ceil(products.length / itemsPerPage);
+    const [searchTerm, setSearchTerm] = useState<string>("");
+    const [filteredProducts, setFilteredProducts] = useState<Product[]>(products);
+    const endOffset = itemOffset + ITEMS_PER_PAGE;
+    const currentProducts = filteredProducts.slice(itemOffset, endOffset);
+    const pageCount = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+
+    // Handle search input change
+    const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const searchValue = event.target.value;
+        setSearchTerm(searchValue);
+    };
+
+    // Filter products based on the search term
+    useEffect(() => {
+        const filtered = products.filter((product) => {
+            const lowerSearchTerm = searchTerm.toLowerCase();
+            return (
+                product.name.toLowerCase().includes(lowerSearchTerm) ||
+                product.category.toLowerCase().includes(lowerSearchTerm) ||
+                product.brand.toLowerCase().includes(lowerSearchTerm)
+            );
+        });
+        setFilteredProducts(filtered);
+        return () => {};
+    }, [searchTerm, products]);
 
     const handlePageClick = (event: any) => {
-        const newOffset = (event.selected * itemsPerPage) % products.length;
-        console.log(
-            `User requested page number ${event.selected}, which is offset ${newOffset}`
-        );
+        const newOffset = (event.selected * ITEMS_PER_PAGE) % products.length;
+        console.log(`User requested page number ${event.selected}, which is offset ${newOffset}`);
         setItemOffset(newOffset);
     };
     useEffect(() => {
@@ -29,8 +49,7 @@ const AdminProductPage = () => {
             try {
                 const response = await axios.get("/api/products");
                 if (response.status === 200) {
-                    setProducts(response.data.products);
-
+                    setProducts(response.data.products.sort((a: Product, b: Product) => a.id - b.id));
                     console.log(response.data.msg);
                 }
             } catch (err) {
@@ -40,19 +59,6 @@ const AdminProductPage = () => {
         fetchProducts();
         return () => {};
     }, []);
-    const handleDelete = async (id: number) => {
-        try {
-            const response = await axios.post("/api/products/delete/", {
-                pid: id,
-            });
-            if (response.status === 200) {
-                console.log(response.data.msg);
-                window.location.reload();
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    };
     return (
         <AdminLayout>
             <div className="admin__product">
@@ -65,13 +71,12 @@ const AdminProductPage = () => {
                                 name="product"
                                 id="product"
                                 placeholder="Search product"
+                                value={searchTerm}
+                                onChange={handleSearchChange}
                             />
                         </div>
 
-                        <button
-                            type="button"
-                            onClick={() => navigate("/admin/add")}
-                        >
+                        <button type="button" onClick={() => navigate("/admin/add")}>
                             + Add product
                         </button>
                     </div>
@@ -84,58 +89,15 @@ const AdminProductPage = () => {
                                     <th>Name</th>
                                     <th>Category</th>
                                     <th>Brands</th>
-                                    <th>Sale Price</th>
                                     <th>Original Price</th>
+                                    <th>Sale Price</th>
                                     <th>Quantity</th>
                                     <th></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {currentProducts.map((product, index) => (
-                                    <tr>
-                                        <td width="50px">
-                                            {products.indexOf(product) + 1}
-                                        </td>
-                                        <td>
-                                            <img
-                                                src={
-                                                    product.main_image
-                                                        ? require(`../../../assets/images/${product.main_image}.jpg`)
-                                                        : require(`../../../assets/images/product_placeholder.jpg`)
-                                                }
-                                                alt={product.name}
-                                                style={{
-                                                    height: "108px",
-                                                    width: "144px",
-                                                }}
-                                            />
-                                        </td>
-                                        <td width="450px">{product.name}</td>
-                                        <td width="150px">
-                                            {product.category}
-                                        </td>
-                                        <td width="150px">{product.brand}</td>
-                                        <td width="150px">
-                                            {product.sale_price || "None"}
-                                        </td>
-                                        <td width="150px">{product.price}</td>
-                                        <td width="150px">{product.stock}</td>
-                                        <td>
-                                            <div>
-                                                {/* <button type="button">
-                                                    <FaRegEdit />
-                                                </button> */}
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        handleDelete(product.id)
-                                                    }
-                                                >
-                                                    <FaRegTrashAlt />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                    <AdminProductItem key={index} products={filteredProducts} product={product} />
                                 ))}
                             </tbody>
                         </Table>

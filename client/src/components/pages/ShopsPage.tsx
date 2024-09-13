@@ -8,6 +8,7 @@ import AsideShops from "../common/AsideShops";
 import NavigationBar from "../common/NavigationBar";
 import PaginatedItems from "../common/PaginatedItems";
 import Layout from "../layout/Layout";
+import { Helmet } from "react-helmet";
 
 const cookies = new Cookies();
 const ITEMS_PER_PAGE = 6;
@@ -40,9 +41,7 @@ const ShopsPage = () => {
     const location = useLocation();
     const uid =
         cookies.get("rememberMe")?.uid ||
-        (sessionStorage["rememberMe"]
-            ? JSON.parse(sessionStorage["rememberMe"]).uid
-            : "");
+        (sessionStorage["rememberMe"] ? JSON.parse(sessionStorage["rememberMe"]).uid : "");
 
     const updateURL = (newFilters: Filters) => {
         const queryParams = new URLSearchParams({
@@ -64,10 +63,7 @@ const ShopsPage = () => {
         });
     };
 
-    const handleCheckboxChange = (
-        type: "categories" | "brands",
-        value: string
-    ) => {
+    const handleCheckboxChange = (type: "categories" | "brands", value: string) => {
         setFilters((prevFilters) => {
             const updatedArray = prevFilters[type].includes(value)
                 ? prevFilters[type].filter((item) => item !== value) // Uncheck checkbox
@@ -87,31 +83,21 @@ const ShopsPage = () => {
         }));
     };
 
-    const getFilteredProducts = (
-        filters: Filters,
-        allProducts: Product[]
-    ): Product[] => {
+    const getFilteredProducts = (filters: Filters, allProducts: Product[]): Product[] => {
         const { term, categories, brands, priceRange } = filters;
 
         return allProducts.filter((product) => {
-            const matchCategory =
-                categories.length === 0 ||
-                categories.includes(product.category);
+            const matchCategory = categories.length === 0 || categories.includes(product.category);
 
-            const matchBrand =
-                brands.length === 0 || brands.includes(product.brand);
+            const matchBrand = brands.length === 0 || brands.includes(product.brand);
 
             const matchPrice = product.sale_price
-                ? product.sale_price >= priceRange[0] &&
-                  product.sale_price <= priceRange[1]
-                : product.price >= priceRange[0] &&
-                  product.price <= priceRange[1];
+                ? product.sale_price >= priceRange[0] && product.sale_price <= priceRange[1]
+                : product.price >= priceRange[0] && product.price <= priceRange[1];
             const matchTerm =
                 term.trim().toLowerCase() === ""
                     ? true
-                    : product.name
-                          .toLowerCase()
-                          .includes(term.trim().toLowerCase());
+                    : product.name.toLowerCase().includes(term.trim().toLowerCase());
 
             // Trả về sản phẩm nếu thoả mãn tất cả các điều kiện
             return matchCategory && matchBrand && matchPrice && matchTerm;
@@ -137,10 +123,7 @@ const ShopsPage = () => {
                     .get("brands")
                     ?.split(",")
                     .filter((brand) => brand !== "") ?? [],
-            priceRange: [
-                Number(queryParams.get("minPrice") ?? 0),
-                Number(queryParams.get("maxPrice") ?? 4000),
-            ],
+            priceRange: [Number(queryParams.get("minPrice") ?? 0), Number(queryParams.get("maxPrice") ?? 4000)],
         };
         setFilters(newFilters);
         return () => {};
@@ -172,18 +155,16 @@ const ShopsPage = () => {
                 if (uid) {
                     const response = await axios.get(`/api/wishlist/${uid}`);
                     if (response.status === 200) {
-                        const newWishlist: Wishlist[] =
-                            response.data.wishlist.map((item: any) => {
-                                const { id, product_id, ...productProps } =
-                                    item;
-                                return {
-                                    id,
-                                    product: {
-                                        id: product_id,
-                                        ...productProps,
-                                    },
-                                };
-                            });
+                        const newWishlist: Wishlist[] = response.data.wishlist.map((item: any) => {
+                            const { id, product_id, ...productProps } = item;
+                            return {
+                                id,
+                                product: {
+                                    id: product_id,
+                                    ...productProps,
+                                },
+                            };
+                        });
 
                         setWishlist(newWishlist);
                         console.log(response.data.msg);
@@ -199,10 +180,11 @@ const ShopsPage = () => {
     return (
         <Layout>
             <NavigationBar />
+            <Helmet>
+                <title>Shops</title>
+            </Helmet>
             <div className="shops">
-                <h2 style={{ marginBottom: "2rem", fontWeight: "bold" }}>
-                    SHOPS PRODUCTS
-                </h2>
+                <h2 className="shops__title">SHOPS PRODUCTS</h2>
                 <div className="shops__container">
                     <AsideShops
                         products={products}
@@ -212,10 +194,7 @@ const ShopsPage = () => {
                         onApplyFilters={applyFilters}
                         onTermChange={handleTermChange}
                     />
-                    <div
-                        data-testid="shops__container"
-                        className="shops__container__main"
-                    >
+                    <div data-testid="shops__container" className="shops__container__main">
                         {isLoading && <p>Loading products...</p>}
                         <PaginatedItems
                             itemsPerPage={ITEMS_PER_PAGE}
