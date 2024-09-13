@@ -29,9 +29,7 @@ const AdminAddProductPage = () => {
     });
     const [error, setError] = useState<string | null>(null);
     const { addToast } = useToast();
-    const handleInputChange = (
-        event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-    ) => {
+    const handleInputChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = event.target;
         setProductData((prevData) => ({ ...prevData, [name]: value }));
     };
@@ -55,7 +53,6 @@ const AdminAddProductPage = () => {
                     }
                 }
             });
-
             const response = await axios.post("/api/products/add", formData, {
                 headers: {
                     "Content-Type": "multipart/form-data",
@@ -64,18 +61,11 @@ const AdminAddProductPage = () => {
             if (response.status === 200) {
                 setError(null);
                 console.log(response.data.msg);
-                addToast(
-                    "Adding product",
-                    "Product has been added successfully"
-                );
+                addToast("Adding product", "Product has been added successfully");
             }
             // Handle success response from backend
         } catch (error) {
-            setError(
-                error instanceof Error
-                    ? error.message
-                    : "An unknown error occurred"
-            );
+            setError(error instanceof Error ? error.message : "An unknown error occurred");
         }
     };
     return (
@@ -86,10 +76,7 @@ const AdminAddProductPage = () => {
                 </div>
                 <div>
                     <div className="mb-1">
-                        <span className="cart__container__payment__form__required">
-                            *
-                        </span>{" "}
-                        Required
+                        <span className="cart__container__payment__form__required">*</span> Required
                     </div>
                     <div>
                         {error && <p style={{ color: "red" }}>{error}</p>}
@@ -99,15 +86,9 @@ const AdminAddProductPage = () => {
                     <Form onSubmit={handleSubmit}>
                         <div className="row">
                             <div className="col-md-6">
-                                <Form.Group
-                                    className="mb-3"
-                                    controlId="formProductName"
-                                >
+                                <Form.Group className="mb-3" controlId="formProductName">
                                     <Form.Label>
-                                        Product name{" "}
-                                        <span className="cart__container__payment__form__required">
-                                            *
-                                        </span>
+                                        Product name <span className="cart__container__payment__form__required">*</span>
                                     </Form.Label>
                                     <Form.Control
                                         type="text"
@@ -118,15 +99,9 @@ const AdminAddProductPage = () => {
                                     />
                                 </Form.Group>
 
-                                <Form.Group
-                                    className="mb-3"
-                                    controlId="formDescription"
-                                >
+                                <Form.Group className="mb-3" controlId="formDescription">
                                     <Form.Label>
-                                        Description{" "}
-                                        <span className="cart__container__payment__form__required">
-                                            *
-                                        </span>
+                                        Description <span className="cart__container__payment__form__required">*</span>
                                     </Form.Label>
                                     <Form.Control
                                         as="textarea"
@@ -138,15 +113,9 @@ const AdminAddProductPage = () => {
                                 </Form.Group>
                             </div>
                             <div className="col-md-6">
-                                <Form.Group
-                                    className="mb-3"
-                                    controlId="formImage"
-                                >
+                                <Form.Group className="mb-3" controlId="formImage">
                                     <Form.Label>
-                                        Image{" "}
-                                        <span className="cart__container__payment__form__required">
-                                            *
-                                        </span>
+                                        Image <span className="cart__container__payment__form__required">*</span>
                                     </Form.Label>
                                     <Form.Control
                                         type="file"
@@ -160,15 +129,9 @@ const AdminAddProductPage = () => {
 
                         <div className="row">
                             <div className="col-md-6">
-                                <Form.Group
-                                    className="mb-3"
-                                    controlId="formCategory"
-                                >
+                                <Form.Group className="mb-3" controlId="formCategory">
                                     <Form.Label>
-                                        Category{" "}
-                                        <span className="cart__container__payment__form__required">
-                                            *
-                                        </span>
+                                        Category <span className="cart__container__payment__form__required">*</span>
                                     </Form.Label>
                                     <Form.Control
                                         type="text"
@@ -178,15 +141,9 @@ const AdminAddProductPage = () => {
                                         onChange={handleInputChange}
                                     />
                                 </Form.Group>
-                                <Form.Group
-                                    className="mb-3"
-                                    controlId="formBrand"
-                                >
+                                <Form.Group className="mb-3" controlId="formBrand">
                                     <Form.Label>
-                                        Brand{" "}
-                                        <span className="cart__container__payment__form__required">
-                                            *
-                                        </span>
+                                        Brand <span className="cart__container__payment__form__required">*</span>
                                     </Form.Label>
                                     <Form.Control
                                         type="text"
@@ -198,10 +155,7 @@ const AdminAddProductPage = () => {
                                 </Form.Group>
                             </div>
                             <div className="col-md-6">
-                                <Form.Group
-                                    className="mb-3"
-                                    controlId="formSpecifications"
-                                >
+                                <Form.Group className="mb-3" controlId="formSpecifications">
                                     <Form.Label>Specifications</Form.Label>
                                     <Form.Control
                                         as="textarea"

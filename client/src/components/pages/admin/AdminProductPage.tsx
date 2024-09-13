@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Table } from "react-bootstrap";
+import { Button, Modal, Table } from "react-bootstrap";
 import ReactPaginate from "react-paginate";
 import { useNavigate } from "react-router-dom";
 import axios from "../../../api/axios";
@@ -15,6 +15,8 @@ const AdminProductPage = () => {
     const [itemOffset, setItemOffset] = useState(0);
     const [searchTerm, setSearchTerm] = useState<string>("");
     const [filteredProducts, setFilteredProducts] = useState<Product[]>(products);
+    const [show, setShow] = useState<boolean>(false);
+    const [pid, setPid] = useState<number>(0);
     const endOffset = itemOffset + ITEMS_PER_PAGE;
     const currentProducts = filteredProducts.slice(itemOffset, endOffset);
     const pageCount = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
@@ -23,6 +25,29 @@ const AdminProductPage = () => {
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const searchValue = event.target.value;
         setSearchTerm(searchValue);
+    };
+
+    const handleOpen = (pid: number) => {
+        setShow(true);
+        setPid(pid);
+    };
+
+    const handleClose = () => {
+        setShow(false);
+    };
+
+    const handleDelete = async (pid: number) => {
+        try {
+            const response = await axios.post("/api/products/delete/", {
+                pid,
+            });
+            if (response.status === 200) {
+                console.log(response.data.msg);
+                window.location.reload();
+            }
+        } catch (err) {
+            console.error(err);
+        }
     };
 
     // Filter products based on the search term
@@ -97,7 +122,12 @@ const AdminProductPage = () => {
                             </thead>
                             <tbody>
                                 {currentProducts.map((product, index) => (
-                                    <AdminProductItem key={index} products={filteredProducts} product={product} />
+                                    <AdminProductItem
+                                        key={index}
+                                        products={filteredProducts}
+                                        product={product}
+                                        handleOpen={handleOpen}
+                                    />
                                 ))}
                             </tbody>
                         </Table>
@@ -118,6 +148,20 @@ const AdminProductPage = () => {
                                 renderOnZeroPageCount={null}
                             />
                         </div>
+                        <Modal show={show} onHide={handleClose} animation={false}>
+                            <Modal.Header closeButton>
+                                <Modal.Title>Purchase Confirmation</Modal.Title>
+                            </Modal.Header>
+                            <Modal.Body>Are you sure to make purchase?</Modal.Body>
+                            <Modal.Footer>
+                                <Button variant="secondary" onClick={handleClose}>
+                                    Close
+                                </Button>
+                                <Button variant="primary" onClick={() => handleDelete(pid)}>
+                                    Confirm
+                                </Button>
+                            </Modal.Footer>
+                        </Modal>
                     </div>
                 </div>
             </div>

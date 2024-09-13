@@ -5,9 +5,10 @@ const jwt = require("jsonwebtoken");
 const fs = require('fs')
 const path = require('path')
 const multer = require('multer');
-
+const { put } = require('@vercel/blob')
 const { ServerApiVersion } = require('mongodb');
 const MongoClient = require('mongodb').MongoClient;
+const util = require('util');
 const { hashPassword } = require("../utils/hashPassword");
 
 const pool = mysql.createPool({
@@ -299,49 +300,67 @@ const getAllUsers = (request, response) => {
 };
 
 const addSingleProduct = (request, response) => {
-	const insertProduct = (productName, description, image, categoryId, brandId, specifications, price, inventory) => {
-		const imageName = productName.toLowerCase()
-			.replace(/ /g, '_')
-			.replace(/-/g, '_')
-		const imageBuffer = image.buffer
-		pool.query(
-			'INSERT INTO products (name, description, main_image, category_id, brand_id, specifications, price, stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-			[
-				productName,
-				description,
-				imageName ? imageName : null,
-				categoryId,
-				brandId,
-				specifications,
-				price,
-				inventory,
-			], (error, results) => {
-				if (error) {
-					console.error(error)
-					pool.query("ROLLBACK")
-					return response.status(500).json({ msg: 'Internal server error' });
-				} else {
-					const imagePath = path.join(__dirname, '../uploads', imageName + '.jpg',);
-					fs.writeFile(imagePath, imageBuffer, (err) => {
-						if (err) {
-							console.error('Error saving the image:', err);
-							return response.status(500).json({ msg: 'Failed to save image' });
-						}
-						pool.query("COMMIT");
-						response.status(200).json({
-							msg: 'Product added successfully',
-						});
+	const extractFileName = (url) => {
+		const parts = url.split('/');
+		const fileNameWithExtension = parts[parts.length - 1];
+		const fileName = fileNameWithExtension.split('.')[0];
+		return fileName;
+	}
+	const insertProduct = async (productName, description, fileName, categoryId, brandId, specifications, price, inventory) => {
+		pool.query = util.promisify(pool.query); // Chuyển hàm query thành hàm Promise
+		try {
+			pool.query('START TRANSACTION'); // Bắt đầu transaction
+			pool.query(
+				'INSERT INTO products (name, description, main_image, category_id, brand_id, specifications, price, stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+				[
+					productName,
+					description,
+					fileName,
+					categoryId,
+					brandId,
+					specifications,
+					price,
+					inventory
+				], (error, results) => {
+					if (error) {
+						console.error(error.message);
+						return;
+					}
+					pool.query('COMMIT');
+					console.log('Transaction committed successfully.');
+
+					// Gửi phản hồi thành công
+					return response.status(200).json({
+						msg: 'Product added successfully',
 					});
 				}
-			}
-		);
+			);
+		} catch (error) {
+			// Nếu có lỗi, rollback transaction và trả về lỗi
+			console.error('Error occurred:', error);
+			pool.query('ROLLBACK'); // Quay lại trạng thái ban đầu
+			return response.status(500).json({
+				msg: 'Internal server error',
+				error: error.message
+			});
+		}
 	}
-	upload.single('image')(request, response, (err) => {
+	upload.single('image')(request, response, async (err) => {
 		if (err) {
 			return response.status(400).json({ msg: 'Error uploading file' });
 		}
 		const { name, description, category, brand, specifications, price, inventory } = request.body
 		const image = request.file;
+		const imageName = name.toLowerCase()
+			.replace(/ /g, '_')
+			.replace(/-/g, '_')
+		const imageBuffer = image.buffer
+		const token = process.env.BLOB_READ_WRITE_TOKEN;
+		if (!token) {
+			return response.status(500).json({ msg: 'BLOB_READ_WRITE_TOKEN is not set' });
+		}
+		const blob = await put(`uploads/${imageName}.jpg`, imageBuffer, { access: "public", token });
+		const fileName = extractFileName(blob.url); // Hàm extractFileName sẽ lấy tên file từ URL của Blob
 
 		// Check if all required fields are present
 		if (!name || !description || !category || !brand || !price || !inventory) {
@@ -371,8 +390,6 @@ const addSingleProduct = (request, response) => {
 								console.error('Error inserting brand:', error);
 								throw error;
 							}
-							console.log(results.insertId);
-
 							brandId = results.insertId;
 						});
 					}
@@ -398,7 +415,7 @@ const addSingleProduct = (request, response) => {
 						}
 
 						// Insert product only after both brandId and categoryId are obtained
-						insertProduct(name, description, image, categoryId, brandId, specifications, price, inventory);
+						insertProduct(name, description, fileName, categoryId, brandId, specifications, price, inventory);
 					});
 				});
 			});
@@ -494,6 +511,8 @@ const getListProduct = (request, response) => {
 
 const deleteProduct = (request, response) => {
 	const { pid } = request.body
+	console.log(pid);
+
 	pool.query(
 		`DELETE FROM products WHERE id = ?`, [pid],
 		(error, results) => {

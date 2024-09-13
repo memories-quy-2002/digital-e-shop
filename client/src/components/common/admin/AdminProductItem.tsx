@@ -1,79 +1,23 @@
-import { useEffect, useState } from "react";
 import { FaRegTrashAlt } from "react-icons/fa";
-import axios from "../../../api/axios";
 import { Product } from "../../../utils/interface";
 
 interface AdminProductItemProp {
     products: Product[];
     product: Product;
+    handleOpen: (pid: number) => void;
 }
 
-const AdminProductItem = ({ products, product }: AdminProductItemProp) => {
-    const [image, setImage] = useState<string | null>(null);
+const AdminProductItem = ({ products, product, handleOpen }: AdminProductItemProp) => {
+    const imageUrl = product.main_image ? product.main_image.replace(".jpg", "") : null;
 
-    const imageUrl = product.main_image
-        ? product.main_image.replace(".jpg", "")
-        : null;
-
-    useEffect(() => {
-        const fetchImage = async () => {
-            try {
-                if (imageUrl) {
-                    // Fetch image from the server
-                    const response = await axios.get(
-                        `/api/products/images/${imageUrl}`,
-                        { responseType: "blob" } // Request as blob
-                    );
-
-                    if (response.status === 200) {
-                        const blob = new Blob([response.data], {
-                            type: "image/jpeg",
-                        });
-                        const url = URL.createObjectURL(blob); // Create a Blob URL
-
-                        setImage(url); // Set the Blob URL as the image source
-                    } else {
-                        console.error("Error loading image");
-                    }
-                } else {
-                    console.error("Image not found");
-                }
-            } catch (error) {
-                console.error("Error fetching image:", error);
-            }
-        };
-
-        fetchImage();
-
-        // Clean up the Blob URL after component unmount
-        return () => {
-            if (image) {
-                URL.revokeObjectURL(image);
-            }
-        };
-    }, [imageUrl]);
-
-    const handleDelete = async (id: number) => {
-        try {
-            const response = await axios.post("/api/products/delete/", {
-                pid: id,
-            });
-            if (response.status === 200) {
-                console.log(response.data.msg);
-                window.location.reload();
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    };
     return (
         <tr>
             <td width="50px">{products.indexOf(product) + 1}</td>
             <td>
                 <img
                     src={
-                        image
-                            ? image
+                        imageUrl
+                            ? `https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${imageUrl}.jpg`
                             : require("../../../assets/images/product_placeholder.jpg")
                     }
                     alt={product.name}
@@ -95,10 +39,7 @@ const AdminProductItem = ({ products, product }: AdminProductItemProp) => {
                     {/* <button type="button">
                         <FaRegEdit />
                      </button> */}
-                    <button
-                        type="button"
-                        onClick={() => handleDelete(product.id)}
-                    >
+                    <button type="button" onClick={() => handleOpen(product.id)}>
                         <FaRegTrashAlt />
                     </button>
                 </div>

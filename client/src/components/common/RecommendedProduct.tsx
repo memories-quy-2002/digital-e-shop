@@ -9,26 +9,13 @@ type RecommendedProps = {
 
 const RecommendedProduct = ({ pid, relevantProducts }: RecommendedProps) => {
     const navigate = useNavigate();
-    const checkImageExists = (imageName: string | null) => {
-        try {
-            require(`../../assets/images/${imageName}.jpg`);
-            return true;
-        } catch (error) {
-            return false;
-        }
-    };
 
     return (
         <div className="product__container__recommended">
-            <h3 className="product__container__recommended__title">
-                People who bought this product also buy
-            </h3>
+            <h3 className="product__container__recommended__title">People who bought this product also buy</h3>
             <div className="product__container__recommended__list">
                 {relevantProducts.slice(0, 9).map((product) => (
-                    <div
-                        className="product__container__recommended__list__item"
-                        key={product.id}
-                    >
+                    <div className="product__container__recommended__list__item" key={product.id}>
                         <div
                             className="product__container__recommended__list__item__image"
                             onClick={() => {
@@ -36,14 +23,14 @@ const RecommendedProduct = ({ pid, relevantProducts }: RecommendedProps) => {
                                 window.location.reload();
                             }}
                         >
-                            <img
-                                src={
-                                    checkImageExists(product.main_image)
-                                        ? require(`../../assets/images/${product.main_image}.jpg`)
-                                        : require(`../../assets/images/product_placeholder.jpg`)
-                                }
-                                alt="Empty"
-                            />
+                            {product.main_image ? (
+                                <img
+                                    src={`https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${product.main_image}.jpg`}
+                                    alt={product.name}
+                                />
+                            ) : (
+                                <img src={require("../../assets/images/product_placeholder.jpg")} alt={product.name} />
+                            )}
                         </div>
 
                         <p

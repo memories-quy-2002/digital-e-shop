@@ -10,6 +10,7 @@ import RecommendedProduct from "../common/RecommendedProduct";
 import Layout from "../layout/Layout";
 import NoPage from "./NoPage";
 import { useAuth } from "../../context/AuthContext";
+import { Helmet } from "react-helmet";
 interface relevantProductsItem {
     product_id: number;
     product_name: string;
@@ -34,7 +35,6 @@ const ProductPage = () => {
     const productId = url.get("id");
     const pid = productId !== null ? parseInt(productId) : 0;
     const [products, setProducts] = useState<Product[]>([]);
-    const [image, setImage] = useState<string | null>(null);
     const [productDetail, setProductDetail] = useState<Product>({
         id: 0,
         name: "",
@@ -66,29 +66,6 @@ const ProductPage = () => {
                     setProductDetail(response.data.product);
                     // setQuantity(response.data.product.stock); // Cập nhật số lượng
                     console.log(response.data.msg);
-
-                    // Sau khi nhận được productDetail, bắt đầu fetch image
-                    const mainImage = response.data.product.main_image;
-                    const imageUrl = mainImage ? mainImage.replace(".jpg", "") : null;
-
-                    if (imageUrl) {
-                        // Fetch image từ server nếu imageUrl hợp lệ
-                        const imageResponse = await axios.get(`/api/products/images/${imageUrl}`, {
-                            responseType: "blob",
-                        });
-
-                        if (imageResponse.status === 200) {
-                            const blob = new Blob([imageResponse.data], {
-                                type: "image/jpeg",
-                            });
-                            const imageSrc = URL.createObjectURL(blob);
-                            setImage(imageSrc); // Set the Blob URL as the image source
-                        } else {
-                            console.error("Error loading image");
-                        }
-                    } else {
-                        console.error("Image not found");
-                    }
                 }
             } catch (err: any) {
                 console.error(err);
@@ -98,11 +75,6 @@ const ProductPage = () => {
         fetchSingleProduct();
 
         // Clean up the Blob URL after component unmount
-        return () => {
-            if (image) {
-                URL.revokeObjectURL(image);
-            }
-        };
     }, [pid]);
 
     useEffect(() => {
@@ -308,12 +280,18 @@ const ProductPage = () => {
     return (
         <Layout>
             <NavigationBar />
+            <Helmet>
+                <title>{productDetail.name}</title>
+            </Helmet>
             <div className="product__container">
                 <div className="product__container__detail">
                     <div className="product__container__detail__img">
                         <div className="product__container__detail__img__main">
-                            {image ? (
-                                <img src={image} alt={productDetail.name} />
+                            {productDetail.main_image ? (
+                                <img
+                                    src={`https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${productDetail.main_image}.jpg`}
+                                    alt={productDetail.name}
+                                />
                             ) : (
                                 <img
                                     src={require("../../assets/images/product_placeholder.jpg")}

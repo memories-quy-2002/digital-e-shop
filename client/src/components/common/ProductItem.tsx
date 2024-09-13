@@ -2,8 +2,6 @@ import { BsHeart, BsHeartFill } from "react-icons/bs";
 import { useNavigate } from "react-router-dom";
 import { Product } from "../../utils/interface";
 import ratingStar from "../../utils/ratingStar";
-import { useEffect, useState } from "react";
-import axios from "../../api/axios";
 
 type ProductProps = {
     product: Product;
@@ -15,53 +13,16 @@ type ProductProps = {
 
 const ProductItem = ({ product, uid, isWishlist, onAddingWishlist, onAddingCart }: ProductProps) => {
     const navigate = useNavigate();
-    const [image, setImage] = useState<string | null>(null);
-
     const imageUrl = product.main_image ? product.main_image.replace(".jpg", "") : null;
-
-    useEffect(() => {
-        const fetchImage = async () => {
-            try {
-                if (imageUrl) {
-                    // Fetch image from the server
-                    const response = await axios.get(
-                        `/api/products/images/${imageUrl}`,
-                        { responseType: "blob" } // Request as blob
-                    );
-
-                    if (response.status === 200) {
-                        const blob = new Blob([response.data], {
-                            type: "image/jpeg",
-                        });
-                        const url = URL.createObjectURL(blob); // Create a Blob URL
-
-                        setImage(url); // Set the Blob URL as the image source
-                    } else {
-                        console.error("Error loading image");
-                    }
-                } else {
-                    console.error("Image not found");
-                }
-            } catch (error) {
-                console.error("Error fetching image:", error);
-            }
-        };
-
-        fetchImage();
-
-        // Clean up the Blob URL after component unmount
-        return () => {
-            if (image) {
-                URL.revokeObjectURL(image);
-            }
-        };
-    }, [imageUrl]);
 
     return (
         <div className="home__product__menu__item" key={product.id}>
             <div className="home__product__menu__item__image" onClick={() => navigate(`/product?id=${product.id}`)}>
-                {image ? (
-                    <img src={image} alt={product.name} />
+                {imageUrl ? (
+                    <img
+                        src={`https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${imageUrl}.jpg`}
+                        alt={product.name}
+                    />
                 ) : (
                     <img src={require("../../assets/images/product_placeholder.jpg")} alt={product.name} />
                 )}
