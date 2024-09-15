@@ -91,11 +91,9 @@ exports[`App matches the App snapshot 1`] = `
               >
                 Login
               </a>
-            </div>
-            <div>
-              |
-            </div>
-            <div>
+              <span>
+                 | 
+              </span>
               <a
                 href="/signup"
               >
@@ -123,10 +121,11 @@ exports[`App matches the App snapshot 1`] = `
         >
           <input
             class="header__container__main__search__bar"
-            id=""
-            name=""
+            id="header_search"
+            name="header_search"
             placeholder="Search"
             type="text"
+            value=""
           />
           <button>
             Search
@@ -206,13 +205,6 @@ exports[`App matches the App snapshot 1`] = `
         </a>
         <a
           class="navbar__item nav-link"
-          data-rr-ui-event-key="/promotions"
-          href="/promotions"
-        >
-          promotions
-        </a>
-        <a
-          class="navbar__item nav-link"
           data-rr-ui-event-key="/about-us"
           href="/about-us"
         >
@@ -227,17 +219,17 @@ exports[`App matches the App snapshot 1`] = `
         </a>
         <a
           class="navbar__item nav-link"
-          data-rr-ui-event-key="/support"
-          href="/support"
-        >
-          support
-        </a>
-        <a
-          class="navbar__item nav-link"
           data-rr-ui-event-key="/news"
           href="/news"
         >
           news
+        </a>
+        <a
+          class="navbar__item nav-link"
+          data-rr-ui-event-key="/support"
+          href="/support"
+        >
+          support
         </a>
       </div>
     </nav>
@@ -258,8 +250,8 @@ exports[`App matches the App snapshot 1`] = `
               class="home__hero__carousel__item"
             >
               <img
-                alt="https://i.imgur.com/Gu5Cznz.jpg"
-                src="https://i.imgur.com/Gu5Cznz.jpg"
+                alt="carousel_1"
+                src="carousel_1.jpg"
               />
               <div
                 class="home__hero__carousel__item__overlay"
@@ -299,8 +291,8 @@ exports[`App matches the App snapshot 1`] = `
               class="home__hero__carousel__item"
             >
               <img
-                alt="https://i.imgur.com/idjXzVQ.jpg"
-                src="https://i.imgur.com/idjXzVQ.jpg"
+                alt="carousel_2"
+                src="carousel_2.jpg"
               />
               <div
                 class="home__hero__carousel__item__overlay"
@@ -340,8 +332,8 @@ exports[`App matches the App snapshot 1`] = `
               class="home__hero__carousel__item"
             >
               <img
-                alt="https://i.imgur.com/8DYumaY.jpg"
-                src="https://i.imgur.com/8DYumaY.jpg"
+                alt="carousel_3"
+                src="carousel_3.jpg"
               />
               <div
                 class="home__hero__carousel__item__overlay"
@@ -381,8 +373,8 @@ exports[`App matches the App snapshot 1`] = `
               class="home__hero__carousel__item"
             >
               <img
-                alt="https://i.imgur.com/8IuucQZ.jpg"
-                src="https://i.imgur.com/8IuucQZ.jpg"
+                alt="carousel_4"
+                src="carousel_4.jpg"
               />
               <div
                 class="home__hero__carousel__item__overlay"
@@ -770,6 +762,7 @@ exports[`App matches the App snapshot 1`] = `
               name="email_subs"
               placeholder="Your email"
               type="email"
+              value=""
             />
             <button
               class="btn"

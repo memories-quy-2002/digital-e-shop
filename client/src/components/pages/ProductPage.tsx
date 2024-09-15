@@ -11,6 +11,7 @@ import Layout from "../layout/Layout";
 import NoPage from "./NoPage";
 import { useAuth } from "../../context/AuthContext";
 import { Helmet } from "react-helmet";
+import { useLocation } from "react-router-dom";
 interface relevantProductsItem {
     product_id: number;
     product_name: string;
@@ -29,7 +30,8 @@ type Review = {
 };
 
 const ProductPage = () => {
-    const url = new URLSearchParams(window.location.search);
+    const location = useLocation();
+    const url = new URLSearchParams(location.search);
     const { addToast } = useToast();
     const { uid } = useAuth();
     const productId = url.get("id");
@@ -71,10 +73,9 @@ const ProductPage = () => {
                 console.error(err);
             }
         };
-
         fetchSingleProduct();
-
         // Clean up the Blob URL after component unmount
+        return () => {};
     }, [pid]);
 
     useEffect(() => {
@@ -286,86 +287,62 @@ const ProductPage = () => {
             <div className="product__container">
                 <div className="product__container__detail">
                     <div className="product__container__detail__img">
-                        <div className="product__container__detail__img__main">
-                            {productDetail.main_image ? (
-                                <img
-                                    src={`https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${productDetail.main_image}.jpg`}
-                                    alt={productDetail.name}
-                                />
-                            ) : (
-                                <img
-                                    src={require("../../assets/images/product_placeholder.jpg")}
-                                    alt={productDetail.name}
-                                />
-                            )}
-                        </div>
-                        {/* <div className="product__container__detail__img__sub">
+                        {productDetail.main_image ? (
+                            <img
+                                src={`https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${productDetail.main_image}.jpg`}
+                                alt={productDetail.name}
+                            />
+                        ) : (
                             <img
                                 src={require("../../assets/images/product_placeholder.jpg")}
-                                alt="Sub-img-1"
+                                alt={productDetail.name}
                             />
-                            <img
-                                src={require("../../assets/images/product_placeholder.jpg")}
-                                alt="Sub-img-2"
-                            />
-                            <img
-                                src={require("../../assets/images/product_placeholder.jpg")}
-                                alt="Sub-img-3"
-                            />
-                            <img
-                                src={require("../../assets/images/product_placeholder.jpg")}
-                                alt="Sub-img-4"
-                            />
-                        </div> */}
+                        )}
                     </div>
-                    <div className="product__container__detail__info">
-                        <div
-                            style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "1rem",
-                            }}
-                        >
-                            <div
-                                style={{
-                                    display: "flex",
-                                    flexDirection: "row",
-                                    alignItems: "center",
-                                    gap: "2rem",
-                                }}
-                            >
+                    <div className="product__container__detail__main">
+                        <div className="product__container__detail__main__info">
+                            <div className="product__container__detail__main__info__rating">
                                 <div
                                     style={{
                                         display: "flex",
                                         flexDirection: "row",
+                                        gap: "0.25rem",
                                     }}
                                 >
                                     {ratingStar(productDetail.rating, "#FFCC4A", 24)}
                                 </div>
                                 <span
                                     style={{
-                                        fontSize: "22px",
+                                        fontSize: "1.5rem",
                                     }}
                                 >
                                     {productDetail.rating} ({productDetail.reviews})
                                 </span>
                             </div>
-                            <strong style={{ fontSize: "36px", width: "100%" }}>{productDetail.name}</strong>
-                            <div>
-                                <strong style={{ fontSize: "28px", color: "red" }}>
-                                    ${productDetail.sale_price || productDetail.price}
-                                </strong>
+                            <strong className="product__container__detail__main__info__name">
+                                {productDetail.name}
+                            </strong>
+
+                            <div className="product__container__detail__main__info__price">
+                                {productDetail.sale_price ? (
+                                    <>
+                                        <span className="product__container__detail__main__info__price-active">
+                                            ${productDetail.sale_price}
+                                        </span>{" "}
+                                        <span className="product__container__detail__main__info__price-original">
+                                            ${productDetail.price}
+                                        </span>
+                                    </>
+                                ) : (
+                                    <span className="product__container__detail__main__info__price-active">
+                                        ${productDetail.price}
+                                    </span>
+                                )}
                             </div>
-                            <div
-                                style={{
-                                    fontSize: "22px",
-                                    display: "flex",
-                                    flexDirection: "column",
-                                }}
-                            >
-                                <p>Category: {productDetail.category}</p>
-                                <p>Brand: {productDetail.brand}</p>
-                                <p>
+                            <div className="product__container__detail__main__info__other">
+                                <span>Category: {productDetail.category}</span>
+                                <span>Brand: {productDetail.brand}</span>
+                                <span>
                                     Status:{" "}
                                     <span
                                         style={{
@@ -376,24 +353,14 @@ const ProductPage = () => {
                                         {" "}
                                         {productDetail.stock > 0 ? "In stock" : "Out of stock"}
                                     </span>
-                                </p>
+                                </span>
                             </div>
                         </div>
-
-                        <div className="product__container__detail__quantity">
-                            <h5>Quantity</h5>
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                }}
-                            >
+                        <div className="product__container__detail__main__quantity">
+                            <strong className="product__container__detail__main__quantity__title">Quantity</strong>
+                            <div className="product__container__detail__main__quantity__input">
                                 <button
-                                    style={{
-                                        borderRight: "none",
-                                        borderTopLeftRadius: "20px",
-                                        borderBottomLeftRadius: "20px",
-                                    }}
+                                    className="product__container__detail__main__quantity__input-minus"
                                     type="button"
                                     onClick={handleDecrease}
                                 >
@@ -414,11 +381,7 @@ const ProductPage = () => {
                                     }
                                 />
                                 <button
-                                    style={{
-                                        borderLeft: "none",
-                                        borderTopRightRadius: "20px",
-                                        borderBottomRightRadius: "20px",
-                                    }}
+                                    className="product__container__detail__main__quantity__input-plus"
                                     type="button"
                                     onClick={handleIncrease}
                                 >
@@ -426,13 +389,10 @@ const ProductPage = () => {
                                 </button>
                             </div>
                         </div>
-                        <div className="product__container__detail__btn">
+                        <div className="product__container__detail__main__button">
                             <button
+                                className="product__container__detail__main__button-cart"
                                 type="button"
-                                style={{
-                                    backgroundColor: "#3D3D3d",
-                                    color: "white",
-                                }}
                                 onClick={() => {
                                     if (uid) {
                                         handleAddingCart(uid, productDetail);
@@ -444,6 +404,7 @@ const ProductPage = () => {
                                 Add to cart
                             </button>
                             <button
+                                className="product__container__detail__main__button-wishlist"
                                 type="button"
                                 onClick={() => {
                                     if (uid) {
@@ -474,52 +435,34 @@ const ProductPage = () => {
                 {toggle ? (
                     <div className="product__container__review">
                         {!uid ? (
-                            <div className="product__container__review__rating">
+                            <div className="product__container__review__container">
                                 You need to login to use this feature
                             </div>
                         ) : (
-                            <>
-                                <div className="product__container__review__rating">
-                                    <h5>Rating</h5>
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            flexDirection: "row",
-                                            alignItems: "center",
-                                            gap: "3rem",
-                                        }}
-                                    >
-                                        <div className="product__container__review__rating__score">
+                            <div className="product__container__review__container">
+                                <div className="product__container__review__container__rating">
+                                    <h5 className="product__container__review__container__rating__title">Rating</h5>
+                                    <div className="product__container__review__container__rating__container">
+                                        <div className="product__container__review__container__rating__container__star">
                                             {[1, 2, 3, 4, 5].map((rating) => (
-                                                <span
-                                                    key={rating}
-                                                    onClick={() => handleStarClick(rating)}
-                                                    style={{
-                                                        cursor: "pointer",
-                                                    }}
-                                                >
+                                                <span key={rating} onClick={() => handleStarClick(rating)}>
                                                     {rating <= ratingScore ? (
-                                                        <BsStarFill size={24} color="#FFCC4A" />
+                                                        <BsStarFill size={18} color="#FFCC4A" />
                                                     ) : (
-                                                        <BsStar size={24} color="#FFCC4A" />
+                                                        <BsStar size={18} color="#FFCC4A" />
                                                     )}
                                                 </span>
                                             ))}
-                                            <span
-                                                style={{
-                                                    fontWeight: "bold",
-                                                    fontSize: "24px",
-                                                    marginLeft: "1.5rem",
-                                                }}
-                                            >
-                                                ({ratingScore.toFixed(1)})
-                                            </span>
+                                        </div>
+                                        <div className="product__container__review__container__rating__container__score">
+                                            <span>({ratingScore.toFixed(0)})</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="product__container__review__text">
-                                    <h5>Review</h5>
+                                <div className="product__container__review__container__text">
+                                    <h5 className="product__container__review__container__text__title">Review</h5>
                                     <textarea
+                                        className="product__container__review__container__text__area"
                                         name="review"
                                         id="review"
                                         value={reviewText}
@@ -528,69 +471,39 @@ const ProductPage = () => {
                                         placeholder="Enter your review"
                                     ></textarea>
                                     <button
-                                        className="btn btn-primary"
+                                        className="product__container__review__container__text__button"
                                         type="submit"
                                         onClick={() =>
                                             handleSubmitReview(uid, productDetail.id, ratingScore, reviewText)
                                         }
-                                        style={{
-                                            padding: "0.5rem 1rem",
-                                            fontSize: "1.25rem",
-                                            marginBottom: "3rem",
-                                        }}
                                     >
                                         Submit
                                     </button>
                                 </div>
-                                <div className="product__container__review__list">
-                                    <h5>All reviews ({reviews.length})</h5>
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            gap: "1rem",
-                                            marginTop: "2rem",
-                                        }}
-                                    >
+                                <div className="product__container__review__container__all">
+                                    <h5 className="product__container__review__container__all__title">
+                                        All reviews ({reviews.length})
+                                    </h5>
+                                    <div className="product__container__review__container__all__list">
                                         {reviews.map((review) => (
-                                            <div
-                                                style={{
-                                                    display: "flex",
-                                                    flexDirection: "column",
-                                                    gap: "1rem",
-                                                    borderBottom: "1px solid black",
-                                                }}
-                                            >
-                                                <div
-                                                    style={{
-                                                        display: "flex",
-                                                        flexDirection: "row",
-                                                        gap: "2rem",
-                                                        alignItems: "center",
-                                                    }}
-                                                >
+                                            <div className="product__container__review__container__all__list__item">
+                                                <div className="product__container__review__container__all__list__item__info">
                                                     <strong>{review.username}</strong>
-                                                    <span
-                                                        style={{
-                                                            display: "flex",
-                                                            flexDirection: "row",
-                                                            gap: "0.5rem",
-                                                        }}
-                                                    >
+                                                    <span className="product__container__review__container__all__list__item__info__star">
                                                         {ratingStar(review.rating, "#FFCC4A", 18)}
                                                     </span>
                                                     <span>
                                                         {new Date(review.created_at).toLocaleDateString("en-GB")}
                                                     </span>
                                                 </div>
-                                                <div>
+                                                <div className="product__container__review__container__all__list__item__review">
                                                     <p>{review.reviewText}</p>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
-                            </>
+                            </div>
                         )}
                     </div>
                 ) : (

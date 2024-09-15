@@ -195,14 +195,17 @@ const ShopsPage = () => {
                         onTermChange={handleTermChange}
                     />
                     <div data-testid="shops__container" className="shops__container__main">
-                        {isLoading && <p>Loading products...</p>}
-                        <PaginatedItems
-                            itemsPerPage={ITEMS_PER_PAGE}
-                            items={filteredProducts}
-                            uid={uid}
-                            wishlist={wishlist}
-                            isWishlistPage={false}
-                        />
+                        {isLoading ? (
+                            <p>Loading products...</p>
+                        ) : (
+                            <PaginatedItems
+                                itemsPerPage={ITEMS_PER_PAGE}
+                                items={filteredProducts}
+                                uid={uid}
+                                wishlist={wishlist}
+                                isWishlistPage={false}
+                            />
+                        )}
                     </div>
                 </div>
             </div>

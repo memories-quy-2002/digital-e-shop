@@ -41,17 +41,17 @@ const ShopsItem = ({ product, uid, isWishlist, onAddingWishlist, onAddingCart }:
             <p className="shops__container__main__pagination__list__item__name">{product.name}</p>
             {product.sale_price ? (
                 <div className="d-flex flex-row gap-3 justify-content-center">
-                    <p className="shops__container__main__pagination__list__item__price">${product.price}</p>
                     <p
                         style={{
                             textAlign: "center",
                             fontWeight: "bold",
-                            fontSize: "18px",
+                            fontSize: "1.25rem",
                             color: "red",
                         }}
                     >
                         ${product.sale_price}
                     </p>
+                    <p className="shops__container__main__pagination__list__item__price">${product.price}</p>
                 </div>
             ) : (
                 <p

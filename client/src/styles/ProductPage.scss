@@ -2,66 +2,221 @@
     &__container {
         display: flex;
         flex-direction: column;
-        padding: 3rem 15rem;
+        padding: 1.5rem 5rem;
         gap: 4rem;
+        @media (min-width: 768px) {
+            padding: 3rem 10rem;
+        }
         &__detail {
             display: flex;
-            flex-direction: row;
-            justify-content: space-around;
-            height: 750px;
+            flex-direction: column;
+            justify-content: center;
+            gap: 5rem;
+            height: fit-content;
+            @media (min-width: 768px) {
+                flex-direction: row;
+                gap: 1rem;
+            }
             &__img {
-                width: 500px;
-                &__main {
-                    img {
-                        width: 100%;
-                    }
-                }
-                &__sub {
-                    margin-top: 1.5rem;
-                    display: flex;
-                    flex-direction: row;
-                    justify-content: space-between;
-                    img {
-                        height: 100px;
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                img {
+                    width: 100%;
+                    @media (min-width: 768px) {
+                        width: 75%;
                     }
                 }
             }
-            &__info {
+            &__main {
+                flex: 1;
                 display: flex;
                 flex-direction: column;
                 justify-content: space-between;
-            }
-            &__quantity {
-                height: 45px;
-                display: flex;
-                flex-direction: column;
-                gap: 1rem;
-
-                button {
-                    width: 60px;
-                    height: 47px;
-                    padding: 0;
-                    font-size: 24px;
-                }
-                input {
-                    height: 47px;
-                    width: 70px;
-                    text-align: center;
-                    font-size: 24px;
-                    padding: 0;
-                    border: 2px solid black;
-                }
-            }
-            &__btn {
-                display: flex;
-                flex-direction: row;
                 gap: 2rem;
-                button {
-                    width: 250px;
-                    height: 80px;
-                    font-size: 24px;
-                    text-transform: uppercase;
-                    border-radius: 20px;
+                &__info {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.75rem;
+                    &__rating {
+                        display: flex;
+                        flex-direction: row;
+                        align-items: center;
+                        gap: 2rem;
+                    }
+                    &__name {
+                        font-size: 1.5rem;
+                    }
+                    &__price {
+                        margin-top: 1rem;
+                        font-size: 1.75rem;
+                        font-weight: bold;
+                        &-active {
+                            color: red;
+                        }
+                        &-original {
+                            margin-left: 1rem;
+                            color: gray;
+                            text-decoration: line-through;
+                        }
+                    }
+                    &__other {
+                        margin-top: 1rem;
+                        font-size: 1.25rem;
+                        display: flex;
+                        flex-direction: column;
+                        gap: 0.5rem;
+                    }
+                }
+                &__quantity {
+                    height: fit-content;
+                    display: flex;
+                    flex-direction: row;
+                    align-items: center;
+                    gap: 1rem;
+                    &__title {
+                        font-size: 1.25rem;
+                    }
+                    &__input {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        border: 1px solid #ccc;
+                        border-radius: 8px;
+                        overflow: hidden;
+                        width: 9rem;
+                        height: 40px;
+
+                        // Styles for the input field
+                        input[type="number"] {
+                            width: 3rem;
+                            text-align: center;
+                            border: none;
+                            outline: none;
+                            font-size: 16px;
+                            appearance: textfield;
+
+                            // For Firefox to hide spinner
+                            &::-webkit-outer-spin-button,
+                            &::-webkit-inner-spin-button {
+                                -webkit-appearance: none;
+                                margin: 0;
+                            }
+
+                            &::placeholder {
+                                color: #999;
+                            }
+                        }
+
+                        // Styles for the buttons (minus and plus)
+                        button {
+                            background-color: #f0f0f0;
+                            border: none;
+                            padding: 0 10px;
+                            cursor: pointer;
+                            font-size: 20px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            width: 3rem;
+                            height: 100%;
+
+                            &:hover {
+                                background-color: #e0e0e0;
+                            }
+
+                            &:focus {
+                                outline: none;
+                            }
+                        }
+                        // Minus button styles
+                        &-minus {
+                            color: #ff4d4d; // Change the color of the minus button
+                        }
+
+                        // Plus button styles
+                        &-plus {
+                            color: #4caf50; // Change the color of the plus button
+                        }
+                    }
+
+                    // Optional: Media query for mobile responsiveness
+                    @media (max-width: 768px) {
+                        &__input {
+                            width: 120px;
+                            height: 35px;
+                            input[type="number"] {
+                                width: 40px;
+                                font-size: 14px;
+                            }
+                            button {
+                                width: 35px;
+                                font-size: 18px;
+                            }
+                        }
+                    }
+                }
+                &__button {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    margin-top: 20px;
+
+                    // Nút chung (cả cart và wishlist)
+                    button {
+                        padding: 10px 20px;
+                        font-size: 1.25rem;
+                        border: none;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        transition: background-color 0.3s ease;
+
+                        &:hover {
+                            background-color: #2c2c2c;
+                        }
+
+                        &:focus {
+                            outline: none;
+                        }
+                    }
+
+                    &-cart {
+                        background-color: #3d3d3d;
+                        color: white;
+
+                        &:hover {
+                            background-color: #4d4d4d;
+                        }
+                    }
+
+                    &-wishlist {
+                        background-color: #ff4d4d;
+                        color: white;
+
+                        &:hover {
+                            background-color: #e63939;
+                        }
+
+                        &.active {
+                            background-color: #ffa07a;
+                            &:hover {
+                                background-color: #ff7f50;
+                            }
+                        }
+                    }
+                }
+
+                // Media query cho mobile nếu cần
+                @media (max-width: 768px) {
+                    &__button {
+                        flex-direction: column;
+                        gap: 15px;
+
+                        button {
+                            width: 100%;
+                        }
+                    }
                 }
             }
         }
@@ -92,51 +247,200 @@
                 border-bottom: 2px solid #000;
             }
         }
-        &__description {
-            text-align: justify;
-            h5 {
-                font-size: 28px;
-                margin-bottom: 1.25rem;
-            }
-        }
         &__review {
-            display: flex;
-            flex-direction: column;
-            gap: 1.75rem;
-            h5 {
-                font-size: 28px;
-            }
-            &__rating {
-                strong {
-                    font-size: 32px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+            &__container {
+                background-color: white;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+
+                // Đoạn cảnh báo khi chưa đăng nhập
+                &:not(:last-child) {
+                    margin-bottom: 20px;
                 }
-                &__score {
-                    display: flex;
-                    flex-direction: row;
-                    align-items: center;
-                    gap: 1rem;
+
+                &__rating {
+                    margin-bottom: 20px;
+
+                    &__title {
+                        font-size: 18px;
+                        font-weight: bold;
+                        margin-bottom: 10px;
+                    }
+
+                    &__container {
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+
+                        &__star {
+                            display: flex;
+                            gap: 0.5rem;
+                            span {
+                                cursor: pointer;
+                                transition: transform 0.3s ease;
+                                font-size: 14px;
+
+                                &:hover {
+                                    transform: scale(1.2);
+                                }
+                            }
+                        }
+                        &__score {
+                            font-size: 18px;
+                            color: #555;
+                        }
+                    }
                 }
-            }
-            &__text {
-                display: flex;
-                flex-direction: column;
-                gap: 1rem;
-                button {
-                    width: 100px;
+                &__text {
+                    margin-bottom: 20px;
+                    &__title {
+                        font-size: 18px;
+                        font-weight: bold;
+                        margin-bottom: 10px;
+                    }
+
+                    &__area {
+                        width: 100%;
+                        padding: 10px;
+                        border: 1px solid #ddd;
+                        border-radius: 5px;
+                        font-size: 14px;
+                        resize: vertical;
+                        margin-bottom: 10px;
+                        transition: border-color 0.3s ease;
+
+                        &:focus {
+                            border-color: #999;
+                        }
+                    }
+
+                    &__button {
+                        padding: 10px 20px;
+                        background-color: #3d3d3d;
+                        color: white;
+                        border: none;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        transition: background-color 0.3s ease;
+
+                        &:hover {
+                            background-color: #2c2c2c;
+                        }
+                    }
                 }
-                textarea {
-                    padding: 1rem;
-                    width: 40%;
-                    margin-bottom: 1rem;
+
+                &__all {
+                    &__list {
+                        margin-top: 20px;
+
+                        &__item {
+                            padding: 15px;
+                            background-color: #f8f8f8;
+                            border-radius: 8px;
+                            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                            margin-bottom: 15px;
+
+                            &:last-child {
+                                margin-bottom: 0;
+                            }
+
+                            &__info {
+                                display: flex;
+                                align-items: center;
+                                margin-bottom: 10px;
+                                gap: 2rem;
+                                &__star {
+                                    display: flex;
+                                    flex-direction: row;
+                                    gap: 0.25rem;
+                                }
+                                strong {
+                                    font-size: 16px;
+                                    font-weight: 600;
+                                }
+
+                                span {
+                                    font-size: 14px;
+                                    color: #999;
+                                }
+                            }
+
+                            &__review {
+                                p {
+                                    font-size: 14px;
+                                    color: #444;
+                                    line-height: 1.5;
+                                    margin: 0;
+                                }
+                            }
+                        }
+                    }
                 }
-            }
-            &__list {
-                h6 {
-                    margin: 0;
-                    font-size: 24px;
+
+                // Mobile responsiveness
+                @media (max-width: 768px) {
+                    &__all {
+                        &__list {
+                            &__item {
+                                padding: 10px;
+                                &__info {
+                                    flex-direction: column;
+                                    align-items: flex-start;
+                                    gap: 5px;
+                                }
+                                &__review p {
+                                    font-size: 13px;
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
+
+        &__description {
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+
+            h5 {
+                font-size: 20px;
+                font-weight: bold;
+                margin-bottom: 10px;
+            }
+
+            p {
+                font-size: 14px;
+                line-height: 1.6;
+                color: #333;
+            }
+        }
+
+        // Media query cho mobile nếu cần
+        @media (max-width: 768px) {
+            &__review {
+                padding: 15px;
+            }
+
+            &__description {
+                padding: 15px;
+
+                h5 {
+                    font-size: 18px;
+                }
+
+                p {
+                    font-size: 13px;
+                }
+            }
+        }
+
         &__recommended {
             &__title {
                 font-size: 24px;
@@ -147,19 +451,18 @@
                 display: grid;
                 grid-template-columns: repeat(10, 1fr);
                 overflow-x: auto;
-                gap: 1rem;
-                margin: 2rem 0;
+                gap: 1.25rem;
                 padding: 2rem 0;
                 &__item {
                     position: relative;
-                    padding: 1rem 0.5rem;
                     height: fit-content;
+                    padding: 0.25rem;
                     box-shadow: 0 4px 10px 3px rgba(0, 0, 0, 0.1882352941);
                     &__image {
                         display: flex;
                         justify-content: center;
                         align-items: center;
-                        height: 120px;
+                        height: 100px;
                         margin-bottom: 1rem;
                         cursor: pointer;
                         img {

@@ -317,6 +317,7 @@ exports[`CartPage matches the CartPage snapshot 1`] = `
                 class="cart__container__box__aside__box__coupon__input"
               >
                 <input
+                  data-testid="coupon"
                   id="coupon"
                   name="coupon"
                   style="text-transform: uppercase;"

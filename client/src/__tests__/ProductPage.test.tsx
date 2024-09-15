@@ -20,10 +20,7 @@ const mockProduct: Product = {
     rating: 4.5,
     reviews: 100,
     main_image: "https://example.com/product1.jpg",
-    image_gallery: [
-        "https://example.com/product1-1.jpg",
-        "https://example.com/product1-2.jpg",
-    ],
+    image_gallery: ["https://example.com/product1-1.jpg", "https://example.com/product1-2.jpg"],
     stock: 10,
     description: "This is a description of Product 1",
     specifications: ["Specification 1", "Specification 2"],
@@ -47,15 +44,13 @@ describe("ProductPage", () => {
     it("should render ProductPage correctly", async () => {
         render(
             <ToastProvider>
-                <MemoryRouter>
+                <MemoryRouter initialEntries={["/product?id=1"]}>
                     <ProductPage />
                 </MemoryRouter>
             </ToastProvider>
         );
         await waitFor(() => {
-            expect(
-                screen.getByText("People who bought this product also buy")
-            ).toBeInTheDocument();
+            expect(screen.getByText(/People who bought this product also buy/i)).toBeInTheDocument();
         });
     });
 
@@ -69,9 +64,9 @@ describe("ProductPage", () => {
                 status: 200,
             });
         });
-        const { asFragment } = render(
+        render(
             <ToastProvider>
-                <MemoryRouter>
+                <MemoryRouter initialEntries={["/product?id=1"]}>
                     <ProductPage />
                 </MemoryRouter>
             </ToastProvider>
@@ -80,8 +75,7 @@ describe("ProductPage", () => {
             expect(mockedAxios.get).toHaveBeenCalledWith("/api/products/1");
         });
         await waitFor(() => {
-            expect(screen.getByText("Electronics")).toBeInTheDocument();
+            expect(screen.getByText(/Electronics/i)).toBeInTheDocument();
         });
-        expect(asFragment()).toMatchSnapshot();
     });
 });

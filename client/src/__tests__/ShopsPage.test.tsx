@@ -1,10 +1,4 @@
-import {
-    fireEvent,
-    prettyDOM,
-    render,
-    screen,
-    waitFor,
-} from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import axios from "../api/axios"; // Import your custom Axios instance
 import ShopsPage from "../components/pages/ShopsPage"; // Adjust based on your project structure
@@ -13,7 +7,6 @@ import { Product } from "../utils/interface";
 
 // Mock Axios
 jest.mock("../api/axios");
-
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 describe("ShopsPage", () => {
@@ -28,10 +21,7 @@ describe("ShopsPage", () => {
             rating: 4.5,
             reviews: 100,
             main_image: "https://example.com/product1.jpg",
-            image_gallery: [
-                "https://example.com/product1-1.jpg",
-                "https://example.com/product1-2.jpg",
-            ],
+            image_gallery: ["https://example.com/product1-1.jpg", "https://example.com/product1-2.jpg"],
             stock: 10,
             description: "This is a description of Product 1",
             specifications: ["Specification 1", "Specification 2"],
@@ -121,9 +111,7 @@ describe("ShopsPage", () => {
 
         await waitFor(() => {
             // Check for error message display
-            expect(
-                screen.getByText(/There is no product matched the filters/i)
-            ).toBeInTheDocument();
+            expect(screen.getByText(/There is no product matched the filters/i)).toBeInTheDocument();
         });
     });
 
@@ -187,9 +175,7 @@ describe("ShopsPage", () => {
         await waitFor(() => {
             expect(screen.queryByText("Apple")).not.toBeInTheDocument();
         });
-        expect(
-            screen.queryByRole("paragraph", { name: "Fashion" })
-        ).not.toBeInTheDocument();
+        expect(screen.queryByRole("paragraph", { name: "Fashion" })).not.toBeInTheDocument();
         expect(screen.queryByText("LG")).not.toBeInTheDocument();
     });
 

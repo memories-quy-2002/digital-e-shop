@@ -10,23 +10,11 @@ type AsideCartProps = {
     applyDiscount: (discountCode: string, totalPrice: number) => void;
 };
 
-const paymentMethods: any[] = [
-    <BsBank size={36} />,
-    <FaCcVisa size={36} />,
-    <FaBitcoin size={36} />,
-];
+const paymentMethods: any[] = [<BsBank size={36} />, <FaCcVisa size={36} />, <FaBitcoin size={36} />];
 
-const AsideCart = ({
-    totalPrice,
-    discount,
-    subtotal,
-    error,
-    applyDiscount,
-}: AsideCartProps) => {
+const AsideCart = ({ totalPrice, discount, subtotal, error, applyDiscount }: AsideCartProps) => {
     const [discountCode, setDiscountCode] = useState<string>("");
-    const onChangeDiscountCode = (
-        event: React.ChangeEvent<HTMLInputElement>
-    ) => {
+    const onChangeDiscountCode = (event: React.ChangeEvent<HTMLInputElement>) => {
         const { value } = event.target;
         setDiscountCode(value);
     };
@@ -34,25 +22,19 @@ const AsideCart = ({
         <div className="cart__container__box__aside">
             <div className="cart__container__box__aside__box">
                 <div className="cart__container__box__aside__box__coupon">
-                    <h4 className="cart__container__box__aside__box__coupon__title">
-                        Have coupon?
-                    </h4>
+                    <h4 className="cart__container__box__aside__box__coupon__title">Have coupon?</h4>
                     <div className="cart__container__box__aside__box__coupon__input">
                         <input
                             type="text"
                             name="coupon"
                             id="coupon"
+                            data-testid="coupon"
                             onChange={onChangeDiscountCode}
                             style={{
                                 textTransform: "uppercase",
                             }}
                         />
-                        <button
-                            type="button"
-                            onClick={() =>
-                                applyDiscount(discountCode, totalPrice)
-                            }
-                        >
+                        <button type="button" onClick={() => applyDiscount(discountCode, totalPrice)}>
                             Apply
                         </button>
                     </div>

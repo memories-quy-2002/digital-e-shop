@@ -17,13 +17,11 @@ type WishlistItemProps = {
 };
 
 const WishlistItem = ({ item, uid, onAddingCart, onRemoveWishlist }: WishlistItemProps) => {
-    const { id, product } = item;
+    const { product } = item;
     const [show, setShow] = useState<boolean>(false);
     const navigate = useNavigate();
     const handleClose = () => setShow(false);
-    const handleClickRemove = (id: number) => {
-        setShow(true);
-    };
+
     const imageUrl = product.main_image ? product.main_image.replace(".jpg", "") : null;
 
     return (
@@ -53,7 +51,7 @@ const WishlistItem = ({ item, uid, onAddingCart, onRemoveWishlist }: WishlistIte
                 </button>
             </div>
             <div className="wishlist__main__item__delete">
-                <button type="button" onClick={() => handleClickRemove(id)} style={{ border: "none" }}>
+                <button type="button" data-testid="delete-btn" onClick={() => setShow(true)} style={{ border: "none" }}>
                     <IoTrashBinOutline size={32} />
                 </button>
             </div>

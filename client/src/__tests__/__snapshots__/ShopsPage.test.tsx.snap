@@ -237,7 +237,7 @@ exports[`ShopsPage matches the ShopsPage snapshot 1`] = `
       class="shops"
     >
       <h2
-        style="margin-bottom: 2rem; font-weight: bold;"
+        class="shops__title"
       >
         SHOPS PRODUCTS
       </h2>
@@ -349,22 +349,6 @@ exports[`ShopsPage matches the ShopsPage snapshot 1`] = `
           <p>
             Loading products...
           </p>
-          <div
-            class="shops__container__main__pagination"
-          >
-            <div
-              style="display: flex; justify-content: center; align-items: center; height: 400px;"
-            >
-              <strong
-                style="font-size: 1.5rem;"
-              >
-                There is no product matched the filters
-              </strong>
-            </div>
-            <div
-              style="display: flex; justify-content: center;"
-            />
-          </div>
         </div>
       </div>
     </div>

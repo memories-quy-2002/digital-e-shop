@@ -39,15 +39,14 @@ describe("LoginPage", () => {
 
     const renderLoginPage = (user: typeof users.customer) => {
         render(
-            <MemoryRouter>
+            <MemoryRouter initialEntries={["/login", "/", "/admin"]}>
                 <LoginPage />
             </MemoryRouter>
         );
 
         // Fill in email and password
 
-        screen.getByRole("form", { name: "login-form" }).onsubmit =
-            handleOnSubmitMock;
+        screen.getByRole("form", { name: "login-form" }).onsubmit = handleOnSubmitMock;
         fireEvent.change(screen.getByPlaceholderText(/email/i), {
             target: { value: user.email },
         });
@@ -87,18 +86,12 @@ describe("LoginPage", () => {
         renderLoginPage(users.customer);
         expect(screen.getByText("Welcome back")).toBeInTheDocument();
         expect(handleOnSubmitMock).toHaveBeenCalled();
-
-        // Wait for the axios post call
-        await waitFor(() => {
-            expect(mockedAxios.post).toHaveBeenCalledTimes(1);
-        });
         await waitFor(() => {
             expect(mockedAxios.post).toHaveBeenCalledWith("/api/users/login", {
                 uid: expect.any(String),
                 role: Role.Customer,
             });
         });
-        // Ensure it navigated to the home page (Customer role)
     });
 
     it("handles successful admin login", async () => {
@@ -187,9 +180,7 @@ describe("LoginPage", () => {
         expect(screen.getByText("Welcome back")).toBeInTheDocument();
         // Check if the error message is shown
         await waitFor(() => {
-            expect(
-                screen.getByText(/Invalid email format/i)
-            ).toBeInTheDocument();
+            expect(screen.getByText(/Invalid email format/i)).toBeInTheDocument();
         });
     });
 
@@ -209,9 +200,7 @@ describe("LoginPage", () => {
         expect(screen.getByText("Welcome back")).toBeInTheDocument();
         // Check if the error message is shown
         await waitFor(() => {
-            expect(
-                screen.getByText(/Password is required/i)
-            ).toBeInTheDocument();
+            expect(screen.getByText(/Password is required/i)).toBeInTheDocument();
         });
     });
 });

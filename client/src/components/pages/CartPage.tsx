@@ -1,19 +1,17 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Button, Container, Modal } from "react-bootstrap";
+import { Helmet } from "react-helmet";
 import { BsArrowLeft, BsArrowRight } from "react-icons/bs";
 import { useNavigate } from "react-router-dom";
-import Cookies from "universal-cookie";
 import axios from "../../api/axios";
+import { useToast } from "../../context/ToastContext";
 import "../../styles/CartPage.scss";
 import AsideCart from "../common/AsideCart";
 import CartItem from "../common/CartItem";
+import NavigationBar from "../common/NavigationBar";
 import Layout from "../layout/Layout";
 import CheckoutPaymentPage from "./CheckoutPaymentPage";
-import { useToast } from "../../context/ToastContext";
-import NavigationBar from "../common/NavigationBar";
-import { Helmet } from "react-helmet";
-
-const cookies = new Cookies();
+import { useAuth } from "../../context/AuthContext";
 
 interface CartProps {
     cartItemId: number;
@@ -28,23 +26,16 @@ interface CartProps {
 
 const CartPage = () => {
     const navigate = useNavigate();
-    const uid =
-        cookies.get("rememberMe")?.uid ||
-        (sessionStorage["rememberMe"] ? JSON.parse(sessionStorage["rememberMe"]).uid : "");
+    const { uid } = useAuth();
     const { addToast } = useToast();
     const [cart, setCart] = useState<CartProps[]>([]);
     const [totalPrice, setTotalPrice] = useState<number>(0);
     const [discount, setDiscount] = useState<number>(0);
     const [subtotal, setSubtotal] = useState<number>(0);
+    console.log(totalPrice, discount);
     const [error, setError] = useState<string>("");
     const [show, setShow] = useState<boolean>(false);
     const [isPayment, setIsPayment] = useState<boolean>(false);
-
-    useEffect(() => {
-        const newTotalPrice = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
-        setTotalPrice(newTotalPrice);
-        setSubtotal(newTotalPrice - discount);
-    }, [cart, discount]);
 
     const handleShow = useCallback(() => setShow(true), []);
     const handleClose = useCallback(() => setShow(false), []);
@@ -83,30 +74,27 @@ const CartPage = () => {
         [addToast]
     );
 
-    const applyDiscount = useCallback(
-        async (discountCode: string, price: number) => {
-            try {
-                const response = await axios.post(`/api/discount`, {
-                    discountCode,
-                    price,
-                });
-                if (response.status === 200) {
-                    const newPrice = response.data.newPrice;
-                    setDiscount(totalPrice - newPrice);
-                    setSubtotal(newPrice);
-                    setError("");
-                    addToast("Applying Coupon", "Coupon has been applied successfully");
-                    console.log(response.data.msg);
-                } else if (response.status === 204) {
-                    setError("Discount not found");
-                    console.log(response.data.msg);
-                }
-            } catch (err) {
-                console.error(err);
+    const applyDiscount = async (discountCode: string, price: number) => {
+        try {
+            const response = await axios.post(`/api/discount`, {
+                discountCode,
+                price,
+            });
+            if (response.status === 200) {
+                const newPrice = response.data.newPrice;
+                setDiscount(totalPrice - newPrice);
+                setSubtotal(newPrice);
+                setError("");
+                addToast("Applying Coupon", "Coupon has been applied successfully");
+                console.log(response.data.msg);
+            } else if (response.status === 204) {
+                setError("Discount not found");
+                console.log(response.data.msg);
             }
-        },
-        [addToast, totalPrice]
-    );
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     useEffect(() => {
         const fetchCartItems = async () => {
@@ -131,6 +119,12 @@ const CartPage = () => {
             fetchCartItems();
         }
     }, [uid]);
+
+    useEffect(() => {
+        const newTotalPrice = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
+        setTotalPrice(newTotalPrice);
+        setSubtotal(newTotalPrice - discount);
+    }, [cart, discount]);
 
     return (
         <Layout>

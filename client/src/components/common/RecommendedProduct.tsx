@@ -32,7 +32,6 @@ const RecommendedProduct = ({ pid, relevantProducts }: RecommendedProps) => {
                                 <img src={require("../../assets/images/product_placeholder.jpg")} alt={product.name} />
                             )}
                         </div>
-
                         <p
                             style={{
                                 textAlign: "center",
@@ -46,8 +45,8 @@ const RecommendedProduct = ({ pid, relevantProducts }: RecommendedProps) => {
                             style={{
                                 textAlign: "center",
                                 fontWeight: "bold",
-                                fontSize: "16px",
-                                height: "40px",
+                                fontSize: "1rem",
+                                height: "3rem",
                             }}
                         >
                             {product.name}
@@ -57,10 +56,10 @@ const RecommendedProduct = ({ pid, relevantProducts }: RecommendedProps) => {
                                 style={{
                                     display: "flex",
                                     flexDirection: "row",
-                                    gap: "2rem",
+                                    gap: "0.75rem",
                                     justifyContent: "center",
                                     fontWeight: "bold",
-                                    fontSize: "20px",
+                                    fontSize: "1rem",
                                 }}
                             >
                                 <p
@@ -70,21 +69,21 @@ const RecommendedProduct = ({ pid, relevantProducts }: RecommendedProps) => {
                                 >
                                     ${product.sale_price}
                                 </p>
-                                <span
+                                <p
                                     style={{
                                         textDecoration: "line-through",
                                         color: "gray",
                                     }}
                                 >
                                     ${product.price}
-                                </span>
+                                </p>
                             </div>
                         ) : (
                             <div
                                 style={{
                                     textAlign: "center",
                                     fontWeight: "bold",
-                                    fontSize: "20px",
+                                    fontSize: "1rem",
                                     color: "red",
                                 }}
                             >

@@ -19,7 +19,7 @@ import ToastProvider from "./context/ToastContext";
 import { AuthProvider } from "./context/AuthContext";
 import AboutUsPage from "./components/pages/AboutUsPage";
 import ContactUsPage from "./components/pages/ContactUsPage";
-import { SpeedInsights } from "@vercel/speed-insights/react";
+// import { SpeedInsights } from "@vercel/speed-insights/react";
 
 const ProtectedCartPage = withSessionCheck(CartPage);
 const ProtectedCheckoutSuccessPage = withSessionCheck(CheckoutSuccessPage);
@@ -52,7 +52,7 @@ function App() {
                         <Route path="/admin/add" element={<AdminAddProductPage />} />
                         <Route path="*" element={<NoPage />} />
                     </Routes>
-                    <SpeedInsights />
+                    {/* <SpeedInsights /> */}
                 </BrowserRouter>
             </ToastProvider>
         </AuthProvider>
