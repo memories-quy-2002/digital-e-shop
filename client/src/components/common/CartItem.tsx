@@ -44,8 +44,8 @@ const CartItem = ({ item, handleQuantityChange, handleRemove }: CartItemProps) =
                 onChange={(event) => handleQuantityChange(item.cartItemId, event)}
             />
             <div className="cart__container__box__main__list__item__price">
-                <strong style={{ fontSize: "20px" }}>${item.price * item.quantity}</strong>
-                <p>${item.price} each</p>
+                <strong style={{ fontSize: "20px" }}>${(item.price * item.quantity).toFixed(2)}</strong>
+                <p>${item.price.toFixed(2)} each</p>
             </div>
             <button type="button" onClick={() => handleRemove(item.cartItemId)}>
                 Remove

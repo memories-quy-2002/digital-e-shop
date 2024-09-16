@@ -7,7 +7,6 @@ import HomePage from "../components/pages/HomePage";
 import ToastProvider from "../context/ToastContext";
 import NoPage from "../components/pages/NoPage";
 import ShopsPage from "../components/pages/ShopsPage";
-
 describe("App", () => {
     it("matches the App snapshot", () => {
         const { asFragment } = render(<App />);
