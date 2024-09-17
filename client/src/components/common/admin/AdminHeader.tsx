@@ -6,11 +6,15 @@ import Cookies from "universal-cookie";
 import axios from "../../../api/axios";
 import { useToast } from "../../../context/ToastContext";
 import { Helmet } from "react-helmet";
+import { signOut } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
+import { auth } from "../../../services/firebase";
 
 const cookies = new Cookies();
 const UNREAD_COUNT = 1;
 const AdminHeader = () => {
     const { addToast } = useToast();
+    const navigate = useNavigate();
     const [show, setShow] = useState<boolean>(false);
     const handleClick = () => {
         setShow(true);
@@ -24,8 +28,9 @@ const AdminHeader = () => {
             if (response.status === 200) {
                 sessionStorage.removeItem("rememberMe");
                 cookies.remove("rememberMe");
+                await signOut(auth);
                 addToast("Logout successfully", response.data.msg);
-                window.location.reload();
+                navigate("/login");
             }
         } catch (err) {
             throw err;
@@ -69,14 +74,9 @@ const AdminHeader = () => {
                 }}
             >
                 <div className="admin__layout__main__header__notifications">
-                    <IoNotifications
-                        size={28}
-                        className="admin__layout__main__header__notifications__icon"
-                    />
+                    <IoNotifications size={28} className="admin__layout__main__header__notifications__icon" />
                     {UNREAD_COUNT > 0 && (
-                        <span className="admin__layout__main__header__notifications__badge">
-                            {UNREAD_COUNT}
-                        </span>
+                        <span className="admin__layout__main__header__notifications__badge">{UNREAD_COUNT}</span>
                     )}
                 </div>
                 <button onClick={() => handleClick()}>

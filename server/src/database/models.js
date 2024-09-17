@@ -2,8 +2,6 @@ require('dotenv').config();
 
 const mysql = require("mysql");
 const jwt = require("jsonwebtoken");
-const fs = require('fs')
-const path = require('path')
 const multer = require('multer');
 const { put } = require('@vercel/blob')
 const { ServerApiVersion } = require('mongodb');
@@ -53,14 +51,12 @@ const startSession = (userId) => {
 };
 
 const checkSessionToken = (request, response) => {
-	const userInfo = request.cookies.userInfo; // Lấy thông tin userInfo từ cookies
-
+	const userInfo = request.cookies.userInfo;
 	if (!userInfo) {
 		return response.status(401).json({ sessionActive: false, msg: "No session information found" });
 	}
-
 	try {
-		const { token } = JSON.parse(userInfo); // Phân tích cookies JSON
+		const { token } = JSON.parse(userInfo);
 		const payload = jwt.verify(token, "secret-key");
 		if (payload) {
 			return response.status(200).json({ sessionActive: true });
@@ -193,14 +189,14 @@ const userLogout = (request, response) => {
 				} else {
 					response.clearCookie('session', {
 						httpOnly: true,
-						secure: true,
+						secure: process.env.NODE_ENV === 'production',
 						sameSite: 'None',
 					});
 
 					// Xóa cookie 'userInfo'
 					response.clearCookie('userInfo', {
 						httpOnly: true,
-						secure: true,
+						secure: process.env.NODE_ENV === 'production',
 						sameSite: 'None',
 					});
 
@@ -729,10 +725,7 @@ const makePurchase = (request, response) => {
 						pool.query('ROLLBACK');
 						return response.status(500).json({ msg: 'Error inserting into orders', error: err.message });
 					}
-
 					const orderId = results.insertId;
-
-					// Lặp qua giỏ hàng và thêm vào bảng order_items
 					cart.forEach((product, index) => {
 						pool.query(
 							'INSERT INTO order_items (order_id, product_id, quantity, total_price) VALUES (?, ?, ?, ?)',

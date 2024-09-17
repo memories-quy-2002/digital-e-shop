@@ -1,6 +1,7 @@
-import React, { createContext, useState, useEffect, useContext } from "react";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import axios from "../api/axios";
+import { auth } from "../services/firebase";
 
 // Tạo context cho user
 interface AuthContextProps {
@@ -21,9 +22,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState<boolean>(true);
 
     useEffect(() => {
-        const auth = getAuth();
-
-        // Theo dõi sự thay đổi trạng thái người dùng
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 setUid(user.uid);

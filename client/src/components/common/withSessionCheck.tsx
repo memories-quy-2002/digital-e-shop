@@ -2,10 +2,9 @@ import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
 import { AxiosResponse } from "axios";
-import { getAuth } from "firebase/auth";
+import { auth } from "../../services/firebase";
 
 const withSessionCheck = (WrappedComponent: React.ComponentType) => {
-    const auth = getAuth();
     const HOC: React.FC = (props) => {
         const navigate = useNavigate();
         useEffect(() => {

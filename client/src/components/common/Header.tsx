@@ -7,13 +7,14 @@ import "../../styles/Header.scss";
 import { useToast } from "../../context/ToastContext";
 import axios from "../../api/axios";
 import Cookies from "universal-cookie";
+import { signOut } from "firebase/auth";
+import { auth } from "../../services/firebase";
 const cookies = new Cookies();
 export const Header = (): JSX.Element => {
     const navigate = useNavigate();
     const { addToast } = useToast();
     const [searchTerm, setSearchTerm] = useState<string>("");
     const { uid, userData, loading } = useAuth();
-
     const handleSearch = () => {
         navigate(`/shops?term=${searchTerm}`);
     };
@@ -24,6 +25,7 @@ export const Header = (): JSX.Element => {
             if (response.status === 200) {
                 sessionStorage.removeItem("rememberMe");
                 cookies.remove("rememberMe");
+                await signOut(auth);
                 addToast("Logout successfully", response.data.msg);
                 window.location.reload();
             }

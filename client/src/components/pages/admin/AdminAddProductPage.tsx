@@ -3,6 +3,7 @@ import AdminLayout from "../../layout/AdminLayout";
 import { useState } from "react";
 import axios from "../../../api/axios";
 import { useToast } from "../../../context/ToastContext";
+import { useNavigate } from "react-router-dom";
 
 interface ProductData {
     [key: string]: string | number | File | null;
@@ -17,6 +18,7 @@ interface ProductData {
 }
 
 const AdminAddProductPage = () => {
+    const navigate = useNavigate();
     const [productData, setProductData] = useState<ProductData>({
         name: "",
         description: "",
@@ -62,6 +64,7 @@ const AdminAddProductPage = () => {
                 setError(null);
                 console.log(response.data.msg);
                 addToast("Adding product", "Product has been added successfully");
+                navigate("/admin/products");
             }
             // Handle success response from backend
         } catch (error) {

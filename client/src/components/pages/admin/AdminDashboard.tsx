@@ -98,64 +98,35 @@ const AdminDashboard = () => {
     const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
 
     useEffect(() => {
-        const fetchProducts = async () => {
+        const fetchData = async () => {
             try {
-                const response = await axios.get("/api/products");
-                if (response.status === 200) {
-                    setProducts(response.data.products);
+                // Fetch products
+                const productResponse = await axios.get("/api/products/");
+                if (productResponse.status === 200) {
+                    setProducts(productResponse.data.products);
+                }
 
-                    console.log(response.data.msg);
+                const orderResponse = await axios.get(`/api/orders/`);
+                if (orderResponse.status === 200) {
+                    setOrders(orderResponse.data.orders);
                 }
-            } catch (err) {
-                console.error(err);
-            }
-        };
-        fetchProducts();
-        return () => {};
-    }, []);
-    useEffect(() => {
-        const fetchOrders = async () => {
-            try {
-                const response = await axios.get(`/api/orders/`);
-                if (response.status === 200) {
-                    setOrders(response.data.orders);
-                    console.log(response.data.msg);
-                }
-            } catch (err) {
-                console.error(err);
-            }
-        };
-        fetchOrders();
-        return () => {};
-    }, []);
-    useEffect(() => {
-        const fetchUsers = async () => {
-            try {
-                const response = await axios.get(`/api/users/`);
-                if (response.status === 200) {
-                    setUsers(response.data.accounts);
-                }
-            } catch (err) {
-                console.error(err);
-            }
-        };
-        fetchUsers();
-        return () => {};
-    }, []);
 
-    useEffect(() => {
-        const fetchOrderItems = async () => {
-            try {
-                const response = await axios.get(`/api/orders/item`);
-                if (response.status === 200) {
-                    setOrderItems(response.data.orderItems);
+                // Fetch users
+                const userResponse = await axios.get(`/api/users/`);
+                if (userResponse.status === 200) {
+                    setUsers(userResponse.data.accounts);
+                }
+
+                // Fetch order items
+                const orderItemResponse = await axios.get(`/api/orders/item`);
+                if (orderItemResponse.status === 200) {
+                    setOrderItems(orderItemResponse.data.orderItems);
                 }
             } catch (err) {
                 console.error(err);
             }
         };
-        fetchOrderItems();
-        return () => {};
+        fetchData();
     }, []);
 
     const getMonthlySales = (orders: Order[], orderItems: OrderItem[]): MonthlySales[] => {
@@ -171,7 +142,6 @@ const AdminDashboard = () => {
             monthlySalesMap[monthKey] = 0;
         }
 
-        // Calculate sales for each month based on the OrderItem sales
         orders.forEach((order) => {
             const date = new Date(order.date_added);
             const month = date.toLocaleString("default", { month: "long" });
@@ -305,6 +275,9 @@ const AdminDashboard = () => {
     );
 
     const topRevenueProducts = getTopRevenueProducts(orderItems);
+    console.log(products, users, orders, orderItems);
+
+    console.log(getMonthlySales(orders, orderItems), getMonthlyRevenues(orders));
 
     return (
         <AdminLayout>
