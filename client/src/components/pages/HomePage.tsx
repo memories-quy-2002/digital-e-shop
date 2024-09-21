@@ -10,7 +10,7 @@ import recommendations from "../../utils/recommendations.json";
 import NavigationBar from "../common/NavigationBar";
 import ProductItem from "../common/ProductItem";
 import Layout from "../layout/Layout";
-import LazyLoadImage from "../../utils/LazyLoadingImage";
+import { Helmet } from "react-helmet";
 
 const DISPLAYED_NUMBER = 12;
 
@@ -161,6 +161,28 @@ const HomePage = () => {
     return (
         <Layout>
             <NavigationBar />
+            <Helmet>
+                <link
+                    rel="preload"
+                    href="https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/carousel_1.jpg"
+                    as="image"
+                />
+                <link
+                    rel="preload"
+                    href="https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/carousel_2.jpg"
+                    as="image"
+                />
+                <link
+                    rel="preload"
+                    href="https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/carousel_3.jpg"
+                    as="image"
+                />
+                <link
+                    rel="preload"
+                    href="https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/carousel_4.jpg"
+                    as="image"
+                />
+            </Helmet>
             <main className="home">
                 <section className="home__hero">
                     <div className="home__hero__carousel">
@@ -173,8 +195,10 @@ const HomePage = () => {
                         >
                             {[1, 2, 3, 4].map((number, index) => (
                                 <div className="home__hero__carousel__item" key={index}>
-                                    <LazyLoadImage
-                                        src={require(`../../assets/images/carousel_${index + 1}.jpg`)}
+                                    <img
+                                        src={`https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/carousel_${
+                                            index + 1
+                                        }.jpg`}
                                         alt={`carousel_${index + 1}`}
                                     />
 

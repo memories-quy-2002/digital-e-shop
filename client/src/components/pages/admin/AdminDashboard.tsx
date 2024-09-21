@@ -275,10 +275,6 @@ const AdminDashboard = () => {
     );
 
     const topRevenueProducts = getTopRevenueProducts(orderItems);
-    console.log(products, users, orders, orderItems);
-
-    console.log(getMonthlySales(orders, orderItems), getMonthlyRevenues(orders));
-
     return (
         <AdminLayout>
             {" "}

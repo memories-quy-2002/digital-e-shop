@@ -27,9 +27,9 @@ const corsOptions = {
 	credentials: true,
 }
 /* Middleware */
-const baseURL = process.env.NODE_ENV === 'production' ? process.env.REACT_APP_API_URL : "http://localhost:3000"
 app.options('*', (req, res) => {
-	res.header("Access-Control-Allow-Origin", baseURL);
+	res.header("Access-Control-Allow-Origin", 'https://e-commerce-website-1-1899.vercel.app');
+	// res.header("Access-Control-Allow-Origin", "http://localhost:3000");
 	res.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE");
 	res.header("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
 	res.header("Access-Control-Allow-Credentials", "true");
