@@ -14,7 +14,7 @@ const limiter = rateLimit({
 const PORT = process.env.PORT || 4000;
 
 const app = express();
-const allowedOrigins = ["http://localhost:3000", "https://e-commerce-website-1-1899.vercel.app"];
+const allowedOrigins = ["http://localhost:3000", "https://e-commerce-website-1-1899.vercel.app", "https://digital-e.vercel.app"];
 
 const corsOptions = {
 	origin: function (origin, callback) {
@@ -28,7 +28,7 @@ const corsOptions = {
 }
 /* Middleware */
 app.options('*', (req, res) => {
-	res.header("Access-Control-Allow-Origin", 'https://digital-e.vercel.app');
+	res.header("Access-Control-Allow-Origin", "https://digital-e.vercel.app");
 	// res.header("Access-Control-Allow-Origin", "http://localhost:3000");
 	res.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE");
 	res.header("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
