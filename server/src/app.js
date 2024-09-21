@@ -1,15 +1,9 @@
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
-const rateLimit = require('express-rate-limit');
 const bodyParser = require("body-parser");
 const db = require("./models");
 const path = require("path");
-const limiter = rateLimit({
-	windowMs: 60 * 60 * 1000,
-	max: 100000,
-	message: 'Too many requests, please try again later.'
-});
 
 const PORT = process.env.PORT || 4000;
 
@@ -38,7 +32,6 @@ app.options('*', (req, res) => {
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
 app.use(cookieParser());
-app.use(limiter)
 
 // User
 app.get("/api/session/check", db.checkSessionToken)
