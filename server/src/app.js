@@ -4,9 +4,7 @@ const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
 const db = require("./models");
 const path = require("path");
-
 const PORT = process.env.PORT || 4000;
-
 const app = express();
 const allowedOrigins = ["http://localhost:3000", "https://e-commerce-website-1-1899.vercel.app", "https://digital-e.vercel.app"];
 
@@ -18,18 +16,22 @@ const corsOptions = {
 			callback(new Error('Not allowed by CORS'));
 		}
 	},
+	methods: ['GET', 'POST', 'PUT', 'DELETE'],
+	allowedHeaders: ['Content-Type', 'Authorization'],
 	credentials: true,
 }
 /* Middleware */
-app.use((req, res, next) => {
-	res.setHeader('Access-Control-Allow-Origin', 'https://digital-e.vercel.app'); // Allow requests from your frontend domain
-	res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE'); // Allow specific HTTP methods
-	res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization'); // Allow specific headers
-	next();
-});
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
 app.use(cookieParser());
+app.use((err, req, res, next) => {
+	res.status(err.status || 500);
+	res.setHeader('Access-Control-Allow-Origin', 'https://digital-e.vercel.app');
+	res.json({
+		message: err.message,
+		error: err,
+	});
+});
 
 // User
 app.get("/api/session/check", db.checkSessionToken)
