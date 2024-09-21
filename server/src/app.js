@@ -32,6 +32,7 @@ app.options('*', (req, res) => {
 	// res.header("Access-Control-Allow-Origin", "http://localhost:3000");
 	res.header("Access-Control-Allow-Methods", "GET,HEAD,PUT,PATCH,POST,DELETE");
 	res.header("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
+
 	res.header("Access-Control-Allow-Credentials", "true");
 	return res.status(200).end();
 });
