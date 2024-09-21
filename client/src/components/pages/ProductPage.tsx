@@ -12,6 +12,7 @@ import NoPage from "./NoPage";
 import { useAuth } from "../../context/AuthContext";
 import { Helmet } from "react-helmet";
 import { useLocation } from "react-router-dom";
+import LazyLoadImage from "../../utils/LazyLoadingImage";
 interface relevantProductsItem {
     product_id: number;
     product_name: string;
@@ -58,7 +59,7 @@ const ProductPage = () => {
     const [reviews, setReviews] = useState<Review[]>([]);
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
     const [toggle, setToggle] = useState<boolean>(false);
-    const [quantity, setQuantity] = useState<number>(0);
+    const [quantity, setQuantity] = useState<number>(1);
 
     useEffect(() => {
         const fetchSingleProduct = async () => {
@@ -66,7 +67,6 @@ const ProductPage = () => {
                 const response = await axios.get(`/api/products/${pid}`);
                 if (response.status === 200) {
                     setProductDetail(response.data.product);
-                    // setQuantity(response.data.product.stock); // Cập nhật số lượng
                     console.log(response.data.msg);
                 }
             } catch (err: any) {
@@ -74,7 +74,6 @@ const ProductPage = () => {
             }
         };
         fetchSingleProduct();
-        // Clean up the Blob URL after component unmount
         return () => {};
     }, [pid]);
 
@@ -98,6 +97,8 @@ const ProductPage = () => {
         const fetchWishlist = async () => {
             try {
                 const response = await axios.get(`/api/wishlist/${uid}`);
+                console.log(response);
+
                 if (response.status === 200) {
                     const newWishlist: Wishlist[] = response.data.wishlist.map((item: any) => {
                         const { id, product_id, ...productProps } = item;
@@ -158,6 +159,8 @@ const ProductPage = () => {
         const fetchReviews = async () => {
             try {
                 const response = await axios.get(`/api/reviews/${productDetail.id}`);
+                console.log(response);
+
                 if (response.status === 200) {
                     setReviews(
                         response.data.reviews.map((review: any) => {
@@ -220,7 +223,7 @@ const ProductPage = () => {
         }
         try {
             if (wishlist.some((item) => item.product.id === product_id)) {
-                const response = await axios.post(`/api/wishlist/delete/`, {
+                const response = await axios.post(`/api/wishlist/delete`, {
                     uid: user_id,
                     pid: product_id,
                 });
@@ -235,7 +238,6 @@ const ProductPage = () => {
                     pid: product_id,
                 });
                 if (response.status === 200) {
-                    console.log(response.data.msg);
                     const newProduct = products.filter((product) => product.id === product_id)[0];
                     setWishlist((list) => [
                         ...list,
@@ -244,6 +246,7 @@ const ProductPage = () => {
                             product: newProduct,
                         },
                     ]);
+                    console.log(response.data.msg);
                     addToast("Add wishlist item", "Item added to wishlist successfully");
                 }
             }
@@ -275,6 +278,10 @@ const ProductPage = () => {
         }
     };
 
+    useEffect(() => {
+        console.log(reviews);
+    }, [reviews]);
+
     if (pid <= 0) {
         return <NoPage />;
     }
@@ -288,7 +295,7 @@ const ProductPage = () => {
                 <div className="product__container__detail">
                     <div className="product__container__detail__img">
                         {productDetail.main_image ? (
-                            <img
+                            <LazyLoadImage
                                 src={`https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${productDetail.main_image}.jpg`}
                                 alt={productDetail.name}
                             />
@@ -414,7 +421,7 @@ const ProductPage = () => {
                                     }
                                 }}
                             >
-                                {wishlist.some((item) => item.product.id === pid)
+                                {wishlist.length > 0 && wishlist.some((item) => item.product.id === pid)
                                     ? "Remove from wishlist"
                                     : "Add to wishlist"}
                             </button>
@@ -449,7 +456,7 @@ const ProductPage = () => {
                                                     {rating <= ratingScore ? (
                                                         <BsStarFill size={18} color="#FFCC4A" />
                                                     ) : (
-                                                        <BsStar size={18} color="#FFCC4A" />
+                                                        <BsStar size={18} data-testid="reviewStar" color="#FFCC4A" />
                                                     )}
                                                 </span>
                                             ))}

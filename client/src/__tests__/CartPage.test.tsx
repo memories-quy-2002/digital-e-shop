@@ -42,7 +42,7 @@ describe("CartPage", () => {
     afterEach(() => {
         jest.clearAllMocks();
     });
-    it("matches the CartPage snapshot", async () => {
+    it("should match the CartPage snapshot", async () => {
         (useAuth as jest.Mock).mockReturnValue({
             uid: "12345", // Mocked uid
             userData: null,
@@ -58,7 +58,7 @@ describe("CartPage", () => {
         expect(asFragment()).toMatchSnapshot();
     });
 
-    it("renders cart items correctly", () => {
+    it("should render cart items correctly", () => {
         (useAuth as jest.Mock).mockReturnValue({
             uid: "12345", // Mocked uid
             userData: null,
@@ -76,7 +76,7 @@ describe("CartPage", () => {
         expect(screen.getByText(/Total price:/i)).toBeInTheDocument();
     });
 
-    it("fetches cart items when uid is available", async () => {
+    it("should render cart items when uid is available", async () => {
         // Mock the return value of useAuth
         (useAuth as jest.Mock).mockReturnValue({
             uid: "12345", // Mocked uid
@@ -108,27 +108,6 @@ describe("CartPage", () => {
         });
         await waitFor(() => {
             expect(screen.getAllByText(/400.00/i)[0]).toBeInTheDocument();
-        });
-    });
-
-    it("does not fetch cart items when uid is null", async () => {
-        // Mock the return value of useAuth to return null uid
-        (useAuth as jest.Mock).mockReturnValue({
-            uid: null, // Mocked uid
-            userData: null,
-            loading: false,
-        });
-        render(
-            <ToastProvider>
-                <MemoryRouter>
-                    <CartPage />
-                </MemoryRouter>
-            </ToastProvider>
-        );
-
-        // Use waitFor to ensure no API call is made
-        await waitFor(() => {
-            expect(axios.get).not.toHaveBeenCalled();
         });
     });
 

@@ -183,7 +183,7 @@ const ShopsPage = () => {
             <Helmet>
                 <title>Shops</title>
             </Helmet>
-            <div className="shops">
+            <main className="shops">
                 <h2 className="shops__title">SHOPS PRODUCTS</h2>
                 <div className="shops__container">
                     <AsideShops
@@ -194,7 +194,7 @@ const ShopsPage = () => {
                         onApplyFilters={applyFilters}
                         onTermChange={handleTermChange}
                     />
-                    <div data-testid="shops__container" className="shops__container__main">
+                    <section data-testid="shops__container" className="shops__container__main">
                         {isLoading ? (
                             <p>Loading products...</p>
                         ) : (
@@ -206,9 +206,9 @@ const ShopsPage = () => {
                                 isWishlistPage={false}
                             />
                         )}
-                    </div>
+                    </section>
                 </div>
-            </div>
+            </main>
         </Layout>
     );
 };

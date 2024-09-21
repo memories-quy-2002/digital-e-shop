@@ -27,12 +27,12 @@ const AdminSidebar = () => {
     };
 
     return (
-        <div className="admin__layout__sidebar">
-            <div className="admin__layout__sidebar__title">
+        <aside className="admin__layout__sidebar">
+            <section className="admin__layout__sidebar__title">
                 <h3>DIGITAL-E</h3>
                 <strong>Admin Panel</strong>
-            </div>
-            <div className="admin__layout__sidebar__information">
+            </section>
+            <section className="admin__layout__sidebar__information">
                 <img
                     src={require("../../../assets/images/product_placeholder.jpg")}
                     alt="admin_avatar"
@@ -42,8 +42,8 @@ const AdminSidebar = () => {
                     <strong>{userData && !loading ? userData.username : "Anonymous"}</strong>
                     <span>{userData && !loading ? userData.email : "Anonymous"}</span>
                 </div>
-            </div>
-            <div className="admin__layout__sidebar__navigation">
+            </section>
+            <nav className="admin__layout__sidebar__navigation">
                 {items.map((item, index) => {
                     return (
                         <button
@@ -59,8 +59,8 @@ const AdminSidebar = () => {
                         </button>
                     );
                 })}
-            </div>
-        </div>
+            </nav>
+        </aside>
     );
 };
 

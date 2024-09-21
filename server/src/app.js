@@ -3,7 +3,7 @@ const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const rateLimit = require('express-rate-limit');
 const bodyParser = require("body-parser");
-const db = require("./database/models");
+const db = require("./models");
 const path = require("path");
 const limiter = rateLimit({
 	windowMs: 60 * 60 * 1000,
@@ -18,14 +18,13 @@ const allowedOrigins = ["http://localhost:3000", "https://e-commerce-website-1-1
 
 const corsOptions = {
 	origin: function (origin, callback) {
-		// Nếu không có origin hoặc origin nằm trong danh sách cho phép
 		if (!origin || allowedOrigins.indexOf(origin) !== -1) {
 			callback(null, true);
 		} else {
 			callback(new Error('Not allowed by CORS'));
 		}
 	},
-	credentials: true, // Để cho phép credentials (cookies, authorization headers, etc.)
+	credentials: true,
 }
 /* Middleware */
 const baseURL = process.env.NODE_ENV === 'production' ? process.env.REACT_APP_API_URL : "http://localhost:3000"
@@ -86,12 +85,12 @@ app.get('/', (req, res) => {
 	res.send("Hello World from Express");
 });
 
-app.get('/getuser', (req, res) => {
+app.get('/get-user', (req, res) => {
 	//shows all the cookies 
 	res.send(req.cookies);
 });
 
-app.get('/clearuser', (request, response) => {
+app.get('/clear-user', (request, response) => {
 	response.clearCookie("username");
 	response.clearCookie("userInfo");
 	response.clearCookie("rememberMe");

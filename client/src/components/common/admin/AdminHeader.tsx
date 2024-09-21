@@ -38,7 +38,7 @@ const AdminHeader = () => {
     };
 
     return (
-        <div className="admin__layout__main__header">
+        <header className="admin__layout__main__header">
             <Helmet>
                 <title>Digital-E - Admin</title>
             </Helmet>
@@ -98,7 +98,7 @@ const AdminHeader = () => {
                     </Button>
                 </Modal.Footer>
             </Modal>
-        </div>
+        </header>
     );
 };
 

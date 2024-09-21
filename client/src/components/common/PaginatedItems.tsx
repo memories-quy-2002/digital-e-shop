@@ -3,9 +3,8 @@ import ReactPaginate from "react-paginate";
 import axios from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
 import { Product } from "../../utils/interface";
-import ProductItem from "./ProductItem";
-import WishlistItem from "./WishlistItem";
 import ShopsItem from "./ShopsItem";
+import WishlistItem from "./WishlistItem";
 
 interface Item {
     id: number;
@@ -180,6 +179,7 @@ const PaginatedItems = ({ itemsPerPage, items, uid, wishlist, isWishlistPage }: 
                         currentItems.length !== 0 && !("product" in currentItems[0]) ? pageCount : wishlistPageCount
                     }
                     previousLabel="Previous"
+                    ariaLabelBuilder={(index) => `Page-${index}`}
                     renderOnZeroPageCount={null}
                 />
             </div>

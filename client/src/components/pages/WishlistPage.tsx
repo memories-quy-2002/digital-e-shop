@@ -51,7 +51,7 @@ const WishlistPage = () => {
             <Helmet>
                 <title>Wishlist</title>
             </Helmet>
-            <div className="wishlist">
+            <main className="wishlist">
                 <div className="wishlist__title">
                     <h2>MY WISHLIST</h2>
                 </div>
@@ -78,7 +78,7 @@ const WishlistPage = () => {
                     wishlist={wishlist}
                     isWishlistPage={true}
                 />
-            </div>
+            </main>
         </Layout>
     );
 };

@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`WishlistPage matches the WishlistPage snapshot 1`] = `
+exports[`WishlistPage should match the WishlistPage snapshot 1`] = `
 <DocumentFragment>
   <div>
     <div
@@ -279,7 +279,7 @@ exports[`WishlistPage matches the WishlistPage snapshot 1`] = `
             class="footer__menuGroup__menu__item"
           >
             <a
-              href="/shops?categories=Laptops"
+              href="/shops?categories=Laptop&brands=&minPrice=0&maxPrice=4000&term="
             >
               Laptops
             </a>
@@ -288,7 +288,7 @@ exports[`WishlistPage matches the WishlistPage snapshot 1`] = `
             class="footer__menuGroup__menu__item"
           >
             <a
-              href="/shops?categories=Cameras"
+              href="/shops?categories=Camera&brands=&minPrice=0&maxPrice=4000&term="
             >
               Cameras
             </a>
@@ -297,7 +297,7 @@ exports[`WishlistPage matches the WishlistPage snapshot 1`] = `
             class="footer__menuGroup__menu__item"
           >
             <a
-              href="/shops?categories=Smartphones"
+              href="/shops?categories=Smartphone&brands=&minPrice=0&maxPrice=4000&term="
             >
               Smartphones
             </a>
@@ -306,7 +306,7 @@ exports[`WishlistPage matches the WishlistPage snapshot 1`] = `
             class="footer__menuGroup__menu__item"
           >
             <a
-              href="/shops?categories=Graphic_Cards"
+              href="/shops?categories=Graphics+Card&brands=&minPrice=0&maxPrice=4000&term="
             >
               Graphic cards
             </a>
@@ -347,7 +347,11 @@ exports[`WishlistPage matches the WishlistPage snapshot 1`] = `
           <div
             class="footer__menuGroup__menu__item"
           >
-            Careers
+            <a
+              href="/about-us"
+            >
+              Careers
+            </a>
           </div>
           <div
             class="footer__menuGroup__menu__item"
@@ -395,7 +399,7 @@ exports[`WishlistPage matches the WishlistPage snapshot 1`] = `
           <div
             class="footer__menuGroup__menu__item-disabled"
           >
-            Address: 123 ABC Street, Ho Chi Minh City, Vietnam
+            Address: 123 ABC Street, HCM City, Vietnam
           </div>
         </div>
       </div>
@@ -432,7 +436,7 @@ exports[`WishlistPage matches the WishlistPage snapshot 1`] = `
           <ul>
             <li>
               <a
-                href="https://www.facebook.com/yourpage"
+                href="https://www.facebook.com"
                 rel="noopener noreferrer"
                 target="_blank"
               >
@@ -457,7 +461,7 @@ exports[`WishlistPage matches the WishlistPage snapshot 1`] = `
             </li>
             <li>
               <a
-                href="https://www.twitter.com/yourprofile"
+                href="https://www.twitter.com"
                 rel="noopener noreferrer"
                 target="_blank"
               >
@@ -482,7 +486,7 @@ exports[`WishlistPage matches the WishlistPage snapshot 1`] = `
             </li>
             <li>
               <a
-                href="https://www.instagram.com/yourprofile"
+                href="https://www.instagram.com"
                 rel="noopener noreferrer"
                 target="_blank"
               >
@@ -507,7 +511,7 @@ exports[`WishlistPage matches the WishlistPage snapshot 1`] = `
             </li>
             <li>
               <a
-                href="https://www.linkedin.com/in/yourprofile"
+                href="https://www.linkedin.com"
                 rel="noopener noreferrer"
                 target="_blank"
               >

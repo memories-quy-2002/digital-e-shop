@@ -145,8 +145,8 @@ const CartPage = () => {
                     <>
                         {" "}
                         <h3 className="cart__container__title">Shopping Cart</h3>
-                        <div className="cart__container__box">
-                            <div className="cart__container__box__main">
+                        <main className="cart__container__box">
+                            <section className="cart__container__box__main">
                                 <div className="cart__container__box__main__list">
                                     {cart.map((item) => (
                                         <CartItem
@@ -174,7 +174,7 @@ const CartPage = () => {
                                 <div className="cart__container__box__main__notification">
                                     Free delivery for 1-2 days
                                 </div>
-                            </div>
+                            </section>
                             <AsideCart
                                 totalPrice={totalPrice}
                                 discount={discount}
@@ -182,7 +182,7 @@ const CartPage = () => {
                                 error={error}
                                 applyDiscount={applyDiscount}
                             />
-                        </div>{" "}
+                        </main>
                     </>
                 )}
 

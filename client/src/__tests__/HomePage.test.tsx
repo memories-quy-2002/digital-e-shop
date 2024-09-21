@@ -1,11 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import {
-    BrowserRouter,
-    MemoryRouter,
-    Route,
-    Routes,
-    useLocation,
-} from "react-router-dom";
+import { BrowserRouter, MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import axios from "../api/axios";
 import HomePage from "../components/pages/HomePage";
 import LoginPage from "../components/pages/LoginPage";
@@ -20,7 +14,6 @@ jest.mock("react-router-dom", () => ({
     useNavigate: () => mockedUsedNavigate,
 }));
 jest.mock("../api/axios");
-
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 const LocationDisplay = () => {
@@ -40,10 +33,7 @@ const mockProducts: Product[] = [
         rating: 4.5,
         reviews: 100,
         main_image: "https://example.com/product1.jpg",
-        image_gallery: [
-            "https://example.com/product1-1.jpg",
-            "https://example.com/product1-2.jpg",
-        ],
+        image_gallery: ["https://example.com/product1-1.jpg", "https://example.com/product1-2.jpg"],
         stock: 10,
         description: "This is a description of Product 1",
         specifications: ["Specification 1", "Specification 2"],
@@ -84,7 +74,7 @@ describe("HomePage", () => {
     afterEach(() => {
         jest.clearAllMocks();
     });
-    it("matches the HomePage snapshot", () => {
+    it("should match the HomePage snapshot", () => {
         const { asFragment } = render(
             <ToastProvider>
                 <BrowserRouter>
@@ -95,7 +85,7 @@ describe("HomePage", () => {
         expect(asFragment()).toMatchSnapshot();
     });
 
-    it("navigates to shops page when 'View all' is clicked", async () => {
+    it("should navigate to shops page when 'View all' is clicked", async () => {
         render(
             <ToastProvider>
                 <MemoryRouter initialEntries={["/"]}>
@@ -119,7 +109,7 @@ describe("HomePage", () => {
         });
     });
 
-    it("should handle list of product when not handle API", async () => {
+    it("should handle list of empty product when not handle API", async () => {
         mockedAxios.get.mockImplementationOnce(() => {
             return Promise.resolve({
                 data: {

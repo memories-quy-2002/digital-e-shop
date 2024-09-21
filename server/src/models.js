@@ -7,7 +7,7 @@ const { put } = require('@vercel/blob')
 const { ServerApiVersion } = require('mongodb');
 const MongoClient = require('mongodb').MongoClient;
 const util = require('util');
-const { hashPassword } = require("../utils/hashPassword");
+const { hashPassword } = require("./utils/hashPassword");
 
 const pool = mysql.createPool({
 	host: process.env.DB_HOST,

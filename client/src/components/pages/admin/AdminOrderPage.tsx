@@ -72,7 +72,7 @@ const AdminOrderPage = () => {
     useEffect(() => {
         const fetchOrders = async () => {
             try {
-                const response = await axios.get(`/api/orders/`);
+                const response = await axios.get(`/api/orders`);
                 if (response.status === 200) {
                     setOrders(response.data.orders);
                     console.log(response.data.msg);
@@ -129,12 +129,14 @@ const AdminOrderPage = () => {
                                                 <div>
                                                     <button
                                                         type="button"
+                                                        data-testid="cancelBtn"
                                                         onClick={() => handleChangeStatus(2, order.id)}
                                                     >
                                                         <MdCancel size={24} />
                                                     </button>
                                                     <button
                                                         type="button"
+                                                        data-testid="doneBtn"
                                                         onClick={() => handleChangeStatus(1, order.id)}
                                                     >
                                                         <FaCheck size={24} />

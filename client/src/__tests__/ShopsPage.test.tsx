@@ -177,6 +177,7 @@ describe("ShopsPage", () => {
         });
         expect(screen.queryByRole("paragraph", { name: "Fashion" })).not.toBeInTheDocument();
         expect(screen.queryByText("LG")).not.toBeInTheDocument();
+        expect(screen.getByText("There is no product matched the filters")).toBeInTheDocument();
     });
 
     it("renders the shops page with products filtered by checkbox", async () => {
@@ -197,9 +198,6 @@ describe("ShopsPage", () => {
         await waitFor(() => {
             expect(screen.getByLabelText("Fashion")).toBeInTheDocument();
         });
-
-        // const element = screen.getByTestId("shops__aside__brand");
-        // console.log(prettyDOM(element));
         const checkbox = screen.getByLabelText("Fashion");
         const applyButton = screen.getByRole("button", {
             name: /apply/i,

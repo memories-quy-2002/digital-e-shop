@@ -39,7 +39,7 @@ const AdminProductItem = ({ products, product, handleOpen }: AdminProductItemPro
                     {/* <button type="button">
                         <FaRegEdit />
                      </button> */}
-                    <button type="button" onClick={() => handleOpen(product.id)}>
+                    <button data-testid="deleteProductBtn" type="button" onClick={() => handleOpen(product.id)}>
                         <FaRegTrashAlt />
                     </button>
                 </div>

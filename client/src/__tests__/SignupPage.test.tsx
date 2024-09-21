@@ -42,7 +42,7 @@ describe("SignupPage", () => {
         jest.clearAllMocks(); // Clear mocks before each test
     });
 
-    const renderLoginPage = (user: typeof users.customer) => {
+    const renderSignupPage = (user: typeof users.customer) => {
         render(
             <MemoryRouter>
                 <SignupPage />
@@ -51,8 +51,7 @@ describe("SignupPage", () => {
 
         // Fill in email and password
 
-        screen.getByRole("form", { name: "signup-form" }).onsubmit =
-            handleOnSubmitMock;
+        screen.getByRole("form", { name: "signup-form" }).onsubmit = handleOnSubmitMock;
         fireEvent.change(screen.getByPlaceholderText("Username"), {
             target: { value: user.username },
         });
@@ -80,7 +79,7 @@ describe("SignupPage", () => {
         fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
     };
 
-    it("matches the SignupPage snapshot", async () => {
+    it("should match the SignupPage snapshot", async () => {
         const { asFragment } = render(
             <MemoryRouter>
                 <SignupPage />
@@ -89,7 +88,7 @@ describe("SignupPage", () => {
         expect(asFragment()).toMatchSnapshot();
     });
 
-    it("handles successful customer signup", async () => {
+    it("should handle successful customer signup", async () => {
         (createUserWithEmailAndPassword as jest.Mock).mockResolvedValue({
             user: { uid: "mock-user-id" },
         });
@@ -101,7 +100,7 @@ describe("SignupPage", () => {
             })
         );
 
-        renderLoginPage(users.customer);
+        renderSignupPage(users.customer);
         expect(screen.getByText("Create new account")).toBeInTheDocument();
         expect(handleOnSubmitMock).toHaveBeenCalled();
         await waitFor(() => {
@@ -121,7 +120,7 @@ describe("SignupPage", () => {
         });
     });
 
-    it("handles successful admin signup", async () => {
+    it("should handle successful admin signup", async () => {
         // Mock axios response
         (createUserWithEmailAndPassword as jest.Mock).mockResolvedValue({
             user: { uid: "mock-user-id" },
@@ -133,16 +132,12 @@ describe("SignupPage", () => {
             })
         );
 
-        renderLoginPage(users.admin);
+        renderSignupPage(users.admin);
 
         expect(screen.getByText("Create new account")).toBeInTheDocument();
         expect(handleOnSubmitMock).toHaveBeenCalled();
         await waitFor(() => {
-            expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(
-                auth,
-                users.admin.email,
-                users.admin.password
-            );
+            expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(auth, users.admin.email, users.admin.password);
         });
         // Wait for the axios post call
         await waitFor(() => {
@@ -153,7 +148,7 @@ describe("SignupPage", () => {
         });
     });
 
-    it("handles signup error", async () => {
+    it("should handle signup error", async () => {
         // Mock axios to return an error
         mockedAxios.post.mockImplementationOnce(() =>
             Promise.reject({
@@ -161,7 +156,7 @@ describe("SignupPage", () => {
                 data: { token: "customerMockedToken" },
             })
         );
-        renderLoginPage({
+        renderSignupPage({
             username: "customer123",
             email: "test@example.com",
             password: "wrong_password",
@@ -179,7 +174,7 @@ describe("SignupPage", () => {
         });
     });
 
-    it("handle empty email", async () => {
+    it("should handle empty email", async () => {
         // Mock axios to return an error
         mockedAxios.post.mockImplementationOnce(() =>
             Promise.reject({
@@ -187,7 +182,7 @@ describe("SignupPage", () => {
                 data: { token: "customerMockedToken" },
             })
         );
-        renderLoginPage({
+        renderSignupPage({
             username: "customer123",
             email: "",
             password: "wrong_password",
@@ -201,7 +196,7 @@ describe("SignupPage", () => {
         });
     });
 
-    it("handles invalid email", async () => {
+    it("should handle invalid email", async () => {
         // Mock axios to return an error
         mockedAxios.post.mockImplementationOnce(() =>
             Promise.reject({
@@ -209,7 +204,7 @@ describe("SignupPage", () => {
                 data: { token: "customerMockedToken" },
             })
         );
-        renderLoginPage({
+        renderSignupPage({
             username: "customer123",
             email: "test1@",
             password: "wrong_password",
@@ -219,13 +214,11 @@ describe("SignupPage", () => {
         expect(screen.getByText("Create new account")).toBeInTheDocument();
         // Check if the error message is shown
         await waitFor(() => {
-            expect(
-                screen.getByText(/Invalid email format/i)
-            ).toBeInTheDocument();
+            expect(screen.getByText(/Invalid email format/i)).toBeInTheDocument();
         });
     });
 
-    it("handles empty password", async () => {
+    it("should handle empty password", async () => {
         // Mock axios to return an error
         mockedAxios.post.mockImplementationOnce(() =>
             Promise.reject({
@@ -233,7 +226,8 @@ describe("SignupPage", () => {
                 data: { token: "adminMockedToken" },
             })
         );
-        renderLoginPage({
+
+        renderSignupPage({
             username: "admin123",
             email: "test@gmail.com",
             password: "",
@@ -243,9 +237,7 @@ describe("SignupPage", () => {
         expect(screen.getByText("Create new account")).toBeInTheDocument();
         // Check if the error message is shown
         await waitFor(() => {
-            expect(
-                screen.getByText(/Password is required/i)
-            ).toBeInTheDocument();
+            expect(screen.getByText(/Password is required/i)).toBeInTheDocument();
         });
     });
 });

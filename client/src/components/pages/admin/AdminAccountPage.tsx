@@ -82,9 +82,9 @@ const AdminAccountPage = () => {
     // console.log(accounts);
     return (
         <AdminLayout>
-            <div className="admin__account">
+            <main className="admin__account">
                 <div className="admin__account__list">
-                    <div className="admin__account__list__search">
+                    <section className="admin__account__list__search">
                         <div>
                             <h4>List of accounts</h4>
                             <input
@@ -96,8 +96,8 @@ const AdminAccountPage = () => {
                                 onChange={handleSearchChange}
                             />
                         </div>
-                    </div>
-                    <div className="admin__account__list__table">
+                    </section>
+                    <section className="admin__account__list__table">
                         <Table responsive striped borderless hover>
                             <thead>
                                 <tr>
@@ -133,9 +133,9 @@ const AdminAccountPage = () => {
                                 renderOnZeroPageCount={null}
                             />
                         </div>
-                    </div>
+                    </section>
                 </div>
-            </div>
+            </main>
         </AdminLayout>
     );
 };

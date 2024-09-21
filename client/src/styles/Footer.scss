@@ -19,6 +19,7 @@
                 font-weight: bold;
                 margin-bottom: 1rem;
             }
+
             &__item {
                 margin-bottom: 0.4rem;
                 cursor: pointer;
@@ -32,6 +33,7 @@
                         color: gray;
                     }
                 }
+
                 &-disabled {
                     margin-bottom: 0.4rem;
                     &:hover {
@@ -41,6 +43,9 @@
                 &:hover {
                     color: gray;
                 }
+            }
+            address {
+                margin: 0;
             }
         }
     }

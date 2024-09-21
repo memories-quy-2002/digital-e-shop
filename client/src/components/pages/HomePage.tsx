@@ -10,6 +10,7 @@ import recommendations from "../../utils/recommendations.json";
 import NavigationBar from "../common/NavigationBar";
 import ProductItem from "../common/ProductItem";
 import Layout from "../layout/Layout";
+import LazyLoadImage from "../../utils/LazyLoadingImage";
 
 const DISPLAYED_NUMBER = 12;
 
@@ -160,22 +161,23 @@ const HomePage = () => {
     return (
         <Layout>
             <NavigationBar />
-            <div className="home">
-                <div className="home__hero">
+            <main className="home">
+                <section className="home__hero">
                     <div className="home__hero__carousel">
                         <div
                             className="home__hero__carousel__inner"
                             style={{
                                 transform: `translateX(${currentIndex * -25}%)`,
-                                transition: "transform 0.5s ease-in-out",
+                                transition: "transform 0.75s ease-in",
                             }}
                         >
                             {[1, 2, 3, 4].map((number, index) => (
                                 <div className="home__hero__carousel__item" key={index}>
-                                    <img
+                                    <LazyLoadImage
                                         src={require(`../../assets/images/carousel_${index + 1}.jpg`)}
                                         alt={`carousel_${index + 1}`}
                                     />
+
                                     <div className="home__hero__carousel__item__overlay">
                                         <h2>
                                             {index === 0
@@ -222,9 +224,9 @@ const HomePage = () => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </section>
 
-                <div className="home__product">
+                <section className="home__product">
                     <div className="home__product__header">
                         <h3 className="home__product__header__title">All products</h3>
                         <div>
@@ -270,8 +272,8 @@ const HomePage = () => {
                                 />
                             ))}
                     </div>
-                </div>
-            </div>
+                </section>
+            </main>
         </Layout>
     );
 };

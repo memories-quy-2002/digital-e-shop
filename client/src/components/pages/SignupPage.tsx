@@ -140,7 +140,7 @@ const SignupPage = () => {
                 <title>Signup</title>
             </Helmet>
             <div className="signup">
-                <div className="signup__image">
+                <aside className="signup__image">
                     <img
                         src={require("../../assets/images/background_form.jpg")}
                         alt=""
@@ -150,8 +150,8 @@ const SignupPage = () => {
                         <strong className="signup__image__content__name">DIGITAL-E</strong>
                         <p className="signup__image__content__desc">An E-commerce platforms of electronics devices</p>
                     </div>
-                </div>
-                <div className="signup__form">
+                </aside>
+                <main className="signup__form">
                     <h3 className="signup__form__title">Create new account</h3>
                     <Form
                         className="signup__form__container"
@@ -265,7 +265,7 @@ const SignupPage = () => {
                             Already registered? <Link to="/login">Login</Link>
                         </div>
                     </Form>
-                </div>
+                </main>
             </div>
         </Container>
     );

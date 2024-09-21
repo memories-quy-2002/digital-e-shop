@@ -1,7 +1,8 @@
-.vercel
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
+.vercel
+
 /node_modules
 /.pnp
 .pnp.js
@@ -11,6 +12,7 @@
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
@@ -19,6 +21,13 @@
 .env.development.local
 .env.test.local
 .env.production.local
+
+# IDE settings
+.vscode/
+.idea/
+
+# Jest Snapshots
+*.snap
 
 npm-debug.log*
 yarn-debug.log*

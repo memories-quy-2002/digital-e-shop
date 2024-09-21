@@ -129,7 +129,7 @@ const LoginPage = () => {
                 <title>Login</title>
             </Helmet>
             <div className="login">
-                <div className="login__image">
+                <aside className="login__image">
                     <img
                         src={require("../../assets/images/background_form.jpg")}
                         alt=""
@@ -139,8 +139,8 @@ const LoginPage = () => {
                         <strong className="login__image__content__name">DIGITAL-E</strong>
                         <p className="login__image__content__desc">An E-commerce platforms of electronics devices</p>
                     </div>
-                </div>
-                <div className="login__form">
+                </aside>
+                <main className="login__form">
                     <h3 className="login__form__title">Welcome back</h3>
                     <Form
                         className="login__form__container"
@@ -237,7 +237,7 @@ const LoginPage = () => {
                             Don't have an account? <Link to="/signup">Register</Link>
                         </div>
                     </Form>
-                </div>
+                </main>
             </div>
         </Container>
     );

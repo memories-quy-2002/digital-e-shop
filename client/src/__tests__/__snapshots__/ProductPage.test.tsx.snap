@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`ProductPage matches the ProductPage snapshot 1`] = `
+exports[`ProductPage should match the ProductPage snapshot 1`] = `
 <DocumentFragment>
   <div
     style="display: flex; align-items: center; flex-direction: column;"

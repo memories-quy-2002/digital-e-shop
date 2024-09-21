@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Product } from "../../utils/interface";
 import ratingStar from "../../utils/ratingStar";
+import LazyLoadImage from "../../utils/LazyLoadingImage";
 
 type RecommendedProps = {
     pid: number;
@@ -24,7 +25,7 @@ const RecommendedProduct = ({ pid, relevantProducts }: RecommendedProps) => {
                             }}
                         >
                             {product.main_image ? (
-                                <img
+                                <LazyLoadImage
                                     src={`https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${product.main_image}.jpg`}
                                     alt={product.name}
                                 />

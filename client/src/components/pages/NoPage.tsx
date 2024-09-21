@@ -2,7 +2,7 @@ import React from "react";
 
 const NoPage = () => {
     return (
-        <div
+        <main
             style={{
                 display: "flex",
                 alignItems: "center",
@@ -11,7 +11,7 @@ const NoPage = () => {
         >
             <h1>404 Error</h1>
             <p>Page not found</p>
-        </div>
+        </main>
     );
 };
 

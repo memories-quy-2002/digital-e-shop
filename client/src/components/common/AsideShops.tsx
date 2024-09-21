@@ -32,17 +32,15 @@ const AsideShops = ({
     const [brands, setBrands] = useState<string[]>([]);
 
     useEffect(() => {
-        setCategories([
-            ...new Set(products.map((product) => product.category)),
-        ]);
+        setCategories([...new Set(products.map((product) => product.category))]);
         setBrands([...new Set(products.map((product) => product.brand))]);
     }, [products]);
     console.log(products);
     console.log("Filter: ", filters);
 
     return (
-        <div className="shops__container__aside">
-            <div className="shops__container__aside__search">
+        <aside className="shops__container__aside">
+            <section className="shops__container__aside__search">
                 <input
                     type="text"
                     placeholder="Search product..."
@@ -54,8 +52,8 @@ const AsideShops = ({
                         }
                     }}
                 />
-            </div>
-            <div className="shops__container__aside__categories">
+            </section>
+            <section className="shops__container__aside__categories">
                 <div>
                     <h4>Categories</h4>
                     {categories.map((category, index) => {
@@ -66,15 +64,8 @@ const AsideShops = ({
                                     <input
                                         type="checkbox"
                                         id={category}
-                                        checked={filters.categories.includes(
-                                            category
-                                        )}
-                                        onChange={() =>
-                                            onCheckboxChange(
-                                                "categories",
-                                                category
-                                            )
-                                        }
+                                        checked={filters.categories.includes(category)}
+                                        onChange={() => onCheckboxChange("categories", category)}
                                     />
                                     <span className="checkmark"></span>
                                 </label>
@@ -82,11 +73,8 @@ const AsideShops = ({
                         );
                     })}
                 </div>
-            </div>
-            <div
-                className="shops__container__aside__brands"
-                data-testid="shops__aside__brand"
-            >
+            </section>
+            <section className="shops__container__aside__brands" data-testid="shops__aside__brand">
                 <div>
                     <h4>Brands</h4>
                     {brands.map((brand, index) => {
@@ -98,9 +86,7 @@ const AsideShops = ({
                                         type="checkbox"
                                         id={brand}
                                         checked={filters.brands.includes(brand)}
-                                        onChange={() =>
-                                            onCheckboxChange("brands", brand)
-                                        }
+                                        onChange={() => onCheckboxChange("brands", brand)}
                                     />
                                     <span className="checkmark"></span>
                                 </label>
@@ -108,8 +94,8 @@ const AsideShops = ({
                         );
                     })}
                 </div>
-            </div>
-            <div className="shops__container__aside__price">
+            </section>
+            <section className="shops__container__aside__price">
                 <h4>Price range</h4>
                 <div className="shops__container__aside__price__slider">
                     <ReactSlider
@@ -120,16 +106,14 @@ const AsideShops = ({
                         min={0}
                         max={MAX_PRICE}
                         minDistance={100}
-                        onAfterChange={(newValue: [number, number]) =>
-                            onPriceRangeChange(newValue)
-                        }
+                        onAfterChange={(newValue: [number, number]) => onPriceRangeChange(newValue)}
                     />
                     <div className="shops__container__aside__price__slider__num">
                         <span>{filters.priceRange[0]}</span>
                         <span>{filters.priceRange[1]}</span>
                     </div>
                 </div>
-            </div>
+            </section>
             <button
                 type="button"
                 className="btn btn-info shops__container__aside__button"
@@ -137,7 +121,7 @@ const AsideShops = ({
             >
                 Apply
             </button>
-        </div>
+        </aside>
     );
 };
 

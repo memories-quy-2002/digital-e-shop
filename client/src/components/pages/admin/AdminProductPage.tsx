@@ -38,7 +38,7 @@ const AdminProductPage = () => {
 
     const handleDelete = async (pid: number) => {
         try {
-            const response = await axios.post("/api/products/delete/", {
+            const response = await axios.post("/api/products/delete", {
                 pid,
             });
             if (response.status === 200) {

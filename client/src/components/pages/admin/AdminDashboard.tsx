@@ -282,14 +282,14 @@ const AdminDashboard = () => {
     return (
         <AdminLayout>
             {" "}
-            <div className="admin__dashboard">
-                <div className="admin__dashboard-header">
+            <main className="admin__dashboard">
+                <section className="admin__dashboard-header">
                     <h2>Dashboard</h2>
                     <button className="btn btn-dark" onClick={handleDownloadReport}>
                         Download Report
                     </button>
-                </div>
-                <div className="admin__dashboard-cards">
+                </section>
+                <section className="admin__dashboard-cards">
                     <Card
                         title="Sales"
                         value={getMonthlySales(orders, orderItems)[5].sales}
@@ -314,8 +314,8 @@ const AdminDashboard = () => {
                         icon={<FaBox />}
                     />
                     <Card title="Users" value={users.length} description="Total" bgColor="blue" icon={<FaUser />} />
-                </div>
-                <div className="admin__dashboard-chart">
+                </section>
+                <section className="admin__dashboard-chart">
                     <div style={{ flex: 1 }}>
                         <h3>Sales Over Time</h3>
                         <ResponsiveContainer width="100%" height={300}>
@@ -342,8 +342,8 @@ const AdminDashboard = () => {
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
-                </div>
-                <div className="admin__dashboard-table">
+                </section>
+                <section className="admin__dashboard-table">
                     <h3>Top-selling products</h3>
                     <Table responsive striped borderless hover>
                         <thead>
@@ -365,8 +365,8 @@ const AdminDashboard = () => {
                             ))}
                         </tbody>
                     </Table>
-                </div>
-            </div>
+                </section>
+            </main>
         </AdminLayout>
     );
 };

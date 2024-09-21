@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`LoginPage matches the LoginPage snapshot 1`] = `
+exports[`LoginPage should match the LoginPage snapshot 1`] = `
 <DocumentFragment>
   <div
     class="container-fluid"

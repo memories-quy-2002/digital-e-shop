@@ -1,7 +1,6 @@
 import { BsBank } from "react-icons/bs";
 import { FaBitcoin, FaCcVisa } from "react-icons/fa";
 import { useState } from "react";
-import { useToast } from "../../context/ToastContext";
 type AsideCartProps = {
     totalPrice: number;
     discount: number;
@@ -19,15 +18,16 @@ const AsideCart = ({ totalPrice, discount, subtotal, error, applyDiscount }: Asi
         setDiscountCode(value);
     };
     return (
-        <div className="cart__container__box__aside">
+        <aside className="cart__container__box__aside">
             <div className="cart__container__box__aside__box">
                 <div className="cart__container__box__aside__box__coupon">
                     <h4 className="cart__container__box__aside__box__coupon__title">Have coupon?</h4>
                     <div className="cart__container__box__aside__box__coupon__input">
                         <input
                             type="text"
-                            name="coupon"
-                            id="coupon"
+                            aria-label="couponInput"
+                            name="couponInput"
+                            id="couponInput"
                             data-testid="coupon"
                             onChange={onChangeDiscountCode}
                             style={{
@@ -64,7 +64,7 @@ const AsideCart = ({ totalPrice, discount, subtotal, error, applyDiscount }: Asi
                 </div>
                 <hr />
                 <div className="cart__container__box__aside__box__payment">
-                    <h6>Payment method</h6>
+                    <h4>Payment method</h4>
                     <div>
                         <ul
                             style={{
@@ -84,7 +84,7 @@ const AsideCart = ({ totalPrice, discount, subtotal, error, applyDiscount }: Asi
                     </div>
                 </div>
             </div>
-        </div>
+        </aside>
     );
 };
 

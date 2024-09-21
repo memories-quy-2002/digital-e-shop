@@ -3,9 +3,17 @@ import { MemoryRouter } from "react-router-dom";
 import axios from "../api/axios"; // Import your custom Axios instance
 import LoginPage from "../components/pages/LoginPage"; // Adjust based on your project structure
 import { Role } from "../utils/interface";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../services/firebase";
 
 // Mock Axios
 jest.mock("../api/axios");
+jest.mock("firebase/auth", () => ({
+    getAuth: jest.fn(),
+    signInWithEmailAndPassword: jest.fn(),
+}));
+
+const mockSignInWithEmailAndPassword = signInWithEmailAndPassword as jest.Mock;
 
 // Now `axios.post` will be of type `jest.Mock`
 const mockedAxios = axios as jest.Mocked<typeof axios>;
@@ -14,6 +22,7 @@ declare global {
         markResourceTiming: jest.Mock<void, []>;
     }
 }
+
 const handleOnSubmitMock = jest.fn();
 describe("LoginPage", () => {
     const users = {
@@ -65,7 +74,7 @@ describe("LoginPage", () => {
         // Expectations for form submission
     };
 
-    it("matches the LoginPage snapshot", async () => {
+    it("should match the LoginPage snapshot", async () => {
         const { asFragment } = render(
             <MemoryRouter>
                 <LoginPage />
@@ -74,7 +83,7 @@ describe("LoginPage", () => {
         expect(asFragment()).toMatchSnapshot();
     });
 
-    it("handles successful customer login", async () => {
+    it("should handle successful customer login", async () => {
         // Mock axios response
         mockedAxios.post.mockImplementationOnce(() =>
             Promise.resolve({
@@ -82,19 +91,30 @@ describe("LoginPage", () => {
                 data: { token: "customerMockedToken" },
             })
         );
+        mockSignInWithEmailAndPassword.mockResolvedValueOnce({
+            user: { uid: "mockedUid" }, // Mock the user UID from Firebase
+        });
 
         renderLoginPage(users.customer);
         expect(screen.getByText("Welcome back")).toBeInTheDocument();
         expect(handleOnSubmitMock).toHaveBeenCalled();
+
+        await waitFor(() => {
+            expect(signInWithEmailAndPassword).toHaveBeenCalledWith(
+                auth,
+                users.customer.email,
+                users.customer.password
+            );
+        });
         await waitFor(() => {
             expect(mockedAxios.post).toHaveBeenCalledWith("/api/users/login", {
-                uid: expect.any(String),
+                uid: "mockedUid",
                 role: Role.Customer,
             });
         });
     });
 
-    it("handles successful admin login", async () => {
+    it("should handle successful admin login", async () => {
         // Mock axios response
         mockedAxios.post.mockImplementationOnce(() =>
             Promise.resolve({
@@ -102,25 +122,26 @@ describe("LoginPage", () => {
                 data: { token: "adminMockedToken" },
             })
         );
+        mockSignInWithEmailAndPassword.mockResolvedValueOnce({
+            user: { uid: "mockedUid" }, // Mock the user UID from Firebase
+        });
 
         renderLoginPage(users.admin);
-
         expect(screen.getByText("Welcome back")).toBeInTheDocument();
         expect(handleOnSubmitMock).toHaveBeenCalled();
 
-        // Wait for the axios post call
         await waitFor(() => {
-            expect(mockedAxios.post).toHaveBeenCalledTimes(1);
+            expect(signInWithEmailAndPassword).toHaveBeenCalledWith(auth, users.admin.email, users.admin.password);
         });
         await waitFor(() => {
             expect(mockedAxios.post).toHaveBeenCalledWith("/api/users/login", {
-                uid: expect.any(String),
+                uid: "mockedUid",
                 role: Role.Admin,
             });
         });
     });
 
-    it("handles login error", async () => {
+    it("should handle login error", async () => {
         // Mock axios to return an error
         mockedAxios.post.mockImplementationOnce(() =>
             Promise.reject({
@@ -144,7 +165,7 @@ describe("LoginPage", () => {
         });
     });
 
-    it("handle empty email", async () => {
+    it("should handle empty email", async () => {
         // Mock axios to return an error
         mockedAxios.post.mockImplementationOnce(() =>
             Promise.reject({
@@ -164,7 +185,7 @@ describe("LoginPage", () => {
         });
     });
 
-    it("handles invalid email", async () => {
+    it("should handle invalid email", async () => {
         // Mock axios to return an error
         mockedAxios.post.mockImplementationOnce(() =>
             Promise.reject({
@@ -184,7 +205,7 @@ describe("LoginPage", () => {
         });
     });
 
-    it("handles empty password", async () => {
+    it("should handle empty password", async () => {
         // Mock axios to return an error
         mockedAxios.post.mockImplementationOnce(() =>
             Promise.reject({

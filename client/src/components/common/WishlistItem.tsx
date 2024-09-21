@@ -51,7 +51,13 @@ const WishlistItem = ({ item, uid, onAddingCart, onRemoveWishlist }: WishlistIte
                 </button>
             </div>
             <div className="wishlist__main__item__delete">
-                <button type="button" data-testid="delete-btn" onClick={() => setShow(true)} style={{ border: "none" }}>
+                <button
+                    type="button"
+                    data-testid="delete-btn"
+                    aria-label={`delete-btn-${item.id}`}
+                    onClick={() => setShow(true)}
+                    style={{ border: "none" }}
+                >
                     <IoTrashBinOutline size={32} />
                 </button>
             </div>

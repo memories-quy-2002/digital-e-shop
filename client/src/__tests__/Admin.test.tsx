@@ -6,6 +6,7 @@ import AdminDashboard from "../components/pages/admin/AdminDashboard";
 import AdminProductPage from "../components/pages/admin/AdminProductPage";
 import ToastProvider from "../context/ToastContext";
 import { Product, Role } from "../utils/interface";
+import AdminOrderPage from "../components/pages/admin/AdminOrderPage";
 
 type Order = {
     id: number;
@@ -157,6 +158,7 @@ describe("AdminDashboard", () => {
                 </MemoryRouter>
             </ToastProvider>
         );
+
         expect(asFragment()).toMatchSnapshot();
     });
     it("should fetch and set products, orders, users, and order items", async () => {
@@ -314,6 +316,41 @@ describe("AdminDashboard", () => {
         expect(screen.getByText("Electronics")).toBeInTheDocument();
     });
 
+    it("should delete a product", async () => {
+        mockedAxios.get.mockImplementationOnce(() => {
+            return Promise.resolve({
+                status: 200,
+                data: { products: mockProducts, msg: "Products are fetched successfully" },
+            });
+        });
+
+        render(
+            <ToastProvider>
+                <MemoryRouter initialEntries={["/admin/products"]}>
+                    <AdminProductPage />
+                </MemoryRouter>
+            </ToastProvider>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText("Electronics")).toBeInTheDocument();
+        });
+        const deleteBtn = screen.getAllByTestId("deleteProductBtn")[0];
+        expect(deleteBtn).toBeInTheDocument();
+        fireEvent.click(deleteBtn);
+
+        await waitFor(() => {
+            expect(screen.getByText("Purchase Confirmation")).toBeInTheDocument();
+        });
+        fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+        await waitFor(() => {
+            expect(mockedAxios.post).toHaveBeenCalledWith("/api/products/delete", {
+                pid: 1,
+            });
+        });
+    });
+
     it("should navigate to AddProductPage when Add product button is clicked", async () => {
         const mockNavigate = jest.fn();
         (useNavigate as jest.Mock).mockReturnValue(mockNavigate);
@@ -329,6 +366,7 @@ describe("AdminDashboard", () => {
             expect(mockNavigate).toHaveBeenCalledWith("/admin/add");
         });
     });
+
     it("should submit the product form", async () => {
         const mockProduct = {
             name: "Laptop",
@@ -387,6 +425,54 @@ describe("AdminDashboard", () => {
         // Ensure the navigation after submission happens (mock `navigate` in the component)
         await waitFor(() => {
             expect(screen.getByText("Product has been added successfully")).toBeInTheDocument();
+        });
+    });
+
+    it("should change status of order", async () => {
+        const mockOrders = [
+            {
+                id: 1,
+                date_added: new Date("2024-09-15"),
+                user_id: "12345",
+                status: 0,
+                total_price: 300,
+                shipping_address: "HCM City, Vietnam",
+            },
+            {
+                id: 2,
+                date_added: new Date("2024-09-16"),
+                user_id: "12345",
+                status: 1,
+                total_price: 400,
+                shipping_address: "HCM City, Vietnam",
+            },
+        ];
+        mockedAxios.get.mockImplementationOnce(() => {
+            return Promise.resolve({
+                status: 200,
+                data: { orders: mockOrders, msg: "Orders have been fetch successfully" },
+            });
+        });
+        render(
+            <ToastProvider>
+                <MemoryRouter initialEntries={["/admin/orders"]}>
+                    <AdminOrderPage />
+                </MemoryRouter>
+            </ToastProvider>
+        );
+        await waitFor(() => {
+            expect(mockedAxios.get).toHaveBeenCalledWith("/api/orders");
+        });
+        await waitFor(() => {
+            expect(screen.getAllByText("HCM City, Vietnam")[0]).toBeInTheDocument();
+        });
+        const doneBtn = screen.getAllByTestId("doneBtn")[0];
+        fireEvent.click(doneBtn);
+        await waitFor(() => {
+            expect(mockedAxios.post).toHaveBeenCalledWith("/api/orders/status/1", { status: 1 });
+        });
+        await waitFor(() => {
+            expect(screen.getByText("Done")).toBeInTheDocument();
         });
     });
 });

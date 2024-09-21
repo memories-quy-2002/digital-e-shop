@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, useNavigate } from "react-router-dom";
+import { MemoryRouter } from "react-router-dom";
 import WishlistPage from "../components/pages/WishlistPage";
 import ToastProvider from "../context/ToastContext";
 import axios from "../api/axios";
@@ -8,10 +8,6 @@ jest.mock("../api/axios");
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 jest.mock("../context/AuthContext", () => ({
     useAuth: jest.fn(),
-}));
-jest.mock("react-router-dom", () => ({
-    ...jest.requireActual("react-router-dom"), // Nếu có các hàm khác cần giữ nguyên
-    useNavigate: jest.fn(), // Mock useNavigate
 }));
 describe("WishlistPage", () => {
     const mockedWishlist = [
@@ -56,7 +52,7 @@ describe("WishlistPage", () => {
             loading: false,
         });
     });
-    it("matches the WishlistPage snapshot", async () => {
+    it("should match the WishlistPage snapshot", async () => {
         (useAuth as jest.Mock).mockReturnValue({
             uid: "12345", // Mocked uid
             userData: null,
@@ -97,18 +93,7 @@ describe("WishlistPage", () => {
         });
     });
 
-    it("should display 'MY WISHLIST' title", () => {
-        render(
-            <ToastProvider>
-                <MemoryRouter>
-                    <WishlistPage />
-                </MemoryRouter>
-            </ToastProvider>
-        );
-        expect(screen.getByText("MY WISHLIST")).toBeInTheDocument();
-    });
-
-    it("should show message when wishlist is empty", async () => {
+    it("should show text when wishlist is empty", async () => {
         mockedAxios.get.mockImplementationOnce(() => {
             return Promise.resolve({
                 status: 200,

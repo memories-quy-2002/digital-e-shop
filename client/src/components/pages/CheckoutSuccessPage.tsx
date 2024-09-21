@@ -9,7 +9,7 @@ const CheckoutSuccessPage = () => {
     return (
         <Layout>
             <NavigationBar />
-            <div className="success__container">
+            <article className="success__container">
                 <div>
                     <FiCheckCircle size={100} color="green" />
                 </div>
@@ -20,7 +20,7 @@ const CheckoutSuccessPage = () => {
                     <button type="button">Check order status</button>
                     <a href="/">Go back to home</a>
                 </div>
-            </div>
+            </article>
         </Layout>
     );
 };

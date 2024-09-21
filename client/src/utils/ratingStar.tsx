@@ -1,17 +1,13 @@
 import { BsStar, BsStarFill, BsStarHalf } from "react-icons/bs";
 
-const ratingStar = (
-    overallScore: number,
-    color: string = "#FFCC4A",
-    size: number = 18
-) => {
+const ratingStar = (overallScore: number, color: string = "#FFCC4A", size: number = 18) => {
     const stars = [];
     const maxStars = 5;
 
     for (let i = 1; i <= maxStars; i++) {
         if (i <= overallScore) {
             stars.push(
-                <div key={i} className="d-flex align-items-center">
+                <div key={i} data-testid="starBtn" className="d-flex align-items-center">
                     <BsStarFill color={color} size={size} />
                 </div>
             ); // Full star

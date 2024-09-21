@@ -2,6 +2,7 @@ import { BsHeart, BsHeartFill } from "react-icons/bs";
 import { useNavigate } from "react-router-dom";
 import { Product } from "../../utils/interface";
 import ratingStar from "../../utils/ratingStar";
+import LazyLoadImage from "../../utils/LazyLoadingImage";
 type ProductProps = {
     product: Product;
     uid: string;
@@ -21,7 +22,7 @@ const ShopsItem = ({ product, uid, isWishlist, onAddingWishlist, onAddingCart }:
                 onClick={() => navigate(`/product?id=${product.id}`)}
             >
                 {imageUrl ? (
-                    <img
+                    <LazyLoadImage
                         src={`https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${imageUrl}.jpg`}
                         alt={product.name}
                     />

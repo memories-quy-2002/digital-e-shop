@@ -39,7 +39,8 @@ const CartItem = ({ item, handleQuantityChange, handleRemove }: CartItemProps) =
             <input
                 type="number"
                 name="quantity"
-                id={`cart-${item.cartItemId}`}
+                aria-label={`cart-${item.cartItemId}-quantity`}
+                id={`cart-${item.cartItemId}-quantity`}
                 value={item.quantity}
                 onChange={(event) => handleQuantityChange(item.cartItemId, event)}
             />

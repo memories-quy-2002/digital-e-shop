@@ -108,7 +108,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
             <h2>Checkout Payment</h2>
 
             <div className="cart__container__payment__main">
-                <div className="cart__container__payment__form">
+                <main className="cart__container__payment__form">
                     <div>
                         {errors.map((error, id) => (
                             <div className="text-danger" key={id}>
@@ -253,8 +253,8 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                             </Form.Group>
                         </Form>
                     </div>
-                </div>
-                <div className="cart__container__payment__aside">
+                </main>
+                <aside className="cart__container__payment__aside">
                     <div className="cart__container__payment__aside__details">
                         <h2>Order Details</h2>
                         <div className="cart__container__payment__aside__details__price">
@@ -281,7 +281,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                     <button type="button" onClick={handlePurchase}>
                         PROCESS CHECKOUT
                     </button>
-                </div>
+                </aside>
             </div>
         </div>
     );

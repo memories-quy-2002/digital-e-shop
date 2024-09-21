@@ -73,7 +73,7 @@ const AdminAddProductPage = () => {
     };
     return (
         <AdminLayout>
-            <div className="admin__product">
+            <main className="admin__product">
                 <div className="admin__product__title">
                     <h3>ADD PRODUCT</h3>
                 </div>
@@ -198,7 +198,7 @@ const AdminAddProductPage = () => {
                         </Button>
                     </Form>
                 </div>
-            </div>
+            </main>
         </AdminLayout>
     );
 };

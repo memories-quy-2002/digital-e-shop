@@ -26,8 +26,8 @@ export const Header = (): JSX.Element => {
                 sessionStorage.removeItem("rememberMe");
                 cookies.remove("rememberMe");
                 await signOut(auth);
-                addToast("Logout successfully", response.data.msg);
                 window.location.reload();
+                console.log("test");
             }
         } catch (err) {
             throw err;
@@ -43,26 +43,26 @@ export const Header = (): JSX.Element => {
     };
 
     return (
-        <div className="header__container">
-            <div className="header__container__info">
-                <div className="header__container__info__personal">
-                    <div className="header__container__info__personal__item">
+        <header className="header">
+            <div className="header__info">
+                <div className="header__info__personal">
+                    <div className="header__info__personal__item">
                         <IoCall color="white" />
-                        (+84) 123 456 7890
+                        <address>(+84) 123 456 7890</address>
                     </div>
-                    <div className="header__container__info__personal__item">
+                    <div className="header__info__personal__item">
                         <IoMailSharp color="white" />
-                        digital-e@gmail.com
+                        <address>digital-e@gmail.com</address>
                     </div>
-                    <div className="header__container__info__personal__item">
+                    <div className="header__info__personal__item">
                         <IoHome color="white" />
-                        123 ABC Street, HCM City
+                        <address>123 ABC Street, HCM City</address>
                     </div>
                 </div>
-                <div className="header__container__info__auth">
+                <div className="header__info__auth">
                     <strong>Welcome {userData && !loading ? userData.username : "Anonymous"}</strong>
 
-                    <div className="header__container__info__auth__button">
+                    <div className="header__info__auth__button">
                         {userData && !loading ? (
                             <div>
                                 <Link to="/" onClick={handleLogout}>
@@ -79,38 +79,35 @@ export const Header = (): JSX.Element => {
                     </div>
                 </div>
             </div>
-            <div className="header__container__main">
-                <div className="header__container__main__brand">
-                    <Navbar.Brand href="/" className="header__container__main__brand__link">
+            <div className="header__main">
+                <div className="header__main__brand">
+                    <Navbar.Brand href="/" className="header__main__brand__link">
                         DIGITAL-E
                     </Navbar.Brand>
                 </div>
-                <div className="header__container__main__search">
+                <div className="header__main__search">
                     <input
                         type="text"
                         name="header_search"
                         id="header_search"
                         placeholder="Search"
-                        className="header__container__main__search__bar"
+                        className="header__main__search__bar"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                     <button onClick={handleSearch}>Search</button>
                 </div>
-                <div className="header__container__main__group">
-                    <div
-                        className="header__container__main__group__item"
-                        onClick={() => handleRequireLogin("/wishlist")}
-                    >
+                <div className="header__main__group">
+                    <div className="header__main__group__item" onClick={() => handleRequireLogin("/wishlist")}>
                         <IoHeart size={28} />
                         Wishlist
                     </div>
-                    <div className="header__container__main__group__item" onClick={() => handleRequireLogin("/cart")}>
+                    <div className="header__main__group__item" onClick={() => handleRequireLogin("/cart")}>
                         <IoCart size={28} />
                         Shopping Cart
                     </div>
                 </div>
             </div>
-        </div>
+        </header>
     );
 };

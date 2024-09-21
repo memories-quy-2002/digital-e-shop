@@ -10,9 +10,13 @@
         &__box {
             display: flex;
             gap: 3rem;
+            flex-direction: column;
+            @media (min-width: 1024px) {
+                flex-direction: row;
+            }
 
             &__main {
-                flex: 5;
+                flex: 3;
                 &__list {
                     &__item {
                         height: 190px;
@@ -47,8 +51,8 @@
                                 margin-bottom: 1rem;
                             }
                             p {
-                                color: rgba(0, 0, 0, 0.5);
-                                font-weight: 600;
+                                color: #4b4b4b;
+                                font-weight: 700;
                             }
                         }
 
@@ -103,8 +107,9 @@
                 }
             }
             &__aside {
+                flex: 1;
                 display: flex;
-                width: 420px;
+                width: 100%;
                 &__box {
                     width: 100%;
                     box-shadow: 4px 4px 6px 0 #00000025;
@@ -146,8 +151,9 @@
                         }
                     }
                     &__payment {
-                        h6 {
-                            margin-bottom: 1rem;
+                        h4 {
+                            font-weight: bold;
+                            margin-bottom: 1.5rem;
                         }
                     }
                 }

@@ -8,10 +8,10 @@ type ErrorProps = {
 const ErrorPage = ({ error }: ErrorProps) => {
 	return (
 		<Layout>
-			<div>
+			<main>
 				<div>404 Error</div>
 				<p>{error}</p>
-			</div>
+			</main>
 		</Layout>
 	);
 };
