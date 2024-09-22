@@ -13,16 +13,16 @@ import Layout from "../layout/Layout";
 import CheckoutPaymentPage from "./CheckoutPaymentPage";
 import { useAuth } from "../../context/AuthContext";
 
-interface CartProps {
+type CartProps = {
     cartItemId: number;
     productId: number;
     productName: string;
     category: string;
     brand: string;
     price: number;
-    image: string;
+    main_image: string;
     quantity: number;
-}
+};
 
 const CartPage = () => {
     const navigate = useNavigate();
@@ -102,11 +102,14 @@ const CartPage = () => {
                 const response = await axios.get(`/api/cart/${uid}`);
                 if (response.status === 200) {
                     const cartItems: CartProps[] = response.data.cartItems.map((item: any) => ({
-                        ...item,
                         cartItemId: item.cart_item_id,
                         productId: item.product_id,
                         productName: item.product_name,
-                        image: item.main_image,
+                        category: item.category,
+                        brand: item.brand,
+                        price: item.price,
+                        main_image: item.main_image,
+                        quantity: item.quantity,
                     }));
                     setCart(cartItems);
                 }

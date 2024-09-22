@@ -611,21 +611,23 @@ const addItemToCart = (request, response) => {
 					if (error) {
 						console.error(error.message);
 					}
-					cartId = results[0].id;
-					pool.query(
-						`INSERT INTO cart_items (cart_id, product_id, quantity)
-						VALUES (?, ?, ?)
-						ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity);`,
-						[cartId, pid, quantity],
-						(error, results) => {
-							if (error) {
-								console.error(error.message);
+					if (results.length > 0) {
+						cartId = results[0].id;
+						pool.query(
+							`INSERT INTO cart_items (cart_id, product_id, quantity)
+                            VALUES (?, ?, ?)
+                            ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity);`,
+							[cartId, pid, quantity],
+							(error, results) => {
+								if (error) {
+									console.error(error.message);
+								}
+								response.status(200).json({
+									msg: `Product with id = ${pid} has been added to the cart id = ${cartId}`,
+								});
 							}
-							response.status(200).json({
-								msg: `Product with id = ${pid} has been added to the cart id = ${cartId}`,
-							});
-						}
-					);
+						);
+					}
 				}
 			);
 		}
@@ -703,6 +705,10 @@ const makePurchase = (request, response) => {
 	const uid = request.params.uid;
 	const { totalPrice, cart, discount, subtotal, shippingAddress } = request.body;
 
+	if (cart.length <= 0) {
+		return response.status(400).json({ msg: 'Cart is empty' });
+	}
+
 	// Start transaction
 	pool.query('START TRANSACTION', (err) => {
 		if (err) {
@@ -720,54 +726,42 @@ const makePurchase = (request, response) => {
 			pool.query(
 				'INSERT INTO orders (user_id, total_price, discount, subtotal, shipping_address) VALUES (?, ?, ?, ?, ?)',
 				[uid, totalPrice, discount, subtotal, shippingAddress],
-				(err, results) => {
+				async (err, results) => {
 					if (err) {
 						pool.query('ROLLBACK');
 						return response.status(500).json({ msg: 'Error inserting into orders', error: err.message });
 					}
+
 					const orderId = results.insertId;
 
-					// Batch insert into order_items
-					const orderItemsQuery = 'INSERT INTO order_items (order_id, product_id, quantity, total_price) VALUES ?';
-					const orderItemsData = cart.map((product) => [
-						orderId,
-						product.productId,
-						product.quantity,
-						(product.sale_price ? product.sale_price : product.price) * product.quantity,
-					]);
+					try {
+						const insertOrderItemsPromises = cart.map((product) =>
+							pool.query(`INSERT INTO order_items (order_id, product_id, quantity, total_price) VALUES (?, ?, ?, ?)`, [
+								orderId,
+								product.productId,
+								product.quantity,
+								(product.sale_price ? product.sale_price : product.price) * product.quantity,
+							])
+						);
 
-					pool.query(orderItemsQuery, [orderItemsData], (err) => {
-						if (err) {
-							pool.query('ROLLBACK');
-							return response.status(500).json({ msg: 'Error inserting order items', error: err.message });
-						}
+						const updateStockPromises = cart.map((product) =>
+							pool.query(`UPDATE products SET stock = stock - ? WHERE id = ?`, [
+								product.quantity,
+								product.productId,
+							])
+						);
 
-						// Batch update product stock
-						const updateStockQuery = cart
-							.map(
-								(product) => `UPDATE products SET stock = stock - ${product.quantity} WHERE id = ${product.productId}`
-							)
-							.join('; ');
+						await Promise.all([...insertOrderItemsPromises, ...updateStockPromises]);
 
-						pool.query(updateStockQuery, (err) => {
-							if (err) {
-								pool.query('ROLLBACK');
-								return response.status(500).json({ msg: 'Error updating product stock', error: err.message });
-							}
+						await pool.query('COMMIT');
 
-							// Commit the transaction
-							pool.query('COMMIT', (err) => {
-								if (err) {
-									return response.status(500).json({ msg: 'Error committing transaction', error: err.message });
-								}
-
-								// Respond with success
-								response.status(200).json({
-									msg: `The order items have been added to the order with id = ${orderId}`,
-								});
-							});
+						return response.status(200).json({
+							msg: `The order items have been added to the order with id = ${orderId}`,
 						});
-					});
+					} catch (err) {
+						await pool.query('ROLLBACK');
+						return response.status(500).json({ msg: 'Internal server error', error: err.message });
+					}
 				}
 			);
 		});

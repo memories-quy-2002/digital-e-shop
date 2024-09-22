@@ -24,14 +24,6 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
 app.use(cookieParser());
-app.use((err, req, res, next) => {
-	res.status(err.status || 500);
-	res.setHeader('Access-Control-Allow-Origin', 'https://digital-e.vercel.app');
-	res.json({
-		message: err.message,
-		error: err,
-	});
-});
 
 // User
 app.get("/api/session/check", db.checkSessionToken)
@@ -63,7 +55,7 @@ app.get("/api/cart/:uid", db.getCartItems);
 app.post("/api/cart/delete", db.deleteCartItem)
 
 // Purchase
-app.post("/api/purchase/:uid", db.makePurchase);
+app.post("/api/purchase/:uid", cors(corsOptions), db.makePurchase);
 app.get("/api/orders/", db.getOrders);
 app.post("/api/orders/status/:oid", db.changeOrderStatus)
 app.get("/api/orders/item", db.getOrderItems)

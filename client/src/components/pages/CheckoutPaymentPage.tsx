@@ -13,7 +13,7 @@ interface CartProps {
     category: string;
     brand: string;
     price: number;
-    image: string;
+    main_image: string;
     quantity: number;
 }
 
@@ -92,8 +92,8 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                 console.log(response.data.msg);
                 navigate("/checkout-success");
             }
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            setErrors([err.response.data.msg]);
         }
     };
     useEffect(() => {

@@ -7,7 +7,7 @@ interface Item {
     category: string;
     brand: string;
     price: number;
-    image: string;
+    main_image: string;
     quantity: number;
 }
 
@@ -17,7 +17,7 @@ type CartItemProps = {
     handleRemove: (cartItemId: number) => void;
 };
 const CartItem = ({ item, handleQuantityChange, handleRemove }: CartItemProps) => {
-    const imageUrl = item.image ? item.image.replace(".jpg", "") : null;
+    const imageUrl = item.main_image ? item.main_image.replace(".jpg", "") : null;
 
     return (
         <div key={item.cartItemId} className="cart__container__box__main__list__item">
