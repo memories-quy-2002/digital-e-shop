@@ -9,6 +9,10 @@ const MongoClient = require('mongodb').MongoClient;
 const util = require('util');
 const { hashPassword } = require("./utils/hashPassword");
 
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+const uri = `mongodb+srv://vinhluu2608:vuongtranlinhlinh123456789@cluster0.teog563.mongodb.net/?retryWrites=true&w=majority`;
+
 const pool = mysql.createPool({
 	host: process.env.DB_HOST,
 	user: process.env.DB_USER,
@@ -16,7 +20,6 @@ const pool = mysql.createPool({
 	database: process.env.DB_NAME,
 	port: process.env.DB_PORT,
 });
-
 pool.getConnection((err, connection) => {
 	if (err) {
 		console.error('Error connecting to MySQL database:', err);
@@ -25,11 +28,6 @@ pool.getConnection((err, connection) => {
 	console.log('Connected to MySQL database!');
 	connection.release();
 });
-
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
-
-const uri = `mongodb+srv://vinhluu2608:vuongtranlinhlinh123456789@cluster0.teog563.mongodb.net/?retryWrites=true&w=majority`;
 
 const startSession = (userId) => {
 	return new Promise((resolve, reject) => {
@@ -50,39 +48,56 @@ const startSession = (userId) => {
 	});
 };
 
-const checkSessionToken = (request, response) => {
+const verifySessionToken = (request) => {
 	const userInfo = request.cookies.userInfo;
 	if (!userInfo) {
-		return response.status(401).json({ sessionActive: false, msg: "No session information found" });
+		return { valid: false, message: "No session information found" };
 	}
 	try {
 		const { token } = JSON.parse(userInfo);
-		const payload = jwt.verify(token, "secret-key");
+		const payload = jwt.verify(token, process.env.JWT_SECRET_KEY);
 		if (payload) {
-			return response.status(200).json({ sessionActive: true });
+			return { valid: true };
 		}
 	} catch (err) {
-		console.error(err);
-		return response.status(401).json({ sessionActive: false, msg: "Session invalid or expired" });
+		console.error("Token verification error:", err.message);
+		return { valid: false, message: "Session invalid or expired" };
 	}
+};
+
+// Check session token
+const checkSessionToken = (request, response) => {
+	const { valid, message } = verifySessionToken(request);
+	if (!valid) {
+		return response.status(401).json({ sessionActive: false, msg: message });
+	}
+	return response.status(200).json({ sessionActive: true });
 };
 
 const getUserLoginById = (request, response) => {
 	const uid = request.params.id;
+
+	// Database query
 	pool.query("SELECT * FROM users WHERE id = ?", [uid], (error, results) => {
 		if (error) {
-			console.error(error.message);
-		} else {
-			if (results.length > 0) {
-				const userData = results[0];
-				response.status(200).json({
-					userData,
-					msg: 'User logon successfully'
-				});
-			} else {
-				response.status(401).json({ error: 'Unauthorized' })
-			}
+			console.error("Database error:", error.message);
+			return response.status(500).json({ msg: "Internal server error" });
 		}
+		if (results.length === 0) {
+			return response.status(404).json({ msg: "User not found" });
+		}
+
+		// Verify token before returning user info
+		const { valid, message } = verifySessionToken(request);
+		if (!valid) {
+			return response.status(401).json({ msg: message });
+		}
+
+		const userData = results[0];
+		return response.status(200).json({
+			userData,
+			msg: 'User logged in successfully',
+		});
 	});
 };
 
@@ -106,7 +121,7 @@ const userLogin = (request, response) => {
 		}
 
 		try {
-			jwt.verify(userToken, "secret-key");
+			jwt.verify(userToken, process.env.JWT_SECRET_KEY);
 			const sessionId = await startSession(userId);
 			pool.query("UPDATE users SET last_login=CURRENT_TIMESTAMP WHERE id=?", [userId]);
 
@@ -134,7 +149,7 @@ const userLogin = (request, response) => {
 		} catch (err) {
 			console.error("JWT Verification failed:", err);
 
-			const token = jwt.sign({ id: userId, email: results[0].email }, "secret-key", {
+			const token = jwt.sign({ id: userId, email: results[0].email }, process.env.JWT_SECRET_KEY, {
 				expiresIn: "30d",
 			});
 
@@ -183,18 +198,19 @@ const userLogout = (request, response) => {
 				UPDATE customer_sessions
 				SET session_end = ?, session_duration = ?
 				WHERE id = ?
-			`, [sessionEnd, sessionDuration, parseInt(sessionId)], (error, results) => {
+			`, [sessionEnd, sessionDuration, parseInt(sessionId)], async (error, results) => {
 				if (error) {
 					console.error(error.message);
+					return response.status(500).json({ msg: "Internal server error" });
 				} else {
-					response.clearCookie('session', {
+					await response.clearCookie('session', {
 						httpOnly: true,
 						secure: process.env.NODE_ENV === 'production',
 						sameSite: 'None',
 					});
 
 					// Xóa cookie 'userInfo'
-					response.clearCookie('userInfo', {
+					await response.clearCookie('userInfo', {
 						httpOnly: true,
 						secure: process.env.NODE_ENV === 'production',
 						sameSite: 'None',
@@ -226,7 +242,6 @@ const userLogout = (request, response) => {
 const addUser = async (request, response) => {
 	const { uid, user } = request.body;
 	try {
-		// Băm mật khẩu
 		const hashedPassword = await hashPassword(user.password);
 		pool.query(
 			"INSERT INTO users (id, username, email, password, role, token) VALUES (?, ?, ?, ?, ?, '')",
@@ -237,17 +252,24 @@ const addUser = async (request, response) => {
 				}
 				const token = jwt.sign(
 					{ id: uid, email: user.email },
-					"secret-key",
+					process.env.JWT_SECRET_KEY,
 					{ expiresIn: "30d" }
 				);
 				pool.query(
 					"UPDATE users SET token = ? WHERE id = ?",
-					[token, uid], (error, results) => {
+					[token, uid], async (error, results) => {
 						if (error) {
 							console.error(error.message);
 							return response.status(500).json({ msg: "Internal server error" });
 						}
-						response.cookie("userInfo", JSON.stringify({ uid, token }), {
+						const sessionId = await startSession(uid)
+						await response.cookie("session", sessionId, {
+							httpOnly: true,
+							secure: true,
+							sameSite: 'None',
+							maxAge: 1000 * 60 * 60 * 24 * 30, // 30 ngày
+						});
+						await response.cookie("userInfo", JSON.stringify({ uid, token }), {
 							httpOnly: true,
 							secure: true,
 							sameSite: 'None',

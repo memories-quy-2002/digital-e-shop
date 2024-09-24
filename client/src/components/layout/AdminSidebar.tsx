@@ -1,7 +1,7 @@
 import { AiFillDashboard } from "react-icons/ai";
 import { FaBox, FaCartShopping, FaUser } from "react-icons/fa6";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 
 const items = ["Dashboard", "Products", "Orders", "Accounts"];
 const itemIcons = [
@@ -34,7 +34,7 @@ const AdminSidebar = () => {
             </section>
             <section className="admin__layout__sidebar__information">
                 <img
-                    src={require("../../../assets/images/product_placeholder.jpg")}
+                    src={require("../../assets/images/product_placeholder.jpg")}
                     alt="admin_avatar"
                     className="admin__layout__sidebar__information__img"
                 />

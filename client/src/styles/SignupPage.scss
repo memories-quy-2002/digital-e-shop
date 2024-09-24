@@ -1,86 +1,190 @@
 .signup {
-	width: 90%;
-	background-color: white;
-	display: flex;
-	flex-direction: row;
-	height: 900px;
-	box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1), 0px 4px 8px rgba(0, 0, 0, 0.05);
-	&:hover {
-		box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
-	}
+    width: 90%;
+    background-color: white;
+    display: flex;
+    flex-direction: row;
+    height: 900px;
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1), 0px 4px 8px rgba(0, 0, 0, 0.05);
+    &:hover {
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+    }
 
-	&__image {
-		flex: 2;
-		position: relative;
-		&__background {
-			position: absolute;
-			height: 100%;
-			width: 100%;
-			background: url("../assets/images/background_form.jpg");
-			object-fit: cover;
-			mix-blend-mode: normal;
-			filter: brightness(0.4);
-		}
-		&__content {
-			width: 100%;
-			height: 100%;
-			&__name {
-				width: inherit;
-				position: absolute;
-				left: 0%;
-				right: 56.98%;
-				top: 36.39%;
-				bottom: 45.46%;
-				font-weight: 600;
-				font-size: 60px;
-				line-height: 116px;
-				text-align: center;
-				color: #ffffff;
-				text-shadow: 0px 12px 4px rgba(0, 0, 0, 0.25);
-			}
-			&__desc {
-				width: inherit;
-				position: absolute;
-				left: 0%;
-				right: 56.98%;
-				top: 52.13%;
-				bottom: 36.48%;
-				font-weight: 500;
-				font-size: 36px;
-				line-height: 44px;
-				text-align: center;
-				color: #ffffff;
+    &__image {
+        flex: 2;
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        text-align: center;
 
-				text-shadow: 0px 12px 4px rgba(0, 0, 0, 0.25);
-			}
-		}
-	}
+        &__background {
+            position: absolute;
+            height: 100%;
+            width: 100%;
+            background: url("../assets/images/background_form.jpg");
+            object-fit: cover;
+            mix-blend-mode: normal;
+            filter: brightness(0.4);
+        }
 
-	&__form {
-		height: fit-content;
-		flex: 3;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		&__title {
-			font-size: 36px;
-			font-weight: bold;
-			color: black;
-			margin-top: 2rem;
-			margin-bottom: 3rem;
-		}
-		&__container {
-			width: 80%;
-			&__group {
-				width: 100%;
-				&__input {
-					padding: 0.5rem;
-					box-shadow: inset 0px 1px 1px 1px rgba(0, 0, 0, 0.25);
-				}
-			}
-			input[type="radio"] {
-				border: 1px solid rgba(0, 0, 0, 0.25);
-			}
-		}
-	}
+        &__content {
+            z-index: 1; // Ensure content appears on top of the background
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+
+            &__name {
+                font-weight: 600;
+                font-size: 60px;
+                line-height: 116px;
+                color: #ffffff;
+                text-shadow: 0px 12px 4px rgba(0, 0, 0, 0.25);
+                margin-bottom: 1rem; // Space between name and desc
+            }
+
+            &__desc {
+                font-weight: 500;
+                font-size: 36px;
+                line-height: 44px;
+                color: #ffffff;
+                text-shadow: 0px 12px 4px rgba(0, 0, 0, 0.25);
+            }
+        }
+    }
+
+    &__form {
+        height: fit-content;
+        flex: 3;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding-bottom: 1rem;
+
+        &__title {
+            font-size: 36px;
+            font-weight: bold;
+            color: black;
+            margin-top: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        &__container {
+            width: 80%;
+
+            &__group {
+                width: 100%;
+
+                &__input {
+                    padding: 0.5rem;
+                    box-shadow: inset 0px 1px 1px 1px rgba(0, 0, 0, 0.25);
+                }
+            }
+
+            input[type="radio"] {
+                border: 1px solid rgba(0, 0, 0, 0.25);
+            }
+        }
+    }
+
+    // Media queries for responsiveness
+    @media (max-width: 1024px) {
+        flex-direction: column;
+        height: auto;
+
+        &__image {
+            height: 300px;
+
+            &__content {
+                &__name {
+                    font-size: 50px;
+                    line-height: 100px;
+                    margin-bottom: 1rem;
+                }
+
+                &__desc {
+                    font-size: 28px;
+                    line-height: 40px;
+                }
+            }
+        }
+
+        &__form {
+            width: 100%;
+
+            &__title {
+                font-size: 32px;
+            }
+
+            &__container {
+                width: 90%;
+            }
+        }
+    }
+
+    @media (max-width: 768px) {
+        flex-direction: column;
+        height: auto;
+
+        &__image {
+            height: 250px;
+
+            &__content {
+                &__name {
+                    font-size: 40px;
+                    line-height: 90px;
+                }
+
+                &__desc {
+                    font-size: 24px;
+                    line-height: 32px;
+                }
+            }
+        }
+
+        &__form {
+            width: 100%;
+
+            &__title {
+                font-size: 28px;
+            }
+
+            &__container {
+                width: 85%;
+            }
+        }
+    }
+
+    @media (max-width: 480px) {
+        &__image {
+            height: 200px;
+
+            &__content {
+                &__name {
+                    font-size: 30px;
+                    line-height: 80px;
+                }
+
+                &__desc {
+                    font-size: 20px;
+                    line-height: 28px;
+                }
+            }
+        }
+
+        &__form {
+            width: 100%;
+            padding-bottom: 1rem;
+            &__title {
+                font-size: 24px;
+            }
+
+            &__container {
+                width: 80%;
+            }
+        }
+    }
 }

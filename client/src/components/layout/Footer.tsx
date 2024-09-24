@@ -57,7 +57,7 @@ const Footer = () => {
                     </div>
                     <div className="footer__menuGroup__menu__item">
                         <Link to={"/shops?categories=Graphics+Card&brands=&minPrice=0&maxPrice=4000&term="}>
-                            Graphic cards
+                            Graphics cards
                         </Link>
                     </div>
                 </div>

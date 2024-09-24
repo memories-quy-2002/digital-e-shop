@@ -11,6 +11,7 @@ import Layout from "../layout/Layout";
 import { Helmet } from "react-helmet";
 
 const cookies = new Cookies();
+const MAX_PRICE_RANGE: number = 5000;
 const ITEMS_PER_PAGE = 6;
 
 type Wishlist = {
@@ -34,7 +35,7 @@ const ShopsPage = () => {
         term: "",
         categories: [],
         brands: [],
-        priceRange: [0, 4000],
+        priceRange: [0, MAX_PRICE_RANGE],
     });
 
     const navigate = useNavigate();
@@ -123,7 +124,10 @@ const ShopsPage = () => {
                     .get("brands")
                     ?.split(",")
                     .filter((brand) => brand !== "") ?? [],
-            priceRange: [Number(queryParams.get("minPrice") ?? 0), Number(queryParams.get("maxPrice") ?? 4000)],
+            priceRange: [
+                Number(queryParams.get("minPrice") ?? 0),
+                Number(queryParams.get("maxPrice") ?? MAX_PRICE_RANGE),
+            ],
         };
         setFilters(newFilters);
         return () => {};

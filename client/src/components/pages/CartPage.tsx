@@ -20,6 +20,7 @@ type CartProps = {
     category: string;
     brand: string;
     price: number;
+    sale_price: number;
     main_image: string;
     quantity: number;
 };
@@ -108,6 +109,7 @@ const CartPage = () => {
                         category: item.category,
                         brand: item.brand,
                         price: item.price,
+                        sale_price: item.sale_price,
                         main_image: item.main_image,
                         quantity: item.quantity,
                     }));
@@ -124,7 +126,7 @@ const CartPage = () => {
     }, [uid]);
 
     useEffect(() => {
-        const newTotalPrice = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
+        const newTotalPrice = cart.reduce((acc, item) => acc + (item.sale_price || item.price) * item.quantity, 0);
         setTotalPrice(newTotalPrice);
         setSubtotal(newTotalPrice - discount);
     }, [cart, discount]);

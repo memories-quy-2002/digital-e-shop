@@ -3,12 +3,12 @@ import { Button, Modal } from "react-bootstrap";
 import { FaHome } from "react-icons/fa";
 import { IoLogOutOutline, IoNotifications, IoSearch } from "react-icons/io5";
 import Cookies from "universal-cookie";
-import axios from "../../../api/axios";
-import { useToast } from "../../../context/ToastContext";
+import axios from "../../api/axios";
+import { useToast } from "../../context/ToastContext";
 import { Helmet } from "react-helmet";
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { auth } from "../../../services/firebase";
+import { auth } from "../../services/firebase";
 
 const cookies = new Cookies();
 const UNREAD_COUNT = 1;

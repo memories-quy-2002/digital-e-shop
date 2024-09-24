@@ -1,6 +1,6 @@
 import React from "react";
-import AdminHeader from "../common/admin/AdminHeader";
-import AdminSidebar from "../common/admin/AdminSidebar";
+import AdminHeader from "./AdminHeader";
+import AdminSidebar from "./AdminSidebar";
 import "../../styles/Admin.scss";
 
 interface LayoutProps {
