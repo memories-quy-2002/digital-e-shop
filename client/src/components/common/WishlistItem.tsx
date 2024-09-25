@@ -26,20 +26,25 @@ const WishlistItem = ({ item, uid, onAddingCart, onRemoveWishlist }: WishlistIte
 
     return (
         <div className="wishlist__main__item">
-            <div className="wishlist__main__item__image" onClick={() => navigate(`/product?id=${item.product.id}`)}>
-                {imageUrl ? (
-                    <img
-                        src={`https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${imageUrl}.jpg`}
-                        alt={product.name}
-                    />
-                ) : (
-                    <img src={require("../../assets/images/product_placeholder.jpg")} alt={product.name} />
-                )}
-            </div>
             <div className="wishlist__main__item__product">
-                <div style={{ fontWeight: "bold", marginBottom: "1rem" }}>{product.name}</div>
-                <div>Category: {product.category}</div>
-                <div>Brand: {product.brand}</div>
+                <div
+                    className="wishlist__main__item__product__image"
+                    onClick={() => navigate(`/product?id=${item.product.id}`)}
+                >
+                    {imageUrl ? (
+                        <img
+                            src={`https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${imageUrl}.jpg`}
+                            alt={product.name}
+                        />
+                    ) : (
+                        <img src={require("../../assets/images/product_placeholder.jpg")} alt={product.name} />
+                    )}
+                </div>
+                <div className="wishlist__main__item__product__info">
+                    <div style={{ fontWeight: "bold", marginBottom: "1rem" }}>{product.name}</div>
+                    <div>Category: {product.category}</div>
+                    <div>Brand: {product.brand}</div>
+                </div>
             </div>
             <div className="wishlist__main__item__price">
                 ${product.sale_price ? product.sale_price : product.price}

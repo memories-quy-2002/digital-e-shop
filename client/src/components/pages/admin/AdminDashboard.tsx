@@ -351,7 +351,7 @@ const AdminDashboard = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {topRevenueProducts.map((product, index) => (
+                            {topRevenueProducts.slice(0, 10).map((product, index) => (
                                 <tr key={index}>
                                     <td width="50px">{index + 1}</td>
                                     <td width="500px">{product.name}</td>

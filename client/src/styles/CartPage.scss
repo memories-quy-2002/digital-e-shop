@@ -231,31 +231,51 @@
         &__payment {
             h2 {
                 margin-bottom: 2rem;
+                font-size: 2rem;
+                text-align: center;
             }
+
             &__back {
                 margin-bottom: 2rem;
                 border: none;
                 text-decoration: underline;
                 background-color: #fff;
+                cursor: pointer;
+                font-size: 1rem;
+                padding: 0.5rem 0;
+                &:hover {
+                    text-decoration: none;
+                    color: #0056b3;
+                }
             }
+
             &__main {
                 display: flex;
                 flex-direction: row;
                 gap: 40px;
+                @media (max-width: 768px) {
+                    flex-direction: column;
+                }
             }
+
             &__form {
                 flex: 5;
                 display: flex;
                 flex-direction: column;
                 gap: 2rem;
+
                 h4 {
                     font-weight: bold;
                     margin-bottom: 1.5rem;
+                    font-size: 1.25rem;
                 }
+
                 &__required {
                     color: red;
+                    font-size: 0.875rem;
                 }
             }
+
             &__aside {
                 flex: 2;
                 border-top: 12px solid #0066ff;
@@ -264,13 +284,22 @@
                 border-left: 1px solid black;
                 border-right: 1px solid black;
                 height: fit-content;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+
+                @media (max-width: 768px) {
+                    margin-top: 20px;
+                    width: 100%;
+                    flex: none;
+                }
 
                 &__details {
                     padding: 20px;
+
                     h2 {
-                        font-size: 26px;
+                        font-size: 1.75rem;
                         margin-bottom: 2rem;
                         font-weight: bold;
+                        text-align: center;
                     }
 
                     &__price {
@@ -280,6 +309,7 @@
                             display: flex;
                             justify-content: space-between;
                             margin-bottom: 1.75rem;
+                            font-size: 1rem;
                         }
                     }
 
@@ -288,7 +318,9 @@
                         display: flex;
                         justify-content: space-between;
                         margin-bottom: 1.75rem;
+                        font-size: 1.25rem;
                         font-weight: bold;
+                        color: #000;
                     }
                 }
 
@@ -297,13 +329,19 @@
                     background-color: #0066ff;
                     color: #fff;
                     border: none;
-                    padding: 10px 20px;
+                    padding: 12px 20px;
                     cursor: pointer;
                     font-weight: bold;
-                    transition: background-color 0.3s;
+                    font-size: 1rem;
+                    transition: background-color 0.3s ease-in-out, transform 0.2s;
 
                     &:hover {
                         background-color: #0056b3;
+                        transform: translateY(-2px);
+                    }
+
+                    &:active {
+                        transform: translateY(1px);
                     }
                 }
             }

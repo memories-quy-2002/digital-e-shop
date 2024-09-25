@@ -66,6 +66,8 @@ const WishlistPage = () => {
                         <div id="wishlist_stock" className="wishlist__category__item">
                             Stock status
                         </div>
+                        <div id="wishlist_delete" className="wishlist__category__item"></div>
+                        <div id="wishlist_button" className="wishlist__category__item"></div>
                     </div>
                 ) : (
                     <div></div>

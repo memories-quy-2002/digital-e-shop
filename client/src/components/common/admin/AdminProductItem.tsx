@@ -22,8 +22,10 @@ const AdminProductItem = ({ products, product, handleOpen }: AdminProductItemPro
                     }
                     alt={product.name}
                     style={{
-                        height: "108px",
+                        height: "auto",
                         width: "144px",
+                        aspectRatio: "3/2",
+                        objectFit: "contain",
                     }}
                 />
             </td>

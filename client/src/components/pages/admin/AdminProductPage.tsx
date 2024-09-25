@@ -51,18 +51,6 @@ const AdminProductPage = () => {
     };
 
     // Filter products based on the search term
-    useEffect(() => {
-        const filtered = products.filter((product) => {
-            const lowerSearchTerm = searchTerm.toLowerCase();
-            return (
-                product.name.toLowerCase().includes(lowerSearchTerm) ||
-                product.category.toLowerCase().includes(lowerSearchTerm) ||
-                product.brand.toLowerCase().includes(lowerSearchTerm)
-            );
-        });
-        setFilteredProducts(filtered);
-        return () => {};
-    }, [searchTerm, products]);
 
     const handlePageClick = (event: any) => {
         const newOffset = (event.selected * ITEMS_PER_PAGE) % products.length;
@@ -84,6 +72,19 @@ const AdminProductPage = () => {
         fetchProducts();
         return () => {};
     }, []);
+    useEffect(() => {
+        const filtered = products.filter((product) => {
+            const lowerSearchTerm = searchTerm.toLowerCase();
+            setItemOffset(0);
+            return (
+                product.name.toLowerCase().includes(lowerSearchTerm) ||
+                product.category.toLowerCase().includes(lowerSearchTerm) ||
+                product.brand.toLowerCase().includes(lowerSearchTerm)
+            );
+        });
+        setFilteredProducts(filtered);
+        return () => {};
+    }, [searchTerm, products]);
     return (
         <AdminLayout>
             <div className="admin__product">

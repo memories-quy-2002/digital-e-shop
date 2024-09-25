@@ -31,7 +31,6 @@ const AdminOrderPage = () => {
 
     const handlePageClick = (event: any) => {
         const newOffset = (event.selected * ITEMS_PER_PAGE) % orders.length;
-        // console.log(`User requested page number ${event.selected}, which is offset ${newOffset}`);
         setItemOffset(newOffset);
     };
     const handleChangeStatus = async (status: number, orderId: number) => {
@@ -57,18 +56,6 @@ const AdminOrderPage = () => {
         setSearchTerm(searchValue);
     };
 
-    // Filter products based on the search term
-    useEffect(() => {
-        const filtered = orders.filter((order) => {
-            const lowerSearchTerm = searchTerm.toLowerCase();
-            return (
-                order.id.toString().toLowerCase().includes(lowerSearchTerm) ||
-                order.shipping_address.toLowerCase().includes(lowerSearchTerm)
-            );
-        });
-        setFilteredOrders(filtered);
-        return () => {};
-    }, [searchTerm, orders]);
     useEffect(() => {
         const fetchOrders = async () => {
             try {
@@ -84,6 +71,21 @@ const AdminOrderPage = () => {
         fetchOrders();
         return () => {};
     }, []);
+    useEffect(() => {
+        const filtered = orders.filter((order) => {
+            const lowerSearchTerm = searchTerm.toLowerCase();
+            setItemOffset(0);
+            return (
+                order.id.toString().toLowerCase().includes(lowerSearchTerm) ||
+                order.shipping_address.toLowerCase().includes(lowerSearchTerm)
+            );
+        });
+        setFilteredOrders(filtered);
+        return () => {};
+    }, [searchTerm, orders]);
+    useEffect(() => {
+        console.log("Filtered:", filteredOrders);
+    }, [filteredOrders]);
     return (
         <AdminLayout>
             <div className="admin__order">

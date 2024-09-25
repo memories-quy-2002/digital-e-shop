@@ -38,22 +38,6 @@ const AdminAccountPage = () => {
         const searchValue = event.target.value;
         setSearchTerm(searchValue);
     };
-
-    // Filter products based on the search term
-    useEffect(() => {
-        const filtered = accounts.filter((account) => {
-            const lowerSearchTerm = searchTerm.toLowerCase();
-            return (
-                account.id.toLowerCase().includes(lowerSearchTerm) ||
-                account.username.toLowerCase().includes(lowerSearchTerm) ||
-                account.role.toLowerCase().includes(lowerSearchTerm) ||
-                account.email.toLowerCase().includes(lowerSearchTerm)
-            );
-        });
-        setFilteredAccounts(filtered);
-        return () => {};
-    }, [searchTerm, accounts]);
-
     useEffect(() => {
         const fetchUsers = async () => {
             try {
@@ -79,7 +63,20 @@ const AdminAccountPage = () => {
         fetchUsers();
         return () => {};
     }, []);
-    // console.log(accounts);
+    useEffect(() => {
+        const filtered = accounts.filter((account) => {
+            const lowerSearchTerm = searchTerm.toLowerCase();
+            setItemOffset(0);
+            return (
+                account.id.toLowerCase().includes(lowerSearchTerm) ||
+                account.username.toLowerCase().includes(lowerSearchTerm) ||
+                account.role.toLowerCase().includes(lowerSearchTerm) ||
+                account.email.toLowerCase().includes(lowerSearchTerm)
+            );
+        });
+        setFilteredAccounts(filtered);
+        return () => {};
+    }, [searchTerm, accounts]);
     return (
         <AdminLayout>
             <main className="admin__account">

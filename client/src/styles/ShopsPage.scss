@@ -211,7 +211,6 @@
                             display: flex;
                             justify-content: center;
                             align-items: center;
-                            background-color: #f0f0f0; /* Background color if image doesn't fully fill */
                             overflow: hidden;
                             cursor: pointer;
                             img {
@@ -287,16 +286,23 @@
                 &__items {
                     display: flex;
                     justify-content: center;
-                    gap: 1.5rem;
+                    gap: 1rem; // Reduced gap for more compact layout on smaller screens
 
                     li {
-                        height: 38px;
-                        min-width: 38px;
+                        height: 40px; // Slightly larger for better touch target
+                        min-width: 40px;
                         font-weight: 700;
-                        font-size: 0.75rem;
+                        font-size: 0.875rem; // Increased font size for readability
                         display: flex;
                         justify-content: center;
                         align-items: center;
+                        border-radius: 50%; // Circular pagination for better UX
+                        transition: background-color 0.3s ease, color 0.3s ease; // Smooth transition
+
+                        &:hover {
+                            background-color: #e6f0ff; // Light blue background on hover
+                            cursor: pointer;
+                        }
                     }
 
                     a {
@@ -304,16 +310,28 @@
                         display: inline-block;
                         text-align: center;
                         text-decoration: none;
-                        color: black;
+                        color: #333; // Darker color for better contrast
+                        font-size: inherit;
                     }
 
+                    // Disabled state
                     .disabled a {
                         color: #d9d9d9;
+                        cursor: not-allowed; // Show not-allowed cursor for disabled items
                     }
 
+                    // Selected/Active state
                     .selected {
                         background: #0066ff;
-                        border-radius: 8px;
+                        color: #fff !important; // Ensure text is white when selected
+                        border-radius: 50%; // Keep the circular shape
+                        a {
+                            color: #fff; // White color for text in the selected item
+                        }
+
+                        &:hover {
+                            background-color: #0056b3; // Darker shade for selected hover
+                        }
                     }
                 }
             }
