@@ -2,7 +2,7 @@
 
 exports[`ProductPage should match the ProductPage snapshot 1`] = `
 <DocumentFragment>
-  <div
+  <main
     style="display: flex; align-items: center; flex-direction: column;"
   >
     <h1>
@@ -11,7 +11,7 @@ exports[`ProductPage should match the ProductPage snapshot 1`] = `
     <p>
       Page not found
     </p>
-  </div>
+  </main>
   <div
     class="toast-container bottom-0 end-0 p-3"
     style="z-index: 1; position: fixed; bottom: 0px; right: 0px;"

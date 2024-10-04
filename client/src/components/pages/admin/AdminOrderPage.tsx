@@ -116,8 +116,8 @@ const AdminOrderPage = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {currentOrders.map((order) => (
-                                    <tr>
+                                {currentOrders.map((order, id) => (
+                                    <tr key="id">
                                         <td width="50px">{filteredOrders.indexOf(order) + 1}</td>
                                         <td width="150px">{order.id}</td>
                                         <td width="450px">{order.shipping_address || "None"}</td>

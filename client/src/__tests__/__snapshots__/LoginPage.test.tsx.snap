@@ -9,7 +9,7 @@ exports[`LoginPage should match the LoginPage snapshot 1`] = `
     <div
       class="login"
     >
-      <div
+      <aside
         class="login__image"
       >
         <img
@@ -31,8 +31,8 @@ exports[`LoginPage should match the LoginPage snapshot 1`] = `
             An E-commerce platforms of electronics devices
           </p>
         </div>
-      </div>
-      <div
+      </aside>
+      <main
         class="login__form"
       >
         <h3
@@ -174,7 +174,7 @@ exports[`LoginPage should match the LoginPage snapshot 1`] = `
             </a>
           </div>
         </form>
-      </div>
+      </main>
     </div>
   </div>
 </DocumentFragment>

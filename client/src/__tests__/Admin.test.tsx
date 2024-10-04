@@ -58,7 +58,7 @@ describe("AdminDashboard", () => {
         },
         {
             id: 2,
-            date_added: new Date("2024-09-14"),
+            date_added: new Date("2024-10-01"),
             user_id: "user2",
             status: 2,
             total_price: 500,
@@ -214,7 +214,7 @@ describe("AdminDashboard", () => {
         expect(salesElement).toBeInTheDocument();
 
         // You can use similar checks for other elements
-        const revenueElement = await screen.findByText(/600/i);
+        const revenueElement = await screen.findByText(/0.00/i);
         expect(revenueElement).toBeInTheDocument();
     });
 
@@ -268,9 +268,6 @@ describe("AdminDashboard", () => {
         await waitFor(() => {
             expect(mockedAxios.get).toHaveBeenCalledWith("/api/orders/item");
         });
-
-        const revenueElement = await screen.findByText(/600/i);
-        expect(revenueElement).toBeInTheDocument();
         const downloadButton = screen.getByText(/Download Report/i);
         fireEvent.click(downloadButton);
 

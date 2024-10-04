@@ -3,17 +3,17 @@
 exports[`HomePage should match the HomePage snapshot 1`] = `
 <DocumentFragment>
   <div>
-    <div
-      class="header__container"
+    <header
+      class="header"
     >
       <div
-        class="header__container__info"
+        class="header__info"
       >
         <div
-          class="header__container__info__personal"
+          class="header__info__personal"
         >
           <div
-            class="header__container__info__personal__item"
+            class="header__info__personal__item"
           >
             <svg
               color="white"
@@ -30,10 +30,12 @@ exports[`HomePage should match the HomePage snapshot 1`] = `
                 d="M391 480c-19.52 0-46.94-7.06-88-30-49.93-28-88.55-53.85-138.21-103.38C116.91 298.77 93.61 267.79 61 208.45c-36.84-67-30.56-102.12-23.54-117.13C45.82 73.38 58.16 62.65 74.11 52a176.3 176.3 0 0 1 28.64-15.2c1-.43 1.93-.84 2.76-1.21 4.95-2.23 12.45-5.6 21.95-2 6.34 2.38 12 7.25 20.86 16 18.17 17.92 43 57.83 52.16 77.43 6.15 13.21 10.22 21.93 10.23 31.71 0 11.45-5.76 20.28-12.75 29.81-1.31 1.79-2.61 3.5-3.87 5.16-7.61 10-9.28 12.89-8.18 18.05 2.23 10.37 18.86 41.24 46.19 68.51s57.31 42.85 67.72 45.07c5.38 1.15 8.33-.59 18.65-8.47 1.48-1.13 3-2.3 4.59-3.47 10.66-7.93 19.08-13.54 30.26-13.54h.06c9.73 0 18.06 4.22 31.86 11.18 18 9.08 59.11 33.59 77.14 51.78 8.77 8.84 13.66 14.48 16.05 20.81 3.6 9.53.21 17-2 22-.37.83-.78 1.74-1.21 2.75a176.49 176.49 0 0 1-15.29 28.58c-10.63 15.9-21.4 28.21-39.38 36.58A67.42 67.42 0 0 1 391 480z"
               />
             </svg>
-            (+84) 123 456 7890
+            <address>
+              (+84) 123 456 7890
+            </address>
           </div>
           <div
-            class="header__container__info__personal__item"
+            class="header__info__personal__item"
           >
             <svg
               color="white"
@@ -50,10 +52,12 @@ exports[`HomePage should match the HomePage snapshot 1`] = `
                 d="M464 80H48a16 16 0 0 0-16 16v320a16 16 0 0 0 16 16h416a16 16 0 0 0 16-16V96a16 16 0 0 0-16-16zM265.82 284.63a16 16 0 0 1-19.64 0L89.55 162.81l19.64-25.26L256 251.73l146.81-114.18 19.64 25.26z"
               />
             </svg>
-            digital-e@gmail.com
+            <address>
+              digital-e@gmail.com
+            </address>
           </div>
           <div
-            class="header__container__info__personal__item"
+            class="header__info__personal__item"
           >
             <svg
               color="white"
@@ -73,17 +77,19 @@ exports[`HomePage should match the HomePage snapshot 1`] = `
                 d="m490.91 244.15-74.8-71.56V64a16 16 0 0 0-16-16h-48a16 16 0 0 0-16 16v32l-57.92-55.38C272.77 35.14 264.71 32 256 32c-8.68 0-16.72 3.14-22.14 8.63l-212.7 203.5c-6.22 6-7 15.87-1.34 22.37A16 16 0 0 0 43 267.56L250.5 69.28a8 8 0 0 1 11.06 0l207.52 198.28a16 16 0 0 0 22.59-.44c6.14-6.36 5.63-16.86-.76-22.97z"
               />
             </svg>
-            123 ABC Street, HCM City
+            <address>
+              123 ABC Street, HCM City
+            </address>
           </div>
         </div>
         <div
-          class="header__container__info__auth"
+          class="header__info__auth"
         >
           <strong>
             Welcome Anonymous
           </strong>
           <div
-            class="header__container__info__auth__button"
+            class="header__info__auth__button"
           >
             <div>
               <a
@@ -104,23 +110,23 @@ exports[`HomePage should match the HomePage snapshot 1`] = `
         </div>
       </div>
       <div
-        class="header__container__main"
+        class="header__main"
       >
         <div
-          class="header__container__main__brand"
+          class="header__main__brand"
         >
           <a
-            class="header__container__main__brand__link navbar-brand"
+            class="header__main__brand__link navbar-brand"
             href="/"
           >
             DIGITAL-E
           </a>
         </div>
         <div
-          class="header__container__main__search"
+          class="header__main__search"
         >
           <input
-            class="header__container__main__search__bar"
+            class="header__main__search__bar"
             id="header_search"
             name="header_search"
             placeholder="Search"
@@ -132,10 +138,10 @@ exports[`HomePage should match the HomePage snapshot 1`] = `
           </button>
         </div>
         <div
-          class="header__container__main__group"
+          class="header__main__group"
         >
           <div
-            class="header__container__main__group__item"
+            class="header__main__group__item"
           >
             <svg
               fill="currentColor"
@@ -153,7 +159,7 @@ exports[`HomePage should match the HomePage snapshot 1`] = `
             Wishlist
           </div>
           <div
-            class="header__container__main__group__item"
+            class="header__main__group__item"
           >
             <svg
               fill="currentColor"
@@ -182,7 +188,7 @@ exports[`HomePage should match the HomePage snapshot 1`] = `
           </div>
         </div>
       </div>
-    </div>
+    </header>
     <nav
       class="navbar navbar-expand navbar-light bg-gray"
     >
@@ -233,10 +239,10 @@ exports[`HomePage should match the HomePage snapshot 1`] = `
         </a>
       </div>
     </nav>
-    <div
+    <main
       class="home"
     >
-      <div
+      <section
         class="home__hero"
       >
         <div
@@ -244,14 +250,14 @@ exports[`HomePage should match the HomePage snapshot 1`] = `
         >
           <div
             class="home__hero__carousel__inner"
-            style="transform: translateX(0%); transition: transform 0.5s ease-in-out;"
+            style="transform: translateX(0%); transition: transform 0.75s ease-in;"
           >
             <div
               class="home__hero__carousel__item"
             >
               <img
                 alt="carousel_1"
-                src="carousel_1.jpg"
+                src="https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/carousel_1.jpg"
               />
               <div
                 class="home__hero__carousel__item__overlay"
@@ -292,7 +298,7 @@ exports[`HomePage should match the HomePage snapshot 1`] = `
             >
               <img
                 alt="carousel_2"
-                src="carousel_2.jpg"
+                src="https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/carousel_2.jpg"
               />
               <div
                 class="home__hero__carousel__item__overlay"
@@ -333,7 +339,7 @@ exports[`HomePage should match the HomePage snapshot 1`] = `
             >
               <img
                 alt="carousel_3"
-                src="carousel_3.jpg"
+                src="https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/carousel_3.jpg"
               />
               <div
                 class="home__hero__carousel__item__overlay"
@@ -374,7 +380,7 @@ exports[`HomePage should match the HomePage snapshot 1`] = `
             >
               <img
                 alt="carousel_4"
-                src="carousel_4.jpg"
+                src="https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/carousel_4.jpg"
               />
               <div
                 class="home__hero__carousel__item__overlay"
@@ -426,8 +432,8 @@ exports[`HomePage should match the HomePage snapshot 1`] = `
             </button>
           </div>
         </div>
-      </div>
-      <div
+      </section>
+      <section
         class="home__product"
       >
         <div
@@ -467,9 +473,9 @@ exports[`HomePage should match the HomePage snapshot 1`] = `
         <div
           class="home__product__menu"
         />
-      </div>
-    </div>
-    <div
+      </section>
+    </main>
+    <footer
       class="footer"
     >
       <div
@@ -516,7 +522,7 @@ exports[`HomePage should match the HomePage snapshot 1`] = `
             <a
               href="/shops?categories=Graphics+Card&brands=&minPrice=0&maxPrice=4000&term="
             >
-              Graphic cards
+              Graphics cards
             </a>
           </div>
         </div>
@@ -594,21 +600,27 @@ exports[`HomePage should match the HomePage snapshot 1`] = `
           >
             Contact us
           </h5>
-          <div
-            class="footer__menuGroup__menu__item-disabled"
-          >
-            Email: digital-e@gmail.com
-          </div>
-          <div
-            class="footer__menuGroup__menu__item-disabled"
-          >
-            Phone: (+84) 123 456 7890
-          </div>
-          <div
-            class="footer__menuGroup__menu__item-disabled"
-          >
-            Address: 123 ABC Street, HCM City, Vietnam
-          </div>
+          <address>
+            <div
+              class="footer__menuGroup__menu__item-disabled"
+            >
+              Email: digital-e@gmail.com
+            </div>
+          </address>
+          <address>
+            <div
+              class="footer__menuGroup__menu__item-disabled"
+            >
+              Phone: (+84) 123 456 7890
+            </div>
+          </address>
+          <address>
+            <div
+              class="footer__menuGroup__menu__item-disabled"
+            >
+              Address: 123 ABC Street, HCM City, Vietnam
+            </div>
+          </address>
         </div>
       </div>
       <div
@@ -777,7 +789,7 @@ exports[`HomePage should match the HomePage snapshot 1`] = `
           </div>
         </div>
       </div>
-    </div>
+    </footer>
   </div>
   <div
     class="toast-container bottom-0 end-0 p-3"

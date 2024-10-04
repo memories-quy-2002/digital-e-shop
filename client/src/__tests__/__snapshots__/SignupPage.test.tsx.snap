@@ -9,7 +9,7 @@ exports[`SignupPage should match the SignupPage snapshot 1`] = `
     <div
       class="signup"
     >
-      <div
+      <aside
         class="signup__image"
       >
         <img
@@ -31,8 +31,8 @@ exports[`SignupPage should match the SignupPage snapshot 1`] = `
             An E-commerce platforms of electronics devices
           </p>
         </div>
-      </div>
-      <div
+      </aside>
+      <main
         class="signup__form"
       >
         <h3
@@ -192,7 +192,7 @@ exports[`SignupPage should match the SignupPage snapshot 1`] = `
             </a>
           </div>
         </form>
-      </div>
+      </main>
     </div>
   </div>
 </DocumentFragment>

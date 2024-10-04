@@ -8,10 +8,10 @@ exports[`AdminDashboard should match the AdminDashboard snapshot 1`] = `
     <div
       class="admin__layout"
     >
-      <div
+      <aside
         class="admin__layout__sidebar"
       >
-        <div
+        <section
           class="admin__layout__sidebar__title"
         >
           <h3>
@@ -20,8 +20,8 @@ exports[`AdminDashboard should match the AdminDashboard snapshot 1`] = `
           <strong>
             Admin Panel
           </strong>
-        </div>
-        <div
+        </section>
+        <section
           class="admin__layout__sidebar__information"
         >
           <img
@@ -39,8 +39,8 @@ exports[`AdminDashboard should match the AdminDashboard snapshot 1`] = `
               Anonymous
             </span>
           </div>
-        </div>
-        <div
+        </section>
+        <nav
           class="admin__layout__sidebar__navigation"
         >
           <button
@@ -119,12 +119,12 @@ exports[`AdminDashboard should match the AdminDashboard snapshot 1`] = `
             </svg>
             Accounts
           </button>
-        </div>
-      </div>
+        </nav>
+      </aside>
       <div
         class="admin__layout__main"
       >
-        <div
+        <header
           class="admin__layout__main__header"
         >
           <div
@@ -223,12 +223,12 @@ exports[`AdminDashboard should match the AdminDashboard snapshot 1`] = `
               </svg>
             </button>
           </div>
-        </div>
+        </header>
          
-        <div
+        <main
           class="admin__dashboard"
         >
-          <div
+          <section
             class="admin__dashboard-header"
           >
             <h2>
@@ -239,8 +239,8 @@ exports[`AdminDashboard should match the AdminDashboard snapshot 1`] = `
             >
               Download Report
             </button>
-          </div>
-          <div
+          </section>
+          <section
             class="admin__dashboard-cards"
           >
             <div
@@ -385,8 +385,8 @@ exports[`AdminDashboard should match the AdminDashboard snapshot 1`] = `
                 </span>
               </div>
             </div>
-          </div>
-          <div
+          </section>
+          <section
             class="admin__dashboard-chart"
           >
             <div
@@ -411,8 +411,8 @@ exports[`AdminDashboard should match the AdminDashboard snapshot 1`] = `
                 style="width: 100%; height: 300px; min-width: 0;"
               />
             </div>
-          </div>
-          <div
+          </section>
+          <section
             class="admin__dashboard-table"
           >
             <h3>
@@ -443,8 +443,8 @@ exports[`AdminDashboard should match the AdminDashboard snapshot 1`] = `
                 <tbody />
               </table>
             </div>
-          </div>
-        </div>
+          </section>
+        </main>
       </div>
     </div>
   </div>
