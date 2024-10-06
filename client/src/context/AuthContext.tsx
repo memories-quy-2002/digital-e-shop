@@ -29,18 +29,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const response = await axios.get(`/api/users/${user.uid}`);
                     if (response.status === 200) {
                         setUserData(response.data.userData);
+                        // Navigate to Home page only after userData is set
                     }
                 } catch (err) {
                     console.error("Error fetching user data", err);
+                    setUserData(null); // Set userData to null if error
+                } finally {
+                    setLoading(false); // Set loading to false regardless of success/error
                 }
             } else {
                 setUid(null);
                 setUserData(null);
+                setLoading(false);
             }
-            setLoading(false);
         });
 
-        // Hủy đăng ký khi component unmount
         return () => unsubscribe();
     }, []);
 

@@ -20,6 +20,15 @@ const pool = mysql.createPool({
 	database: process.env.DB_NAME,
 	port: process.env.DB_PORT,
 });
+
+// const pool = mysql.createPool({
+// 	host: "127.0.0.1",
+// 	user: "root",
+// 	password: "",
+// 	database: 'defaultdb',
+// 	port: 3306,
+// });
+
 pool.getConnection((err, connection) => {
 	if (err) {
 		console.error('Error connecting to MySQL database:', err);
@@ -325,9 +334,9 @@ const addSingleProduct = (request, response) => {
 		return fileName;
 	}
 	const insertProduct = async (productName, description, fileName, categoryId, brandId, specifications, price, inventory) => {
-		pool.query = util.promisify(pool.query); // Chuyển hàm query thành hàm Promise
+		pool.query = util.promisify(pool.query);
 		try {
-			pool.query('START TRANSACTION'); // Bắt đầu transaction
+			pool.query('START TRANSACTION');
 			pool.query(
 				'INSERT INTO products (name, description, main_image, category_id, brand_id, specifications, price, stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
 				[
@@ -347,16 +356,14 @@ const addSingleProduct = (request, response) => {
 					pool.query('COMMIT');
 					console.log('Transaction committed successfully.');
 
-					// Gửi phản hồi thành công
 					return response.status(200).json({
 						msg: 'Product added successfully',
 					});
 				}
 			);
 		} catch (error) {
-			// Nếu có lỗi, rollback transaction và trả về lỗi
 			console.error('Error occurred:', error);
-			pool.query('ROLLBACK'); // Quay lại trạng thái ban đầu
+			pool.query('ROLLBACK');
 			return response.status(500).json({
 				msg: 'Internal server error',
 				error: error.message
@@ -615,6 +622,8 @@ const deleteWishlistItem = (request, response) => {
 
 const addItemToCart = (request, response) => {
 	const { pid, uid, quantity } = request.body;
+	// console.log(pid, quantity);
+
 	var cartId = 0;
 	pool.query(
 		`INSERT INTO cart (user_id)
@@ -906,18 +915,17 @@ const retrieveRelevantProducts = async (request, response) => {
 				msg: `No relevant products found for product id = ${pid}`,
 			})
 		}
-
-
 	} catch (error) {
 		console.error('Error retrieving relevant products:', error);
 	}
 }
 
-
 /* Reviews */
 
 const addReview = (request, response) => {
 	const { uid, pid, rating, reviewText } = request.body
+	// console.log(rating);
+
 	if (!pid || !rating) {
 		return response.status(400).json({ msg: 'Please provide productId and rating' });
 	}

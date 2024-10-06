@@ -26,8 +26,8 @@ export const Header = (): JSX.Element => {
                 sessionStorage.removeItem("rememberMe");
                 cookies.remove("rememberMe");
                 await signOut(auth);
-                window.location.reload();
-                console.log("test");
+                addToast("Logout successfully", response.data.msg);
+                navigate("/");
             }
         } catch (err) {
             throw err;

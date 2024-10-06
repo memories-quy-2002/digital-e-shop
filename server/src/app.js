@@ -30,14 +30,14 @@ app.get("/api/session/check", db.checkSessionToken)
 app.get("/api/users/:id", db.getUserLoginById);
 app.post("/api/users/login", cors(corsOptions), db.userLogin);
 app.post("/api/users/logout", db.userLogout);
-app.get("/api/users/", db.getAllUsers)
+app.get("/api/users", db.getAllUsers)
 app.post("/api/users", db.addUser);
 
 // Product
 app.get("/api/products/:id", db.getSingleProduct);
 app.get("/api/products/", db.getListProduct);
 app.post("/api/products/add", db.addSingleProduct)
-app.post("/api/products/delete/", db.deleteProduct)
+app.post("/api/products/delete", db.deleteProduct)
 app.get("/api/products/relevant/:pid", db.retrieveRelevantProducts)
 app.get('/api/products/images/:filename', (req, res) => {
 	const imagePath = path.join(__dirname, '..', '..', 'server', 'src', 'uploads', req.params.filename + '.jpg')
@@ -45,24 +45,24 @@ app.get('/api/products/images/:filename', (req, res) => {
 });
 
 // Wishlist
-app.post("/api/wishlist/", db.addItemToWishlist);
+app.post("/api/wishlist", db.addItemToWishlist);
 app.get("/api/wishlist/:uid", db.getWishlist);
-app.post("/api/wishlist/delete/", db.deleteWishlistItem)
+app.post("/api/wishlist/delete", db.deleteWishlistItem)
 
 // Cart
-app.post("/api/cart/", db.addItemToCart);
+app.post("/api/cart", db.addItemToCart);
 app.get("/api/cart/:uid", db.getCartItems);
 app.post("/api/cart/delete", db.deleteCartItem)
 
 // Purchase
 app.post("/api/purchase/:uid", cors(corsOptions), db.makePurchase);
-app.get("/api/orders/", db.getOrders);
+app.get("/api/orders", db.getOrders);
 app.post("/api/orders/status/:oid", db.changeOrderStatus)
 app.get("/api/orders/item", db.getOrderItems)
 app.post("/api/discount", db.applyDiscount)
 
 // Review
-app.post("/api/reviews/", db.addReview)
+app.post("/api/reviews", db.addReview)
 app.get("/api/reviews/:pid", db.getReviews)
 
 app.get('/', (req, res) => {
