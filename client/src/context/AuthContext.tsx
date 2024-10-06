@@ -8,12 +8,14 @@ interface AuthContextProps {
     uid: string | null;
     userData: any;
     loading: boolean;
+    setUserData: (userData: any) => void;
 }
 
 const AuthContext = createContext<AuthContextProps>({
     uid: null,
     userData: null,
     loading: true,
+    setUserData(any) {},
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -29,26 +31,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const response = await axios.get(`/api/users/${user.uid}`);
                     if (response.status === 200) {
                         setUserData(response.data.userData);
-                        // Navigate to Home page only after userData is set
                     }
                 } catch (err) {
                     console.error("Error fetching user data", err);
-                    setUserData(null); // Set userData to null if error
-                } finally {
-                    setLoading(false); // Set loading to false regardless of success/error
                 }
             } else {
                 setUid(null);
                 setUserData(null);
-                setLoading(false);
             }
+            setLoading(false);
         });
 
         return () => unsubscribe();
     }, []);
 
-    return <AuthContext.Provider value={{ uid, userData, loading }}>{children}</AuthContext.Provider>;
+    return <AuthContext.Provider value={{ uid, userData, loading, setUserData }}>{children}</AuthContext.Provider>;
 };
 
 // Custom hook để sử dụng AuthContext trong các component khác
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = (): AuthContextProps => {
+    const context = useContext(AuthContext);
+    if (!context) {
+        throw new Error("useAuth must be used within an AuthProvider");
+    }
+    return context;
+};

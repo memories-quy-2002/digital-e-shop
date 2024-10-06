@@ -185,6 +185,7 @@ const userLogin = (request, response) => {
 				});
 
 				return response.status(200).json({
+					userData: results[0],
 					token,
 					msg: "User login successfully",
 				});

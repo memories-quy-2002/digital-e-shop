@@ -8,6 +8,8 @@ import { auth } from "../../services/firebase";
 import "../../styles/LoginPage.scss";
 import { Role } from "../../utils/interface";
 import { Helmet } from "react-helmet";
+import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
 interface User {
     email: string;
     password: string;
@@ -15,11 +17,13 @@ interface User {
 }
 const LoginPage = () => {
     const navigate = useNavigate();
+    const { addToast } = useToast();
     const [user, setUser] = useState<User>({
         email: "",
         password: "",
         role: Role.Customer,
     });
+    const authContext = useAuth();
     const [rememberMe, setRememberMe] = useState<boolean>(false);
     const [errors, setErrors] = useState<string[]>([]);
 
@@ -71,6 +75,7 @@ const LoginPage = () => {
             });
 
             if (response.status === 200) {
+                authContext.setUserData(response.data.userData);
                 const token = response.data.token;
                 const cookies = new Cookies();
                 const cookieData = {
@@ -86,11 +91,13 @@ const LoginPage = () => {
                 } else {
                     sessionStorage.setItem("rememberMe", JSON.stringify(cookieData));
                 }
+                addToast("Login", "You have been logon successfully");
                 if (user.role === Role.Admin) {
                     navigate("/admin");
                 } else {
                     navigate("/");
                 }
+                window.location.reload();
             }
         } catch (err: any) {
             if (err.response) {
