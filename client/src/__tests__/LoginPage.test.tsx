@@ -5,6 +5,7 @@ import LoginPage from "../components/pages/LoginPage"; // Adjust based on your p
 import { Role } from "../utils/interface";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../services/firebase";
+import ToastProvider from "../context/ToastContext";
 
 // Mock Axios
 jest.mock("../api/axios");
@@ -48,9 +49,11 @@ describe("LoginPage", () => {
 
     const renderLoginPage = (user: typeof users.customer) => {
         render(
-            <MemoryRouter initialEntries={["/login", "/", "/admin"]}>
-                <LoginPage />
-            </MemoryRouter>
+            <ToastProvider>
+                <MemoryRouter initialEntries={["/login", "/", "/admin"]}>
+                    <LoginPage />
+                </MemoryRouter>
+            </ToastProvider>
         );
 
         // Fill in email and password
@@ -76,9 +79,11 @@ describe("LoginPage", () => {
 
     it("should match the LoginPage snapshot", async () => {
         const { asFragment } = render(
-            <MemoryRouter>
-                <LoginPage />
-            </MemoryRouter>
+            <ToastProvider>
+                <MemoryRouter>
+                    <LoginPage />
+                </MemoryRouter>
+            </ToastProvider>
         );
         expect(asFragment()).toMatchSnapshot();
     });
