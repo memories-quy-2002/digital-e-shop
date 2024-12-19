@@ -38,23 +38,25 @@ pool.getConnection((err, connection) => {
 	connection.release();
 });
 
-const startSession = (userId) => {
-	return new Promise((resolve, reject) => {
+const startSession = async (userId) => {
+	try {
 		const sessionStart = new Date();
 		const sessionMonth = sessionStart.getMonth() + 1; // Month (1-12)
 		const sessionYear = sessionStart.getFullYear(); // Year
-
-		pool.query(`
+		await pool.query(`
             INSERT INTO customer_sessions (user_id, session_start, session_month, session_year)
             VALUES (?, ?, ?, ?)
         `, [userId, sessionStart, sessionMonth, sessionYear], (error, results) => {
 			if (error) {
 				console.error(error.message);
-				return reject(error);
+
 			}
-			resolve(results.insertId);
+			return results.insertId;
 		});
-	});
+	}
+	catch (err) {
+		console.error(err);
+	}
 };
 
 const verifySessionToken = (request) => {
@@ -62,12 +64,11 @@ const verifySessionToken = (request) => {
 	if (!userInfo) {
 		return { valid: false, message: "No session information found" };
 	}
+
 	try {
 		const { token } = JSON.parse(userInfo);
-		const payload = jwt.verify(token, process.env.JWT_SECRET_KEY);
-		if (payload) {
-			return { valid: true };
-		}
+		jwt.verify(token, process.env.JWT_SECRET_KEY);
+		return { valid: true };
 	} catch (err) {
 		console.error("Token verification error:", err.message);
 		return { valid: false, message: "Session invalid or expired" };
