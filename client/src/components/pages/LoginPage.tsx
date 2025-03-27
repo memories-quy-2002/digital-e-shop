@@ -10,6 +10,7 @@ import { Role } from "../../utils/interface";
 import { Helmet } from "react-helmet";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
+import backgroundForm from "../../assets/images/background_form.jpg";
 interface User {
     email: string;
     password: string;
@@ -137,11 +138,7 @@ const LoginPage = () => {
             </Helmet>
             <div className="login">
                 <aside className="login__image">
-                    <img
-                        src={require("../../assets/images/background_form.jpg")}
-                        alt=""
-                        className="login__image__background"
-                    ></img>
+                    <img src={backgroundForm} alt="" className="login__image__background"></img>
                     <div className="login__image__content">
                         <strong className="login__image__content__name">DIGITAL-E</strong>
                         <p className="login__image__content__desc">An E-commerce platforms of electronics devices</p>

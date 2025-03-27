@@ -1,23 +1,33 @@
 {
-  "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "lib": ["dom", "dom.iterable", "esnext"
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "ESNext",
+        "lib": ["dom", "dom.iterable", "esnext"],
+        "allowJs": true,
+        "skipLibCheck": true,
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "strict": true,
+        "forceConsistentCasingInFileNames": true,
+        "noFallthroughCasesInSwitch": true,
+        "moduleResolution": "node",
+        "isolatedModules": true,
+        "jsx": "react-jsx",
+        "noEmit": true,
+        "resolveJsonModule": true,
+        "types": ["jest", "node"]
+    },
+    "include": [
+        "src",
+        "server",
+        "client",
+        "App.test.tsx",
+        "App.tsx",
+        "index.tsx",
+        "react-app-env.d.ts",
+        "src/reportWebVitals.ts",
+        "src/setupTests.ts",
+        "babel.config.json"
     ],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
-    "noFallthroughCasesInSwitch": true,
-    "moduleResolution": "node",
-    "isolatedModules": true,
-    "jsx": "react-jsx",
-    "noEmit": true,
-    "resolveJsonModule": true,
-    "types": ["jest", "node"]
-  },
-  "include": ["src", "server", "client", "App.test.tsx", "App.tsx", "index.tsx", "react-app-env.d.ts", "src/reportWebVitals.ts", "src/setupTests.ts", "babel.config.json"],
-  "exclude": ["node_modules"]
+    "exclude": ["node_modules"]
 }
