@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Cookies from "universal-cookie";
 import axios from "../../api/axios";
@@ -40,70 +40,61 @@ const ShopsPage = () => {
 
     const navigate = useNavigate();
     const location = useLocation();
-    const uid =
-        cookies.get("rememberMe")?.uid ||
-        (sessionStorage["rememberMe"] ? JSON.parse(sessionStorage["rememberMe"]).uid : "");
+    const uid = useMemo(() => {
+        return (
+            cookies.get("rememberMe")?.uid ||
+            (sessionStorage["rememberMe"] ? JSON.parse(sessionStorage["rememberMe"]).uid : "")
+        );
+    }, []);
 
-    const updateURL = (newFilters: Filters) => {
-        const queryParams = new URLSearchParams({
-            categories: newFilters.categories.join(","),
-            brands: newFilters.brands.join(","),
-            minPrice: newFilters.priceRange[0].toString(),
-            maxPrice: newFilters.priceRange[1].toString(),
-            term: newFilters.term,
-        });
-        navigate(`${location.pathname}?${queryParams.toString()}`);
-    };
+    const updateURL = useCallback(
+        (newFilters: Filters) => {
+            const queryParams = new URLSearchParams({
+                categories: newFilters.categories.join(","),
+                brands: newFilters.brands.join(","),
+                minPrice: newFilters.priceRange[0].toString(),
+                maxPrice: newFilters.priceRange[1].toString(),
+                term: newFilters.term,
+            });
+            navigate(`${location.pathname}?${queryParams.toString()}`, { replace: true });
+        },
+        [navigate, location.pathname]
+    );
 
-    const handleTermChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFilters((prevFilters) => {
-            return {
-                ...prevFilters,
-                term: e.target.value.trim(),
-            };
-        });
-    };
+    // Optimized filter handlers
+    const handleTermChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const trimmedValue = e.target.value.trim();
+        setFilters((prev) => ({ ...prev, term: trimmedValue }));
+    }, []);
 
-    const handleCheckboxChange = (type: "categories" | "brands", value: string) => {
-        setFilters((prevFilters) => {
-            const updatedArray = prevFilters[type].includes(value)
-                ? prevFilters[type].filter((item) => item !== value) // Uncheck checkbox
-                : [...prevFilters[type], value]; // Check checkbox
-
-            return {
-                ...prevFilters,
-                [type]: updatedArray,
-            };
-        });
-    };
-
-    const handlePriceRangeChange = (newValue: [number, number]) => {
-        setFilters((prevFilters) => ({
-            ...prevFilters,
-            priceRange: newValue,
+    const handleCheckboxChange = useCallback((type: "categories" | "brands", value: string) => {
+        setFilters((prev) => ({
+            ...prev,
+            [type]: prev[type].includes(value) ? prev[type].filter((item) => item !== value) : [...prev[type], value],
         }));
-    };
+    }, []);
 
-    const getFilteredProducts = (filters: Filters, allProducts: Product[]): Product[] => {
+    const handlePriceRangeChange = useCallback((newValue: [number, number]) => {
+        setFilters((prev) => ({ ...prev, priceRange: newValue }));
+    }, []);
+
+    const getFilteredProducts = useCallback((filters: Filters, allProducts: Product[]): Product[] => {
         const { term, categories, brands, priceRange } = filters;
+        const termLower = term.trim().toLowerCase();
 
         return allProducts.filter((product) => {
-            const matchCategory = categories.length === 0 || categories.includes(product.category);
+            const price = product.sale_price ?? product.price;
+            const nameLower = product.name.toLowerCase();
 
-            const matchBrand = brands.length === 0 || brands.includes(product.brand);
-
-            const matchPrice = product.sale_price
-                ? product.sale_price >= priceRange[0] && product.sale_price <= priceRange[1]
-                : product.price >= priceRange[0] && product.price <= priceRange[1];
-            const matchTerm =
-                term.trim().toLowerCase() === ""
-                    ? true
-                    : product.name.toLowerCase().includes(term.trim().toLowerCase());
-
-            // Trả về sản phẩm nếu thoả mãn tất cả các điều kiện
-            return matchCategory && matchBrand && matchPrice && matchTerm;
+            return (
+                (!categories.length || categories.includes(product.category)) &&
+                (!brands.length || brands.includes(product.brand)) &&
+                price >= priceRange[0] &&
+                price <= priceRange[1] &&
+                (!termLower || nameLower.includes(termLower))
+            );
         });
-    };
+    }, []);
 
     const applyFilters = () => {
         updateURL(filters);

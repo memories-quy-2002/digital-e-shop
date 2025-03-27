@@ -35,7 +35,6 @@ const AsideShops = ({
         setCategories([...new Set(products.map((product) => product.category))]);
         setBrands([...new Set(products.map((product) => product.brand))]);
     }, [products]);
-    console.log(products);
     console.log("Filter: ", filters);
 
     return (

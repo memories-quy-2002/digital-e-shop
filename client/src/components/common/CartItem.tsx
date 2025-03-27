@@ -1,5 +1,5 @@
 import React from "react";
-
+import productPlaceholder from "../../assets/images/product_placeholder.jpg";
 interface Item {
     cartItemId: number;
     productId: number;
@@ -29,7 +29,7 @@ const CartItem = ({ item, handleQuantityChange, handleRemove }: CartItemProps) =
                         alt={item.productName}
                     />
                 ) : (
-                    <img src={require("../../assets/images/product_placeholder.jpg")} alt={item.productName} />
+                    <img src={productPlaceholder} alt={item.productName} />
                 )}
             </div>
             <div className="cart__container__box__main__list__item__info">

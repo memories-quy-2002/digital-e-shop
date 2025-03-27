@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { IoArrowForward } from "react-icons/io5";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
@@ -162,77 +162,71 @@ const HomePage = () => {
         <Layout>
             <NavigationBar />
             <Helmet>
+                {/* Preload only the first image to avoid blocking other resources */}
                 <link
                     rel="preload"
                     href="https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/carousel_1.jpg"
                     as="image"
+                    media="(max-width: 600px)"
+                    imageSrcSet="small.jpg 600w, medium.jpg 1200w, large.jpg 2000w"
                 />
-                <link
-                    rel="preload"
-                    href="https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/carousel_2.jpg"
-                    as="image"
-                />
-                <link
-                    rel="preload"
-                    href="https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/carousel_3.jpg"
-                    as="image"
-                />
-                <link
-                    rel="preload"
-                    href="https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/carousel_4.jpg"
-                    as="image"
-                />
+                {/* Add preconnect to the CDN domain */}
+                <link rel="preconnect" href="https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com" />
             </Helmet>
+
             <main className="home">
                 <section className="home__hero">
                     <div className="home__hero__carousel">
+                        {/* Use CSS transforms instead of inline styles where possible */}
                         <div
                             className="home__hero__carousel__inner"
                             style={{
                                 transform: `translateX(${currentIndex * -25}%)`,
-                                transition: "transform 0.75s ease-in",
+                                transition: currentIndex !== 0 ? "transform 0.75s ease-in" : "none",
                             }}
                         >
-                            {[1, 2, 3, 4].map((number, index) => (
-                                <div className="home__hero__carousel__item" key={index}>
+                            {[1, 2, 3, 4].map((_, index) => (
+                                <div className="home__hero__carousel__item" key={`carousel-item-${index}`}>
+                                    {/* Add lazy loading and proper image attributes */}
                                     <img
                                         src={`https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/carousel_${
                                             index + 1
                                         }.jpg`}
                                         alt={`carousel_${index + 1}`}
+                                        loading={index > 0 ? "lazy" : "eager"}
+                                        width="100%"
+                                        height="auto"
+                                        decoding="async"
                                     />
 
                                     <div className="home__hero__carousel__item__overlay">
                                         <h2>
-                                            {index === 0
-                                                ? "Explore Our Latest Devices"
-                                                : index === 1
-                                                ? "Discover Our Best Sellers"
-                                                : index === 2
-                                                ? "Get Ready for Upgrades"
-                                                : "Experience the Future of Tech"}
+                                            {
+                                                [
+                                                    "Explore Our Latest Devices",
+                                                    "Discover Our Best Sellers",
+                                                    "Get Ready for Upgrades",
+                                                    "Experience the Future of Tech",
+                                                ][index]
+                                            }
                                         </h2>
                                         <p>
-                                            {index === 0
-                                                ? "Get the latest electronic devices and components at unbeatable prices"
-                                                : index === 1
-                                                ? "Check out our top-selling electronic devices and components"
-                                                : index === 2
-                                                ? "Upgrade your electronic devices and components with our latest offers"
-                                                : "Stay ahead of the curve with our latest electronic devices and components"}
+                                            {
+                                                [
+                                                    "Get the latest electronic devices and components at unbeatable prices",
+                                                    "Check out our top-selling electronic devices and components",
+                                                    "Upgrade your electronic devices and components with our latest offers",
+                                                    "Stay ahead of the curve with our latest electronic devices and components",
+                                                ][index]
+                                            }
                                         </p>
                                         <button
                                             type="button"
                                             className="home__hero__carousel__item__button"
                                             onClick={() => navigate("/shops")}
+                                            aria-label={["Shop Now", "Explore", "Upgrade Now", "Explore"][index]}
                                         >
-                                            {index === 0
-                                                ? "Shop Now"
-                                                : index === 1
-                                                ? "Explore"
-                                                : index === 2
-                                                ? "Upgrade Now"
-                                                : "Explore"}{" "}
+                                            {["Shop Now", "Explore", "Upgrade Now", "Explore"][index]}
                                             <IoArrowForward />
                                         </button>
                                     </div>
@@ -240,10 +234,18 @@ const HomePage = () => {
                             ))}
                         </div>
                         <div className="home__hero__carousel__nav">
-                            <button className="home__hero__carousel__nav__prev" onClick={handlePrev}>
+                            <button
+                                className="home__hero__carousel__nav__prev"
+                                onClick={handlePrev}
+                                aria-label="Previous slide"
+                            >
                                 &#10094;
                             </button>
-                            <button className="home__hero__carousel__nav__next" onClick={handleNext}>
+                            <button
+                                className="home__hero__carousel__nav__next"
+                                onClick={handleNext}
+                                aria-label="Next slide"
+                            >
                                 &#10095;
                             </button>
                         </div>
@@ -252,49 +254,60 @@ const HomePage = () => {
 
                 <section className="home__product">
                     <div className="home__product__header">
-                        <h3 className="home__product__header__title">All products</h3>
+                        <h2 className="home__product__header__title">All products</h2>{" "}
+                        {/* Changed to h2 for better SEO */}
                         <div>
                             <Link
                                 to="/shops"
-                                style={{
-                                    textDecoration: "none",
-                                    fontSize: "20px",
-                                }}
+                                className="view-all-link" // Move styles to CSS
+                                aria-label="View all products"
                             >
                                 View all <IoArrowForward />
                             </Link>
                         </div>
                     </div>
                     <div className="home__product__menu">
-                        {products
-                            .filter((product) => {
-                                if (uid && userRecommendations.length > 0) {
-                                    return userRecommendations.includes(product.id) && product.stock > 0;
-                                } else return product.stock > 0;
-                            })
-                            .slice(0, DISPLAYED_NUMBER)
-                            .map((product) => (
-                                <ProductItem
-                                    key={product.id}
-                                    product={product}
-                                    uid={uid || ""} // Nếu uid là null, truyền vào một chuỗi rỗng
-                                    isWishlist={wishlist.some((item) => item.product.id === product.id)}
-                                    onAddingWishlist={() => {
-                                        if (uid) {
-                                            handleAddingWishlist(uid, product.id);
-                                        } else {
-                                            addToast("Login required", "You need to login to use this feature.");
+                        {/* Memoize the filtered products if possible */}
+                        {useMemo(
+                            () =>
+                                products
+                                    .filter((product) => {
+                                        if (uid && userRecommendations.length > 0) {
+                                            return userRecommendations.includes(product.id) && product.stock > 0;
                                         }
-                                    }}
-                                    onAddingCart={() => {
-                                        if (uid) {
-                                            handleAddingCart(uid, product.id);
-                                        } else {
-                                            addToast("Login required", "You need to login to use this feature.");
-                                        }
-                                    }}
-                                />
-                            ))}
+                                        return product.stock > 0;
+                                    })
+                                    .slice(0, DISPLAYED_NUMBER)
+                                    .map((product) => (
+                                        <ProductItem
+                                            key={product.id}
+                                            product={product}
+                                            uid={uid || ""} // Nếu uid là null, truyền vào một chuỗi rỗng
+                                            isWishlist={wishlist.some((item) => item.product.id === product.id)}
+                                            onAddingWishlist={() => {
+                                                if (uid) {
+                                                    handleAddingWishlist(uid, product.id);
+                                                } else {
+                                                    addToast(
+                                                        "Login required",
+                                                        "You need to login to use this feature."
+                                                    );
+                                                }
+                                            }}
+                                            onAddingCart={() => {
+                                                if (uid) {
+                                                    handleAddingCart(uid, product.id);
+                                                } else {
+                                                    addToast(
+                                                        "Login required",
+                                                        "You need to login to use this feature."
+                                                    );
+                                                }
+                                            }}
+                                        />
+                                    )),
+                            [products, uid, userRecommendations, wishlist, DISPLAYED_NUMBER]
+                        )}
                     </div>
                 </section>
             </main>

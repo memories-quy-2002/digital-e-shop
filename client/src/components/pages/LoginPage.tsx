@@ -68,6 +68,7 @@ const LoginPage = () => {
             return;
         }
         try {
+            console.log(user);
             const userCredential = await signInWithEmailAndPassword(auth, user.email, user.password);
             const uid = userCredential.user.uid;
             const response = await axios.post("/api/users/login", {

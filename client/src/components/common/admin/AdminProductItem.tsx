@@ -1,6 +1,6 @@
 import { FaRegTrashAlt } from "react-icons/fa";
 import { Product } from "../../../utils/interface";
-
+import productPlaceholder from "../../../assets/images/product_placeholder.jpg";
 interface AdminProductItemProp {
     products: Product[];
     product: Product;
@@ -18,7 +18,7 @@ const AdminProductItem = ({ products, product, handleOpen }: AdminProductItemPro
                     src={
                         imageUrl
                             ? `https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${imageUrl}.jpg`
-                            : require("../../../assets/images/product_placeholder.jpg")
+                            : productPlaceholder
                     }
                     alt={product.name}
                     style={{

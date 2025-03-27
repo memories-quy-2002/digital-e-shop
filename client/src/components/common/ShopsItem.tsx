@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Product } from "../../utils/interface";
 import ratingStar from "../../utils/ratingStar";
 import LazyLoadImage from "../../utils/LazyLoadingImage";
+import productPlaceholder from "../../assets/images/product_placeholder.jpg";
+
 type ProductProps = {
     product: Product;
     uid: string;
@@ -27,7 +29,7 @@ const ShopsItem = ({ product, uid, isWishlist, onAddingWishlist, onAddingCart }:
                         alt={product.name}
                     />
                 ) : (
-                    <img src={require("../../assets/images/product_placeholder.jpg")} alt={product.name} />
+                    <img src={productPlaceholder} alt={product.name} />
                 )}
             </div>
 

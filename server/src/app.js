@@ -1,13 +1,16 @@
+require('dotenv').config();
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
 const db = require("./models");
 const path = require("path");
-const PORT = process.env.PORT || 4000;
-const app = express();
-const allowedOrigins = ["http://localhost:3000", "https://e-commerce-website-1-1899.vercel.app", "https://digital-e.vercel.app"];
 
+const PORT = process.env.PORT || 4000;
+
+const app = express();
+
+const allowedOrigins = ["http://localhost:3000", "https://e-commerce-website-1-1899.vercel.app", "https://digital-e.vercel.app"];
 const corsOptions = {
 	origin: function (origin, callback) {
 		if (!origin || allowedOrigins.indexOf(origin) !== -1) {
@@ -20,6 +23,7 @@ const corsOptions = {
 	allowedHeaders: ['Content-Type', 'Authorization'],
 	credentials: true,
 }
+
 /* Middleware */
 app.use(cors(corsOptions));
 app.use(bodyParser.json());

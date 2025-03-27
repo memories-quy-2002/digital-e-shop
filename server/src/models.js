@@ -11,7 +11,8 @@ const { hashPassword } = require("./utils/hashPassword");
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
-const uri = `mongodb+srv://vinhluu2608:vuongtranlinhlinh123456789@cluster0.teog563.mongodb.net/?retryWrites=true&w=majority`;
+
+const DB_URI = `mongodb+srv://vinhluu2608:vuongtranlinhlinh123456789@cluster0.teog563.mongodb.net/?retryWrites=true&w=majority`;
 
 const pool = mysql.createPool({
 	host: process.env.DB_HOST,
@@ -20,14 +21,6 @@ const pool = mysql.createPool({
 	database: process.env.DB_NAME,
 	port: process.env.DB_PORT,
 });
-
-// const pool = mysql.createPool({
-// 	host: "127.0.0.1",
-// 	user: "root",
-// 	password: "",
-// 	database: 'defaultdb',
-// 	port: 3306,
-// });
 
 pool.getConnection((err, connection) => {
 	if (err) {
@@ -897,7 +890,7 @@ const getOrderItems = (request, response) => {
 const retrieveRelevantProducts = async (request, response) => {
 	const pid = request.params.pid
 	try {
-		const client = new MongoClient(uri, { serverApi: ServerApiVersion.v1 });
+		const client = new MongoClient(DB_URI, { serverApi: ServerApiVersion.v1 });
 		await client.connect();
 		const db = client.db('e_commerce');
 		const collection = db.collection('relevant_product');

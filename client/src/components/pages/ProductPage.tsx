@@ -13,6 +13,7 @@ import { useAuth } from "../../context/AuthContext";
 import { Helmet } from "react-helmet";
 import { useLocation } from "react-router-dom";
 import LazyLoadImage from "../../utils/LazyLoadingImage";
+import productPlaceholder from "../../assets/images/product_placeholder.jpg";
 interface relevantProductsItem {
     product_id: number;
     product_name: string;
@@ -300,10 +301,7 @@ const ProductPage = () => {
                                 alt={productDetail.name}
                             />
                         ) : (
-                            <img
-                                src={require("../../assets/images/product_placeholder.jpg")}
-                                alt={productDetail.name}
-                            />
+                            <img src={productPlaceholder} alt={productDetail.name} />
                         )}
                     </div>
                     <div className="product__container__detail__main">

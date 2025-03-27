@@ -3,7 +3,7 @@ import { Button, Modal } from "react-bootstrap";
 import { IoTrashBinOutline } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import { Product } from "../../utils/interface";
-
+import productPlaceholder from "../../assets/images/product_placeholder.jpg";
 interface Item {
     id: number;
     product: Product;
@@ -37,7 +37,7 @@ const WishlistItem = ({ item, uid, onAddingCart, onRemoveWishlist }: WishlistIte
                             alt={product.name}
                         />
                     ) : (
-                        <img src={require("../../assets/images/product_placeholder.jpg")} alt={product.name} />
+                        <img src={productPlaceholder} alt={product.name} />
                     )}
                 </div>
                 <div className="wishlist__main__item__product__info">
