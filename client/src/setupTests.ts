@@ -1,11 +1,9 @@
-import "@testing-library/jest-dom/vitest"; // Already good
+import { vi } from "vitest";
 
-// Mock ResizeObserver
 class ResizeObserver {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
+    observe = vi.fn();
+    unobserve = vi.fn();
+    disconnect = vi.fn();
 }
 
-// @ts-ignore
 global.ResizeObserver = ResizeObserver;
