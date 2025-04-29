@@ -14,7 +14,6 @@ Built with **React**, **TypeScript**, **Express**, and **MySQL**, it provides a 
 - [Installation](#installation)
 - [Available Scripts](#available-scripts)
 - [Contributing](#contributing)
-- [License](#license)
 
 ---
 
