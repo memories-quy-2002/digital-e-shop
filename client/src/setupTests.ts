@@ -1,31 +1,11 @@
-// jest-dom adds custom jest matchers for asserting on DOM nodes.
-// allows you to do things like:
-// expect(element).toHaveTextContent(/react/i)
-// learn more: https://github.com/testing-library/jest-dom
-import "@testing-library/jest-dom";
-import "@testing-library/jest-dom/extend-expect";
-import { TextDecoder, TextEncoder } from "util";
-Object.assign(global, { TextDecoder, TextEncoder });
+import "@testing-library/jest-dom/vitest"; // Already good
 
-// useNavigate mocking
-jest.mock("react-router-dom", () => ({
-    ...jest.requireActual("react-router-dom"),
-    useNavigate: () => jest.fn(),
-}));
+// Mock ResizeObserver
 class ResizeObserver {
     observe() {}
     unobserve() {}
     disconnect() {}
 }
-class IntersectionObserver {
-    observe = jest.fn();
-    disconnect = jest.fn();
-    unobserve = jest.fn();
-}
-Object.defineProperty(global, "IntersectionObserver", {
-    writable: true,
-    configurable: true,
-    value: IntersectionObserver,
-});
-global.clearImmediate = jest.fn();
+
+// @ts-ignore
 global.ResizeObserver = ResizeObserver;

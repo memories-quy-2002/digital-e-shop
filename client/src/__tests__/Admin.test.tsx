@@ -7,6 +7,7 @@ import AdminProductPage from "../components/pages/admin/AdminProductPage";
 import ToastProvider from "../context/ToastContext";
 import { Product, Role } from "../utils/interface";
 import AdminOrderPage from "../components/pages/admin/AdminOrderPage";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type Order = {
     id: number;
@@ -38,12 +39,17 @@ type User = {
     created_at: Date;
 };
 
-jest.mock("../api/axios");
-jest.mock("react-router-dom", () => ({
-    ...jest.requireActual("react-router-dom"), // Nếu có các hàm khác cần giữ nguyên
-    useNavigate: jest.fn(), // Mock useNavigate
-}));
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+vi.mock("../api/axios");
+
+vi.mock("react-router-dom", async () => {
+    const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
+    return {
+        ...actual,
+        useNavigate: vi.fn(),
+    };
+});
+
+const mockedAxios = axios as vi.Mocked<typeof axios>;
 
 describe("AdminDashboard", () => {
     const mockOrders: Order[] = [
@@ -148,7 +154,7 @@ describe("AdminDashboard", () => {
         },
     ];
     beforeEach(() => {
-        jest.clearAllMocks();
+        vi.clearAllMocks();
     });
     it("should match the AdminDashboard snapshot", () => {
         const { asFragment } = render(
@@ -163,7 +169,7 @@ describe("AdminDashboard", () => {
     });
     it("should fetch and set products, orders, users, and order items", async () => {
         // Mock the API responses
-        mockedAxios.get.mockImplementation((url) => {
+        mockedAxios.get.mockImplementation((url: string) => {
             switch (url) {
                 case "/api/products/":
                     return Promise.resolve({
@@ -219,7 +225,7 @@ describe("AdminDashboard", () => {
     });
 
     it("should trigger download report on button click", async () => {
-        mockedAxios.get.mockImplementation((url) => {
+        mockedAxios.get.mockImplementation((url: string) => {
             switch (url) {
                 case "/api/products/":
                     return Promise.resolve({
@@ -246,8 +252,8 @@ describe("AdminDashboard", () => {
             }
         });
 
-        const mockCreateObjectURL = jest.fn();
-        const mockRevokeObjectURL = jest.fn();
+        const mockCreateObjectURL = vi.fn();
+        const mockRevokeObjectURL = vi.fn();
         global.URL.createObjectURL = mockCreateObjectURL;
         global.URL.revokeObjectURL = mockRevokeObjectURL;
 
@@ -349,8 +355,8 @@ describe("AdminDashboard", () => {
     });
 
     it("should navigate to AddProductPage when Add product button is clicked", async () => {
-        const mockNavigate = jest.fn();
-        (useNavigate as jest.Mock).mockReturnValue(mockNavigate);
+        const mockNavigate = vi.fn();
+        (useNavigate as vi.Mock).mockReturnValue(mockNavigate);
         render(
             <ToastProvider>
                 <MemoryRouter initialEntries={["/admin/products"]}>

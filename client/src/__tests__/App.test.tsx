@@ -1,30 +1,32 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { signOut } from "firebase/auth";
 import { BrowserRouter, MemoryRouter } from "react-router-dom";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import axios from "../api/axios";
 import AdminDashboard from "../components/pages/admin/AdminDashboard";
 import HomePage from "../components/pages/HomePage";
-import ToastProvider from "../context/ToastContext";
 import NoPage from "../components/pages/NoPage";
 import ShopsPage from "../components/pages/ShopsPage";
 import { useAuth } from "../context/AuthContext";
-import { Role } from "../utils/interface";
-import axios from "../api/axios";
-import { signOut } from "firebase/auth";
+import ToastProvider from "../context/ToastContext";
 import { auth } from "../services/firebase";
+import { Role } from "../utils/interface";
 
-jest.mock("../context/AuthContext");
-jest.mock("../api/axios");
-jest.mock("firebase/auth", () => ({
-    getAuth: jest.fn(),
-    signOut: jest.fn(),
+vi.mock("../context/AuthContext");
+vi.mock("../api/axios");
+vi.mock("firebase/auth", () => ({
+    getAuth: vi.fn(),
+    signOut: vi.fn(),
 }));
-const mockUseAuth = useAuth as jest.Mock;
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+const mockUseAuth = useAuth as unknown as vi.Mock;
+const mockedAxios = axios as vi.Mocked<typeof axios>;
 
 describe("App", () => {
     beforeEach(() => {
-        jest.clearAllMocks();
+        vi.clearAllMocks();
         mockUseAuth.mockReturnValue({
-            uid: "12345", // Mocked uid
+            uid: "12345",
             userData: {
                 id: "12345",
                 username: "customer1",
@@ -36,6 +38,7 @@ describe("App", () => {
             loading: false,
         });
     });
+
     it("matches the App snapshot", () => {
         const { asFragment } = render(
             <ToastProvider>
@@ -56,7 +59,6 @@ describe("App", () => {
             </ToastProvider>
         );
 
-        // Assert that HomePage content is displayed
         await waitFor(() => {
             expect(screen.getByText(/Explore Our Latest Devices/i)).toBeInTheDocument();
         });
@@ -69,7 +71,6 @@ describe("App", () => {
             </MemoryRouter>
         );
 
-        // Assert that NotFoundPage is rendered
         await waitFor(() => {
             expect(screen.getByText(/404 Error/i)).toBeInTheDocument();
         });
@@ -84,7 +85,7 @@ describe("App", () => {
             </ToastProvider>
         );
 
-        let link = screen.getAllByText(/Dashboard/i)[0] as HTMLAnchorElement;
+        const link = screen.getAllByText(/Dashboard/i)[0] as HTMLAnchorElement;
         expect(link).toBeInTheDocument();
         expect(screen.getByText(/Download Report/i)).toBeInTheDocument();
         expect(screen.queryByText(/Login/i)).not.toBeInTheDocument();
@@ -100,7 +101,6 @@ describe("App", () => {
             </ToastProvider>
         );
 
-        // Assert HomePage is initially displayed
         await waitFor(() => {
             expect(screen.getByText(/Explore Our Latest Devices/i)).toBeInTheDocument();
         });
@@ -108,6 +108,7 @@ describe("App", () => {
         const viewAllLink = screen.getByRole("link", { name: "View all" });
         expect(viewAllLink).toBeInTheDocument();
         expect(viewAllLink).toHaveAttribute("href", "/shops");
+
         fireEvent.click(viewAllLink);
 
         await waitFor(() => {
@@ -116,14 +117,14 @@ describe("App", () => {
     });
 
     it("should logout successfully", async () => {
-        Object.defineProperty(window, "location", {
-            configurable: true,
-            value: { reload: jest.fn() },
+        vi.stubGlobal("location", {
+            reload: vi.fn(),
         });
 
         const reloadFn = () => {
             window.location.reload();
         };
+
         mockedAxios.post.mockImplementationOnce(() => {
             return Promise.resolve({
                 status: 200,
@@ -140,6 +141,7 @@ describe("App", () => {
                 },
             });
         });
+
         render(
             <ToastProvider>
                 <MemoryRouter>
@@ -161,12 +163,10 @@ describe("App", () => {
             loading: false,
         });
 
-        // Chờ đợi và kiểm tra API gọi đúng cách
         await waitFor(() => {
             expect(mockedAxios.post).toHaveBeenCalledWith("/api/users/logout");
         });
 
-        // Kiểm tra firebase signOut được gọi
         expect(signOut).toHaveBeenCalledWith(auth);
 
         reloadFn();

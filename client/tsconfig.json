@@ -15,7 +15,7 @@
         "jsx": "react-jsx",
         "noEmit": true,
         "resolveJsonModule": true,
-        "types": ["jest", "node"]
+        "types": ["vitest"]
     },
     "include": [
         "src",
@@ -27,7 +27,8 @@
         "react-app-env.d.ts",
         "src/reportWebVitals.ts",
         "src/setupTests.ts",
-        "babel.config.json"
+        "babel.config.json",
+        "vitest.config.ts"
     ],
     "exclude": ["node_modules"]
 }
