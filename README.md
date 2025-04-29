@@ -47,25 +47,23 @@ It is engineered to support fast iteration cycles, flexible scalability, and hig
 
 ---
 
-## Installation
+# Installation
 
-Clone the repository:
+## Clone the repository:
 ```bash
 git clone https://github.com/memories-quy-2002/digital-e-shop.git
 cd digital-e-shop
 ```
 
----
-
 ## Install dependencies:
 
-# Install server dependencies
+### Install server dependencies
 ```bash
-    cd server
-    npm install
+cd server
+npm install
 ```
 
-# Install client dependencies
+### Install client dependencies
 ```bash
 cd ../client
 npm install
@@ -73,19 +71,19 @@ npm install
 
 ## Run the application locally:
 
-# Start the backend server
+### Start the backend server
 ```bash
 cd server
 npm run dev
 ```
 
-# Start the frontend client
+### Start the frontend client
 ```bash
 cd ../client
 npm start
 ```
 
-## Contributing
+# Contributing
 Contributions are highly encouraged to further innovate and expand Digital-E.
 Please open an issue to discuss proposals or submit a pull request directly.
 
