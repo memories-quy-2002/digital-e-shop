@@ -5,7 +5,6 @@
 import "@testing-library/jest-dom";
 import "@testing-library/jest-dom/extend-expect";
 import { TextDecoder, TextEncoder } from "util";
-import "text-encoding";
 Object.assign(global, { TextDecoder, TextEncoder });
 
 // useNavigate mocking
