@@ -50,38 +50,46 @@ It is engineered to support fast iteration cycles, flexible scalability, and hig
 ## Installation
 
 Clone the repository:
-
+```bash
 git clone https://github.com/memories-quy-2002/digital-e-shop.git
 cd digital-e-shop
+```
 
-## Install dependencies
+---
+
+## Install dependencies:
 
 # Install server dependencies
-cd server
-npm install
+```bash
+    cd server
+    npm install
+```
 
 # Install client dependencies
+```bash
 cd ../client
 npm install
-Run the application locally:
+```
+
+## Run the application locally:
 
 # Start the backend server
+```bash
 cd server
 npm run dev
+```
 
 # Start the frontend client
+```bash
 cd ../client
 npm start
+```
 
 ## Contributing
 Contributions are highly encouraged to further innovate and expand Digital-E.
 Please open an issue to discuss proposals or submit a pull request directly.
 
 Commit to innovation. Build with excellence.
-
-## License
-Distributed under the MIT License.
-See the LICENSE file for more information.
 
 ## Future Roadmap:
 Upcoming integrations include Stripe Payment Gateway, AWS S3 Cloud Storage for media assets, and a Progressive Web App (PWA) upgrade to enhance user accessibility and offline capabilities.
