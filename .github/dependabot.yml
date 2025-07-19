@@ -2,11 +2,10 @@ version: 2
 updates:
   # FRONTEND (React + pnpm)
   - package-ecosystem: "npm"
-    directory: "/frontend"
+    directory: "/client"
     schedule:
       interval: "weekly"
     versioning-strategy: increase
-    open-pull-requests-limit: 5
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -20,11 +19,10 @@ updates:
 
   # BACKEND (Express)
   - package-ecosystem: "npm"
-    directory: "/backend"
+    directory: "/server"
     schedule:
       interval: "weekly"
     versioning-strategy: increase
-    open-pull-requests-limit: 5
     commit-message:
       prefix: "chore"
       include: "scope"
