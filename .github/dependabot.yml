@@ -33,9 +33,3 @@ updates:
       backend-dependencies:
         patterns:
           - "*"
-
-  # GitHub Actions Workflow Updates
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
