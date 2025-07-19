@@ -3,28 +3,28 @@
 **Digital-E** is a cutting-edge, scalable e-commerce platform focused on selling electronic devices and components.  
 Built with **React**, **TypeScript**, **Express**, and **MySQL**, it provides a comprehensive, modular shopping experience optimized for future growth.
 
-> 🚀 Live Demo: [digital-e.vercel.app](https://digital-e.vercel.app)
+# 🚀 Live Demo:
+Visit Live Site: [digital-e.vercel.app](https://digital-e.vercel.app)
 
 ---
 
-## Table of Contents
+# Table of Contents
 - [Overview](#overview)
 - [Tech Stack](#tech-stack)
 - [Features](#features)
 - [Installation](#installation)
-- [Available Scripts](#available-scripts)
 - [Contributing](#contributing)
 
 ---
 
-## Overview
+# Overview
 
 Digital-E offers a seamless customer journey with a strong technical foundation.  
 It is engineered to support fast iteration cycles, flexible scalability, and high reliability for real-world deployment.
 
 ---
 
-## Tech Stack
+# Tech Stack
 
 - **Frontend**: React, TypeScript, SCSS
 - **Backend**: Node.js, Express.js
@@ -33,16 +33,16 @@ It is engineered to support fast iteration cycles, flexible scalability, and hig
 
 ---
 
-## Features
+# Features
 
-- 🔹 Secure User Authentication (Sign In / Sign Up)
-- 🔹 Product Catalog with Dynamic Filtering
-- 🔹 Shopping Cart and Checkout Process
-- 🔹 Admin Dashboard for Product Management
-- 🔹 Responsive and Mobile-First UI/UX
-- 🔹 RESTful API Communication
-- 🔹 Full Type Safety via TypeScript
-- 🔹 Deployment Ready on Vercel
+-  Secure User Authentication (Sign In / Sign Up)
+-  Product Catalog with Dynamic Filtering
+-  Shopping Cart and Checkout Process
+-  Admin Dashboard for Product Management
+-  Responsive and Mobile-First UI/UX
+-  RESTful API Communication
+-  Full Type Safety via TypeScript
+-  Deployment Ready on Vercel
 
 ---
 
@@ -56,16 +56,16 @@ cd digital-e-shop
 
 ## Install dependencies
 
+### Install client dependencies
+```bash
+cd client
+pnpm install
+```
+
 ### Install server dependencies
 ```bash
 cd server
-npm install
-```
-
-### Install client dependencies
-```bash
-cd ../client
-npm install
+pnpm install
 ```
 
 ## Run the application locally
@@ -73,13 +73,13 @@ npm install
 ### Start the backend server
 ```bash
 cd server
-npm run dev
+pnpm run dev
 ```
 
 ### Start the frontend client
 ```bash
 cd ../client
-npm start
+pnpm start
 ```
 
 # Contributing
