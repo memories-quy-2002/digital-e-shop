@@ -6,8 +6,10 @@ import AdminDashboard from "../components/pages/admin/AdminDashboard";
 import AdminProductPage from "../components/pages/admin/AdminProductPage";
 import ToastProvider from "../context/ToastContext";
 import { Product, Role } from "../utils/interface";
+import type { Mock, Mocked } from "vitest";
 import AdminOrderPage from "../components/pages/admin/AdminOrderPage";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import "@testing-library/jest-dom/vitest";
 
 type Order = {
     id: number;
@@ -49,7 +51,7 @@ vi.mock("react-router-dom", async () => {
     };
 });
 
-const mockedAxios = axios as vi.Mocked<typeof axios>;
+const mockedAxios = axios as Mocked<typeof axios>;
 
 describe("AdminDashboard", () => {
     const mockOrders: Order[] = [
@@ -220,7 +222,7 @@ describe("AdminDashboard", () => {
         expect(salesElement).toBeInTheDocument();
 
         // You can use similar checks for other elements
-        const revenueElement = await screen.findByText(/0.00/i);
+        const revenueElement = await screen.findByText(/300.00/i);
         expect(revenueElement).toBeInTheDocument();
     });
 
@@ -356,7 +358,7 @@ describe("AdminDashboard", () => {
 
     it("should navigate to AddProductPage when Add product button is clicked", async () => {
         const mockNavigate = vi.fn();
-        (useNavigate as vi.Mock).mockReturnValue(mockNavigate);
+        (useNavigate as unknown as Mock).mockReturnValue(mockNavigate);
         render(
             <ToastProvider>
                 <MemoryRouter initialEntries={["/admin/products"]}>

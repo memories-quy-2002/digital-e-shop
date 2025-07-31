@@ -1,25 +1,26 @@
+import { vi, describe, it, expect, beforeEach, afterEach, Mock } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { MemoryRouter } from "react-router-dom";
-import axios from "../api/axios"; // Import your custom Axios instance
+import axios from "../api/axios";
 import SignupPage from "../components/pages/SignupPage";
-import { auth } from "../services/firebase"; // This is the auth from your actual React code
+import { auth } from "../services/firebase";
 import { Role } from "../utils/interface";
-jest.mock("firebase/auth", () => ({
-    getAuth: jest.fn(),
-    createUserWithEmailAndPassword: jest.fn(),
+vi.mock("firebase/auth", () => ({
+    getAuth: vi.fn(),
+    createUserWithEmailAndPassword: vi.fn(),
 }));
-// Mock Axios
-jest.mock("../api/axios");
+vi.mock("../api/axios");
 
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+const mockedAxios = vi.mocked(axios);
 declare global {
     interface Performance {
-        markResourceTiming: jest.Mock<void, []>;
+        markResourceTiming: Mock;
     }
 }
 
-const handleOnSubmitMock = jest.fn();
+const handleOnSubmitMock = vi.fn();
 describe("SignupPage", () => {
     const users = {
         customer: {
@@ -39,7 +40,7 @@ describe("SignupPage", () => {
     };
 
     beforeEach(() => {
-        jest.clearAllMocks(); // Clear mocks before each test
+        vi.clearAllMocks();
     });
 
     const renderSignupPage = (user: typeof users.customer) => {
@@ -89,11 +90,11 @@ describe("SignupPage", () => {
     });
 
     it("should handle successful customer signup", async () => {
-        (createUserWithEmailAndPassword as jest.Mock).mockResolvedValue({
+        (createUserWithEmailAndPassword as Mock).mockResolvedValue({
             user: { uid: "mock-user-id" },
         });
         // Mock axios response
-        mockedAxios.post.mockImplementationOnce(() =>
+        (mockedAxios.post as Mock).mockImplementationOnce(() =>
             Promise.resolve({
                 status: 200,
                 data: { token: "customerMockedToken" },
@@ -122,10 +123,10 @@ describe("SignupPage", () => {
 
     it("should handle successful admin signup", async () => {
         // Mock axios response
-        (createUserWithEmailAndPassword as jest.Mock).mockResolvedValue({
+        (createUserWithEmailAndPassword as Mock).mockResolvedValue({
             user: { uid: "mock-user-id" },
         });
-        mockedAxios.post.mockImplementationOnce(() =>
+        (mockedAxios.post as Mock).mockImplementationOnce(() =>
             Promise.resolve({
                 status: 200,
                 data: { token: "adminMockedToken" },
@@ -150,7 +151,7 @@ describe("SignupPage", () => {
 
     it("should handle signup error", async () => {
         // Mock axios to return an error
-        mockedAxios.post.mockImplementationOnce(() =>
+        (mockedAxios.post as Mock).mockImplementationOnce(() =>
             Promise.reject({
                 status: 401,
                 data: { token: "customerMockedToken" },
@@ -176,7 +177,7 @@ describe("SignupPage", () => {
 
     it("should handle empty email", async () => {
         // Mock axios to return an error
-        mockedAxios.post.mockImplementationOnce(() =>
+        (mockedAxios.post as Mock).mockImplementationOnce(() =>
             Promise.reject({
                 status: 401,
                 data: { token: "customerMockedToken" },
@@ -198,7 +199,7 @@ describe("SignupPage", () => {
 
     it("should handle invalid email", async () => {
         // Mock axios to return an error
-        mockedAxios.post.mockImplementationOnce(() =>
+        (mockedAxios.post as Mock).mockImplementationOnce(() =>
             Promise.reject({
                 status: 401,
                 data: { token: "customerMockedToken" },
@@ -220,7 +221,7 @@ describe("SignupPage", () => {
 
     it("should handle empty password", async () => {
         // Mock axios to return an error
-        mockedAxios.post.mockImplementationOnce(() =>
+        (mockedAxios.post as Mock).mockImplementationOnce(() =>
             Promise.reject({
                 status: 401,
                 data: { token: "adminMockedToken" },

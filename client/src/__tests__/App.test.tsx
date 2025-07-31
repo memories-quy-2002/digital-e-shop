@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
 import { signOut } from "firebase/auth";
 import { BrowserRouter, MemoryRouter } from "react-router-dom";
+import type { Mock, Mocked } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import axios from "../api/axios";
 import AdminDashboard from "../components/pages/admin/AdminDashboard";
@@ -11,7 +13,6 @@ import { useAuth } from "../context/AuthContext";
 import ToastProvider from "../context/ToastContext";
 import { auth } from "../services/firebase";
 import { Role } from "../utils/interface";
-
 vi.mock("../context/AuthContext");
 vi.mock("../api/axios");
 vi.mock("firebase/auth", () => ({
@@ -19,8 +20,9 @@ vi.mock("firebase/auth", () => ({
     signOut: vi.fn(),
 }));
 
-const mockUseAuth = useAuth as unknown as vi.Mock;
-const mockedAxios = axios as vi.Mocked<typeof axios>;
+// Use Vitest's vi.Mock for type assertion
+const mockUseAuth = useAuth as unknown as Mock;
+const mockedAxios = axios as Mocked<typeof axios>;
 
 describe("App", () => {
     beforeEach(() => {
@@ -105,7 +107,7 @@ describe("App", () => {
             expect(screen.getByText(/Explore Our Latest Devices/i)).toBeInTheDocument();
         });
 
-        const viewAllLink = screen.getByRole("link", { name: "View all" });
+        const viewAllLink = screen.getByRole("link", { name: /View all/i });
         expect(viewAllLink).toBeInTheDocument();
         expect(viewAllLink).toHaveAttribute("href", "/shops");
 

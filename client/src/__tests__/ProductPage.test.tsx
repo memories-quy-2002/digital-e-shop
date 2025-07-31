@@ -1,4 +1,6 @@
+import { vi, describe, it, expect, afterEach, beforeEach, Mock, Mocked } from "vitest";
 import { render, waitFor, screen, fireEvent } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
 import ProductPage from "../components/pages/ProductPage";
 import { MemoryRouter } from "react-router-dom";
 import ToastProvider from "../context/ToastContext";
@@ -6,10 +8,10 @@ import axios from "../api/axios";
 import { Product } from "../utils/interface";
 import { useAuth } from "../context/AuthContext";
 
-jest.mock("../api/axios");
-const mockedAxios = axios as jest.Mocked<typeof axios>;
-jest.mock("../context/AuthContext", () => ({
-    useAuth: jest.fn(),
+vi.mock("../api/axios");
+const mockedAxios = vi.mocked(axios);
+vi.mock("../context/AuthContext", () => ({
+    useAuth: vi.fn(),
 }));
 describe("ProductPage", () => {
     const mockProduct: Product[] = [
@@ -72,7 +74,7 @@ describe("ProductPage", () => {
         },
     ];
     beforeEach(() => {
-        mockedAxios.get.mockImplementation((url) => {
+        (mockedAxios.get as Mock).mockImplementation((url: string) => {
             if (url === "/api/products/1") {
                 return Promise.resolve({
                     data: {
@@ -89,12 +91,7 @@ describe("ProductPage", () => {
                 status: 200,
             });
         });
-    });
-    afterEach(() => {
-        jest.clearAllMocks();
-    });
-    it("should match the ProductPage snapshot", async () => {
-        (useAuth as jest.Mock).mockReturnValue({
+        (useAuth as Mock).mockReturnValue({
             uid: "12345", // Mocked uid
             userData: null,
             loading: false,
@@ -110,7 +107,7 @@ describe("ProductPage", () => {
     });
 
     it("should render ProductPage correctly", async () => {
-        (useAuth as jest.Mock).mockReturnValue({
+        (useAuth as Mock).mockReturnValue({
             uid: "12345", // Mocked uid
             userData: null,
             loading: false,
@@ -128,7 +125,7 @@ describe("ProductPage", () => {
     });
 
     it("should handle fetching API product correctly", async () => {
-        (useAuth as jest.Mock).mockReturnValue({
+        (useAuth as Mock).mockReturnValue({
             uid: "12345", // Mocked uid
             userData: null,
             loading: false,
@@ -149,7 +146,7 @@ describe("ProductPage", () => {
     });
 
     it("should handle adding product to cart correctly", async () => {
-        mockedAxios.post.mockImplementationOnce(() => {
+        (mockedAxios.post as Mock).mockImplementationOnce(() => {
             return Promise.resolve({
                 data: {
                     msg: "Product added to cart successfully",
@@ -157,7 +154,7 @@ describe("ProductPage", () => {
                 status: 200,
             });
         });
-        (useAuth as jest.Mock).mockReturnValue({
+        (useAuth as Mock).mockReturnValue({
             uid: "12345", // Mocked uid
             userData: null,
             loading: false,
@@ -193,12 +190,12 @@ describe("ProductPage", () => {
     });
 
     it("should handle remove product to wishlist correctly", async () => {
-        (useAuth as jest.Mock).mockReturnValue({
+        (useAuth as Mock).mockReturnValue({
             uid: "12345", // Mocked uid
             userData: null,
             loading: false,
         });
-        mockedAxios.get.mockImplementation((url) => {
+        (mockedAxios as Mock).mockImplementation((url) => {
             if (url === "/api/products/1") {
                 return Promise.resolve({
                     data: {
@@ -223,7 +220,7 @@ describe("ProductPage", () => {
                 status: 204,
             });
         });
-        mockedAxios.post.mockImplementationOnce(() => {
+        (mockedAxios.post as Mock).mockImplementationOnce(() => {
             return Promise.resolve({
                 data: {
                     msg: "Product added to wishlist successfully",
@@ -270,12 +267,12 @@ describe("ProductPage", () => {
         });
     });
     it("should handle adding review correctly", async () => {
-        (useAuth as jest.Mock).mockReturnValue({
+        (useAuth as Mock).mockReturnValue({
             uid: "12345", // Mocked uid
             userData: null,
             loading: false,
         });
-        mockedAxios.get.mockImplementation((url) => {
+        (mockedAxios.get as Mock).mockImplementation((url) => {
             if (url === "/api/products/1") {
                 return Promise.resolve({
                     data: {
@@ -300,7 +297,7 @@ describe("ProductPage", () => {
                 status: 204,
             });
         });
-        mockedAxios.post.mockImplementationOnce(() => {
+        (mockedAxios.post as Mock).mockImplementationOnce(() => {
             return Promise.resolve({
                 data: {
                     msg: "Review has been submitted successfully",

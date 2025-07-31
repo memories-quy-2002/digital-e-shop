@@ -1,13 +1,15 @@
+import { vi, describe, it, expect, beforeEach, afterEach, Mock } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
 import { MemoryRouter } from "react-router-dom";
 import WishlistPage from "../components/pages/WishlistPage";
 import ToastProvider from "../context/ToastContext";
 import axios from "../api/axios";
 import { useAuth } from "../context/AuthContext";
-jest.mock("../api/axios");
-const mockedAxios = axios as jest.Mocked<typeof axios>;
-jest.mock("../context/AuthContext", () => ({
-    useAuth: jest.fn(),
+vi.mock("../api/axios");
+const mockedAxios = vi.mocked(axios);
+vi.mock("../context/AuthContext", () => ({
+    useAuth: vi.fn(),
 }));
 describe("WishlistPage", () => {
     const mockedWishlist = [
@@ -45,15 +47,15 @@ describe("WishlistPage", () => {
         },
     ];
     beforeEach(() => {
-        jest.clearAllMocks();
-        (useAuth as jest.Mock).mockReturnValue({
+        vi.clearAllMocks();
+        (useAuth as Mock).mockReturnValue({
             uid: "12345", // Mocked uid
             userData: null,
             loading: false,
         });
     });
     it("should match the WishlistPage snapshot", async () => {
-        (useAuth as jest.Mock).mockReturnValue({
+        (useAuth as Mock).mockReturnValue({
             uid: "12345", // Mocked uid
             userData: null,
             loading: false,
@@ -68,7 +70,7 @@ describe("WishlistPage", () => {
         expect(asFragment()).toMatchSnapshot();
     });
     it("should fetch wishlist and display products", async () => {
-        mockedAxios.get.mockImplementationOnce(() => {
+        (mockedAxios.get as Mock).mockImplementationOnce(() => {
             return Promise.resolve({
                 status: 200,
                 data: {
@@ -94,7 +96,7 @@ describe("WishlistPage", () => {
     });
 
     it("should show text when wishlist is empty", async () => {
-        mockedAxios.get.mockImplementationOnce(() => {
+        (mockedAxios.get as Mock).mockImplementationOnce(() => {
             return Promise.resolve({
                 status: 200,
                 data: {
@@ -122,7 +124,7 @@ describe("WishlistPage", () => {
     });
 
     it("should add product to cart when click Add to cart", async () => {
-        mockedAxios.get.mockImplementationOnce(() => {
+        (mockedAxios.get as Mock).mockImplementationOnce(() => {
             return Promise.resolve({
                 status: 200,
                 data: {
@@ -160,7 +162,7 @@ describe("WishlistPage", () => {
     });
 
     it("should remove the wishlist item correctly", async () => {
-        mockedAxios.get.mockImplementationOnce(() => {
+        (mockedAxios.get as Mock).mockImplementationOnce(() => {
             return Promise.resolve({
                 status: 200,
                 data: {

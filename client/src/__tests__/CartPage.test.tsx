@@ -1,20 +1,26 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { vi, describe, it, expect, afterEach } from "vitest";
+import "@testing-library/jest-dom/vitest";
 import { MemoryRouter, useNavigate } from "react-router-dom";
 import CartPage from "../components/pages/CartPage";
 import ToastProvider from "../context/ToastContext";
 import axios from "../api/axios";
+import type { Mock, Mocked } from "vitest";
 import { useAuth } from "../context/AuthContext";
 import CheckoutPaymentPage from "../components/pages/CheckoutPaymentPage";
 
-jest.mock("../api/axios");
-const mockedAxios = axios as jest.Mocked<typeof axios>;
-jest.mock("../context/AuthContext", () => ({
-    useAuth: jest.fn(),
+vi.mock("../api/axios");
+const mockedAxios = axios as Mocked<typeof axios>;
+vi.mock("../context/AuthContext", () => ({
+    useAuth: vi.fn(),
 }));
-jest.mock("react-router-dom", () => ({
-    ...jest.requireActual("react-router-dom"), // Nếu có các hàm khác cần giữ nguyên
-    useNavigate: jest.fn(), // Mock useNavigate
-}));
+vi.mock("react-router-dom", async () => {
+    const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
+    return {
+        ...actual,
+        useNavigate: vi.fn(), // Mock useNavigate
+    };
+});
 describe("CartPage", () => {
     const mockCartItems = [
         {
@@ -40,10 +46,10 @@ describe("CartPage", () => {
     ];
 
     afterEach(() => {
-        jest.clearAllMocks();
+        vi.clearAllMocks();
     });
     it("should match the CartPage snapshot", async () => {
-        (useAuth as jest.Mock).mockReturnValue({
+        (useAuth as Mock).mockReturnValue({
             uid: "12345", // Mocked uid
             userData: null,
             loading: false,
@@ -59,7 +65,7 @@ describe("CartPage", () => {
     });
 
     it("should render cart items correctly", () => {
-        (useAuth as jest.Mock).mockReturnValue({
+        (useAuth as Mock).mockReturnValue({
             uid: "12345", // Mocked uid
             userData: null,
             loading: false,
@@ -78,7 +84,7 @@ describe("CartPage", () => {
 
     it("should render cart items when uid is available", async () => {
         // Mock the return value of useAuth
-        (useAuth as jest.Mock).mockReturnValue({
+        (useAuth as Mock).mockReturnValue({
             uid: "12345", // Mocked uid
             userData: null,
             loading: false,
@@ -113,13 +119,13 @@ describe("CartPage", () => {
 
     it('should navigate to "/" when "Continue Shopping" button is clicked', () => {
         // Mock the navigate function
-        (useAuth as jest.Mock).mockReturnValue({
+        (useAuth as Mock).mockReturnValue({
             uid: "12345", // Mocked uid
             userData: null,
             loading: false,
         });
-        const mockNavigate = jest.fn();
-        (useNavigate as jest.Mock).mockReturnValue(mockNavigate);
+        const mockNavigate = vi.fn();
+        (useNavigate as Mock).mockReturnValue(mockNavigate);
         // Render the component
         render(
             <ToastProvider>
@@ -136,7 +142,7 @@ describe("CartPage", () => {
 
     it("should remove the product when click on Remove button", async () => {
         // Mock the navigate function
-        (useAuth as jest.Mock).mockReturnValue({
+        (useAuth as Mock).mockReturnValue({
             uid: "12345", // Mocked uid
             userData: null,
             loading: false,
@@ -175,7 +181,7 @@ describe("CartPage", () => {
     it("should apply discount correctly", async () => {
         // Mock the navigate function
         const couponCode = "SUMMER10";
-        (useAuth as jest.Mock).mockReturnValue({
+        (useAuth as Mock).mockReturnValue({
             uid: "12345", // Mocked uid
             userData: null,
             loading: false,
@@ -222,7 +228,7 @@ describe("CartPage", () => {
     });
 
     it("should handle discount not found", async () => {
-        (useAuth as jest.Mock).mockReturnValue({
+        (useAuth as Mock).mockReturnValue({
             uid: "12345", // Mocked uid
             userData: null,
             loading: false,
@@ -269,7 +275,7 @@ describe("CartPage", () => {
 
     it("should navigate checkout page when click Make purchase", async () => {
         // Mock the navigate function
-        (useAuth as jest.Mock).mockReturnValue({
+        (useAuth as Mock).mockReturnValue({
             uid: "12345", // Mocked uid
             userData: null,
             loading: false,

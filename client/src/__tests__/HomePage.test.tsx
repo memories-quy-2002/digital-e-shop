@@ -1,4 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { vi, describe, it, expect, afterEach } from "vitest";
+import "@testing-library/jest-dom/vitest";
 import { BrowserRouter, MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import axios from "../api/axios";
 import HomePage from "../components/pages/HomePage";
@@ -6,15 +8,19 @@ import LoginPage from "../components/pages/LoginPage";
 import ShopsPage from "../components/pages/ShopsPage";
 import ToastProvider from "../context/ToastContext";
 import { Product } from "../utils/interface";
+import type { Mock, Mocked } from "vitest";
 import ProductPage from "../components/pages/ProductPage";
 
-const mockedUsedNavigate = jest.fn();
-jest.mock("react-router-dom", () => ({
-    ...jest.requireActual("react-router-dom"),
-    useNavigate: () => mockedUsedNavigate,
-}));
-jest.mock("../api/axios");
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+const mockedUsedNavigate = vi.fn();
+vi.mock("react-router-dom", async () => {
+    const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
+    return {
+        ...actual,
+        useNavigate: () => mockedUsedNavigate,
+    };
+});
+vi.mock("../api/axios");
+const mockedAxios = vi.mocked(axios);
 
 const LocationDisplay = () => {
     const location = useLocation();
@@ -72,7 +78,7 @@ const mockProducts: Product[] = [
 
 describe("HomePage", () => {
     afterEach(() => {
-        jest.clearAllMocks();
+        vi.clearAllMocks();
     });
     it("should match the HomePage snapshot", () => {
         const { asFragment } = render(
@@ -98,7 +104,7 @@ describe("HomePage", () => {
             </ToastProvider>
         );
 
-        const viewAllLink = screen.getByRole("link", { name: "View all" });
+        const viewAllLink = screen.getByRole("link", { name: /View all/i });
         expect(viewAllLink).toBeInTheDocument();
         expect(viewAllLink).toHaveAttribute("href", "/shops");
         fireEvent.click(viewAllLink);
@@ -110,7 +116,7 @@ describe("HomePage", () => {
     });
 
     it("should handle list of empty product when not handle API", async () => {
-        mockedAxios.get.mockImplementationOnce(() => {
+        (mockedAxios.get as Mock).mockImplementationOnce(() => {
             return Promise.resolve({
                 data: {
                     products: [],
@@ -118,6 +124,7 @@ describe("HomePage", () => {
                 status: 200,
             });
         });
+
         render(
             <ToastProvider>
                 <MemoryRouter>
@@ -134,7 +141,7 @@ describe("HomePage", () => {
     });
 
     it("should handle list of product when fetching API", async () => {
-        mockedAxios.get.mockImplementationOnce(() => {
+        (mockedAxios.get as Mock).mockImplementationOnce(() => {
             return Promise.resolve({
                 data: {
                     products: mockProducts,
@@ -158,12 +165,14 @@ describe("HomePage", () => {
             const addToCartButton = screen.getAllByText("Add to cart")[0];
             expect(addToCartButton).toBeInTheDocument();
         });
-        expect(screen.getByText("Apple")).toBeInTheDocument();
-        expect(screen.getByText("Gucci")).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByText("Apple")).toBeInTheDocument();
+            expect(screen.getByText("Gucci")).toBeInTheDocument();
+        });
     });
 
     it("should navigate to product details page when a product is clicked", async () => {
-        mockedAxios.get.mockImplementationOnce(() => {
+        (mockedAxios.get as Mock).mockImplementationOnce(() => {
             return Promise.resolve({
                 data: {
                     products: mockProducts,

@@ -1,13 +1,14 @@
+import { vi, describe, it, expect, afterEach, Mock } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
 import { MemoryRouter } from "react-router-dom";
-import axios from "../api/axios"; // Import your custom Axios instance
-import ShopsPage from "../components/pages/ShopsPage"; // Adjust based on your project structure
+import axios from "../api/axios";
+import ShopsPage from "../components/pages/ShopsPage";
 import ToastProvider from "../context/ToastContext";
 import { Product } from "../utils/interface";
 
-// Mock Axios
-jest.mock("../api/axios");
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+vi.mock("../api/axios");
+const mockedAxios = vi.mocked(axios);
 
 describe("ShopsPage", () => {
     const products: Product[] = [
@@ -59,7 +60,7 @@ describe("ShopsPage", () => {
     ];
 
     afterEach(() => {
-        jest.clearAllMocks();
+        vi.clearAllMocks();
     });
 
     it("matches the ShopsPage snapshot", async () => {
@@ -74,7 +75,7 @@ describe("ShopsPage", () => {
     });
 
     it("renders the shops page with products", async () => {
-        mockedAxios.get.mockImplementationOnce(() => {
+        (mockedAxios.get as Mock).mockImplementationOnce(() => {
             return Promise.resolve({
                 data: { products, msg: "Products are fetched successfully" },
                 status: 200,
@@ -116,7 +117,7 @@ describe("ShopsPage", () => {
     });
 
     it("renders the shops page with products filtered by search terms", async () => {
-        mockedAxios.get.mockImplementationOnce(() => {
+        (mockedAxios.get as Mock).mockImplementationOnce(() => {
             return Promise.resolve({
                 data: { products, msg: "Products are fetched successfully" },
                 status: 200,
@@ -146,7 +147,7 @@ describe("ShopsPage", () => {
     });
 
     it("renders the shops page with no products matched filters by term", async () => {
-        mockedAxios.get.mockImplementationOnce(() => {
+        (mockedAxios.get as Mock).mockImplementationOnce(() => {
             return Promise.resolve({
                 data: { products, msg: "Products are fetched successfully" },
                 status: 200,
@@ -181,7 +182,7 @@ describe("ShopsPage", () => {
     });
 
     it("renders the shops page with products filtered by checkbox", async () => {
-        mockedAxios.get.mockImplementationOnce(() => {
+        (mockedAxios.get as Mock).mockImplementationOnce(() => {
             return Promise.resolve({
                 data: { products, msg: "Products are fetched successfully" },
                 status: 200,
