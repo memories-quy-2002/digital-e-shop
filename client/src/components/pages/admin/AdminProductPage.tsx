@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Button, Modal, Table } from "react-bootstrap";
 import ReactPaginate from "react-paginate";
 import { useNavigate } from "react-router-dom";
@@ -8,6 +8,7 @@ import AdminLayout from "../../layout/AdminLayout";
 import AdminProductItem from "../../common/admin/AdminProductItem";
 
 const ITEMS_PER_PAGE = 5;
+const LAZY_LOAD_BATCH = 10; // Number of products to load per batch
 
 const AdminProductPage = () => {
     const navigate = useNavigate();
@@ -17,8 +18,12 @@ const AdminProductPage = () => {
     const [filteredProducts, setFilteredProducts] = useState<Product[]>(products);
     const [show, setShow] = useState<boolean>(false);
     const [pid, setPid] = useState<number>(0);
+    const [visibleCount, setVisibleCount] = useState(LAZY_LOAD_BATCH);
+    const observer = useRef<IntersectionObserver | null>(null);
+    const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
     const endOffset = itemOffset + ITEMS_PER_PAGE;
-    const currentProducts = filteredProducts.slice(itemOffset, endOffset);
+    const currentProducts = filteredProducts.slice(itemOffset, Math.min(endOffset, visibleCount));
     const pageCount = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
 
     // Handle search input change
@@ -50,28 +55,25 @@ const AdminProductPage = () => {
         }
     };
 
-    // Filter products based on the search term
-
     const handlePageClick = (event: any) => {
         const newOffset = (event.selected * ITEMS_PER_PAGE) % products.length;
-        console.log(`User requested page number ${event.selected}, which is offset ${newOffset}`);
         setItemOffset(newOffset);
     };
+
     useEffect(() => {
         const fetchProducts = async () => {
             try {
                 const response = await axios.get("/api/products");
                 if (response.status === 200) {
                     setProducts(response.data.products.sort((a: Product, b: Product) => a.id - b.id));
-                    console.log(response.data.msg);
                 }
             } catch (err) {
                 console.error(err);
             }
         };
         fetchProducts();
-        return () => {};
     }, []);
+
     useEffect(() => {
         const filtered = products.filter((product) => {
             const lowerSearchTerm = searchTerm.toLowerCase();
@@ -83,11 +85,48 @@ const AdminProductPage = () => {
             );
         });
         setFilteredProducts(filtered);
-        return () => {};
+        setVisibleCount(LAZY_LOAD_BATCH); // Reset lazy load on search
     }, [searchTerm, products]);
+
+    // Lazy loading: load more products when the user scrolls to the bottom
+    const loadMore = useCallback(() => {
+        setVisibleCount((prev) => Math.min(prev + LAZY_LOAD_BATCH, filteredProducts.length));
+    }, [filteredProducts.length]);
+
+    useEffect(() => {
+        if (!loadMoreRef.current) return;
+        if (observer.current) observer.current.disconnect();
+
+        observer.current = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting && visibleCount < filteredProducts.length) {
+                loadMore();
+            }
+        });
+
+        observer.current.observe(loadMoreRef.current);
+
+        return () => {
+            if (observer.current) observer.current.disconnect();
+        };
+    }, [loadMore, visibleCount, filteredProducts.length]);
+
     return (
         <AdminLayout>
             <div className="admin__product">
+                <section className="admin__dashboard-summary" style={{ marginBottom: 24 }}>
+                    <h4>Product Summary</h4>
+                    <ul>
+                        <li>
+                            <strong>Total Products:</strong> {products.length}
+                        </li>
+                        <li>
+                            <strong>Visible (filtered):</strong> {filteredProducts.length}
+                        </li>
+                        <li>
+                            <strong>Search:</strong> {searchTerm || "All"}
+                        </li>
+                    </ul>
+                </section>
                 <div className="admin__product__list">
                     <div className="admin__product__list__search">
                         <div>
@@ -149,6 +188,8 @@ const AdminProductPage = () => {
                                 renderOnZeroPageCount={null}
                             />
                         </div>
+                        {/* Lazy load trigger */}
+                        <div ref={loadMoreRef} style={{ height: 1 }} />
                         <Modal show={show} onHide={handleClose} animation={false}>
                             <Modal.Header closeButton>
                                 <Modal.Title>Purchase Confirmation</Modal.Title>

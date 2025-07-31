@@ -25,15 +25,15 @@ const AdminHeader = () => {
     const handleLogout = async () => {
         try {
             const response = await axios.post("/api/users/logout");
-            if (response.status === 200) {
-                sessionStorage.removeItem("rememberMe");
-                cookies.remove("rememberMe");
-                await signOut(auth);
-                addToast("Logout successfully", response.data.msg);
-                navigate("/login");
-            }
+            sessionStorage.removeItem("rememberMe");
+            cookies.remove("rememberMe");
+            await signOut(auth);
+            addToast("Logout successfully", response.data?.msg || "Logged out");
         } catch (err) {
-            throw err;
+            // Optionally show an error toast
+            addToast("Logout", "You have been logged out.");
+        } finally {
+            navigate("/login");
         }
     };
 

@@ -80,6 +80,20 @@ const AdminAccountPage = () => {
     return (
         <AdminLayout>
             <main className="admin__account">
+                <section className="admin__dashboard-summary" style={{ marginBottom: 24 }}>
+                    <h4>Account Summary</h4>
+                    <ul>
+                        <li>
+                            <strong>Total Accounts:</strong> {accounts.length}
+                        </li>
+                        <li>
+                            <strong>Visible (filtered):</strong> {filteredAccounts.length}
+                        </li>
+                        <li>
+                            <strong>Search:</strong> {searchTerm || "All"}
+                        </li>
+                    </ul>
+                </section>
                 <div className="admin__account__list">
                     <section className="admin__account__list__search">
                         <div>

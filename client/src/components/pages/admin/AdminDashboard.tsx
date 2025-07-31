@@ -170,7 +170,6 @@ const AdminDashboard = () => {
         const monthlyRevenueMap: { [key: string]: number } = {};
         const currentDate = new Date();
 
-        // Khởi tạo doanh thu cho 6 tháng gần đây nhất
         for (let i = 5; i >= 0; i--) {
             const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
             const month = date.toLocaleString("default", { month: "long" });
@@ -179,7 +178,6 @@ const AdminDashboard = () => {
             monthlyRevenueMap[monthKey] = 0;
         }
 
-        // Tính doanh thu theo từng tháng từ dữ liệu orders
         orders.forEach((order) => {
             const date = new Date(order.date_added);
             const month = date.toLocaleString("default", { month: "long" });
@@ -191,7 +189,6 @@ const AdminDashboard = () => {
             }
         });
 
-        // Tạo mảng MonthlyRevenue từ map
         return Object.entries(monthlyRevenueMap).map(([name, revenue]) => ({
             name,
             revenue: parseFloat(revenue.toFixed(2)),
@@ -199,18 +196,15 @@ const AdminDashboard = () => {
     };
 
     const getTopRevenueProducts = (order_items: OrderItem[]) => {
-        // Bước 1: Tính tổng revenue cho mỗi product dựa trên 'name'
         const revenueMap: {
             [key: string]: { name: string; sales: number; revenue: number };
         } = {};
 
         order_items.forEach((item) => {
             if (revenueMap[item.name]) {
-                // Nếu sản phẩm đã tồn tại, cộng dồn sales và revenue
                 revenueMap[item.name].sales += item.sales;
                 revenueMap[item.name].revenue += item.revenue;
             } else {
-                // Nếu sản phẩm chưa tồn tại, thêm mới với sales và revenue ban đầu
                 revenueMap[item.name] = {
                     name: item.name,
                     sales: item.sales,
@@ -219,7 +213,6 @@ const AdminDashboard = () => {
             }
         });
 
-        // Bước 2: Chuyển revenueMap thành mảng và sắp xếp theo revenue giảm dần
         const sortedItems = Object.values(revenueMap).sort((a, b) => b.revenue - a.revenue);
 
         return sortedItems;
@@ -277,19 +270,46 @@ const AdminDashboard = () => {
     const topRevenueProducts = getTopRevenueProducts(orderItems);
     return (
         <AdminLayout>
-            {" "}
             <main className="admin__dashboard">
                 <section className="admin__dashboard-header">
-                    <h2>Dashboard</h2>
+                    <h2>📊 Admin Dashboard Overview</h2>
+                    <p style={{ color: "#555", marginBottom: 8 }}>
+                        Welcome! Here is a summary of your store's performance and key metrics for the last 6 months.
+                    </p>
                     <button className="btn btn-dark" onClick={handleDownloadReport}>
-                        Download Report
+                        Download Detailed Report
                     </button>
                 </section>
+
+                <section className="admin__dashboard-summary" style={{ marginBottom: 24 }}>
+                    <h4>Summary (This Month)</h4>
+                    <ul style={{ display: "flex", flexWrap: "wrap", gap: "2rem", listStyle: "none", padding: 0 }}>
+                        <li>
+                            <strong>Sales:</strong> {getMonthlySales(orders, orderItems)[5].sales}
+                        </li>
+                        <li>
+                            <strong>Revenue:</strong> ${getMonthlyRevenues(orders)[5].revenue.toFixed(2)}
+                        </li>
+                        <li>
+                            <strong>Products:</strong> {products.length}
+                        </li>
+                        <li>
+                            <strong>Users:</strong> {users.length}
+                        </li>
+                        <li>
+                            <strong>Orders:</strong> {orders.length}
+                        </li>
+                        <li>
+                            <strong>Top Product:</strong> {topRevenueProducts[0]?.name || "N/A"}
+                        </li>
+                    </ul>
+                </section>
+
                 <section className="admin__dashboard-cards">
                     <Card
                         title="Sales"
                         value={getMonthlySales(orders, orderItems)[5].sales}
-                        description="Total for this month"
+                        description="Total sales this month"
                         bgColor="purple"
                         percentage={salesPercentageChange}
                         icon={<FaShoppingCart />}
@@ -297,7 +317,7 @@ const AdminDashboard = () => {
                     <Card
                         title="Revenue"
                         value={"$" + getMonthlyRevenues(orders)[5].revenue.toFixed(2)}
-                        description="Total for this month"
+                        description="Total revenue this month"
                         bgColor="darkblue"
                         percentage={revenuePercentageChange}
                         icon={<FaMoneyBill />}
@@ -305,15 +325,22 @@ const AdminDashboard = () => {
                     <Card
                         title="Products"
                         value={products.length}
-                        description="Total"
+                        description="Total products in store"
                         bgColor="green"
                         icon={<FaBox />}
                     />
-                    <Card title="Users" value={users.length} description="Total" bgColor="blue" icon={<FaUser />} />
+                    <Card
+                        title="Users"
+                        value={users.length}
+                        description="Total registered users"
+                        bgColor="blue"
+                        icon={<FaUser />}
+                    />
                 </section>
+
                 <section className="admin__dashboard-chart">
-                    <div style={{ flex: 1 }}>
-                        <h3>Sales Over Time</h3>
+                    <div style={{ flex: 1, marginRight: 24 }}>
+                        <h3>📈 Sales Over Time (Last 6 Months)</h3>
                         <ResponsiveContainer width="100%" height={300}>
                             <LineChart data={getMonthlySales(orders, orderItems)}>
                                 <CartesianGrid strokeDasharray="3 3" />
@@ -326,7 +353,7 @@ const AdminDashboard = () => {
                         </ResponsiveContainer>
                     </div>
                     <div style={{ flex: 1 }}>
-                        <h3>Revenue Over Time</h3>
+                        <h3>💰 Revenue Over Time (Last 6 Months)</h3>
                         <ResponsiveContainer width="100%" height={300}>
                             <LineChart data={getMonthlyRevenues(orders)}>
                                 <CartesianGrid strokeDasharray="3 3" />
@@ -334,13 +361,14 @@ const AdminDashboard = () => {
                                 <YAxis />
                                 <Tooltip />
                                 <Legend />
-                                <Line type="monotone" dataKey="revenue" stroke="#8884d8" activeDot={{ r: 8 }} />
+                                <Line type="monotone" dataKey="revenue" stroke="#82ca9d" activeDot={{ r: 8 }} />
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
                 </section>
+
                 <section className="admin__dashboard-table">
-                    <h3>Top-selling products</h3>
+                    <h3>🏆 Top 10 Best-Selling Products (All Time)</h3>
                     <Table responsive striped borderless hover>
                         <thead>
                             <tr>
@@ -348,15 +376,17 @@ const AdminDashboard = () => {
                                 <th>Name</th>
                                 <th>Sales</th>
                                 <th>Revenue</th>
+                                <th>Avg. Price</th>
                             </tr>
                         </thead>
                         <tbody>
                             {topRevenueProducts.slice(0, 10).map((product, index) => (
                                 <tr key={index}>
                                     <td width="50px">{index + 1}</td>
-                                    <td width="500px">{product.name}</td>
-                                    <td width="150px">{product.sales}</td>
+                                    <td width="350px">{product.name}</td>
+                                    <td width="120px">{product.sales}</td>
                                     <td width="150px">${product.revenue.toFixed(2)}</td>
+                                    <td width="120px">${(product.revenue / (product.sales || 1)).toFixed(2)}</td>
                                 </tr>
                             ))}
                         </tbody>

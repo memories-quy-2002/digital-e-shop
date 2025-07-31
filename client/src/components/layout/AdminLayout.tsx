@@ -7,7 +7,7 @@ interface LayoutProps {
     children: React.ReactNode;
 }
 
-const AdminLayout: React.FC<LayoutProps> = ({ children }) => {
+function AdminLayout({ children }: LayoutProps) {
     return (
         <div className="admin">
             <div className="admin__layout">
@@ -19,6 +19,6 @@ const AdminLayout: React.FC<LayoutProps> = ({ children }) => {
             </div>
         </div>
     );
-};
+}
 
 export default AdminLayout;

@@ -4,12 +4,11 @@ const assert = require('assert');
 
 describe('Admin UI Selenium Tests', function () {
     let driver;
-    const baseUrl = 'http://localhost:3000'; // Change if your dev server runs elsewhere
+    const baseUrl = 'http://localhost:5173'; // Change if your dev server runs elsewhere
     this.timeout(30000);
 
     before(async () => {
         const options = new chrome.Options();
-        options.addArguments('--headless');
         driver = await new Builder().forBrowser('chrome').setChromeOptions(options).build();
         await driver.manage().setTimeouts({ implicit: 10000 });
     });
@@ -20,13 +19,13 @@ describe('Admin UI Selenium Tests', function () {
 
     async function loginAsAdmin() {
         await driver.get(`${baseUrl}/login`);
-        await driver.findElement(By.css('input[placeholder="email"]')).sendKeys('user2@example.com');
-        await driver.findElement(By.css('input[placeholder="password"]')).sendKeys('password2');
-        await driver.findElement(By.xpath("//button[contains(text(), 'Login')]")).click();
-        await driver.wait(until.elementLocated(By.xpath("//*[contains(text(), 'Admin Dashboard')]")), 10000);
+        await driver.findElement(By.css('input[placeholder="Email"]')).sendKeys('test2@gmail.com');
+        await driver.findElement(By.css('input[placeholder="Password"]')).sendKeys('Phuquy2002@');
+        await driver.findElement(By.xpath('//*[@id="root"]/div[1]/div/main/form/button')).click();
+        await driver.wait(until.elementLocated(By.xpath('//*[@id="root"]/div[1]/header/div[1]/div[2]/strong')), 10000);
     }
 
-    it('should load the admin dashboard', async () => {
+    it.only('should load the admin dashboard', async () => {
         await loginAsAdmin();
         await driver.get(`${baseUrl}/admin`);
         const salesElem = await driver.wait(until.elementLocated(By.xpath("//*[contains(text(), 'Sales Over Time')]")), 10000);

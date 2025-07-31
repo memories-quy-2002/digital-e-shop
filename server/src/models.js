@@ -31,25 +31,24 @@ pool.getConnection((err, connection) => {
 	connection.release();
 });
 
-const startSession = async (userId) => {
-	try {
+const startSession = (userId) => {
+	return new Promise((resolve, reject) => {
 		const sessionStart = new Date();
 		const sessionMonth = sessionStart.getMonth() + 1; // Month (1-12)
 		const sessionYear = sessionStart.getFullYear(); // Year
-		await pool.query(`
-            INSERT INTO customer_sessions (user_id, session_start, session_month, session_year)
-            VALUES (?, ?, ?, ?)
-        `, [userId, sessionStart, sessionMonth, sessionYear], (error, results) => {
-			if (error) {
-				console.error(error.message);
-
+		pool.query(
+			`INSERT INTO customer_sessions (user_id, session_start, session_month, session_year) VALUES (?, ?, ?, ?)`,
+			[userId, sessionStart, sessionMonth, sessionYear],
+			(error, results) => {
+				if (error) {
+					console.error(error.message);
+					return reject(error);
+				}
+				// MySQL returns the insertId for the new row
+				resolve(results.insertId);
 			}
-			return results.insertId;
-		});
-	}
-	catch (err) {
-		console.error(err);
-	}
+		);
+	});
 };
 
 const verifySessionToken = (request) => {
@@ -128,7 +127,7 @@ const userLogin = (request, response) => {
 			const sessionId = await startSession(userId);
 			pool.query("UPDATE users SET last_login=CURRENT_TIMESTAMP WHERE id=?", [userId]);
 
-			// Gửi cookies đến client
+			// Set cookies with the correct sessionId
 			response.cookie("session", sessionId, {
 				httpOnly: true,
 				secure: true,
@@ -194,53 +193,66 @@ const userLogout = (request, response) => {
 	try {
 		const sessionEnd = new Date();
 		console.log('Cookies before logout:', request.cookies);
-		// Calculate session duration
+
+		// Always clear cookies, even if session is not found
+		const clearAllCookies = () => {
+			response.clearCookie('session', {
+				httpOnly: true,
+				secure: process.env.NODE_ENV === 'production',
+				sameSite: 'None',
+			});
+			response.clearCookie('userInfo', {
+				httpOnly: true,
+				secure: process.env.NODE_ENV === 'production',
+				sameSite: 'None',
+			});
+			if (request.cookies.rememberMe) {
+				response.clearCookie('rememberMe', {
+					httpOnly: true,
+					secure: process.env.NODE_ENV === 'production',
+					sameSite: 'None',
+				});
+			}
+		};
+
+		if (!sessionId || sessionId === 'undefined') {
+			clearAllCookies();
+			return response.status(200).json({ msg: "You have been logout successfully (no session)" });
+		}
+
 		pool.query(`SELECT session_start FROM customer_sessions WHERE id = ?`, [sessionId], (error, results) => {
-			var session_start = results[0].session_start;
+			if (error) {
+				console.error(error.message);
+				clearAllCookies();
+				return response.status(500).json({ msg: "Internal server error" });
+			}
+			if (!results || results.length === 0 || !results[0].session_start) {
+				clearAllCookies();
+				return response.status(200).json({ msg: "You have been logout successfully (session not found)" });
+			}
+			const session_start = results[0].session_start;
 			const sessionDuration = Math.floor((sessionEnd - new Date(session_start)) / 1000);
 			pool.query(`
 				UPDATE customer_sessions
 				SET session_end = ?, session_duration = ?
 				WHERE id = ?
 			`, [sessionEnd, sessionDuration, parseInt(sessionId)], async (error, results) => {
+				clearAllCookies();
 				if (error) {
 					console.error(error.message);
 					return response.status(500).json({ msg: "Internal server error" });
 				} else {
-					await response.clearCookie('session', {
-						httpOnly: true,
-						secure: process.env.NODE_ENV === 'production',
-						sameSite: 'None',
-					});
-
-					// Xóa cookie 'userInfo'
-					await response.clearCookie('userInfo', {
-						httpOnly: true,
-						secure: process.env.NODE_ENV === 'production',
-						sameSite: 'None',
-					});
-
-					// Xóa cookie 'rememberMe' (nếu có)
-					if (request.cookies.rememberMe) {
-						response.clearCookie('rememberMe', {
-							httpOnly: true,
-							secure: process.env.NODE_ENV === 'production',
-							sameSite: 'None',
-						});
-					}
 					console.log('Cookies after logout:', request.cookies);
 					response.status(200).json({
 						msg: "You have been logout successfully"
-					})
+					});
 				}
-			})
-		})
-
+			});
+		});
 	} catch (err) {
 		console.error(err);
 		return response.status(500).json({ msg: "Internal server error" });
 	}
-
 }
 
 const addUser = async (request, response) => {
@@ -641,8 +653,8 @@ const addItemToCart = (request, response) => {
 						cartId = results[0].id;
 						pool.query(
 							`INSERT INTO cart_items (cart_id, product_id, quantity)
-                            VALUES (?, ?, ?)
-                            ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity);`,
+							VALUES (?, ?, ?)
+							ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity);`,
 							[cartId, pid, quantity],
 							(error, results) => {
 								if (error) {

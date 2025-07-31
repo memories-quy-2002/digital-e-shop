@@ -89,6 +89,29 @@ const AdminOrderPage = () => {
     return (
         <AdminLayout>
             <div className="admin__order">
+                <section className="admin__dashboard-summary" style={{ marginBottom: 24 }}>
+                    <h4>Order Summary</h4>
+                    <ul>
+                        <li>
+                            <strong>Total Orders:</strong> {orders.length}
+                        </li>
+                        <li>
+                            <strong>Visible (filtered):</strong> {filteredOrders.length}
+                        </li>
+                        <li>
+                            <strong>Pending:</strong> {orders.filter((o) => o.status === 0).length}
+                        </li>
+                        <li>
+                            <strong>Done:</strong> {orders.filter((o) => o.status === 1).length}
+                        </li>
+                        <li>
+                            <strong>Canceled:</strong> {orders.filter((o) => o.status === 2).length}
+                        </li>
+                        <li>
+                            <strong>Search:</strong> {searchTerm || "All"}
+                        </li>
+                    </ul>
+                </section>
                 <div className="admin__order__list">
                     <div className="admin__order__list__search">
                         <div>

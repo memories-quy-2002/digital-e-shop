@@ -12,15 +12,6 @@ const app = express();
 
 const rateLimit = require('express-rate-limit');
 
-const apiLimiter = rateLimit({
-	windowMs: 15 * 60 * 1000, // 15 minutes
-	max: 100, // Limit each IP to 100 requests per windowMs
-	standardHeaders: true,
-	legacyHeaders: false,
-	message: 'Too many requests from this IP, please try again later.'
-});
-
-app.use('/api/', apiLimiter); // Apply to all /api/ routes
 
 const allowedOrigins = [
 	"http://localhost:5173",
@@ -42,8 +33,18 @@ const corsOptions = {
 	credentials: true,
 };
 
-/* Middleware */
+// CORS must be the first middleware
 app.use(cors(corsOptions));
+
+const apiLimiter = rateLimit({
+	windowMs: 15 * 60 * 1000, // 15 minutes
+	max: 1000, // Limit each IP to 100 requests per windowMs
+	standardHeaders: true,
+	legacyHeaders: false,
+	message: 'Too many requests from this IP, please try again later.'
+});
+app.use('/api/', apiLimiter); // Apply to all /api/ routes
+
 app.use(bodyParser.json());
 app.use(cookieParser());
 
@@ -56,7 +57,7 @@ const asyncHandler = fn => (req, res, next) => {
 // User
 app.get("/api/session/check", asyncHandler(db.checkSessionToken));
 app.get("/api/users/:id", asyncHandler(db.getUserLoginById));
-app.post("/api/users/login", cors(corsOptions), asyncHandler(db.userLogin));
+app.post("/api/users/login", asyncHandler(db.userLogin));
 app.post("/api/users/logout", asyncHandler(db.userLogout));
 app.get("/api/users", asyncHandler(db.getAllUsers));
 app.post("/api/users", asyncHandler(db.addUser));
@@ -83,7 +84,7 @@ app.get("/api/cart/:uid", asyncHandler(db.getCartItems));
 app.post("/api/cart/delete", asyncHandler(db.deleteCartItem));
 
 // Purchase
-app.post("/api/purchase/:uid", cors(corsOptions), asyncHandler(db.makePurchase));
+app.post("/api/purchase/:uid", asyncHandler(db.makePurchase));
 app.get("/api/orders", asyncHandler(db.getOrders));
 app.post("/api/orders/status/:oid", asyncHandler(db.changeOrderStatus));
 app.get("/api/orders/item", asyncHandler(db.getOrderItems));
