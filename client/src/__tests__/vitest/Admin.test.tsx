@@ -1,13 +1,13 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, useNavigate } from "react-router-dom";
-import axios from "../api/axios";
-import AdminAddProductPage from "../components/pages/admin/AdminAddProductPage";
-import AdminDashboard from "../components/pages/admin/AdminDashboard";
-import AdminProductPage from "../components/pages/admin/AdminProductPage";
-import ToastProvider from "../context/ToastContext";
-import { Product, Role } from "../utils/interface";
+import axios from "../../api/axios";
+import AdminAddProductPage from "../../components/pages/admin/AdminAddProductPage";
+import AdminDashboard from "../../components/pages/admin/AdminDashboard";
+import AdminProductPage from "../../components/pages/admin/AdminProductPage";
+import ToastProvider from "../../context/ToastContext";
+import { Product, Role } from "../../utils/interface";
 import type { Mock, Mocked } from "vitest";
-import AdminOrderPage from "../components/pages/admin/AdminOrderPage";
+import AdminOrderPage from "../../components/pages/admin/AdminOrderPage";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 

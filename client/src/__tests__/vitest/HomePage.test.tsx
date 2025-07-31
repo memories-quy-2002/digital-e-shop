@@ -2,14 +2,14 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { vi, describe, it, expect, afterEach } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import { BrowserRouter, MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import axios from "../api/axios";
-import HomePage from "../components/pages/HomePage";
-import LoginPage from "../components/pages/LoginPage";
-import ShopsPage from "../components/pages/ShopsPage";
-import ToastProvider from "../context/ToastContext";
-import { Product } from "../utils/interface";
+import axios from "../../api/axios";
+import HomePage from "../../components/pages/HomePage";
+import LoginPage from "../../components/pages/LoginPage";
+import ShopsPage from "../../components/pages/ShopsPage";
+import ToastProvider from "../../context/ToastContext";
+import { Product } from "../../utils/interface";
 import type { Mock, Mocked } from "vitest";
-import ProductPage from "../components/pages/ProductPage";
+import ProductPage from "../../components/pages/ProductPage";
 
 const mockedUsedNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {

@@ -2,10 +2,10 @@ import { vi, describe, it, expect, afterEach, Mock } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { MemoryRouter } from "react-router-dom";
-import axios from "../api/axios";
-import ShopsPage from "../components/pages/ShopsPage";
-import ToastProvider from "../context/ToastContext";
-import { Product } from "../utils/interface";
+import axios from "../../api/axios";
+import ShopsPage from "../../components/pages/ShopsPage";
+import ToastProvider from "../../context/ToastContext";
+import { Product } from "../../utils/interface";
 
 vi.mock("../api/axios");
 const mockedAxios = vi.mocked(axios);

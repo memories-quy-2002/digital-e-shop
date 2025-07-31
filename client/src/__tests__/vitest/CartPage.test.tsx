@@ -2,12 +2,12 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { vi, describe, it, expect, afterEach } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import { MemoryRouter, useNavigate } from "react-router-dom";
-import CartPage from "../components/pages/CartPage";
-import ToastProvider from "../context/ToastContext";
-import axios from "../api/axios";
+import CartPage from "../../components/pages/CartPage";
+import ToastProvider from "../../context/ToastContext";
+import axios from "../../api/axios";
 import type { Mock, Mocked } from "vitest";
-import { useAuth } from "../context/AuthContext";
-import CheckoutPaymentPage from "../components/pages/CheckoutPaymentPage";
+import { useAuth } from "../../context/AuthContext";
+import CheckoutPaymentPage from "../../components/pages/CheckoutPaymentPage";
 
 vi.mock("../api/axios");
 const mockedAxios = axios as Mocked<typeof axios>;

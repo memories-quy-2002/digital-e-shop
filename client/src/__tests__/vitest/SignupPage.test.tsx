@@ -1,21 +1,18 @@
+import { vi, describe, it, expect, beforeEach, afterEach, Mock } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { vi, describe, it, expect, beforeAll, afterEach, Mock, Mocked } from "vitest";
 import "@testing-library/jest-dom/vitest";
+import { createUserWithEmailAndPassword } from "firebase/auth";
 import { MemoryRouter } from "react-router-dom";
-import axios from "../api/axios";
-import LoginPage from "../components/pages/LoginPage";
-import { Role } from "../utils/interface";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../services/firebase";
-import ToastProvider from "../context/ToastContext";
-
-vi.mock("../api/axios");
+import axios from "../../api/axios";
+import SignupPage from "../../components/pages/SignupPage";
+import { auth } from "../../services/firebase";
+import { Role } from "../../utils/interface";
 vi.mock("firebase/auth", () => ({
     getAuth: vi.fn(),
-    signInWithEmailAndPassword: vi.fn(),
+    createUserWithEmailAndPassword: vi.fn(),
 }));
+vi.mock("../api/axios");
 
-const mockSignInWithEmailAndPassword = signInWithEmailAndPassword as Mock;
 const mockedAxios = vi.mocked(axios);
 declare global {
     interface Performance {
@@ -24,70 +21,78 @@ declare global {
 }
 
 const handleOnSubmitMock = vi.fn();
-describe("LoginPage", () => {
+describe("SignupPage", () => {
     const users = {
         customer: {
-            email: "test1@gmail.com",
-            password: "Phuquy2002@",
+            username: "customer123",
+            email: "test6@gmail.com",
+            password: "Memories2002@",
+            confirm: "Memories2002@",
             role: Role.Customer,
         },
         admin: {
-            email: "test2@gmail.com",
-            password: "Phuquy2002@",
+            username: "admin123",
+            email: "test7@gmail.com",
+            password: "Memories2002@",
+            confirm: "Memories2002@",
             role: Role.Admin,
         },
     };
 
-    beforeAll(() => {
-        global.performance.markResourceTiming = vi.fn();
-    });
-
-    afterEach(() => {
+    beforeEach(() => {
         vi.clearAllMocks();
     });
 
-    const renderLoginPage = (user: typeof users.customer) => {
+    const renderSignupPage = (user: typeof users.customer) => {
         render(
-            <ToastProvider>
-                <MemoryRouter initialEntries={["/login", "/", "/admin"]}>
-                    <LoginPage />
-                </MemoryRouter>
-            </ToastProvider>
+            <MemoryRouter>
+                <SignupPage />
+            </MemoryRouter>
         );
 
         // Fill in email and password
 
-        screen.getByRole("form", { name: "login-form" }).onsubmit = handleOnSubmitMock;
-        fireEvent.change(screen.getByPlaceholderText(/email/i), {
+        screen.getByRole("form", { name: "signup-form" }).onsubmit = handleOnSubmitMock;
+        fireEvent.change(screen.getByPlaceholderText("Username"), {
+            target: { value: user.username },
+        });
+        fireEvent.change(screen.getByPlaceholderText("Email"), {
             target: { value: user.email },
         });
-        fireEvent.change(screen.getByPlaceholderText(/password/i), {
+        fireEvent.change(screen.getByPlaceholderText("Password"), {
             target: { value: user.password },
+        });
+
+        fireEvent.change(screen.getByPlaceholderText("Confirm Password"), {
+            target: { value: user.confirm },
         });
 
         // Select role (Customer or Admin)
         if (user.role === Role.Customer) {
-            fireEvent.click(screen.getByLabelText("Customer"));
+            const customerRadio = screen.getByLabelText("Customer");
+            fireEvent.click(customerRadio);
+            expect(customerRadio).toBeChecked();
         } else if (user.role === Role.Admin) {
-            fireEvent.click(screen.getByLabelText("Admin"));
+            const adminRadio = screen.getByLabelText("Admin");
+            fireEvent.click(adminRadio);
+            expect(adminRadio).toBeChecked();
         }
-        fireEvent.click(screen.getByRole("button", { name: "Login" }));
-
-        // Expectations for form submission
+        fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
     };
 
-    it("should match the LoginPage snapshot", async () => {
+    it("should match the SignupPage snapshot", async () => {
         const { asFragment } = render(
-            <ToastProvider>
-                <MemoryRouter>
-                    <LoginPage />
-                </MemoryRouter>
-            </ToastProvider>
+            <MemoryRouter>
+                <SignupPage />
+            </MemoryRouter>
         );
         expect(asFragment()).toMatchSnapshot();
     });
 
-    it("should handle successful customer login", async () => {
+    it("should handle successful customer signup", async () => {
+        (createUserWithEmailAndPassword as Mock).mockResolvedValue({
+            user: { uid: "mock-user-id" },
+        });
         // Mock axios response
         (mockedAxios.post as Mock).mockImplementationOnce(() =>
             Promise.resolve({
@@ -95,70 +100,71 @@ describe("LoginPage", () => {
                 data: { token: "customerMockedToken" },
             })
         );
-        mockSignInWithEmailAndPassword.mockResolvedValueOnce({
-            user: { uid: "mockedUid" }, // Mock the user UID from Firebase
-        });
 
-        renderLoginPage(users.customer);
-        expect(screen.getByText("Welcome back")).toBeInTheDocument();
+        renderSignupPage(users.customer);
+        expect(screen.getByText("Create new account")).toBeInTheDocument();
         expect(handleOnSubmitMock).toHaveBeenCalled();
-
         await waitFor(() => {
-            expect(signInWithEmailAndPassword).toHaveBeenCalledWith(
+            expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(
                 auth,
                 users.customer.email,
                 users.customer.password
             );
         });
+
+        // Wait for the axios post call
         await waitFor(() => {
-            expect(mockedAxios.post).toHaveBeenCalledWith("/api/users/login", {
-                uid: "mockedUid",
-                role: Role.Customer,
+            expect(mockedAxios.post).toHaveBeenCalledWith("/api/users", {
+                user: users.customer,
+                uid: "mock-user-id",
             });
         });
     });
 
-    it("should handle successful admin login", async () => {
+    it("should handle successful admin signup", async () => {
         // Mock axios response
+        (createUserWithEmailAndPassword as Mock).mockResolvedValue({
+            user: { uid: "mock-user-id" },
+        });
         (mockedAxios.post as Mock).mockImplementationOnce(() =>
             Promise.resolve({
                 status: 200,
                 data: { token: "adminMockedToken" },
             })
         );
-        mockSignInWithEmailAndPassword.mockResolvedValueOnce({
-            user: { uid: "mockedUid" }, // Mock the user UID from Firebase
-        });
 
-        renderLoginPage(users.admin);
-        expect(screen.getByText("Welcome back")).toBeInTheDocument();
+        renderSignupPage(users.admin);
+
+        expect(screen.getByText("Create new account")).toBeInTheDocument();
         expect(handleOnSubmitMock).toHaveBeenCalled();
-
         await waitFor(() => {
-            expect(signInWithEmailAndPassword).toHaveBeenCalledWith(auth, users.admin.email, users.admin.password);
+            expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(auth, users.admin.email, users.admin.password);
         });
+        // Wait for the axios post call
         await waitFor(() => {
-            expect(mockedAxios.post).toHaveBeenCalledWith("/api/users/login", {
-                uid: "mockedUid",
-                role: Role.Admin,
+            expect(mockedAxios.post).toHaveBeenCalledWith("/api/users", {
+                user: users.admin,
+                uid: "mock-user-id",
             });
         });
     });
 
-    it("should handle login error", async () => {
+    it("should handle signup error", async () => {
         // Mock axios to return an error
         (mockedAxios.post as Mock).mockImplementationOnce(() =>
             Promise.reject({
                 status: 401,
-                data: { token: "adminMockedToken" },
+                data: { token: "customerMockedToken" },
             })
         );
-        renderLoginPage({
+        renderSignupPage({
+            username: "customer123",
             email: "test@example.com",
             password: "wrong_password",
+            confirm: "wrong_password",
             role: Role.Customer,
         });
-        expect(screen.getByText("Welcome back")).toBeInTheDocument();
+        expect(screen.getByText("Create new account")).toBeInTheDocument();
         // Check if the error message is shown
         await waitFor(() => {
             expect(
@@ -174,15 +180,17 @@ describe("LoginPage", () => {
         (mockedAxios.post as Mock).mockImplementationOnce(() =>
             Promise.reject({
                 status: 401,
-                data: { token: "adminMockedToken" },
+                data: { token: "customerMockedToken" },
             })
         );
-        renderLoginPage({
+        renderSignupPage({
+            username: "customer123",
             email: "",
             password: "wrong_password",
+            confirm: "wrong_password",
             role: Role.Customer,
         });
-        expect(screen.getByText("Welcome back")).toBeInTheDocument();
+        expect(screen.getByText("Create new account")).toBeInTheDocument();
         // Check if the error message is shown
         await waitFor(() => {
             expect(screen.getByText(/Email is required/i)).toBeInTheDocument();
@@ -194,15 +202,17 @@ describe("LoginPage", () => {
         (mockedAxios.post as Mock).mockImplementationOnce(() =>
             Promise.reject({
                 status: 401,
-                data: { token: "adminMockedToken" },
+                data: { token: "customerMockedToken" },
             })
         );
-        renderLoginPage({
-            email: "12345678",
+        renderSignupPage({
+            username: "customer123",
+            email: "test1@",
             password: "wrong_password",
+            confirm: "wrong_password",
             role: Role.Customer,
         });
-        expect(screen.getByText("Welcome back")).toBeInTheDocument();
+        expect(screen.getByText("Create new account")).toBeInTheDocument();
         // Check if the error message is shown
         await waitFor(() => {
             expect(screen.getByText(/Invalid email format/i)).toBeInTheDocument();
@@ -217,12 +227,15 @@ describe("LoginPage", () => {
                 data: { token: "adminMockedToken" },
             })
         );
-        renderLoginPage({
-            email: "test2@gmail.com",
+
+        renderSignupPage({
+            username: "admin123",
+            email: "test@gmail.com",
             password: "",
+            confirm: "",
             role: Role.Admin,
         });
-        expect(screen.getByText("Welcome back")).toBeInTheDocument();
+        expect(screen.getByText("Create new account")).toBeInTheDocument();
         // Check if the error message is shown
         await waitFor(() => {
             expect(screen.getByText(/Password is required/i)).toBeInTheDocument();
