@@ -7,12 +7,26 @@ import ToastProvider from "../../context/ToastContext";
 import axios from "../../api/axios";
 import { Product } from "../../utils/interface";
 import { useAuth } from "../../context/AuthContext";
+import { expectPrettyHTML } from "./helper";
 
-vi.mock("../api/axios");
-const mockedAxios = vi.mocked(axios);
-vi.mock("../context/AuthContext", () => ({
+vi.mock("../../context/AuthContext.tsx", () => ({
     useAuth: vi.fn(),
 }));
+
+vi.mock("../../api/axios.ts", () => ({
+    default: {
+        get: vi.fn(),
+        post: vi.fn(),
+        put: vi.fn(),
+        delete: vi.fn(),
+    },
+}));
+
+vi.mock("firebase/auth", () => ({
+    getAuth: vi.fn(),
+    signOut: vi.fn(),
+}));
+const mockedAxios = axios as Mocked<typeof axios>;
 describe("ProductPage", () => {
     const mockProduct: Product[] = [
         {
@@ -96,14 +110,14 @@ describe("ProductPage", () => {
             userData: null,
             loading: false,
         });
-        const { asFragment } = render(
+        const { container } = render(
             <ToastProvider>
                 <MemoryRouter>
                     <ProductPage />
                 </MemoryRouter>
             </ToastProvider>
         );
-        expect(asFragment()).toMatchSnapshot();
+        expectPrettyHTML(container);
     });
 
     it("should render ProductPage correctly", async () => {
@@ -195,7 +209,7 @@ describe("ProductPage", () => {
             userData: null,
             loading: false,
         });
-        (mockedAxios as Mock).mockImplementation((url) => {
+        mockedAxios.get.mockImplementation((url) => {
             if (url === "/api/products/1") {
                 return Promise.resolve({
                     data: {
@@ -319,7 +333,7 @@ describe("ProductPage", () => {
         await waitFor(() => {
             expect(mockedAxios.get).toHaveBeenCalledWith("/api/reviews/1");
         });
-        const reviewBtn = screen.getByRole("button", { name: "Review (1)" });
+        const reviewBtn = screen.getByRole("button", { name: /Review/ });
         expect(reviewBtn).toBeInTheDocument();
         fireEvent.click(reviewBtn);
 

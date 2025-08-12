@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { signOut } from "firebase/auth";
 import { BrowserRouter, MemoryRouter } from "react-router-dom";
 import type { Mock, Mocked } from "vitest";
@@ -13,14 +13,26 @@ import { useAuth } from "../../context/AuthContext";
 import ToastProvider from "../../context/ToastContext";
 import { auth } from "../../services/firebase";
 import { Role } from "../../utils/interface";
-vi.mock("../context/AuthContext");
-vi.mock("../api/axios");
+import { expectPrettyHTML } from "./helper";
+
+vi.mock("../../context/AuthContext.tsx", () => ({
+    useAuth: vi.fn(),
+}));
+
+vi.mock("../../api/axios.ts", () => ({
+    default: {
+        get: vi.fn(),
+        post: vi.fn(),
+        put: vi.fn(),
+        delete: vi.fn(),
+    },
+}));
+
 vi.mock("firebase/auth", () => ({
     getAuth: vi.fn(),
     signOut: vi.fn(),
 }));
 
-// Use Vitest's vi.Mock for type assertion
 const mockUseAuth = useAuth as unknown as Mock;
 const mockedAxios = axios as Mocked<typeof axios>;
 
@@ -42,14 +54,14 @@ describe("App", () => {
     });
 
     it("matches the App snapshot", () => {
-        const { asFragment } = render(
+        const { container } = render(
             <ToastProvider>
                 <BrowserRouter>
                     <HomePage />
                 </BrowserRouter>
             </ToastProvider>
         );
-        expect(asFragment()).toMatchSnapshot();
+        expectPrettyHTML(container);
     });
 
     it("renders HomePage component on default route", async () => {
@@ -89,7 +101,7 @@ describe("App", () => {
 
         const link = screen.getAllByText(/Dashboard/i)[0] as HTMLAnchorElement;
         expect(link).toBeInTheDocument();
-        expect(screen.getByText(/Download Report/i)).toBeInTheDocument();
+        expect(screen.getByText(/Download Detailed Report/i)).toBeInTheDocument();
         expect(screen.queryByText(/Login/i)).not.toBeInTheDocument();
     });
 

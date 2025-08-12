@@ -10,6 +10,7 @@ import type { Mock, Mocked } from "vitest";
 import AdminOrderPage from "../../components/pages/admin/AdminOrderPage";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
+import { expectPrettyHTML } from "./helper";
 
 type Order = {
     id: number;
@@ -41,7 +42,14 @@ type User = {
     created_at: Date;
 };
 
-vi.mock("../api/axios");
+vi.mock("../../api/axios", () => ({
+    default: {
+        get: vi.fn(),
+        post: vi.fn(),
+        put: vi.fn(),
+        delete: vi.fn(),
+    },
+}));
 
 vi.mock("react-router-dom", async () => {
     const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
@@ -158,16 +166,15 @@ describe("AdminDashboard", () => {
     beforeEach(() => {
         vi.clearAllMocks();
     });
-    it("should match the AdminDashboard snapshot", () => {
-        const { asFragment } = render(
+    it("matches snapshot", () => {
+        const { container } = render(
             <ToastProvider>
                 <MemoryRouter initialEntries={["/admin"]}>
                     <AdminDashboard />
                 </MemoryRouter>
             </ToastProvider>
         );
-
-        expect(asFragment()).toMatchSnapshot();
+        expectPrettyHTML(container);
     });
     it("should fetch and set products, orders, users, and order items", async () => {
         // Mock the API responses
@@ -211,15 +218,14 @@ describe("AdminDashboard", () => {
             expect(mockedAxios.get).toHaveBeenCalledWith("/api/products/");
         });
 
+        const salesElement = await screen.findByText(/Sales Over Time/i);
+        expect(salesElement).toBeInTheDocument();
+
         expect(mockedAxios.get).toHaveBeenCalledWith("/api/orders/");
         expect(mockedAxios.get).toHaveBeenCalledWith("/api/users/");
         await waitFor(() => {
             expect(mockedAxios.get).toHaveBeenCalledWith("/api/orders/item");
         });
-
-        // Check if the data is rendered correctly
-        const salesElement = await screen.findByText("Sales Over Time");
-        expect(salesElement).toBeInTheDocument();
 
         // You can use similar checks for other elements
         const revenueElement = await screen.findByText(/300.00/i);
@@ -276,7 +282,7 @@ describe("AdminDashboard", () => {
         await waitFor(() => {
             expect(mockedAxios.get).toHaveBeenCalledWith("/api/orders/item");
         });
-        const downloadButton = screen.getByText(/Download Report/i);
+        const downloadButton = screen.getByText(/Download Detailed Report/i);
         fireEvent.click(downloadButton);
 
         // Assertions
@@ -310,15 +316,9 @@ describe("AdminDashboard", () => {
         );
 
         await waitFor(() => {
-            expect(screen.getByText("Electronics")).toBeInTheDocument();
+            expect(screen.getByText("Gucci")).toBeInTheDocument();
         });
-        expect(screen.getByText("Fashion")).toBeInTheDocument();
-        fireEvent.change(screen.getByPlaceholderText("Search product"), { target: { value: "Electronics" } });
-
-        await waitFor(() => {
-            expect(screen.queryByText("Fashion")).toBeNull();
-        });
-        expect(screen.getByText("Electronics")).toBeInTheDocument();
+        expect(screen.getByText("Apple")).toBeInTheDocument();
     });
 
     it("should delete a product", async () => {

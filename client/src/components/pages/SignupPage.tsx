@@ -8,6 +8,7 @@ import "../../styles/SignupPage.scss";
 import { Role } from "../../utils/interface";
 import Cookies from "universal-cookie";
 import { Helmet } from "react-helmet";
+import bgImage from "../../assets/images/background_form.jpg";
 
 const cookies = new Cookies();
 
@@ -141,11 +142,7 @@ const SignupPage = () => {
             </Helmet>
             <div className="signup">
                 <aside className="signup__image">
-                    <img
-                        src={require("../../assets/images/background_form.jpg")}
-                        alt=""
-                        className="signup__image__background"
-                    ></img>
+                    <img src={bgImage} alt="backgroundImage" className="signup__image__background"></img>
                     <div className="signup__image__content">
                         <strong className="signup__image__content__name">DIGITAL-E</strong>
                         <p className="signup__image__content__desc">An E-commerce platforms of electronics devices</p>

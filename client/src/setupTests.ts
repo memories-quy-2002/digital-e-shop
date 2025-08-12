@@ -6,4 +6,17 @@ class ResizeObserver {
     disconnect = vi.fn();
 }
 
+class IntersectionObserver {
+    constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {}
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+}
+
+Object.defineProperty(global, "IntersectionObserver", {
+    writable: true,
+    configurable: true,
+    value: IntersectionObserver,
+});
+
 global.ResizeObserver = ResizeObserver;

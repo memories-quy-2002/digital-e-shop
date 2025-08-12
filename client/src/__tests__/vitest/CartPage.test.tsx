@@ -8,12 +8,26 @@ import axios from "../../api/axios";
 import type { Mock, Mocked } from "vitest";
 import { useAuth } from "../../context/AuthContext";
 import CheckoutPaymentPage from "../../components/pages/CheckoutPaymentPage";
+import { expectPrettyHTML } from "./helper";
 
-vi.mock("../api/axios");
-const mockedAxios = axios as Mocked<typeof axios>;
-vi.mock("../context/AuthContext", () => ({
+vi.mock("../../context/AuthContext.tsx", () => ({
     useAuth: vi.fn(),
 }));
+
+vi.mock("../../api/axios.ts", () => ({
+    default: {
+        get: vi.fn(),
+        post: vi.fn(),
+        put: vi.fn(),
+        delete: vi.fn(),
+    },
+}));
+
+vi.mock("firebase/auth", () => ({
+    getAuth: vi.fn(),
+    signOut: vi.fn(),
+}));
+
 vi.mock("react-router-dom", async () => {
     const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
     return {
@@ -21,6 +35,10 @@ vi.mock("react-router-dom", async () => {
         useNavigate: vi.fn(), // Mock useNavigate
     };
 });
+
+const mockUseAuth = useAuth as unknown as Mock;
+const mockedAxios = axios as Mocked<typeof axios>;
+
 describe("CartPage", () => {
     const mockCartItems = [
         {
@@ -54,14 +72,14 @@ describe("CartPage", () => {
             userData: null,
             loading: false,
         });
-        const { asFragment } = render(
+        const { container } = render(
             <ToastProvider>
                 <MemoryRouter>
                     <CartPage />
                 </MemoryRouter>
             </ToastProvider>
         );
-        expect(asFragment()).toMatchSnapshot();
+        expectPrettyHTML(container);
     });
 
     it("should render cart items correctly", () => {

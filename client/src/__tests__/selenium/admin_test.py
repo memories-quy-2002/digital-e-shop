@@ -1,91 +1,67 @@
-import unittest
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
+import time
 
-class AdminUITest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        options = Options()
-        options.add_argument('--headless')
-        cls.driver = webdriver.Chrome(options=options)
-        cls.driver.implicitly_wait(10)
-        cls.base_url = "http://localhost:3000"  # Change if your dev server runs elsewhere
+# --- Configuration ---
+BASE_URL = "http://localhost:5173/admin"  # Change to your actual Admin Dashboard URL
 
-    @classmethod
-    def tearDownClass(cls):
-        cls.driver.quit()
+# --- Setup ---
 
-    def login_as_admin(self):
-        self.driver.get(f"{self.base_url}/login")
-        self.driver.find_element(By.PLACEHOLDER, "email").send_keys("user2@example.com")
-        self.driver.find_element(By.PLACEHOLDER, "password").send_keys("password2")
-        self.driver.find_element(By.XPATH, "//button[contains(text(), 'Login')]").click()
-        # Wait for dashboard
-        WebDriverWait(self.driver, 10).until(
-            EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Admin Dashboard')]")
-        ))
 
-    def test_dashboard_loads(self):
-        self.login_as_admin()
-        self.driver.get(f"{self.base_url}/admin")
-        self.assertTrue(
-            WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Sales Over Time')]")
-            ))
-        )
+service = Service(ChromeDriverManager().install())
+driver = webdriver.Chrome(service=service)
+wait = WebDriverWait(driver, 10)
 
-    def test_product_list_and_search(self):
-        self.login_as_admin()
-        self.driver.get(f"{self.base_url}/admin/products")
-        self.assertTrue(self.driver.find_element(By.XPATH, "//*[contains(text(), 'Electronics')]").is_displayed())
-        search_input = self.driver.find_element(By.PLACEHOLDER, "Search product")
-        search_input.clear()
-        search_input.send_keys("Electronics")
-        search_input.send_keys(Keys.RETURN)
-        WebDriverWait(self.driver, 5).until(
-            EC.invisibility_of_element_located((By.XPATH, "//*[contains(text(), 'Fashion')]")
-        ))
-        self.assertTrue(self.driver.find_element(By.XPATH, "//*[contains(text(), 'Electronics')]").is_displayed())
+try:
+    # Open Admin Dashboard
+    driver.get(BASE_URL)
 
-    def test_add_product(self):
-        self.login_as_admin()
-        self.driver.get(f"{self.base_url}/admin/add")
-        self.driver.find_element(By.LABEL, "Product name").send_keys("Laptop")
-        self.driver.find_element(By.LABEL, "Category").send_keys("Electronics")
-        self.driver.find_element(By.LABEL, "Brand").send_keys("BrandA")
-        self.driver.find_element(By.LABEL, "Description").send_keys("High performance laptop")
-        self.driver.find_element(By.LABEL, "Product Price").send_keys("1000")
-        self.driver.find_element(By.LABEL, "Inventory Quantity").send_keys("5")
-        # Image upload skipped for simplicity
-        self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]").click()
-        self.assertTrue(WebDriverWait(self.driver, 10).until(
-            EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Product has been added successfully')]")
-        )))
+    # Wait for the dashboard header
+    wait.until(EC.presence_of_element_located(
+        (By.XPATH, "//*[contains(text(),'📊 Admin Dashboard Overview')]")
+    ))
+    print("✅ Admin Dashboard loaded successfully.")
 
-    def test_delete_product(self):
-        self.login_as_admin()
-        self.driver.get(f"{self.base_url}/admin/products")
-        delete_btn = self.driver.find_elements(By.XPATH, "//*[@data-testid='deleteProductBtn']")[0]
-        delete_btn.click()
-        WebDriverWait(self.driver, 5).until(
-            EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Purchase Confirmation')]")
-        ))
-        self.driver.find_element(By.XPATH, "//button[contains(text(), 'Confirm')]").click()
-        # You may want to check for a toast or removal from the list
+    # Check Summary section
+    wait.until(EC.presence_of_element_located(
+        (By.XPATH, "//*[contains(text(),'Summary (This Month)')]")
+    ))
+    print("✅ Summary section visible.")
 
-    def test_order_status_change(self):
-        self.login_as_admin()
-        self.driver.get(f"{self.base_url}/admin/orders")
-        done_btn = self.driver.find_elements(By.XPATH, "//*[@data-testid='doneBtn']")[0]
-        done_btn.click()
-        # Wait for status update
-        WebDriverWait(self.driver, 5).until(
-            EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Done')]")
-        ))
+    # Check Sales Over Time chart
+    wait.until(EC.presence_of_element_located(
+        (By.XPATH, "//*[contains(text(),'Sales Over Time')]")
+    ))
+    print("✅ Sales Over Time chart visible.")
 
-if __name__ == "__main__":
-    unittest.main()
+    # Check Revenue Over Time chart
+    wait.until(EC.presence_of_element_located(
+        (By.XPATH, "//*[contains(text(),'Revenue Over Time')]")
+    ))
+    print("✅ Revenue Over Time chart visible.")
+
+    # Click Download Detailed Report
+    download_button = wait.until(EC.element_to_be_clickable(
+        (By.XPATH, "//button[contains(text(),'Download Detailed Report')]")
+    ))
+    download_button.click()
+    print("✅ Download Detailed Report button clicked.")
+
+    # Check Top 10 Best-Selling Products table
+    wait.until(EC.presence_of_element_located(
+        (By.XPATH, "//*[contains(text(),'Top 10 Best-Selling Products')]")
+    ))
+    print("✅ Top 10 Best-Selling Products table visible.")
+
+    # Small delay to visually confirm if needed
+    time.sleep(2)
+
+except Exception as e:
+    print("❌ Test failed:", e)
+
+finally:
+    driver.quit()

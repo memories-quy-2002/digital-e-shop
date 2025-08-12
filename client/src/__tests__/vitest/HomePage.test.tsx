@@ -10,8 +10,10 @@ import ToastProvider from "../../context/ToastContext";
 import { Product } from "../../utils/interface";
 import type { Mock, Mocked } from "vitest";
 import ProductPage from "../../components/pages/ProductPage";
+import { expectPrettyHTML } from "./helper";
 
 const mockedUsedNavigate = vi.fn();
+
 vi.mock("react-router-dom", async () => {
     const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
     return {
@@ -19,8 +21,17 @@ vi.mock("react-router-dom", async () => {
         useNavigate: () => mockedUsedNavigate,
     };
 });
-vi.mock("../api/axios");
-const mockedAxios = vi.mocked(axios);
+
+vi.mock("../../api/axios.ts", () => ({
+    default: {
+        get: vi.fn(),
+        post: vi.fn(),
+        put: vi.fn(),
+        delete: vi.fn(),
+    },
+}));
+
+const mockedAxios = axios as Mocked<typeof axios>;
 
 const LocationDisplay = () => {
     const location = useLocation();
@@ -81,14 +92,14 @@ describe("HomePage", () => {
         vi.clearAllMocks();
     });
     it("should match the HomePage snapshot", () => {
-        const { asFragment } = render(
+        const { container } = render(
             <ToastProvider>
                 <BrowserRouter>
                     <HomePage />
                 </BrowserRouter>
             </ToastProvider>
         );
-        expect(asFragment()).toMatchSnapshot();
+        expectPrettyHTML(container);
     });
 
     it("should navigate to shops page when 'View all' is clicked", async () => {

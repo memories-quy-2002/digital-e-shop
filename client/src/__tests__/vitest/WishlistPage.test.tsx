@@ -1,4 +1,4 @@
-import { vi, describe, it, expect, beforeEach, afterEach, Mock } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach, Mock, Mocked } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { MemoryRouter } from "react-router-dom";
@@ -6,11 +6,23 @@ import WishlistPage from "../../components/pages/WishlistPage";
 import ToastProvider from "../../context/ToastContext";
 import axios from "../../api/axios";
 import { useAuth } from "../../context/AuthContext";
-vi.mock("../api/axios");
-const mockedAxios = vi.mocked(axios);
-vi.mock("../context/AuthContext", () => ({
+import { expectPrettyHTML } from "./helper";
+
+vi.mock("../../context/AuthContext.tsx", () => ({
     useAuth: vi.fn(),
 }));
+
+vi.mock("../../api/axios.ts", () => ({
+    default: {
+        get: vi.fn(),
+        post: vi.fn(),
+        put: vi.fn(),
+        delete: vi.fn(),
+    },
+}));
+
+const mockedAxios = axios as Mocked<typeof axios>;
+
 describe("WishlistPage", () => {
     const mockedWishlist = [
         {
@@ -60,14 +72,14 @@ describe("WishlistPage", () => {
             userData: null,
             loading: false,
         });
-        const { asFragment } = render(
+        const { container } = render(
             <ToastProvider>
                 <MemoryRouter>
                     <WishlistPage />
                 </MemoryRouter>
             </ToastProvider>
         );
-        expect(asFragment()).toMatchSnapshot();
+        expectPrettyHTML(container);
     });
     it("should fetch wishlist and display products", async () => {
         (mockedAxios.get as Mock).mockImplementationOnce(() => {

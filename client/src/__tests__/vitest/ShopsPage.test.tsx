@@ -1,4 +1,4 @@
-import { vi, describe, it, expect, afterEach, Mock } from "vitest";
+import { vi, describe, it, expect, afterEach, Mock, Mocked } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { MemoryRouter } from "react-router-dom";
@@ -6,9 +6,17 @@ import axios from "../../api/axios";
 import ShopsPage from "../../components/pages/ShopsPage";
 import ToastProvider from "../../context/ToastContext";
 import { Product } from "../../utils/interface";
+import { expectPrettyHTML } from "./helper";
 
-vi.mock("../api/axios");
-const mockedAxios = vi.mocked(axios);
+vi.mock("../../api/axios.ts", () => ({
+    default: {
+        get: vi.fn(),
+        post: vi.fn(),
+        put: vi.fn(),
+        delete: vi.fn(),
+    },
+}));
+const mockedAxios = axios as Mocked<typeof axios>;
 
 describe("ShopsPage", () => {
     const products: Product[] = [
@@ -64,14 +72,14 @@ describe("ShopsPage", () => {
     });
 
     it("matches the ShopsPage snapshot", async () => {
-        const { asFragment } = render(
+        const { container } = render(
             <ToastProvider>
                 <MemoryRouter>
                     <ShopsPage />
                 </MemoryRouter>
             </ToastProvider>
         );
-        expect(asFragment()).toMatchSnapshot();
+        expectPrettyHTML(container);
     });
 
     it("renders the shops page with products", async () => {
