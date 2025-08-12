@@ -20,6 +20,7 @@
         "js-cookie": "^3.0.5",
         "mocha": "^11.7.1",
         "os": "^0.1.2",
+        "pretty": "^2.0.0",
         "query-string": "^9.2.2",
         "react": "^19.1.1",
         "react-bootstrap": "^2.10.10",
