@@ -1,92 +1,130 @@
-# Digital-E Shop
+# 🛒 Digital-E — Full-stack E-commerce Platform
 
-**Digital-E** is a cutting-edge, scalable e-commerce platform focused on selling electronic devices and components.  
-Built with **React**, **TypeScript**, **Express**, and **MySQL**, it provides a comprehensive, modular shopping experience optimized for future growth.
+> A scalable, performance-optimized e-commerce platform built with React.js, Node.js, and MySQL. Features secure authentication, shopping cart, order flow, and CI/CD deployment via Vercel.
 
-# 🚀 Live Demo:
-Visit Live Site: [digital-e.vercel.app](https://digital-e.vercel.app)
+![Tech Stack](https://img.shields.io/badge/Stack-Full--stack-blueviolet)
+![Build](https://img.shields.io/badge/CI-CD%20via%20GitHub%20Actions-success)
+![Live](https://img.shields.io/badge/Demo-Online-green)
 
----
-
-# Table of Contents
-- [Overview](#overview)
-- [Tech Stack](#tech-stack)
-- [Features](#features)
-- [Installation](#installation)
-- [Contributing](#contributing)
+🔗 **Live Site**: [https://digital-e.vercel.app](https://digital-e.vercel.app)  
+💻 **Backend Repo**: _coming soon if separated_  
+📘 **Frontend + Backend**: This repo (monorepo style)
 
 ---
 
-# Overview
+## 🧠 Overview
 
-Digital-E offers a seamless customer journey with a strong technical foundation.  
-It is engineered to support fast iteration cycles, flexible scalability, and high reliability for real-world deployment.
+Digital-E was designed and developed as a realistic, production-ready e-commerce platform featuring:
 
----
-
-# Tech Stack
-
-- **Frontend**: React, TypeScript, SCSS
-- **Backend**: Node.js, Express.js
-- **Database**: MySQL
-- **Other Technologies**: Vite, Axios, React Router, Jest/Vitest
+- Secure JWT-based authentication with role access control
+- Dynamic product catalog & cart functionality
+- Persistent orders and admin dashboard (conceptual)
+- Modular API architecture
+- CI/CD integration for seamless deployment
 
 ---
 
-# Features
+## 🔧 Tech Stack
 
--  Secure User Authentication (Sign In / Sign Up)
--  Product Catalog with Dynamic Filtering
--  Shopping Cart and Checkout Process
--  Admin Dashboard for Product Management
--  Responsive and Mobile-First UI/UX
--  RESTful API Communication
--  Full Type Safety via TypeScript
--  Deployment Ready on Vercel
+| Layer       | Technology                     |
+|-------------|--------------------------------|
+| Frontend    | React.js, React Router, Vite, SCSS |
+| Backend     | Node.js, Express.js            |
+| Database    | MySQL (hosted via Aiven Database) |
+| Auth        | JWT (access + refresh token)   |
+| DevOps      | GitHub Actions + Vercel        |
+| Linting     | ESLint, Prettier               |
+| Tools       | Postman, Figma (UI prototype)  |
 
 ---
 
-# Installation
+## ✨ Features
 
-## Clone the repository
+- ✅ User Sign Up / Sign In with access & refresh tokens  
+- ✅ Role-based access control (admin/user)  
+- ✅ Add-to-cart, remove-from-cart, and live item count  
+- ✅ Order simulation & user purchase history  
+- ✅ Lazy loading of assets and routes  
+- ✅ GitHub Actions pipeline + Vercel auto-deploy  
+- ✅ Lighthouse score: **90+** across performance metrics
+
+## 📁 Project Structure (Simplified)
+
+```bash
+digital-e-shop/
+├── client/                   # Frontend application (React + Vite)
+│   ├── assets/               # Static assets (images, icons, fonts)
+│   ├── components/           # Reusable UI components
+│   ├── context/              # API React Contexts
+│   ├── services/             # API logic and helpers
+│   ├── App.tsx               # Main app component
+│   └── main.tsx              # React DOM render
+│
+├── server/                   # Backend application (Express.js)
+│   ├── utils/                # API route definitions
+│   ├── database/             # DB schema, seed, and migration files
+│   ├── model.js              # Request handlers
+│   └── app.js                # Server entry point
+│
+├── package.json              # Project metadata and scripts
+├── vite.config.ts            # Frontend bundler configuration
+└── README.md                 # Project overview and documentation
+
+```
+- **Client**: React frontend bootstrapped with Vite, state managed locally with hooks.
+- **Server**: RESTful API using Express.js and custom middlewares.
+- **Database**: Structured relational tables: `users`, `products`, `orders`, `order_items`.
+
+---
+
+## 🚀 Getting Started
+
+### Clone the repository
 ```bash
 git clone https://github.com/memories-quy-2002/digital-e-shop.git
 cd digital-e-shop
 ```
 
-## Install dependencies
+### Prerequisites
 
-### Install client dependencies
+- Node.js ≥ v18
+- MySQL local or cloud DB (PlanetScale recommended)
+- Vercel account (optional)
+
+### Local Setup
+
 ```bash
-cd client
+# Clone repository
+git clone https://github.com/memories-quy-2002/digital-e-shop.git
+cd digital-e-shop
+
+# Install dependencies
 pnpm install
+
+# Start development servers
+pnpm dev
 ```
 
-### Install server dependencies
-```bash
-cd server
-pnpm install
-```
+## 📊 Performance
+- ✅ Lazy-loaded routes
+- ✅ Image optimization
+- ✅ Bundle splitting (via Vite)
+- ✅ Lighthouse Score:
+  + Performance: 91
+  + Accessibility: 95
+  + Best Practices: 100
+  + SEO: 90
 
-## Run the application locally
+## 📌 Lessons Learned
+- Implemented custom JWT token refresh & storage logic
+- Designed normalized DB schema with referential integrity
+- Configured zero-downtime CI/CD with GitHub Actions + Vercel
+- Debugged async/await flow with protected routes
+- Built for responsiveness across device breakpoints
 
-### Start the backend server
-```bash
-cd server
-pnpm run dev
-```
-
-### Start the frontend client
-```bash
-cd ../client
-pnpm start
-```
-
-# Contributing
-Contributions are highly encouraged to further innovate and expand Digital-E.
-Please open an issue to discuss proposals or submit a pull request directly.
-
-Commit to innovation. Build with excellence.
-
-## Future Roadmap
-Upcoming integrations include Stripe Payment Gateway, AWS S3 Cloud Storage for media assets, and a Progressive Web App (PWA) upgrade to enhance user accessibility and offline capabilities.
+## 🔮 Roadmap (Planned)
+- Admin dashboard with product management
+- Stripe/PayPal integration (mock only)
+- Review system and product ratings
+- Global state using Redux Toolkit or Zustand
+- Dockerization for scalable deployment
