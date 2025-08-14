@@ -1,0 +1,61 @@
+name: Lint and Test - Digital-E
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  lint:
+    name: Lint Client & Server
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        folder: [client, server]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          cd ${{ matrix.folder }}
+          npm ci
+
+      - name: Run lint
+        run: |
+          cd ${{ matrix.folder }}
+          npm run lint
+
+  test:
+    name: Run Client Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies (client)
+        run: |
+          cd client
+          npm ci
+
+      - name: Run tests (client)
+        run: |
+          cd client
+          npm test -- --passWithNoTests

@@ -1,3 +1,4 @@
+import React from "react";
 import { AiFillDashboard } from "react-icons/ai";
 import { FaBox, FaCartShopping, FaUser } from "react-icons/fa6";
 import { useNavigate } from "react-router-dom";
@@ -5,10 +6,10 @@ import { useAuth } from "../../context/AuthContext";
 import productPlaceholder from "../../assets/images/product_placeholder.jpg";
 const items = ["Dashboard", "Products", "Orders", "Accounts"];
 const itemIcons = [
-    <AiFillDashboard size={20} />,
-    <FaBox size={20} />,
-    <FaCartShopping size={20} />,
-    <FaUser size={20} />,
+    <AiFillDashboard size={20} key={0} />,
+    <FaBox size={20} key={1} />,
+    <FaCartShopping size={20} key={2} />,
+    <FaUser size={20} key={3} />,
 ];
 
 const AdminSidebar = () => {

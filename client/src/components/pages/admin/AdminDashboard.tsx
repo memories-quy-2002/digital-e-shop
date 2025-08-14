@@ -9,7 +9,7 @@ import { Table } from "react-bootstrap";
 
 interface CardProps {
     title: string;
-    value: any;
+    value: number | string;
     description: string;
     bgColor: string;
     percentage?: number;
@@ -274,7 +274,8 @@ const AdminDashboard = () => {
                 <section className="admin__dashboard-header">
                     <h2>📊 Admin Dashboard Overview</h2>
                     <p style={{ color: "#555", marginBottom: 8 }}>
-                        Welcome! Here is a summary of your store's performance and key metrics for the last 6 months.
+                        Welcome! Here is a summary of your store`&apos;`s performance and key metrics for the last 6
+                        months.
                     </p>
                     <button className="btn btn-dark" onClick={handleDownloadReport}>
                         Download Detailed Report

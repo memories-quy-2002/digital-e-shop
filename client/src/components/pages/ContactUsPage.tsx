@@ -15,8 +15,8 @@ const ContactUsPage: React.FC = () => {
                 <section className="contact-us__container">
                     <h1 className="contact-us__title">Contact Us</h1>
                     <p className="contact-us__description">
-                        Have any questions or concerns? We're always ready to help! Reach out to us through any of the
-                        following methods, and we will get back to you as soon as possible.
+                        Have any questions or concerns? We`&apos;`re always ready to help! Reach out to us through any
+                        of the following methods, and we will get back to you as soon as possible.
                     </p>
 
                     <div className="contact-us__info">

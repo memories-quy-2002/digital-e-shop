@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { BsStar, BsStarFill } from "react-icons/bs";
 import axios from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
@@ -70,7 +70,7 @@ const ProductPage = () => {
                     setProductDetail(response.data.product);
                     console.log(response.data.msg);
                 }
-            } catch (err: any) {
+            } catch (err) {
                 console.error(err);
             }
         };
@@ -202,18 +202,16 @@ const ProductPage = () => {
                 return;
             }
         }
-        try {
-            const response = await axios.post("/api/cart/", {
-                uid: user_id,
-                pid: product.id,
-                quantity: quantity,
-            });
-            if (response.status === 200) {
-                console.log(response.data.msg);
-                addToast("Add cart item", "Product added to cart successfully.");
-            }
-        } catch (err) {
-            throw err;
+        const response = await axios.post("/api/cart/", {
+            uid: user_id,
+            pid: product.id,
+            quantity: quantity,
+        });
+        if (response.status === 200) {
+            console.log(response.data.msg);
+            addToast("Add cart item", "Product added to cart successfully.");
+        } else if (response.status === 204) {
+            addToast("Invalid action", "The product is already in your cart.");
         }
     };
 
@@ -261,21 +259,18 @@ const ProductPage = () => {
             addToast("Invalid rating", "The rating score should be from 1 to 5");
             return;
         }
-        try {
-            const response = await axios.post("/api/reviews/", {
-                uid,
-                pid,
-                rating,
-                reviewText,
-            });
 
-            if (response.status === 200) {
-                console.log(response.data.msg);
-                addToast("Submit review", "Review has been submitted successfully.");
-                window.location.reload();
-            }
-        } catch (err) {
-            throw err;
+        const response = await axios.post("/api/reviews/", {
+            uid,
+            pid,
+            rating,
+            reviewText,
+        });
+
+        if (response.status === 200) {
+            console.log(response.data.msg);
+            addToast("Submit review", "Review has been submitted successfully.");
+            window.location.reload();
         }
     };
 
@@ -376,7 +371,7 @@ const ProductPage = () => {
                                     name="quantity"
                                     id="quantity"
                                     value={quantity}
-                                    onChange={(e: any) =>
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                                         setProductDetail((detail) => {
                                             return {
                                                 ...detail,
@@ -490,8 +485,11 @@ const ProductPage = () => {
                                         All reviews ({reviews.length})
                                     </h5>
                                     <div className="product__container__review__container__all__list">
-                                        {reviews.map((review) => (
-                                            <div className="product__container__review__container__all__list__item">
+                                        {reviews.map((review, index) => (
+                                            <div
+                                                key={index}
+                                                className="product__container__review__container__all__list__item"
+                                            >
                                                 <div className="product__container__review__container__all__list__item__info">
                                                     <strong>{review.username}</strong>
                                                     <span className="product__container__review__container__all__list__item__info__star">

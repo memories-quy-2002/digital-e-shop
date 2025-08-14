@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import "../../styles/Footer.scss";
 import { FaFacebookF, FaTwitter, FaInstagram, FaLinkedinIn } from "react-icons/fa";
 import { useToast } from "../../context/ToastContext";
-import { useState } from "react";
+import React, { useState } from "react";
 
 const Footer = () => {
     const socialLinks = [

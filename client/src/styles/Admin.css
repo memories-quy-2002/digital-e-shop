@@ -1,0 +1,371 @@
+.admin__layout {
+  height: 100%;
+  width: 100vw;
+  display: flex;
+  flex-direction: row;
+}
+.admin__layout__sidebar {
+  background-color: black;
+  padding: 0.5rem 1.5rem;
+  width: 250px;
+}
+.admin__layout__sidebar__title {
+  margin-top: 2rem;
+  text-align: center;
+  color: white;
+}
+.admin__layout__sidebar__title h3 {
+  font-weight: bold;
+}
+.admin__layout__sidebar__information {
+  margin: 2rem 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+}
+.admin__layout__sidebar__information__img {
+  height: 2rem;
+  aspect-ratio: 1/1;
+  border-radius: 50%;
+}
+.admin__layout__sidebar__information__user {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+.admin__layout__sidebar__information__user strong,
+.admin__layout__sidebar__information__user span {
+  text-align: center;
+  color: white;
+}
+.admin__layout__sidebar__navigation {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.admin__layout__sidebar__navigation button {
+  display: flex;
+  flex-direction: row;
+  gap: 0.75rem;
+  padding: 1rem 0;
+  justify-content: flex-start;
+  align-items: center;
+  height: 2.5rem;
+  border: none;
+  background-color: black;
+  color: white;
+  font-size: 1rem;
+  text-align: left;
+}
+.admin__layout__sidebar__navigation .active {
+  font-weight: bold;
+}
+.admin__layout__main {
+  display: flex;
+  flex-direction: column;
+  width: calc(100vw - 250px);
+}
+.admin__layout__main__header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  height: -moz-fit-content;
+  height: fit-content;
+  background-color: black;
+}
+.admin__layout__main__header button {
+  height: 100%;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  padding: 1.5rem;
+  margin-right: 1rem;
+  border: none;
+  background-color: black;
+  color: white;
+  font-size: 16px;
+}
+.admin__layout__main__header__search {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  background-color: #000;
+  padding: 0.5rem;
+  border-radius: 8px;
+}
+.admin__layout__main__header__search input[type=text] {
+  flex: 1;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 4px 0 0 4px;
+  outline: none;
+  font-size: 1rem;
+}
+.admin__layout__main__header__search input[type=text]::-moz-placeholder {
+  color: #bbb;
+}
+.admin__layout__main__header__search input[type=text]::placeholder {
+  color: #bbb;
+}
+.admin__layout__main__header__search button[type=submit] {
+  background-color: #0066ff;
+  height: 2.5rem;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0 4px 4px 0;
+  cursor: pointer;
+  font-size: 1rem;
+}
+.admin__layout__main__header__search button[type=submit]:hover {
+  background-color: #0055cc;
+}
+.admin__layout__main__header__notifications {
+  position: relative;
+  display: inline-block;
+}
+.admin__layout__main__header__notifications__icon {
+  color: #fff;
+}
+.admin__layout__main__header__notifications__badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background-color: #ff3b3b;
+  color: #fff;
+  border-radius: 50%;
+  padding: 0.1rem 0.25rem;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.admin__dashboard, .admin__product, .admin__order, .admin__account {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 3rem;
+}
+.admin__dashboard h3,
+.admin__dashboard h4, .admin__product h3,
+.admin__product h4, .admin__order h3,
+.admin__order h4, .admin__account h3,
+.admin__account h4 {
+  font-weight: bold;
+}
+.admin__dashboard__list, .admin__product__list, .admin__order__list, .admin__account__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+.admin__dashboard__list__search, .admin__product__list__search, .admin__order__list__search, .admin__account__list__search {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+.admin__dashboard__list__search div, .admin__product__list__search div, .admin__order__list__search div, .admin__account__list__search div {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2rem;
+}
+.admin__dashboard__list__search div h4, .admin__product__list__search div h4, .admin__order__list__search div h4, .admin__account__list__search div h4 {
+  margin: 0;
+}
+.admin__dashboard__list__search div input, .admin__product__list__search div input, .admin__order__list__search div input, .admin__account__list__search div input {
+  border: solid 1px black;
+  border-radius: 8px;
+  padding: 0.25rem 0.75rem;
+  width: 300px;
+}
+.admin__dashboard__list__search div input:focus, .admin__product__list__search div input:focus, .admin__order__list__search div input:focus, .admin__account__list__search div input:focus {
+  border: none;
+}
+.admin__dashboard__list__search button, .admin__product__list__search button, .admin__order__list__search button, .admin__account__list__search button {
+  border: none;
+  background-color: #0066ff;
+  color: white;
+  padding: 0.75rem;
+  font-weight: bold;
+}
+.admin__dashboard__list__table, .admin__product__list__table, .admin__order__list__table, .admin__account__list__table {
+  height: 750px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.admin__dashboard__list__table table, .admin__product__list__table table, .admin__order__list__table table, .admin__account__list__table table {
+  overflow-x: auto;
+}
+.admin__dashboard__list__table th, .admin__product__list__table th, .admin__order__list__table th, .admin__account__list__table th {
+  font-size: 20px;
+}
+.admin__dashboard__list__table td,
+.admin__dashboard__list__table tr, .admin__product__list__table td,
+.admin__product__list__table tr, .admin__order__list__table td,
+.admin__order__list__table tr, .admin__account__list__table td,
+.admin__account__list__table tr {
+  text-align: center;
+  vertical-align: middle;
+}
+.admin__dashboard__list__table button, .admin__product__list__table button, .admin__order__list__table button, .admin__account__list__table button {
+  border: none;
+  background-color: transparent;
+}
+.admin__order__list__table td,
+.admin__order__list__table tr, .admin__account__list__table td,
+.admin__account__list__table tr {
+  height: 90px;
+}
+.admin__dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.admin__dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+}
+@media (min-width: 768px) {
+  .admin__dashboard-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 1024px) {
+  .admin__dashboard-cards {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+.admin__dashboard-card {
+  flex: 1;
+  margin-right: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  color: white;
+}
+.admin__dashboard-card__title {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  align-items: center;
+}
+.admin__dashboard-card__title h3 {
+  font-size: 1.25rem;
+}
+.admin__dashboard-card__details p {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+.admin__dashboard-card__details span {
+  font-size: 0.875rem;
+  color: #f1f1f1;
+}
+.admin__dashboard-card__details .trend-up {
+  color: #4caf50;
+}
+.admin__dashboard-card__details .trend-down {
+  color: #f44336;
+}
+.admin__dashboard-summary {
+  background: #23272f;
+  border-radius: 10px;
+  padding: 1.5rem 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+}
+.admin__dashboard-summary h4 {
+  margin-bottom: 1rem;
+  color: #fff;
+  font-weight: bold;
+}
+.admin__dashboard-summary ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.admin__dashboard-summary li {
+  color: #f1f1f1;
+  font-size: 1.1rem;
+  background: #2c313a;
+  border-radius: 6px;
+  padding: 0.75rem 1.25rem;
+  min-width: 160px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+.admin__dashboard-summary li strong {
+  color: #fff;
+  font-weight: 600;
+  margin-right: 0.5rem;
+}
+.admin__dashboard-stats {
+  display: flex;
+  justify-content: space-between;
+}
+.admin__dashboard-stats-customers, .admin__dashboard-stats-conversion, .admin__dashboard-stats-revenue {
+  flex: 1;
+  margin-right: 1rem;
+  padding: 1rem;
+  background-color: #f4f4f4;
+  border-radius: 8px;
+}
+.admin__dashboard-stats-customers:last-child, .admin__dashboard-stats-conversion:last-child, .admin__dashboard-stats-revenue:last-child {
+  margin-right: 0;
+}
+.admin__dashboard-stats-customers h3, .admin__dashboard-stats-conversion h3, .admin__dashboard-stats-revenue h3 {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+.admin__dashboard-stats-customers p, .admin__dashboard-stats-conversion p, .admin__dashboard-stats-revenue p {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+.admin__dashboard-stats-customers span, .admin__dashboard-stats-conversion span, .admin__dashboard-stats-revenue span {
+  font-size: 0.875rem;
+  color: #888;
+}
+.admin__dashboard-chart {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+.admin__dashboard-chart h3 {
+  margin-bottom: 20px;
+  font-size: 18px;
+}
+.admin__dashboard-table {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.admin__dashboard-table table {
+  overflow-x: auto;
+}
+.admin__dashboard-table th {
+  font-size: 20px;
+}
+.admin__dashboard-table td,
+.admin__dashboard-table tr {
+  text-align: center;
+  vertical-align: middle;
+}
+.admin__dashboard-table button {
+  border: none;
+  background-color: transparent;
+}/*# sourceMappingURL=Admin.css.map */

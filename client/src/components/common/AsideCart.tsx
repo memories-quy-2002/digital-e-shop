@@ -1,6 +1,6 @@
 import { BsBank } from "react-icons/bs";
 import { FaBitcoin, FaCcVisa } from "react-icons/fa";
-import { useState } from "react";
+import React, { useState } from "react";
 type AsideCartProps = {
     totalPrice: number;
     discount: number;
@@ -9,7 +9,7 @@ type AsideCartProps = {
     applyDiscount: (discountCode: string, totalPrice: number) => void;
 };
 
-const paymentMethods: any[] = [<BsBank size={36} />, <FaCcVisa size={36} />, <FaBitcoin size={36} />];
+const paymentIcon: any = [<BsBank size={36} />, <FaCcVisa size={36} />, <FaBitcoin size={36} />];
 
 const AsideCart = ({ totalPrice, discount, subtotal, error, applyDiscount }: AsideCartProps) => {
     const [discountCode, setDiscountCode] = useState<string>("");
@@ -75,7 +75,7 @@ const AsideCart = ({ totalPrice, discount, subtotal, error, applyDiscount }: Asi
                                 padding: "0",
                             }}
                         >
-                            {paymentMethods.map((icon, index) => (
+                            {paymentIcon.map((icon, index) => (
                                 <li style={{ cursor: "pointer" }} key={index}>
                                     {icon}
                                 </li>

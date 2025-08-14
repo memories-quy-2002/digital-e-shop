@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Table } from "react-bootstrap";
 import ReactPaginate from "react-paginate";
 import axios from "../../../api/axios";
@@ -43,7 +43,7 @@ const AdminAccountPage = () => {
             try {
                 const response = await axios.get(`/api/users/`);
                 if (response.status === 200) {
-                    const newAccounts: Account[] = response.data.accounts.map((account: any) => {
+                    const newAccounts: Account[] = response.data.accounts.map((account: Account) => {
                         return {
                             ...account,
                             showPassword: false,
@@ -123,7 +123,7 @@ const AdminAccountPage = () => {
                             </thead>
                             <tbody>
                                 {currentAccounts.map((account) => (
-                                    <AccountItem accounts={filteredAccounts} account={account} />
+                                    <AccountItem key={account.id} accounts={filteredAccounts} account={account} />
                                 ))}
                             </tbody>
                         </Table>

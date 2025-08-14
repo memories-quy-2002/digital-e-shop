@@ -1,0 +1,126 @@
+.header {
+  background-color: black;
+  color: white;
+}
+.header__info {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 3rem 0.5rem 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+}
+@media screen and (min-width: 768px) {
+  .header__info {
+    flex-direction: row;
+    gap: 0rem;
+  }
+}
+.header__info__personal {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+@media screen and (min-width: 768px) {
+  .header__info__personal {
+    flex-direction: row;
+  }
+}
+.header__info__personal__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.header__info__personal__item address {
+  margin: 0;
+}
+.header__info__auth {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.header__info__auth__button {
+  display: flex;
+  flex-direction: row;
+  gap: 5px;
+}
+.header__info__auth__button div a {
+  transition: 0.3s all ease-in-out;
+}
+.header__info__auth__button div a:hover {
+  color: gray;
+}
+.header__info__auth a {
+  color: white;
+  text-decoration: none;
+}
+.header__main {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  gap: 1rem;
+}
+@media screen and (min-width: 768px) {
+  .header__main {
+    flex-direction: row;
+  }
+}
+.header__main__brand {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  font-size: 1.3rem;
+  font-weight: bold;
+}
+.header__main__brand__link {
+  text-decoration: none;
+  color: white;
+}
+.header__main__search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+.header__main__search__bar {
+  width: 100%;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
+}
+.header__main__search button {
+  width: 120px;
+  height: 42px;
+  background-color: blue;
+  color: white;
+  cursor: pointer;
+  border: none;
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+  text-transform: uppercase;
+}
+.header__main__group {
+  margin-left: 6px;
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-evenly;
+  gap: 1rem;
+}
+@media screen and (min-width: 768px) {
+  .header__main__group {
+    gap: 0;
+  }
+}
+.header__main__group__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}/*# sourceMappingURL=Header.css.map */

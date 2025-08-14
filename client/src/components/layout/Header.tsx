@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { JSX, useEffect, useState } from "react";
 import { Navbar } from "react-bootstrap";
 import { IoCall, IoCart, IoHeart, IoHome, IoMailSharp } from "react-icons/io5";
 import { Link, useNavigate } from "react-router-dom";
@@ -9,12 +9,17 @@ import axios from "../../api/axios";
 import Cookies from "universal-cookie";
 import { signOut } from "firebase/auth";
 import { auth } from "../../services/firebase";
+
 const cookies = new Cookies();
+
 export const Header = (): JSX.Element => {
     const navigate = useNavigate();
     const { addToast } = useToast();
     const [searchTerm, setSearchTerm] = useState<string>("");
     const { uid, userData, loading } = useAuth();
+    useEffect(() => {
+        console.log("User data updated:", userData);
+    }, [userData]);
     const handleSearch = () => {
         navigate(`/shops?term=${searchTerm}`);
     };
@@ -30,7 +35,8 @@ export const Header = (): JSX.Element => {
                 navigate("/");
             }
         } catch (err) {
-            throw err;
+            console.error("Logout failed", err);
+            addToast("Logout failed", "Please try again.");
         }
     };
 

@@ -2,7 +2,7 @@ import { Form } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import Cookies from "universal-cookie";
 import axios from "../../api/axios";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 const cookies = new Cookies();
 
@@ -92,8 +92,25 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                 console.log(response.data.msg);
                 navigate("/checkout-success");
             }
-        } catch (err: any) {
-            setErrors([err.response.data.msg]);
+        } catch (err: unknown) {
+            if (err && typeof err === "object" && "response" in err) {
+                const axiosError = err as { response: { status: number; data: { msg: string } } };
+                const status = axiosError.response.status;
+                setErrors([axiosError.response.data.msg]);
+                if (status === 401) {
+                    console.error("Unauthorized access. Please check your credentials.");
+                } else if (status === 500) {
+                    console.error("Internal Server Error. Please try again later.");
+                } else {
+                    console.error(`Error: ${status}`);
+                }
+            } else if (err instanceof Error) {
+                console.error(err.message);
+                setErrors(["An unexpected error occurred."]);
+            } else {
+                console.error("Unknown error");
+                setErrors(["An unexpected error occurred."]);
+            }
         }
     };
     useEffect(() => {

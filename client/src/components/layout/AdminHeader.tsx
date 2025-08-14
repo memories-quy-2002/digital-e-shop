@@ -29,8 +29,8 @@ const AdminHeader = () => {
             cookies.remove("rememberMe");
             await signOut(auth);
             addToast("Logout successfully", response.data?.msg || "Logged out");
-        } catch (err) {
-            // Optionally show an error toast
+        } catch (err: Error | unknown) {
+            console.error(err);
             addToast("Logout", "You have been logged out.");
         } finally {
             navigate("/login");

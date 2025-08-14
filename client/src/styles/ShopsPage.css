@@ -1,0 +1,296 @@
+.shops {
+  padding: 1.5rem 2rem;
+}
+.shops__title {
+  margin-bottom: 1.5rem;
+  font-weight: bold;
+}
+.shops__container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+@media (min-width: 768px) {
+  .shops__container {
+    flex-direction: row;
+  }
+}
+.shops__container__aside {
+  flex: 2;
+  box-shadow: 0px 3px 3px 1px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 1rem;
+}
+.shops__container__aside__search {
+  margin-bottom: 1rem;
+}
+.shops__container__aside__search input {
+  border: none;
+  width: 100%;
+  height: 2.5rem;
+  box-shadow: inset 0 0 3px 1px rgba(0, 0, 0, 0.2);
+  padding: 0.75rem;
+}
+.shops__container__aside__categories, .shops__container__aside__brands, .shops__container__aside__price {
+  padding: 0.75rem;
+  box-shadow: 0 0 3px 1px rgba(0, 0, 0, 0.2);
+}
+.shops__container__aside__categories h4, .shops__container__aside__brands h4, .shops__container__aside__price h4 {
+  font-family: "Inter";
+  font-weight: 700;
+  font-size: 1.25rem;
+  line-height: 25px;
+  display: flex;
+  align-items: center;
+  color: #0066ff;
+  margin-bottom: 1rem;
+}
+.shops__container__aside__brands label, .shops__container__aside__categories label {
+  display: block;
+  position: relative;
+  padding-left: 1.5rem;
+  margin-bottom: 10px;
+  cursor: pointer;
+  -webkit-user-select: none;
+     -moz-user-select: none;
+          user-select: none;
+}
+.shops__container__aside__brands label input, .shops__container__aside__categories label input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+.shops__container__aside__brands label input:checked ~ .checkmark, .shops__container__aside__categories label input:checked ~ .checkmark {
+  background-color: #0066ff;
+}
+.shops__container__aside__brands label input:checked ~ .checkmark:after, .shops__container__aside__categories label input:checked ~ .checkmark:after {
+  display: block;
+}
+.shops__container__aside__brands label .checkmark:after, .shops__container__aside__categories label .checkmark:after {
+  left: 40%;
+  width: 5px;
+  height: 12px;
+  border: solid white;
+  border-width: 0px 2px 2px 0;
+  transform: rotate(45deg);
+}
+.shops__container__aside__brands .checkmark, .shops__container__aside__categories .checkmark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 20px;
+  width: 20px;
+  border-radius: 6px;
+  border: 2px solid #0066ff;
+}
+.shops__container__aside__brands .checkmark:after, .shops__container__aside__categories .checkmark:after {
+  content: "";
+  position: absolute;
+  display: none;
+}
+.shops__container__aside__price__slider {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+.shops__container__aside__price__slider__num {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+.shops__container__aside__price__slider span {
+  text-align: center;
+}
+.shops__container__aside__price__slider .horizontal-slider {
+  width: 100%;
+  margin: 0.5rem 0;
+}
+.shops__container__aside__price__slider .horizontal-slider .example-thumb {
+  bottom: -10px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: #0066ff;
+  color: white;
+  cursor: pointer;
+}
+.shops__container__aside__price__slider .horizontal-slider .example-track {
+  height: 5px;
+}
+.shops__container__aside__price__slider .horizontal-slider .example-track.example-track-0 {
+  background: #d9d9d9;
+}
+.shops__container__aside__price__slider .horizontal-slider .example-track.example-track-1 {
+  background: #17bfbf;
+}
+.shops__container__aside__button {
+  margin: 0.75rem 0;
+  width: 100%;
+  background-color: #0066ff;
+  color: #fff;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 1rem;
+  transition: background-color 0.3s;
+}
+.shops__container__aside__button:hover {
+  background-color: #0056b3;
+}
+.shops__container__main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  flex: 5;
+}
+.shops__container__main__pagination {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+.shops__container__main__pagination__list {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 1.5rem;
+}
+@media (min-width: 768px) {
+  .shops__container__main__pagination__list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 1024px) {
+  .shops__container__main__pagination__list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+.shops__container__main__pagination__list__item {
+  background-color: #fff;
+  border: 1px solid #eee;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  text-align: center;
+  transition: box-shadow 0.2s ease;
+  position: relative;
+}
+.shops__container__main__pagination__list__item:hover {
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.3);
+}
+.shops__container__main__pagination__list__item__image {
+  width: 100%;
+  height: 160px; /* Set a fixed height for images */
+  padding-bottom: 0.75rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  cursor: pointer;
+}
+.shops__container__main__pagination__list__item__image img {
+  width: 100%;
+  height: 100%;
+  -o-object-fit: contain;
+     object-fit: contain; /* Ensures the image fits the container without being cropped */
+}
+.shops__container__main__pagination__list__item__like {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 36px;
+  height: 28px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 18px;
+  color: white;
+  cursor: pointer;
+  opacity: 0;
+  transition: 0.2s opacity ease-in-out;
+}
+.shops__container__main__pagination__list__item__category, .shops__container__main__pagination__list__item__name, .shops__container__main__pagination__list__item__price {
+  text-align: center;
+  font-weight: bold;
+}
+.shops__container__main__pagination__list__item__name {
+  font-size: 1.25rem;
+  height: 5rem;
+}
+.shops__container__main__pagination__list__item__price {
+  font-size: 1.25rem;
+  color: gray;
+  text-decoration: line-through;
+}
+.shops__container__main__pagination__list__item__rating {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+}
+.shops__container__main__pagination__list__item button {
+  background-color: white;
+  color: #0047ff;
+  width: 120px;
+  height: 40px;
+  border: 1px solid #0047ff;
+  font-weight: bold;
+  border-radius: 20px;
+  transition: 0.3s all ease-in-out;
+}
+.shops__container__main__pagination__list__item button:hover {
+  background-color: #0047ff;
+  color: white;
+}
+.shops__container__main__pagination__list__item:hover .shops__container__main__pagination__list__item__like, .shops__container__main__pagination__list__item:hover .shops__container__main__pagination__list__item__wishlist {
+  opacity: 1;
+}
+.shops__container__main__pagination__items {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+.shops__container__main__pagination__items li {
+  height: 40px;
+  min-width: 40px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+.shops__container__main__pagination__items li:hover {
+  background-color: #e6f0ff;
+  cursor: pointer;
+}
+.shops__container__main__pagination__items a {
+  width: 100%;
+  display: inline-block;
+  text-align: center;
+  text-decoration: none;
+  color: #333;
+  font-size: inherit;
+}
+.shops__container__main__pagination__items .disabled a {
+  color: #d9d9d9;
+  cursor: not-allowed;
+}
+.shops__container__main__pagination__items .selected {
+  background: #0066ff;
+  color: #fff !important;
+  border-radius: 50%;
+}
+.shops__container__main__pagination__items .selected a {
+  color: #fff;
+}
+.shops__container__main__pagination__items .selected:hover {
+  background-color: #0056b3;
+}/*# sourceMappingURL=ShopsPage.css.map */

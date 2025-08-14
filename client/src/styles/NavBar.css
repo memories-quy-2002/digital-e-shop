@@ -1,0 +1,10 @@
+.navbar {
+  width: 100%;
+  padding: 0.5rem 5rem;
+  background-color: #c0c0c0;
+}
+.navbar__item {
+  text-transform: uppercase;
+  color: black;
+  font-weight: bold;
+}/*# sourceMappingURL=NavBar.css.map */

@@ -1,3 +1,4 @@
+import React from "react";
 import { FaRegTrashAlt } from "react-icons/fa";
 import { Product } from "../../../utils/interface";
 import productPlaceholder from "../../../assets/images/product_placeholder.jpg";

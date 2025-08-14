@@ -2,27 +2,40 @@ import { onAuthStateChanged } from "firebase/auth";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import axios from "../api/axios";
 import { auth } from "../services/firebase";
+import { Role } from "../utils/interface";
+
+type UserData = {
+    id: string;
+    email: string;
+    password: string;
+    username: string;
+    first_name: string | null;
+    last_name: string | null;
+    role: Role.Admin | Role.Customer;
+    token: string;
+    created_at: Date;
+    last_login: Date;
+} | null;
 
 // Tạo context cho user
 interface AuthContextProps {
     uid: string | null;
-    userData: any;
+    userData: UserData;
     loading: boolean;
-    setUserData: (userData: any) => void;
+    setUserData: (userData: UserData) => void;
 }
 
 const AuthContext = createContext<AuthContextProps>({
     uid: null,
     userData: null,
     loading: true,
-    setUserData(any) {},
+    setUserData() {},
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [uid, setUid] = useState<string | null>(null);
-    const [userData, setUserData] = useState<any>(null);
+    const [userData, setUserData] = useState<UserData>(null);
     const [loading, setLoading] = useState<boolean>(true);
-
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {

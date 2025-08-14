@@ -9,6 +9,7 @@ import { Role } from "../../utils/interface";
 import Cookies from "universal-cookie";
 import { Helmet } from "react-helmet";
 import bgImage from "../../assets/images/background_form.jpg";
+import { AxiosError } from "axios";
 
 const cookies = new Cookies();
 
@@ -104,23 +105,25 @@ const SignupPage = () => {
                         navigate("/admin");
                     }
                 }
-            } catch (err: any) {
-                if (err.response) {
-                    const status = err.response.status;
-                    setErrors([err.response.data.msg]);
+            } catch (err: unknown) {
+                if (err instanceof AxiosError) {
+                    const status = err.response?.status;
+                    const msg = err.response?.data?.msg || "Unknown error";
+
+                    setErrors([msg]);
+
                     if (status === 401) {
-                        // Handle 401 Unauthorized
                         console.error("Unauthorized access. Please check your credentials.");
                     } else if (status === 500) {
-                        // Handle 500 Internal Server Error
                         console.error("Internal Server Error. Please try again later.");
-                    } else {
-                        // Handle other errors
-                        console.error(`Error: ${err.response.status}`);
+                    } else if (status) {
+                        console.error(`Error: ${status}`);
                     }
-                } else {
-                    // Handle non-Axios errors
+                } else if (err instanceof Error) {
                     console.error(err.message);
+                    setErrors(["An unexpected error occurred."]);
+                } else {
+                    console.error("Unknown error");
                     setErrors(["An unexpected error occurred."]);
                 }
             }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Table } from "react-bootstrap";
 import ReactPaginate from "react-paginate";
 import axios from "../../../api/axios";
@@ -139,7 +139,7 @@ const AdminOrderPage = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {currentOrders.map((order, id) => (
+                                {currentOrders.map((order) => (
                                     <tr key="id">
                                         <td width="50px">{filteredOrders.indexOf(order) + 1}</td>
                                         <td width="150px">{order.id}</td>

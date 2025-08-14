@@ -1,0 +1,33 @@
+.success__container {
+  height: max(100vh, 937px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+.success__container p {
+  font-size: 20px;
+  margin: 1.5rem;
+}
+.success__container strong {
+  font-size: 28px;
+  font-weight: bolder;
+}
+.success__container__buttons {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+.success__container__buttons button {
+  width: 320px;
+  padding: 0.75rem 1.5rem;
+  background-color: #315cf4;
+  color: white;
+  border: none;
+  box-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.1450980392);
+  font-size: 20px;
+  text-transform: capitalize;
+}/*# sourceMappingURL=CheckoutSuccessPage.css.map */

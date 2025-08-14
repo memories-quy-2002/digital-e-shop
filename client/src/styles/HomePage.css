@@ -1,0 +1,195 @@
+.home__hero {
+  height: 600px;
+}
+.home__hero__carousel {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+.home__hero__carousel__inner {
+  display: flex;
+  width: 400%;
+  height: 100%;
+}
+.home__hero__carousel__item {
+  position: relative;
+  width: 25%;
+  height: 600px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.home__hero__carousel__item img {
+  width: 100%;
+  height: 100%;
+  -o-object-fit: cover;
+     object-fit: cover; /* Ensures the image fits the container without being cropped */
+}
+.home__hero__carousel__item__overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  padding: 20px;
+}
+.home__hero__carousel__item__overlay h2 {
+  font-size: 36px;
+  margin-bottom: 10px;
+}
+.home__hero__carousel__item__overlay p {
+  font-size: 18px;
+  margin-bottom: 20px;
+}
+.home__hero__carousel__item__overlay button {
+  background-color: #fff;
+  color: #333;
+  border: none;
+  padding: 10px 20px;
+  font-size: 18px;
+  cursor: pointer;
+}
+.home__hero__carousel__item__overlay button:hover {
+  background-color: #333;
+  color: #fff;
+}
+.home__hero__carousel__nav button {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 40px;
+  background-color: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+}
+.home__hero__carousel__nav button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+.home__hero__carousel__nav__prev {
+  left: 0;
+}
+.home__hero__carousel__nav__next {
+  right: 0;
+}
+.home__product {
+  width: 100%;
+  margin: 2rem auto;
+  padding: 2rem;
+}
+.home__product__header {
+  display: flex;
+  justify-content: space-between;
+}
+.home__product__header__title {
+  font-weight: bold;
+  margin-bottom: 2rem;
+}
+.home__product__menu {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 1.5rem;
+}
+@media (min-width: 768px) {
+  .home__product__menu {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 1024px) {
+  .home__product__menu {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (min-width: 1280px) {
+  .home__product__menu {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+.home__product__menu__item {
+  background-color: #fff;
+  border: 1px solid #eee;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  text-align: center;
+  transition: box-shadow 0.2s ease;
+  position: relative;
+}
+.home__product__menu__item:hover {
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.3);
+}
+.home__product__menu__item__image {
+  width: 100%;
+  height: 160px; /* Set a fixed height for images */
+  padding-bottom: 0.75rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  cursor: pointer;
+}
+.home__product__menu__item__image img {
+  width: 100%;
+  height: 100%;
+  -o-object-fit: contain;
+     object-fit: contain; /* Ensures the image fits the container without being cropped */
+}
+.home__product__menu__item__like {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 36px;
+  height: 28px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 18px;
+  color: white;
+  cursor: pointer;
+  opacity: 0;
+  transition: 0.2s opacity ease-in-out;
+}
+.home__product__menu__item__category, .home__product__menu__item__name, .home__product__menu__item__price {
+  text-align: center;
+  font-weight: bold;
+}
+.home__product__menu__item__name {
+  font-size: 1.25rem;
+  height: 50px;
+}
+.home__product__menu__item__price {
+  font-size: 1.25rem;
+  color: gray;
+  text-decoration: line-through;
+}
+.home__product__menu__item__rating {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+.home__product__menu__item button {
+  background-color: white;
+  color: #0047ff;
+  width: 120px;
+  height: 40px;
+  border: 1px solid #0047ff;
+  font-weight: bold;
+  border-radius: 20px;
+  transition: 0.3s all ease-in-out;
+}
+.home__product__menu__item button:hover {
+  background-color: #0047ff;
+  color: white;
+}
+.home__product__menu__item:hover .home__product__menu__item__like, .home__product__menu__item:hover .home__product__menu__item__wishlist {
+  opacity: 1;
+}/*# sourceMappingURL=HomePage.css.map */

@@ -1,15 +1,14 @@
 const { By, Key, Builder, until } = require("selenium-webdriver");
 require("chromedriver");
-const PORT = 5173
-
+BASE_URL = "http://localhost:5173/admin"
 async function adminDashboardTest() {
     // Start browser
     let driver = await new Builder().forBrowser("chrome").build();
 
     try {
         // Navigate to Admin Dashboard
-        await driver.get(`http://localhost:${PORT}/admin`); // Change to your actual local or deployed URL
-
+        await driver.get(BASE_URL); // Change to your actual local or deployed URL
+        await driver.manage().window().setWindowSize(1024, 768);
         // Wait until dashboard header appears
         await driver.wait(
             until.elementLocated(By.xpath("//*[contains(text(),'📊 Admin Dashboard Overview')]")),

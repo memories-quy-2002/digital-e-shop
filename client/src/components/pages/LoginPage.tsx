@@ -101,24 +101,23 @@ const LoginPage = () => {
                 }
                 window.location.reload();
             }
-        } catch (err: any) {
-            if (err.response) {
-                // Handle specific status codes
-                const status = err.response.status;
-                setErrors([err.response.data.msg]);
+        } catch (err: unknown) {
+            if (err && typeof err === "object" && "response" in err) {
+                const axiosError = err as { response: { status: number; data: { msg: string } } };
+                const status = axiosError.response.status;
+                setErrors([axiosError.response.data.msg]);
                 if (status === 401) {
-                    // Handle 401 Unauthorized
                     console.error("Unauthorized access. Please check your credentials.");
                 } else if (status === 500) {
-                    // Handle 500 Internal Server Error
                     console.error("Internal Server Error. Please try again later.");
                 } else {
-                    // Handle other errors
-                    console.error(`Error: ${err.response.status}`);
+                    console.error(`Error: ${status}`);
                 }
-            } else {
-                // Handle non-Axios errors
+            } else if (err instanceof Error) {
                 console.error(err.message);
+                setErrors(["An unexpected error occurred."]);
+            } else {
+                console.error("Unknown error");
                 setErrors(["An unexpected error occurred."]);
             }
         }

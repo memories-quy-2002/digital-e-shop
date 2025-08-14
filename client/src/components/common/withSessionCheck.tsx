@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
-import { AxiosResponse } from "axios";
+import { AxiosError, AxiosResponse } from "axios";
 import { auth } from "../../services/firebase";
 
 const withSessionCheck = (WrappedComponent: React.ComponentType) => {
@@ -16,9 +16,9 @@ const withSessionCheck = (WrappedComponent: React.ComponentType) => {
                             console.log(response.data.sessionActive);
                         }
                     }
-                } catch (error: any) {
-                    if (error.response.status === 401) {
-                        console.error(error.response.data.msg);
+                } catch (err: unknown) {
+                    if (err instanceof AxiosError && err.response?.status === 401) {
+                        console.error(err.response.data.msg);
                         navigate("/login");
                     }
                 }

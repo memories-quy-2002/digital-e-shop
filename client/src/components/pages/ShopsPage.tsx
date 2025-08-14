@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Cookies from "universal-cookie";
 import axios from "../../api/axios";
@@ -134,7 +134,7 @@ const ShopsPage = () => {
                     setFilteredProducts(response.data.products);
                     console.log(response.data.msg);
                 }
-            } catch (err: any) {
+            } catch (err) {
                 console.error(err);
             } finally {
                 setIsLoading(false);

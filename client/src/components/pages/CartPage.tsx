@@ -92,8 +92,12 @@ const CartPage = () => {
                 setError("Discount not found");
                 console.log(response.data.msg);
             }
-        } catch (err) {
-            console.error(err);
+        } catch (err: unknown) {
+            if (err && typeof err === "object" && "response" in err) {
+                const errorResponse = (err as { response: { data: { msg: string } } }).response;
+                setError(errorResponse.data.msg);
+                console.error(errorResponse.data.msg);
+            }
         }
     };
 
