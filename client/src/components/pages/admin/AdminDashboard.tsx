@@ -169,7 +169,7 @@ const AdminDashboard = () => {
     const getMonthlyRevenues = (orders: Order[]): MonthlyRevenue[] => {
         const monthlyRevenueMap: { [key: string]: number } = {};
         const currentDate = new Date();
-
+        console.log(orders);
         for (let i = 5; i >= 0; i--) {
             const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
             const month = date.toLocaleString("default", { month: "long" });

@@ -77,7 +77,7 @@ const CartPage = () => {
 
     const applyDiscount = async (discountCode: string, price: number) => {
         try {
-            const response = await axios.post(`/api/discount`, {
+            const response = await axios.post(`/api/orders/discount`, {
                 discountCode,
                 price,
             });

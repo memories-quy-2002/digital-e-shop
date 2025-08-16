@@ -81,7 +81,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
             return;
         }
         try {
-            const response = await axios.post(`/api/purchase/${uid}`, {
+            const response = await axios.post(`/api/orders/purchase/${uid}`, {
                 cart,
                 totalPrice,
                 discount,

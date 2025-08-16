@@ -11,7 +11,7 @@ const withSessionCheck = (WrappedComponent: React.ComponentType) => {
             const checkSession = async () => {
                 try {
                     if (auth.currentUser) {
-                        const response: AxiosResponse = await axios.get("/api/session/check");
+                        const response: AxiosResponse = await axios.get("/api/users/session/check");
                         if (response.status === 200) {
                             console.log(response.data.sessionActive);
                         }
