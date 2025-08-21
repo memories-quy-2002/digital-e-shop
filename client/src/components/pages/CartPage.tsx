@@ -87,16 +87,17 @@ const CartPage = () => {
                 setSubtotal(newPrice);
                 setError("");
                 addToast("Applying Coupon", "Coupon has been applied successfully");
-                console.log(response.data.msg);
-            } else if (response.status === 204) {
-                setError("Discount not found");
-                console.log(response.data.msg);
             }
         } catch (err: unknown) {
             if (err && typeof err === "object" && "response" in err) {
-                const errorResponse = (err as { response: { data: { msg: string } } }).response;
-                setError(errorResponse.data.msg);
-                console.error(errorResponse.data.msg);
+                const errorResponse = (err as { response: { status: number; data: { msg: string } } }).response;
+                if (errorResponse.status === 404) {
+                    addToast("Applying Coupon", "Discount code not found");
+                } else if (errorResponse.status === 500) {
+                    addToast("Applying Coupon", "Internal server error, please try again later");
+                }
+                setError(`Status code: ${errorResponse.status}, Message: ${errorResponse.data.msg}`);
+                console.error(`${errorResponse.data.msg}`);
             }
         }
     };
@@ -140,6 +141,7 @@ const CartPage = () => {
             <NavigationBar />
             <Helmet>
                 <title>Cart</title>
+                <meta name="description" content="View and manage your shopping cart items." />
             </Helmet>
             <Container fluid className="cart__container">
                 {isPayment ? (
@@ -153,7 +155,7 @@ const CartPage = () => {
                 ) : (
                     <>
                         {" "}
-                        <h3 className="cart__container__title">Shopping Cart</h3>
+                        <h2 className="cart__container__title">Shopping Cart</h2>
                         <main className="cart__container__box">
                             <section className="cart__container__box__main">
                                 <div className="cart__container__box__main__list">

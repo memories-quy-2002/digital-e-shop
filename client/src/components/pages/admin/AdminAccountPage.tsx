@@ -5,6 +5,7 @@ import axios from "../../../api/axios";
 import { Role } from "../../../utils/interface";
 import AccountItem from "../../common/admin/AdminAccountItem";
 import AdminLayout from "../../layout/AdminLayout";
+import { Helmet } from "react-helmet";
 
 interface Account {
     id: string;
@@ -79,6 +80,10 @@ const AdminAccountPage = () => {
     }, [searchTerm, accounts]);
     return (
         <AdminLayout>
+            <Helmet>
+                <title>Admin Account Management</title>
+                <meta name="description" content="Manage user accounts and roles." />
+            </Helmet>
             <main className="admin__account">
                 <section className="admin__dashboard-summary" style={{ marginBottom: 24 }}>
                     <h4>Account Summary</h4>

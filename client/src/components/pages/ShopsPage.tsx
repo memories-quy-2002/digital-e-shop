@@ -177,9 +177,10 @@ const ShopsPage = () => {
             <NavigationBar />
             <Helmet>
                 <title>Shops</title>
+                <meta name="description" content="Explore a wide range of products from various shops." />
             </Helmet>
             <main className="shops">
-                <h2 className="shops__title">SHOPS PRODUCTS</h2>
+                <h2 className="shops__title">Shops Products</h2>
                 <div className="shops__container">
                     <AsideShops
                         products={products}

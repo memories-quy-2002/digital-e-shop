@@ -6,6 +6,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 
 import AdminLayout from "../../layout/AdminLayout";
 import { Table } from "react-bootstrap";
+import { Helmet } from "react-helmet";
 
 interface CardProps {
     title: string;
@@ -121,6 +122,8 @@ const AdminDashboard = () => {
                 const orderItemResponse = await axios.get(`/api/orders/item`);
                 if (orderItemResponse.status === 200) {
                     setOrderItems(orderItemResponse.data.orderItems);
+                } else if (orderItemResponse.status === 500) {
+                    console.error("Internal server error: ", orderItemResponse.data.msg);
                 }
             } catch (err) {
                 console.error(err);
@@ -270,11 +273,15 @@ const AdminDashboard = () => {
     const topRevenueProducts = getTopRevenueProducts(orderItems);
     return (
         <AdminLayout>
+            <Helmet>
+                <title>Admin Dashboard</title>
+                <meta name="description" content="Overview of store performance and key metrics." />
+            </Helmet>
             <main className="admin__dashboard">
                 <section className="admin__dashboard-header">
                     <h2>📊 Admin Dashboard Overview</h2>
                     <p style={{ color: "#555", marginBottom: 8 }}>
-                        Welcome! Here is a summary of your store`&apos;`s performance and key metrics for the last 6
+                        Welcome! Here is a summary of your store&apos;s performance and key metrics for the last 6
                         months.
                     </p>
                     <button className="btn btn-dark" onClick={handleDownloadReport}>

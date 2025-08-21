@@ -25,10 +25,11 @@ const WishlistItem = ({ item, uid, onAddingCart, onRemoveWishlist }: WishlistIte
     const imageUrl = product.main_image ? product.main_image.replace(".jpg", "") : null;
 
     return (
-        <div className="wishlist__main__item">
-            <div className="wishlist__main__item__product">
+        <div className="wishlist__row">
+            {/* Product */}
+            <div className="wishlist__row__product">
                 <div
-                    className="wishlist__main__item__product__image"
+                    className="wishlist__row__product__image"
                     onClick={() => navigate(`/product?id=${item.product.id}`)}
                 >
                     {imageUrl ? (
@@ -40,32 +41,43 @@ const WishlistItem = ({ item, uid, onAddingCart, onRemoveWishlist }: WishlistIte
                         <img src={productPlaceholder} alt={product.name} />
                     )}
                 </div>
-                <div className="wishlist__main__item__product__info">
-                    <div style={{ fontWeight: "bold", marginBottom: "1rem" }}>{product.name}</div>
-                    <div>Category: {product.category}</div>
-                    <div>Brand: {product.brand}</div>
+                <div className="wishlist__row__product__info">
+                    <div className="wishlist__row__product__info__name">{product.name}</div>
+                    <div className="wishlist__row__product__info__category">Category: {product.category}</div>
+                    <div className="wishlist__row__product__info__brand">Brand: {product.brand}</div>
                 </div>
             </div>
-            <div className="wishlist__main__item__price">
-                ${product.sale_price ? product.sale_price : product.price}
-            </div>
-            <div className="wishlist__main__item__stock">{product.stock > 0 ? "In stock" : "Out of stock"} </div>
-            <div className="wishlist__main__item__button">
+
+            {/* Price */}
+            <div className="wishlist__row__price">${product.sale_price ? product.sale_price : product.price}</div>
+
+            {/* Stock */}
+            {product.stock > 0 ? (
+                <div className="wishlist__row__stock wishlist__row__stock--in">In stock</div>
+            ) : (
+                <div className="wishlist__row__stock wishlist__row__stock--out">Out of stock</div>
+            )}
+
+            {/* Button */}
+            <div className="wishlist__row__button">
                 <button type="button" onClick={() => onAddingCart(uid, product.id)}>
                     Add to cart
                 </button>
             </div>
-            <div className="wishlist__main__item__delete">
+
+            {/* Delete */}
+            <div className="wishlist__row__delete">
                 <button
                     type="button"
                     data-testid="delete-btn"
                     aria-label={`delete-btn-${item.id}`}
                     onClick={() => setShow(true)}
-                    style={{ border: "none" }}
                 >
-                    <IoTrashBinOutline size={32} />
+                    <IoTrashBinOutline size={24} />
                 </button>
             </div>
+
+            {/* Modal */}
             <Modal show={show} onHide={handleClose}>
                 <Modal.Header closeButton>
                     <Modal.Title>Remove Wishlist</Modal.Title>

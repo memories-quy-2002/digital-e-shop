@@ -16,7 +16,6 @@ const AdminSidebar = () => {
     const navigate = useNavigate();
     const url = window.location.href;
     const paramItem = url.split("/admin/")[1];
-    // console.log(paramItem);
     const { userData, loading } = useAuth();
 
     const handleAdminNavigate = (item: string) => {
@@ -29,33 +28,36 @@ const AdminSidebar = () => {
 
     return (
         <aside className="admin__layout__sidebar">
-            <section className="admin__layout__sidebar__title">
+            {/* Logo / Brand */}
+            <section className="admin__layout__sidebar__brand">
                 <h3>DIGITAL-E</h3>
-                <strong>Admin Panel</strong>
+                <span>Admin Panel</span>
             </section>
-            <section className="admin__layout__sidebar__information">
-                <img src={productPlaceholder} alt="admin_avatar" className="admin__layout__sidebar__information__img" />
-                <div className="admin__layout__sidebar__information__user">
+
+            {/* User Info */}
+            <section className="admin__layout__sidebar__user">
+                <img src={productPlaceholder} alt="admin_avatar" className="admin__layout__sidebar__user__avatar" />
+                <div className="admin__layout__sidebar__user__info">
                     <strong>{userData && !loading ? userData.username : "Anonymous"}</strong>
-                    <span>{userData && !loading ? userData.email : "Anonymous"}</span>
+                    <span>{userData && !loading ? userData.email : "anonymous@example.com"}</span>
                 </div>
             </section>
-            <nav className="admin__layout__sidebar__navigation">
-                {items.map((item, index) => {
-                    return (
-                        <button
-                            type="button"
-                            key={index}
-                            onClick={() => handleAdminNavigate(item.toLowerCase())}
-                            className={
-                                paramItem === item.toLowerCase() || (!paramItem && item === "Dashboard") ? "active" : ""
-                            }
-                        >
-                            {itemIcons[index]}
-                            {item}
-                        </button>
-                    );
-                })}
+
+            {/* Navigation */}
+            <nav className="admin__layout__sidebar__nav">
+                {items.map((item, index) => (
+                    <button
+                        type="button"
+                        key={index}
+                        onClick={() => handleAdminNavigate(item.toLowerCase())}
+                        className={`admin__layout__sidebar__nav__item ${
+                            paramItem === item.toLowerCase() || (!paramItem && item === "Dashboard") ? "active" : ""
+                        }`}
+                    >
+                        <span className="admin__layout__sidebar__nav__icon">{itemIcons[index]}</span>
+                        <span className="admin__layout__sidebar__nav__label">{item}</span>
+                    </button>
+                ))}
             </nav>
         </aside>
     );

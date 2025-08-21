@@ -6,6 +6,7 @@ import AdminLayout from "../../layout/AdminLayout";
 import { FaCheck } from "react-icons/fa6";
 import { useToast } from "../../../context/ToastContext";
 import { MdCancel } from "react-icons/md";
+import { Helmet } from "react-helmet";
 
 interface Order {
     id: number;
@@ -39,16 +40,24 @@ const AdminOrderPage = () => {
                 status,
             });
             if (response.status === 200) {
-                console.log(response.data.msg);
                 const updatedOrders = orders.map((order) =>
                     order.id === response.data.order.id ? response.data.order : order
                 );
                 setOrders(updatedOrders);
-                console.log(orders);
-                addToast("Order status updated", "Order status updated successfully");
+                addToast("Update Order Status", "Order status updated successfully");
             }
         } catch (err) {
-            console.error(err);
+            if (err && typeof err === "object" && "response" in err) {
+                const errorResponse = (err as { response: { status: number; data: { msg: string } } }).response;
+                if (errorResponse.status === 400) {
+                    addToast("Update Order Status", "Status is required");
+                } else if (errorResponse.status === 404) {
+                    addToast("Update Order Status", "Order not found");
+                } else if (errorResponse.status === 500) {
+                    addToast("Update Order Status", "Internal server error, please try again later");
+                }
+                console.error(`${errorResponse.data.msg}`);
+            }
         }
     };
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,6 +97,10 @@ const AdminOrderPage = () => {
     }, [filteredOrders]);
     return (
         <AdminLayout>
+            <Helmet>
+                <title>Admin Order Management</title>
+                <meta name="description" content="Manage and view orders placed in the store." />
+            </Helmet>
             <div className="admin__order">
                 <section className="admin__dashboard-summary" style={{ marginBottom: 24 }}>
                     <h4>Order Summary</h4>

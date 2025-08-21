@@ -1,9 +1,10 @@
 .shops {
-    padding: 1.5rem 2rem;
+    padding: 2rem;
 
     &__title {
-        margin-bottom: 1.5rem;
+        font-size: 28px;
         font-weight: bold;
+        margin-bottom: 1rem;
     }
 
     &__container {
@@ -297,7 +298,9 @@
                         justify-content: center;
                         align-items: center;
                         border-radius: 50%; // Circular pagination for better UX
-                        transition: background-color 0.3s ease, color 0.3s ease; // Smooth transition
+                        transition:
+                            background-color 0.3s ease,
+                            color 0.3s ease; // Smooth transition
 
                         &:hover {
                             background-color: #e6f0ff; // Light blue background on hover

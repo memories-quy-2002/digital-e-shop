@@ -67,6 +67,14 @@
                         display: flex;
                         flex-direction: column;
                         gap: 0.5rem;
+                        &__status {
+                            color: #2e7d32;
+                            font-weight: bold;
+                            &--out {
+                                color: red;
+                                font-weight: bold;
+                            }
+                        }
                     }
                 }
                 &__quantity {
@@ -253,15 +261,17 @@
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 
             &__container {
-                background-color: white;
+                background-color: #fff;
                 border-radius: 8px;
                 box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+                padding: 1.5rem;
+                margin-bottom: 20px;
 
-                // Đoạn cảnh báo khi chưa đăng nhập
-                &:not(:last-child) {
-                    margin-bottom: 20px;
+                &:last-child {
+                    margin-bottom: 0;
                 }
 
+                // ⭐ Rating section
                 &__rating {
                     margin-bottom: 20px;
 
@@ -279,24 +289,28 @@
                         &__star {
                             display: flex;
                             gap: 0.5rem;
+
                             span {
                                 cursor: pointer;
                                 transition: transform 0.3s ease;
-                                font-size: 14px;
 
                                 &:hover {
                                     transform: scale(1.2);
                                 }
                             }
                         }
+
                         &__score {
                             font-size: 18px;
                             color: #555;
                         }
                     }
                 }
+
+                // 📝 Text area + button
                 &__text {
                     margin-bottom: 20px;
+
                     &__title {
                         font-size: 18px;
                         font-weight: bold;
@@ -321,7 +335,7 @@
                     &__button {
                         padding: 10px 20px;
                         background-color: #3d3d3d;
-                        color: white;
+                        color: #fff;
                         border: none;
                         border-radius: 5px;
                         cursor: pointer;
@@ -333,34 +347,39 @@
                     }
                 }
 
+                // 📋 All reviews
                 &__all {
+                    &__title {
+                        font-size: 18px;
+                        font-weight: bold;
+                        margin-bottom: 15px;
+                    }
+
                     &__list {
-                        margin-top: 20px;
+                        display: flex;
+                        flex-direction: column;
+                        gap: 15px;
 
                         &__item {
                             padding: 15px;
                             background-color: #f8f8f8;
                             border-radius: 8px;
                             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                            margin-bottom: 15px;
-
-                            &:last-child {
-                                margin-bottom: 0;
-                            }
 
                             &__info {
                                 display: flex;
                                 align-items: center;
-                                margin-bottom: 10px;
                                 gap: 2rem;
-                                &__star {
-                                    display: flex;
-                                    flex-direction: row;
-                                    gap: 0.25rem;
-                                }
+                                margin-bottom: 10px;
+
                                 strong {
                                     font-size: 16px;
                                     font-weight: 600;
+                                }
+
+                                &__star {
+                                    display: flex;
+                                    gap: 0.25rem;
                                 }
 
                                 span {
@@ -380,45 +399,60 @@
                         }
                     }
                 }
+            }
 
-                // Mobile responsiveness
-                @media (max-width: 768px) {
-                    &__all {
-                        &__list {
-                            &__item {
-                                padding: 10px;
-                                &__info {
-                                    flex-direction: column;
-                                    align-items: flex-start;
-                                    gap: 5px;
-                                }
-                                &__review p {
-                                    font-size: 13px;
-                                }
-                            }
-                        }
+            // 📱 Responsive
+            @media (max-width: 768px) {
+                &__container__all__list__item {
+                    padding: 10px;
+
+                    &__info {
+                        flex-direction: column;
+                        align-items: flex-start;
+                        gap: 5px;
+                    }
+
+                    &__review p {
+                        font-size: 13px;
                     }
                 }
             }
         }
 
         &__description {
-            padding: 20px;
-            background-color: #fff;
+            background-color: #f9f9f9;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
             margin-top: 20px;
 
             h5 {
                 font-size: 20px;
                 font-weight: bold;
                 margin-bottom: 10px;
+                color: #222;
             }
 
             p {
                 font-size: 14px;
                 line-height: 1.6;
-                color: #333;
+                color: #444;
+                margin: 0;
+            }
+
+            // 📱 Responsive
+            @media (max-width: 768px) {
+                &__container {
+                    padding: 1rem;
+
+                    h5 {
+                        font-size: 18px;
+                    }
+
+                    p {
+                        font-size: 13px;
+                    }
+                }
             }
         }
 
@@ -447,17 +481,27 @@
                 font-weight: bold;
                 margin-top: 4rem;
             }
+
             &__list {
                 display: grid;
                 grid-template-columns: repeat(10, 1fr);
                 overflow-x: auto;
                 gap: 1.25rem;
                 padding: 2rem 0;
+
                 &__item {
                     position: relative;
                     height: fit-content;
                     padding: 0.25rem;
-                    box-shadow: 0 4px 10px 3px rgba(0, 0, 0, 0.1882352941);
+                    box-shadow: 0 4px 10px 3px rgba(0, 0, 0, 0.19);
+                    border-radius: 8px;
+                    background: #fff;
+                    transition: transform 0.2s ease;
+
+                    &:hover {
+                        transform: translateY(-3px);
+                    }
+
                     &__image {
                         display: flex;
                         justify-content: center;
@@ -465,12 +509,57 @@
                         height: 100px;
                         margin-bottom: 1rem;
                         cursor: pointer;
+
                         img {
                             display: inline-block;
                             text-align: center;
                             height: 100%;
                             object-fit: contain;
                         }
+                    }
+
+                    &__category {
+                        text-align: center;
+                        font-weight: bold;
+                        color: #939393;
+                        margin-top: 0.5rem;
+                    }
+
+                    &__name {
+                        text-align: center;
+                        font-weight: bold;
+                        font-size: 1rem;
+                        min-height: 3rem;
+                        margin: 0.5rem 0;
+                    }
+
+                    &__price {
+                        text-align: center;
+                        font-weight: bold;
+                        font-size: 1rem;
+                        color: red;
+
+                        &--sale {
+                            display: flex;
+                            gap: 0.75rem;
+                            justify-content: center;
+
+                            &__sale {
+                                color: red;
+                            }
+
+                            &__original {
+                                text-decoration: line-through;
+                                color: gray;
+                            }
+                        }
+                    }
+
+                    &__rating {
+                        display: flex;
+                        flex-direction: row;
+                        justify-content: space-between;
+                        padding: 1rem 1.5rem;
                     }
 
                     button {
@@ -482,14 +571,17 @@
                         font-weight: bold;
                         border-radius: 20px;
                         transition: 0.3s all ease-in-out;
+
                         &:hover {
                             background-color: #0047ff;
                             color: white;
                         }
                     }
+
                     &:hover &__like {
                         opacity: 1;
                     }
+
                     &:hover &__wishlist {
                         opacity: 1;
                     }

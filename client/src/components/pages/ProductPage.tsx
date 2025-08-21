@@ -286,6 +286,7 @@ const ProductPage = () => {
             <NavigationBar />
             <Helmet>
                 <title>{productDetail.name}</title>
+                <meta name="description" content={productDetail.description} />
             </Helmet>
             <div className="product__container">
                 <div className="product__container__detail">
@@ -344,14 +345,16 @@ const ProductPage = () => {
                                 <span>Brand: {productDetail.brand}</span>
                                 <span>
                                     Status:{" "}
-                                    <span
-                                        style={{
-                                            color: "red",
-                                            fontWeight: "bold",
-                                        }}
-                                    >
-                                        {" "}
-                                        {productDetail.stock > 0 ? "In stock" : "Out of stock"}
+                                    <span>
+                                        {productDetail.stock > 0 ? (
+                                            <span className="product__container__detail__main__info__other__status">
+                                                In stock
+                                            </span>
+                                        ) : (
+                                            <span className="product__container__detail__main__info__other__status--out">
+                                                Out of stock
+                                            </span>
+                                        )}
                                     </span>
                                 </span>
                             </div>

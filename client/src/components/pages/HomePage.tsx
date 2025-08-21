@@ -254,8 +254,7 @@ const HomePage = () => {
 
                 <section className="home__product">
                     <div className="home__product__header">
-                        <h2 className="home__product__header__title">All products</h2>{" "}
-                        {/* Changed to h2 for better SEO */}
+                        <h2 className="home__product__header__title">All products</h2>
                         <div>
                             <Link
                                 to="/shops"

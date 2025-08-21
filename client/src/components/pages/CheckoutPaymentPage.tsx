@@ -88,7 +88,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                 subtotal,
                 shippingAddress: formCheckout.address,
             });
-            if (response.status === 200) {
+            if (response.status === 201) {
                 console.log(response.data.msg);
                 navigate("/checkout-success");
             }
@@ -96,26 +96,21 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
             if (err && typeof err === "object" && "response" in err) {
                 const axiosError = err as { response: { status: number; data: { msg: string } } };
                 const status = axiosError.response.status;
+                const data = axiosError.response.data;
                 setErrors([axiosError.response.data.msg]);
-                if (status === 401) {
-                    console.error("Unauthorized access. Please check your credentials.");
+                if (status === 400) {
+                    console.error("Bad request: ", data.msg);
                 } else if (status === 500) {
-                    console.error("Internal Server Error. Please try again later.");
+                    console.error("Internal server error: ", data.msg);
                 } else {
-                    console.error(`Error: ${status}`);
+                    console.error(`Error: ${status} - ${data.msg}`);
                 }
             } else if (err instanceof Error) {
                 console.error(err.message);
                 setErrors(["An unexpected error occurred."]);
-            } else {
-                console.error("Unknown error");
-                setErrors(["An unexpected error occurred."]);
             }
         }
     };
-    useEffect(() => {
-        console.log(formCheckout);
-    }, [formCheckout]);
 
     return (
         <div className="cart__container__payment">

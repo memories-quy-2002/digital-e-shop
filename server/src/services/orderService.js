@@ -1,11 +1,10 @@
 const Order = require("../models/orderModel");
 
 async function makePurchase(uid, { totalPrice, cart, discount, subtotal, shippingAddress }) {
-    if (!cart || cart.length === 0) {
-        throw new Error("Cart is empty");
-    }
-
     return new Promise((resolve, reject) => {
+        if (!cart || cart.length === 0) {
+            return reject(new Error("Cart is empty"));
+        }
         Order.startTransaction((err) => {
             if (err) return reject(new Error("Error starting transaction"));
 

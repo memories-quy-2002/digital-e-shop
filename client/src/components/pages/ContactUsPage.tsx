@@ -1,48 +1,79 @@
-import React from "react";
+import React, { useState } from "react";
 import "../../styles/ContactUsPage.scss";
 import Layout from "../layout/Layout";
 import NavigationBar from "../common/NavigationBar";
 import { Helmet } from "react-helmet";
+import { useToast } from "../../context/ToastContext";
 
 const ContactUsPage: React.FC = () => {
+    const [formData, setFormData] = useState({
+        name: "",
+        email: "",
+        message: "",
+    });
+    const { addToast } = useToast();
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        addToast("Submit successfully", "Thank you for contacting us! We'll get back to you soon.");
+        setFormData({ name: "", email: "", message: "" });
+    };
     return (
         <Layout>
             <NavigationBar />
             <Helmet>
                 <title>Contact us</title>
+                <meta name="description" content="Get in touch with Digital-E for support, inquiries, or feedback." />
             </Helmet>
-            <main className="contact-us">
-                <section className="contact-us__container">
-                    <h1 className="contact-us__title">Contact Us</h1>
-                    <p className="contact-us__description">
-                        Have any questions or concerns? We`&apos;`re always ready to help! Reach out to us through any
-                        of the following methods, and we will get back to you as soon as possible.
-                    </p>
+            <div className="contact">
+                <h2 className="contact__title">Contact Us</h2>
+                <p className="contact__intro">
+                    Have questions or feedback? Reach out to us using the form below or through our support channels.
+                </p>
+                <form className="contact__form" onSubmit={handleSubmit}>
+                    <input
+                        type="text"
+                        name="name"
+                        placeholder="Your Name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        required
+                        className="contact__form__input"
+                    />
+                    <input
+                        type="email"
+                        name="email"
+                        placeholder="Your Email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        required
+                        className="contact__form__input"
+                    />
+                    <textarea
+                        name="message"
+                        placeholder="Your Message"
+                        value={formData.message}
+                        onChange={handleChange}
+                        required
+                        rows={6}
+                        className="contact__form__textarea"
+                    />
+                    <button type="submit" className="contact__form__button">
+                        Send Message
+                    </button>
+                </form>
 
-                    <div className="contact-us__info">
-                        <section className="contact-us__section">
-                            <h2>Email Us</h2>
-                            <address>
-                                <p>support@digital-e.com</p>
-                            </address>
-                        </section>
-
-                        <section className="contact-us__section">
-                            <h2>Call Us</h2>
-                            <address>
-                                <p>+84 123 456 789</p>
-                            </address>
-                        </section>
-
-                        <section className="contact-us__section">
-                            <h2>Visit Us</h2>
-                            <address>
-                                <p>123 ABC Street Ho Chi Minh City, Vietnam</p>
-                            </address>
-                        </section>
-                    </div>
-                </section>
-            </main>
+                <div className="contact__info">
+                    <h3>Other ways to reach us</h3>
+                    <p>Email: contact@digital-e.com</p>
+                    <p>Phone: +84 123 456 789</p>
+                    <p>Address: 123 Digital-E Street, Ho Chi Minh City, Vietnam</p>
+                </div>
+            </div>
         </Layout>
     );
 };

@@ -50,27 +50,20 @@ const WishlistPage = () => {
             <NavigationBar />
             <Helmet>
                 <title>Wishlist</title>
+                <meta name="description" content="View and manage your wishlist items." />
             </Helmet>
             <main className="wishlist">
-                <div className="wishlist__title">
-                    <h2>MY WISHLIST</h2>
-                </div>
+                <h2 className="wishlist__title">My Wishlist</h2>
                 {wishlist.length > 0 ? (
                     <div className="wishlist__category">
-                        <div id="wishlist_product" className="wishlist__category__item">
-                            Product
-                        </div>
-                        <div id="wishlist_price" className="wishlist__category__item">
-                            Price
-                        </div>
-                        <div id="wishlist_stock" className="wishlist__category__item">
-                            Stock status
-                        </div>
-                        <div id="wishlist_delete" className="wishlist__category__item"></div>
-                        <div id="wishlist_button" className="wishlist__category__item"></div>
+                        <div className="wishlist__category__item">Product</div>
+                        <div className="wishlist__category__item">Price</div>
+                        <div className="wishlist__category__item">Stock status</div>
+                        <div className="wishlist__category__item"></div>
+                        <div className="wishlist__category__item"></div>
                     </div>
                 ) : (
-                    <div></div>
+                    <div className="wishlist__empty">Your wishlist is empty.</div>
                 )}
 
                 <PaginatedItems

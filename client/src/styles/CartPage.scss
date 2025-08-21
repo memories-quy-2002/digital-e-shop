@@ -1,11 +1,11 @@
 .cart {
     &__container {
-        padding: 2rem 2rem 2rem 3rem;
+        padding: 2rem;
         height: max(fit-content, 100vh);
         &__title {
-            text-transform: uppercase;
+            font-size: 28px;
             font-weight: bold;
-            margin-bottom: 3rem;
+            margin-bottom: 1rem;
         }
         &__box {
             display: flex;
@@ -333,7 +333,9 @@
                     cursor: pointer;
                     font-weight: bold;
                     font-size: 1rem;
-                    transition: background-color 0.3s ease-in-out, transform 0.2s;
+                    transition:
+                        background-color 0.3s ease-in-out,
+                        transform 0.2s;
 
                     &:hover {
                         background-color: #0056b3;

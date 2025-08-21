@@ -1,71 +1,49 @@
 const pool = require('../config/db');
+const wishlistService = require('../services/wishlistService');
 
-const addItemToWishlist = (request, response) => {
-    const { uid, pid } = request.body;
-    pool.query(
-        `INSERT INTO wishlist (user_id, product_id)
-        VALUES (?, ?)
-        ON DUPLICATE KEY UPDATE product_id = product_id;
-        `,
-        [uid, pid],
-        (err, res) => {
-            if (err) {
-                console.error(err.message);
-            }
-            response.status(200).json({
-                msg: `Product with id = ${pid} has been added successfully to the user id = ${uid}`,
-            });
-        }
-    );
-};
-
-const getWishlist = (request, response) => {
-    const uid = request.params.uid;
-    pool.query(
-        `SELECT 
-            wishlist.id,
-            products.id AS product_id,
-            products.name,
-            description,
-            categories.name AS category,
-            brands.name AS brand,
-            price,
-            sale_price,
-            stock,
-            main_image,
-            image_gallery,
-            specifications,
-            rating,
-            reviews
-        FROM
-            products
-        JOIN wishlist ON wishlist.product_id = products.id
-        JOIN categories ON categories.id = products.category_id
-        JOIN brands ON brands.id = products.brand_id 
-        WHERE user_id = ?`,
-        [uid],
-        (error, results) => {
-            if (error) {
-                console.error(error.message);
-            }
-            response.status(200).json({
-                wishlist: results,
-                msg: `Get wishlist with user_id = ${uid} successfully`,
-            });
-        }
-    );
-};
-
-const deleteWishlistItem = (request, response) => {
-    const { uid, pid } = request.body
-    pool.query(`DELETE FROM wishlist WHERE user_id = ? AND product_id = ?`, [uid, pid], (error, results) => {
-        if (error) {
-            console.error(error.message);
-        }
-        response.status(200).json({
-            msg: `Delete a wishlist item of user_id = ${uid} successfully`,
+async function addItemToWishlist(req, res) {
+    const { uid, pid } = req.body;
+    try {
+        const msg = await wishlistService.addItemToWishlist(uid, pid);
+        return res.status(200).json({
+            msg: msg,
         });
-    })
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ msg: 'Internal server error', error: err.message });
+    }
+};
+
+async function getWishlist(req, res) {
+    const uid = req.params.uid;
+    try {
+        const results = await wishlistService.getWishlist(uid);
+        return res.status(200).json({
+            msg: 'Get wishlist with user_id = ${uid} successfully',
+            wishlist: results,
+        });
+    } catch (err) {
+        console.error(err.message);
+        return res.status(500).json({
+            msg: "Error retrieving wishlist",
+            error: err.message,
+        });
+    }
+};
+async function deleteWishlistItem(req, res) {
+    const { uid, pid } = req.body;
+    try {
+        const msg = await wishlistService.deleteWishlistItem(uid, pid);
+        return res.status(200).json({
+            msg: msg,
+        });
+    } catch (err) {
+        console.error(err.message);
+        return res.status(500).json({
+            msg: "Error deleting wishlist item",
+            error: err.message,
+        });
+    }
 }
 
 module.exports = {

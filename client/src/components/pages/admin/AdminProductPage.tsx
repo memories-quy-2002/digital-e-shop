@@ -6,6 +6,7 @@ import axios from "../../../api/axios";
 import { Product } from "../../../utils/interface";
 import AdminLayout from "../../layout/AdminLayout";
 import AdminProductItem from "../../common/admin/AdminProductItem";
+import { Helmet } from "react-helmet";
 
 const ITEMS_PER_PAGE = 5;
 const LAZY_LOAD_BATCH = 10; // Number of products to load per batch
@@ -112,6 +113,10 @@ const AdminProductPage = () => {
 
     return (
         <AdminLayout>
+            <Helmet>
+                <title>Admin Product Management</title>
+                <meta name="description" content="Manage products in the store." />
+            </Helmet>
             <div className="admin__product">
                 <section className="admin__dashboard-summary" style={{ marginBottom: 24 }}>
                     <h4>Product Summary</h4>

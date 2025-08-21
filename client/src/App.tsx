@@ -20,6 +20,8 @@ import { AuthProvider } from "./context/AuthContext";
 import AboutUsPage from "./components/pages/AboutUsPage";
 import ContactUsPage from "./components/pages/ContactUsPage";
 import { SpeedInsights } from "@vercel/speed-insights/react";
+import SupportPage from "./components/pages/SupportPage";
+import NewsPage from "./components/pages/NewsPage";
 
 const ProtectedCartPage = withSessionCheck(CartPage);
 const ProtectedCheckoutSuccessPage = withSessionCheck(CheckoutSuccessPage);
@@ -44,6 +46,8 @@ function App() {
                         <Route path="/contact-us" element={<ContactUsPage />} />
                         <Route path="/wishlist" element={<ProtectedWishlistPage />} />
                         <Route path="/shops" element={<ShopsPage />} />
+                        <Route path="/news" element={<NewsPage />} />
+                        <Route path="/support" element={<SupportPage />} />
                         <Route path="/checkout-success" element={<ProtectedCheckoutSuccessPage />} />
                         <Route path="/admin" element={<ProtectedAdminDashboard />} />
                         <Route path="/admin/products" element={<ProtectedAdminProductPage />} />

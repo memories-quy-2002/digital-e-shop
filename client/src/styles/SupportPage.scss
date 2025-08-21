@@ -1,0 +1,83 @@
+.support {
+    background: #f9f9f9;
+    padding: 2rem;
+    border-radius: 8px;
+
+    &__title {
+        font-size: 28px;
+        font-weight: bold;
+        margin-bottom: 1rem;
+    }
+
+    &__intro {
+        margin-bottom: 2rem;
+        color: #555;
+        font-size: 15px;
+    }
+
+    &__faq {
+        margin-bottom: 2rem;
+
+        h3 {
+            margin-bottom: 1rem;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        &__item {
+            background: #fff;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: background 0.3s ease;
+
+            &__q {
+                font-weight: 600;
+                color: #333;
+            }
+
+            &__a {
+                margin-top: 0.5rem;
+                font-size: 14px;
+                color: #555;
+            }
+
+            &.active {
+                background: #eef3ff;
+                border-left: 4px solid #0047ff;
+            }
+        }
+    }
+
+    &__contact {
+        text-align: center;
+
+        h3 {
+            margin-bottom: 0.5rem;
+        }
+
+        p {
+            font-size: 14px;
+            color: #444;
+            margin: 0.25rem 0;
+        }
+
+        &__btn {
+            margin-top: 1rem;
+            padding: 10px 20px;
+            background: #0047ff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s ease;
+
+            &:hover {
+                background: #0036cc;
+            }
+        }
+    }
+}
