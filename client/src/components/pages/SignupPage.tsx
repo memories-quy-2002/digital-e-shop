@@ -6,14 +6,9 @@ import axios from "../../api/axios";
 import { auth } from "../../services/firebase";
 import "../../styles/SignupPage.scss";
 import { Role } from "../../utils/interface";
-import Cookies from "universal-cookie";
 import { Helmet } from "react-helmet";
 import bgImage from "../../assets/images/background_form.jpg";
 import { AxiosError } from "axios";
-
-const cookies = new Cookies();
-
-console.log(cookies.get("rememberMe"));
 
 interface User {
     username: string;
@@ -89,16 +84,6 @@ const SignupPage = () => {
                     uid,
                 });
                 if (response.status === 200) {
-                    const token = response.data.token;
-                    const cookieData = {
-                        uid,
-                        token,
-                    };
-                    cookies.set("rememberMe", JSON.stringify(cookieData), {
-                        httpOnly: false,
-                        // Consider using Secure flag if using HTTPS
-                        maxAge: 1000 * 60 * 60 * 24 * 30,
-                    });
                     if (user.role === Role.Customer) {
                         navigate("/");
                     } else if (user.role === Role.Admin) {

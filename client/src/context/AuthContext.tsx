@@ -19,46 +19,43 @@ type UserData = {
 
 // Tạo context cho user
 interface AuthContextProps {
-    uid: string | null;
     userData: UserData;
     loading: boolean;
     setUserData: (userData: UserData) => void;
 }
 
 const AuthContext = createContext<AuthContextProps>({
-    uid: null,
     userData: null,
     loading: true,
     setUserData() {},
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [uid, setUid] = useState<string | null>(null);
-    const [userData, setUserData] = useState<UserData>(null);
+    const [userData, setUserData] = useState<UserData | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                setUid(user.uid);
-                try {
-                    const response = await axios.get(`/api/users/${user.uid}`);
-                    if (response.status === 200) {
-                        setUserData(response.data.userData);
-                    }
-                } catch (err) {
-                    console.error("Error fetching user data", err);
-                }
-            } else {
-                setUid(null);
-                setUserData(null);
-            }
-            setLoading(false);
-        });
 
-        return () => unsubscribe();
+    // Khi app load, gọi backend check session
+    useEffect(() => {
+        const fetchUser = async () => {
+            try {
+                const response = await axios.get(`/api/users/me`, { withCredentials: true });
+                if (response.status === 200) {
+                    setUserData(response.data.userData);
+                } else {
+                    setUserData(null);
+                }
+            } catch (err) {
+                console.error("Error fetching user data", err);
+                setUserData(null);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchUser();
     }, []);
 
-    return <AuthContext.Provider value={{ uid, userData, loading, setUserData }}>{children}</AuthContext.Provider>;
+    return <AuthContext.Provider value={{ userData, loading, setUserData }}>{children}</AuthContext.Provider>;
 };
 
 // Custom hook để sử dụng AuthContext trong các component khác

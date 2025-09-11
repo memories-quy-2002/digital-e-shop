@@ -1,44 +1,63 @@
 const jwt = require("jsonwebtoken");
 const Session = require("../models/sessionModel");
 
+// Bắt đầu session, lưu vào DB
 async function startSession(userId) {
     return new Promise((resolve, reject) => {
-        Session.startSession(userId,
-            (err, results) => {
-                if (err) {
-                    console.error(err.message);
-                    return reject(err);
-                }
-                resolve(results.insertId);
+        Session.startSession(userId, (err, results) => {
+            if (err) {
+                console.error(err.message);
+                return reject(err);
             }
-        );
+            resolve(results.insertId); // Trả về sessionId
+        });
     });
-};
+}
 
-const verifySessionToken = (req, res) => {
-    const userInfo = req.cookies.userInfo;
-    if (!userInfo) {
-        return { valid: false, message: "No session information found" };
+// Xác thực session (dựa vào sessionId + access token)
+async function verifySessionToken(req) {
+    const sessionId = req.cookies.session; // chỉ là số
+    const accessToken = req.cookies.accessToken;
+
+    if (!sessionId || !accessToken) {
+        return { valid: false, message: "Missing session or access token" };
     }
 
     try {
-        const { token } = JSON.parse(userInfo);
-        jwt.verify(token, process.env.JWT_SECRET_KEY);
-        return { valid: true };
+        // 1. Verify JWT access token
+        jwt.verify(accessToken, process.env.JWT_SECRET_KEY);
+
+        // 2. Kiểm tra sessionId có tồn tại trong DB
+        return new Promise((resolve, reject) => {
+            Session.getSessionById(sessionId, (err, results) => {
+                if (err) return reject(err);
+                if (!results || results.length === 0) {
+                    return resolve({ valid: false, message: "Session not found" });
+                }
+                resolve({ valid: true });
+            });
+        });
     } catch (err) {
         console.error("Token verification error:", err.message);
         return { valid: false, message: "Session invalid or expired" };
     }
-};
+}
 
-const checkSessionToken = (req, res) => {
-    const { valid, message } = verifySessionToken(req);
-    if (!valid) {
-        return res.status(401).json({ sessionActive: false, msg: message });
+// Endpoint check session
+async function checkSessionToken(req, res) {
+    try {
+        const { valid, message } = await verifySessionToken(req);
+        if (!valid) {
+            return res.status(401).json({ sessionActive: false, msg: message });
+        }
+        return res.status(200).json({ sessionActive: true, msg: "Session is valid" });
+    } catch (err) {
+        console.error("checkSessionToken error:", err.message);
+        return res.status(500).json({ sessionActive: false, msg: "Server error" });
     }
-    return res.status(200).json({ sessionActive: true });
-};
+}
 
+// Kết thúc session
 async function endSession(sessionId) {
     return new Promise((resolve, reject) => {
         Session.getSessionById(sessionId, (err, results) => {

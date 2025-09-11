@@ -16,10 +16,11 @@ export const Header = (): JSX.Element => {
     const navigate = useNavigate();
     const { addToast } = useToast();
     const [searchTerm, setSearchTerm] = useState<string>("");
-    const { uid, userData, loading } = useAuth();
+    const { userData, loading } = useAuth();
     useEffect(() => {
         console.log("User data updated:", userData);
     }, [userData]);
+
     const handleSearch = () => {
         navigate(`/shops?term=${searchTerm}`);
     };
@@ -28,8 +29,6 @@ export const Header = (): JSX.Element => {
         try {
             const response = await axios.post("/api/users/logout");
             if (response.status === 200) {
-                sessionStorage.removeItem("rememberMe");
-                cookies.remove("rememberMe");
                 await signOut(auth);
                 addToast("Logout successfully", response.data.msg);
                 navigate("/");
@@ -41,7 +40,7 @@ export const Header = (): JSX.Element => {
     };
 
     const handleRequireLogin = (place: string) => {
-        if (uid) {
+        if (userData) {
             navigate(place);
         } else {
             addToast("Login required", "You need to login to use this feature");

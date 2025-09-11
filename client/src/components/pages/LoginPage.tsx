@@ -2,7 +2,6 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import React, { useState } from "react";
 import { Button, Container, Form } from "react-bootstrap";
 import { Link, useNavigate } from "react-router-dom";
-import Cookies from "universal-cookie";
 import axios from "../../api/axios";
 import { auth } from "../../services/firebase";
 import "../../styles/LoginPage.scss";
@@ -24,7 +23,7 @@ const LoginPage = () => {
         password: "",
         role: Role.Customer,
     });
-    const authContext = useAuth();
+    const { setUserData } = useAuth();
     const [rememberMe, setRememberMe] = useState<boolean>(false);
     const [errors, setErrors] = useState<string[]>([]);
 
@@ -68,7 +67,6 @@ const LoginPage = () => {
             return;
         }
         try {
-            console.log(user);
             const userCredential = await signInWithEmailAndPassword(auth, user.email, user.password);
             const uid = userCredential.user.uid;
             const response = await axios.post("/api/users/login", {
@@ -77,22 +75,8 @@ const LoginPage = () => {
             });
 
             if (response.status === 200) {
-                authContext.setUserData(response.data.userData);
-                const token = response.data.token;
-                const cookies = new Cookies();
-                const cookieData = {
-                    uid,
-                    token,
-                };
-                if (rememberMe) {
-                    cookies.set("rememberMe", JSON.stringify(cookieData), {
-                        httpOnly: false,
-                        // Consider using Secure flag if using HTTPS
-                        maxAge: 1000 * 60 * 60 * 24 * 30,
-                    });
-                } else {
-                    sessionStorage.setItem("rememberMe", JSON.stringify(cookieData));
-                }
+                console.log(response.data);
+                setUserData(response.data.userData);
                 addToast("Login", "You have been logon successfully");
                 if (user.role === Role.Admin) {
                     navigate("/admin");

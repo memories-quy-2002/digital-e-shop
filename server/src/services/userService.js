@@ -22,7 +22,7 @@ async function registerUser(uid, userData) {
     });
 }
 
-async function loginUser(uid, role) {
+async function loginUser(uid, role, rememberMe) {
     return new Promise((resolve, reject) => {
         User.getUserById(uid, async (err, results) => {
             if (err) return reject(err);
@@ -32,17 +32,57 @@ async function loginUser(uid, role) {
             if (user.role !== role) return reject(new Error("Invalid username, password, or role"));
 
             try {
+                // Kiểm tra token cũ có hợp lệ không
                 jwt.verify(user.token, process.env.JWT_SECRET_KEY);
+
+                let refreshToken = null;
+                if (rememberMe) {
+                    // Payload chuẩn
+                    const payload = { id: user.id, email: user.email, role: user.role };
+                    refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET_KEY, {
+                        expiresIn: "7d",
+                    });
+                }
+
                 const sessionId = await startSession(user.id);
-                resolve({ user, token: user.token, sessionId });
+                resolve({ user, token: user.token, sessionId, refreshToken });
+
             } catch {
-                const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET_KEY, { expiresIn: "30d" });
+                // Tạo access token mới
+                const payload = { id: user.id, email: user.email, role: user.role };
+                const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, { expiresIn: "15m" });
+
                 User.updateUserToken(user.id, token, async (err) => {
                     if (err) return reject(err);
+
+                    let refreshToken = null;
+                    if (rememberMe) {
+                        refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET_KEY, {
+                            expiresIn: "7d",
+                        });
+                    }
+
                     const sessionId = await startSession(user.id);
-                    resolve({ user, token, sessionId });
+                    resolve({ user, token, sessionId, refreshToken });
                 });
             }
+        });
+    });
+}
+
+async function refreshToken(oldRefreshToken) {
+    return new Promise((resolve, reject) => {
+        jwt.verify(oldRefreshToken, process.env.JWT_REFRESH_SECRET_KEY, (err, payload) => {
+            if (err) return reject(err);
+
+            // Payload đồng nhất giữa access & refresh
+            const newAccess = jwt.sign(
+                { id: payload.id, email: payload.email, role: payload.role },
+                process.env.JWT_SECRET_KEY,
+                { expiresIn: "15m" }
+            );
+
+            resolve(newAccess);
         });
     });
 }
@@ -71,4 +111,28 @@ async function getAllUsers() {
     })
 }
 
-module.exports = { registerUser, loginUser, getUserById, getAllUsers };
+async function getCurrentUser(accessToken, sessionId) {
+    if (!accessToken || !sessionId) {
+        throw { status: 401, msg: "Not authenticated" };
+    }
+
+    // Verify JWT
+    let decoded;
+    try {
+        decoded = jwt.verify(accessToken, process.env.JWT_SECRET_KEY);
+    } catch (err) {
+        throw { status: 403, msg: "Invalid or expired token" };
+    }
+
+    // Check session
+    console.log(decoded)
+    return new Promise((resolve, reject) => {
+        User.getUserById(decoded.id, (err, results) => {
+            if (err) return reject({ status: 500, msg: "Server error" });
+            if (results.length === 0) return reject({ status: 404, msg: "User not found" });
+            resolve(results[0]);
+        });
+    });
+}
+
+module.exports = { registerUser, refreshToken, getCurrentUser, loginUser, getUserById, getAllUsers };
