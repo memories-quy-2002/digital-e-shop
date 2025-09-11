@@ -12,7 +12,7 @@ const path = require("path");
 router.get("/:id", getSingleProduct);
 router.get("/", getListProduct);
 router.post("/add", addSingleProduct);
-router.post("/delete", deleteProduct);
+router.delete("/", deleteProduct);
 router.get("/relevant/:pid", retrieveRelevantProducts);
 router.get('/images/:filename', async (req, res) => {
     const imagePath = path.join(__dirname, '..', '..', 'server', 'src', 'uploads', req.params.filename + '.jpg');

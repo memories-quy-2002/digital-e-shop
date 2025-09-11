@@ -10,11 +10,11 @@ type ProductProps = {
     product: Product;
     uid: string;
     isWishlist: boolean;
-    onAddingWishlist: (user_id: string, product_id: number) => void;
+    onToggleWishlist: (user_id: string, product_id: number) => void;
     onAddingCart: (user_id: string, product_id: number) => void;
 };
 
-const ShopsItem = ({ product, uid, isWishlist, onAddingWishlist, onAddingCart }: ProductProps) => {
+const ShopsItem = ({ product, uid, isWishlist, onToggleWishlist, onAddingCart }: ProductProps) => {
     const navigate = useNavigate();
     const imageUrl = product.main_image ? product.main_image.replace(".jpg", "") : null;
 
@@ -36,7 +36,7 @@ const ShopsItem = ({ product, uid, isWishlist, onAddingWishlist, onAddingCart }:
 
             <div
                 className="shops__container__main__pagination__list__item__like"
-                onClick={() => onAddingWishlist(uid, product.id)}
+                onClick={() => onToggleWishlist(uid, product.id)}
             >
                 {isWishlist ? <BsHeartFill size={24} color="red" /> : <BsHeart size={24} color="red" />}
             </div>

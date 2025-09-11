@@ -9,6 +9,7 @@ import NavigationBar from "../common/NavigationBar";
 import PaginatedItems from "../common/PaginatedItems";
 import Layout from "../layout/Layout";
 import { Helmet } from "react-helmet";
+import { useAuth } from "../../context/AuthContext";
 
 const cookies = new Cookies();
 const MAX_PRICE_RANGE: number = 5000;
@@ -40,12 +41,8 @@ const ShopsPage = () => {
 
     const navigate = useNavigate();
     const location = useLocation();
-    const uid = useMemo(() => {
-        return (
-            cookies.get("rememberMe")?.uid ||
-            (sessionStorage["rememberMe"] ? JSON.parse(sessionStorage["rememberMe"]).uid : "")
-        );
-    }, []);
+    const { userData } = useAuth();
+    const uid = userData?.id || "";
 
     const updateURL = useCallback(
         (newFilters: Filters) => {
@@ -100,6 +97,10 @@ const ShopsPage = () => {
         updateURL(filters);
         setFilteredProducts(getFilteredProducts(filters, products));
     };
+
+    useEffect(() => {
+        console.log(cookies, sessionStorage);
+    });
 
     useEffect(() => {
         const queryParams = new URLSearchParams(location.search);

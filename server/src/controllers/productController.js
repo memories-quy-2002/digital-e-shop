@@ -39,7 +39,8 @@ function getListProduct(req, res) {
 }
 
 function deleteProduct(req, res) {
-    Product.deleteProduct(req.body.pid, (err) => {
+    const { pid } = req.body;
+    Product.deleteProduct(pid, (err) => {
         if (err) return res.status(500).json({ msg: "Internal server error" });
         res.status(200).json({ msg: `Delete product with id = ${req.body.pid} successfully` });
     });

@@ -25,7 +25,8 @@ const HomePage = () => {
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
     const [userRecommendations, setUserRecommendations] = useState<number[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
-    const { uid, userData, loading } = useAuth();
+    const { userData, loading } = useAuth();
+    const uid = userData?.id || null;
     const { addToast } = useToast();
 
     const handleNext = () => {
@@ -36,16 +37,19 @@ const HomePage = () => {
         setCurrentIndex((currentIndex - 1 + 4) % 4);
     };
 
-    const handleAddingWishlist = async (user_id: string, product_id: number) => {
-        if (uid === "") {
+    const toggleWishlist = async (user_id: string, product_id: number) => {
+        console.log("UID in toggle wishlist:", uid);
+        if (!uid) {
             addToast("Login required", "You need to login to use this feature.");
             return;
         }
         try {
-            if (wishlist.some((item) => item.product.id === product_id)) {
-                const response = await axios.post(`/api/wishlist/delete/`, {
-                    uid: user_id,
-                    pid: product_id,
+            const exists = wishlist.some((item) => item.product.id === product_id);
+            if (exists) {
+                const response = await axios.delete(`/api/wishlist/${product_id}/`, {
+                    data: {
+                        uid: user_id,
+                    },
                 });
                 if (response.status === 200) {
                     console.log(response.data.msg);
@@ -70,8 +74,9 @@ const HomePage = () => {
                     addToast("Add wishlist item", "Item added to wishlist successfully");
                 }
             }
-        } catch (err) {
-            console.error(err);
+        } catch (error) {
+            console.error("Wishlist error:", error);
+            addToast("Error", "Something went wrong");
         }
     };
     const handleAddingCart = async (user_id: string, product_id: number) => {
@@ -283,9 +288,9 @@ const HomePage = () => {
                                             product={product}
                                             uid={uid || ""} // Nếu uid là null, truyền vào một chuỗi rỗng
                                             isWishlist={wishlist.some((item) => item.product.id === product.id)}
-                                            onAddingWishlist={() => {
+                                            onToggleWishlist={() => {
                                                 if (uid) {
-                                                    handleAddingWishlist(uid, product.id);
+                                                    toggleWishlist(uid, product.id);
                                                 } else {
                                                     addToast(
                                                         "Login required",

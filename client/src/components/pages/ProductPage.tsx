@@ -35,7 +35,8 @@ const ProductPage = () => {
     const location = useLocation();
     const url = new URLSearchParams(location.search);
     const { addToast } = useToast();
-    const { uid } = useAuth();
+    const { userData } = useAuth();
+    const uid = userData?.id || "";
     const productId = url.get("id");
     const pid = productId !== null ? parseInt(productId) : 0;
     const [products, setProducts] = useState<Product[]>([]);
@@ -215,16 +216,18 @@ const ProductPage = () => {
         }
     };
 
-    const handleAddingWishlist = async (user_id: string, product_id: number) => {
+    const toggleWishlist = async (user_id: string, product_id: number) => {
         if (uid === "") {
             addToast("Login required", "You need to login to use this feature.");
             return;
         }
         try {
-            if (wishlist.some((item) => item.product.id === product_id)) {
-                const response = await axios.post(`/api/wishlist/delete`, {
-                    uid: user_id,
-                    pid: product_id,
+            const exists = wishlist.some((item) => item.product.id === product_id);
+            if (exists) {
+                const response = await axios.delete(`/api/wishlist/${product_id}`, {
+                    data: {
+                        uid: user_id,
+                    },
                 });
                 if (response.status === 200) {
                     console.log(response.data.msg);
@@ -411,7 +414,7 @@ const ProductPage = () => {
                                 type="button"
                                 onClick={() => {
                                     if (uid) {
-                                        handleAddingWishlist(uid, productDetail.id);
+                                        toggleWishlist(uid, productDetail.id);
                                     } else {
                                         addToast("Login required", "You need to login to use this feature.");
                                     }

@@ -30,16 +30,18 @@ const PaginatedItems = ({ itemsPerPage, items, uid, wishlist, isWishlistPage }: 
         }
     }, [wishlist]);
 
-    const handleAddingWishlist = async (user_id: string, product_id: number) => {
+    const toggleWishlist = async (user_id: string, product_id: number) => {
         if (uid === "") {
             addToast("Login required", "You need to login to use this feature.");
             return;
         }
         try {
-            if (currentWishlist.some((item) => item.product.id === product_id)) {
-                const response = await axios.post(`/api/wishlist/delete/`, {
-                    uid: user_id,
-                    pid: product_id,
+            const exists = currentWishlist.some((item) => item.product.id === product_id);
+            if (exists) {
+                const response = await axios.delete(`/api/wishlist/${product_id}/`, {
+                    data: {
+                        uid: user_id,
+                    },
                 });
                 if (response.status === 200) {
                     console.log(response.data.msg);
@@ -71,9 +73,10 @@ const PaginatedItems = ({ itemsPerPage, items, uid, wishlist, isWishlistPage }: 
 
     const handleRemoveWishlist = async (user_id: string, product_id: number) => {
         try {
-            const response = await axios.post(`/api/wishlist/delete/`, {
-                uid: user_id,
-                pid: product_id,
+            const response = await axios.delete(`/api/wishlist/${product_id}`, {
+                data: {
+                    uid: user_id,
+                },
             });
             if (response.status === 200) {
                 console.log(response.data.msg);
@@ -92,6 +95,11 @@ const PaginatedItems = ({ itemsPerPage, items, uid, wishlist, isWishlistPage }: 
         }
 
         try {
+            let stock = (items as Item[]).filter((item) => item.product.id === product_id)[0].product.stock;
+            if (stock <= 0) {
+                addToast("Out of stock", "This product is out of stock.");
+                return;
+            }
             const response = await axios.post("/api/cart/", {
                 uid: user_id,
                 pid: product_id,
@@ -131,7 +139,7 @@ const PaginatedItems = ({ itemsPerPage, items, uid, wishlist, isWishlistPage }: 
                                     isWishlist={currentWishlist.some(
                                         (wishlistProduct) => wishlistProduct.product.id === (item as Product).id
                                     )}
-                                    onAddingWishlist={handleAddingWishlist}
+                                    onToggleWishlist={toggleWishlist}
                                     onAddingCart={handleAddingCart}
                                 />
                             );

@@ -8,10 +8,10 @@ const {
 } = require("../controllers/orderController");
 const router = express.Router();
 
-router.post("/purchase/:uid", makePurchase);
 router.get("/", getOrders);
-router.post("/status/:oid", changeOrderStatus);
 router.get("/item", getOrderItems);
+router.post("/purchase/:uid", makePurchase);
+router.post("/status/:oid", changeOrderStatus);
 router.post("/discount", applyDiscount);
 
 module.exports = router;

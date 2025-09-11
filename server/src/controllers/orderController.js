@@ -1,19 +1,12 @@
 const pool = require("../config/db");
 const orderService = require("../services/orderService");
 
-async function makePurchase(req, res) {
-    const uid = req.params.uid;
-    const { totalPrice, cart, discount, subtotal, shippingAddress } = req.body;
-
-    if (!cart || cart.length === 0) {
-        return res.status(400).json({ msg: "Cart cannot be empty" }); // ❌ Bad Request
-    }
-
+async function getOrders(req, res) {
     try {
-        const orderId = await orderService.makePurchase(uid, { totalPrice, cart, discount, subtotal, shippingAddress });
-        res.status(201).json({   // ✅ Created
-            orderId,
-            msg: `Order has been created successfully with id = ${orderId}`
+        const orders = await orderService.getOrders();
+        return res.status(200).json({
+            orders,
+            msg: 'Orders retrieved successfully',
         });
     } catch (err) {
         console.error(err);
@@ -21,12 +14,12 @@ async function makePurchase(req, res) {
     }
 }
 
-async function getOrders(req, res) {
+async function getOrderItems(req, res) {
     try {
-        const orders = await orderService.getOrders();
+        const results = await orderService.getOrderItems();
         return res.status(200).json({
-            orders,
-            msg: 'Orders retrieved successfully',
+            orderItems: results,
+            msg: 'Products sales and revenue retrieved successfully',
         });
     } catch (err) {
         console.error(err);
@@ -57,12 +50,19 @@ async function changeOrderStatus(req, res) {
     }
 }
 
-async function getOrderItems(req, res) {
+async function makePurchase(req, res) {
+    const uid = req.params.uid;
+    const { totalPrice, cart, discount, subtotal, shippingAddress } = req.body;
+
+    if (!cart || cart.length === 0) {
+        return res.status(400).json({ msg: "Cart cannot be empty" }); // ❌ Bad Request
+    }
+
     try {
-        const results = await orderService.getOrderItems();
-        return res.status(200).json({
-            orderItems: results,
-            msg: 'Products sales and revenue retrieved successfully',
+        const orderId = await orderService.makePurchase(uid, { totalPrice, cart, discount, subtotal, shippingAddress });
+        res.status(201).json({   // ✅ Created
+            orderId,
+            msg: `Order has been created successfully with id = ${orderId}`
         });
     } catch (err) {
         console.error(err);
