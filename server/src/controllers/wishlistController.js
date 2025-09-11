@@ -31,7 +31,8 @@ async function getWishlist(req, res) {
     }
 };
 async function deleteWishlistItem(req, res) {
-    const { uid, pid } = req.body;
+    const { pid } = req.params;
+    const { uid } = req.body;
     try {
         const msg = await wishlistService.deleteWishlistItem(uid, pid);
         return res.status(200).json({

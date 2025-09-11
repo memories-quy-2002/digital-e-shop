@@ -15,7 +15,8 @@ interface Wishlist {
 
 const WishlistPage = () => {
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
-    const { uid } = useAuth();
+    const { userData } = useAuth();
+    const uid = userData?.id || null;
     useEffect(() => {
         const fetchWishlist = async () => {
             try {
