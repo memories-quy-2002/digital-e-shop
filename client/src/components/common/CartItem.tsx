@@ -15,9 +15,9 @@ interface Item {
 type CartItemProps = {
     item: Item;
     handleQuantityChange: (itemId: number, event: React.ChangeEvent<HTMLInputElement>) => void;
-    handleRemove: (cartItemId: number) => void;
+    handleRemoveCartItem: (cartItemId: number) => void;
 };
-const CartItem = ({ item, handleQuantityChange, handleRemove }: CartItemProps) => {
+const CartItem = ({ item, handleQuantityChange, handleRemoveCartItem }: CartItemProps) => {
     const imageUrl = item.main_image ? item.main_image.replace(".jpg", "") : null;
     const productPrice = item.sale_price || item.price;
     return (
@@ -50,7 +50,7 @@ const CartItem = ({ item, handleQuantityChange, handleRemove }: CartItemProps) =
                 <strong style={{ fontSize: "20px" }}>${(productPrice * item.quantity).toFixed(2)}</strong>
                 <p>${productPrice.toFixed(2)} each</p>
             </div>
-            <button type="button" onClick={() => handleRemove(item.cartItemId)}>
+            <button type="button" onClick={() => handleRemoveCartItem(item.cartItemId)}>
                 Remove
             </button>
         </div>

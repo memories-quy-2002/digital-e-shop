@@ -27,7 +27,8 @@ type CartProps = {
 
 const CartPage = () => {
     const navigate = useNavigate();
-    const { uid } = useAuth();
+    const { userData } = useAuth();
+    const uid = userData?.id || null;
     const { addToast } = useToast();
     const [cart, setCart] = useState<CartProps[]>([]);
     const [totalPrice, setTotalPrice] = useState<number>(0);
@@ -57,11 +58,11 @@ const CartPage = () => {
         setShow(false);
     }, [togglePayment]);
 
-    const handleRemove = useCallback(
+    const handleRemoveCartItem = useCallback(
         async (cartItemId: number) => {
             try {
-                const response = await axios.post(`/api/cart/delete`, {
-                    cartItemId,
+                const response = await axios.delete(`/api/cart/`, {
+                    data: { cartItemId },
                 });
                 if (response.status === 200) {
                     console.log(response.data.msg);
@@ -164,7 +165,7 @@ const CartPage = () => {
                                             key={item.cartItemId}
                                             item={item}
                                             handleQuantityChange={handleQuantityChange}
-                                            handleRemove={handleRemove}
+                                            handleRemoveCartItem={handleRemoveCartItem}
                                         />
                                     ))}
                                 </div>

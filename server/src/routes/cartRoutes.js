@@ -6,8 +6,8 @@ const {
 } = require("../controllers/cartController");
 const router = express.Router();
 
-router.post("/", addItemToCart);
 router.get("/:uid", getCartItems);
-router.post("/delete", deleteCartItem);
+router.post("/", addItemToCart);
+router.delete("/", deleteCartItem);
 
 module.exports = router;
