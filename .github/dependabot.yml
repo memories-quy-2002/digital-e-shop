@@ -1,6 +1,6 @@
 version: 2
 updates:
-  # Root project (nếu có package.json ở root)
+  # Root
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
@@ -9,19 +9,14 @@ updates:
       time: "03:00"
       timezone: "Asia/Ho_Chi_Minh"
     open-pull-requests-limit: 6
-    # Tự động bật security updates (Dependabot sẽ tạo PR cho security nếu có)
-    security-updates: true
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
     labels:
       - "dependencies"
       - "dependabot"
-    # reviewers / assignees (bổ sung nếu muốn)
-    # reviewers: ["your-github-username"]
-    # assignees: ["your-github-username"]
 
-  # Frontend (client)
+  # Client
   - package-ecosystem: "npm"
     directory: "/client"
     schedule:
@@ -30,14 +25,13 @@ updates:
       time: "04:00"
       timezone: "Asia/Ho_Chi_Minh"
     open-pull-requests-limit: 4
-    security-updates: true
     commit-message:
       prefix: "chore(deps)"
     labels:
       - "dependencies"
       - "client"
 
-  # Backend (server)
+  # Server
   - package-ecosystem: "npm"
     directory: "/server"
     schedule:
@@ -46,7 +40,6 @@ updates:
       time: "05:00"
       timezone: "Asia/Ho_Chi_Minh"
     open-pull-requests-limit: 4
-    security-updates: true
     commit-message:
       prefix: "chore(deps)"
     labels:
