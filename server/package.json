@@ -20,7 +20,7 @@
         "express-rate-limit": "^7.5.1",
         "fs": "0.0.1-security",
         "jsonwebtoken": "^9.0.3",
-        "mongodb": "^6.21.0",
+        "mongodb": "^7.0.0",
         "multer": "2.0.2",
         "mysql": "^2.18.1",
         "mysql2": "^3.16.1",
