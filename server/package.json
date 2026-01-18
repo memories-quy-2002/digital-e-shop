@@ -25,7 +25,8 @@
         "mysql": "^2.18.1",
         "mysql2": "^3.16.1",
         "path": "^0.12.7",
-        "streamifier": "^0.1.1"
+        "streamifier": "^0.1.1",
+        "lusca": "^1.7.0"
     },
     "devDependencies": {
         "@eslint/js": "^9.39.2",
