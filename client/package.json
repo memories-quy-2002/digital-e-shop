@@ -15,7 +15,7 @@
         "firebase": "^12.8.0",
         "fs": "0.0.1-security",
         "geckodriver": "^5.0.0",
-        "jest-environment-jsdom": "^29.7.0",
+        "jest-environment-jsdom": "^30.2.0",
         "js-cookie": "^3.0.5",
         "mocha": "^11.7.5",
         "os": "^0.1.2",
