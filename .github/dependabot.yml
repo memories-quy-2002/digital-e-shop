@@ -1,35 +1,54 @@
 version: 2
 updates:
-  # FRONTEND (React + pnpm)
+  # Root project (nếu có package.json ở root)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "Asia/Ho_Chi_Minh"
+    open-pull-requests-limit: 6
+    # Tự động bật security updates (Dependabot sẽ tạo PR cho security nếu có)
+    security-updates: true
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "dependabot"
+    # reviewers / assignees (bổ sung nếu muốn)
+    # reviewers: ["your-github-username"]
+    # assignees: ["your-github-username"]
+
+  # Frontend (client)
   - package-ecosystem: "npm"
     directory: "/client"
     schedule:
       interval: "weekly"
-    versioning-strategy: increase
+      day: "monday"
+      time: "04:00"
+      timezone: "Asia/Ho_Chi_Minh"
+    open-pull-requests-limit: 4
+    security-updates: true
     commit-message:
-      prefix: "chore"
-      include: "scope"
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-major"]
-    groups:
-      frontend-dependencies:
-        patterns:
-          - "*"
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "client"
 
-  # BACKEND (Express)
+  # Backend (server)
   - package-ecosystem: "npm"
     directory: "/server"
     schedule:
       interval: "weekly"
-    versioning-strategy: increase
+      day: "monday"
+      time: "05:00"
+      timezone: "Asia/Ho_Chi_Minh"
+    open-pull-requests-limit: 4
+    security-updates: true
     commit-message:
-      prefix: "chore"
-      include: "scope"
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-major"]
-    groups:
-      backend-dependencies:
-        patterns:
-          - "*"
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "server"
