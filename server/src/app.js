@@ -5,6 +5,7 @@ const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
 const app = express();
 const rateLimit = require('express-rate-limit');
+const csrf = require('lusca').csrf;
 
 const PORT = process.env.PORT || 4000;
 
@@ -41,6 +42,7 @@ app.use(cors(corsOptions));
 app.use('/api/', apiLimiter);
 app.use(bodyParser.json());
 app.use(cookieParser());
+app.use(csrf());
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use((req, res, next) => {
