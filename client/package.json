@@ -14,7 +14,7 @@
         "dotenv": "^17.2.3",
         "firebase": "^12.8.0",
         "fs": "0.0.1-security",
-        "geckodriver": "^5.0.0",
+        "geckodriver": "^6.1.0",
         "jest-environment-jsdom": "^29.7.0",
         "js-cookie": "^3.0.5",
         "mocha": "^11.7.5",
