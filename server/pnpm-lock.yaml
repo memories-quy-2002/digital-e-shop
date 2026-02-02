@@ -52,7 +52,7 @@ importers:
         version: 2.18.1
       mysql2:
         specifier: ^3.16.1
-        version: 3.16.1
+        version: 3.16.2
       path:
         specifier: ^0.12.7
         version: 0.12.7
@@ -1237,8 +1237,8 @@ packages:
     resolution: {integrity: sha512-u7f2xaZ/UG8oLXHvtF/oWTRvT44p9ecwBBqTwgJVq0+4BW1g8OW01TyMEGWBHbyMOYVHXslaut7qEQ1meATXgw==}
     engines: {node: '>= 10.16.0'}
 
-  mysql2@3.16.1:
-    resolution: {integrity: sha512-b75qsDB3ieYEzMsT1uRGsztM/sy6vWPY40uPZlVVl8eefAotFCoS7jaDB5DxDNtlW5kdVGd9jptSpkvujNxI2A==}
+  mysql2@3.16.2:
+    resolution: {integrity: sha512-JsqBpYNy7pH20lGfPuSyRSIcCxSeAIwxWADpV64nP9KeyN3ZKpHZgjKXuBKsh7dH6FbOvf1bOgoVKjSUPXRMTw==}
     engines: {node: '>= 8.0'}
 
   mysql@2.18.1:
@@ -3052,7 +3052,7 @@ snapshots:
       type-is: 1.6.18
       xtend: 4.0.2
 
-  mysql2@3.16.1:
+  mysql2@3.16.2:
     dependencies:
       aws-ssl-profiles: 1.1.2
       denque: 2.1.0
