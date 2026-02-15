@@ -62,10 +62,10 @@ importers:
         version: 19.2.4
       react-bootstrap:
         specifier: ^2.10.10
-        version: 2.10.10(@types/react@19.2.13)(react-dom@19.2.3(react@19.2.4))(react@19.2.4)
+        version: 2.10.10(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react-dom:
-        specifier: ^19.2.3
-        version: 19.2.3(react@19.2.4)
+        specifier: ^19.2.4
+        version: 19.2.4(react@19.2.4)
       react-helmet:
         specifier: ^6.1.0
         version: 6.1.0(react@19.2.4)
@@ -74,7 +74,7 @@ importers:
         version: 5.5.0(react@19.2.4)
       react-input-slider:
         specifier: ^6.0.1
-        version: 6.0.1(react-dom@19.2.3(react@19.2.4))(react@19.2.4)
+        version: 6.0.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react-lazy-load-image-component:
         specifier: ^1.6.3
         version: 1.6.3(react@19.2.4)
@@ -86,16 +86,16 @@ importers:
         version: 9.2.0(@types/react@19.2.13)(react@19.2.4)(redux@5.0.1)
       react-router-dom:
         specifier: ^7.12.0
-        version: 7.12.0(react-dom@19.2.3(react@19.2.4))(react@19.2.4)
+        version: 7.12.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react-slick:
         specifier: ^0.31.0
-        version: 0.31.0(react-dom@19.2.3(react@19.2.4))(react@19.2.4)
+        version: 0.31.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react-slider:
         specifier: ^2.0.6
         version: 2.0.6(react@19.2.4)
       recharts:
         specifier: ^3.7.0
-        version: 3.7.0(@types/react@19.2.13)(react-dom@19.2.3(react@19.2.4))(react-is@18.3.1)(react@19.2.4)(redux@5.0.1)
+        version: 3.7.0(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react-is@18.3.1)(react@19.2.4)(redux@5.0.1)
       redux:
         specifier: ^5.0.1
         version: 5.0.1
@@ -129,7 +129,7 @@ importers:
         version: 10.4.1
       '@testing-library/react':
         specifier: ^16.3.1
-        version: 16.3.1(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.13))(@types/react@19.2.13)(react-dom@19.2.3(react@19.2.4))(react@19.2.4)
+        version: 16.3.1(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.13))(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@types/jest':
         specifier: ^30.0.0
         version: 30.0.0
@@ -4751,10 +4751,10 @@ packages:
       '@types/react':
         optional: true
 
-  react-dom@19.2.3:
-    resolution: {integrity: sha512-yELu4WmLPw5Mr/lmeEpox5rw3RETacE++JgHqQzd2dg+YbJuat3jH4ingc+WPZhxaoFzdv9y33G+F7Nl5O0GBg==}
+  react-dom@19.2.4:
+    resolution: {integrity: sha512-AXJdLo8kgMbimY95O2aKQqsz2iWi9jMgKJhRBAxECE4IFxfcazB2LmzloIoibJI3C12IlY20+KFaLv+71bUJeQ==}
     peerDependencies:
-      react: ^19.2.3
+      react: ^19.2.4
 
   react-fast-compare@3.2.2:
     resolution: {integrity: sha512-nsO+KSNgo1SbJqJEYRE9ERzo7YtYbou/OqjSQKxV7jcKox7+usiUVZOAC+XnDOABXggQTno0Y1CpVnuWEc1boQ==}
@@ -7730,7 +7730,7 @@ snapshots:
       dequal: 2.0.3
       react: 19.2.4
 
-  '@restart/ui@1.9.4(react-dom@19.2.3(react@19.2.4))(react@19.2.4)':
+  '@restart/ui@1.9.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
       '@babel/runtime': 7.28.6
       '@popperjs/core': 2.11.8
@@ -7740,7 +7740,7 @@ snapshots:
       dequal: 2.0.3
       dom-helpers: 5.2.1
       react: 19.2.4
-      react-dom: 19.2.3(react@19.2.4)
+      react-dom: 19.2.4(react@19.2.4)
       uncontrollable: 8.0.4(react@19.2.4)
       warning: 4.0.3
 
@@ -7869,12 +7869,12 @@ snapshots:
       picocolors: 1.1.1
       redent: 3.0.0
 
-  '@testing-library/react@16.3.1(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.13))(@types/react@19.2.13)(react-dom@19.2.3(react@19.2.4))(react@19.2.4)':
+  '@testing-library/react@16.3.1(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.13))(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
       '@babel/runtime': 7.28.6
       '@testing-library/dom': 10.4.1
       react: 19.2.4
-      react-dom: 19.2.3(react@19.2.4)
+      react-dom: 19.2.4(react@19.2.4)
     optionalDependencies:
       '@types/react': 19.2.13
       '@types/react-dom': 19.2.3(@types/react@19.2.13)
@@ -11170,11 +11170,11 @@ snapshots:
     dependencies:
       safe-buffer: 5.2.1
 
-  react-bootstrap@2.10.10(@types/react@19.2.13)(react-dom@19.2.3(react@19.2.4))(react@19.2.4):
+  react-bootstrap@2.10.10(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
       '@babel/runtime': 7.28.6
       '@restart/hooks': 0.4.16(react@19.2.4)
-      '@restart/ui': 1.9.4(react-dom@19.2.3(react@19.2.4))(react@19.2.4)
+      '@restart/ui': 1.9.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@types/prop-types': 15.7.15
       '@types/react-transition-group': 4.4.12(@types/react@19.2.13)
       classnames: 2.5.1
@@ -11183,14 +11183,14 @@ snapshots:
       prop-types: 15.8.1
       prop-types-extra: 1.1.1(react@19.2.4)
       react: 19.2.4
-      react-dom: 19.2.3(react@19.2.4)
-      react-transition-group: 4.4.5(react-dom@19.2.3(react@19.2.4))(react@19.2.4)
+      react-dom: 19.2.4(react@19.2.4)
+      react-transition-group: 4.4.5(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       uncontrollable: 7.2.1(react@19.2.4)
       warning: 4.0.3
     optionalDependencies:
       '@types/react': 19.2.13
 
-  react-dom@19.2.3(react@19.2.4):
+  react-dom@19.2.4(react@19.2.4):
     dependencies:
       react: 19.2.4
       scheduler: 0.27.0
@@ -11209,12 +11209,12 @@ snapshots:
     dependencies:
       react: 19.2.4
 
-  react-input-slider@6.0.1(react-dom@19.2.3(react@19.2.4))(react@19.2.4):
+  react-input-slider@6.0.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
       '@babel/runtime': 7.28.6
       '@emotion/core': 10.3.1(react@19.2.4)
       react: 19.2.4
-      react-dom: 19.2.3(react@19.2.4)
+      react-dom: 19.2.4(react@19.2.4)
     transitivePeerDependencies:
       - supports-color
 
@@ -11248,31 +11248,31 @@ snapshots:
 
   react-refresh@0.18.0: {}
 
-  react-router-dom@7.12.0(react-dom@19.2.3(react@19.2.4))(react@19.2.4):
+  react-router-dom@7.12.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
       react: 19.2.4
-      react-dom: 19.2.3(react@19.2.4)
-      react-router: 7.12.0(react-dom@19.2.3(react@19.2.4))(react@19.2.4)
+      react-dom: 19.2.4(react@19.2.4)
+      react-router: 7.12.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
 
-  react-router@7.12.0(react-dom@19.2.3(react@19.2.4))(react@19.2.4):
+  react-router@7.12.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
       cookie: 1.1.1
       react: 19.2.4
       set-cookie-parser: 2.7.2
     optionalDependencies:
-      react-dom: 19.2.3(react@19.2.4)
+      react-dom: 19.2.4(react@19.2.4)
 
   react-side-effect@2.1.2(react@19.2.4):
     dependencies:
       react: 19.2.4
 
-  react-slick@0.31.0(react-dom@19.2.3(react@19.2.4))(react@19.2.4):
+  react-slick@0.31.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
       classnames: 2.5.1
       json2mq: 0.2.0
       lodash.debounce: 4.0.8
       react: 19.2.4
-      react-dom: 19.2.3(react@19.2.4)
+      react-dom: 19.2.4(react@19.2.4)
       resize-observer-polyfill: 1.5.1
 
   react-slider@2.0.6(react@19.2.4):
@@ -11280,14 +11280,14 @@ snapshots:
       prop-types: 15.8.1
       react: 19.2.4
 
-  react-transition-group@4.4.5(react-dom@19.2.3(react@19.2.4))(react@19.2.4):
+  react-transition-group@4.4.5(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
       '@babel/runtime': 7.28.6
       dom-helpers: 5.2.1
       loose-envify: 1.4.0
       prop-types: 15.8.1
       react: 19.2.4
-      react-dom: 19.2.3(react@19.2.4)
+      react-dom: 19.2.4(react@19.2.4)
 
   react@19.2.4: {}
 
@@ -11303,7 +11303,7 @@ snapshots:
 
   readdirp@4.1.2: {}
 
-  recharts@3.7.0(@types/react@19.2.13)(react-dom@19.2.3(react@19.2.4))(react-is@18.3.1)(react@19.2.4)(redux@5.0.1):
+  recharts@3.7.0(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react-is@18.3.1)(react@19.2.4)(redux@5.0.1):
     dependencies:
       '@reduxjs/toolkit': 2.11.2(react-redux@9.2.0(@types/react@19.2.13)(react@19.2.4)(redux@5.0.1))(react@19.2.4)
       clsx: 2.1.1
@@ -11312,7 +11312,7 @@ snapshots:
       eventemitter3: 5.0.4
       immer: 10.2.0
       react: 19.2.4
-      react-dom: 19.2.3(react@19.2.4)
+      react-dom: 19.2.4(react@19.2.4)
       react-is: 18.3.1
       react-redux: 9.2.0(@types/react@19.2.13)(react@19.2.4)(redux@5.0.1)
       reselect: 5.1.1
