@@ -10,27 +10,27 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
-        "@vercel/blob": "^2.0.0",
+        "@vercel/blob": "^2.3.0",
         "bcryptjs": "^3.0.3",
         "body-parser": "^2.2.2",
         "cookie-parser": "^1.4.7",
-        "cors": "^2.8.5",
-        "dotenv": "^17.2.3",
+        "cors": "^2.8.6",
+        "dotenv": "^17.3.1",
         "express": "^5.2.1",
         "express-rate-limit": "^8.2.1",
         "fs": "0.0.1-security",
         "jsonwebtoken": "^9.0.3",
+        "lusca": "^1.7.0",
         "mongodb": "^7.1.0",
         "multer": "2.0.2",
         "mysql": "^2.18.1",
-        "mysql2": "^3.16.1",
+        "mysql2": "^3.17.4",
         "path": "^0.12.7",
-        "streamifier": "^0.1.1",
-        "lusca": "^1.7.0"
+        "streamifier": "^0.1.1"
     },
     "devDependencies": {
-        "@eslint/js": "^9.39.2",
-        "eslint": "^9.39.2",
+        "@eslint/js": "^9.39.3",
+        "eslint": "^9.39.3",
         "eslint-config-airbnb-base": "^15.0.0",
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-import": "^2.32.0",
@@ -38,7 +38,7 @@
         "eslint-plugin-prettier": "^5.5.5",
         "eslint-plugin-react": "^7.37.5",
         "eslint-plugin-react-hooks": "^7.0.1",
-        "globals": "^17.0.0",
-        "prettier": "^3.8.0"
+        "globals": "^17.3.0",
+        "prettier": "^3.8.1"
     }
 }
