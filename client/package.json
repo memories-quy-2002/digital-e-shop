@@ -12,7 +12,7 @@
         "axios": "^1.13.5",
         "chromedriver": "^138.0.5",
         "dotenv": "^17.3.1",
-        "firebase": "^12.9.0",
+        "firebase": "^12.10.0",
         "fs": "0.0.1-security",
         "geckodriver": "^6.1.0",
         "jest-environment-jsdom": "^29.7.0",
