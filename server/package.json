@@ -24,7 +24,7 @@
         "mongodb": "^7.1.0",
         "multer": "2.1.0",
         "mysql": "^2.18.1",
-        "mysql2": "^3.17.4",
+        "mysql2": "^3.18.2",
         "path": "^0.12.7",
         "streamifier": "^0.1.1"
     },
@@ -38,7 +38,7 @@
         "eslint-plugin-prettier": "^5.5.5",
         "eslint-plugin-react": "^7.37.5",
         "eslint-plugin-react-hooks": "^7.0.1",
-        "globals": "^17.3.0",
+        "globals": "^17.4.0",
         "prettier": "^3.8.1"
     }
 }
