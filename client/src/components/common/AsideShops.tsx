@@ -17,7 +17,6 @@ interface AsideShopsProps {
     onCheckboxChange: (type: "categories" | "brands", value: string) => void;
     onPriceRangeChange: (newValue: [number, number]) => void;
     onApplyFilters: () => void;
-    onTermChange: (e: React.ChangeEvent<HTMLInputElement>) => void; // Add this prop
 }
 
 const AsideShops = ({
@@ -26,7 +25,6 @@ const AsideShops = ({
     onCheckboxChange,
     onPriceRangeChange,
     onApplyFilters,
-    onTermChange,
 }: AsideShopsProps) => {
     const [categories, setCategories] = useState<string[]>([]);
     const [brands, setBrands] = useState<string[]>([]);
@@ -39,19 +37,6 @@ const AsideShops = ({
 
     return (
         <aside className="shops__container__aside">
-            <section className="shops__container__aside__search">
-                <input
-                    type="text"
-                    placeholder="Search product..."
-                    value={filters.term}
-                    onChange={onTermChange}
-                    onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                            onApplyFilters();
-                        }
-                    }}
-                />
-            </section>
             <section className="shops__container__aside__categories">
                 <div>
                     <h4>Categories</h4>

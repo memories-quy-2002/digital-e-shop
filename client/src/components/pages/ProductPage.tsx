@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { BsStar, BsStarFill } from "react-icons/bs";
 import axios from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
@@ -14,6 +14,7 @@ import { Helmet } from "react-helmet";
 import { useLocation } from "react-router-dom";
 import LazyLoadImage from "../../utils/LazyLoadingImage";
 import productPlaceholder from "../../assets/images/product_placeholder.jpg";
+
 interface relevantProductsItem {
     product_id: number;
     product_name: string;
@@ -62,6 +63,49 @@ const ProductPage = () => {
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
     const [toggle, setToggle] = useState<boolean>(false);
     const [quantity, setQuantity] = useState<number>(1);
+    const [activeImage, setActiveImage] = useState<string>("");
+
+    const normalizeImage = (name?: string | null) => {
+        if (!name) return "";
+        return name.replace(/\.jpg$/i, "");
+    };
+
+    const imageBase = "https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/";
+
+    const galleryImages = useMemo(() => {
+        if (Array.isArray(productDetail.image_gallery)) {
+            return productDetail.image_gallery as string[];
+        }
+        return [] as string[];
+    }, [productDetail.image_gallery]);
+
+    const allImages = useMemo(() => {
+        const main = normalizeImage(productDetail.main_image);
+        const others = galleryImages.map((img) => normalizeImage(img)).filter(Boolean);
+        const merged = [main, ...others].filter(Boolean);
+        return Array.from(new Set(merged));
+    }, [galleryImages, productDetail.main_image]);
+
+    const specs = useMemo(() => {
+        if (Array.isArray(productDetail.specifications)) {
+            return productDetail.specifications as string[];
+        }
+        if (typeof productDetail.specifications === "string") {
+            const trimmed = productDetail.specifications.trim();
+            if (trimmed.startsWith("[")) {
+                try {
+                    const parsed = JSON.parse(trimmed);
+                    if (Array.isArray(parsed)) {
+                        return parsed.map(String);
+                    }
+                } catch {
+                    return [] as string[];
+                }
+            }
+            return trimmed ? [trimmed] : [];
+        }
+        return [] as string[];
+    }, [productDetail.specifications]);
 
     useEffect(() => {
         const fetchSingleProduct = async () => {
@@ -184,8 +228,22 @@ const ProductPage = () => {
         return () => {};
     }, [productDetail]);
 
-    const handleDecrease = () => setQuantity((quantity) => quantity - 1);
-    const handleIncrease = () => setQuantity((quantity) => quantity + 1);
+    useEffect(() => {
+        if (allImages.length > 0) {
+            setActiveImage(allImages[0]);
+        }
+    }, [allImages]);
+
+    const handleDecrease = () => {
+        setQuantity((value) => Math.max(1, value - 1));
+    };
+
+    const handleIncrease = () => {
+        if (productDetail.stock > 0) {
+            setQuantity((value) => Math.min(productDetail.stock, value + 1));
+        }
+    };
+
     const handleStarClick = (rating: number) => {
         setRatingScore(rating);
     };
@@ -284,6 +342,10 @@ const ProductPage = () => {
     if (pid <= 0) {
         return <NoPage />;
     }
+
+    const isWishlisted = wishlist.length > 0 && wishlist.some((item) => item.product.id === pid);
+    const activeImageUrl = activeImage ? `${imageBase}${activeImage}.jpg` : "";
+
     return (
         <Layout>
             <NavigationBar />
@@ -292,112 +354,95 @@ const ProductPage = () => {
                 <meta name="description" content={productDetail.description} />
             </Helmet>
             <div className="product__container">
-                <div className="product__container__detail">
-                    <div className="product__container__detail__img">
-                        {productDetail.main_image ? (
-                            <LazyLoadImage
-                                src={`https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${productDetail.main_image}.jpg`}
-                                alt={productDetail.name}
-                            />
-                        ) : (
-                            <img src={productPlaceholder} alt={productDetail.name} />
-                        )}
-                    </div>
-                    <div className="product__container__detail__main">
-                        <div className="product__container__detail__main__info">
-                            <div className="product__container__detail__main__info__rating">
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        flexDirection: "row",
-                                        gap: "0.25rem",
-                                    }}
-                                >
-                                    {ratingStar(productDetail.rating, "#FFCC4A", 24)}
-                                </div>
-                                <span
-                                    style={{
-                                        fontSize: "1.5rem",
-                                    }}
-                                >
-                                    {productDetail.rating} ({productDetail.reviews})
-                                </span>
-                            </div>
-                            <strong className="product__container__detail__main__info__name">
-                                {productDetail.name}
-                            </strong>
-
-                            <div className="product__container__detail__main__info__price">
-                                {productDetail.sale_price ? (
-                                    <>
-                                        <span className="product__container__detail__main__info__price-active">
-                                            ${productDetail.sale_price}
-                                        </span>{" "}
-                                        <span className="product__container__detail__main__info__price-original">
-                                            ${productDetail.price}
-                                        </span>
-                                    </>
-                                ) : (
-                                    <span className="product__container__detail__main__info__price-active">
-                                        ${productDetail.price}
-                                    </span>
-                                )}
-                            </div>
-                            <div className="product__container__detail__main__info__other">
-                                <span>Category: {productDetail.category}</span>
-                                <span>Brand: {productDetail.brand}</span>
-                                <span>
-                                    Status:{" "}
-                                    <span>
-                                        {productDetail.stock > 0 ? (
-                                            <span className="product__container__detail__main__info__other__status">
-                                                In stock
-                                            </span>
-                                        ) : (
-                                            <span className="product__container__detail__main__info__other__status--out">
-                                                Out of stock
-                                            </span>
-                                        )}
-                                    </span>
-                                </span>
-                            </div>
+                <section className="product__hero">
+                    <div className="product__hero__gallery">
+                        <div className="product__hero__gallery__main">
+                            {activeImageUrl ? (
+                                <LazyLoadImage src={activeImageUrl} alt={productDetail.name} />
+                            ) : (
+                                <img src={productPlaceholder} alt={productDetail.name} />
+                            )}
                         </div>
-                        <div className="product__container__detail__main__quantity">
-                            <strong className="product__container__detail__main__quantity__title">Quantity</strong>
-                            <div className="product__container__detail__main__quantity__input">
-                                <button
-                                    className="product__container__detail__main__quantity__input-minus"
-                                    type="button"
-                                    onClick={handleDecrease}
-                                >
+                        {allImages.length > 1 ? (
+                            <div className="product__hero__gallery__thumbs">
+                                {allImages.map((img) => {
+                                    const src = `${imageBase}${img}.jpg`;
+                                    return (
+                                        <button
+                                            key={img}
+                                            type="button"
+                                            className={img === activeImage ? "active" : ""}
+                                            onClick={() => setActiveImage(img)}
+                                        >
+                                            <img src={src} alt={productDetail.name} />
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        ) : null}
+                    </div>
+
+                    <div className="product__hero__summary">
+                        <div className="product__hero__summary__meta">
+                            <span>{productDetail.category}</span>
+                            <span className="dot"></span>
+                            <span>{productDetail.brand}</span>
+                        </div>
+                        <h1 className="product__hero__summary__title">{productDetail.name}</h1>
+                        <div className="product__hero__summary__rating">
+                            <div className="product__hero__summary__rating__stars">
+                                {ratingStar(productDetail.rating, "#FFCC4A", 22)}
+                            </div>
+                            <span>
+                                {productDetail.rating} ({productDetail.reviews} reviews)
+                            </span>
+                        </div>
+                        <div className="product__hero__summary__price">
+                            {productDetail.sale_price ? (
+                                <>
+                                    <span className="price-active">${productDetail.sale_price}</span>
+                                    <span className="price-original">${productDetail.price}</span>
+                                </>
+                            ) : (
+                                <span className="price-active">${productDetail.price}</span>
+                            )}
+                        </div>
+                        <div className="product__hero__summary__stock">
+                            {productDetail.stock > 0 ? (
+                                <span className="in">In stock</span>
+                            ) : (
+                                <span className="out">Out of stock</span>
+                            )}
+                        </div>
+
+                        <div className="product__hero__summary__actions">
+                            <div className="quantity">
+                                <button type="button" onClick={handleDecrease} disabled={productDetail.stock <= 0}>
                                     -
                                 </button>
                                 <input
                                     type="number"
                                     name="quantity"
                                     id="quantity"
+                                    min={1}
+                                    max={productDetail.stock}
                                     value={quantity}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                        setProductDetail((detail) => {
-                                            return {
-                                                ...detail,
-                                                stock: Number(e.target.value),
-                                            };
+                                        setQuantity(() => {
+                                            const raw = Number(e.target.value);
+                                            const safe = Number.isFinite(raw) ? raw : 1;
+                                            const max = productDetail.stock > 0 ? productDetail.stock : 1;
+                                            return Math.max(1, Math.min(max, safe));
                                         })
                                     }
+                                    disabled={productDetail.stock <= 0}
                                 />
-                                <button
-                                    className="product__container__detail__main__quantity__input-plus"
-                                    type="button"
-                                    onClick={handleIncrease}
-                                >
+                                <button type="button" onClick={handleIncrease} disabled={productDetail.stock <= 0}>
                                     +
                                 </button>
                             </div>
-                        </div>
-                        <div className="product__container__detail__main__button">
                             <button
-                                className="product__container__detail__main__button-cart"
+                                className="primary"
                                 type="button"
                                 onClick={() => {
                                     if (uid) {
@@ -406,11 +451,12 @@ const ProductPage = () => {
                                         addToast("Login required", "You need to login to use this feature.");
                                     }
                                 }}
+                                disabled={productDetail.stock <= 0}
                             >
                                 Add to cart
                             </button>
                             <button
-                                className="product__container__detail__main__button-wishlist"
+                                className={isWishlisted ? "secondary active" : "secondary"}
                                 type="button"
                                 onClick={() => {
                                     if (uid) {
@@ -420,36 +466,51 @@ const ProductPage = () => {
                                     }
                                 }}
                             >
-                                {wishlist.length > 0 && wishlist.some((item) => item.product.id === pid)
-                                    ? "Remove from wishlist"
-                                    : "Add to wishlist"}
+                                {isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
                             </button>
                         </div>
+
+                        <div className="product__hero__summary__highlights">
+                            <div>
+                                <strong>Free delivery</strong>
+                                <span>Orders over $50</span>
+                            </div>
+                            <div>
+                                <strong>Warranty</strong>
+                                <span>12 months included</span>
+                            </div>
+                            <div>
+                                <strong>Support</strong>
+                                <span>24/7 email support</span>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div className="product__container__navigation">
-                    <div className="product__container__navigation__btn">
+                </section>
+
+                <div className="product__tabs">
+                    <div className="product__tabs__buttons">
                         <button type="button" className={!toggle ? "active" : ""} onClick={() => setToggle(false)}>
                             Description
                         </button>
                         <button type="button" className={toggle ? "active" : ""} onClick={() => setToggle(true)}>
-                            Review ({reviews.length})
+                            Reviews ({reviews.length})
                         </button>
-                        <div className="product__container__navigation__btn__empty"></div>
+                        <div className="product__tabs__buttons__line"></div>
                     </div>
                 </div>
+
                 {toggle ? (
-                    <div className="product__container__review">
+                    <div className="product__review">
                         {!uid ? (
-                            <div className="product__container__review__container">
+                            <div className="product__review__container">
                                 You need to login to use this feature
                             </div>
                         ) : (
-                            <div className="product__container__review__container">
-                                <div className="product__container__review__container__rating">
-                                    <h5 className="product__container__review__container__rating__title">Rating</h5>
-                                    <div className="product__container__review__container__rating__container">
-                                        <div className="product__container__review__container__rating__container__star">
+                            <div className="product__review__container">
+                                <div className="product__review__container__rating">
+                                    <h5 className="product__review__container__rating__title">Rating</h5>
+                                    <div className="product__review__container__rating__container">
+                                        <div className="product__review__container__rating__container__star">
                                             {[1, 2, 3, 4, 5].map((rating) => (
                                                 <span key={rating} onClick={() => handleStarClick(rating)}>
                                                     {rating <= ratingScore ? (
@@ -460,15 +521,15 @@ const ProductPage = () => {
                                                 </span>
                                             ))}
                                         </div>
-                                        <div className="product__container__review__container__rating__container__score">
+                                        <div className="product__review__container__rating__container__score">
                                             <span>({ratingScore.toFixed(0)})</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="product__container__review__container__text">
-                                    <h5 className="product__container__review__container__text__title">Review</h5>
+                                <div className="product__review__container__text">
+                                    <h5 className="product__review__container__text__title">Review</h5>
                                     <textarea
-                                        className="product__container__review__container__text__area"
+                                        className="product__review__container__text__area"
                                         name="review"
                                         id="review"
                                         value={reviewText}
@@ -477,35 +538,30 @@ const ProductPage = () => {
                                         placeholder="Enter your review"
                                     ></textarea>
                                     <button
-                                        className="product__container__review__container__text__button"
+                                        className="product__review__container__text__button"
                                         type="submit"
-                                        onClick={() =>
-                                            handleSubmitReview(uid, productDetail.id, ratingScore, reviewText)
-                                        }
+                                        onClick={() => handleSubmitReview(uid, productDetail.id, ratingScore, reviewText)}
                                     >
                                         Submit
                                     </button>
                                 </div>
-                                <div className="product__container__review__container__all">
-                                    <h5 className="product__container__review__container__all__title">
+                                <div className="product__review__container__all">
+                                    <h5 className="product__review__container__all__title">
                                         All reviews ({reviews.length})
                                     </h5>
-                                    <div className="product__container__review__container__all__list">
+                                    <div className="product__review__container__all__list">
                                         {reviews.map((review, index) => (
-                                            <div
-                                                key={index}
-                                                className="product__container__review__container__all__list__item"
-                                            >
-                                                <div className="product__container__review__container__all__list__item__info">
+                                            <div key={index} className="product__review__container__all__list__item">
+                                                <div className="product__review__container__all__list__item__info">
                                                     <strong>{review.username}</strong>
-                                                    <span className="product__container__review__container__all__list__item__info__star">
+                                                    <span className="product__review__container__all__list__item__info__star">
                                                         {ratingStar(review.rating, "#FFCC4A", 18)}
                                                     </span>
                                                     <span>
                                                         {new Date(review.created_at).toLocaleDateString("en-GB")}
                                                     </span>
                                                 </div>
-                                                <div className="product__container__review__container__all__list__item__review">
+                                                <div className="product__review__container__all__list__item__review">
                                                     <p>{review.reviewText}</p>
                                                 </div>
                                             </div>
@@ -516,22 +572,23 @@ const ProductPage = () => {
                         )}
                     </div>
                 ) : (
-                    <div className="product__container__description">
-                        <h5>Description</h5>
-                        <p>
-                            Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut
-                            labore et dolore magna aliqua. Morbi tincidunt augue interdum velit euismod in pellentesque.
-                            Nunc sed id semper risus in hendrerit gravida. Diam vel quam elementum pulvinar etiam non
-                            quam lacus. Amet massa vitae tortor condimentum lacinia quis vel eros donec. Donec massa
-                            sapien faucibus et. Dui ut ornare lectus sit. Quam pellentesque nec nam aliquam sem.
-                            Ultricies integer quis auctor elit. Penatibus et magnis dis parturient montes nascetur
-                            ridiculus mus mauris. Euismod in pellentesque massa placerat duis ultricies. Donec enim diam
-                            vulputate ut pharetra sit amet. At tempor commodo ullamcorper a lacus vestibulum. Risus
-                            pretium quam vulputate dignissim. Tincidunt tortor aliquam nulla facilisi cras. Accumsan
-                            tortor posuere ac ut consequat semper viverra nam. Dictum sit amet justo donec. Ultricies
-                            lacus sed turpis tincidunt id aliquet risus.
-                            {productDetail.description}
-                        </p>
+                    <div className="product__description">
+                        <div className="product__description__card">
+                            <h5>Description</h5>
+                            <p>{productDetail.description}</p>
+                        </div>
+                        <div className="product__description__card">
+                            <h5>Specifications</h5>
+                            {specs.length > 0 ? (
+                                <ul>
+                                    {specs.map((item, index) => (
+                                        <li key={index}>{item}</li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p>No specifications provided.</p>
+                            )}
+                        </div>
                     </div>
                 )}
 

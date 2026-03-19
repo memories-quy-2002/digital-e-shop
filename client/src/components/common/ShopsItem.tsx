@@ -1,4 +1,4 @@
-import React from "react";
+import React, { memo } from "react";
 import { BsHeart, BsHeartFill } from "react-icons/bs";
 import { useNavigate } from "react-router-dom";
 import { Product } from "../../utils/interface";
@@ -85,4 +85,4 @@ const ShopsItem = ({ product, uid, isWishlist, onToggleWishlist, onAddingCart }:
     );
 };
 
-export default ShopsItem;
+export default memo(ShopsItem);

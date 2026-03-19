@@ -1,6 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import Cookies from "universal-cookie";
 import axios from "../../api/axios";
 import "../../styles/ShopsPage.scss";
 import { Product } from "../../utils/interface";
@@ -11,7 +10,6 @@ import Layout from "../layout/Layout";
 import { Helmet } from "react-helmet";
 import { useAuth } from "../../context/AuthContext";
 
-const cookies = new Cookies();
 const MAX_PRICE_RANGE: number = 5000;
 const ITEMS_PER_PAGE = 6;
 
@@ -25,6 +23,7 @@ type Filters = {
     categories: string[];
     brands: string[];
     priceRange: [number, number];
+    sortBy: "relevance" | "price-asc" | "price-desc" | "rating-desc";
 };
 
 const ShopsPage = () => {
@@ -37,6 +36,7 @@ const ShopsPage = () => {
         categories: [],
         brands: [],
         priceRange: [0, MAX_PRICE_RANGE],
+        sortBy: "relevance",
     });
 
     const navigate = useNavigate();
@@ -52,6 +52,7 @@ const ShopsPage = () => {
                 minPrice: newFilters.priceRange[0].toString(),
                 maxPrice: newFilters.priceRange[1].toString(),
                 term: newFilters.term,
+                sortBy: newFilters.sortBy,
             });
             navigate(`${location.pathname}?${queryParams.toString()}`, { replace: true });
         },
@@ -95,12 +96,35 @@ const ShopsPage = () => {
 
     const applyFilters = () => {
         updateURL(filters);
-        setFilteredProducts(getFilteredProducts(filters, products));
+        const baseList = getFilteredProducts(filters, products);
+        let sorted = [...baseList];
+        if (filters.sortBy === "price-asc") {
+            sorted.sort((a, b) => (a.sale_price ?? a.price) - (b.sale_price ?? b.price));
+        } else if (filters.sortBy === "price-desc") {
+            sorted.sort((a, b) => (b.sale_price ?? b.price) - (a.sale_price ?? a.price));
+        } else if (filters.sortBy === "rating-desc") {
+            sorted.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+        }
+        setFilteredProducts(sorted);
     };
 
-    useEffect(() => {
-        console.log(cookies, sessionStorage);
-    });
+    const handleSortChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
+        const value = event.target.value as Filters["sortBy"];
+        setFilters((prev) => ({ ...prev, sortBy: value }));
+    }, []);
+
+    const handleResetFilters = useCallback(() => {
+        const reset: Filters = {
+            term: "",
+            categories: [],
+            brands: [],
+            priceRange: [0, MAX_PRICE_RANGE],
+            sortBy: "relevance",
+        };
+        setFilters(reset);
+        updateURL(reset);
+        setFilteredProducts(products);
+    }, [products, updateURL]);
 
     useEffect(() => {
         const queryParams = new URLSearchParams(location.search);
@@ -120,6 +144,7 @@ const ShopsPage = () => {
                 Number(queryParams.get("minPrice") ?? 0),
                 Number(queryParams.get("maxPrice") ?? MAX_PRICE_RANGE),
             ],
+            sortBy: (queryParams.get("sortBy") as Filters["sortBy"]) ?? "relevance",
         };
         setFilters(newFilters);
         return () => {};
@@ -182,6 +207,38 @@ const ShopsPage = () => {
             </Helmet>
             <main className="shops">
                 <h2 className="shops__title">Shops Products</h2>
+                <div className="shops__topbar">
+                    <div className="shops__topbar__search">
+                        <input
+                            type="text"
+                            placeholder="Search products, brands, categories..."
+                            value={filters.term}
+                            onChange={handleTermChange}
+                            onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                    applyFilters();
+                                }
+                            }}
+                        />
+                    </div>
+                    <div className="shops__topbar__meta">
+                        <span>{filteredProducts.length} results</span>
+                    </div>
+                    <div className="shops__topbar__controls">
+                        <select value={filters.sortBy} onChange={handleSortChange}>
+                            <option value="relevance">Sort: Relevance</option>
+                            <option value="price-asc">Price: Low to High</option>
+                            <option value="price-desc">Price: High to Low</option>
+                            <option value="rating-desc">Rating: High to Low</option>
+                        </select>
+                        <button type="button" className="shops__topbar__apply" onClick={applyFilters}>
+                            Apply
+                        </button>
+                        <button type="button" className="shops__topbar__reset" onClick={handleResetFilters}>
+                            Clear
+                        </button>
+                    </div>
+                </div>
                 <div className="shops__container">
                     <AsideShops
                         products={products}
@@ -189,7 +246,6 @@ const ShopsPage = () => {
                         onCheckboxChange={handleCheckboxChange}
                         onPriceRangeChange={handlePriceRangeChange}
                         onApplyFilters={applyFilters}
-                        onTermChange={handleTermChange}
                     />
                     <section data-testid="shops__container" className="shops__container__main">
                         {isLoading ? (
