@@ -55,11 +55,21 @@ const wishlistRoutes = require("./routes/wishlistRoutes");
 
 // Routes
 app.use("/api/users", userRoutes);
+// Backward-compatible alias (some clients call /api/user/*)
+app.use("/api/user", userRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/wishlist", wishlistRoutes);
+
+// Fallback routes for serverless environments that strip the /api prefix
+app.use("/users", userRoutes);
+app.use("/products", productRoutes);
+app.use("/cart", cartRoutes);
+app.use("/orders", orderRoutes);
+app.use("/reviews", reviewRoutes);
+app.use("/wishlist", wishlistRoutes);
 
 app.get('/get-user', (req, res) => {
 	res.send(req.cookies);

@@ -4,8 +4,8 @@ const { checkSessionToken } = require("../services/sessionService");
 const router = express.Router();
 
 router.get("/me", getCurrentUser);
+router.get("/session/check", checkSessionToken);
 router.get("/:id", getUserLoginById);
-router.get("/session/check", checkSessionToken)
 router.get("/", getAllUsers);
 
 router.post("/register", registerUser);
