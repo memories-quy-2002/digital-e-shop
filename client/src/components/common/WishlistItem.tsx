@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { memo, useState } from "react";
 import { Button, Modal } from "react-bootstrap";
 import { IoTrashBinOutline } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
@@ -102,4 +102,4 @@ const WishlistItem = ({ item, uid, onAddingCart, onRemoveWishlist }: WishlistIte
     );
 };
 
-export default WishlistItem;
+export default memo(WishlistItem);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import ReactPaginate from "react-paginate";
 import axios from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
@@ -25,18 +25,37 @@ const PaginatedItems = ({ itemsPerPage, items, uid, wishlist, isWishlistPage }: 
     const [itemOffset, setItemOffset] = useState(0);
 
     useEffect(() => {
-        if (wishlist.length > 0) {
-            setCurrentWishlist(wishlist);
-        }
+        setCurrentWishlist(wishlist);
+        setItemOffset(0);
     }, [wishlist]);
 
-    const toggleWishlist = async (user_id: string, product_id: number) => {
+    useEffect(() => {
+        setItemOffset(0);
+    }, [items.length]);
+
+    const wishlistIdSet = useMemo(() => {
+        return new Set(currentWishlist.map((item) => item.product.id));
+    }, [currentWishlist]);
+
+    const productById = useMemo(() => {
+        const map = new Map<number, Product>();
+        items.forEach((item) => {
+            if ("product" in item) {
+                map.set(item.product.id, item.product);
+            } else {
+                map.set(item.id, item);
+            }
+        });
+        return map;
+    }, [items]);
+
+    const toggleWishlist = useCallback(async (user_id: string, product_id: number) => {
         if (uid === "") {
             addToast("Login required", "You need to login to use this feature.");
             return;
         }
         try {
-            const exists = currentWishlist.some((item) => item.product.id === product_id);
+            const exists = wishlistIdSet.has(product_id);
             if (exists) {
                 const response = await axios.delete(`/api/wishlist/${product_id}/`, {
                     data: {
@@ -55,23 +74,25 @@ const PaginatedItems = ({ itemsPerPage, items, uid, wishlist, isWishlistPage }: 
                 });
                 if (response.status === 200) {
                     console.log(response.data.msg);
-                    const newProduct = (items as Product[]).filter((product) => product.id === product_id)[0];
-                    setCurrentWishlist((list) => [
-                        ...list,
-                        {
-                            id: product_id,
-                            product: newProduct,
-                        },
-                    ]);
+                    const newProduct = productById.get(product_id);
+                    if (newProduct) {
+                        setCurrentWishlist((list) => [
+                            ...list,
+                            {
+                                id: product_id,
+                                product: newProduct,
+                            },
+                        ]);
+                    }
                     addToast("Add wishlist item", "Item added to wishlist successfully");
                 }
             }
         } catch (err) {
             console.error(err);
         }
-    };
+    }, [addToast, productById, uid, wishlistIdSet]);
 
-    const handleRemoveWishlist = async (user_id: string, product_id: number) => {
+    const handleRemoveWishlist = useCallback(async (user_id: string, product_id: number) => {
         try {
             const response = await axios.delete(`/api/wishlist/${product_id}`, {
                 data: {
@@ -86,16 +107,17 @@ const PaginatedItems = ({ itemsPerPage, items, uid, wishlist, isWishlistPage }: 
         } catch (err) {
             console.error(err);
         }
-    };
+    }, [addToast]);
 
-    const handleAddingCart = async (user_id: string, product_id: number) => {
+    const handleAddingCart = useCallback(async (user_id: string, product_id: number) => {
         if (uid === "") {
             addToast("Login required", "You need to login to use this feature.");
             return;
         }
 
         try {
-            let stock = (items as Item[]).filter((item) => item.product.id === product_id)[0].product.stock;
+            const product = productById.get(product_id);
+            const stock = product ? product.stock : 0;
             if (stock <= 0) {
                 addToast("Out of stock", "This product is out of stock.");
                 return;
@@ -112,18 +134,22 @@ const PaginatedItems = ({ itemsPerPage, items, uid, wishlist, isWishlistPage }: 
         } catch (err) {
             console.error(err);
         }
-    };
+    }, [addToast, productById, uid]);
 
-    const handlePageClick = (event: any) => {
+    const handlePageClick = useCallback((event: { selected: number }) => {
         const newOffset = (event.selected * itemsPerPage) % items.length;
         console.log(`User requested page number ${event.selected}, which is offset ${newOffset}`);
         setItemOffset(newOffset);
-    };
+    }, [items.length, itemsPerPage]);
 
     const endOffset = itemOffset + itemsPerPage;
-    const currentItems = items.slice(itemOffset, endOffset);
-    const pageCount = Math.ceil(items.length / itemsPerPage);
-    const wishlistPageCount = Math.ceil(currentWishlist.length / itemsPerPage);
+    const currentItems = useMemo(() => items.slice(itemOffset, endOffset), [endOffset, itemOffset, items]);
+    const pageCount = useMemo(() => Math.ceil(items.length / itemsPerPage), [items.length, itemsPerPage]);
+    const wishlistPageCount = useMemo(
+        () => Math.ceil(currentWishlist.length / itemsPerPage),
+        [currentWishlist.length, itemsPerPage]
+    );
+    const pageCountToUse = isWishlistPage ? wishlistPageCount : pageCount;
 
     return (
         <div className="shops__container__main__pagination">
@@ -131,14 +157,13 @@ const PaginatedItems = ({ itemsPerPage, items, uid, wishlist, isWishlistPage }: 
                 !isWishlistPage ? (
                     <div className="shops__container__main__pagination__list">
                         {currentItems.map((item) => {
+                            const product = "product" in item ? item.product : item;
                             return (
                                 <ShopsItem
-                                    key={item.id}
-                                    product={item as Product}
+                                    key={product.id}
+                                    product={product}
                                     uid={uid}
-                                    isWishlist={currentWishlist.some(
-                                        (wishlistProduct) => wishlistProduct.product.id === (item as Product).id
-                                    )}
+                                    isWishlist={wishlistIdSet.has(product.id)}
                                     onToggleWishlist={toggleWishlist}
                                     onAddingCart={handleAddingCart}
                                 />
@@ -179,13 +204,18 @@ const PaginatedItems = ({ itemsPerPage, items, uid, wishlist, isWishlistPage }: 
             <div style={{ display: "flex", justifyContent: "center" }}>
                 <ReactPaginate
                     className="shops__container__main__pagination__items"
+                    pageClassName="pagination__item"
+                    pageLinkClassName="pagination__link"
+                    previousClassName="pagination__item"
+                    nextClassName="pagination__item"
+                    breakClassName="pagination__item"
+                    activeClassName="selected"
+                    disabledClassName="disabled"
                     breakLabel="..."
                     nextLabel="Next"
                     onPageChange={handlePageClick}
                     pageRangeDisplayed={5}
-                    pageCount={
-                        currentItems.length !== 0 && !("product" in currentItems[0]) ? pageCount : wishlistPageCount
-                    }
+                    pageCount={pageCountToUse}
                     previousLabel="Previous"
                     ariaLabelBuilder={(index) => `Page-${index}`}
                     renderOnZeroPageCount={null}
