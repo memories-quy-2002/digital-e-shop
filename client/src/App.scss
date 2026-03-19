@@ -1,0 +1,51 @@
+
+
+/* Global pagination styling (used in shops, wishlist, admin) */
+.shops__container__main__pagination__items {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  list-style: none;
+  margin: 0;
+}
+
+.shops__container__main__pagination__items li,
+.shops__container__main__pagination__items .pagination__item {
+  min-width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-weight: 600;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.shops__container__main__pagination__items li:hover {
+  background: #f3f4f6;
+  cursor: pointer;
+}
+
+.shops__container__main__pagination__items a,
+.shops__container__main__pagination__items .pagination__link {
+  display: inline-block;
+  width: 100%;
+  text-align: center;
+  text-decoration: none;
+  color: inherit;
+}
+
+.shops__container__main__pagination__items .disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.shops__container__main__pagination__items .selected {
+  background: #2563eb;
+  color: #fff;
+  border-color: transparent;
+}
