@@ -1,6 +1,6 @@
 # 🛒 Digital-E — Full-stack E-commerce Platform
 
-> A scalable, performance-optimized e-commerce platform built with React.js, Node.js, and MySQL. Features secure authentication, shopping cart, order flow, and CI/CD deployment via Vercel.
+> A scalable, performance-optimized e-commerce platform built with React.js, Node.js, and MySQL. Features secure authentication, shopping cart, order flow, and CI/CD deployment.
 
 ![Tech Stack](https://img.shields.io/badge/Stack-Full--stack-blueviolet)
 ![Build](https://img.shields.io/badge/CI-CD%20via%20GitHub%20Actions-success)
