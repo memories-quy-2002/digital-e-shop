@@ -31,7 +31,14 @@ const AuthContext = createContext<AuthContextProps>({
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [userData, setUserData] = useState<UserData | null>(null);
+    const [userData, setUserData] = useState<UserData | null>(() => {
+        try {
+            const stored = sessionStorage.getItem("userData");
+            return stored ? (JSON.parse(stored) as UserData) : null;
+        } catch {
+            return null;
+        }
+    });
     const [loading, setLoading] = useState<boolean>(true);
 
     // Khi app load, gọi backend check session
@@ -54,6 +61,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         fetchUser();
     }, []);
+
+    useEffect(() => {
+        try {
+            if (userData) {
+                sessionStorage.setItem("userData", JSON.stringify(userData));
+            } else {
+                sessionStorage.removeItem("userData");
+            }
+        } catch (err) {
+            console.error("Failed to persist user data", err);
+        }
+    }, [userData]);
 
     return <AuthContext.Provider value={{ userData, loading, setUserData }}>{children}</AuthContext.Provider>;
 };

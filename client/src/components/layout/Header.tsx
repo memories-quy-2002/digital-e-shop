@@ -36,6 +36,10 @@ export const Header = (): JSX.Element => {
     };
 
     const handleRequireLogin = (place: string) => {
+        if (loading) {
+            addToast("Checking login", "Please wait a moment and try again.");
+            return;
+        }
         if (userData) {
             navigate(place);
         } else {
