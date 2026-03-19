@@ -1,21 +1,36 @@
 const userService = require("../services/userService");
 const { endSession } = require("../services/sessionService");
 
+const isProduction = process.env.NODE_ENV === "production";
+
+const baseCookieOptions = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "None" : "Lax",
+};
+
+const withMaxAge = (maxAge) => ({
+    ...baseCookieOptions,
+    maxAge,
+});
+
 async function registerUser(req, res) {
     const { uid, user } = req.body;
     try {
         const { uid: newUid, token, sessionId } = await userService.registerUser(uid, user);
 
-        res.cookie("session", sessionId, { httpOnly: true, secure: true, sameSite: "None", maxAge: 1000 * 60 * 60 * 24 * 30 });
-        res.cookie("userInfo", JSON.stringify({ uid: newUid, token }), { httpOnly: true, secure: true, sameSite: "None", maxAge: 1000 * 60 * 60 * 24 * 30 });
+        res.cookie("session", sessionId, withMaxAge(1000 * 60 * 60 * 24 * 30));
+        res.cookie("userInfo", JSON.stringify({ uid: newUid, token }), withMaxAge(1000 * 60 * 60 * 24 * 30));
 
         res.status(200).json({ uid: newUid, token, msg: "User created successfully" });
     } catch (err) {
-        console.error(err.message);
+        if (err && err.code === "ER_DUP_ENTRY") {
+            return res.status(409).json({ msg: "User already exists" });
+        }
+        console.error(err.message || err);
         res.status(500).json({ msg: "Error creating user" });
     }
-
-};
+}
 
 async function getUserLoginById(req, res) {
     try {
@@ -24,19 +39,19 @@ async function getUserLoginById(req, res) {
     } catch (err) {
         res.status(401).json({ msg: err.message });
     }
-};
+}
 
 async function getAllUsers(req, res) {
     try {
         const users = await userService.getAllUsers();
         res.status(200).json({
             accounts: users,
-            msg: "Get users successfully"
+            msg: "Get users successfully",
         });
     } catch (err) {
         res.status(500).json({ msg: "Error fetching users" });
     }
-};
+}
 
 async function userLogin(req, res) {
     const { uid, role, rememberMe } = req.body;
@@ -44,29 +59,20 @@ async function userLogin(req, res) {
         const { user, token: accessToken, sessionId, refreshToken } =
             await userService.loginUser(uid, role, rememberMe);
 
-        // ✅ Nếu không rememberMe thì KHÔNG set maxAge (cookie = session cookie)
-        const sessionCookieOptions = {
-            httpOnly: true,
-            secure: true,
-            sameSite: "None",
-            ...(rememberMe && { maxAge: 1000 * 60 * 60 * 24 * 30 }) // 30 ngày
-        };
+        const sessionCookieOptions = rememberMe
+            ? withMaxAge(1000 * 60 * 60 * 24 * 30)
+            : baseCookieOptions;
 
         res.cookie("session", sessionId, sessionCookieOptions);
-        res.cookie("userInfo", JSON.stringify({ uid: user.id }), { httpOnly: true, secure: true, sameSite: "None", maxAge: 1000 * 60 * 60 * 24 * 30 });
-        res.cookie("accessToken", accessToken, {
-            httpOnly: true,
-            secure: true,
-            sameSite: "None",
-            maxAge: rememberMe ? 1000 * 60 * 60 * 24 * 7 : null, // 7 ngày nếu rememberMe
-        });
+        res.cookie("userInfo", JSON.stringify({ uid: user.id }), withMaxAge(1000 * 60 * 60 * 24 * 30));
+        res.cookie(
+            "accessToken",
+            accessToken,
+            rememberMe ? withMaxAge(1000 * 60 * 60 * 24 * 7) : baseCookieOptions
+        );
+
         if (rememberMe && refreshToken) {
-            res.cookie("refreshToken", refreshToken, {
-                httpOnly: true,
-                secure: true,
-                sameSite: "None",
-                maxAge: 1000 * 60 * 60 * 24 * 7, // refresh token sống 7 ngày
-            });
+            res.cookie("refreshToken", refreshToken, withMaxAge(1000 * 60 * 60 * 24 * 7));
         }
 
         res.status(200).json({
@@ -86,7 +92,6 @@ async function userRefreshToken(req, res) {
     }
 
     try {
-        // Hàm này trả về access token mới
         const newAccessToken = await userService.refreshToken(refreshTokenCookie);
 
         res.status(200).json({
@@ -118,23 +123,10 @@ async function userLogout(req, res) {
     console.log("Logout sessionId:", sessionId);
 
     const clearAllCookies = () => {
-        res.clearCookie("session", {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "None",
-        });
-        res.clearCookie("userInfo", {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "None",
-        });
-        if (req.cookies.rememberMe) {
-            res.clearCookie("rememberMe", {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "None",
-            });
-        }
+        res.clearCookie("session", baseCookieOptions);
+        res.clearCookie("userInfo", baseCookieOptions);
+        res.clearCookie("accessToken", baseCookieOptions);
+        res.clearCookie("refreshToken", baseCookieOptions);
     };
 
     try {
@@ -158,5 +150,12 @@ async function userLogout(req, res) {
     }
 }
 
-
-module.exports = { registerUser, getUserLoginById, getCurrentUser, userLogin, userRefreshToken, userLogout, getAllUsers };
+module.exports = {
+    registerUser,
+    getUserLoginById,
+    getCurrentUser,
+    userLogin,
+    userRefreshToken,
+    userLogout,
+    getAllUsers,
+};

@@ -32,12 +32,10 @@ async function loginUser(uid, role, rememberMe) {
             if (user.role !== role) return reject(new Error("Invalid username, password, or role"));
 
             try {
-                // Kiểm tra token cũ có hợp lệ không
                 jwt.verify(user.token, process.env.JWT_SECRET_KEY);
 
                 let refreshToken = null;
                 if (rememberMe) {
-                    // Payload chuẩn
                     const payload = { id: user.id, email: user.email, role: user.role };
                     refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET_KEY, {
                         expiresIn: "7d",
@@ -48,7 +46,6 @@ async function loginUser(uid, role, rememberMe) {
                 resolve({ user, token: user.token, sessionId, refreshToken });
 
             } catch {
-                // Tạo access token mới
                 const payload = { id: user.id, email: user.email, role: user.role };
                 const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, { expiresIn: "15m" });
 
@@ -74,8 +71,6 @@ async function refreshToken(oldRefreshToken) {
     return new Promise((resolve, reject) => {
         jwt.verify(oldRefreshToken, process.env.JWT_REFRESH_SECRET_KEY, (err, payload) => {
             if (err) return reject(err);
-
-            // Payload đồng nhất giữa access & refresh
             const newAccess = jwt.sign(
                 { id: payload.id, email: payload.email, role: payload.role },
                 process.env.JWT_SECRET_KEY,
@@ -88,14 +83,13 @@ async function refreshToken(oldRefreshToken) {
 }
 
 async function getUserById(uid, req) {
+    const { valid, message } = await verifySessionToken(req);
+    if (!valid) throw new Error(message);
+
     return new Promise((resolve, reject) => {
         User.getUserById(uid, (err, results) => {
             if (err) return reject(err);
             if (results.length === 0) return reject(new Error("User not found"));
-
-            const { valid, message } = verifySessionToken(req);
-            if (!valid) return reject(new Error(message));
-
             resolve(results[0]);
         });
     });
@@ -115,8 +109,6 @@ async function getCurrentUser(accessToken, sessionId) {
     if (!accessToken || !sessionId) {
         throw { status: 401, msg: "Not authenticated" };
     }
-
-    // Verify JWT
     let decoded;
     try {
         decoded = jwt.verify(accessToken, process.env.JWT_SECRET_KEY);
@@ -124,7 +116,6 @@ async function getCurrentUser(accessToken, sessionId) {
         throw { status: 403, msg: "Invalid or expired token" };
     }
 
-    // Check session
     console.log(decoded)
     return new Promise((resolve, reject) => {
         User.getUserById(decoded.id, (err, results) => {

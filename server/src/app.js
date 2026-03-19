@@ -1,11 +1,12 @@
-require('dotenv').config();
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
-const bodyParser = require("body-parser");
 const app = express();
 const rateLimit = require('express-rate-limit');
-const csrf = require('lusca').csrf;
+const requestLogger = require("./middlewares/requestLogger");
+const errorHandler = require("./middlewares/errorHandler");
 
 const PORT = process.env.PORT || 4000;
 
@@ -31,8 +32,8 @@ const corsOptions = {
 };
 
 const apiLimiter = rateLimit({
-	windowMs: 5 * 60 * 1000, // 15 minutes
-	max: 1000, // Limit each IP to 100 requests per windowMs
+	windowMs: 5 * 60 * 1000, // 5 minutes
+	max: 1000, // Limit each IP to 1000 requests per windowMs
 	standardHeaders: true,
 	legacyHeaders: false,
 	message: 'Too many requests from this IP, please try again later.'
@@ -40,19 +41,10 @@ const apiLimiter = rateLimit({
 
 app.use(cors(corsOptions));
 app.use('/api/', apiLimiter);
-app.use(bodyParser.json());
-app.use(cookieParser());
-app.use(csrf());
-app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
-app.use((req, res, next) => {
-	console.log(`${req.method} request for '${req.url}'`);
-	next();
-});
-app.use((err, req, res, next) => {
-	console.error(err.stack);
-	res.status(500).json({ error: "Something broke!" });
-});
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use(requestLogger);
 
 const userRoutes = require("./routes/userRoutes");
 const productRoutes = require("./routes/productRoutes");
@@ -79,6 +71,8 @@ app.get('/clear-user', (req, res) => {
 	res.clearCookie("rememberMe");
 	res.send("All cookies are clear");
 });
+
+app.use(errorHandler);
 
 app.listen(PORT, () => {
 	console.log(`Server is running on port ${PORT}.`);

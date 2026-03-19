@@ -43,7 +43,7 @@ const getOrders = (callback) => {
     );
 }
 
-const changeOrderStatus = (orderId, status, callback) => {
+const updateOrderStatus = (orderId, status, callback) => {
     pool.query(
         `UPDATE orders SET status = ? WHERE id = ?`, [status, orderId],
         callback
@@ -98,7 +98,7 @@ module.exports = {
     updateProductStock,
     getOrders,
     getOrderById,
-    changeOrderStatus,
+    updateOrderStatus,
     getOrderItems,
     applyDiscount
 }
