@@ -1,4 +1,4 @@
-import React, { JSX, useEffect, useState } from "react";
+import React, { JSX, useState } from "react";
 import { Navbar } from "react-bootstrap";
 import { IoCall, IoCart, IoHeart, IoHome, IoMailSharp } from "react-icons/io5";
 import { Link, useNavigate } from "react-router-dom";
@@ -6,20 +6,14 @@ import { useAuth } from "../../context/AuthContext";
 import "../../styles/Header.scss";
 import { useToast } from "../../context/ToastContext";
 import axios from "../../api/axios";
-import Cookies from "universal-cookie";
 import { signOut } from "firebase/auth";
 import { auth } from "../../services/firebase";
-
-const cookies = new Cookies();
 
 export const Header = (): JSX.Element => {
     const navigate = useNavigate();
     const { addToast } = useToast();
     const [searchTerm, setSearchTerm] = useState<string>("");
-    const { userData, loading } = useAuth();
-    useEffect(() => {
-        console.log("User data updated:", userData);
-    }, [userData]);
+    const { userData, loading, setUserData } = useAuth();
 
     const handleSearch = () => {
         navigate(`/shops?term=${searchTerm}`);
@@ -30,12 +24,14 @@ export const Header = (): JSX.Element => {
             const response = await axios.post("/api/users/logout");
             if (response.status === 200) {
                 await signOut(auth);
+                setUserData(null);
                 addToast("Logout successfully", response.data.msg);
                 navigate("/");
             }
         } catch (err) {
             console.error("Logout failed", err);
             addToast("Logout failed", "Please try again.");
+            setUserData(null);
         }
     };
 

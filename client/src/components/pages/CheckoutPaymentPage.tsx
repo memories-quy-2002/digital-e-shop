@@ -1,10 +1,8 @@
 import { Form } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
-import Cookies from "universal-cookie";
 import axios from "../../api/axios";
 import React, { useEffect, useState } from "react";
-
-const cookies = new Cookies();
+import { useAuth } from "../../context/AuthContext";
 
 interface CartProps {
     cartItemId: number;
@@ -40,9 +38,8 @@ type CheckoutPaymentProps = {
 
 const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtotal }: CheckoutPaymentProps) => {
     const navigate = useNavigate();
-    const uid =
-        cookies.get("rememberMe")?.uid ||
-        (sessionStorage["rememberMe"] ? JSON.parse(sessionStorage["rememberMe"]).uid : "");
+    const { userData, loading } = useAuth();
+    const uid = userData?.id || "";
     const [formCheckout, setFormCheckout] = useState<CheckoutForm>({
         email: "",
         first_name: "",
@@ -80,6 +77,10 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
             setErrors(errors); // Display errors, no need to proceed further
             return;
         }
+        if (!uid) {
+            setErrors(["You must be logged in to complete checkout."]);
+            return;
+        }
         try {
             const response = await axios.post(`/api/orders/purchase/${uid}`, {
                 cart,
@@ -90,6 +91,26 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
             });
             if (response.status === 201) {
                 console.log(response.data.msg);
+                const orderId =
+                    response.data?.order?.id ||
+                    response.data?.orderId ||
+                    response.data?.id ||
+                    `ORD-${Date.now()}`;
+                const payload = {
+                    orderId,
+                    totalPrice,
+                    discount,
+                    subtotal,
+                    email: formCheckout.email,
+                    name: `${formCheckout.first_name} ${formCheckout.last_name}`.trim(),
+                    address: formCheckout.address,
+                    city: formCheckout.city,
+                    country: formCheckout.country || "",
+                    phone: formCheckout.phone_number || "",
+                    itemsCount: cart.reduce((sum, item) => sum + item.quantity, 0),
+                    placedAt: new Date().toISOString(),
+                };
+                sessionStorage.setItem("checkoutSuccess", JSON.stringify(payload));
                 navigate("/checkout-success");
             }
         } catch (err: unknown) {
@@ -121,6 +142,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
 
             <div className="cart__container__payment__main">
                 <main className="cart__container__payment__form">
+                    {loading ? <div className="text-muted">Checking session…</div> : null}
                     <div>
                         {errors.map((error, id) => (
                             <div className="text-danger" key={id}>

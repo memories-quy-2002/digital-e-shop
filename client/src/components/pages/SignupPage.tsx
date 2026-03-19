@@ -1,4 +1,4 @@
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import React, { useState } from "react";
 import { Button, Container, Form } from "react-bootstrap";
 import { Link, useNavigate } from "react-router-dom";
@@ -77,9 +77,21 @@ const SignupPage = () => {
             return;
         } else {
             try {
-                const userCredential = await createUserWithEmailAndPassword(auth, user.email, user.password);
-                const uid = userCredential.user.uid;
-                const response = await axios.post("/api/users", {
+                let uid = "";
+                try {
+                    const userCredential = await createUserWithEmailAndPassword(auth, user.email, user.password);
+                    uid = userCredential.user.uid;
+                } catch (err: unknown) {
+                    const error = err as { code?: string; message?: string };
+                    if (error.code === "auth/email-already-in-use") {
+                        const userCredential = await signInWithEmailAndPassword(auth, user.email, user.password);
+                        uid = userCredential.user.uid;
+                    } else {
+                        throw err;
+                    }
+                }
+
+                const response = await axios.post("/api/users/register", {
                     user,
                     uid,
                 });

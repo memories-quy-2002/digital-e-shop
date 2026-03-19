@@ -72,6 +72,7 @@ const LoginPage = () => {
             const response = await axios.post("/api/users/login", {
                 uid,
                 role: user.role,
+                rememberMe,
             });
 
             if (response.status === 200) {
@@ -83,7 +84,6 @@ const LoginPage = () => {
                 } else {
                     navigate("/");
                 }
-                window.location.reload();
             }
         } catch (err: unknown) {
             if (err && typeof err === "object" && "response" in err) {
