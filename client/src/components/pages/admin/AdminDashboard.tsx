@@ -12,7 +12,7 @@ interface CardProps {
     title: string;
     value: number | string;
     description: string;
-    bgColor: string;
+    accent: "purple" | "blue" | "green" | "teal";
     percentage?: number;
     icon: React.ReactNode;
 }
@@ -57,35 +57,24 @@ type MonthlySales = {
     sales: number;
 };
 
-const Card: React.FC<CardProps> = ({ title, value, description, bgColor, percentage, icon }) => {
+const Card: React.FC<CardProps> = ({ title, value, description, accent, percentage, icon }) => {
+    const trendUp = percentage !== undefined && percentage >= 0;
     return (
-        <div className="admin__dashboard-card" style={{ backgroundColor: bgColor }}>
-            <div className="admin__dashboard-card__title">
-                {icon}
-                <strong>{title}</strong>
+        <div className={`admin__metric-card admin__metric-card--${accent}`}>
+            <div className="admin__metric-card__header">
+                <div className="admin__metric-card__icon">{icon}</div>
+                <div className="admin__metric-card__title">
+                    <span>{title}</span>
+                    <strong>{value}</strong>
+                </div>
             </div>
-            <div className="admin__dashboard-card__details">
-                <p>{value}</p>
-                <span>{description} </span>
-                {percentage && (
-                    <strong
-                        style={{
-                            display: "flex",
-                            marginTop: "2px",
-                            alignItems: "center",
-                            gap: "0.25rem",
-                        }}
-                    >
-                        {percentage > 0 ? (
-                            <>
-                                <FaArrowUp /> {percentage.toFixed(2)}%
-                            </>
-                        ) : (
-                            <>
-                                <FaArrowDown /> {Math.abs(percentage).toFixed(2)}%
-                            </>
-                        )}
-                    </strong>
+            <div className="admin__metric-card__footer">
+                <p>{description}</p>
+                {percentage !== undefined && (
+                    <span className={trendUp ? "trend-up" : "trend-down"}>
+                        {trendUp ? <FaArrowUp /> : <FaArrowDown />}
+                        {Math.abs(percentage).toFixed(2)}%
+                    </span>
                 )}
             </div>
         </div>
@@ -101,7 +90,6 @@ const AdminDashboard = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Fetch products
                 const productResponse = await axios.get("/api/products/");
                 if (productResponse.status === 200) {
                     setProducts(productResponse.data.products);
@@ -112,13 +100,11 @@ const AdminDashboard = () => {
                     setOrders(orderResponse.data.orders);
                 }
 
-                // Fetch users
                 const userResponse = await axios.get(`/api/users/`);
                 if (userResponse.status === 200) {
                     setUsers(userResponse.data.accounts);
                 }
 
-                // Fetch order items
                 const orderItemResponse = await axios.get(`/api/orders/item`);
                 if (orderItemResponse.status === 200) {
                     setOrderItems(orderItemResponse.data.orderItems);
@@ -136,7 +122,6 @@ const AdminDashboard = () => {
         const monthlySalesMap: { [key: string]: number } = {};
         const currentDate = new Date();
 
-        // Initialize sales for the last 6 months
         for (let i = 5; i >= 0; i--) {
             const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
             const month = date.toLocaleString("default", { month: "long" });
@@ -151,18 +136,15 @@ const AdminDashboard = () => {
             const year = date.getFullYear();
             const monthKey = `${month} ${year}`;
 
-            // Find all items for the current order
             const itemsInOrder = orderItems.filter((item) => item.order_id === order.id);
 
             if (monthlySalesMap[monthKey] !== undefined) {
-                // Sum the sales for all items in this order
                 itemsInOrder.forEach((item) => {
                     monthlySalesMap[monthKey] += item.sales;
                 });
             }
         });
 
-        // Convert the map into an array of MonthlySales
         return Object.entries(monthlySalesMap).map(([name, sales]) => ({
             name,
             sales,
@@ -172,7 +154,7 @@ const AdminDashboard = () => {
     const getMonthlyRevenues = (orders: Order[]): MonthlyRevenue[] => {
         const monthlyRevenueMap: { [key: string]: number } = {};
         const currentDate = new Date();
-        console.log(orders);
+
         for (let i = 5; i >= 0; i--) {
             const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
             const month = date.toLocaleString("default", { month: "long" });
@@ -217,37 +199,21 @@ const AdminDashboard = () => {
         });
 
         const sortedItems = Object.values(revenueMap).sort((a, b) => b.revenue - a.revenue);
-
         return sortedItems;
     };
+
     const handleDownloadReport = () => {
-        const text = `**Report**
-
-**Sales this month:** ${getMonthlySales(orders, orderItems)[5].sales}
-
-**Revenues this month:** $${getMonthlyRevenues(orders)[5].revenue.toFixed(2)}
-
-**Products:** ${products.length}
-
-**Users:** ${users.length}
-
-**Percentage Change**
-
-* **Sales:** ${salesPercentageChange.toFixed(2)}%  (${getMonthlySales(orders, orderItems)[4].sales} -> ${
+        const text = `**Report**\n\n**Sales this month:** ${getMonthlySales(orders, orderItems)[5].sales}\n\n**Revenues this month:** $${getMonthlyRevenues(orders)[5].revenue.toFixed(2)}\n\n**Products:** ${products.length}\n\n**Users:** ${users.length}\n\n**Percentage Change**\n\n* **Sales:** ${salesPercentageChange.toFixed(2)}%  (${getMonthlySales(orders, orderItems)[4].sales} -> ${
             getMonthlySales(orders, orderItems)[5].sales
-        })
-* **Revenue:** ${revenuePercentageChange.toFixed(2)}%  ($${getMonthlyRevenues(orders)[4].revenue.toFixed(
+        })\n* **Revenue:** ${revenuePercentageChange.toFixed(2)}%  ($${getMonthlyRevenues(orders)[4].revenue.toFixed(
             2
-        )} -> $${getMonthlyRevenues(orders)[5].revenue.toFixed(2)})
-
-**Top Revenue Products**
-
-| Product Name | Sales | Revenue |
-|---|---|---|
-| ${topRevenueProducts[0].name} | ${topRevenueProducts[0].sales} | $${topRevenueProducts[0].revenue.toFixed(2)} |
-| ${topRevenueProducts[1].name} | ${topRevenueProducts[1].sales} | $${topRevenueProducts[1].revenue.toFixed(2)} |
-| ${topRevenueProducts[2].name} | ${topRevenueProducts[2].sales} | $${topRevenueProducts[2].revenue.toFixed(2)} |
-| ... | ... | ... |`;
+        )} -> $${getMonthlyRevenues(orders)[5].revenue.toFixed(2)})\n\n**Top Revenue Products**\n\n| Product Name | Sales | Revenue |\n|---|---|---|\n| ${topRevenueProducts[0]?.name || ""} | ${topRevenueProducts[0]?.sales || 0} | $${(
+            topRevenueProducts[0]?.revenue || 0
+        ).toFixed(2)} |\n| ${topRevenueProducts[1]?.name || ""} | ${topRevenueProducts[1]?.sales || 0} | $${(
+            topRevenueProducts[1]?.revenue || 0
+        ).toFixed(2)} |\n| ${topRevenueProducts[2]?.name || ""} | ${topRevenueProducts[2]?.sales || 0} | $${(
+            topRevenueProducts[2]?.revenue || 0
+        ).toFixed(2)} |\n| ... | ... | ... |`;
         const blob = new Blob([text], { type: "text/plain" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -256,6 +222,7 @@ const AdminDashboard = () => {
         a.click();
         URL.revokeObjectURL(url);
     };
+
     const calculatePercentageChange = (currentValue: number, previousValue: number): number => {
         return previousValue > 0 ? ((currentValue - previousValue) / previousValue) * 100 : 0;
     };
@@ -271,134 +238,163 @@ const AdminDashboard = () => {
     );
 
     const topRevenueProducts = getTopRevenueProducts(orderItems);
+
     return (
         <AdminLayout>
             <Helmet>
                 <title>Admin Dashboard</title>
                 <meta name="description" content="Overview of store performance and key metrics." />
             </Helmet>
-            <main className="admin__dashboard">
-                <section className="admin__dashboard-header">
-                    <h2>📊 Admin Dashboard Overview</h2>
-                    <p style={{ color: "#555", marginBottom: 8 }}>
-                        Welcome! Here is a summary of your store&apos;s performance and key metrics for the last 6
-                        months.
-                    </p>
-                    <button className="btn btn-dark" onClick={handleDownloadReport}>
-                        Download Detailed Report
-                    </button>
+            <main className="admin__page admin__page--dashboard">
+                <section className="admin__dashboard__hero">
+                    <div>
+                        <span className="admin__dashboard__hero__eyebrow">Store performance</span>
+                        <h2 className="admin__dashboard__hero__title">Admin Dashboard</h2>
+                        <p className="admin__dashboard__hero__subtitle">
+                            A complete snapshot of revenue, sales momentum, and customer activity over the last 6 months.
+                        </p>
+                    </div>
+                    <div className="admin__dashboard__hero__actions">
+                        <button className="admin__dashboard__hero__action" onClick={handleDownloadReport}>
+                            Download Report
+                        </button>
+                    </div>
                 </section>
 
-                <section className="admin__dashboard-summary" style={{ marginBottom: 24 }}>
-                    <h4>Summary (This Month)</h4>
-                    <ul style={{ display: "flex", flexWrap: "wrap", gap: "2rem", listStyle: "none", padding: 0 }}>
-                        <li>
-                            <strong>Sales:</strong> {getMonthlySales(orders, orderItems)[5].sales}
-                        </li>
-                        <li>
-                            <strong>Revenue:</strong> ${getMonthlyRevenues(orders)[5].revenue.toFixed(2)}
-                        </li>
-                        <li>
-                            <strong>Products:</strong> {products.length}
-                        </li>
-                        <li>
-                            <strong>Users:</strong> {users.length}
-                        </li>
-                        <li>
-                            <strong>Orders:</strong> {orders.length}
-                        </li>
-                        <li>
-                            <strong>Top Product:</strong> {topRevenueProducts[0]?.name || "N/A"}
-                        </li>
-                    </ul>
+                <section className="admin__dashboard__summary">
+                    <div>
+                        <span>Sales</span>
+                        <strong>{getMonthlySales(orders, orderItems)[5].sales}</strong>
+                        <p>This month</p>
+                    </div>
+                    <div>
+                        <span>Revenue</span>
+                        <strong>${getMonthlyRevenues(orders)[5].revenue.toFixed(2)}</strong>
+                        <p>This month</p>
+                    </div>
+                    <div>
+                        <span>Products</span>
+                        <strong>{products.length}</strong>
+                        <p>Active listings</p>
+                    </div>
+                    <div>
+                        <span>Users</span>
+                        <strong>{users.length}</strong>
+                        <p>Registered</p>
+                    </div>
+                    <div>
+                        <span>Orders</span>
+                        <strong>{orders.length}</strong>
+                        <p>All time</p>
+                    </div>
+                    <div>
+                        <span>Top product</span>
+                        <strong>{topRevenueProducts[0]?.name || "N/A"}</strong>
+                        <p>Highest revenue</p>
+                    </div>
                 </section>
 
-                <section className="admin__dashboard-cards">
+                <section className="admin__dashboard__metrics">
                     <Card
                         title="Sales"
                         value={getMonthlySales(orders, orderItems)[5].sales}
-                        description="Total sales this month"
-                        bgColor="purple"
+                        description="Sales this month"
+                        accent="purple"
                         percentage={salesPercentageChange}
                         icon={<FaShoppingCart />}
                     />
                     <Card
                         title="Revenue"
-                        value={"$" + getMonthlyRevenues(orders)[5].revenue.toFixed(2)}
-                        description="Total revenue this month"
-                        bgColor="darkblue"
+                        value={`$${getMonthlyRevenues(orders)[5].revenue.toFixed(2)}`}
+                        description="Revenue this month"
+                        accent="blue"
                         percentage={revenuePercentageChange}
                         icon={<FaMoneyBill />}
                     />
                     <Card
                         title="Products"
                         value={products.length}
-                        description="Total products in store"
-                        bgColor="green"
+                        description="Active listings"
+                        accent="green"
                         icon={<FaBox />}
                     />
                     <Card
                         title="Users"
                         value={users.length}
-                        description="Total registered users"
-                        bgColor="blue"
+                        description="Registered accounts"
+                        accent="teal"
                         icon={<FaUser />}
                     />
                 </section>
 
-                <section className="admin__dashboard-chart">
-                    <div style={{ flex: 1, marginRight: 24 }}>
-                        <h3>📈 Sales Over Time (Last 6 Months)</h3>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={getMonthlySales(orders, orderItems)}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="name" />
-                                <YAxis />
-                                <Tooltip />
-                                <Legend />
-                                <Line type="monotone" dataKey="sales" stroke="#8884d8" activeDot={{ r: 8 }} />
-                            </LineChart>
-                        </ResponsiveContainer>
+                <section className="admin__dashboard__charts">
+                    <div className="admin__card">
+                        <div className="admin__card__header">
+                            <h3>Sales momentum</h3>
+                            <span>Last 6 months</span>
+                        </div>
+                        <div className="admin__card__body">
+                            <ResponsiveContainer width="100%" height={260}>
+                                <LineChart data={getMonthlySales(orders, orderItems)}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="name" />
+                                    <YAxis />
+                                    <Tooltip />
+                                    <Legend />
+                                    <Line type="monotone" dataKey="sales" stroke="#7c3aed" activeDot={{ r: 8 }} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
-                    <div style={{ flex: 1 }}>
-                        <h3>💰 Revenue Over Time (Last 6 Months)</h3>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={getMonthlyRevenues(orders)}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="name" />
-                                <YAxis />
-                                <Tooltip />
-                                <Legend />
-                                <Line type="monotone" dataKey="revenue" stroke="#82ca9d" activeDot={{ r: 8 }} />
-                            </LineChart>
-                        </ResponsiveContainer>
+                    <div className="admin__card">
+                        <div className="admin__card__header">
+                            <h3>Revenue trend</h3>
+                            <span>Last 6 months</span>
+                        </div>
+                        <div className="admin__card__body">
+                            <ResponsiveContainer width="100%" height={260}>
+                                <LineChart data={getMonthlyRevenues(orders)}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="name" />
+                                    <YAxis />
+                                    <Tooltip />
+                                    <Legend />
+                                    <Line type="monotone" dataKey="revenue" stroke="#0ea5e9" activeDot={{ r: 8 }} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
                 </section>
 
-                <section className="admin__dashboard-table">
-                    <h3>🏆 Top 10 Best-Selling Products (All Time)</h3>
-                    <Table responsive striped borderless hover>
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Name</th>
-                                <th>Sales</th>
-                                <th>Revenue</th>
-                                <th>Avg. Price</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {topRevenueProducts.slice(0, 10).map((product, index) => (
-                                <tr key={index}>
-                                    <td width="50px">{index + 1}</td>
-                                    <td width="350px">{product.name}</td>
-                                    <td width="120px">{product.sales}</td>
-                                    <td width="150px">${product.revenue.toFixed(2)}</td>
-                                    <td width="120px">${(product.revenue / (product.sales || 1)).toFixed(2)}</td>
+                <section className="admin__card">
+                    <div className="admin__card__header">
+                        <h3>Top 10 best-selling products</h3>
+                        <span>All time</span>
+                    </div>
+                    <div className="admin__card__body">
+                        <Table responsive hover borderless>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Name</th>
+                                    <th>Sales</th>
+                                    <th>Revenue</th>
+                                    <th>Avg. Price</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </Table>
+                            </thead>
+                            <tbody>
+                                {topRevenueProducts.slice(0, 10).map((product, index) => (
+                                    <tr key={index}>
+                                        <td width="50px">{index + 1}</td>
+                                        <td width="350px">{product.name}</td>
+                                        <td width="120px">{product.sales}</td>
+                                        <td width="150px">${product.revenue.toFixed(2)}</td>
+                                        <td width="120px">${(product.revenue / (product.sales || 1)).toFixed(2)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </Table>
+                    </div>
                 </section>
             </main>
         </AdminLayout>

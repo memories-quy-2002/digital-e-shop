@@ -38,20 +38,20 @@ const AdminHeader = () => {
     };
 
     return (
-        <header className="admin__layout__header">
+        <header className="admin__layout__main__header">
             <Helmet>
                 <title>Digital-E - Admin</title>
                 <meta name="description" content="Admin Dashboard for Digital-E" />
             </Helmet>
 
-            {/* Left Section */}
-            <div className="admin__layout__header__left">
-                <button type="button" className="admin__layout__header__home">
+            <div className="admin__layout__main__header__left">
+                <button type="button" className="admin__layout__main__header__home" onClick={() => navigate("/")}
+                >
                     <FaHome />
                     <span>Home</span>
                 </button>
 
-                <div className="admin__layout__header__search">
+                <div className="admin__layout__main__header__search">
                     <input type="text" placeholder="Search..." />
                     <button type="submit">
                         <IoSearch size={20} />
@@ -59,22 +59,20 @@ const AdminHeader = () => {
                 </div>
             </div>
 
-            {/* Right Section */}
-            <div className="admin__layout__header__right">
-                <div className="admin__layout__header__notifications">
-                    <IoNotifications className="admin__layout__header__notifications__icon" size={24} />
+            <div className="admin__layout__main__header__right">
+                <div className="admin__layout__main__header__notifications">
+                    <IoNotifications className="admin__layout__main__header__notifications__icon" size={24} />
                     {UNREAD_COUNT > 0 && (
-                        <span className="admin__layout__header__notifications__badge">{UNREAD_COUNT}</span>
+                        <span className="admin__layout__main__header__notifications__badge">{UNREAD_COUNT}</span>
                     )}
                 </div>
 
-                <button className="admin__layout__header__logout" onClick={() => handleClick()}>
+                <button className="admin__layout__main__header__logout" onClick={() => handleClick()}>
                     <span>Logout</span>
                     <IoLogOutOutline size={20} />
                 </button>
             </div>
 
-            {/* Logout Modal */}
             <Modal show={show} onHide={handleClose} animation={false}>
                 <Modal.Header closeButton>
                     <Modal.Title>Logout</Modal.Title>

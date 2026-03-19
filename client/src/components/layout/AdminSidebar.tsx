@@ -29,33 +29,33 @@ const AdminSidebar = () => {
     return (
         <aside className="admin__layout__sidebar">
             {/* Logo / Brand */}
-            <section className="admin__layout__sidebar__brand">
+            <section className="admin__layout__sidebar__title">
                 <h3>DIGITAL-E</h3>
                 <span>Admin Panel</span>
             </section>
 
             {/* User Info */}
-            <section className="admin__layout__sidebar__user">
-                <img src={productPlaceholder} alt="admin_avatar" className="admin__layout__sidebar__user__avatar" />
-                <div className="admin__layout__sidebar__user__info">
+            <section className="admin__layout__sidebar__information">
+                <img src={productPlaceholder} className="admin__layout__sidebar__information__img" />
+                <div className="admin__layout__sidebar__information__user">
                     <strong>{userData && !loading ? userData.username : "Anonymous"}</strong>
                     <span>{userData && !loading ? userData.email : "anonymous@example.com"}</span>
                 </div>
             </section>
 
             {/* Navigation */}
-            <nav className="admin__layout__sidebar__nav">
+            <nav className="admin__layout__sidebar__navigation">
                 {items.map((item, index) => (
                     <button
                         type="button"
                         key={index}
                         onClick={() => handleAdminNavigate(item.toLowerCase())}
-                        className={`admin__layout__sidebar__nav__item ${
+                        className={`admin__layout__sidebar__navigation__item ${
                             paramItem === item.toLowerCase() || (!paramItem && item === "Dashboard") ? "active" : ""
                         }`}
                     >
-                        <span className="admin__layout__sidebar__nav__icon">{itemIcons[index]}</span>
-                        <span className="admin__layout__sidebar__nav__label">{item}</span>
+                        <span className="admin__layout__sidebar__navigation__icon">{itemIcons[index]}</span>
+                        <span className="admin__layout__sidebar__navigation__label">{item}</span>
                     </button>
                 ))}
             </nav>

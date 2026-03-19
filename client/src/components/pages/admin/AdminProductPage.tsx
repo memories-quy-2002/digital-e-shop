@@ -9,7 +9,7 @@ import AdminProductItem from "../../common/admin/AdminProductItem";
 import { Helmet } from "react-helmet";
 
 const ITEMS_PER_PAGE = 5;
-const LAZY_LOAD_BATCH = 10; // Number of products to load per batch
+const LAZY_LOAD_BATCH = 10;
 
 const AdminProductPage = () => {
     const navigate = useNavigate();
@@ -27,10 +27,13 @@ const AdminProductPage = () => {
     const currentProducts = filteredProducts.slice(itemOffset, Math.min(endOffset, visibleCount));
     const pageCount = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
 
-    // Handle search input change
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const searchValue = event.target.value;
         setSearchTerm(searchValue);
+    };
+
+    const handleClear = () => {
+        setSearchTerm("");
     };
 
     const handleOpen = (pid: number) => {
@@ -86,10 +89,9 @@ const AdminProductPage = () => {
             );
         });
         setFilteredProducts(filtered);
-        setVisibleCount(LAZY_LOAD_BATCH); // Reset lazy load on search
+        setVisibleCount(LAZY_LOAD_BATCH);
     }, [searchTerm, products]);
 
-    // Lazy loading: load more products when the user scrolls to the bottom
     const loadMore = useCallback(() => {
         setVisibleCount((prev) => Math.min(prev + LAZY_LOAD_BATCH, filteredProducts.length));
     }, [filteredProducts.length]);
@@ -117,41 +119,62 @@ const AdminProductPage = () => {
                 <title>Admin Product Management</title>
                 <meta name="description" content="Manage products in the store." />
             </Helmet>
-            <div className="admin__product">
-                <section className="admin__dashboard-summary" style={{ marginBottom: 24 }}>
-                    <h4>Product Summary</h4>
-                    <ul>
-                        <li>
-                            <strong>Total Products:</strong> {products.length}
-                        </li>
-                        <li>
-                            <strong>Visible (filtered):</strong> {filteredProducts.length}
-                        </li>
-                        <li>
-                            <strong>Search:</strong> {searchTerm || "All"}
-                        </li>
-                    </ul>
+            <main className="admin__page admin__page--products">
+                <header className="admin__page__header">
+                    <div>
+                        <span className="admin__page__eyebrow">Catalog</span>
+                        <h2 className="admin__page__title">Products</h2>
+                        <p className="admin__page__subtitle">
+                            Track inventory, pricing, and product availability across your store.
+                        </p>
+                    </div>
+                    <div className="admin__page__actions">
+                        <button type="button" className="admin__button admin__button--primary" onClick={() => navigate("/admin/add")}>
+                            + Add product
+                        </button>
+                    </div>
+                </header>
+
+                <section className="admin__summary">
+                    <div className="admin__summary-card">
+                        <span>Total products</span>
+                        <strong>{products.length}</strong>
+                        <p>All listings</p>
+                    </div>
+                    <div className="admin__summary-card">
+                        <span>Visible</span>
+                        <strong>{filteredProducts.length}</strong>
+                        <p>Filtered view</p>
+                    </div>
+                    <div className="admin__summary-card">
+                        <span>Search</span>
+                        <strong>{searchTerm ? "Active" : "All"}</strong>
+                        <p>{searchTerm || "No filter"}</p>
+                    </div>
                 </section>
-                <div className="admin__product__list">
-                    <div className="admin__product__list__search">
+
+                <section className="admin__card">
+                    <div className="admin__card__header">
                         <div>
-                            <h4>List of products</h4>
+                            <h3>Product list</h3>
+                            <span>{filteredProducts.length} results</span>
+                        </div>
+                        <div className="admin__filters">
                             <input
                                 type="text"
                                 name="product"
                                 id="product"
-                                placeholder="Search product"
+                                placeholder="Search products"
                                 value={searchTerm}
                                 onChange={handleSearchChange}
                             />
+                            <button type="button" className="admin__button admin__button--ghost" onClick={handleClear}>
+                                Clear
+                            </button>
                         </div>
-
-                        <button type="button" onClick={() => navigate("/admin/add")}>
-                            + Add product
-                        </button>
                     </div>
-                    <div className="admin__product__list__table">
-                        <Table responsive striped borderless hover>
+                    <div className="admin__card__body">
+                        <Table responsive hover borderless className="admin__table">
                             <thead>
                                 <tr>
                                     <th>#</th>
@@ -176,14 +199,16 @@ const AdminProductPage = () => {
                                 ))}
                             </tbody>
                         </Table>
-                        <div
-                            style={{
-                                display: "flex",
-                                justifyContent: "center",
-                            }}
-                        >
+                        <div className="admin__table__pagination">
                             <ReactPaginate
                                 className="shops__container__main__pagination__items"
+                                pageClassName="pagination__item"
+                                pageLinkClassName="pagination__link"
+                                previousClassName="pagination__item"
+                                nextClassName="pagination__item"
+                                breakClassName="pagination__item"
+                                activeClassName="selected"
+                                disabledClassName="disabled"
                                 breakLabel="..."
                                 nextLabel="Next"
                                 onPageChange={handlePageClick}
@@ -193,16 +218,15 @@ const AdminProductPage = () => {
                                 renderOnZeroPageCount={null}
                             />
                         </div>
-                        {/* Lazy load trigger */}
                         <div ref={loadMoreRef} style={{ height: 1 }} />
                         <Modal show={show} onHide={handleClose} animation={false}>
                             <Modal.Header closeButton>
-                                <Modal.Title>Purchase Confirmation</Modal.Title>
+                                <Modal.Title>Delete product</Modal.Title>
                             </Modal.Header>
-                            <Modal.Body>Are you sure to make purchase?</Modal.Body>
+                            <Modal.Body>Are you sure you want to remove this product?</Modal.Body>
                             <Modal.Footer>
                                 <Button variant="secondary" onClick={handleClose}>
-                                    Close
+                                    Cancel
                                 </Button>
                                 <Button variant="primary" onClick={() => handleDelete(pid)}>
                                     Confirm
@@ -210,8 +234,8 @@ const AdminProductPage = () => {
                             </Modal.Footer>
                         </Modal>
                     </div>
-                </div>
-            </div>
+                </section>
+            </main>
         </AdminLayout>
     );
 };
