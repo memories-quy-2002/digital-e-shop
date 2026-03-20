@@ -1,6 +1,6 @@
 # 🛒 Digital-E — Full-stack E-commerce Platform
 
-> A scalable, performance-optimized e-commerce platform built with React.js, Node.js, and MySQL. Features secure authentication, shopping cart, order flow, and CI/CD deployment.
+> A scalable, performance-optimized e-commerce platform built with React.js, Node.js, and MySQL. Features secure authentication, shopping cart, order flow, and CI/CD deployment with Vercel.
 
 ![Tech Stack](https://img.shields.io/badge/Stack-Full--stack-blueviolet)
 ![Build](https://img.shields.io/badge/CI-CD%20via%20GitHub%20Actions-success)
@@ -71,6 +71,7 @@ digital-e-shop/
 └── README.md                 # Project overview and documentation
 
 ```
+
 - **Client**: React frontend bootstrapped with Vite, state managed locally with hooks.
 - **Server**: RESTful API using Express.js and custom middlewares.
 - **Database**: Structured relational tables: `users`, `products`, `orders`, `order_items`.
@@ -80,6 +81,7 @@ digital-e-shop/
 ## 🚀 Getting Started
 
 ### Clone the repository
+
 ```bash
 git clone https://github.com/memories-quy-2002/digital-e-shop.git
 cd digital-e-shop
@@ -106,6 +108,7 @@ pnpm dev
 ```
 
 ## 📊 Performance
+
 - ✅ Lazy-loaded routes
 - ✅ Image optimization
 - ✅ Bundle splitting (via Vite)
@@ -116,6 +119,7 @@ pnpm dev
   + SEO: 90
 
 ## 📌 Lessons Learned
+
 - Implemented custom JWT token refresh & storage logic
 - Designed normalized DB schema with referential integrity
 - Configured zero-downtime CI/CD with GitHub Actions + Vercel
@@ -123,6 +127,7 @@ pnpm dev
 - Built for responsiveness across device breakpoints
 
 ## 🔮 Roadmap (Planned)
+
 - Admin dashboard with product management
 - Stripe/PayPal integration (mock only)
 - Review system and product ratings
