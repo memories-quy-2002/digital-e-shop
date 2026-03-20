@@ -1,113 +1,150 @@
 .footer {
-    background-color: black;
-    color: white;
+    background: #0b0e14;
+    color: #e2e8f0;
     display: flex;
     flex-direction: column;
-    &__menuGroup {
-        background-color: black;
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+
+    &__top {
+        display: grid;
+        grid-template-columns: 1fr 2.2fr;
+        gap: 3rem;
+        padding: 3rem 2.5rem;
+    }
+
+    &__brand {
         display: flex;
         flex-direction: column;
-        padding: 2rem;
-        justify-content: space-between;
         gap: 1rem;
-        @media screen and (min-width: 768px) {
-            flex-direction: row;
+        &__logo {
+            font-size: 1.7rem;
+            font-weight: 800;
+            color: #f8fafc;
+            text-decoration: none;
+            letter-spacing: 1.5px;
         }
-        &__menu {
-            &__title {
-                text-transform: uppercase;
-                font-weight: bold;
-                margin-bottom: 1rem;
-            }
-
-            &__item {
-                margin-bottom: 0.4rem;
-                cursor: pointer;
-                transition: 0.3s all ease-in-out;
-                color: white;
-                a {
-                    text-decoration: none;
-                    color: white;
-                    transition: 0.3s all ease-in-out;
-                    &:hover {
-                        color: gray;
-                    }
-                }
-
-                &-disabled {
-                    margin-bottom: 0.4rem;
-                    &:hover {
-                        color: white;
-                    }
-                }
+        &__text {
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+        &__social {
+            display: flex;
+            gap: 0.75rem;
+            a {
+                width: 36px;
+                height: 36px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                background: rgba(56, 189, 248, 0.12);
+                color: #38bdf8;
+                text-decoration: none;
+                transition: all 0.2s ease;
                 &:hover {
-                    color: gray;
+                    background: rgba(56, 189, 248, 0.2);
+                    color: #f8fafc;
                 }
-            }
-            address {
-                margin: 0;
             }
         }
     }
-    &__otherGroup {
-        background-color: rgb(29, 29, 29);
+
+    &__grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 1.5rem;
+    }
+
+    &__col {
         display: flex;
         flex-direction: column;
-        padding: 2rem;
-        justify-content: space-between;
-        gap: 1rem;
-        @media screen and (min-width: 768px) {
-            flex-direction: row;
+        gap: 0.6rem;
+        h5 {
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+            color: #f8fafc;
         }
-        &__menu {
+        a,
+        span,
+        address,
+        p {
+            color: #94a3b8;
+            text-decoration: none;
+            font-style: normal;
+        }
+        a:hover {
+            color: #38bdf8;
+        }
+        p {
+            margin: 0;
+        }
+    }
+
+    &__col--newsletter {
+        gap: 0.9rem;
+    }
+
+    &__newsletter {
+        display: flex;
+        gap: 0.5rem;
+        input {
+            flex: 1;
+            padding: 0.7rem 0.8rem;
+            background: #0f172a;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 10px;
+            color: #e2e8f0;
+            outline: none;
+        }
+        button {
+            padding: 0.7rem 1rem;
+            border-radius: 10px;
+            border: none;
+            font-weight: 700;
+            background: linear-gradient(135deg, #38bdf8, #6366f1);
+            color: #0b1120;
+        }
+    }
+
+    &__bottom {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.4rem 2.5rem 2rem;
+        border-top: 1px solid rgba(148, 163, 184, 0.15);
+        font-size: 0.85rem;
+        color: #64748b;
+        &__links {
             display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            &__title {
-                text-transform: uppercase;
-                font-weight: bold;
-                margin-bottom: 1.5rem;
-            }
-            &__item {
-                margin-bottom: 0.4rem;
+            gap: 1rem;
+            span {
                 cursor: pointer;
-                transition: 0.3s all ease-in-out;
-                color: white;
-                a {
-                    text-decoration: none;
-                    color: white;
-                    transition: 0.3s all ease-in-out;
-                    &:hover {
-                        color: gray;
-                    }
-                }
-                &-disabled {
-                    margin-bottom: 0.4rem;
-                    &:hover {
-                        color: white;
-                    }
-                }
-                &:hover {
-                    color: gray;
-                }
             }
-            ul {
-                list-style-type: none;
-                padding: 0;
-                li > a {
-                    text-decoration: none;
-                    color: white;
-                }
-            }
-            button {
-                color: white;
-                background-color: blue;
-                font-weight: bold;
-                border-radius: 0;
-                &:hover {
-                    background-color: rgb(0, 0, 146);
-                }
-            }
+        }
+    }
+
+    @media screen and (max-width: 1200px) {
+        &__top {
+            grid-template-columns: 1fr;
+        }
+        &__grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media screen and (max-width: 768px) {
+        &__top {
+            padding: 2.5rem 1.5rem;
+        }
+        &__grid {
+            grid-template-columns: 1fr;
+        }
+        &__bottom {
+            flex-direction: column;
+            gap: 0.5rem;
+            align-items: flex-start;
+            padding: 1.2rem 1.5rem 1.6rem;
         }
     }
 }
