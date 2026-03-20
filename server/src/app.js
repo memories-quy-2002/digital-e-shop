@@ -12,19 +12,19 @@ const PORT = process.env.PORT || 4000;
 
 const allowedOrigins = [
 	"http://localhost:5173",
-	"https://e-commerce-website-1-1899.vercel.app",
 	"https://digital-e.vercel.app"
 ];
+const vercelPreviewPattern = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
 
 const corsOptions = {
 	origin: (origin, callback) => {
 		// Allow requests with no origin (like mobile apps, curl, Postman, server-to-server)
 		if (!origin) return callback(null, true);
-		if (allowedOrigins.includes(origin)) {
+		if (allowedOrigins.includes(origin) || vercelPreviewPattern.test(origin)) {
 			return callback(null, true);
-		} else {
-			return callback(new Error('CORS policy: This origin is not allowed.'));
 		}
+		// Do not throw here; let CORS respond without a hard error
+		return callback(null, false);
 	},
 	methods: ['GET', 'POST', 'PUT', 'DELETE'],
 	allowedHeaders: ['Content-Type', 'Authorization'],
@@ -39,7 +39,21 @@ const apiLimiter = rateLimit({
 	message: 'Too many requests from this IP, please try again later.'
 });
 
+app.use((req, res, next) => {
+	const origin = req.headers.origin;
+	if (origin && (allowedOrigins.includes(origin) || vercelPreviewPattern.test(origin))) {
+		res.header("Access-Control-Allow-Origin", origin);
+	}
+	res.header("Access-Control-Allow-Credentials", "true");
+	res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+	res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+	if (req.method === "OPTIONS") {
+		return res.sendStatus(204);
+	}
+	return next();
+});
 app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 app.use('/api/', apiLimiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

@@ -1,23 +1,32 @@
 const pool = require("../config/db");
 
+const QUERY_TIMEOUT = 8000;
+
+const query = (sql, params, callback) => {
+    if (typeof params === "function") {
+        return pool.query({ sql, timeout: QUERY_TIMEOUT }, params);
+    }
+    return pool.query({ sql, timeout: QUERY_TIMEOUT }, params, callback);
+};
+
 const startTransaction = (callback) => {
-    pool.query("START TRANSACTION", callback);
+    query("START TRANSACTION", callback);
 };
 
 const commit = (callback) => {
-    pool.query("COMMIT", callback);
+    query("COMMIT", callback);
 };
 
 const rollback = (callback) => {
-    pool.query("ROLLBACK", callback);
+    query("ROLLBACK", callback);
 };
 
 const updateCartDone = (uid, callback) => {
-    pool.query("UPDATE cart SET done = 1 WHERE user_id = ?", [uid], callback);
+    query("UPDATE cart SET done = 1 WHERE user_id = ?", [uid], callback);
 };
 
 const insertOrder = (uid, totalPrice, discount, subtotal, shippingAddress, callback) => {
-    pool.query(
+    query(
         "INSERT INTO orders (user_id, total_price, discount, subtotal, shipping_address) VALUES (?, ?, ?, ?, ?)",
         [uid, totalPrice, discount, subtotal, shippingAddress],
         callback
@@ -25,7 +34,7 @@ const insertOrder = (uid, totalPrice, discount, subtotal, shippingAddress, callb
 };
 
 const insertOrderItem = (orderId, productId, quantity, totalPrice, callback) => {
-    pool.query(
+    query(
         "INSERT INTO order_items (order_id, product_id, quantity, total_price) VALUES (?, ?, ?, ?)",
         [orderId, productId, quantity, totalPrice],
         callback
@@ -33,31 +42,23 @@ const insertOrderItem = (orderId, productId, quantity, totalPrice, callback) => 
 };
 
 const updateProductStock = (productId, quantity, callback) => {
-    pool.query("UPDATE products SET stock = stock - ? WHERE id = ?", [quantity, productId], callback);
+    query("UPDATE products SET stock = stock - ? WHERE id = ?", [quantity, productId], callback);
 };
 
 const getOrders = (callback) => {
-    pool.query(
-        `SELECT * FROM orders`,
-        callback
-    );
-}
+    query(`SELECT * FROM orders`, callback);
+};
 
 const updateOrderStatus = (orderId, status, callback) => {
-    pool.query(
-        `UPDATE orders SET status = ? WHERE id = ?`, [status, orderId],
-        callback
-    );
-}
+    query(`UPDATE orders SET status = ? WHERE id = ?`, [status, orderId], callback);
+};
 
 const getOrderById = (orderId, callback) => {
-    pool.query(
-        `SELECT * FROM orders WHERE id = ?`, [orderId], callback
-    );
-}
+    query(`SELECT * FROM orders WHERE id = ?`, [orderId], callback);
+};
 
 const getOrderItems = (callback) => {
-    pool.query(
+    query(
         `SELECT 
             p.id,
             p.name,
@@ -78,15 +79,11 @@ const getOrderItems = (callback) => {
         `,
         callback
     );
-}
+};
 
 const applyDiscount = (discountCode, callback) => {
-    pool.query(
-        `SELECT * FROM discount WHERE discount_code = ?`,
-        [discountCode],
-        callback
-    );
-}
+    query(`SELECT * FROM discount WHERE discount_code = ?`, [discountCode], callback);
+};
 
 module.exports = {
     startTransaction,
@@ -100,5 +97,5 @@ module.exports = {
     getOrderById,
     updateOrderStatus,
     getOrderItems,
-    applyDiscount
-}
+    applyDiscount,
+};
