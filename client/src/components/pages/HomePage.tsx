@@ -7,7 +7,6 @@ import { useAuth } from "../../context/AuthContext";
 import "../../styles/HomePage.scss";
 import { Product } from "../../utils/interface";
 import recommendations from "../../utils/recommendations.json";
-import NavigationBar from "../common/NavigationBar";
 import ProductItem from "../common/ProductItem";
 import Layout from "../layout/Layout";
 import { Helmet } from "react-helmet";
@@ -36,6 +35,29 @@ const HomePage = () => {
     const handlePrev = () => {
         setCurrentIndex((currentIndex - 1 + 4) % 4);
     };
+
+    const slides = [
+        {
+            title: "Upgrade Your Workspace",
+            subtitle: "Shop premium laptops, monitors, and smart gear curated for focus and performance.",
+            cta: "Shop Work Gear",
+        },
+        {
+            title: "Audio That Hits Different",
+            subtitle: "Immersive speakers, noise-cancelling headphones, and studio-grade sound.",
+            cta: "Explore Audio",
+        },
+        {
+            title: "Phones, Smarter Every Day",
+            subtitle: "Discover the latest smartphones and accessories with fast delivery.",
+            cta: "Browse Phones",
+        },
+        {
+            title: "Smart Home Essentials",
+            subtitle: "Control, secure, and automate your home with next‑gen devices.",
+            cta: "Shop Smart Home",
+        },
+    ];
 
     const toggleWishlist = async (user_id: string, product_id: number) => {
         console.log("UID in toggle wishlist:", uid);
@@ -165,8 +187,17 @@ const HomePage = () => {
 
     return (
         <Layout>
-            <NavigationBar />
             <Helmet>
+                <title>Digital-E | Electronics & Gadgets Store</title>
+                <meta
+                    name="description"
+                    content="Shop laptops, phones, audio, accessories, and smart devices with fast delivery and secure checkout."
+                />
+                <meta property="og:title" content="Digital-E | Electronics & Gadgets Store" />
+                <meta
+                    property="og:description"
+                    content="Shop laptops, phones, audio, accessories, and smart devices with fast delivery and secure checkout."
+                />
                 {/* Preload only the first image to avoid blocking other resources */}
                 <link
                     rel="preload"
@@ -181,76 +212,81 @@ const HomePage = () => {
 
             <main className="home">
                 <section className="home__hero">
-                    <div className="home__hero__carousel">
-                        {/* Use CSS transforms instead of inline styles where possible */}
+                    <div className="home__hero__content">
+                        <span className="home__hero__badge">Digital‑E Featured</span>
+                        <h1>Electronics that feel premium, priced for everyone.</h1>
+                        <p>
+                            Shop curated tech across laptops, phones, audio, and smart home devices with fast delivery
+                            and secure checkout.
+                        </p>
+                        <div className="home__hero__actions">
+                            <button type="button" onClick={() => navigate("/shops")}>
+                                Shop All Products <IoArrowForward />
+                            </button>
+                            <Link to="/news" className="ghost">
+                                What&apos;s New
+                            </Link>
+                        </div>
+                        <div className="home__hero__stats">
+                            <div>
+                                <strong>5K+</strong>
+                                <span>Products</span>
+                            </div>
+                            <div>
+                                <strong>24/7</strong>
+                                <span>Support</span>
+                            </div>
+                            <div>
+                                <strong>Secure</strong>
+                                <span>Checkout</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="home__hero__slider">
                         <div
-                            className="home__hero__carousel__inner"
+                            className="home__hero__slider__track"
                             style={{
-                                transform: `translateX(${currentIndex * -25}%)`,
-                                transition: currentIndex !== 0 ? "transform 0.75s ease-in" : "none",
+                                transform: `translateX(${currentIndex * -100}%)`,
                             }}
                         >
-                            {[1, 2, 3, 4].map((_, index) => (
-                                <div className="home__hero__carousel__item" key={`carousel-item-${index}`}>
-                                    {/* Add lazy loading and proper image attributes */}
+                            {slides.map((slide, index) => (
+                                <div className="home__hero__slide" key={`hero-slide-${index}`}>
                                     <img
                                         src={`https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/carousel_${
                                             index + 1
                                         }.jpg`}
-                                        alt={`carousel_${index + 1}`}
+                                        alt={slide.title}
                                         loading={index > 0 ? "lazy" : "eager"}
                                         width="100%"
                                         height="auto"
                                         decoding="async"
                                     />
-
-                                    <div className="home__hero__carousel__item__overlay">
-                                        <h2>
-                                            {
-                                                [
-                                                    "Explore Our Latest Devices",
-                                                    "Discover Our Best Sellers",
-                                                    "Get Ready for Upgrades",
-                                                    "Experience the Future of Tech",
-                                                ][index]
-                                            }
-                                        </h2>
-                                        <p>
-                                            {
-                                                [
-                                                    "Get the latest electronic devices and components at unbeatable prices",
-                                                    "Check out our top-selling electronic devices and components",
-                                                    "Upgrade your electronic devices and components with our latest offers",
-                                                    "Stay ahead of the curve with our latest electronic devices and components",
-                                                ][index]
-                                            }
-                                        </p>
-                                        <button
-                                            type="button"
-                                            className="home__hero__carousel__item__button"
-                                            onClick={() => navigate("/shops")}
-                                            aria-label={["Shop Now", "Explore", "Upgrade Now", "Explore"][index]}
-                                        >
-                                            {["Shop Now", "Explore", "Upgrade Now", "Explore"][index]}
-                                            <IoArrowForward />
+                                    <div className="home__hero__slide__overlay">
+                                        <h3>{slide.title}</h3>
+                                        <p>{slide.subtitle}</p>
+                                        <button type="button" onClick={() => navigate("/shops")}>
+                                            {slide.cta}
                                         </button>
                                     </div>
                                 </div>
                             ))}
                         </div>
-                        <div className="home__hero__carousel__nav">
-                            <button
-                                className="home__hero__carousel__nav__prev"
-                                onClick={handlePrev}
-                                aria-label="Previous slide"
-                            >
+                        <div className="home__hero__slider__controls">
+                            <button type="button" onClick={handlePrev} aria-label="Previous slide">
                                 &#10094;
                             </button>
-                            <button
-                                className="home__hero__carousel__nav__next"
-                                onClick={handleNext}
-                                aria-label="Next slide"
-                            >
+                            <div className="home__hero__slider__dots">
+                                {slides.map((_, index) => (
+                                    <button
+                                        key={`dot-${index}`}
+                                        type="button"
+                                        className={currentIndex === index ? "active" : ""}
+                                        onClick={() => setCurrentIndex(index)}
+                                        aria-label={`Go to slide ${index + 1}`}
+                                    />
+                                ))}
+                            </div>
+                            <button type="button" onClick={handleNext} aria-label="Next slide">
                                 &#10095;
                             </button>
                         </div>
@@ -294,7 +330,7 @@ const HomePage = () => {
                                                 } else {
                                                     addToast(
                                                         "Login required",
-                                                        "You need to login to use this feature."
+                                                        "You need to login to use this feature.",
                                                     );
                                                 }
                                             }}
@@ -304,13 +340,13 @@ const HomePage = () => {
                                                 } else {
                                                     addToast(
                                                         "Login required",
-                                                        "You need to login to use this feature."
+                                                        "You need to login to use this feature.",
                                                     );
                                                 }
                                             }}
                                         />
                                     )),
-                            [products, uid, userRecommendations, wishlist, DISPLAYED_NUMBER]
+                            [products, uid, userRecommendations, wishlist, DISPLAYED_NUMBER],
                         )}
                     </div>
                 </section>

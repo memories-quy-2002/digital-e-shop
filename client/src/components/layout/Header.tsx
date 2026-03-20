@@ -1,5 +1,4 @@
 import React, { JSX, useState } from "react";
-import { Navbar } from "react-bootstrap";
 import { IoCall, IoCart, IoHeart, IoHome, IoMailSharp } from "react-icons/io5";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -13,9 +12,14 @@ export const Header = (): JSX.Element => {
     const navigate = useNavigate();
     const { addToast } = useToast();
     const [searchTerm, setSearchTerm] = useState<string>("");
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
     const { userData, loading, setUserData } = useAuth();
 
     const handleSearch = () => {
+        if (!searchTerm.trim()) {
+            addToast("Search empty", "Type something to search.");
+            return;
+        }
         navigate(`/shops?term=${searchTerm}`);
     };
 
@@ -49,68 +53,168 @@ export const Header = (): JSX.Element => {
 
     return (
         <header className="header">
-            <div className="header__info">
-                <div className="header__info__personal">
-                    <div className="header__info__personal__item">
-                        <IoCall color="white" />
-                        <address>(+84) 123 456 7890</address>
-                    </div>
-                    <div className="header__info__personal__item">
-                        <IoMailSharp color="white" />
-                        <address>digital-e@gmail.com</address>
-                    </div>
-                    <div className="header__info__personal__item">
-                        <IoHome color="white" />
-                        <address>123 ABC Street, HCM City</address>
-                    </div>
+            <div className="header__top">
+                <div className="header__top__contact">
+                    <span className="header__top__contact__item">
+                        <IoCall />
+                        (+84) 123 456 7890
+                    </span>
+                    <span className="header__top__contact__item">
+                        <IoMailSharp />
+                        digital-e@gmail.com
+                    </span>
+                    <span className="header__top__contact__item">
+                        <IoHome />
+                        123 ABC Street, HCM City
+                    </span>
                 </div>
-                <div className="header__info__auth">
-                    <strong>Welcome {userData && !loading ? userData.username : "Anonymous"}</strong>
-
-                    <div className="header__info__auth__button">
+                <div className="header__top__auth">
+                    <span className="header__top__welcome">
+                        Welcome {userData && !loading ? userData.username : "Anonymous"}
+                    </span>
+                    <div className="header__top__links">
                         {userData && !loading ? (
-                            <div>
-                                <Link to="/" onClick={handleLogout}>
-                                    Logout
-                                </Link>
-                            </div>
+                            <Link to="/" onClick={handleLogout}>
+                                Logout
+                            </Link>
                         ) : (
-                            <div>
+                            <>
                                 <Link to="/login">Login</Link>
-                                <span> | </span>
+                                <span className="header__top__divider">/</span>
                                 <Link to="/signup">Signup</Link>
-                            </div>
+                            </>
                         )}
                     </div>
                 </div>
             </div>
             <div className="header__main">
-                <div className="header__main__brand">
-                    <Navbar.Brand href="/" className="header__main__brand__link">
+                <div className="header__brand">
+                    <Link to="/" className="header__brand__logo">
                         DIGITAL-E
-                    </Navbar.Brand>
+                    </Link>
+                    <span className="header__brand__tag">Smart tech marketplace</span>
                 </div>
-                <div className="header__main__search">
+                <nav className="header__nav">
+                    <Link to="/">Home</Link>
+                    <Link to="/shops">Shop</Link>
+                    <Link to="/about-us">About</Link>
+                    <Link to="/news">News</Link>
+                    <Link to="/support">Support</Link>
+                    <Link to="/contact-us">Contact</Link>
+                </nav>
+                <div className="header__actions">
+                    <div className="header__search">
+                        <input
+                            type="text"
+                            name="header_search"
+                            id="header_search"
+                            placeholder="Search products, brands, categories"
+                            className="header__search__bar"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    handleSearch();
+                                }
+                            }}
+                        />
+                        <button onClick={handleSearch}>Search</button>
+                    </div>
+                    <div className="header__quick">
+                        <button
+                            className="header__quick__item"
+                            type="button"
+                            onClick={() => handleRequireLogin("/wishlist")}
+                        >
+                            <IoHeart size={22} />
+                            Wishlist
+                        </button>
+                        <button
+                            className="header__quick__item"
+                            type="button"
+                            onClick={() => handleRequireLogin("/cart")}
+                        >
+                            <IoCart size={22} />
+                            Cart
+                        </button>
+                    </div>
+                    <button
+                        className="header__burger"
+                        type="button"
+                        onClick={() => setIsMenuOpen((prev) => !prev)}
+                        aria-label="Toggle menu"
+                    >
+                        <span />
+                        <span />
+                        <span />
+                    </button>
+                </div>
+            </div>
+            <div className={`header__mobile ${isMenuOpen ? "is-open" : ""}`}>
+                <div className="header__mobile__search">
                     <input
                         type="text"
-                        name="header_search"
-                        id="header_search"
-                        placeholder="Search"
-                        className="header__main__search__bar"
+                        placeholder="Search products, brands, categories"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                handleSearch();
+                                setIsMenuOpen(false);
+                            }
+                        }}
                     />
-                    <button onClick={handleSearch}>Search</button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            handleSearch();
+                            setIsMenuOpen(false);
+                        }}
+                    >
+                        Search
+                    </button>
                 </div>
-                <div className="header__main__group">
-                    <div className="header__main__group__item" onClick={() => handleRequireLogin("/wishlist")}>
-                        <IoHeart size={28} />
+                <div className="header__mobile__links">
+                    <Link to="/" onClick={() => setIsMenuOpen(false)}>
+                        Home
+                    </Link>
+                    <Link to="/shops" onClick={() => setIsMenuOpen(false)}>
+                        Shop
+                    </Link>
+                    <Link to="/about-us" onClick={() => setIsMenuOpen(false)}>
+                        About
+                    </Link>
+                    <Link to="/news" onClick={() => setIsMenuOpen(false)}>
+                        News
+                    </Link>
+                    <Link to="/support" onClick={() => setIsMenuOpen(false)}>
+                        Support
+                    </Link>
+                    <Link to="/contact-us" onClick={() => setIsMenuOpen(false)}>
+                        Contact
+                    </Link>
+                </div>
+                <div className="header__mobile__actions">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            handleRequireLogin("/wishlist");
+                            setIsMenuOpen(false);
+                        }}
+                    >
+                        <IoHeart size={20} />
                         Wishlist
-                    </div>
-                    <div className="header__main__group__item" onClick={() => handleRequireLogin("/cart")}>
-                        <IoCart size={28} />
-                        Shopping Cart
-                    </div>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            handleRequireLogin("/cart");
+                            setIsMenuOpen(false);
+                        }}
+                    >
+                        <IoCart size={20} />
+                        Cart
+                    </button>
                 </div>
             </div>
         </header>

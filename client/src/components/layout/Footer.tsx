@@ -41,105 +41,80 @@ const Footer = () => {
     };
     return (
         <footer className="footer">
-            <div className="footer__menuGroup">
-                <div className="footer__menuGroup__menu">
-                    <h5 className="footer__menuGroup__menu__title">Top Categories</h5>
-                    <div className="footer__menuGroup__menu__item">
+            <div className="footer__top">
+                <div className="footer__brand">
+                    <Link to="/" className="footer__brand__logo">
+                        DIGITAL-E
+                    </Link>
+                    <p className="footer__brand__text">
+                        Premium tech marketplace for laptops, accessories, and smart devices built for creators, teams,
+                        and everyday shoppers.
+                    </p>
+                    <div className="footer__brand__social">
+                        {socialLinks.map((link, index) => (
+                            <Link key={index} to={link.url} target="_blank" rel="noopener noreferrer">
+                                {link.icon}
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+                <div className="footer__grid">
+                    <div className="footer__col">
+                        <h5>Top Categories</h5>
                         <Link to={"/shops?categories=Laptop&brands=&minPrice=0&maxPrice=4000&term="}>Laptops</Link>
-                    </div>
-                    <div className="footer__menuGroup__menu__item">
                         <Link to={"/shops?categories=Camera&brands=&minPrice=0&maxPrice=4000&term="}>Cameras</Link>
-                    </div>
-                    <div className="footer__menuGroup__menu__item">
                         <Link to={"/shops?categories=Smartphone&brands=&minPrice=0&maxPrice=4000&term="}>
                             Smartphones
                         </Link>
-                    </div>
-                    <div className="footer__menuGroup__menu__item">
                         <Link to={"/shops?categories=Graphics+Card&brands=&minPrice=0&maxPrice=4000&term="}>
                             Graphics cards
                         </Link>
                     </div>
-                </div>
-                <div className="footer__menuGroup__menu">
-                    <h5 className="footer__menuGroup__menu__title">Help</h5>
-                    <div className="footer__menuGroup__menu__item">Delivery</div>
-                    <div className="footer__menuGroup__menu__item">Track an order</div>
-                    <div className="footer__menuGroup__menu__item">Secure payments</div>
-                </div>
-                <div className="footer__menuGroup__menu">
-                    <h5 className="footer__menuGroup__menu__title">About us</h5>
-                    <div className="footer__menuGroup__menu__item">
-                        <Link to="/about-us">Careers</Link>
+                    <div className="footer__col">
+                        <h5>Support</h5>
+                        <Link to="/support">Help center</Link>
+                        <span>Delivery & returns</span>
+                        <span>Track an order</span>
+                        <span>Secure payments</span>
                     </div>
-
-                    <div className="footer__menuGroup__menu__item">Terms and Conditions</div>
-                    <div className="footer__menuGroup__menu__item">Privacies and Policies</div>
-                </div>
-                <div className="footer__menuGroup__menu">
-                    <h5 className="footer__menuGroup__menu__title">Feedback</h5>
-                    <div className="footer__menuGroup__menu__item">Leave a feedback</div>
-                </div>
-                <div className="footer__menuGroup__menu">
-                    <h5 className="footer__menuGroup__menu__title">Contact us</h5>
-                    <address>
-                        <div className="footer__menuGroup__menu__item-disabled">Email: digital-e@gmail.com</div>
-                    </address>
-                    <address>
-                        <div className="footer__menuGroup__menu__item-disabled">Phone: (+84) 123 456 7890</div>
-                    </address>
-                    <address>
-                        <div className="footer__menuGroup__menu__item-disabled">
-                            Address: 123 ABC Street, HCM City, Vietnam
+                    <div className="footer__col">
+                        <h5>Company</h5>
+                        <Link to="/about-us">About us</Link>
+                        <Link to="/news">Newsroom</Link>
+                        <span>Terms & conditions</span>
+                        <span>Privacy policy</span>
+                    </div>
+                    <div className="footer__col">
+                        <h5>Contact</h5>
+                        <address>Email: digital-e@gmail.com</address>
+                        <address>Phone: (+84) 123 456 7890</address>
+                        <address>123 ABC Street, HCM City, Vietnam</address>
+                    </div>
+                    <div className="footer__col footer__col--newsletter">
+                        <h5>Newsletter</h5>
+                        <p>Receive product news, launch drops, and exclusive deals.</p>
+                        <div className="footer__newsletter">
+                            <input
+                                type="email"
+                                name="email_subs"
+                                id="email_subs"
+                                placeholder="Your email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                            />
+                            <button type="button" onClick={handleSubscribe}>
+                                Subscribe
+                            </button>
                         </div>
-                    </address>
+                    </div>
                 </div>
             </div>
-            <div className="footer__otherGroup">
-                <div className="footer__otherGroup__menu">
-                    <h5 className="footer__otherGroup__menu__title">Find a store</h5>
-                    <div className="footer__otherGroup__menu__item-disabled">Find Digital-E stores near you</div>
-                    <button
-                        className="btn"
-                        type="button"
-                        style={{
-                            width: "250px",
-                        }}
-                    >
-                        Store location
-                    </button>
-                </div>
-                <div className="footer__otherGroup__menu">
-                    <h5>Follow Us</h5>
-                    <ul>
-                        {socialLinks.map((link, index) => (
-                            <li key={index}>
-                                <Link to={link.url} target="_blank" rel="noopener noreferrer">
-                                    {link.icon} <span>{link.platform}</span>
-                                </Link>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-                <div className="footer__otherGroup__menu">
-                    <h5 className="footer__otherGroup__menu__title">Newsletter subscription</h5>
-                    <div className="footer__otherGroup__menu__item-disabled">
-                        Receive product news and updates to your inbox
-                    </div>
-                    <div className="d-flex">
-                        <input
-                            type="email"
-                            name="email_subs"
-                            id="email_subs"
-                            placeholder="Your email"
-                            className="ps-2"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                        />
-                        <button className="btn" type="button" onClick={handleSubscribe}>
-                            Go
-                        </button>
-                    </div>
+            <div className="footer__bottom">
+                <span>© 2026 Digital-E. All rights reserved.</span>
+                <div className="footer__bottom__links">
+                    <span>Terms</span>
+                    <span>Privacy</span>
+                    <span>Cookies</span>
                 </div>
             </div>
         </footer>
