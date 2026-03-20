@@ -2,8 +2,8 @@ import React, { useMemo } from "react";
 import { FiCheckCircle } from "react-icons/fi";
 import { useAuth } from "../../context/AuthContext";
 import "../../styles/CheckoutSuccessPage.scss";
-import NavigationBar from "../common/NavigationBar";
 import Layout from "../layout/Layout";
+import { Helmet } from "react-helmet";
 
 type CheckoutSuccessData = {
     orderId: string;
@@ -32,7 +32,13 @@ const CheckoutSuccessPage = () => {
     }, []);
     return (
         <Layout>
-            <NavigationBar />
+            <Helmet>
+                <title>Order Confirmed | Digital-E</title>
+                <meta
+                    name="description"
+                    content="Your order is confirmed. View shipping details and continue shopping on Digital-E."
+                />
+            </Helmet>
             <article className="success__container">
                 <div className="success__container__icon">
                     <FiCheckCircle size={90} color="#22c55e" />
@@ -69,9 +75,7 @@ const CheckoutSuccessPage = () => {
                         <h4>Shipping details</h4>
                         <p>{orderData?.name || "—"}</p>
                         <p>{orderData?.address || "—"}</p>
-                        <p>
-                            {[orderData?.city, orderData?.country].filter(Boolean).join(", ") || "—"}
-                        </p>
+                        <p>{[orderData?.city, orderData?.country].filter(Boolean).join(", ") || "—"}</p>
                         <p>{orderData?.phone || "—"}</p>
                     </div>
                     <div>

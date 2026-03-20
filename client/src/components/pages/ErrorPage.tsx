@@ -1,7 +1,6 @@
 import React from "react";
 import Layout from "../layout/Layout";
 import { Helmet } from "react-helmet";
-import NavigationBar from "../common/NavigationBar";
 
 type ErrorProps = {
     error: string;
@@ -10,9 +9,8 @@ type ErrorProps = {
 const ErrorPage = ({ error }: ErrorProps) => {
     return (
         <Layout>
-            <NavigationBar />
             <Helmet>
-                <title>Error</title>
+                <title>Something Went Wrong | Digital-E</title>
                 <meta name="description" content="An error occurred while processing your request." />
             </Helmet>
             <main>

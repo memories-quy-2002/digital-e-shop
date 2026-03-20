@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { Helmet } from "react-helmet";
 
 interface CartProps {
     cartItemId: number;
@@ -135,6 +136,10 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
 
     return (
         <div className="cart__container__payment">
+            <Helmet>
+                <title>Checkout | Digital-E</title>
+                <meta name="description" content="Complete your purchase securely and confirm shipping details." />
+            </Helmet>
             <button className="cart__container__payment__back" onClick={() => setIsPayment(false)}>
                 &#8592; Back to cart
             </button>

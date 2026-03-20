@@ -242,7 +242,7 @@ const AdminDashboard = () => {
     return (
         <AdminLayout>
             <Helmet>
-                <title>Admin Dashboard</title>
+                <title>Admin Dashboard | Digital-E</title>
                 <meta name="description" content="Overview of store performance and key metrics." />
             </Helmet>
             <main className="admin__page admin__page--dashboard">

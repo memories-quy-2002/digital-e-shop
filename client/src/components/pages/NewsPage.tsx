@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import "../../styles/NewsPage.scss"; // Assuming you have a CSS file for styling
-import NavigationBar from "../common/NavigationBar";
 import Layout from "../layout/Layout";
 import { Helmet } from "react-helmet";
 
@@ -38,10 +37,9 @@ const NewsPage: React.FC = () => {
 
     return (
         <Layout>
-            <NavigationBar />
             <Helmet>
-                <title>News</title>
-                <meta name="description" content="Latest news and updates from Digital-E." />
+                <title>News & Updates | Digital-E</title>
+                <meta name="description" content="Product releases, sales, and updates from Digital-E." />
             </Helmet>
             <div className="news">
                 <h2 className="news__title">Latest News</h2>

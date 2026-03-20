@@ -5,7 +5,6 @@ import { useToast } from "../../context/ToastContext";
 import "../../styles/ProductPage.scss";
 import { Product } from "../../utils/interface";
 import ratingStar from "../../utils/ratingStar";
-import NavigationBar from "../common/NavigationBar";
 import RecommendedProduct from "../common/RecommendedProduct";
 import Layout from "../layout/Layout";
 import NoPage from "./NoPage";
@@ -91,7 +90,7 @@ const ProductPage = () => {
             return productDetail.specifications as string[];
         }
         if (typeof productDetail.specifications === "string") {
-            const trimmed = productDetail.specifications.trim();
+            const trimmed = (productDetail.specifications as string).trim();
             if (trimmed.startsWith("[")) {
                 try {
                     const parsed = JSON.parse(trimmed);
@@ -188,7 +187,7 @@ const ProductPage = () => {
                                 const indexA = relevantProductsIds.indexOf(a.id);
                                 const indexB = relevantProductsIds.indexOf(b.id);
                                 return indexA - indexB;
-                            })
+                            }),
                     );
                     console.log(response.data.msg);
                 }
@@ -216,7 +215,7 @@ const ProductPage = () => {
                                 reviewText: review.review_text,
                                 created_at: review.created_at,
                             };
-                        })
+                        }),
                     );
                     console.log(response.data.msg);
                 }
@@ -348,10 +347,14 @@ const ProductPage = () => {
 
     return (
         <Layout>
-            <NavigationBar />
             <Helmet>
-                <title>{productDetail.name}</title>
-                <meta name="description" content={productDetail.description} />
+                <title>{productDetail.name ? `${productDetail.name} | Digital-E` : "Product | Digital-E"}</title>
+                <meta
+                    name="description"
+                    content={
+                        productDetail.description || "Explore product details, pricing, and availability on Digital-E."
+                    }
+                />
             </Helmet>
             <div className="product__container">
                 <section className="product__hero">
@@ -502,9 +505,7 @@ const ProductPage = () => {
                 {toggle ? (
                     <div className="product__review">
                         {!uid ? (
-                            <div className="product__review__container">
-                                You need to login to use this feature
-                            </div>
+                            <div className="product__review__container">You need to login to use this feature</div>
                         ) : (
                             <div className="product__review__container">
                                 <div className="product__review__container__rating">
@@ -540,7 +541,9 @@ const ProductPage = () => {
                                     <button
                                         className="product__review__container__text__button"
                                         type="submit"
-                                        onClick={() => handleSubmitReview(uid, productDetail.id, ratingScore, reviewText)}
+                                        onClick={() =>
+                                            handleSubmitReview(uid, productDetail.id, ratingScore, reviewText)
+                                        }
                                     >
                                         Submit
                                     </button>

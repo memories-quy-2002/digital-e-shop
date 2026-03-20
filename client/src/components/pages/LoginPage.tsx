@@ -118,7 +118,8 @@ const LoginPage = () => {
             }}
         >
             <Helmet>
-                <title>Login</title>
+                <title>Login | Digital-E</title>
+                <meta name="description" content="Log in to manage your orders, wishlist, and account." />
             </Helmet>
             <div className="login">
                 <aside className="login__image">

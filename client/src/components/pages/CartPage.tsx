@@ -8,7 +8,6 @@ import { useToast } from "../../context/ToastContext";
 import "../../styles/CartPage.scss";
 import AsideCart from "../common/AsideCart";
 import CartItem from "../common/CartItem";
-import NavigationBar from "../common/NavigationBar";
 import Layout from "../layout/Layout";
 import CheckoutPaymentPage from "./CheckoutPaymentPage";
 import { useAuth } from "../../context/AuthContext";
@@ -44,7 +43,7 @@ const CartPage = () => {
     const togglePayment = useCallback(() => setIsPayment((prev) => !prev), []);
     const updateQuantity = (itemId: number, newQuantity: number) => {
         setCart((prevCart: CartProps[]) =>
-            prevCart.map((item) => (item.cartItemId === itemId ? { ...item, quantity: newQuantity } : item))
+            prevCart.map((item) => (item.cartItemId === itemId ? { ...item, quantity: newQuantity } : item)),
         );
     };
 
@@ -73,7 +72,7 @@ const CartPage = () => {
                 console.error(err);
             }
         },
-        [addToast]
+        [addToast],
     );
 
     const applyDiscount = async (discountCode: string, price: number) => {
@@ -139,10 +138,9 @@ const CartPage = () => {
 
     return (
         <Layout>
-            <NavigationBar />
             <Helmet>
-                <title>Cart</title>
-                <meta name="description" content="View and manage your shopping cart items." />
+                <title>Your Cart | Digital-E</title>
+                <meta name="description" content="Review your items, update quantities, and proceed to checkout." />
             </Helmet>
             <Container fluid className="cart__container">
                 {isPayment ? (

@@ -4,7 +4,6 @@ import axios from "../../api/axios";
 import "../../styles/ShopsPage.scss";
 import { Product } from "../../utils/interface";
 import AsideShops from "../common/AsideShops";
-import NavigationBar from "../common/NavigationBar";
 import PaginatedItems from "../common/PaginatedItems";
 import Layout from "../layout/Layout";
 import { Helmet } from "react-helmet";
@@ -56,7 +55,7 @@ const ShopsPage = () => {
             });
             navigate(`${location.pathname}?${queryParams.toString()}`, { replace: true });
         },
-        [navigate, location.pathname]
+        [navigate, location.pathname],
     );
 
     // Optimized filter handlers
@@ -200,10 +199,12 @@ const ShopsPage = () => {
 
     return (
         <Layout>
-            <NavigationBar />
             <Helmet>
-                <title>Shops</title>
-                <meta name="description" content="Explore a wide range of products from various shops." />
+                <title>Shop Products | Digital-E</title>
+                <meta
+                    name="description"
+                    content="Browse the full catalog of electronics, filter by brand, category, and price, and find your next upgrade."
+                />
             </Helmet>
             <main className="shops">
                 <h2 className="shops__title">Shops Products</h2>

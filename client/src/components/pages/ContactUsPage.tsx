@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import "../../styles/ContactUsPage.scss";
 import Layout from "../layout/Layout";
-import NavigationBar from "../common/NavigationBar";
 import { Helmet } from "react-helmet";
 import { useToast } from "../../context/ToastContext";
 
@@ -24,9 +23,8 @@ const ContactUsPage: React.FC = () => {
     };
     return (
         <Layout>
-            <NavigationBar />
             <Helmet>
-                <title>Contact us</title>
+                <title>Contact Us | Digital-E</title>
                 <meta name="description" content="Get in touch with Digital-E for support, inquiries, or feedback." />
             </Helmet>
             <div className="contact">

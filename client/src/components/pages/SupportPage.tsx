@@ -3,7 +3,6 @@ import "../../styles/SupportPage.scss"; // Assuming you have a CSS file for styl
 import Layout from "../layout/Layout";
 import { Helmet } from "react-helmet";
 import { Nav } from "react-bootstrap";
-import NavigationBar from "../common/NavigationBar";
 
 const SupportPage: React.FC = () => {
     const [faqOpen, setFaqOpen] = useState<number | null>(null);
@@ -25,9 +24,8 @@ const SupportPage: React.FC = () => {
 
     return (
         <Layout>
-            <NavigationBar />
             <Helmet>
-                <title>Support</title>
+                <title>Support | Digital-E</title>
                 <meta name="description" content="Get help and support for your Digital-E orders and products." />
             </Helmet>
             <div className="support">

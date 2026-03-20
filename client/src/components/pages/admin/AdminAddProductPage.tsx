@@ -78,7 +78,7 @@ const AdminAddProductPage = () => {
     return (
         <AdminLayout>
             <Helmet>
-                <title>Add Product</title>
+                <title>Add Product | Digital-E</title>
                 <meta name="description" content="Admin page to add new products." />
             </Helmet>
             <main className="admin__page admin__page--add-product">

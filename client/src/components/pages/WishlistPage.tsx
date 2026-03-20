@@ -4,7 +4,6 @@ import axios from "../../api/axios";
 import { Product } from "../../utils/interface";
 import "../../styles/WishlistPage.scss";
 import PaginatedItems from "../common/PaginatedItems";
-import NavigationBar from "../common/NavigationBar";
 import { Helmet } from "react-helmet";
 import { useAuth } from "../../context/AuthContext";
 
@@ -48,10 +47,12 @@ const WishlistPage = () => {
 
     return (
         <Layout>
-            <NavigationBar />
             <Helmet>
-                <title>Wishlist</title>
-                <meta name="description" content="View and manage your wishlist items." />
+                <title>Your Wishlist | Digital-E</title>
+                <meta
+                    name="description"
+                    content="Save products you love and quickly add them to your cart when you're ready."
+                />
             </Helmet>
             <main className="wishlist">
                 <h2 className="wishlist__title">My Wishlist</h2>

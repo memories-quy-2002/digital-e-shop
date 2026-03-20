@@ -138,7 +138,8 @@ const SignupPage = () => {
             }}
         >
             <Helmet>
-                <title>Signup</title>
+                <title>Create Account | Digital-E</title>
+                <meta name="description" content="Create a Digital-E account to shop faster and track orders." />
             </Helmet>
             <div className="signup">
                 <aside className="signup__image">

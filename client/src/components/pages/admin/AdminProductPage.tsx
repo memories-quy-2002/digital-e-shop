@@ -116,7 +116,7 @@ const AdminProductPage = () => {
     return (
         <AdminLayout>
             <Helmet>
-                <title>Admin Product Management</title>
+                <title>Admin Products | Digital-E</title>
                 <meta name="description" content="Manage products in the store." />
             </Helmet>
             <main className="admin__page admin__page--products">

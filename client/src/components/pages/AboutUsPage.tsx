@@ -1,15 +1,13 @@
 import React from "react";
 import "../../styles/AboutUsPage.scss";
-import NavigationBar from "../common/NavigationBar";
 import Layout from "../layout/Layout";
 import { Helmet } from "react-helmet";
 
 const AboutUsPage: React.FC = () => {
     return (
         <Layout>
-            <NavigationBar />
             <Helmet>
-                <title>About us</title>
+                <title>About Us | Digital-E</title>
                 <meta name="description" content="Learn more about Digital-E, our mission, and our team." />
             </Helmet>
             <div className="about">

@@ -103,7 +103,7 @@ const AdminOrderPage = () => {
     return (
         <AdminLayout>
             <Helmet>
-                <title>Admin Order Management</title>
+                <title>Admin Orders | Digital-E</title>
                 <meta name="description" content="Manage and view orders placed in the store." />
             </Helmet>
             <main className="admin__page admin__page--orders">

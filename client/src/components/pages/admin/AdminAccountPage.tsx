@@ -88,7 +88,7 @@ const AdminAccountPage = () => {
     return (
         <AdminLayout>
             <Helmet>
-                <title>Admin Account Management</title>
+                <title>Admin Accounts | Digital-E</title>
                 <meta name="description" content="Manage user accounts and roles." />
             </Helmet>
             <main className="admin__page admin__page--accounts">
