@@ -75,6 +75,12 @@ const authLimiter = rateLimit({
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
 app.use("/api/", apiLimiter);
+app.use("/users", apiLimiter);
+app.use("/products", apiLimiter);
+app.use("/cart", apiLimiter);
+app.use("/orders", apiLimiter);
+app.use("/reviews", apiLimiter);
+app.use("/wishlist", apiLimiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
