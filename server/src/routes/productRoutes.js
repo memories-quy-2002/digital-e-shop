@@ -6,6 +6,7 @@ const {
     deleteProduct,
     retrieveRelevantProducts
 } = require("../controllers/productController");
+const { requireAdmin } = require("../middlewares/authMiddleWares");
 const router = express.Router();
 const path = require("path");
 
@@ -13,8 +14,8 @@ const UPLOADS_DIR = path.resolve(__dirname, '..', '..', 'server', 'src', 'upload
 
 router.get("/:id", getSingleProduct);
 router.get("/", getListProduct);
-router.post("/add", addSingleProduct);
-router.delete("/", deleteProduct);
+router.post("/add", requireAdmin, addSingleProduct);
+router.delete("/", requireAdmin, deleteProduct);
 router.get("/relevant/:pid", retrieveRelevantProducts);
 router.get('/images/:filename', async (req, res) => {
     const requestedFilename = req.params.filename + '.jpg';

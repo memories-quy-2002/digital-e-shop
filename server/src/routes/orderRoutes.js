@@ -6,12 +6,13 @@ const {
     getOrderItems,
     applyDiscount
 } = require("../controllers/orderController");
+const { requireAdmin, requireAuth, requireOwnerOrAdmin, requireCustomerOrAdmin } = require("../middlewares/authMiddleWares");
 const router = express.Router();
 
-router.get("/", getOrders);
-router.get("/item", getOrderItems);
-router.post("/purchase/:uid", makePurchase);
-router.post("/status/:oid", changeOrderStatus);
-router.post("/discount", applyDiscount);
+router.get("/", requireAdmin, getOrders);
+router.get("/item", requireAdmin, getOrderItems);
+router.post("/purchase/:uid", requireAuth, requireOwnerOrAdmin("uid"), makePurchase);
+router.post("/status/:oid", requireAdmin, changeOrderStatus);
+router.post("/discount", requireAuth, requireCustomerOrAdmin, applyDiscount);
 
 module.exports = router;

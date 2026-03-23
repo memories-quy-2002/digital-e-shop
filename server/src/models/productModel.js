@@ -72,6 +72,26 @@ const deleteProduct = (pid, callback) => {
     pool.query("DELETE FROM products WHERE id = ?", [pid], callback);
 };
 
+// Get relevant products by product id (same category or brand)
+const getRelevantProductsByProductId = (pid, limit, callback) => {
+    const sql = `
+        SELECT p.id AS product_id, p.name AS product_name
+        FROM products p
+        WHERE p.id <> ?
+            AND (
+                p.category_id = (SELECT category_id FROM products WHERE id = ?)
+                OR p.brand_id = (SELECT brand_id FROM products WHERE id = ?)
+            )
+        ORDER BY
+            (p.category_id = (SELECT category_id FROM products WHERE id = ?)) DESC,
+            (p.brand_id = (SELECT brand_id FROM products WHERE id = ?)) DESC,
+            p.rating DESC,
+            p.id DESC
+        LIMIT ?
+    `;
+    pool.query(sql, [pid, pid, pid, pid, pid, limit], callback);
+};
+
 module.exports = {
     insertProduct,
     findCategoryByName,
@@ -81,4 +101,5 @@ module.exports = {
     getProductById,
     getAllProducts,
     deleteProduct,
+    getRelevantProductsByProductId,
 };

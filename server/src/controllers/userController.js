@@ -2,6 +2,7 @@ const userService = require("../services/userService");
 const { endSession } = require("../services/sessionService");
 
 const isProduction = process.env.NODE_ENV === "production";
+const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
 
 const baseCookieOptions = {
     httpOnly: true,
@@ -19,8 +20,9 @@ async function registerUser(req, res) {
     try {
         const { uid: newUid, token, sessionId } = await userService.registerUser(uid, user);
 
-        res.cookie("session", sessionId, withMaxAge(1000 * 60 * 60 * 24 * 30));
-        res.cookie("userInfo", JSON.stringify({ uid: newUid, token }), withMaxAge(1000 * 60 * 60 * 24 * 30));
+        res.cookie("session", sessionId, withMaxAge(THIRTY_DAYS));
+        res.cookie("userInfo", JSON.stringify({ uid: newUid, token }), withMaxAge(THIRTY_DAYS));
+        res.cookie("accessToken", token, withMaxAge(THIRTY_DAYS));
 
         res.status(200).json({ uid: newUid, token, msg: "User created successfully" });
     } catch (err) {
@@ -59,20 +61,14 @@ async function userLogin(req, res) {
         const { user, token: accessToken, sessionId, refreshToken } =
             await userService.loginUser(uid, role, rememberMe);
 
-        const sessionCookieOptions = rememberMe
-            ? withMaxAge(1000 * 60 * 60 * 24 * 30)
-            : baseCookieOptions;
+        const sessionCookieOptions = rememberMe ? withMaxAge(THIRTY_DAYS) : baseCookieOptions;
 
         res.cookie("session", sessionId, sessionCookieOptions);
-        res.cookie("userInfo", JSON.stringify({ uid: user.id }), withMaxAge(1000 * 60 * 60 * 24 * 30));
-        res.cookie(
-            "accessToken",
-            accessToken,
-            rememberMe ? withMaxAge(1000 * 60 * 60 * 24 * 7) : baseCookieOptions
-        );
+        res.cookie("userInfo", JSON.stringify({ uid: user.id }), rememberMe ? withMaxAge(THIRTY_DAYS) : baseCookieOptions);
+        res.cookie("accessToken", accessToken, rememberMe ? withMaxAge(THIRTY_DAYS) : baseCookieOptions);
 
         if (rememberMe && refreshToken) {
-            res.cookie("refreshToken", refreshToken, withMaxAge(1000 * 60 * 60 * 24 * 7));
+            res.cookie("refreshToken", refreshToken, withMaxAge(THIRTY_DAYS));
         }
 
         res.status(200).json({

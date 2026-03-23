@@ -10,7 +10,11 @@ async function registerUser(uid, userData) {
         User.createUser(uid, userData.username, userData.email, hashedPassword, userData.role, (err) => {
             if (err) return reject(err);
 
-            const token = jwt.sign({ id: uid, email: userData.email }, process.env.JWT_SECRET_KEY, { expiresIn: "30d" });
+            const token = jwt.sign(
+                { id: uid, email: userData.email, role: userData.role },
+                process.env.JWT_SECRET_KEY,
+                { expiresIn: "30d" }
+            );
 
             User.updateUserToken(uid, token, async (err) => {
                 if (err) return reject(err);
@@ -29,40 +33,26 @@ async function loginUser(uid, role, rememberMe) {
             if (results.length === 0) return reject(new Error("Invalid username, password, or role"));
 
             const user = results[0];
-            if (user.role !== role) return reject(new Error("Invalid username, password, or role"));
+            if (role && user.role !== role) return reject(new Error("Invalid username, password, or role"));
 
-            try {
-                jwt.verify(user.token, process.env.JWT_SECRET_KEY);
+            const payload = { id: user.id, email: user.email, role: user.role };
+            const accessToken = jwt.sign(payload, process.env.JWT_SECRET_KEY, {
+                expiresIn: rememberMe ? "30d" : "15m",
+            });
+
+            User.updateUserToken(user.id, accessToken, async (err) => {
+                if (err) return reject(err);
 
                 let refreshToken = null;
                 if (rememberMe) {
-                    const payload = { id: user.id, email: user.email, role: user.role };
                     refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET_KEY, {
-                        expiresIn: "7d",
+                        expiresIn: "30d",
                     });
                 }
 
                 const sessionId = await startSession(user.id);
-                resolve({ user, token: user.token, sessionId, refreshToken });
-
-            } catch {
-                const payload = { id: user.id, email: user.email, role: user.role };
-                const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, { expiresIn: "15m" });
-
-                User.updateUserToken(user.id, token, async (err) => {
-                    if (err) return reject(err);
-
-                    let refreshToken = null;
-                    if (rememberMe) {
-                        refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET_KEY, {
-                            expiresIn: "7d",
-                        });
-                    }
-
-                    const sessionId = await startSession(user.id);
-                    resolve({ user, token, sessionId, refreshToken });
-                });
-            }
+                resolve({ user, token: accessToken, sessionId, refreshToken });
+            });
         });
     });
 }
