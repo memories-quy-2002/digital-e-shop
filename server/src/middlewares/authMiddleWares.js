@@ -1,34 +1,48 @@
 const jwt = require("jsonwebtoken");
+const rateLimit = require("express-rate-limit");
 const { verifySessionToken } = require("../services/sessionService");
 const User = require("../models/userModel");
+
+const authzLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10000,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: "Too many requests, please try again later.",
+});
 
 const normalizeRole = (role) => (role ? String(role).toLowerCase() : "");
 
 const requireAuth = async (req, res, next) => {
-    const { valid, message } = await verifySessionToken(req);
-    if (!valid) {
-        return res.status(401).json({ msg: message || "Not authenticated" });
-    }
-
-    const accessToken = req.cookies.accessToken;
-    try {
-        const payload = jwt.verify(accessToken, process.env.JWT_SECRET_KEY);
-        if (!payload.role && payload.id) {
-            const user = await new Promise((resolve, reject) => {
-                User.getUserById(payload.id, (err, results) => {
-                    if (err) return reject(err);
-                    resolve(results && results.length > 0 ? results[0] : null);
-                });
-            });
-            if (user?.role) {
-                payload.role = user.role;
-            }
+    authzLimiter(req, res, async (limitErr) => {
+        if (limitErr) {
+            return next(limitErr);
         }
-        req.user = payload;
-        return next();
-    } catch (err) {
-        return res.status(403).json({ msg: "Invalid or expired token" });
-    }
+        const { valid, message } = await verifySessionToken(req);
+        if (!valid) {
+            return res.status(401).json({ msg: message || "Not authenticated" });
+        }
+
+        const accessToken = req.cookies.accessToken;
+        try {
+            const payload = jwt.verify(accessToken, process.env.JWT_SECRET_KEY);
+            if (!payload.role && payload.id) {
+                const user = await new Promise((resolve, reject) => {
+                    User.getUserById(payload.id, (err, results) => {
+                        if (err) return reject(err);
+                        resolve(results && results.length > 0 ? results[0] : null);
+                    });
+                });
+                if (user?.role) {
+                    payload.role = user.role;
+                }
+            }
+            req.user = payload;
+            return next();
+        } catch (err) {
+            return res.status(403).json({ msg: "Invalid or expired token" });
+        }
+    });
 };
 
 const requireRole = (role) => (req, res, next) => {
