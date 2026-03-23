@@ -1,18 +1,27 @@
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const { registerUser, getUserLoginById, userLogin, userRefreshToken, userLogout, getAllUsers, getCurrentUser } = require("../controllers/userController");
 const { checkSessionToken } = require("../services/sessionService");
 const { requireAdmin, requireAuth, requireOwnerOrAdmin } = require("../middlewares/authMiddleWares");
 const router = express.Router();
 
-router.get("/me", requireAuth, getCurrentUser);
-router.get("/session/check", checkSessionToken);
-router.get("/:id", requireAuth, requireOwnerOrAdmin("id"), getUserLoginById);
-router.get("/", requireAdmin, getAllUsers);
+const userLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: "Too many requests, please try again later.",
+});
 
-router.post("/register", registerUser);
-router.post("/login", userLogin);
-router.post("/refresh", userRefreshToken);
-router.post("/logout", userLogout);
+router.get("/me", userLimiter, requireAuth, getCurrentUser);
+router.get("/session/check", userLimiter, checkSessionToken);
+router.get("/:id", userLimiter, requireAuth, requireOwnerOrAdmin("id"), getUserLoginById);
+router.get("/", userLimiter, requireAdmin, getAllUsers);
+
+router.post("/register", userLimiter, registerUser);
+router.post("/login", userLimiter, userLogin);
+router.post("/refresh", userLimiter, userRefreshToken);
+router.post("/logout", userLimiter, userLogout);
 
 
 module.exports = router;

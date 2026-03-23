@@ -1,4 +1,5 @@
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const {
     addSingleProduct,
     getSingleProduct,
@@ -12,11 +13,19 @@ const path = require("path");
 
 const UPLOADS_DIR = path.resolve(__dirname, '..', '..', 'server', 'src', 'uploads');
 
-router.get("/:id", getSingleProduct);
-router.get("/", getListProduct);
-router.post("/add", requireAdmin, addSingleProduct);
-router.delete("/", requireAdmin, deleteProduct);
-router.get("/relevant/:pid", retrieveRelevantProducts);
+const productLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: "Too many requests, please try again later.",
+});
+
+router.get("/:id", productLimiter, getSingleProduct);
+router.get("/", productLimiter, getListProduct);
+router.post("/add", productLimiter, requireAdmin, addSingleProduct);
+router.delete("/", productLimiter, requireAdmin, deleteProduct);
+router.get("/relevant/:pid", productLimiter, retrieveRelevantProducts);
 router.get('/images/:filename', async (req, res) => {
     const requestedFilename = req.params.filename + '.jpg';
     const imagePath = path.resolve(UPLOADS_DIR, requestedFilename);
