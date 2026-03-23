@@ -56,17 +56,9 @@ const { doubleCsrfProtection, generateCsrfToken, invalidCsrfTokenError } = doubl
         req.path === "/users/refresh",
 });
 
-const apiLimiter = rateLimit({
-    windowMs: 5 * 60 * 1000,
-    max: 1000,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: "Too many requests from this IP, please try again later.",
-});
-
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 50,
+    max: 500,
     standardHeaders: true,
     legacyHeaders: false,
     message: "Too many authentication attempts, please try again later.",
@@ -74,13 +66,6 @@ const authLimiter = rateLimit({
 
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
-app.use("/api/", apiLimiter);
-app.use("/users", apiLimiter);
-app.use("/products", apiLimiter);
-app.use("/cart", apiLimiter);
-app.use("/orders", apiLimiter);
-app.use("/reviews", apiLimiter);
-app.use("/wishlist", apiLimiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
