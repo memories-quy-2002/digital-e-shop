@@ -102,17 +102,20 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                     totalPrice,
                     discount,
                     subtotal,
+                    itemsCount: cart.reduce((sum, item) => sum + item.quantity, 0),
+                    placedAt: new Date().toISOString(),
+                };
+                const payloadSensitive = {
+                    ...payload,
                     email: formCheckout.email,
                     name: `${formCheckout.first_name} ${formCheckout.last_name}`.trim(),
                     address: formCheckout.address,
                     city: formCheckout.city,
                     country: formCheckout.country || "",
                     phone: formCheckout.phone_number || "",
-                    itemsCount: cart.reduce((sum, item) => sum + item.quantity, 0),
-                    placedAt: new Date().toISOString(),
                 };
                 sessionStorage.setItem("checkoutSuccess", JSON.stringify(payload));
-                navigate("/checkout-success");
+                navigate("/checkout-success", { state: { checkoutSuccess: payloadSensitive } });
             }
         } catch (err: unknown) {
             if (err && typeof err === "object" && "response" in err) {

@@ -1,5 +1,6 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { FiCheckCircle } from "react-icons/fi";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import "../../styles/CheckoutSuccessPage.scss";
 import Layout from "../layout/Layout";
@@ -10,18 +11,21 @@ type CheckoutSuccessData = {
     totalPrice: number;
     discount: number;
     subtotal: number;
-    email: string;
-    name: string;
-    address: string;
-    city: string;
-    country: string;
-    phone: string;
     itemsCount: number;
     placedAt: string;
+    email?: string;
+    name?: string;
+    address?: string;
+    city?: string;
+    country?: string;
+    phone?: string;
 };
 
 const CheckoutSuccessPage = () => {
     const { userData, loading } = useAuth();
+    const location = useLocation();
+    const routeData = (location.state as { checkoutSuccess?: CheckoutSuccessData } | null)?.checkoutSuccess || null;
+
     const orderData = useMemo(() => {
         try {
             const stored = sessionStorage.getItem("checkoutSuccess");
@@ -30,6 +34,15 @@ const CheckoutSuccessPage = () => {
             return null;
         }
     }, []);
+
+    useEffect(() => {
+        if (orderData) {
+            sessionStorage.removeItem("checkoutSuccess");
+        }
+    }, [orderData]);
+
+    const combinedData = routeData || orderData;
+
     return (
         <Layout>
             <Helmet>
@@ -48,43 +61,43 @@ const CheckoutSuccessPage = () => {
                 </p>
                 <strong className="success__container__title">Your order is confirmed</strong>
                 <p className="success__container__subtitle">
-                    We’re preparing your items. A confirmation email will be sent shortly.
+                    We&apos;re preparing your items. A confirmation email will be sent shortly.
                 </p>
 
                 <section className="success__container__summary">
                     <div>
                         <span>Order ID</span>
-                        <strong>{orderData?.orderId || "Pending"}</strong>
+                        <strong>{combinedData?.orderId || "Pending"}</strong>
                     </div>
                     <div>
                         <span>Total</span>
-                        <strong>${(orderData?.totalPrice ?? 0).toFixed(2)}</strong>
+                        <strong>${(combinedData?.totalPrice ?? 0).toFixed(2)}</strong>
                     </div>
                     <div>
                         <span>Discount</span>
-                        <strong>${(orderData?.discount ?? 0).toFixed(2)}</strong>
+                        <strong>${(combinedData?.discount ?? 0).toFixed(2)}</strong>
                     </div>
                     <div>
                         <span>Items</span>
-                        <strong>{orderData?.itemsCount ?? 0}</strong>
+                        <strong>{combinedData?.itemsCount ?? 0}</strong>
                     </div>
                 </section>
 
                 <section className="success__container__details">
                     <div>
                         <h4>Shipping details</h4>
-                        <p>{orderData?.name || "—"}</p>
-                        <p>{orderData?.address || "—"}</p>
-                        <p>{[orderData?.city, orderData?.country].filter(Boolean).join(", ") || "—"}</p>
-                        <p>{orderData?.phone || "—"}</p>
+                        <p>{combinedData?.name || "—"}</p>
+                        <p>{combinedData?.address || "—"}</p>
+                        <p>{[combinedData?.city, combinedData?.country].filter(Boolean).join(", ") || "—"}</p>
+                        <p>{combinedData?.phone || "—"}</p>
                     </div>
                     <div>
                         <h4>Contact</h4>
-                        <p>{orderData?.email || userData?.email || "—"}</p>
+                        <p>{combinedData?.email || userData?.email || "—"}</p>
                         <p>
                             Placed on{" "}
-                            {orderData?.placedAt
-                                ? new Date(orderData.placedAt).toLocaleString("en-GB")
+                            {combinedData?.placedAt
+                                ? new Date(combinedData.placedAt).toLocaleString("en-GB")
                                 : new Date().toLocaleString("en-GB")}
                         </p>
                     </div>
