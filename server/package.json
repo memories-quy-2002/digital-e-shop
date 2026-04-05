@@ -9,14 +9,14 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
-        "@vercel/blob": "^2.3.2",
+        "@vercel/blob": "^2.3.3",
         "bcryptjs": "^3.0.3",
         "body-parser": "^2.2.2",
         "cookie-parser": "^1.4.7",
         "cors": "^2.8.6",
         "csrf-csrf": "^4.0.3",
-        "dotenv": "^17.3.1",
-        "eslint": "^10.1.0",
+        "dotenv": "^17.4.1",
+        "eslint": "^10.2.0",
         "express": "^5.2.1",
         "express-rate-limit": "^8.3.2",
         "fs": "0.0.1-security",
@@ -28,7 +28,7 @@
         "mysql2": "^3.20.0",
         "path": "^0.12.7",
         "streamifier": "^0.1.1",
-        "vercel": "^50.37.3"
+        "vercel": "^50.39.0"
     },
     "devDependencies": {
         "globals": "^17.4.0",
