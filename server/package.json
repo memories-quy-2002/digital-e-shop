@@ -28,7 +28,7 @@
         "mysql2": "^3.20.0",
         "path": "^0.12.7",
         "streamifier": "^0.1.1",
-        "vercel": "^50.39.0"
+        "vercel": "^50.40.0"
     },
     "devDependencies": {
         "globals": "^17.4.0",
