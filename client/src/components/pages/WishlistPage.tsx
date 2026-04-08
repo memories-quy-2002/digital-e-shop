@@ -6,6 +6,7 @@ import "../../styles/WishlistPage.scss";
 import PaginatedItems from "../common/PaginatedItems";
 import { Helmet } from "react-helmet";
 import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
 
 interface Wishlist {
     id: number;
@@ -16,6 +17,7 @@ const WishlistPage = () => {
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
     const { userData } = useAuth();
     const uid = userData?.id || null;
+    const { addToast } = useToast();
     useEffect(() => {
         const fetchWishlist = async () => {
             try {
@@ -34,16 +36,16 @@ const WishlistPage = () => {
                     });
 
                     setWishlist(newWishlist);
-                    console.log(response.data.msg);
                 }
             } catch (err) {
-                console.error(err);
+                if (uid) {
+                    addToast("Wishlist", "Unable to load wishlist.");
+                }
             }
         };
         fetchWishlist();
         return () => {};
     }, [uid]);
-    console.log("Wishlist:", wishlist);
 
     return (
         <Layout>

@@ -4,6 +4,7 @@ import axios from "../../api/axios";
 import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Helmet } from "react-helmet";
+import { useToast } from "../../context/ToastContext";
 
 interface CartProps {
     cartItemId: number;
@@ -42,6 +43,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
     const navigate = useNavigate();
     const { userData, loading } = useAuth();
     const uid = userData?.id || "";
+    const { addToast } = useToast();
     const [formCheckout, setFormCheckout] = useState<CheckoutForm>({
         email: "",
         first_name: "",
@@ -81,6 +83,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
         }
         if (!uid) {
             setErrors(["You must be logged in to complete checkout."]);
+            addToast("Checkout", "Please login to complete checkout.");
             return;
         }
         try {
@@ -92,7 +95,6 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                 shippingAddress: formCheckout.address,
             });
             if (response.status === 201) {
-                console.log(response.data.msg);
                 const orderId =
                     response.data?.order?.id ||
                     response.data?.orderId ||
@@ -121,19 +123,11 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
         } catch (err: unknown) {
             if (err && typeof err === "object" && "response" in err) {
                 const axiosError = err as { response: { status: number; data: { msg: string } } };
-                const status = axiosError.response.status;
-                const data = axiosError.response.data;
                 setErrors([axiosError.response.data.msg]);
-                if (status === 400) {
-                    console.error("Bad request: ", data.msg);
-                } else if (status === 500) {
-                    console.error("Internal server error: ", data.msg);
-                } else {
-                    console.error(`Error: ${status} - ${data.msg}`);
-                }
+                addToast("Checkout", axiosError.response.data.msg || "Checkout failed.");
             } else if (err instanceof Error) {
-                console.error(err.message);
                 setErrors(["An unexpected error occurred."]);
+                addToast("Checkout", "An unexpected error occurred.");
             }
         }
     };

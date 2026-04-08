@@ -33,7 +33,6 @@ const CartPage = () => {
     const [totalPrice, setTotalPrice] = useState<number>(0);
     const [discount, setDiscount] = useState<number>(0);
     const [subtotal, setSubtotal] = useState<number>(0);
-    console.log(totalPrice, discount);
     const [error, setError] = useState<string>("");
     const [show, setShow] = useState<boolean>(false);
     const [isPayment, setIsPayment] = useState<boolean>(false);
@@ -64,12 +63,11 @@ const CartPage = () => {
                     data: { cartItemId },
                 });
                 if (response.status === 200) {
-                    console.log(response.data.msg);
                     setCart((cart) => cart.filter((cart) => cart.cartItemId !== cartItemId));
                     addToast("Remove Cart item", "Item removed from cart successfully");
                 }
             } catch (err) {
-                console.error(err);
+                addToast("Remove Cart item", "Unable to remove item from cart.");
             }
         },
         [addToast],
@@ -97,7 +95,6 @@ const CartPage = () => {
                     addToast("Applying Coupon", "Internal server error, please try again later");
                 }
                 setError(`Status code: ${errorResponse.status}, Message: ${errorResponse.data.msg}`);
-                console.error(`${errorResponse.data.msg}`);
             }
         }
     };
@@ -121,7 +118,7 @@ const CartPage = () => {
                     setCart(cartItems);
                 }
             } catch (err) {
-                console.error(err);
+                addToast("Cart", "Unable to load cart items.");
             }
         };
 

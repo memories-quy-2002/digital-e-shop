@@ -33,7 +33,6 @@ export const Header = (): JSX.Element => {
                 navigate("/");
             }
         } catch (err) {
-            console.error("Logout failed", err);
             addToast("Logout failed", "Please try again.");
             setUserData(null);
         }

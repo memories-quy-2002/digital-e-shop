@@ -6,6 +6,7 @@ import { Role } from "../../../utils/interface";
 import AccountItem from "../../common/admin/AdminAccountItem";
 import AdminLayout from "../../layout/AdminLayout";
 import { Helmet } from "react-helmet";
+import { useToast } from "../../../context/ToastContext";
 
 interface Account {
     id: string;
@@ -26,13 +27,16 @@ const AdminAccountPage = () => {
     const [itemOffset, setItemOffset] = useState(0);
     const [searchTerm, setSearchTerm] = useState<string>("");
     const [filteredAccounts, setFilteredAccounts] = useState<Account[]>(accounts);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalAccounts, setTotalAccounts] = useState(0);
+    const { addToast } = useToast();
     const endOffset = itemOffset + ITEMS_PER_PAGE;
     const currentAccounts = filteredAccounts.slice(itemOffset, endOffset);
     const pageCount = Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE);
 
     const handlePageClick = (event: any) => {
-        const newOffset = (event.selected * ITEMS_PER_PAGE) % accounts.length;
-        setItemOffset(newOffset);
+        setItemOffset(0);
+        setCurrentPage(event.selected + 1);
     };
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,7 +51,7 @@ const AdminAccountPage = () => {
     useEffect(() => {
         const fetchUsers = async () => {
             try {
-                const response = await axios.get(`/api/users/`);
+                const response = await axios.get(`/api/users?page=${currentPage}&limit=${ITEMS_PER_PAGE}`);
                 if (response.status === 200) {
                     const newAccounts: Account[] = response.data.accounts.map((account: Account) => {
                         return {
@@ -61,14 +65,15 @@ const AdminAccountPage = () => {
                                 new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
                         ),
                     );
+                    setTotalAccounts(response.data.pagination?.total ?? response.data.accounts.length);
                 }
             } catch (err) {
-                console.error(err);
+                addToast("Accounts", "Unable to load accounts.");
             }
         };
         fetchUsers();
         return () => {};
-    }, []);
+    }, [addToast, currentPage]);
 
     useEffect(() => {
         const filtered = accounts.filter((account) => {
@@ -103,7 +108,7 @@ const AdminAccountPage = () => {
                 <section className="admin__summary">
                     <div className="admin__summary-card">
                         <span>Total accounts</span>
-                        <strong>{accounts.length}</strong>
+                        <strong>{totalAccounts || accounts.length}</strong>
                         <p>All users</p>
                     </div>
                     <div className="admin__summary-card">
@@ -171,8 +176,9 @@ const AdminAccountPage = () => {
                                 nextLabel="Next"
                                 onPageChange={handlePageClick}
                                 pageRangeDisplayed={5}
-                                pageCount={pageCount}
+                                pageCount={Math.ceil((totalAccounts || filteredAccounts.length) / ITEMS_PER_PAGE)}
                                 previousLabel="Previous"
+                                forcePage={currentPage - 1}
                                 renderOnZeroPageCount={null}
                             />
                         </div>

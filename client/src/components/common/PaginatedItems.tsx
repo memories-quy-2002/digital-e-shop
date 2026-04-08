@@ -77,7 +77,6 @@ const PaginatedItems = ({
                     },
                 });
                 if (response.status === 200) {
-                    console.log(response.data.msg);
                     setCurrentWishlist((prevWishlist) => prevWishlist.filter((item) => item.product.id !== product_id));
                     addToast("Remove wishlist item", "Item removed from wishlist successfully");
                 }
@@ -87,7 +86,6 @@ const PaginatedItems = ({
                     pid: product_id,
                 });
                 if (response.status === 200) {
-                    console.log(response.data.msg);
                     const newProduct = productById.get(product_id);
                     if (newProduct) {
                         setCurrentWishlist((list) => [
@@ -102,7 +100,7 @@ const PaginatedItems = ({
                 }
             }
         } catch (err) {
-            console.error(err);
+            addToast("Wishlist", "Unable to update wishlist.");
         }
     }, [addToast, productById, uid, wishlistIdSet]);
 
@@ -114,12 +112,11 @@ const PaginatedItems = ({
                 },
             });
             if (response.status === 200) {
-                console.log(response.data.msg);
                 addToast("Remove wishlist item", "Item removed from wishlist successfully.");
                 setCurrentWishlist((prevWishlist) => prevWishlist.filter((item) => item.product.id !== product_id));
             }
         } catch (err) {
-            console.error(err);
+            addToast("Wishlist", "Unable to remove wishlist item.");
         }
     }, [addToast]);
 
@@ -142,11 +139,10 @@ const PaginatedItems = ({
                 quantity: 1,
             });
             if (response.status === 200) {
-                console.log(response.data.msg);
                 addToast("Add cart item", "Product added to cart successfully");
             }
         } catch (err) {
-            console.error(err);
+            addToast("Add cart item", "Unable to add item to cart.");
         }
     }, [addToast, productById, uid]);
 
@@ -156,7 +152,6 @@ const PaginatedItems = ({
             return;
         }
         const newOffset = (event.selected * itemsPerPage) % items.length;
-        console.log(`User requested page number ${event.selected}, which is offset ${newOffset}`);
         setItemOffset(newOffset);
     }, [items.length, itemsPerPage, onPageChange, serverSide]);
 

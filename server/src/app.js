@@ -84,6 +84,7 @@ const cartRoutes = require("./routes/cartRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
 const wishlistRoutes = require("./routes/wishlistRoutes");
+const blobRoutes = require("./routes/blobRoutes");
 
 app.use("/api/users/login", authLimiter);
 app.use("/api/users/register", authLimiter);
@@ -96,6 +97,7 @@ app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/wishlist", wishlistRoutes);
+app.use("/api/blob", blobRoutes);
 
 // Fallback routes for serverless environments that strip the /api prefix
 app.use("/users/login", authLimiter);
@@ -106,6 +108,7 @@ app.use("/cart", cartRoutes);
 app.use("/orders", orderRoutes);
 app.use("/reviews", reviewRoutes);
 app.use("/wishlist", wishlistRoutes);
+app.use("/blob", blobRoutes);
 
 app.get('/get-user', (req, res) => {
     res.send(req.cookies);

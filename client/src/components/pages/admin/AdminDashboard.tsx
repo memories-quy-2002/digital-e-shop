@@ -7,6 +7,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import AdminLayout from "../../layout/AdminLayout";
 import { Table } from "react-bootstrap";
 import { Helmet } from "react-helmet";
+import { useToast } from "../../../context/ToastContext";
 
 interface CardProps {
     title: string;
@@ -89,6 +90,7 @@ const AdminDashboard = () => {
     const [productTotal, setProductTotal] = useState(0);
     const [orderTotal, setOrderTotal] = useState(0);
     const [userTotal, setUserTotal] = useState(0);
+    const { addToast } = useToast();
 
     useEffect(() => {
         const fetchData = async () => {
@@ -115,10 +117,9 @@ const AdminDashboard = () => {
                 if (orderItemResponse.status === 200) {
                     setOrderItems(orderItemResponse.data.orderItems);
                 } else if (orderItemResponse.status === 500) {
-                    console.error("Internal server error: ", orderItemResponse.data.msg);
                 }
             } catch (err) {
-                console.error(err);
+                addToast("Dashboard", "Unable to load dashboard data.");
             }
         };
         fetchData();

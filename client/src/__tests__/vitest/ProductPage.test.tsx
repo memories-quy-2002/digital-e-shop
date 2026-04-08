@@ -353,6 +353,7 @@ describe("ProductPage", () => {
                 pid: 1,
                 rating: 5,
                 reviewText: "Test review",
+                comment: "Test review",
             });
         });
 

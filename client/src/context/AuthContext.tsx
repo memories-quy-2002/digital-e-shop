@@ -52,7 +52,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     setUserData(null);
                 }
             } catch (err) {
-                console.error("Error fetching user data", err);
                 setUserData(null);
             } finally {
                 setLoading(false);
@@ -70,7 +69,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 sessionStorage.removeItem("userData");
             }
         } catch (err) {
-            console.error("Failed to persist user data", err);
         }
     }, [userData]);
 

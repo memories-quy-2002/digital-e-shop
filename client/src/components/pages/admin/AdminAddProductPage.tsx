@@ -11,6 +11,7 @@ interface ProductData {
     name: string;
     description: string;
     image: File | null;
+    imageUrl?: string;
     category: string;
     brand: string;
     specifications: string;
@@ -24,6 +25,7 @@ const AdminAddProductPage = () => {
         name: "",
         description: "",
         image: null,
+        imageUrl: "",
         category: "",
         brand: "",
         specifications: "",
@@ -31,6 +33,7 @@ const AdminAddProductPage = () => {
         inventory: 0,
     });
     const [error, setError] = useState<string | null>(null);
+    const [uploading, setUploading] = useState(false);
     const { addToast } = useToast();
 
     const handleInputChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -40,7 +43,31 @@ const AdminAddProductPage = () => {
 
     const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files![0];
-        setProductData((prevData) => ({ ...prevData, image: file }));
+        setProductData((prevData) => ({ ...prevData, image: file, imageUrl: "" }));
+    };
+
+    const handleUploadToBlob = async () => {
+        if (!productData.image) {
+            addToast("Upload image", "Please choose an image first.");
+            return;
+        }
+        setUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", productData.image);
+            const response = await axios.post("/api/blob/upload", formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
+            if (response.status === 200) {
+                const url = response.data?.url || "";
+                setProductData((prevData) => ({ ...prevData, imageUrl: url }));
+                addToast("Upload image", "Image uploaded to Blob successfully.");
+            }
+        } catch (uploadErr) {
+            addToast("Upload image", "Unable to upload image.");
+        } finally {
+            setUploading(false);
+        }
     };
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -51,9 +78,12 @@ const AdminAddProductPage = () => {
                 const value = productData[key];
                 if (value !== null) {
                     if (typeof value === "string") {
+                        if (key === "imageUrl" && value === "") return;
                         formData.append(key, value);
                     } else if (value instanceof File) {
-                        formData.append(key, value);
+                        if (!productData.imageUrl) {
+                            formData.append(key, value);
+                        }
                     } else if (typeof value === "number") {
                         formData.append(key, value.toString());
                     }
@@ -66,12 +96,12 @@ const AdminAddProductPage = () => {
             });
             if (response.status === 200) {
                 setError(null);
-                console.log(response.data.msg);
                 addToast("Adding product", "Product has been added successfully");
                 navigate("/admin/products");
             }
         } catch (error) {
             setError(error instanceof Error ? error.message : "An unknown error occurred");
+            addToast("Adding product", "Unable to add product.");
         }
     };
 
@@ -152,6 +182,24 @@ const AdminAddProductPage = () => {
                                         <Form.Text className="text-muted">
                                             Upload a high-quality image (JPG, PNG)
                                         </Form.Text>
+                                        <div className="admin__form-upload">
+                                            <button
+                                                type="button"
+                                                className="admin__button admin__button--ghost"
+                                                onClick={handleUploadToBlob}
+                                                disabled={uploading}
+                                            >
+                                                {uploading ? "Uploading..." : "Upload to Blob"}
+                                            </button>
+                                            {productData.imageUrl ? (
+                                                <span className="admin__form-upload__status">Uploaded</span>
+                                            ) : null}
+                                        </div>
+                                        {productData.imageUrl ? (
+                                            <div className="admin__form-upload__preview">
+                                                <img src={productData.imageUrl} alt="Uploaded preview" />
+                                            </div>
+                                        ) : null}
                                     </Form.Group>
 
                                     <Form.Group className="mb-3" controlId="formSpecifications">

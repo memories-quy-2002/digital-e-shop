@@ -95,8 +95,7 @@ const HomePage = () => {
                 }
             }
         } catch (error) {
-            console.error("Wishlist error:", error);
-            addToast("Error", "Something went wrong");
+            addToast("Wishlist", "Unable to update wishlist. Please try again.");
         }
     };
 
@@ -115,7 +114,7 @@ const HomePage = () => {
                 addToast("Add cart item", "Product added to cart successfully");
             }
         } catch (err) {
-            console.error(err);
+            addToast("Add cart item", "Unable to add item to cart.");
         }
     };
 
@@ -135,7 +134,7 @@ const HomePage = () => {
                     setProducts(response.data.products);
                 }
             } catch (err) {
-                console.error(err);
+                addToast("Products", "Unable to load products right now.");
             }
         };
         fetchProducts();
@@ -162,7 +161,9 @@ const HomePage = () => {
                     }
                 }
             } catch (err) {
-                console.error(err);
+                if (uid) {
+                    addToast("Wishlist", "Unable to load wishlist.");
+                }
             }
         };
         fetchWishlist();
@@ -188,7 +189,8 @@ const HomePage = () => {
 
     const recommendedProducts = useMemo(() => {
         if (uid && userRecommendations.length > 0) {
-            return allProducts.filter((product) => userRecommendations.includes(product.id));
+            const matches = allProducts.filter((product) => userRecommendations.includes(product.id));
+            return matches.length > 0 ? matches : allProducts.slice(0, DISPLAYED_NUMBER);
         }
         return allProducts.slice(0, DISPLAYED_NUMBER);
     }, [allProducts, uid, userRecommendations]);

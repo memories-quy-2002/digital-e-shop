@@ -9,6 +9,7 @@ import { Role } from "../../utils/interface";
 import { Helmet } from "react-helmet";
 import bgImage from "../../assets/images/background_form.jpg";
 import { AxiosError } from "axios";
+import { useToast } from "../../context/ToastContext";
 
 interface User {
     username: string;
@@ -19,6 +20,7 @@ interface User {
 }
 const SignupPage = () => {
     const navigate = useNavigate();
+    const { addToast } = useToast();
     const [user, setUser] = useState<User>({
         username: "",
         email: "",
@@ -96,6 +98,7 @@ const SignupPage = () => {
                     uid,
                 });
                 if (response.status === 200) {
+                    addToast("Signup", "Account created successfully.");
                     if (user.role === Role.Customer) {
                         navigate("/");
                     } else if (user.role === Role.Admin) {
@@ -110,18 +113,20 @@ const SignupPage = () => {
                     setErrors([msg]);
 
                     if (status === 401) {
-                        console.error("Unauthorized access. Please check your credentials.");
+                        addToast("Signup failed", "Unauthorized. Please try again.");
                     } else if (status === 500) {
-                        console.error("Internal Server Error. Please try again later.");
+                        addToast("Signup failed", "Server error. Please try again later.");
                     } else if (status) {
-                        console.error(`Error: ${status}`);
+                        addToast("Signup failed", msg);
+                    } else {
+                        addToast("Signup failed", "Unable to create account.");
                     }
                 } else if (err instanceof Error) {
-                    console.error(err.message);
                     setErrors(["An unexpected error occurred."]);
+                    addToast("Signup failed", "An unexpected error occurred.");
                 } else {
-                    console.error("Unknown error");
                     setErrors(["An unexpected error occurred."]);
+                    addToast("Signup failed", "An unexpected error occurred.");
                 }
             }
         }

@@ -475,6 +475,34 @@
     margin-top: 1.5rem;
 }
 
+.admin__form-upload {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+.admin__form-upload__status {
+    font-size: 0.85rem;
+    color: #16a34a;
+    font-weight: 600;
+}
+
+.admin__form-upload__preview {
+    margin-top: 0.75rem;
+    border-radius: 14px;
+    padding: 0.5rem;
+    background: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.admin__form-upload__preview img {
+    width: 100%;
+    max-height: 220px;
+    object-fit: contain;
+    border-radius: 12px;
+}
+
 .admin__dashboard__metrics {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

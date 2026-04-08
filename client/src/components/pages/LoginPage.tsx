@@ -76,7 +76,6 @@ const LoginPage = () => {
             });
 
             if (response.status === 200) {
-                console.log(response.data);
                 setUserData(response.data.userData);
                 addToast("Login", "You have been logon successfully");
                 if (user.role === Role.Admin) {
@@ -91,18 +90,18 @@ const LoginPage = () => {
                 const status = axiosError.response.status;
                 setErrors([axiosError.response.data.msg]);
                 if (status === 401) {
-                    console.error("Unauthorized access. Please check your credentials.");
+                    addToast("Login failed", "Please check your credentials.");
                 } else if (status === 500) {
-                    console.error("Internal Server Error. Please try again later.");
+                    addToast("Login failed", "Server error. Please try again later.");
                 } else {
-                    console.error(`Error: ${status}`);
+                    addToast("Login failed", "Unable to login. Please try again.");
                 }
             } else if (err instanceof Error) {
-                console.error(err.message);
                 setErrors(["An unexpected error occurred."]);
+                addToast("Login failed", "An unexpected error occurred.");
             } else {
-                console.error("Unknown error");
                 setErrors(["An unexpected error occurred."]);
+                addToast("Login failed", "An unexpected error occurred.");
             }
         }
     };

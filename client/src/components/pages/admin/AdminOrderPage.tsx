@@ -24,15 +24,16 @@ const AdminOrderPage = () => {
     const [itemOffset, setItemOffset] = useState(0);
     const [searchTerm, setSearchTerm] = useState<string>("");
     const [filteredOrders, setFilteredOrders] = useState<Order[]>(orders);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalOrders, setTotalOrders] = useState(0);
 
     const { addToast } = useToast();
     const endOffset = itemOffset + ITEMS_PER_PAGE;
     const currentOrders = filteredOrders.slice(itemOffset, endOffset);
-    const pageCount = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
 
     const handlePageClick = (event: any) => {
-        const newOffset = (event.selected * ITEMS_PER_PAGE) % orders.length;
-        setItemOffset(newOffset);
+        setItemOffset(0);
+        setCurrentPage(event.selected + 1);
     };
 
     const handleChangeStatus = async (status: number, orderId: number) => {
@@ -42,7 +43,7 @@ const AdminOrderPage = () => {
             });
             if (response.status === 200) {
                 const updatedOrders = orders.map((order) =>
-                    order.id === response.data.order.id ? response.data.order : order
+                    order.id === response.data.order.id ? response.data.order : order,
                 );
                 setOrders(updatedOrders);
                 addToast("Update Order Status", "Order status updated successfully");
@@ -57,7 +58,6 @@ const AdminOrderPage = () => {
                 } else if (errorResponse.status === 500) {
                     addToast("Update Order Status", "Internal server error, please try again later");
                 }
-                console.error(`${errorResponse.data.msg}`);
             }
         }
     };
@@ -74,18 +74,18 @@ const AdminOrderPage = () => {
     useEffect(() => {
         const fetchOrders = async () => {
             try {
-                const response = await axios.get(`/api/orders`);
+                const response = await axios.get(`/api/orders?page=${currentPage}&limit=${ITEMS_PER_PAGE}`);
                 if (response.status === 200) {
                     setOrders(response.data.orders);
-                    console.log(response.data.msg);
+                    setTotalOrders(response.data.pagination?.total ?? response.data.orders.length);
                 }
             } catch (err) {
-                console.error(err);
+                addToast("Orders", "Unable to load orders.");
             }
         };
         fetchOrders();
         return () => {};
-    }, []);
+    }, [addToast, currentPage]);
 
     useEffect(() => {
         const filtered = orders.filter((order) => {
@@ -99,7 +99,9 @@ const AdminOrderPage = () => {
         setFilteredOrders(filtered);
         return () => {};
     }, [searchTerm, orders]);
-
+    useEffect(() => {
+        console.log("Orders updated:", orders);
+    }, [orders]);
     return (
         <AdminLayout>
             <Helmet>
@@ -118,7 +120,7 @@ const AdminOrderPage = () => {
                 <section className="admin__summary">
                     <div className="admin__summary-card">
                         <span>Total orders</span>
-                        <strong>{orders.length}</strong>
+                        <strong>{totalOrders || orders.length}</strong>
                         <p>All time</p>
                     </div>
                     <div className="admin__summary-card">
@@ -220,8 +222,9 @@ const AdminOrderPage = () => {
                                 nextLabel="Next"
                                 onPageChange={handlePageClick}
                                 pageRangeDisplayed={5}
-                                pageCount={pageCount}
+                                pageCount={Math.ceil((totalOrders || filteredOrders.length) / ITEMS_PER_PAGE)}
                                 previousLabel="Previous"
+                                forcePage={currentPage - 1}
                                 renderOnZeroPageCount={null}
                             />
                         </div>

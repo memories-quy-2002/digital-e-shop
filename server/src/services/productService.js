@@ -10,16 +10,23 @@ function extractFileName(url) {
 }
 
 async function addSingleProductService(data, file) {
-    const { name, description, category, brand, specifications, price, inventory } = data;
+    const { name, description, category, brand, specifications, price, inventory, imageUrl } = data;
 
     // Upload image to Vercel Blob
     const imageName = name.toLowerCase().replace(/ /g, "_").replace(/-/g, "_");
-    const imageBuffer = file.buffer;
     const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (!token) throw new Error("BLOB_READ_WRITE_TOKEN is not set");
 
-    const blob = await put(`uploads/${imageName}.jpg`, imageBuffer, { access: "public", token });
-    const fileName = extractFileName(blob.url);
+    let fileName = "";
+    if (imageUrl) {
+        fileName = extractFileName(imageUrl);
+    } else if (file) {
+        const imageBuffer = file.buffer;
+        const blob = await put(`uploads/${imageName}.jpg`, imageBuffer, { access: "public", token });
+        fileName = extractFileName(blob.url);
+    } else {
+        throw new Error("Product image is required");
+    }
 
     // Transaction
     await pool.query("START TRANSACTION");

@@ -112,10 +112,9 @@ const ProductPage = () => {
                 const response = await axios.get(`/api/products/${pid}`);
                 if (response.status === 200) {
                     setProductDetail(response.data.product);
-                    console.log(response.data.msg);
                 }
             } catch (err) {
-                console.error(err);
+                addToast("Product", "Unable to load product details.");
             }
         };
         fetchSingleProduct();
@@ -128,10 +127,9 @@ const ProductPage = () => {
                 const response = await axios.get("/api/products?page=1&limit=60");
                 if (response.status === 200) {
                     setProducts(response.data.products);
-                    console.log(response.data.msg);
                 }
             } catch (err) {
-                console.error(err);
+                addToast("Products", "Unable to load products.");
             }
         };
         fetchAllProducts();
@@ -142,7 +140,6 @@ const ProductPage = () => {
         const fetchWishlist = async () => {
             try {
                 const response = await axios.get(`/api/wishlist/${uid}`);
-                console.log(response);
 
                 if (response.status === 200) {
                     const newWishlist: Wishlist[] = response.data.wishlist.map((item: any) => {
@@ -158,10 +155,11 @@ const ProductPage = () => {
                     });
 
                     setWishlist(newWishlist);
-                    console.log(response.data.msg);
                 }
             } catch (err) {
-                console.error(err);
+                if (uid) {
+                    addToast("Wishlist", "Unable to load wishlist.");
+                }
             }
         };
         fetchWishlist();
@@ -189,10 +187,9 @@ const ProductPage = () => {
                                 return indexA - indexB;
                             }),
                     );
-                    console.log(response.data.msg);
                 }
             } catch (err) {
-                console.error(err);
+                addToast("Recommendations", "Unable to load relevant products.");
             }
         };
         fetchRelevantProducts();
@@ -204,7 +201,6 @@ const ProductPage = () => {
         const fetchReviews = async () => {
             try {
                 const response = await axios.get(`/api/reviews/${productDetail.id}`);
-                console.log(response);
 
                 if (response.status === 200) {
                     setReviews(
@@ -217,10 +213,9 @@ const ProductPage = () => {
                             };
                         }),
                     );
-                    console.log(response.data.msg);
                 }
             } catch (err) {
-                console.error(err);
+                addToast("Reviews", "Unable to load reviews.");
             }
         };
         fetchReviews();
@@ -260,16 +255,19 @@ const ProductPage = () => {
                 return;
             }
         }
-        const response = await axios.post("/api/cart/", {
-            uid: user_id,
-            pid: product.id,
-            quantity: quantity,
-        });
-        if (response.status === 200) {
-            console.log(response.data.msg);
-            addToast("Add cart item", "Product added to cart successfully.");
-        } else if (response.status === 204) {
-            addToast("Invalid action", "The product is already in your cart.");
+        try {
+            const response = await axios.post("/api/cart/", {
+                uid: user_id,
+                pid: product.id,
+                quantity: quantity,
+            });
+            if (response.status === 200) {
+                addToast("Add cart item", "Product added to cart successfully.");
+            } else if (response.status === 204) {
+                addToast("Invalid action", "The product is already in your cart.");
+            }
+        } catch (err) {
+            addToast("Add cart item", "Unable to add item to cart.");
         }
     };
 
@@ -287,7 +285,6 @@ const ProductPage = () => {
                     },
                 });
                 if (response.status === 200) {
-                    console.log(response.data.msg);
                     setWishlist((list) => list.filter((item) => item.product.id !== product_id));
                     addToast("Remove wishlist item", "Item removed from wishlist successfully");
                 }
@@ -305,38 +302,70 @@ const ProductPage = () => {
                             product: newProduct,
                         },
                     ]);
-                    console.log(response.data.msg);
                     addToast("Add wishlist item", "Item added to wishlist successfully");
                 }
             }
         } catch (err) {
-            console.error(err);
+            addToast("Wishlist", "Unable to update wishlist.");
         }
     };
 
     const handleSubmitReview = async (uid: string, pid: number, rating: number, reviewText: string) => {
-        if (ratingScore === 0) {
+        if (!uid) {
+            addToast("Login required", "You need to login to use this feature.");
+            return;
+        }
+        if (rating === 0) {
             addToast("Invalid rating", "The rating score should be from 1 to 5");
             return;
         }
+        if (!reviewText.trim()) {
+            addToast("Invalid review", "Please enter your review before submitting.");
+            return;
+        }
 
-        const response = await axios.post("/api/reviews/", {
-            uid,
-            pid,
-            rating,
-            reviewText,
-        });
+        try {
+            const response = await axios.post("/api/reviews/", {
+                uid,
+                pid,
+                rating,
+                reviewText,
+                comment: reviewText,
+            });
 
-        if (response.status === 200) {
-            console.log(response.data.msg);
-            addToast("Submit review", "Review has been submitted successfully.");
-            window.location.reload();
+            if (response.status === 200 || response.status === 201) {
+                addToast("Submit review", "Review has been submitted successfully.");
+                setReviewText("");
+                setRatingScore(0);
+
+                const [reviewsResponse, productResponse] = await Promise.all([
+                    axios.get(`/api/reviews/${pid}`),
+                    axios.get(`/api/products/${pid}`),
+                ]);
+
+                if (reviewsResponse.status === 200) {
+                    setReviews(
+                        reviewsResponse.data.reviews.map((review: any) => {
+                            return {
+                                username: review.username,
+                                rating: review.rating,
+                                reviewText: review.review_text,
+                                created_at: review.created_at,
+                            };
+                        }),
+                    );
+                } else if (reviewsResponse.status === 204) {
+                    setReviews([]);
+                }
+
+                if (productResponse.status === 200) {
+                    setProductDetail(productResponse.data.product);
+                }
+            }
+        } catch (err) {
+            addToast("Submit review", "Unable to submit review.");
         }
     };
-
-    useEffect(() => {
-        console.log(reviews);
-    }, [reviews]);
 
     if (pid <= 0) {
         return <NoPage />;

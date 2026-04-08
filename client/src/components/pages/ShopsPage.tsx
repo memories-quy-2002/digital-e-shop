@@ -8,6 +8,7 @@ import PaginatedItems from "../common/PaginatedItems";
 import Layout from "../layout/Layout";
 import { Helmet } from "react-helmet";
 import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
 
 const MAX_PRICE_RANGE: number = 5000;
 const ITEMS_PER_PAGE = 6;
@@ -44,6 +45,7 @@ const ShopsPage = () => {
     const location = useLocation();
     const { userData } = useAuth();
     const uid = userData?.id || "";
+    const { addToast } = useToast();
 
     const updateURL = useCallback(
         (newFilters: Filters) => {
@@ -164,10 +166,9 @@ const ShopsPage = () => {
                     } else {
                         setTotalProducts(response.data.products.length);
                     }
-                    console.log(response.data.msg);
                 }
             } catch (err) {
-                console.error(err);
+                addToast("Products", "Unable to load products right now.");
             } finally {
                 setIsLoading(false);
             }
@@ -194,11 +195,12 @@ const ShopsPage = () => {
                         });
 
                         setWishlist(newWishlist);
-                        console.log(response.data.msg);
                     }
                 }
             } catch (err) {
-                console.error(err);
+                if (uid) {
+                    addToast("Wishlist", "Unable to load wishlist.");
+                }
             }
         };
         fetchWishlist();

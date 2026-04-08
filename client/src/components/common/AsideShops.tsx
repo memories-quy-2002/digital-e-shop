@@ -33,7 +33,6 @@ const AsideShops = ({
         setCategories([...new Set(products.map((product) => product.category))]);
         setBrands([...new Set(products.map((product) => product.brand))]);
     }, [products]);
-    console.log("Filter: ", filters);
 
     return (
         <aside className="shops__container__aside">

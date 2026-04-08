@@ -30,7 +30,6 @@ const AdminHeader = () => {
             await signOut(auth);
             addToast("Logout successfully", response.data?.msg || "Logged out");
         } catch (err: Error | unknown) {
-            console.error(err);
             addToast("Logout", "You have been logged out.");
         } finally {
             navigate("/login");

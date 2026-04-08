@@ -7,6 +7,7 @@ import { Product } from "../../../utils/interface";
 import AdminLayout from "../../layout/AdminLayout";
 import AdminProductItem from "../../common/admin/AdminProductItem";
 import { Helmet } from "react-helmet";
+import { useToast } from "../../../context/ToastContext";
 
 const ITEMS_PER_PAGE = 5;
 
@@ -19,6 +20,7 @@ const AdminProductPage = () => {
     const [pid, setPid] = useState<number>(0);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalProducts, setTotalProducts] = useState(0);
+    const { addToast } = useToast();
 
     const currentProducts = filteredProducts;
     const pageCount = Math.ceil((totalProducts || filteredProducts.length) / ITEMS_PER_PAGE);
@@ -47,11 +49,10 @@ const AdminProductPage = () => {
                 data: { pid },
             });
             if (response.status === 200) {
-                console.log(response.data.msg);
                 window.location.reload();
             }
         } catch (err) {
-            console.error(err);
+            addToast("Delete product", "Unable to delete product.");
         }
     };
 
@@ -68,11 +69,11 @@ const AdminProductPage = () => {
                     setTotalProducts(response.data.pagination?.total ?? response.data.products.length);
                 }
             } catch (err) {
-                console.error(err);
+                addToast("Products", "Unable to load products.");
             }
         };
         fetchProducts();
-    }, [currentPage]);
+    }, [addToast, currentPage]);
 
     useEffect(() => {
         const filtered = products.filter((product) => {
