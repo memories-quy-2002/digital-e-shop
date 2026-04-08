@@ -30,6 +30,8 @@ const ShopsPage = () => {
     const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalProducts, setTotalProducts] = useState(0);
     const [filters, setFilters] = useState<Filters>({
         term: "",
         categories: [],
@@ -151,12 +153,17 @@ const ShopsPage = () => {
 
     useEffect(() => {
         const fetchProducts = async () => {
-            setIsLoading(true); // Set loading state to indicate data fetching
+            setIsLoading(true);
             try {
-                const response = await axios.get("/api/products");
+                const response = await axios.get(`/api/products?page=${currentPage}&limit=${ITEMS_PER_PAGE}`);
                 if (response.status === 200) {
                     setProducts(response.data.products);
                     setFilteredProducts(response.data.products);
+                    if (response.data.pagination) {
+                        setTotalProducts(response.data.pagination.total || 0);
+                    } else {
+                        setTotalProducts(response.data.products.length);
+                    }
                     console.log(response.data.msg);
                 }
             } catch (err) {
@@ -167,7 +174,7 @@ const ShopsPage = () => {
         };
         fetchProducts();
         return () => {};
-    }, []);
+    }, [currentPage]);
 
     useEffect(() => {
         const fetchWishlist = async () => {
@@ -207,9 +214,26 @@ const ShopsPage = () => {
                 />
             </Helmet>
             <main className="shops">
-                <h2 className="shops__title">Shops Products</h2>
-                <div className="shops__topbar">
-                    <div className="shops__topbar__search">
+                <header className="shops__header">
+                    <div>
+                        <span className="shops__header__eyebrow">Shop Digital-E</span>
+                        <h1>Browse curated electronics for every workspace</h1>
+                        <p>Filter by category, brand, and price to find your next upgrade.</p>
+                    </div>
+                    <div className="shops__header__summary">
+                        <div>
+                            <strong>{filteredProducts.length}</strong>
+                            <span>Results</span>
+                        </div>
+                        <div>
+                            <strong>{totalProducts || products.length}</strong>
+                            <span>Total products</span>
+                        </div>
+                    </div>
+                </header>
+
+                <div className="shops__toolbar">
+                    <div className="shops__toolbar__search">
                         <input
                             type="text"
                             placeholder="Search products, brands, categories..."
@@ -221,36 +245,39 @@ const ShopsPage = () => {
                                 }
                             }}
                         />
+                        <button type="button" onClick={applyFilters}>
+                            Search
+                        </button>
                     </div>
-                    <div className="shops__topbar__meta">
-                        <span>{filteredProducts.length} results</span>
-                    </div>
-                    <div className="shops__topbar__controls">
+                    <div className="shops__toolbar__controls">
                         <select value={filters.sortBy} onChange={handleSortChange}>
                             <option value="relevance">Sort: Relevance</option>
                             <option value="price-asc">Price: Low to High</option>
                             <option value="price-desc">Price: High to Low</option>
                             <option value="rating-desc">Rating: High to Low</option>
                         </select>
-                        <button type="button" className="shops__topbar__apply" onClick={applyFilters}>
-                            Apply
+                        <button type="button" className="primary" onClick={applyFilters}>
+                            Apply filters
                         </button>
-                        <button type="button" className="shops__topbar__reset" onClick={handleResetFilters}>
-                            Clear
+                        <button type="button" className="ghost" onClick={handleResetFilters}>
+                            Reset
                         </button>
                     </div>
                 </div>
-                <div className="shops__container">
-                    <AsideShops
-                        products={products}
-                        filters={filters}
-                        onCheckboxChange={handleCheckboxChange}
-                        onPriceRangeChange={handlePriceRangeChange}
-                        onApplyFilters={applyFilters}
-                    />
-                    <section data-testid="shops__container" className="shops__container__main">
+
+                <div className="shops__layout">
+                    <aside className="shops__layout__aside">
+                        <AsideShops
+                            products={products}
+                            filters={filters}
+                            onCheckboxChange={handleCheckboxChange}
+                            onPriceRangeChange={handlePriceRangeChange}
+                            onApplyFilters={applyFilters}
+                        />
+                    </aside>
+                    <section data-testid="shops__container" className="shops__layout__main">
                         {isLoading ? (
-                            <p>Loading products...</p>
+                            <div className="shops__layout__loading">Loading products...</div>
                         ) : (
                             <PaginatedItems
                                 itemsPerPage={ITEMS_PER_PAGE}
@@ -258,6 +285,10 @@ const ShopsPage = () => {
                                 uid={uid}
                                 wishlist={wishlist}
                                 isWishlistPage={false}
+                                serverSide
+                                totalItems={totalProducts}
+                                currentPage={currentPage}
+                                onPageChange={setCurrentPage}
                             />
                         )}
                     </section>

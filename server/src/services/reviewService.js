@@ -2,7 +2,7 @@ const Review = require('../models/reviewModel');
 
 async function addReview(uid, pid, rating, comment) {
     return new Promise((resolve, reject) => {
-        Review.getReviewsByProductId(productId, (err, results) => {
+        Review.getReviewsByProductId(pid, (err, results) => {
             if (err) {
                 return reject(err);
             }
@@ -34,7 +34,27 @@ async function getReviews(pid) {
     })
 }
 
+async function getReviewsPaginated(pid, limit, offset) {
+    return new Promise((resolve, reject) => {
+        Review.getReviewsPaginated(pid, limit, offset, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        })
+    })
+}
+
+async function getReviewsCount(pid) {
+    return new Promise((resolve, reject) => {
+        Review.getReviewsCount(pid, (err, results) => {
+            if (err) return reject(err);
+            resolve(results[0]?.total || 0);
+        })
+    })
+}
+
 module.exports = {
     addReview,
-    getReviews
+    getReviews,
+    getReviewsPaginated,
+    getReviewsCount
 }

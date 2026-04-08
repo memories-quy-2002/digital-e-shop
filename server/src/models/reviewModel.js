@@ -1,7 +1,7 @@
 const pool = require("../config/db");
 
 const getReviewsByProductId = (pid, callback) => {
-    pool.query('SELECT reviews, rating FROM products WHERE id = ?', [productId], callback);
+    pool.query('SELECT reviews, rating FROM products WHERE id = ?', [pid], callback);
 }
 
 const addReviewByUserId = (uid, pid, rating, reviewText, callback) => {
@@ -19,9 +19,28 @@ const getReviews = (pid, callback) => {
     );
 }
 
+const getReviewsPaginated = (pid, limit, offset, callback) => {
+    pool.query(
+        `SELECT u.username, r.rating, r.review_text, r.created_at
+        FROM reviews r
+        JOIN users u ON u.id = r.user_id
+        WHERE r.product_id = ?
+        ORDER BY r.created_at DESC
+        LIMIT ? OFFSET ?`,
+        [pid, limit, offset],
+        callback
+    );
+}
+
+const getReviewsCount = (pid, callback) => {
+    pool.query("SELECT COUNT(*) AS total FROM reviews WHERE product_id = ?", [pid], callback);
+}
+
 module.exports = {
     getReviewsByProductId,
     addReviewByUserId,
     updateProductReviews,
-    getReviews
+    getReviews,
+    getReviewsPaginated,
+    getReviewsCount
 };

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { Button, Modal, Table } from "react-bootstrap";
 import ReactPaginate from "react-paginate";
 import { useNavigate } from "react-router-dom";
@@ -9,23 +9,19 @@ import AdminProductItem from "../../common/admin/AdminProductItem";
 import { Helmet } from "react-helmet";
 
 const ITEMS_PER_PAGE = 5;
-const LAZY_LOAD_BATCH = 10;
 
 const AdminProductPage = () => {
     const navigate = useNavigate();
     const [products, setProducts] = useState<Product[]>([]);
-    const [itemOffset, setItemOffset] = useState(0);
     const [searchTerm, setSearchTerm] = useState<string>("");
     const [filteredProducts, setFilteredProducts] = useState<Product[]>(products);
     const [show, setShow] = useState<boolean>(false);
     const [pid, setPid] = useState<number>(0);
-    const [visibleCount, setVisibleCount] = useState(LAZY_LOAD_BATCH);
-    const observer = useRef<IntersectionObserver | null>(null);
-    const loadMoreRef = useRef<HTMLDivElement | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalProducts, setTotalProducts] = useState(0);
 
-    const endOffset = itemOffset + ITEMS_PER_PAGE;
-    const currentProducts = filteredProducts.slice(itemOffset, Math.min(endOffset, visibleCount));
-    const pageCount = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+    const currentProducts = filteredProducts;
+    const pageCount = Math.ceil((totalProducts || filteredProducts.length) / ITEMS_PER_PAGE);
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const searchValue = event.target.value;
@@ -60,28 +56,27 @@ const AdminProductPage = () => {
     };
 
     const handlePageClick = (event: any) => {
-        const newOffset = (event.selected * ITEMS_PER_PAGE) % products.length;
-        setItemOffset(newOffset);
+        setCurrentPage(event.selected + 1);
     };
 
     useEffect(() => {
         const fetchProducts = async () => {
             try {
-                const response = await axios.get("/api/products");
+                const response = await axios.get(`/api/products?page=${currentPage}&limit=${ITEMS_PER_PAGE}`);
                 if (response.status === 200) {
                     setProducts(response.data.products.sort((a: Product, b: Product) => a.id - b.id));
+                    setTotalProducts(response.data.pagination?.total ?? response.data.products.length);
                 }
             } catch (err) {
                 console.error(err);
             }
         };
         fetchProducts();
-    }, []);
+    }, [currentPage]);
 
     useEffect(() => {
         const filtered = products.filter((product) => {
             const lowerSearchTerm = searchTerm.toLowerCase();
-            setItemOffset(0);
             return (
                 product.name.toLowerCase().includes(lowerSearchTerm) ||
                 product.category.toLowerCase().includes(lowerSearchTerm) ||
@@ -89,29 +84,7 @@ const AdminProductPage = () => {
             );
         });
         setFilteredProducts(filtered);
-        setVisibleCount(LAZY_LOAD_BATCH);
     }, [searchTerm, products]);
-
-    const loadMore = useCallback(() => {
-        setVisibleCount((prev) => Math.min(prev + LAZY_LOAD_BATCH, filteredProducts.length));
-    }, [filteredProducts.length]);
-
-    useEffect(() => {
-        if (!loadMoreRef.current) return;
-        if (observer.current) observer.current.disconnect();
-
-        observer.current = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting && visibleCount < filteredProducts.length) {
-                loadMore();
-            }
-        });
-
-        observer.current.observe(loadMoreRef.current);
-
-        return () => {
-            if (observer.current) observer.current.disconnect();
-        };
-    }, [loadMore, visibleCount, filteredProducts.length]);
 
     return (
         <AdminLayout>
@@ -138,7 +111,7 @@ const AdminProductPage = () => {
                 <section className="admin__summary">
                     <div className="admin__summary-card">
                         <span>Total products</span>
-                        <strong>{products.length}</strong>
+                        <strong>{totalProducts || products.length}</strong>
                         <p>All listings</p>
                     </div>
                     <div className="admin__summary-card">
@@ -215,10 +188,10 @@ const AdminProductPage = () => {
                                 pageRangeDisplayed={5}
                                 pageCount={pageCount}
                                 previousLabel="Previous"
+                                forcePage={currentPage - 1}
                                 renderOnZeroPageCount={null}
                             />
                         </div>
-                        <div ref={loadMoreRef} style={{ height: 1 }} />
                         <Modal show={show} onHide={handleClose} animation={false}>
                             <Modal.Header closeButton>
                                 <Modal.Title>Delete product</Modal.Title>

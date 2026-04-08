@@ -1,7 +1,9 @@
 import axios from "axios";
+
 declare module "axios" {
     export interface AxiosRequestConfig {
         handlerEnabled?: boolean;
+        _retry?: boolean;
     }
 }
 
@@ -24,6 +26,15 @@ const api = axios.create({
     handlerEnabled: true,
 });
 
+const fetchCsrfToken = async () => {
+    const response = await csrfClient.get("/api/csrf");
+    const token = response.data?.csrfToken || "";
+    if (token) {
+        csrfTokenCache = token;
+    }
+    return token;
+};
+
 api.interceptors.request.use(async (config) => {
     const method = (config.method || "get").toLowerCase();
     const isSafe = method === "get" || method === "head" || method === "options";
@@ -32,11 +43,7 @@ api.interceptors.request.use(async (config) => {
     let token = csrfTokenCache;
     if (!token) {
         try {
-            const response = await csrfClient.get("/api/csrf");
-            token = response.data?.csrfToken || "";
-            if (token) {
-                csrfTokenCache = token;
-            }
+            token = await fetchCsrfToken();
         } catch {
             return config;
         }
@@ -51,5 +58,33 @@ api.interceptors.request.use(async (config) => {
 
     return config;
 });
+
+api.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        const config = error.config;
+        const status = error.response?.status;
+        const errorMsg = error.response?.data?.error || error.response?.data?.msg;
+
+        if (status === 403 && !config?._retry && String(errorMsg).includes("CSRF")) {
+            try {
+                config._retry = true;
+                csrfTokenCache = "";
+                const token = await fetchCsrfToken();
+                if (token) {
+                    config.headers = {
+                        ...config.headers,
+                        [csrfHeaderName]: token,
+                    };
+                }
+                return api(config);
+            } catch {
+                return Promise.reject(error);
+            }
+        }
+
+        return Promise.reject(error);
+    }
+);
 
 export default api;

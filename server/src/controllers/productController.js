@@ -31,6 +31,34 @@ function getSingleProduct(req, res) {
 }
 
 function getListProduct(req, res) {
+    const page = Number(req.query.page);
+    const limit = Number(req.query.limit);
+    const usePagination = Number.isInteger(page) && page > 0 && Number.isInteger(limit) && limit > 0;
+    const safeLimit = usePagination ? Math.min(limit, 100) : null;
+    const offset = usePagination ? (page - 1) * safeLimit : 0;
+
+    if (usePagination) {
+        Product.getAllProductsPaginated(safeLimit, offset, (err, results) => {
+            if (err) return res.status(500).json({ msg: "Internal server error" });
+            Product.getProductsCount((countErr, countResults) => {
+                if (countErr) return res.status(500).json({ msg: "Internal server error" });
+                const total = countResults?.[0]?.total || 0;
+                if (results.length === 0) return res.status(204).json({ msg: "No product found" });
+                return res.status(200).json({
+                    products: results,
+                    pagination: {
+                        page,
+                        limit: safeLimit,
+                        total,
+                        totalPages: Math.ceil(total / safeLimit),
+                    },
+                    msg: "Get list products successfully",
+                });
+            });
+        });
+        return;
+    }
+
     Product.getAllProducts((err, results) => {
         if (err) return res.status(500).json({ msg: "Internal server error" });
         if (results.length === 0) return res.status(204).json({ msg: "No product found" });

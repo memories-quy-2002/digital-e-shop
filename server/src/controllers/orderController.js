@@ -3,11 +3,31 @@ const orderService = require("../services/orderService");
 
 async function getOrders(req, res) {
     try {
+        const page = Number(req.query.page);
+        const limit = Number(req.query.limit);
+        const usePagination = Number.isInteger(page) && page > 0 && Number.isInteger(limit) && limit > 0;
+        const safeLimit = usePagination ? Math.min(limit, 100) : null;
+        const offset = usePagination ? (page - 1) * safeLimit : 0;
+
+        if (usePagination) {
+            const [orders, total] = await Promise.all([
+                orderService.getOrdersPaginated(safeLimit, offset),
+                orderService.getOrdersCount(),
+            ]);
+            return res.status(200).json({
+                orders,
+                pagination: {
+                    page,
+                    limit: safeLimit,
+                    total,
+                    totalPages: Math.ceil(total / safeLimit),
+                },
+                msg: "Orders retrieved successfully",
+            });
+        }
+
         const orders = await orderService.getOrders();
-        return res.status(200).json({
-            orders,
-            msg: "Orders retrieved successfully",
-        });
+        return res.status(200).json({ orders, msg: "Orders retrieved successfully" });
     } catch (err) {
         console.error(err);
         return res.status(500).json({ msg: err.message });
@@ -16,6 +36,29 @@ async function getOrders(req, res) {
 
 async function getOrderItems(req, res) {
     try {
+        const page = Number(req.query.page);
+        const limit = Number(req.query.limit);
+        const usePagination = Number.isInteger(page) && page > 0 && Number.isInteger(limit) && limit > 0;
+        const safeLimit = usePagination ? Math.min(limit, 100) : null;
+        const offset = usePagination ? (page - 1) * safeLimit : 0;
+
+        if (usePagination) {
+            const [results, total] = await Promise.all([
+                orderService.getOrderItemsPaginated(safeLimit, offset),
+                orderService.getOrderItemsCount(),
+            ]);
+            return res.status(200).json({
+                orderItems: results,
+                pagination: {
+                    page,
+                    limit: safeLimit,
+                    total,
+                    totalPages: Math.ceil(total / safeLimit),
+                },
+                msg: "Products sales and revenue retrieved successfully",
+            });
+        }
+
         const results = await orderService.getOrderItems();
         return res.status(200).json({
             orderItems: results,

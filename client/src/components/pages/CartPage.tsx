@@ -153,45 +153,69 @@ const CartPage = () => {
                     />
                 ) : (
                     <>
-                        {" "}
-                        <h2 className="cart__container__title">Shopping Cart</h2>
-                        <main className="cart__container__box">
-                            <section className="cart__container__box__main">
-                                <div className="cart__container__box__main__list">
-                                    {cart.map((item) => (
-                                        <CartItem
-                                            key={item.cartItemId}
-                                            item={item}
-                                            handleQuantityChange={handleQuantityChange}
-                                            handleRemoveCartItem={handleRemoveCartItem}
-                                        />
-                                    ))}
+                        <header className="cart__header">
+                            <div>
+                                <span className="cart__header__eyebrow">Your cart</span>
+                                <h2>Review your items before checkout</h2>
+                                <p>Update quantities, apply a coupon, and get ready to place your order.</p>
+                            </div>
+                            <div className="cart__header__summary">
+                                <div>
+                                    <strong>{cart.length}</strong>
+                                    <span>Items</span>
                                 </div>
-                                <div className="cart__container__box__main__buttons">
-                                    <button
-                                        className="cart__container__box__main__buttons__continue"
-                                        onClick={() => navigate("/")}
-                                    >
+                                <div>
+                                    <strong>${subtotal.toFixed(2)}</strong>
+                                    <span>Estimated total</span>
+                                </div>
+                            </div>
+                        </header>
+
+                        <main className="cart__layout">
+                            <section className="cart__layout__main">
+                                <div className="cart__layout__list">
+                                    {cart.length === 0 ? (
+                                        <div className="cart__layout__empty">
+                                            <h3>Your cart is empty</h3>
+                                            <p>Browse our collection and add items to your cart.</p>
+                                            <button type="button" onClick={() => navigate("/shops")}>
+                                                Shop now
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        cart.map((item) => (
+                                            <CartItem
+                                                key={item.cartItemId}
+                                                item={item}
+                                                handleQuantityChange={handleQuantityChange}
+                                                handleRemoveCartItem={handleRemoveCartItem}
+                                            />
+                                        ))
+                                    )}
+                                </div>
+
+                                <div className="cart__layout__actions">
+                                    <button className="ghost" onClick={() => navigate("/")}>
                                         <BsArrowLeft /> Continue shopping
                                     </button>
-                                    <button
-                                        className="cart__container__box__main__buttons__purchase"
-                                        onClick={handleShow}
-                                    >
-                                        Make purchase <BsArrowRight />
+                                    <button className="primary" onClick={handleShow} disabled={cart.length === 0}>
+                                        Proceed to checkout <BsArrowRight />
                                     </button>
                                 </div>
-                                <div className="cart__container__box__main__notification">
-                                    Free delivery for 1-2 days
+                                <div className="cart__layout__note">
+                                    Free delivery in 1-2 business days for orders over $50.
                                 </div>
                             </section>
-                            <AsideCart
-                                totalPrice={totalPrice}
-                                discount={discount}
-                                subtotal={subtotal}
-                                error={error}
-                                applyDiscount={applyDiscount}
-                            />
+
+                            <aside className="cart__layout__aside">
+                                <AsideCart
+                                    totalPrice={totalPrice}
+                                    discount={discount}
+                                    subtotal={subtotal}
+                                    error={error}
+                                    applyDiscount={applyDiscount}
+                                />
+                            </aside>
                         </main>
                     </>
                 )}

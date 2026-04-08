@@ -23,14 +23,40 @@ const addReview = (req, res) => {
 async function getReviews(req, res) {
     const pid = req.params.pid;
     try {
+        const page = Number(req.query.page);
+        const limit = Number(req.query.limit);
+        const usePagination = Number.isInteger(page) && page > 0 && Number.isInteger(limit) && limit > 0;
+        const safeLimit = usePagination ? Math.min(limit, 50) : null;
+        const offset = usePagination ? (page - 1) * safeLimit : 0;
+
+        if (usePagination) {
+            const [results, total] = await Promise.all([
+                reviewService.getReviewsPaginated(pid, safeLimit, offset),
+                reviewService.getReviewsCount(pid),
+            ]);
+            if (results.length > 0) {
+                return res.status(200).json({
+                    reviews: results,
+                    pagination: {
+                        page,
+                        limit: safeLimit,
+                        total,
+                        totalPages: Math.ceil(total / safeLimit),
+                    },
+                    msg: "Reviews have been retrieved successfully",
+                });
+            }
+            return res.status(204).json({ msg: "No reviews found for this product" });
+        }
+
         const results = await reviewService.getReviews(pid);
         if (results.length > 0) {
             return res.status(200).json({
                 reviews: results,
-                msg: 'Reviews have been retrieved successfully',
+                msg: "Reviews have been retrieved successfully",
             });
         } else {
-            return res.status(204).json({ msg: 'No reviews found for this product' });
+            return res.status(204).json({ msg: "No reviews found for this product" });
         }
     } catch (err) {
         console.error(err);

@@ -1,33 +1,180 @@
 .about {
-    background: #f9f9f9;
-    padding: 2rem;
-    border-radius: 8px;
+    padding: 2.5rem 2rem 3.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+    background: radial-gradient(circle at top left, rgba(99, 102, 241, 0.12), transparent 55%);
 
-    &__title {
-        font-size: 28px;
-        font-weight: bold;
-        margin-bottom: 1.5rem;
+    @media (min-width: 1024px) {
+        padding: 3.5rem 4rem 4rem;
     }
 
-    &__content,
-    &__mission,
-    &__team {
+    &__hero {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
         background: #fff;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        border-radius: 24px;
+        padding: 2.5rem;
+        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
 
-        h3 {
-            font-size: 20px;
-            font-weight: bold;
-            margin-bottom: 0.75rem;
+        h1 {
+            font-size: clamp(2rem, 3vw, 3rem);
+            color: #0f172a;
+            margin: 0;
         }
 
         p {
-            font-size: 15px;
-            color: #444;
-            line-height: 1.6;
+            color: #475569;
+            max-width: 720px;
+        }
+
+        &__badge {
+            width: fit-content;
+            background: #0f172a;
+            color: #fff;
+            padding: 0.35rem 0.85rem;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        &__stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 1rem;
+            div {
+                background: #f8fafc;
+                border-radius: 14px;
+                padding: 1rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.35rem;
+            }
+            strong {
+                font-size: 1.4rem;
+                color: #0f172a;
+            }
+            span {
+                color: #64748b;
+                font-size: 0.9rem;
+            }
+        }
+    }
+
+    &__values {
+        h2 {
+            margin-bottom: 1rem;
+            color: #0f172a;
+        }
+
+        &__grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.25rem;
+        }
+
+        &__card {
+            background: #fff;
+            border-radius: 18px;
+            padding: 1.5rem;
+            box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
+            h3 {
+                margin-bottom: 0.5rem;
+                color: #1e293b;
+            }
+            p {
+                color: #64748b;
+                margin: 0;
+            }
+        }
+    }
+
+    &__story {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2rem;
+
+        @media (min-width: 1024px) {
+            grid-template-columns: 1.1fr 1fr;
+            align-items: center;
+        }
+
+        &__content {
+            background: #fff;
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+            h2 {
+                color: #0f172a;
+                margin-bottom: 1rem;
+            }
+            p {
+                color: #475569;
+                line-height: 1.7;
+            }
+        }
+
+        &__milestones {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+
+            &__item {
+                background: #0f172a;
+                color: #fff;
+                padding: 1rem 1.5rem;
+                border-radius: 16px;
+                display: flex;
+                gap: 1rem;
+                align-items: center;
+                strong {
+                    font-size: 1.2rem;
+                }
+                p {
+                    margin: 0;
+                    color: rgba(248, 250, 252, 0.75);
+                }
+            }
+        }
+    }
+
+    &__team {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+
+        &__intro {
+            h2 {
+                margin-bottom: 0.5rem;
+                color: #0f172a;
+            }
+            p {
+                color: #64748b;
+                max-width: 720px;
+            }
+        }
+
+        &__grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.25rem;
+        }
+
+        &__card {
+            background: #fff;
+            border-radius: 18px;
+            padding: 1.5rem;
+            box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+            h4 {
+                margin-bottom: 0.5rem;
+                color: #1e293b;
+            }
+            p {
+                color: #64748b;
+                margin: 0;
+            }
         }
     }
 }

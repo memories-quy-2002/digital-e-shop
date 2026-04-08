@@ -37,29 +37,31 @@ async function makePurchase(uid, { totalPrice, cart, discount, subtotal, shippin
             const orderId = orderResult.insertId;
             console.log("[makePurchase] order inserted", { orderId });
 
-            for (const product of cart) {
-                console.log("[makePurchase] insertOrderItem", {
-                    orderId,
-                    productId: product.productId,
-                    quantity: product.quantity,
-                });
+            const orderItemsValues = cart.map((product) => [
+                orderId,
+                product.productId,
+                product.quantity,
+                (product.sale_price ? product.sale_price : product.price) * product.quantity,
+            ]);
+
+            if (orderItemsValues.length > 0) {
+                console.log("[makePurchase] insertOrderItems", { orderId, count: orderItemsValues.length });
                 await q(
-                    "INSERT INTO order_items (order_id, product_id, quantity, total_price) VALUES (?, ?, ?, ?)",
-                    [
-                        orderId,
-                        product.productId,
-                        product.quantity,
-                        (product.sale_price ? product.sale_price : product.price) * product.quantity,
-                    ]
+                    "INSERT INTO order_items (order_id, product_id, quantity, total_price) VALUES ?",
+                    [orderItemsValues]
                 );
-                console.log("[makePurchase] updateProductStock", {
-                    productId: product.productId,
-                    quantity: product.quantity,
-                });
-                await q("UPDATE products SET stock = stock - ? WHERE id = ?", [
-                    product.quantity,
-                    product.productId,
-                ]);
+
+                const ids = orderItemsValues.map((item) => item[1]);
+                const cases = orderItemsValues.map(() => "WHEN ? THEN ?");
+                const caseValues = orderItemsValues.flatMap((item) => [item[1], item[2]]);
+
+                console.log("[makePurchase] updateProductStock", { count: ids.length });
+                await q(
+                    `UPDATE products
+                    SET stock = stock - CASE id ${cases.join(" ")} END
+                    WHERE id IN (${ids.map(() => "?").join(", ")})`,
+                    [...caseValues, ...ids]
+                );
             }
 
             await commit();
@@ -92,6 +94,24 @@ async function getOrders() {
     });
 }
 
+async function getOrdersPaginated(limit, offset) {
+    return new Promise((resolve, reject) => {
+        Order.getOrdersPaginated(limit, offset, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
+async function getOrdersCount() {
+    return new Promise((resolve, reject) => {
+        Order.getOrdersCount((err, results) => {
+            if (err) return reject(err);
+            resolve(results[0]?.total || 0);
+        });
+    });
+}
+
 async function changeOrderStatus(orderId, status) {
     return new Promise((resolve, reject) => {
         Order.updateOrderStatus(orderId, status, (err) => {
@@ -115,6 +135,24 @@ async function getOrderItems() {
     });
 }
 
+async function getOrderItemsPaginated(limit, offset) {
+    return new Promise((resolve, reject) => {
+        Order.getOrderItemsPaginated(limit, offset, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
+async function getOrderItemsCount() {
+    return new Promise((resolve, reject) => {
+        Order.getOrderItemsCount((err, results) => {
+            if (err) return reject(err);
+            resolve(results[0]?.total || 0);
+        });
+    });
+}
+
 async function applyDiscount(discountCode) {
     return new Promise((resolve, reject) => {
         Order.applyDiscount(discountCode, (err, results) => {
@@ -128,7 +166,11 @@ async function applyDiscount(discountCode) {
 module.exports = {
     makePurchase,
     getOrders,
+    getOrdersPaginated,
+    getOrdersCount,
     changeOrderStatus,
     getOrderItems,
+    getOrderItemsPaginated,
+    getOrderItemsCount,
     applyDiscount,
 };

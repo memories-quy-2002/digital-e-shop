@@ -15,15 +15,15 @@ const allowedOrigins = ["http://localhost:5173", "https://digital-e.vercel.app"]
 const vercelPreviewPattern = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
 
 const corsOptions = {
-	origin: (origin, callback) => {
-		// Allow requests with no origin (like mobile apps, curl, Postman, server-to-server)
-		if (!origin) return callback(null, true);
-		if (allowedOrigins.includes(origin) || vercelPreviewPattern.test(origin)) {
-			return callback(null, true);
-		}
-		// Do not throw here; let CORS respond without a hard error
-		return callback(null, false);
-	},
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps, curl, Postman, server-to-server)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin) || vercelPreviewPattern.test(origin)) {
+            return callback(null, true);
+        }
+        // Do not throw here; let CORS respond without a hard error
+        return callback(null, false);
+    },
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
     credentials: true,
@@ -108,7 +108,7 @@ app.use("/reviews", reviewRoutes);
 app.use("/wishlist", wishlistRoutes);
 
 app.get('/get-user', (req, res) => {
-	res.send(req.cookies);
+    res.send(req.cookies);
 });
 
 app.get('/clear-user', (req, res) => {
@@ -135,7 +135,7 @@ app.use((err, req, res, next) => {
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-	console.log(`Server is running on port ${PORT}.`);
+    console.log(`Server is running on port ${PORT}.`);
 });
 
 module.exports = app;

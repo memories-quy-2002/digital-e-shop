@@ -125,7 +125,7 @@ const ProductPage = () => {
     useEffect(() => {
         const fetchAllProducts = async () => {
             try {
-                const response = await axios.get("/api/products");
+                const response = await axios.get("/api/products?page=1&limit=60");
                 if (response.status === 200) {
                     setProducts(response.data.products);
                     console.log(response.data.msg);

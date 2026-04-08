@@ -86,26 +86,32 @@ const AdminDashboard = () => {
     const [orders, setOrders] = useState<Order[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+    const [productTotal, setProductTotal] = useState(0);
+    const [orderTotal, setOrderTotal] = useState(0);
+    const [userTotal, setUserTotal] = useState(0);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const productResponse = await axios.get("/api/products/");
+                const productResponse = await axios.get("/api/products?page=1&limit=100");
                 if (productResponse.status === 200) {
                     setProducts(productResponse.data.products);
+                    setProductTotal(productResponse.data.pagination?.total ?? productResponse.data.products.length);
                 }
 
-                const orderResponse = await axios.get(`/api/orders/`);
+                const orderResponse = await axios.get(`/api/orders?page=1&limit=100`);
                 if (orderResponse.status === 200) {
                     setOrders(orderResponse.data.orders);
+                    setOrderTotal(orderResponse.data.pagination?.total ?? orderResponse.data.orders.length);
                 }
 
-                const userResponse = await axios.get(`/api/users/`);
+                const userResponse = await axios.get(`/api/users?page=1&limit=100`);
                 if (userResponse.status === 200) {
                     setUsers(userResponse.data.accounts);
+                    setUserTotal(userResponse.data.pagination?.total ?? userResponse.data.accounts.length);
                 }
 
-                const orderItemResponse = await axios.get(`/api/orders/item`);
+                const orderItemResponse = await axios.get(`/api/orders/item?page=1&limit=100`);
                 if (orderItemResponse.status === 200) {
                     setOrderItems(orderItemResponse.data.orderItems);
                 } else if (orderItemResponse.status === 500) {
@@ -274,17 +280,17 @@ const AdminDashboard = () => {
                     </div>
                     <div>
                         <span>Products</span>
-                        <strong>{products.length}</strong>
+                        <strong>{productTotal || products.length}</strong>
                         <p>Active listings</p>
                     </div>
                     <div>
                         <span>Users</span>
-                        <strong>{users.length}</strong>
+                        <strong>{userTotal || users.length}</strong>
                         <p>Registered</p>
                     </div>
                     <div>
                         <span>Orders</span>
-                        <strong>{orders.length}</strong>
+                        <strong>{orderTotal || orders.length}</strong>
                         <p>All time</p>
                     </div>
                     <div>
@@ -313,14 +319,14 @@ const AdminDashboard = () => {
                     />
                     <Card
                         title="Products"
-                        value={products.length}
+                        value={productTotal || products.length}
                         description="Active listings"
                         accent="green"
                         icon={<FaBox />}
                     />
                     <Card
                         title="Users"
-                        value={users.length}
+                        value={userTotal || users.length}
                         description="Registered accounts"
                         accent="teal"
                         icon={<FaUser />}

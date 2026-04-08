@@ -37,17 +37,20 @@ const CartItem = ({ item, handleQuantityChange, handleRemoveCartItem }: CartItem
                 <p>Category: {item.category}</p>
                 <p>Brand: {item.brand}</p>
             </div>
-            <input
-                type="number"
-                name="quantity"
-                aria-label={`cart-${item.cartItemId}-quantity`}
-                id={`cart-${item.cartItemId}-quantity`}
-                min={1}
-                value={item.quantity}
-                onChange={(event) => handleQuantityChange(item.cartItemId, event)}
-            />
+            <div className="cart__container__box__main__list__item__qty">
+                <label htmlFor={`cart-${item.cartItemId}-quantity`}>Qty</label>
+                <input
+                    type="number"
+                    name="quantity"
+                    aria-label={`cart-${item.cartItemId}-quantity`}
+                    id={`cart-${item.cartItemId}-quantity`}
+                    min={1}
+                    value={item.quantity}
+                    onChange={(event) => handleQuantityChange(item.cartItemId, event)}
+                />
+            </div>
             <div className="cart__container__box__main__list__item__price">
-                <strong style={{ fontSize: "20px" }}>${(productPrice * item.quantity).toFixed(2)}</strong>
+                <strong>${(productPrice * item.quantity).toFixed(2)}</strong>
                 <p>${productPrice.toFixed(2)} each</p>
             </div>
             <button type="button" onClick={() => handleRemoveCartItem(item.cartItemId)}>

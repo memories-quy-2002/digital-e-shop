@@ -49,6 +49,14 @@ const getOrders = (callback) => {
     query(`SELECT * FROM orders`, callback);
 };
 
+const getOrdersPaginated = (limit, offset, callback) => {
+    query(`SELECT * FROM orders ORDER BY date_added DESC LIMIT ? OFFSET ?`, [limit, offset], callback);
+};
+
+const getOrdersCount = (callback) => {
+    query(`SELECT COUNT(*) AS total FROM orders`, callback);
+};
+
 const updateOrderStatus = (orderId, status, callback) => {
     query(`UPDATE orders SET status = ? WHERE id = ?`, [status, orderId], callback);
 };
@@ -81,6 +89,45 @@ const getOrderItems = (callback) => {
     );
 };
 
+const getOrderItemsPaginated = (limit, offset, callback) => {
+    query(
+        `SELECT 
+            p.id,
+            p.name,
+            p.price,
+            oi.order_id,
+            SUM(oi.quantity) AS sales,
+            SUM(oi.total_price) AS revenue
+        FROM 
+            products p
+        JOIN 
+            order_items oi ON p.id = oi.product_id
+        JOIN 
+            orders o ON oi.order_id = o.id
+        GROUP BY 
+            p.id, p.name, p.price, oi.order_id
+        ORDER BY 
+            revenue DESC
+        LIMIT ? OFFSET ?;
+        `,
+        [limit, offset],
+        callback
+    );
+};
+
+const getOrderItemsCount = (callback) => {
+    query(
+        `SELECT COUNT(*) AS total FROM (
+            SELECT p.id
+            FROM products p
+            JOIN order_items oi ON p.id = oi.product_id
+            JOIN orders o ON oi.order_id = o.id
+            GROUP BY p.id, p.name, p.price, oi.order_id
+        ) AS grouped_items`,
+        callback
+    );
+};
+
 const applyDiscount = (discountCode, callback) => {
     query(`SELECT * FROM discount WHERE discount_code = ?`, [discountCode], callback);
 };
@@ -94,8 +141,12 @@ module.exports = {
     insertOrderItem,
     updateProductStock,
     getOrders,
+    getOrdersPaginated,
+    getOrdersCount,
     getOrderById,
     updateOrderStatus,
     getOrderItems,
+    getOrderItemsPaginated,
+    getOrderItemsCount,
     applyDiscount,
 };

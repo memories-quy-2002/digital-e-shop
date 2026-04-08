@@ -13,7 +13,7 @@ const addItemToCartByUserId = (uid, pid, quantity, callback) => {
 
 const getCartIdByUserId = (uid, callback) => {
     pool.query(
-        "SELECT id FROM cart WHERE user_id = ? AND done = 0",
+        "SELECT id FROM cart WHERE user_id = ? AND done = 0 LIMIT 1",
         [uid],
         callback
     );
@@ -31,7 +31,7 @@ const addItemToCart = (cartId, pid, quantity, callback) => {
 
 const getCartItemsByUserId = (uid, callback) => {
     pool.query(
-        `SELECT id FROM cart WHERE user_id = ? AND done = 0`,
+        `SELECT id FROM cart WHERE user_id = ? AND done = 0 LIMIT 1`,
         [uid],
         callback
     );

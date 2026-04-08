@@ -4,12 +4,22 @@
     display: flex;
     flex-direction: column;
     border-top: 1px solid rgba(148, 163, 184, 0.2);
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+
+    * {
+        box-sizing: border-box;
+    }
 
     &__top {
         display: grid;
-        grid-template-columns: 1fr 2.2fr;
-        gap: 3rem;
-        padding: 3rem 2.5rem;
+        grid-template-columns: 1fr 2fr;
+        gap: 2rem;
+        padding: 2.5rem 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+        width: 100%;
     }
 
     &__brand {
@@ -51,8 +61,8 @@
 
     &__grid {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1.25rem;
     }
 
     &__col {
@@ -111,10 +121,13 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 1.4rem 2.5rem 2rem;
+        padding: 1.1rem 2rem 1.5rem;
         border-top: 1px solid rgba(148, 163, 184, 0.15);
         font-size: 0.85rem;
         color: #64748b;
+        max-width: 1200px;
+        margin: 0 auto;
+        width: 100%;
         &__links {
             display: flex;
             gap: 1rem;
@@ -135,7 +148,7 @@
 
     @media screen and (max-width: 768px) {
         &__top {
-            padding: 2.5rem 1.5rem;
+            padding: 2rem 1.25rem;
         }
         &__grid {
             grid-template-columns: 1fr;
@@ -144,7 +157,7 @@
             flex-direction: column;
             gap: 0.5rem;
             align-items: flex-start;
-            padding: 1.2rem 1.5rem 1.6rem;
+            padding: 1rem 1.25rem 1.25rem;
         }
     }
 }

@@ -17,9 +17,23 @@ type PaginatedProps = {
     uid: string;
     wishlist: Item[];
     isWishlistPage: boolean; // Add this prop
+    serverSide?: boolean;
+    totalItems?: number;
+    currentPage?: number;
+    onPageChange?: (page: number) => void;
 };
 
-const PaginatedItems = ({ itemsPerPage, items, uid, wishlist, isWishlistPage }: PaginatedProps) => {
+const PaginatedItems = ({
+    itemsPerPage,
+    items,
+    uid,
+    wishlist,
+    isWishlistPage,
+    serverSide = false,
+    totalItems,
+    currentPage,
+    onPageChange,
+}: PaginatedProps) => {
     const { addToast } = useToast();
     const [currentWishlist, setCurrentWishlist] = useState<Item[]>([]);
     const [itemOffset, setItemOffset] = useState(0);
@@ -137,14 +151,27 @@ const PaginatedItems = ({ itemsPerPage, items, uid, wishlist, isWishlistPage }: 
     }, [addToast, productById, uid]);
 
     const handlePageClick = useCallback((event: { selected: number }) => {
+        if (serverSide && onPageChange) {
+            onPageChange(event.selected + 1);
+            return;
+        }
         const newOffset = (event.selected * itemsPerPage) % items.length;
         console.log(`User requested page number ${event.selected}, which is offset ${newOffset}`);
         setItemOffset(newOffset);
-    }, [items.length, itemsPerPage]);
+    }, [items.length, itemsPerPage, onPageChange, serverSide]);
 
     const endOffset = itemOffset + itemsPerPage;
-    const currentItems = useMemo(() => items.slice(itemOffset, endOffset), [endOffset, itemOffset, items]);
-    const pageCount = useMemo(() => Math.ceil(items.length / itemsPerPage), [items.length, itemsPerPage]);
+    const currentItems = useMemo(
+        () => (serverSide ? items : items.slice(itemOffset, endOffset)),
+        [endOffset, itemOffset, items, serverSide],
+    );
+    const pageCount = useMemo(() => {
+        if (serverSide) {
+            const total = totalItems ?? items.length;
+            return Math.ceil(total / itemsPerPage);
+        }
+        return Math.ceil(items.length / itemsPerPage);
+    }, [items.length, itemsPerPage, serverSide, totalItems]);
     const wishlistPageCount = useMemo(
         () => Math.ceil(currentWishlist.length / itemsPerPage),
         [currentWishlist.length, itemsPerPage]
@@ -217,6 +244,7 @@ const PaginatedItems = ({ itemsPerPage, items, uid, wishlist, isWishlistPage }: 
                     pageRangeDisplayed={5}
                     pageCount={pageCountToUse}
                     previousLabel="Previous"
+                    forcePage={serverSide && currentPage ? currentPage - 1 : undefined}
                     ariaLabelBuilder={(index) => `Page-${index}`}
                     renderOnZeroPageCount={null}
                 />

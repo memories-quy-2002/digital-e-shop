@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { IoArrowForward } from "react-icons/io5";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
@@ -23,6 +23,7 @@ const HomePage = () => {
     const [products, setProducts] = useState<Product[]>([]);
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
     const [userRecommendations, setUserRecommendations] = useState<number[]>([]);
+    const [activeFilter, setActiveFilter] = useState<"recommended" | "popular" | "new">("recommended");
     const [currentIndex, setCurrentIndex] = useState(0);
     const { userData, loading } = useAuth();
     const uid = userData?.id || null;
@@ -54,13 +55,12 @@ const HomePage = () => {
         },
         {
             title: "Smart Home Essentials",
-            subtitle: "Control, secure, and automate your home with next‑gen devices.",
+            subtitle: "Control, secure, and automate your home with next-gen devices.",
             cta: "Shop Smart Home",
         },
     ];
 
     const toggleWishlist = async (user_id: string, product_id: number) => {
-        console.log("UID in toggle wishlist:", uid);
         if (!uid) {
             addToast("Login required", "You need to login to use this feature.");
             return;
@@ -74,7 +74,6 @@ const HomePage = () => {
                     },
                 });
                 if (response.status === 200) {
-                    console.log(response.data.msg);
                     setWishlist((list) => list.filter((item) => item.product.id !== product_id));
                     addToast("Remove wishlist item", "Item removed from wishlist successfully");
                 }
@@ -84,7 +83,6 @@ const HomePage = () => {
                     pid: product_id,
                 });
                 if (response.status === 200) {
-                    console.log(response.data.msg);
                     const newProduct = products.filter((product) => product.id === product_id)[0];
                     setWishlist((list) => [
                         ...list,
@@ -101,8 +99,9 @@ const HomePage = () => {
             addToast("Error", "Something went wrong");
         }
     };
+
     const handleAddingCart = async (user_id: string, product_id: number) => {
-        if (uid === "") {
+        if (!uid) {
             addToast("Login required", "You need to login to use this feature.");
             return;
         }
@@ -113,7 +112,6 @@ const HomePage = () => {
                 quantity: 1,
             });
             if (response.status === 200) {
-                console.log(response.data.msg);
                 addToast("Add cart item", "Product added to cart successfully");
             }
         } catch (err) {
@@ -126,23 +124,21 @@ const HomePage = () => {
             setCurrentIndex((prevIndex) => (prevIndex + 1) % 4);
         }, 5000);
 
-        return () => clearInterval(interval); // Dọn dẹp interval khi component unmount
+        return () => clearInterval(interval);
     }, []);
 
     useEffect(() => {
         const fetchProducts = async () => {
             try {
-                const response = await axios.get("/api/products");
+                const response = await axios.get(`/api/products?page=1&limit=${DISPLAYED_NUMBER * 5}`);
                 if (response.status === 200) {
                     setProducts(response.data.products);
-                    console.log(response.data.msg);
                 }
             } catch (err) {
                 console.error(err);
             }
         };
         fetchProducts();
-        return () => {};
     }, []);
 
     useEffect(() => {
@@ -163,7 +159,6 @@ const HomePage = () => {
                             };
                         });
                         setWishlist(newWishlist);
-                        console.log(response.data.msg);
                     }
                 }
             } catch (err) {
@@ -171,7 +166,6 @@ const HomePage = () => {
             }
         };
         fetchWishlist();
-        return () => {};
     }, [uid]);
 
     useEffect(() => {
@@ -182,8 +176,38 @@ const HomePage = () => {
         if (userData && !loading) {
             setUserRecommendations(getProductIdsByUserId(userData.id));
         }
-        return () => {};
     }, [userData, loading]);
+
+    const featuredProducts = useMemo(() => {
+        return products.filter((product) => product.stock > 0).slice(0, 3);
+    }, [products]);
+
+    const allProducts = useMemo(() => {
+        return products.filter((product) => product.stock > 0);
+    }, [products]);
+
+    const recommendedProducts = useMemo(() => {
+        if (uid && userRecommendations.length > 0) {
+            return allProducts.filter((product) => userRecommendations.includes(product.id));
+        }
+        return allProducts.slice(0, DISPLAYED_NUMBER);
+    }, [allProducts, uid, userRecommendations]);
+
+    const popularProducts = useMemo(() => {
+        return [...allProducts]
+            .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+            .slice(0, DISPLAYED_NUMBER);
+    }, [allProducts]);
+
+    const newProducts = useMemo(() => {
+        return [...allProducts].sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, DISPLAYED_NUMBER);
+    }, [allProducts]);
+
+    const displayedProducts = useMemo(() => {
+        if (activeFilter === "popular") return popularProducts;
+        if (activeFilter === "new") return newProducts;
+        return recommendedProducts;
+    }, [activeFilter, popularProducts, newProducts, recommendedProducts]);
 
     return (
         <Layout>
@@ -198,7 +222,6 @@ const HomePage = () => {
                     property="og:description"
                     content="Shop laptops, phones, audio, accessories, and smart devices with fast delivery and secure checkout."
                 />
-                {/* Preload only the first image to avoid blocking other resources */}
                 <link
                     rel="preload"
                     href="https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/carousel_1.jpg"
@@ -206,14 +229,13 @@ const HomePage = () => {
                     media="(max-width: 600px)"
                     imageSrcSet="small.jpg 600w, medium.jpg 1200w, large.jpg 2000w"
                 />
-                {/* Add preconnect to the CDN domain */}
                 <link rel="preconnect" href="https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com" />
             </Helmet>
 
             <main className="home">
                 <section className="home__hero">
                     <div className="home__hero__content">
-                        <span className="home__hero__badge">Digital‑E Featured</span>
+                        <span className="home__hero__badge">Digital-E Featured</span>
                         <h1>Electronics that feel premium, priced for everyone.</h1>
                         <p>
                             Shop curated tech across laptops, phones, audio, and smart home devices with fast delivery
@@ -294,60 +316,92 @@ const HomePage = () => {
                 </section>
 
                 <section className="home__product">
-                    <div className="home__product__header">
-                        <h2 className="home__product__header__title">All products</h2>
+                    <header className="home__product__header">
                         <div>
-                            <Link
-                                to="/shops"
-                                className="view-all-link" // Move styles to CSS
-                                aria-label="View all products"
-                            >
-                                View all <IoArrowForward />
-                            </Link>
+                            <span className="home__product__eyebrow">All products</span>
+                            <h2 className="home__product__header__title">Curated picks for every setup</h2>
+                            <p className="home__product__header__subtitle">
+                                Shop what&apos;s trending right now or explore the newest drops.
+                            </p>
                         </div>
+                        <Link to="/shops" className="home__product__cta" aria-label="View all products">
+                            View all <IoArrowForward />
+                        </Link>
+                    </header>
+
+                    <div className="home__product__filters">
+                        <button
+                            type="button"
+                            className={activeFilter === "recommended" ? "active" : ""}
+                            onClick={() => setActiveFilter("recommended")}
+                        >
+                            Recommended
+                        </button>
+                        <button
+                            type="button"
+                            className={activeFilter === "popular" ? "active" : ""}
+                            onClick={() => setActiveFilter("popular")}
+                        >
+                            Popular
+                        </button>
+                        <button
+                            type="button"
+                            className={activeFilter === "new" ? "active" : ""}
+                            onClick={() => setActiveFilter("new")}
+                        >
+                            New arrivals
+                        </button>
                     </div>
-                    <div className="home__product__menu">
-                        {/* Memoize the filtered products if possible */}
-                        {useMemo(
-                            () =>
-                                products
-                                    .filter((product) => {
-                                        if (uid && userRecommendations.length > 0) {
-                                            return userRecommendations.includes(product.id) && product.stock > 0;
+
+                    <div className="home__product__featured">
+                        {featuredProducts.map((product) => (
+                            <div key={`featured-${product.id}`} className="home__product__featured__card">
+                                <div className="home__product__featured__card__info">
+                                    <span>{product.category}</span>
+                                    <h3>{product.name}</h3>
+                                    <p>{product.brand}</p>
+                                    <button type="button" onClick={() => navigate(`/product?id=${product.id}`)}>
+                                        View product
+                                    </button>
+                                </div>
+                                <div className="home__product__featured__card__img">
+                                    <img
+                                        src={
+                                            product.main_image
+                                                ? `https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${product.main_image}.jpg`
+                                                : "/product_placeholder.jpg"
                                         }
-                                        return product.stock > 0;
-                                    })
-                                    .slice(0, DISPLAYED_NUMBER)
-                                    .map((product) => (
-                                        <ProductItem
-                                            key={product.id}
-                                            product={product}
-                                            uid={uid || ""} // Nếu uid là null, truyền vào một chuỗi rỗng
-                                            isWishlist={wishlist.some((item) => item.product.id === product.id)}
-                                            onToggleWishlist={() => {
-                                                if (uid) {
-                                                    toggleWishlist(uid, product.id);
-                                                } else {
-                                                    addToast(
-                                                        "Login required",
-                                                        "You need to login to use this feature.",
-                                                    );
-                                                }
-                                            }}
-                                            onAddingCart={() => {
-                                                if (uid) {
-                                                    handleAddingCart(uid, product.id);
-                                                } else {
-                                                    addToast(
-                                                        "Login required",
-                                                        "You need to login to use this feature.",
-                                                    );
-                                                }
-                                            }}
-                                        />
-                                    )),
-                            [products, uid, userRecommendations, wishlist, DISPLAYED_NUMBER],
-                        )}
+                                        alt={product.name}
+                                        loading="lazy"
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="home__product__grid">
+                        {displayedProducts.map((product) => (
+                            <ProductItem
+                                key={product.id}
+                                product={product}
+                                uid={uid || ""}
+                                isWishlist={wishlist.some((item) => item.product.id === product.id)}
+                                onToggleWishlist={() => {
+                                    if (uid) {
+                                        toggleWishlist(uid, product.id);
+                                    } else {
+                                        addToast("Login required", "You need to login to use this feature.");
+                                    }
+                                }}
+                                onAddingCart={() => {
+                                    if (uid) {
+                                        handleAddingCart(uid, product.id);
+                                    } else {
+                                        addToast("Login required", "You need to login to use this feature.");
+                                    }
+                                }}
+                            />
+                        ))}
                     </div>
                 </section>
             </main>

@@ -67,6 +67,25 @@ const getAllProducts = (callback) => {
     );
 };
 
+const getAllProductsPaginated = (limit, offset, callback) => {
+    pool.query(
+        `SELECT products.id, products.name, description, categories.name AS category,
+            brands.name AS brand, price, sale_price, stock, main_image,
+            image_gallery, specifications, rating, reviews
+        FROM products
+        JOIN categories ON categories.id = products.category_id
+        JOIN brands ON brands.id = products.brand_id
+        ORDER BY products.id DESC
+        LIMIT ? OFFSET ?`,
+        [limit, offset],
+        callback
+    );
+};
+
+const getProductsCount = (callback) => {
+    pool.query("SELECT COUNT(*) AS total FROM products", callback);
+};
+
 // Delete product
 const deleteProduct = (pid, callback) => {
     pool.query("DELETE FROM products WHERE id = ?", [pid], callback);
@@ -77,19 +96,17 @@ const getRelevantProductsByProductId = (pid, limit, callback) => {
     const sql = `
         SELECT p.id AS product_id, p.name AS product_name
         FROM products p
-        WHERE p.id <> ?
-            AND (
-                p.category_id = (SELECT category_id FROM products WHERE id = ?)
-                OR p.brand_id = (SELECT brand_id FROM products WHERE id = ?)
-            )
+        JOIN products base ON base.id = ?
+        WHERE p.id <> base.id
+            AND (p.category_id = base.category_id OR p.brand_id = base.brand_id)
         ORDER BY
-            (p.category_id = (SELECT category_id FROM products WHERE id = ?)) DESC,
-            (p.brand_id = (SELECT brand_id FROM products WHERE id = ?)) DESC,
+            (p.category_id = base.category_id) DESC,
+            (p.brand_id = base.brand_id) DESC,
             p.rating DESC,
             p.id DESC
         LIMIT ?
     `;
-    pool.query(sql, [pid, pid, pid, pid, pid, limit], callback);
+    pool.query(sql, [pid, limit], callback);
 };
 
 module.exports = {
@@ -100,6 +117,8 @@ module.exports = {
     insertBrand,
     getProductById,
     getAllProducts,
+    getAllProductsPaginated,
+    getProductsCount,
     deleteProduct,
     getRelevantProductsByProductId,
 };

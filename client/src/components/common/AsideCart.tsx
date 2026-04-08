@@ -22,6 +22,9 @@ const AsideCart = ({ totalPrice, discount, subtotal, error, applyDiscount }: Asi
             <div className="cart__container__box__aside__box">
                 <div className="cart__container__box__aside__box__coupon">
                     <h4 className="cart__container__box__aside__box__coupon__title">Have coupon?</h4>
+                    <p className="cart__container__box__aside__box__coupon__hint">
+                        Enter your code and apply to see instant savings.
+                    </p>
                     <div className="cart__container__box__aside__box__coupon__input">
                         <input
                             type="text"
@@ -38,29 +41,22 @@ const AsideCart = ({ totalPrice, discount, subtotal, error, applyDiscount }: Asi
                             Apply
                         </button>
                     </div>
-                    <p className="text-danger mb-2">{error}</p>
+                    <p className="cart__container__box__aside__box__coupon__error">{error}</p>
                 </div>
                 <hr />
                 <div className="cart__container__box__aside__box__price">
-                    <ul className="cart__container__box__aside__box__price__list">
-                        <li>
-                            <p>Total price: </p>
-                            <p>${totalPrice.toFixed(2)}</p>
-                        </li>
-                        <li>
-                            <p>Discount: </p>
-                            <p>${discount.toFixed(2)}</p>
-                        </li>
-                        <li
-                            style={{
-                                fontWeight: "bold",
-                                fontSize: "18px",
-                            }}
-                        >
-                            <p>Subtotal: </p>
-                            <p>${subtotal.toFixed(2)}</p>
-                        </li>
-                    </ul>
+                    <div className="cart__container__box__aside__box__price__row">
+                        <span>Total price</span>
+                        <strong>${totalPrice.toFixed(2)}</strong>
+                    </div>
+                    <div className="cart__container__box__aside__box__price__row">
+                        <span>Discount</span>
+                        <strong className="muted">-${discount.toFixed(2)}</strong>
+                    </div>
+                    <div className="cart__container__box__aside__box__price__row total">
+                        <span>Subtotal</span>
+                        <strong>${subtotal.toFixed(2)}</strong>
+                    </div>
                 </div>
                 <hr />
                 <div className="cart__container__box__aside__box__payment">

@@ -1,7 +1,7 @@
 import { Form } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Helmet } from "react-helmet";
 
@@ -12,6 +12,7 @@ interface CartProps {
     category: string;
     brand: string;
     price: number;
+    sale_price?: number | null;
     main_image: string;
     quantity: number;
 }
@@ -73,9 +74,9 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
     };
     const handlePurchase = async () => {
         setErrors([]);
-        const errors = validateForm(); // Capture validation errors
+        const errors = validateForm();
         if (errors.length > 0) {
-            setErrors(errors); // Display errors, no need to proceed further
+            setErrors(errors);
             return;
         }
         if (!uid) {
@@ -137,38 +138,61 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
         }
     };
 
+    const itemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
     return (
-        <div className="cart__container__payment">
+        <div className="checkout">
             <Helmet>
                 <title>Checkout | Digital-E</title>
                 <meta name="description" content="Complete your purchase securely and confirm shipping details." />
             </Helmet>
-            <button className="cart__container__payment__back" onClick={() => setIsPayment(false)}>
-                &#8592; Back to cart
-            </button>
-            <h2>Checkout Payment</h2>
-
-            <div className="cart__container__payment__main">
-                <main className="cart__container__payment__form">
-                    {loading ? <div className="text-muted">Checking session…</div> : null}
+            <div className="checkout__hero">
+                <button className="checkout__back" onClick={() => setIsPayment(false)}>
+                    Back to cart
+                </button>
+                <div className="checkout__hero__content">
+                    <p className="checkout__hero__eyebrow">Secure checkout</p>
+                    <h1>Review, confirm, and pay</h1>
+                    <p>
+                        Your order is almost ready. Add your contact details, confirm shipping, and complete your
+                        purchase in one step.
+                    </p>
+                </div>
+                <div className="checkout__hero__meta">
                     <div>
-                        {errors.map((error, id) => (
-                            <div className="text-danger" key={id}>
-                                {error}
-                            </div>
-                        ))}
+                        <strong>{itemsCount}</strong>
+                        <span>Items</span>
                     </div>
-                    <div className="cart__container__payment__form__contact">
-                        <h4>Contact information</h4>
+                    <div>
+                        <strong>${(totalPrice - discount).toFixed(2)}</strong>
+                        <span>Total due</span>
+                    </div>
+                </div>
+            </div>
+
+            <div className="checkout__layout">
+                <section className="checkout__form">
+                    {loading ? <div className="checkout__note">Checking session...</div> : null}
+                    {errors.length > 0 ? (
+                        <div className="checkout__alert">
+                            {errors.map((error, id) => (
+                                <span key={id}>{error}</span>
+                            ))}
+                        </div>
+                    ) : null}
+
+                    <div className="checkout__card">
+                        <div className="checkout__card__header">
+                            <h3>Contact</h3>
+                            <p>We will send order updates to this email.</p>
+                        </div>
                         <Form>
                             <Form.Group className="mb-3" controlId="formBasicEmail">
-                                <Form.Label>
-                                    Email address <span className="cart__container__payment__form__required">*</span>
-                                </Form.Label>
+                                <Form.Label>Email address</Form.Label>
                                 <Form.Control
                                     type="email"
                                     name="email"
-                                    placeholder="Enter email"
+                                    placeholder="name@email.com"
                                     required
                                     onChange={handleInputChange}
                                 />
@@ -178,20 +202,21 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                             </Form.Group>
                         </Form>
                     </div>
-                    <div className="cart__container__payment__form__shipping">
-                        <h4>Shipping Information</h4>
+
+                    <div className="checkout__card">
+                        <div className="checkout__card__header">
+                            <h3>Shipping</h3>
+                            <p>Tell us where to deliver your items.</p>
+                        </div>
                         <Form>
                             <div className="row">
                                 <div className="col-md-6">
                                     <Form.Group className="mb-3" controlId="formFirstName">
-                                        <Form.Label>
-                                            First name{" "}
-                                            <span className="cart__container__payment__form__required">*</span>
-                                        </Form.Label>
+                                        <Form.Label>First name</Form.Label>
                                         <Form.Control
                                             type="text"
                                             name="first_name"
-                                            placeholder="Enter first name"
+                                            placeholder="First name"
                                             required
                                             onChange={handleInputChange}
                                         />
@@ -199,14 +224,11 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                                 </div>
                                 <div className="col-md-6">
                                     <Form.Group className="mb-3" controlId="formLastName">
-                                        <Form.Label>
-                                            Last name{" "}
-                                            <span className="cart__container__payment__form__required">*</span>
-                                        </Form.Label>
+                                        <Form.Label>Last name</Form.Label>
                                         <Form.Control
                                             type="text"
                                             name="last_name"
-                                            placeholder="Enter last name"
+                                            placeholder="Last name"
                                             required
                                             onChange={handleInputChange}
                                         />
@@ -215,13 +237,11 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                             </div>
 
                             <Form.Group className="mb-3" controlId="formShippingAddress">
-                                <Form.Label>
-                                    Shipping Address <span className="cart__container__payment__form__required">*</span>
-                                </Form.Label>
+                                <Form.Label>Shipping address</Form.Label>
                                 <Form.Control
                                     type="text"
                                     name="address"
-                                    placeholder="Shipping Address"
+                                    placeholder="Street address"
                                     required
                                     onChange={handleInputChange}
                                 />
@@ -229,9 +249,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                             <div className="row">
                                 <div className="col-md-6">
                                     <Form.Group className="mb-3" controlId="formCity">
-                                        <Form.Label>
-                                            City <span className="cart__container__payment__form__required">*</span>
-                                        </Form.Label>
+                                        <Form.Label>City</Form.Label>
                                         <Form.Control
                                             type="text"
                                             name="city"
@@ -243,8 +261,6 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                                 </div>
                                 <div className="col-md-6">
                                     <Form.Group className="mb-3" controlId="formCountry">
-                                        {/* Assuming country should be a dropdown */}
-                                        {/* Replace options with actual country names */}
                                         <Form.Label>Country</Form.Label>
                                         <Form.Control
                                             type="text"
@@ -255,35 +271,6 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                                     </Form.Group>
                                 </div>
                             </div>
-                            <Form.Group className="mb-3" controlId="formCreditCardNumber">
-                                <Form.Label>Credit Card number</Form.Label>
-                                <Form.Control
-                                    type="number"
-                                    name="card_number"
-                                    placeholder="Credit Card number"
-                                    onChange={handleInputChange}
-                                />
-                            </Form.Group>
-                            <div className="row">
-                                <div className="col-md-6">
-                                    <Form.Group className="mb-3" controlId="formExpirationDate">
-                                        <Form.Label>Credit Card Expiration Date</Form.Label>
-                                        <Form.Control type="date" name="exp_date" placeholder="MM/YY" />
-                                    </Form.Group>
-                                </div>
-                                <div className="col-md-6">
-                                    <Form.Group className="mb-3" controlId="formCVV">
-                                        <Form.Label>CVV</Form.Label>
-                                        <Form.Control
-                                            type="number"
-                                            name="CVV"
-                                            placeholder="CVV"
-                                            onChange={handleInputChange}
-                                        />
-                                    </Form.Group>
-                                </div>
-                            </div>
-
                             <Form.Group className="mb-3" controlId="formPhoneNumber">
                                 <Form.Label>Phone number</Form.Label>
                                 <Form.Control
@@ -295,34 +282,89 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                             </Form.Group>
                         </Form>
                     </div>
-                </main>
-                <aside className="cart__container__payment__aside">
-                    <div className="cart__container__payment__aside__details">
-                        <h2>Order Details</h2>
-                        <div className="cart__container__payment__aside__details__price">
-                            <div className="cart__container__payment__aside__details__price__subtotal">
-                                <span>Subtotal</span>
-                                <span>${totalPrice.toFixed(2)}</span>
-                            </div>
-                            <div className="cart__container__payment__aside__details__price__delivery">
-                                <span>Delivery charges</span>
-                                <span style={{ color: "green" }}>Free</span>
-                            </div>
-                            <div className="cart__container__payment__aside__details__price__discount">
-                                <span>Discount price</span>
-                                <span>${discount.toFixed(2)}</span>
-                            </div>
-                        </div>
-                        <div className="cart__container__payment__aside__details__total">
-                            <span>Total amount:</span>
-                            <span>${(totalPrice - discount).toFixed(2)}</span>
-                        </div>
-                    </div>
 
-                    {/* Checkout Button */}
-                    <button type="button" onClick={handlePurchase}>
-                        PROCESS CHECKOUT
-                    </button>
+                    <div className="checkout__card">
+                        <div className="checkout__card__header">
+                            <h3>Payment</h3>
+                            <p>Securely enter your card details.</p>
+                        </div>
+                        <Form>
+                            <Form.Group className="mb-3" controlId="formCreditCardNumber">
+                                <Form.Label>Card number</Form.Label>
+                                <Form.Control
+                                    type="number"
+                                    name="card_number"
+                                    placeholder="1234 5678 9012 3456"
+                                    onChange={handleInputChange}
+                                />
+                            </Form.Group>
+                            <div className="row">
+                                <div className="col-md-6">
+                                    <Form.Group className="mb-3" controlId="formExpirationDate">
+                                        <Form.Label>Expiration date</Form.Label>
+                                        <Form.Control type="date" name="exp_date" placeholder="MM/YY" />
+                                    </Form.Group>
+                                </div>
+                                <div className="col-md-6">
+                                    <Form.Group className="mb-3" controlId="formCVV">
+                                        <Form.Label>CVV</Form.Label>
+                                        <Form.Control
+                                            type="number"
+                                            name="CVV"
+                                            placeholder="123"
+                                            onChange={handleInputChange}
+                                        />
+                                    </Form.Group>
+                                </div>
+                            </div>
+                        </Form>
+                    </div>
+                </section>
+
+                <aside className="checkout__summary">
+                    <div className="checkout__summary__card">
+                        <h3>Order summary</h3>
+                        <div className="checkout__summary__list">
+                            {cart.slice(0, 3).map((item) => (
+                                <div key={item.cartItemId} className="checkout__summary__item">
+                                    <div>
+                                        <strong>{item.productName}</strong>
+                                        <span>
+                                            {item.quantity} x ${item.sale_price ?? item.price}
+                                        </span>
+                                    </div>
+                                    <span>${(item.quantity * (item.sale_price ?? item.price)).toFixed(2)}</span>
+                                </div>
+                            ))}
+                            {cart.length > 3 ? (
+                                <div className="checkout__summary__more">+ {cart.length - 3} more items</div>
+                            ) : null}
+                        </div>
+                        <div className="checkout__summary__rows">
+                            <div>
+                                <span>Subtotal</span>
+                                <strong>${totalPrice.toFixed(2)}</strong>
+                            </div>
+                            <div>
+                                <span>Shipping</span>
+                                <strong className="free">Free</strong>
+                            </div>
+                            <div>
+                                <span>Discount</span>
+                                <strong className="muted">-${discount.toFixed(2)}</strong>
+                            </div>
+                        </div>
+                        <div className="checkout__summary__total">
+                            <span>Total</span>
+                            <strong>${(totalPrice - discount).toFixed(2)}</strong>
+                        </div>
+                        <button type="button" onClick={handlePurchase}>
+                            Place order
+                        </button>
+                        <p className="checkout__summary__footnote">
+                            By placing your order, you agree to our store policies.
+                        </p>
+                    </div>
                 </aside>
             </div>
         </div>

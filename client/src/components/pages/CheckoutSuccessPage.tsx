@@ -86,14 +86,14 @@ const CheckoutSuccessPage = () => {
                 <section className="success__container__details">
                     <div>
                         <h4>Shipping details</h4>
-                        <p>{combinedData?.name || "—"}</p>
-                        <p>{combinedData?.address || "—"}</p>
-                        <p>{[combinedData?.city, combinedData?.country].filter(Boolean).join(", ") || "—"}</p>
-                        <p>{combinedData?.phone || "—"}</p>
+                        <p>{combinedData?.name || "-"}</p>
+                        <p>{combinedData?.address || "-"}</p>
+                        <p>{[combinedData?.city, combinedData?.country].filter(Boolean).join(", ") || "-"}</p>
+                        <p>{combinedData?.phone || "-"}</p>
                     </div>
                     <div>
                         <h4>Contact</h4>
-                        <p>{combinedData?.email || userData?.email || "—"}</p>
+                        <p>{combinedData?.email || userData?.email || "-"}</p>
                         <p>
                             Placed on{" "}
                             {combinedData?.placedAt

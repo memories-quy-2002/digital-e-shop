@@ -37,29 +37,14 @@ const ProductItem = ({ product, uid, isWishlist, onToggleWishlist, onAddingCart 
             <p className="home__product__menu__item__category">{product.category}</p>
             <p className="home__product__menu__item__name">{product.name}</p>
             {product.sale_price ? (
-                <div className="d-flex flex-row gap-3 justify-content-center">
-                    <p className="home__product__menu__item__price">${product.price}</p>
-                    <p
-                        style={{
-                            textAlign: "center",
-                            fontWeight: "bold",
-                            fontSize: "20px",
-                            color: "red",
-                        }}
-                    >
-                        ${product.sale_price}
-                    </p>
+                <div className="home__product__menu__item__priceRow">
+                    <span className="home__product__menu__item__priceOriginal">${product.price}</span>
+                    <span className="home__product__menu__item__priceSale">${product.sale_price}</span>
                 </div>
             ) : (
-                <p
-                    className="home__product__menu__item__price"
-                    style={{
-                        color: "red",
-                        textDecoration: "none",
-                    }}
-                >
-                    ${product.price}
-                </p>
+                <div className="home__product__menu__item__priceRow">
+                    <span className="home__product__menu__item__priceSale">${product.price}</span>
+                </div>
             )}
 
             <div className="home__product__menu__item__rating">

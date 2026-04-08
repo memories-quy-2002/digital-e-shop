@@ -95,6 +95,24 @@ async function getAllUsers() {
     })
 }
 
+async function getAllUsersPaginated(limit, offset) {
+    return new Promise((resolve, reject) => {
+        User.getAllUsersPaginated(limit, offset, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
+async function getUsersCount() {
+    return new Promise((resolve, reject) => {
+        User.getUsersCount((err, results) => {
+            if (err) return reject(err);
+            resolve(results[0]?.total || 0);
+        });
+    });
+}
+
 async function getCurrentUser(accessToken, sessionId) {
     if (!accessToken || !sessionId) {
         throw { status: 401, msg: "Not authenticated" };
@@ -116,4 +134,13 @@ async function getCurrentUser(accessToken, sessionId) {
     });
 }
 
-module.exports = { registerUser, refreshToken, getCurrentUser, loginUser, getUserById, getAllUsers };
+module.exports = {
+    registerUser,
+    refreshToken,
+    getCurrentUser,
+    loginUser,
+    getUserById,
+    getAllUsers,
+    getAllUsersPaginated,
+    getUsersCount,
+};

@@ -8,6 +8,14 @@ const getAllUsers = (callback) => {
     pool.query("SELECT * FROM users", callback);
 };
 
+const getAllUsersPaginated = (limit, offset, callback) => {
+    pool.query("SELECT * FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?", [limit, offset], callback);
+};
+
+const getUsersCount = (callback) => {
+    pool.query("SELECT COUNT(*) AS total FROM users", callback);
+};
+
 const createUser = (uid, username, email, password, role, callback) => {
     pool.query(
         "INSERT INTO users (id, username, email, password, role, token) VALUES (?, ?, ?, ?, ?, '')",
@@ -24,4 +32,4 @@ const updateUserToken = (uid, token, callback) => {
     );
 };
 
-module.exports = { getUserById, getAllUsers, createUser, updateUserToken };
+module.exports = { getUserById, getAllUsers, getAllUsersPaginated, getUsersCount, createUser, updateUserToken };
