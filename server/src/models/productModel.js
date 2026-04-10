@@ -44,7 +44,7 @@ const getProductById = (pid, callback) => {
     pool.query(
         `SELECT products.id, products.name, description, categories.name AS category,
             brands.name AS brand, price, sale_price, stock, main_image,
-            image_gallery, specifications, rating, reviews
+            specifications, rating, reviews
         FROM products
         JOIN categories ON categories.id = products.category_id
         JOIN brands ON brands.id = products.brand_id
@@ -59,7 +59,7 @@ const getAllProducts = (callback) => {
     pool.query(
         `SELECT products.id, products.name, description, categories.name AS category,
             brands.name AS brand, price, sale_price, stock, main_image,
-            image_gallery, specifications, rating, reviews
+            specifications, rating, reviews
         FROM products
         JOIN categories ON categories.id = products.category_id
         JOIN brands ON brands.id = products.brand_id`,
@@ -71,7 +71,7 @@ const getAllProductsPaginated = (limit, offset, callback) => {
     pool.query(
         `SELECT products.id, products.name, description, categories.name AS category,
             brands.name AS brand, price, sale_price, stock, main_image,
-            image_gallery, specifications, rating, reviews
+            specifications, rating, reviews
         FROM products
         JOIN categories ON categories.id = products.category_id
         JOIN brands ON brands.id = products.brand_id

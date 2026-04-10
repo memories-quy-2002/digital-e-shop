@@ -251,7 +251,6 @@ CREATE TABLE `products` (
   `sale_price` decimal(10,2) DEFAULT NULL,
   `stock` int NOT NULL DEFAULT '0',
   `main_image` varchar(255) DEFAULT NULL,
-  `image_gallery` text,
   `specifications` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,

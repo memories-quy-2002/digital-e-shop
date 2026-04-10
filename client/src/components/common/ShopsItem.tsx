@@ -5,6 +5,7 @@ import { Product } from "../../utils/interface";
 import ratingStar from "../../utils/ratingStar";
 import LazyLoadImage from "../../utils/LazyLoadingImage";
 import productPlaceholder from "../../assets/images/product_placeholder.jpg";
+import loadImage from "../../utils/loadImage";
 
 type ProductProps = {
     product: Product;
@@ -24,14 +25,7 @@ const ShopsItem = ({ product, uid, isWishlist, onToggleWishlist, onAddingCart }:
                 className="shops__container__main__pagination__list__item__image"
                 onClick={() => navigate(`/product?id=${product.id}`)}
             >
-                {imageUrl ? (
-                    <LazyLoadImage
-                        src={`https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${imageUrl}.jpg`}
-                        alt={product.name}
-                    />
-                ) : (
-                    <img src={productPlaceholder} alt={product.name} />
-                )}
+                {loadImage(imageUrl, product.name)}
             </div>
 
             <div

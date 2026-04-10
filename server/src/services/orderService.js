@@ -8,20 +8,29 @@ const getConnection = util.promisify(pool.getConnection).bind(pool);
 async function makePurchase(uid, { totalPrice, cart, discount, subtotal, shippingAddress }) {
     const startedAt = Date.now();
     console.log("[makePurchase] start", { uid, items: cart?.length, totalPrice });
+
+    if (!cart || cart.length === 0) {
+        throw new Error("Cart is empty");
+    }
+
+    const connection = await getConnection();
+    const query = util.promisify(connection.query).bind(connection);
+    const begin = util.promisify(connection.beginTransaction).bind(connection);
+    const commit = util.promisify(connection.commit).bind(connection);
+    const rollback = util.promisify(connection.rollback).bind(connection);
+
+    const q = (sql, values) => query({ sql, timeout: QUERY_TIMEOUT }, values);
+
+    let timeoutId;
+    const timeoutMs = 8000;
+    const timeout = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+            console.error("[makePurchase] timeout", { uid, ms: Date.now() - startedAt });
+            reject(new Error("Database timeout"));
+        }, timeoutMs);
+    });
+
     const operation = (async () => {
-        if (!cart || cart.length === 0) {
-            throw new Error("Cart is empty");
-        }
-
-        const connection = await getConnection();
-        const query = util.promisify(connection.query).bind(connection);
-        const begin = util.promisify(connection.beginTransaction).bind(connection);
-        const commit = util.promisify(connection.commit).bind(connection);
-        const rollback = util.promisify(connection.rollback).bind(connection);
-
-        const q = (sql, values) =>
-            query({ sql, timeout: QUERY_TIMEOUT }, values);
-
         try {
             await begin();
             console.log("[makePurchase] transaction started");
@@ -33,7 +42,6 @@ async function makePurchase(uid, { totalPrice, cart, discount, subtotal, shippin
                 "INSERT INTO orders (user_id, total_price, discount, subtotal, shipping_address) VALUES (?, ?, ?, ?, ?)",
                 [uid, totalPrice, discount, subtotal, shippingAddress]
             );
-
             const orderId = orderResult.insertId;
             console.log("[makePurchase] order inserted", { orderId });
 
@@ -44,6 +52,12 @@ async function makePurchase(uid, { totalPrice, cart, discount, subtotal, shippin
                 (product.sale_price ? product.sale_price : product.price) * product.quantity,
             ]);
 
+            const productQuantities = cart.reduce((acc, product) => {
+                const currentQuantity = acc.get(product.productId) || 0;
+                acc.set(product.productId, currentQuantity + product.quantity);
+                return acc;
+            }, new Map());
+
             if (orderItemsValues.length > 0) {
                 console.log("[makePurchase] insertOrderItems", { orderId, count: orderItemsValues.length });
                 await q(
@@ -51,16 +65,34 @@ async function makePurchase(uid, { totalPrice, cart, discount, subtotal, shippin
                     [orderItemsValues]
                 );
 
-                const ids = orderItemsValues.map((item) => item[1]);
-                const cases = orderItemsValues.map(() => "WHEN ? THEN ?");
-                const caseValues = orderItemsValues.flatMap((item) => [item[1], item[2]]);
+                const productIds = [...productQuantities.keys()];
+                const placeholderList = productIds.map(() => "?").join(", ");
 
-                console.log("[makePurchase] updateProductStock", { count: ids.length });
+                const lockedProducts = await q(
+                    `SELECT id, stock FROM products WHERE id IN (${placeholderList}) FOR UPDATE`,
+                    productIds
+                );
+
+                const stockById = new Map(lockedProducts.map((row) => [row.id, row.stock]));
+                for (const [productId, quantity] of productQuantities.entries()) {
+                    const stock = stockById.get(productId);
+                    if (stock == null) {
+                        throw new Error(`Product ${productId} not found`);
+                    }
+                    if (stock < quantity) {
+                        throw new Error(`Insufficient stock for product ${productId}`);
+                    }
+                }
+
+                const cases = productIds.map(() => "WHEN ? THEN ?");
+                const caseValues = productIds.flatMap((productId) => [productId, productQuantities.get(productId)]);
+
+                console.log("[makePurchase] updateProductStock", { count: productIds.length });
                 await q(
                     `UPDATE products
                     SET stock = stock - CASE id ${cases.join(" ")} END
-                    WHERE id IN (${ids.map(() => "?").join(", ")})`,
-                    [...caseValues, ...ids]
+                    WHERE id IN (${placeholderList})`,
+                    [...caseValues, ...productIds]
                 );
             }
 
@@ -69,20 +101,22 @@ async function makePurchase(uid, { totalPrice, cart, discount, subtotal, shippin
             return orderId;
         } catch (err) {
             console.error("[makePurchase] item processing error", err);
-            await rollback();
+            try {
+                await rollback();
+            } catch (rollbackErr) {
+                console.error("[makePurchase] rollback failed", rollbackErr);
+            }
             throw err;
         } finally {
             connection.release();
         }
     })();
-    const timeoutMs = 8000;
-    const timeout = new Promise((_, reject) => {
-        setTimeout(() => {
-            console.error("[makePurchase] timeout", { uid, ms: Date.now() - startedAt });
-            reject(new Error("Database timeout"));
-        }, timeoutMs);
-    });
-    return Promise.race([operation, timeout]);
+
+    try {
+        return await Promise.race([operation, timeout]);
+    } finally {
+        clearTimeout(timeoutId);
+    }
 }
 
 async function getOrders() {

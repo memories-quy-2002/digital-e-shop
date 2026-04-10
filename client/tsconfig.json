@@ -1,9 +1,9 @@
 {
     "compilerOptions": {
-        "target": "ESNext",
+        "target": "es2022",
         "module": "ESNext",
         "lib": ["dom", "dom.iterable", "esnext"],
-        "allowJs": true,
+        "allowJs": false,
         "skipLibCheck": true,
         "esModuleInterop": true,
         "allowSyntheticDefaultImports": true,
@@ -15,7 +15,7 @@
         "jsx": "react-jsx",
         "noEmit": true,
         "resolveJsonModule": true,
-        "types": ["vitest"]
+        "types": ["vitest", "node"]
     },
     "include": [
         "src",
@@ -28,7 +28,8 @@
         "src/reportWebVitals.ts",
         "src/setupTests.ts",
         "babel.config.json",
-        "vitest.config.ts"
+        "vitest.config.ts",
+        "src/custom.d.ts"
     ],
     "exclude": ["node_modules"]
 }

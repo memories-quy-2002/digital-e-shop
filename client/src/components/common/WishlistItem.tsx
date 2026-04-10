@@ -4,6 +4,7 @@ import { IoTrashBinOutline } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import { Product } from "../../utils/interface";
 import productPlaceholder from "../../assets/images/product_placeholder.jpg";
+import loadImage from "../../utils/loadImage";
 interface Item {
     id: number;
     product: Product;
@@ -32,14 +33,7 @@ const WishlistItem = ({ item, uid, onAddingCart, onRemoveWishlist }: WishlistIte
                     className="wishlist__row__product__image"
                     onClick={() => navigate(`/product?id=${item.product.id}`)}
                 >
-                    {imageUrl ? (
-                        <img
-                            src={`https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${imageUrl}.jpg`}
-                            alt={product.name}
-                        />
-                    ) : (
-                        <img src={productPlaceholder} alt={product.name} />
-                    )}
+                    {loadImage(imageUrl, product.name)}
                 </div>
                 <div className="wishlist__row__product__info">
                     <div className="wishlist__row__product__info__name">{product.name}</div>

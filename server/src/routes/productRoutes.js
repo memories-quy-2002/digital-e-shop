@@ -14,8 +14,8 @@ const path = require("path");
 const UPLOADS_DIR = path.resolve(__dirname, '..', '..', 'server', 'src', 'uploads');
 
 const productLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
+    windowMs: 5 * 60 * 1000,
+    max: 100000,
     standardHeaders: true,
     legacyHeaders: false,
     message: "Too many requests, please try again later.",

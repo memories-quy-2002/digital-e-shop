@@ -4,6 +4,7 @@ import { Product } from "../../utils/interface";
 import ratingStar from "../../utils/ratingStar";
 import LazyLoadImage from "../../utils/LazyLoadingImage";
 import productPlaceholder from "../../assets/images/product_placeholder.jpg";
+import loadImage from "../../utils/loadImage";
 
 type RecommendedProps = {
     pid: number;
@@ -26,13 +27,9 @@ const RecommendedProduct = ({ pid, relevantProducts }: RecommendedProps) => {
                                     window.location.reload();
                                 }}
                             >
-                                {product.main_image ? (
-                                    <LazyLoadImage
-                                        src={`https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${product.main_image}.jpg`}
-                                        alt={product.name}
-                                    />
-                                ) : (
-                                    <img src={productPlaceholder} alt={product.name} />
+                                {loadImage(
+                                    product.main_image ? product.main_image.replace(".jpg", "") : null,
+                                    product.name,
                                 )}
                             </div>
                             <p className="product__container__recommended__list__item__category">{product.category}</p>

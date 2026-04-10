@@ -10,6 +10,7 @@
     "license": "ISC",
     "dependencies": {
         "@vercel/blob": "^2.3.3",
+        "axios": "^1.15.0",
         "bcryptjs": "^3.0.3",
         "body-parser": "^2.2.2",
         "cookie-parser": "^1.4.7",
@@ -26,6 +27,7 @@
         "multer": "2.1.1",
         "mysql": "^2.18.1",
         "mysql2": "^3.20.0",
+        "p-limit": "^7.3.0",
         "path": "^0.12.7",
         "streamifier": "^0.1.1",
         "vercel": "^50.40.0"

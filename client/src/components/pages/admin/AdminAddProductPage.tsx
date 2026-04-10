@@ -11,7 +11,7 @@ interface ProductData {
     name: string;
     description: string;
     image: File | null;
-    imageUrl?: string;
+    imageUrl: string;
     category: string;
     brand: string;
     specifications: string;
@@ -121,7 +121,11 @@ const AdminAddProductPage = () => {
                         </p>
                     </div>
                     <div className="admin__page__actions">
-                        <button type="button" className="admin__button admin__button--ghost" onClick={() => navigate("/admin/products")}>
+                        <button
+                            type="button"
+                            className="admin__button admin__button--ghost"
+                            onClick={() => navigate("/admin/products")}
+                        >
                             Back to list
                         </button>
                     </div>

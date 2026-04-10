@@ -50,10 +50,9 @@ const ProductPage = () => {
         rating: 0,
         reviews: 0,
         main_image: "",
-        image_gallery: [],
         stock: 0,
         description: "",
-        specifications: [],
+        specifications: "",
     });
     const [relevantProducts, setRelevantProducts] = useState<Product[]>([]);
     const [ratingScore, setRatingScore] = useState<number>(0);
@@ -69,41 +68,17 @@ const ProductPage = () => {
         return name.replace(/\.jpg$/i, "");
     };
 
-    const imageBase = "https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/";
-
-    const galleryImages = useMemo(() => {
-        if (Array.isArray(productDetail.image_gallery)) {
-            return productDetail.image_gallery as string[];
-        }
-        return [] as string[];
-    }, [productDetail.image_gallery]);
+    const imageBase = "https://2txtqipejre57csy.public.blob.vercel-storage.com/uploads/";
 
     const allImages = useMemo(() => {
         const main = normalizeImage(productDetail.main_image);
-        const others = galleryImages.map((img) => normalizeImage(img)).filter(Boolean);
-        const merged = [main, ...others].filter(Boolean);
+        const merged = [main].filter(Boolean);
         return Array.from(new Set(merged));
-    }, [galleryImages, productDetail.main_image]);
+    }, [productDetail.main_image]);
 
     const specs = useMemo(() => {
-        if (Array.isArray(productDetail.specifications)) {
-            return productDetail.specifications as string[];
-        }
-        if (typeof productDetail.specifications === "string") {
-            const trimmed = (productDetail.specifications as string).trim();
-            if (trimmed.startsWith("[")) {
-                try {
-                    const parsed = JSON.parse(trimmed);
-                    if (Array.isArray(parsed)) {
-                        return parsed.map(String);
-                    }
-                } catch {
-                    return [] as string[];
-                }
-            }
-            return trimmed ? [trimmed] : [];
-        }
-        return [] as string[];
+        if (!productDetail.specifications) return [];
+        return productDetail.specifications.split(",").map((spec) => spec.trim());
     }, [productDetail.specifications]);
 
     useEffect(() => {

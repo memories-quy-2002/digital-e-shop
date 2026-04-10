@@ -23,7 +23,6 @@ const getWishlist = (uid, callback) => {
             sale_price,
             stock,
             main_image,
-            image_gallery,
             specifications,
             rating,
             reviews

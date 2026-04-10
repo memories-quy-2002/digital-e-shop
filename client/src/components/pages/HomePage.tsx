@@ -196,9 +196,7 @@ const HomePage = () => {
     }, [allProducts, uid, userRecommendations]);
 
     const popularProducts = useMemo(() => {
-        return [...allProducts]
-            .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-            .slice(0, DISPLAYED_NUMBER);
+        return [...allProducts].sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, DISPLAYED_NUMBER);
     }, [allProducts]);
 
     const newProducts = useMemo(() => {
@@ -226,12 +224,11 @@ const HomePage = () => {
                 />
                 <link
                     rel="preload"
-                    href="https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/carousel_1.jpg"
+                    href="https://2txtqipejre57csy.public.blob.vercel-storage.com/uploads/carousel_1.jpg"
                     as="image"
                     media="(max-width: 600px)"
                     imageSrcSet="small.jpg 600w, medium.jpg 1200w, large.jpg 2000w"
                 />
-                <link rel="preconnect" href="https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com" />
             </Helmet>
 
             <main className="home">
@@ -276,7 +273,7 @@ const HomePage = () => {
                             {slides.map((slide, index) => (
                                 <div className="home__hero__slide" key={`hero-slide-${index}`}>
                                     <img
-                                        src={`https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/carousel_${
+                                        src={`https://2txtqipejre57csy.public.blob.vercel-storage.com/uploads/carousel_${
                                             index + 1
                                         }.jpg`}
                                         alt={slide.title}
@@ -370,7 +367,7 @@ const HomePage = () => {
                                     <img
                                         src={
                                             product.main_image
-                                                ? `https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${product.main_image}.jpg`
+                                                ? `https://2txtqipejre57csy.public.blob.vercel-storage.com/uploads/${product.main_image}.jpg`
                                                 : "/product_placeholder.jpg"
                                         }
                                         alt={product.name}

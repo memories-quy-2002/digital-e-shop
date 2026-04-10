@@ -14,6 +14,7 @@ async function addSingleProductService(data, file) {
 
     // Upload image to Vercel Blob
     const imageName = name.toLowerCase().replace(/ /g, "_").replace(/-/g, "_");
+    console.log(imageName)
     const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (!token) throw new Error("BLOB_READ_WRITE_TOKEN is not set");
 

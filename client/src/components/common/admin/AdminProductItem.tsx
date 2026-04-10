@@ -18,7 +18,7 @@ const AdminProductItem = ({ products, product, handleOpen }: AdminProductItemPro
                 <img
                     src={
                         imageUrl
-                            ? `https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${imageUrl}.jpg`
+                            ? `https://2txtqipejre57csy.public.blob.vercel-storage.com/uploads/${imageUrl}.jpg`
                             : productPlaceholder
                     }
                     alt={product.name}

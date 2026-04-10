@@ -1,5 +1,6 @@
 import React from "react";
 import productPlaceholder from "../../assets/images/product_placeholder.jpg";
+import loadImage from "../../utils/loadImage";
 interface Item {
     cartItemId: number;
     productId: number;
@@ -22,16 +23,7 @@ const CartItem = ({ item, handleQuantityChange, handleRemoveCartItem }: CartItem
     const productPrice = item.sale_price || item.price;
     return (
         <div key={item.cartItemId} className="cart__container__box__main__list__item">
-            <div className="cart__container__box__main__list__item__image">
-                {imageUrl ? (
-                    <img
-                        src={`https://epgq6ejr4lgv8lec.public.blob.vercel-storage.com/uploads/${imageUrl}.jpg`}
-                        alt={item.productName}
-                    />
-                ) : (
-                    <img src={productPlaceholder} alt={item.productName} />
-                )}
-            </div>
+            <div className="cart__container__box__main__list__item__image">{loadImage(imageUrl, item.productName)}</div>
             <div className="cart__container__box__main__list__item__info">
                 <strong>{item.productName}</strong>
                 <p>Category: {item.category}</p>
