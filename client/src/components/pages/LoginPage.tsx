@@ -129,7 +129,7 @@ const LoginPage = () => {
                     </div>
                 </aside>
                 <main className="login__form">
-                    <h3 className="login__form__title">Welcome back</h3>
+                    <h1 className="login__form__title">Welcome back</h1>
                     <Form
                         className="login__form__container"
                         onSubmit={handleSubmit}

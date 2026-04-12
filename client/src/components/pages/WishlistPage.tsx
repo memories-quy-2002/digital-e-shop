@@ -57,7 +57,7 @@ const WishlistPage = () => {
                 />
             </Helmet>
             <main className="wishlist">
-                <h2 className="wishlist__title">My Wishlist</h2>
+                <h1 className="wishlist__title">My Wishlist</h1>
                 {wishlist.length > 0 ? (
                     <div className="wishlist__category">
                         <div className="wishlist__category__item">Product</div>

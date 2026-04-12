@@ -177,7 +177,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
 
                     <div className="checkout__card">
                         <div className="checkout__card__header">
-                            <h3>Contact</h3>
+                            <h2>Contact</h2>
                             <p>We will send order updates to this email.</p>
                         </div>
                         <Form>
@@ -199,7 +199,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
 
                     <div className="checkout__card">
                         <div className="checkout__card__header">
-                            <h3>Shipping</h3>
+                            <h2>Shipping</h2>
                             <p>Tell us where to deliver your items.</p>
                         </div>
                         <Form>
@@ -279,7 +279,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
 
                     <div className="checkout__card">
                         <div className="checkout__card__header">
-                            <h3>Payment</h3>
+                            <h2>Payment</h2>
                             <p>Securely enter your card details.</p>
                         </div>
                         <Form>
@@ -317,7 +317,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
 
                 <aside className="checkout__summary">
                     <div className="checkout__summary__card">
-                        <h3>Order summary</h3>
+                        <h2>Order summary</h2>
                         <div className="checkout__summary__list">
                             {cart.slice(0, 3).map((item) => (
                                 <div key={item.cartItemId} className="checkout__summary__item">

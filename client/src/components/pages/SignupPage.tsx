@@ -155,7 +155,7 @@ const SignupPage = () => {
                     </div>
                 </aside>
                 <main className="signup__form">
-                    <h3 className="signup__form__title">Create new account</h3>
+                    <h1 className="signup__form__title">Create new account</h1>
                     <Form
                         className="signup__form__container"
                         onSubmit={handleSubmit}

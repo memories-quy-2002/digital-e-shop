@@ -28,7 +28,7 @@ const ContactUsPage: React.FC = () => {
                 <meta name="description" content="Get in touch with Digital-E for support, inquiries, or feedback." />
             </Helmet>
             <div className="contact">
-                <h2 className="contact__title">Contact Us</h2>
+                <h1 className="contact__title">Contact Us</h1>
                 <p className="contact__intro">
                     Have questions or feedback? Reach out to us using the form below or through our support channels.
                 </p>
@@ -66,7 +66,7 @@ const ContactUsPage: React.FC = () => {
                 </form>
 
                 <div className="contact__info">
-                    <h3>Other ways to reach us</h3>
+                    <h2>Other ways to reach us</h2>
                     <p>Email: contact@digital-e.com</p>
                     <p>Phone: +84 123 456 789</p>
                     <p>Address: 123 Digital-E Street, Ho Chi Minh City, Vietnam</p>

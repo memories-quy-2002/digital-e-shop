@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { IoArrowForward } from "react-icons/io5";
+import { BsArrowRight } from "react-icons/bs";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
@@ -10,8 +10,13 @@ import recommendations from "../../utils/recommendations.json";
 import ProductItem from "../common/ProductItem";
 import Layout from "../layout/Layout";
 import { Helmet } from "react-helmet";
+import carousel1 from "../../assets/images/carousel_1.jpg";
+import carousel2 from "../../assets/images/carousel_2.jpg";
+import carousel3 from "../../assets/images/carousel_3.jpg";
+import carousel4 from "../../assets/images/carousel_4.jpg";
 
 const DISPLAYED_NUMBER = 12;
+const carouselImages = [carousel1, carousel2, carousel3, carousel4];
 
 interface Wishlist {
     id: number;
@@ -224,7 +229,7 @@ const HomePage = () => {
                 />
                 <link
                     rel="preload"
-                    href="../../../public/carousel_1.jpg"
+                    href="../../assets/images/carousel_1.jpg"
                     as="image"
                     media="(max-width: 600px)"
                     imageSrcSet="small.jpg 600w, medium.jpg 1200w, large.jpg 2000w"
@@ -243,7 +248,7 @@ const HomePage = () => {
                         </p>
                         <div className="home__hero__actions">
                             <button type="button" onClick={() => navigate("/shops")}>
-                                Shop All Products <IoArrowForward />
+                                Shop All Products <BsArrowRight />
                             </button>
                             <Link to="/news" className="ghost">
                                 What&apos;s New
@@ -273,13 +278,9 @@ const HomePage = () => {
                         >
                             {slides.map((slide, index) => (
                                 <div className="home__hero__slide" key={`hero-slide-${index}`}>
-                                    <img
-                                        src={`../../../public/carousel_${index + 1}.jpg`}
-                                        alt={slide.title}
-                                        fetchPriority="high"
-                                    />
+                                    <img src={carouselImages[index]} alt={slide.title} fetchPriority="high" />
                                     <div className="home__hero__slide__overlay">
-                                        <h3>{slide.title}</h3>
+                                        <h2>{slide.title}</h2>
                                         <p>{slide.subtitle}</p>
                                         <button type="button" onClick={() => navigate("/shops")}>
                                             {slide.cta}
@@ -319,8 +320,8 @@ const HomePage = () => {
                                 Shop what&apos;s trending right now or explore the newest drops.
                             </p>
                         </div>
-                        <Link to="/shops" className="home__product__cta" aria-label="View all products">
-                            View all <IoArrowForward />
+                        <Link to="/shops" className="home__product__cta">
+                            View all products <BsArrowRight />
                         </Link>
                     </header>
 

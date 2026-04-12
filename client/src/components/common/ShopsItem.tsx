@@ -38,26 +38,12 @@ const ShopsItem = ({ product, uid, isWishlist, onToggleWishlist, onAddingCart }:
             <p className="shops__container__main__pagination__list__item__category">{product.category}</p>
             <p className="shops__container__main__pagination__list__item__name">{product.name}</p>
             {product.sale_price ? (
-                <div className="d-flex flex-row gap-3 justify-content-center">
-                    <p
-                        style={{
-                            textAlign: "center",
-                            fontWeight: "bold",
-                            fontSize: "1.25rem",
-                            color: "red",
-                        }}
-                    >
-                        ${product.sale_price}
-                    </p>
-                    <p className="shops__container__main__pagination__list__item__price">${product.price}</p>
+                <div className="shops__container__main__pagination__list__item__price-row">
+                    <p className="shops__container__main__pagination__list__item__price-sale">${product.sale_price}</p>
+                    <p className="shops__container__main__pagination__list__item__price-was">${product.price}</p>
                 </div>
             ) : (
-                <p
-                    className="shops__container__main__pagination__list__item__price"
-                    style={{ color: "red", textDecoration: "none" }}
-                >
-                    ${product.price}
-                </p>
+                <p className="shops__container__main__pagination__list__item__price-current">${product.price}</p>
             )}
 
             <div className="shops__container__main__pagination__list__item__rating">

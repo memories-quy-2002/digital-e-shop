@@ -94,7 +94,7 @@ const CartPage = () => {
                 } else if (errorResponse.status === 500) {
                     addToast("Applying Coupon", "Internal server error, please try again later");
                 }
-                setError(`Status code: ${errorResponse.status}, Message: ${errorResponse.data.msg}`);
+                setError(`Error: ${errorResponse.data.msg}`);
             }
         }
     };
@@ -209,7 +209,6 @@ const CartPage = () => {
                                     totalPrice={totalPrice}
                                     discount={discount}
                                     subtotal={subtotal}
-                                    error={error}
                                     applyDiscount={applyDiscount}
                                 />
                             </aside>

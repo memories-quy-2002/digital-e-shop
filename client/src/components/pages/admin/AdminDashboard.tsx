@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { FaArrowDown, FaArrowUp, FaBox, FaMoneyBill, FaShoppingCart, FaUser } from "react-icons/fa";
+import { BsArrowDown, BsArrowUp, BsBoxSeam, BsCart3, BsCashStack, BsPersonFill } from "react-icons/bs";
 import axios from "../../../api/axios";
 import { Product, Role } from "../../../utils/interface";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -73,7 +73,7 @@ const Card: React.FC<CardProps> = ({ title, value, description, accent, percenta
                 <p>{description}</p>
                 {percentage !== undefined && (
                     <span className={trendUp ? "trend-up" : "trend-down"}>
-                        {trendUp ? <FaArrowUp /> : <FaArrowDown />}
+                        {trendUp ? <BsArrowUp /> : <BsArrowDown />}
                         {Math.abs(percentage).toFixed(2)}%
                     </span>
                 )}
@@ -308,7 +308,7 @@ const AdminDashboard = () => {
                         description="Sales this month"
                         accent="purple"
                         percentage={salesPercentageChange}
-                        icon={<FaShoppingCart />}
+                        icon={<BsCart3 />}
                     />
                     <Card
                         title="Revenue"
@@ -316,21 +316,21 @@ const AdminDashboard = () => {
                         description="Revenue this month"
                         accent="blue"
                         percentage={revenuePercentageChange}
-                        icon={<FaMoneyBill />}
+                        icon={<BsCashStack />}
                     />
                     <Card
                         title="Products"
                         value={productTotal || products.length}
                         description="Active listings"
                         accent="green"
-                        icon={<FaBox />}
+                        icon={<BsBoxSeam />}
                     />
                     <Card
                         title="Users"
                         value={userTotal || users.length}
                         description="Registered accounts"
                         accent="teal"
-                        icon={<FaUser />}
+                        icon={<BsPersonFill />}
                     />
                 </section>
 

@@ -407,7 +407,7 @@ const ProductPage = () => {
                         <div className="product__hero__summary__price">
                             {productDetail.sale_price ? (
                                 <>
-                                    <span className="price-active">${productDetail.sale_price}</span>
+                                    <span className="price-active price-active--sale">${productDetail.sale_price}</span>
                                     <span className="price-original">${productDetail.price}</span>
                                 </>
                             ) : (
@@ -513,7 +513,7 @@ const ProductPage = () => {
                         ) : (
                             <div className="product__review__container">
                                 <div className="product__review__container__rating">
-                                    <h5 className="product__review__container__rating__title">Rating</h5>
+                                    <h2 className="product__review__container__rating__title">Rating</h2>
                                     <div className="product__review__container__rating__container">
                                         <div className="product__review__container__rating__container__star">
                                             {[1, 2, 3, 4, 5].map((rating) => (
@@ -532,7 +532,7 @@ const ProductPage = () => {
                                     </div>
                                 </div>
                                 <div className="product__review__container__text">
-                                    <h5 className="product__review__container__text__title">Review</h5>
+                                    <h2 className="product__review__container__text__title">Review</h2>
                                     <textarea
                                         className="product__review__container__text__area"
                                         name="review"
@@ -553,9 +553,9 @@ const ProductPage = () => {
                                     </button>
                                 </div>
                                 <div className="product__review__container__all">
-                                    <h5 className="product__review__container__all__title">
+                                    <h2 className="product__review__container__all__title">
                                         All reviews ({reviews.length})
-                                    </h5>
+                                    </h2>
                                     <div className="product__review__container__all__list">
                                         {reviews.map((review, index) => (
                                             <div key={index} className="product__review__container__all__list__item">
@@ -581,11 +581,11 @@ const ProductPage = () => {
                 ) : (
                     <div className="product__description">
                         <div className="product__description__card">
-                            <h5>Description</h5>
+                            <h2>Description</h2>
                             <p>{productDetail.description}</p>
                         </div>
                         <div className="product__description__card">
-                            <h5>Specifications</h5>
+                            <h2>Specifications</h2>
                             {specs.length > 0 ? (
                                 <ul>
                                     {specs.map((item, index) => (

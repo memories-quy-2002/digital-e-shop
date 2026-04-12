@@ -1,7 +1,7 @@
 import React from "react";
-import { FaRegTrashAlt } from "react-icons/fa";
+import { BsTrash } from "react-icons/bs";
 import { Product } from "../../../utils/interface";
-import productPlaceholder from "../../../assets/images/product_placeholder.jpg";
+import loadImage from "../../../utils/loadImage";
 interface AdminProductItemProp {
     products: Product[];
     product: Product;
@@ -12,23 +12,14 @@ const AdminProductItem = ({ products, product, handleOpen }: AdminProductItemPro
     const imageUrl = product.main_image ? product.main_image.replace(".jpg", "") : null;
 
     return (
-        <tr>
+        <tr key={product.id}>
             <td width="50px">{products.indexOf(product) + 1}</td>
             <td>
-                <img
-                    src={
-                        imageUrl
-                            ? `https://2txtqipejre57csy.public.blob.vercel-storage.com/uploads/${imageUrl}.jpg`
-                            : productPlaceholder
-                    }
-                    alt={product.name}
-                    style={{
-                        height: "auto",
-                        width: "144px",
-                        aspectRatio: "3/2",
-                        objectFit: "contain",
-                    }}
-                />
+                {loadImage(imageUrl, product.name, {
+                    width: "144px",
+                    height: "96px", // thêm height cố định
+                    objectFit: "contain", // crop ảnh để fill đều, không bị méo
+                })}
             </td>
             <td width="450px">{product.name}</td>
             <td width="150px">{product.category}</td>
@@ -43,7 +34,7 @@ const AdminProductItem = ({ products, product, handleOpen }: AdminProductItemPro
                         <FaRegEdit />
                      </button> */}
                     <button data-testid="deleteProductBtn" type="button" onClick={() => handleOpen(product.id)}>
-                        <FaRegTrashAlt />
+                        <BsTrash />
                     </button>
                 </div>
             </td>

@@ -104,15 +104,15 @@ const AboutUsPage: React.FC = () => {
                     </div>
                     <div className="about__team__grid">
                         <div className="about__team__card">
-                            <h4>Product Specialists</h4>
+                            <h3>Product Specialists</h3>
                             <p>Hands-on testing, comparisons, and category roadmaps.</p>
                         </div>
                         <div className="about__team__card">
-                            <h4>Operations</h4>
+                            <h3>Operations</h3>
                             <p>Fulfillment, logistics, and vendor relationships.</p>
                         </div>
                         <div className="about__team__card">
-                            <h4>Customer Care</h4>
+                            <h3>Customer Care</h3>
                             <p>Fast resolutions and personalized help when you need it.</p>
                         </div>
                     </div>

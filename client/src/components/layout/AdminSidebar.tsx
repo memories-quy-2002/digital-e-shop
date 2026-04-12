@@ -1,15 +1,14 @@
 import React from "react";
-import { AiFillDashboard } from "react-icons/ai";
-import { FaBox, FaCartShopping, FaUser } from "react-icons/fa6";
+import { BsBoxSeam, BsCart3, BsPersonFill, BsSpeedometer2 } from "react-icons/bs";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import productPlaceholder from "../../assets/images/product_placeholder.jpg";
 const items = ["Dashboard", "Products", "Orders", "Accounts"];
 const itemIcons = [
-    <AiFillDashboard size={20} key={0} />,
-    <FaBox size={20} key={1} />,
-    <FaCartShopping size={20} key={2} />,
-    <FaUser size={20} key={3} />,
+    <BsSpeedometer2 size={20} key={0} />,
+    <BsBoxSeam size={20} key={1} />,
+    <BsCart3 size={20} key={2} />,
+    <BsPersonFill size={20} key={3} />,
 ];
 
 const AdminSidebar = () => {
@@ -30,8 +29,8 @@ const AdminSidebar = () => {
         <aside className="admin__layout__sidebar">
             {/* Logo / Brand */}
             <section className="admin__layout__sidebar__title">
-                <h3>DIGITAL-E</h3>
-                <span>Admin Panel</span>
+                <p className="admin__layout__sidebar__title__brand">DIGITAL-E</p>
+                <span className="admin__layout__sidebar__title__tag">Admin Panel</span>
             </section>
 
             {/* User Info */}

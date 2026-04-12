@@ -6,5 +6,18 @@ export default defineConfig({
     base: "/", // Ensure this is set correctly
     build: {
         outDir: "dist",
+        rollupOptions: {
+            output: {
+                manualChunks(id) {
+                    if (id.includes("node_modules/react-icons")) {
+                        return "react-icons";
+                    }
+                    return undefined;
+                },
+            },
+        },
+    },
+    optimizeDeps: {
+        include: ["react-icons/bs"],
     },
 });

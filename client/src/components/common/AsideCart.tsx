@@ -1,34 +1,38 @@
-import { BsBank } from "react-icons/bs";
-import { FaBitcoin, FaCcVisa } from "react-icons/fa";
+import { BsBank, BsCreditCard2Front, BsCurrencyBitcoin } from "react-icons/bs";
 import React, { useState } from "react";
+
 type AsideCartProps = {
     totalPrice: number;
     discount: number;
     subtotal: number;
-    error: string;
     applyDiscount: (discountCode: string, totalPrice: number) => void;
 };
 
-const paymentIcon: any = [<BsBank size={36} />, <FaCcVisa size={36} />, <FaBitcoin size={36} />];
+const paymentIcon: React.ReactNode[] = [
+    <BsBank key="bank" size={36} aria-hidden />,
+    <BsCreditCard2Front key="card" size={36} aria-hidden />,
+    <BsCurrencyBitcoin key="crypto" size={36} aria-hidden />,
+];
 
-const AsideCart = ({ totalPrice, discount, subtotal, error, applyDiscount }: AsideCartProps) => {
+const AsideCart = ({ totalPrice, discount, subtotal, applyDiscount }: AsideCartProps) => {
     const [discountCode, setDiscountCode] = useState<string>("");
     const onChangeDiscountCode = (event: React.ChangeEvent<HTMLInputElement>) => {
         const { value } = event.target;
         setDiscountCode(value);
     };
+
     return (
         <aside className="cart__container__box__aside">
             <div className="cart__container__box__aside__box">
                 <div className="cart__container__box__aside__box__coupon">
-                    <h4 className="cart__container__box__aside__box__coupon__title">Have coupon?</h4>
+                    <h3 className="cart__container__box__aside__box__coupon__title">Have coupon?</h3>
                     <p className="cart__container__box__aside__box__coupon__hint">
                         Enter your code and apply to see instant savings.
                     </p>
                     <div className="cart__container__box__aside__box__coupon__input">
                         <input
                             type="text"
-                            aria-label="couponInput"
+                            aria-label="Discount or coupon code"
                             name="couponInput"
                             id="couponInput"
                             data-testid="coupon"
@@ -41,7 +45,6 @@ const AsideCart = ({ totalPrice, discount, subtotal, error, applyDiscount }: Asi
                             Apply
                         </button>
                     </div>
-                    <p className="cart__container__box__aside__box__coupon__error">{error}</p>
                 </div>
                 <hr />
                 <div className="cart__container__box__aside__box__price">
@@ -60,7 +63,7 @@ const AsideCart = ({ totalPrice, discount, subtotal, error, applyDiscount }: Asi
                 </div>
                 <hr />
                 <div className="cart__container__box__aside__box__payment">
-                    <h4>Payment method</h4>
+                    <h3>Payment method</h3>
                     <div>
                         <ul
                             style={{
@@ -71,7 +74,7 @@ const AsideCart = ({ totalPrice, discount, subtotal, error, applyDiscount }: Asi
                                 padding: "0",
                             }}
                         >
-                            {paymentIcon.map((icon, index) => (
+                            {paymentIcon.map((icon: any, index: number) => (
                                 <li style={{ cursor: "pointer" }} key={index}>
                                     {icon}
                                 </li>

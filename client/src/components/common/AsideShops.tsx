@@ -38,7 +38,7 @@ const AsideShops = ({
         <aside className="shops__container__aside">
             <section className="shops__container__aside__categories">
                 <div>
-                    <h4>Categories</h4>
+                    <h2>Categories</h2>
                     {categories.map((category, index) => {
                         return (
                             <div key={index}>
@@ -59,7 +59,7 @@ const AsideShops = ({
             </section>
             <section className="shops__container__aside__brands" data-testid="shops__aside__brand">
                 <div>
-                    <h4>Brands</h4>
+                    <h2>Brands</h2>
                     {brands.map((brand, index) => {
                         return (
                             <div key={index}>
@@ -79,7 +79,7 @@ const AsideShops = ({
                 </div>
             </section>
             <section className="shops__container__aside__price">
-                <h4>Price range</h4>
+                <h2>Price range</h2>
                 <div className="shops__container__aside__price__slider">
                     <ReactSlider
                         className="horizontal-slider"

@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { Button, Modal } from "react-bootstrap";
-import { FaHome } from "react-icons/fa";
-import { IoLogOutOutline, IoNotifications, IoSearch } from "react-icons/io5";
+import { BsBell, BsBoxArrowRight, BsHouse, BsSearch } from "react-icons/bs";
 import Cookies from "universal-cookie";
 import axios from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
@@ -46,21 +45,21 @@ const AdminHeader = () => {
             <div className="admin__layout__main__header__left">
                 <button type="button" className="admin__layout__main__header__home" onClick={() => navigate("/")}
                 >
-                    <FaHome />
+                    <BsHouse />
                     <span>Home</span>
                 </button>
 
                 <div className="admin__layout__main__header__search">
                     <input type="text" placeholder="Search..." />
                     <button type="submit">
-                        <IoSearch size={20} />
+                        <BsSearch size={20} />
                     </button>
                 </div>
             </div>
 
             <div className="admin__layout__main__header__right">
                 <div className="admin__layout__main__header__notifications">
-                    <IoNotifications className="admin__layout__main__header__notifications__icon" size={24} />
+                    <BsBell className="admin__layout__main__header__notifications__icon" size={24} />
                     {UNREAD_COUNT > 0 && (
                         <span className="admin__layout__main__header__notifications__badge">{UNREAD_COUNT}</span>
                     )}
@@ -68,7 +67,7 @@ const AdminHeader = () => {
 
                 <button className="admin__layout__main__header__logout" onClick={() => handleClick()}>
                     <span>Logout</span>
-                    <IoLogOutOutline size={20} />
+                    <BsBoxArrowRight size={20} />
                 </button>
             </div>
 

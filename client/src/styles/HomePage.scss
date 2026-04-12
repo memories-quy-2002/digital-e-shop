@@ -170,14 +170,14 @@
                 background: linear-gradient(0deg, rgba(15, 23, 42, 0.75), transparent 60%);
                 color: #fff;
 
-                h3 {
+                h2 {
                     font-size: 1.6rem;
                     margin: 0;
                 }
 
                 p {
                     margin: 0;
-                    color: rgba(255, 255, 255, 0.8);
+                    color: rgba(255, 255, 255, 0.92);
                 }
 
                 button {
@@ -222,7 +222,7 @@
             text-transform: uppercase;
             font-size: 0.8rem;
             letter-spacing: 2px;
-            color: #94a3b8;
+            color: #64748b;
         }
 
         &__cta {
@@ -395,7 +395,7 @@
             }
 
             &__category {
-                color: #94a3b8;
+                color: #64748b;
                 text-transform: uppercase;
                 letter-spacing: 1px;
                 font-size: 0.75rem;
@@ -423,14 +423,20 @@
 
             &__priceOriginal {
                 font-size: 0.9rem;
-                color: #94a3b8;
+                color: #64748b;
                 text-decoration: line-through;
                 font-weight: 600;
             }
 
             &__priceSale {
                 font-size: 1.1rem;
-                color: #ef4444;
+                color: #b91c1c;
+                font-weight: 800;
+            }
+
+            &__priceCurrent {
+                font-size: 1.1rem;
+                color: #0f172a;
                 font-weight: 800;
             }
 

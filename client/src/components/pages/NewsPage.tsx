@@ -98,7 +98,11 @@ const NewsPage: React.FC = () => {
                     </div>
                 </section>
 
-                <section className="news__list">
+                <section className="news__list" aria-labelledby="news-list-heading">
+                    <h2 id="news-list-heading" className="news__list__heading">
+                        Latest articles
+                    </h2>
+                    <div className="news__list__grid">
                     {articles.map((article) => (
                         <article className="news__card" key={article.id}>
                             <div className="news__card__tag">{article.tag}</div>
@@ -114,6 +118,7 @@ const NewsPage: React.FC = () => {
                             <button type="button">Read more</button>
                         </article>
                     ))}
+                    </div>
                 </section>
             </div>
         </Layout>

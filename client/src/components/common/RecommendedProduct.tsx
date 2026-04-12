@@ -15,7 +15,7 @@ const RecommendedProduct = ({ pid, relevantProducts }: RecommendedProps) => {
 
     return (
         <div className="product__container__recommended">
-            <h3 className="product__container__recommended__title">People who bought this product also buy</h3>
+            <h2 className="product__container__recommended__title">People who bought this product also buy</h2>
             <div className="product__container__recommended__list">
                 {relevantProducts.length > 0 &&
                     relevantProducts.slice(0, 9).map((product) => (

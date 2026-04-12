@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from "react";
-import { FiCheckCircle } from "react-icons/fi";
-import { useLocation } from "react-router-dom";
+import { BsCheckCircle } from "react-icons/bs";
+import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import "../../styles/CheckoutSuccessPage.scss";
 import Layout from "../layout/Layout";
@@ -54,12 +54,12 @@ const CheckoutSuccessPage = () => {
             </Helmet>
             <article className="success__container">
                 <div className="success__container__icon">
-                    <FiCheckCircle size={90} color="#22c55e" />
+                    <BsCheckCircle size={90} color="#22c55e" />
                 </div>
                 <p className="success__container__eyebrow">
                     Thank you {userData && !loading ? userData.username : "there"}!
                 </p>
-                <strong className="success__container__title">Your order is confirmed</strong>
+                <h1 className="success__container__title">Your order is confirmed</h1>
                 <p className="success__container__subtitle">
                     We&apos;re preparing your items. A confirmation email will be sent shortly.
                 </p>
@@ -85,14 +85,14 @@ const CheckoutSuccessPage = () => {
 
                 <section className="success__container__details">
                     <div>
-                        <h4>Shipping details</h4>
+                        <h2>Shipping details</h2>
                         <p>{combinedData?.name || "-"}</p>
                         <p>{combinedData?.address || "-"}</p>
                         <p>{[combinedData?.city, combinedData?.country].filter(Boolean).join(", ") || "-"}</p>
                         <p>{combinedData?.phone || "-"}</p>
                     </div>
                     <div>
-                        <h4>Contact</h4>
+                        <h2>Contact</h2>
                         <p>{combinedData?.email || userData?.email || "-"}</p>
                         <p>
                             Placed on{" "}
@@ -104,12 +104,12 @@ const CheckoutSuccessPage = () => {
                 </section>
 
                 <div className="success__container__buttons">
-                    <a href="/" className="primary">
+                    <Link to="/" className="primary">
                         Continue shopping
-                    </a>
-                    <a href="/orders" className="secondary">
+                    </Link>
+                    <Link to="/orders" className="secondary">
                         View order status
-                    </a>
+                    </Link>
                 </div>
             </article>
         </Layout>

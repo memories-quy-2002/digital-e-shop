@@ -3,8 +3,6 @@ import { BsHeart, BsHeartFill } from "react-icons/bs";
 import { useNavigate } from "react-router-dom";
 import { Product } from "../../utils/interface";
 import ratingStar from "../../utils/ratingStar";
-import LazyLoadImage from "../../utils/LazyLoadingImage";
-import productPlaceholder from "../../assets/images/product_placeholder.jpg";
 import loadImage from "../../utils/loadImage";
 type ProductProps = {
     product: Product;
@@ -37,7 +35,7 @@ const ProductItem = ({ product, uid, isWishlist, onToggleWishlist, onAddingCart 
                 </div>
             ) : (
                 <div className="home__product__menu__item__priceRow">
-                    <span className="home__product__menu__item__priceSale">${product.price}</span>
+                    <span className="home__product__menu__item__priceCurrent">${product.price}</span>
                 </div>
             )}
 

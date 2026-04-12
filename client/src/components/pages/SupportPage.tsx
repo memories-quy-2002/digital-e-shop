@@ -38,7 +38,11 @@ const SupportPage: React.FC = () => {
                     <p>Find answers, troubleshoot, or contact our team for fast assistance.</p>
                 </header>
 
-                <section className="support__channels">
+                <section className="support__channels" aria-labelledby="support-contact-heading">
+                    <h2 id="support-contact-heading" className="support__channels__heading">
+                        Contact options
+                    </h2>
+                    <div className="support__channels__grid">
                     <div className="support__channels__card">
                         <h3>Live Chat</h3>
                         <p>Instant answers for product questions, orders, and returns.</p>
@@ -57,6 +61,7 @@ const SupportPage: React.FC = () => {
                         <span>+84 123 456 789</span>
                         <button type="button">Call now</button>
                     </div>
+                    </div>
                 </section>
 
                 <section className="support__resources">
@@ -66,19 +71,19 @@ const SupportPage: React.FC = () => {
                     </div>
                     <div className="support__resources__grid">
                         <div className="support__resources__card">
-                            <h4>Order tracking</h4>
+                            <h3>Order tracking</h3>
                             <p>Track shipments, update addresses, and manage delivery preferences.</p>
                         </div>
                         <div className="support__resources__card">
-                            <h4>Returns & exchanges</h4>
+                            <h3>Returns & exchanges</h3>
                             <p>Start a return, print a label, and view refund timelines.</p>
                         </div>
                         <div className="support__resources__card">
-                            <h4>Warranty & repairs</h4>
+                            <h3>Warranty & repairs</h3>
                             <p>Check coverage, claim warranties, and book repair services.</p>
                         </div>
                         <div className="support__resources__card">
-                            <h4>Account security</h4>
+                            <h3>Account security</h3>
                             <p>Reset passwords, enable 2FA, and protect your account.</p>
                         </div>
                     </div>

@@ -191,7 +191,9 @@ async function applyDiscount(discountCode) {
     return new Promise((resolve, reject) => {
         Order.applyDiscount(discountCode, (err, results) => {
             if (err) return reject(err);
-            if (results.length === 0) return reject(new Error("Discount code not found"));
+            if (results.length === 0) {
+                resolve(null);
+            };
             resolve(results[0]);
         });
     });

@@ -127,11 +127,15 @@
                 font-weight: 800;
 
                 .price-active {
-                    color: #0b5fff;
+                    color: #0f172a;
+
+                    &--sale {
+                        color: #b91c1c;
+                    }
                 }
 
                 .price-original {
-                    color: #9ca3af;
+                    color: #64748b;
                     text-decoration: line-through;
                     font-size: 1.1rem;
                 }
@@ -440,7 +444,7 @@
             padding: 1.5rem;
             box-shadow: 0 12px 20px rgba(0, 0, 0, 0.08);
 
-            h5 {
+            h2 {
                 font-size: 1.2rem;
                 margin-bottom: 0.75rem;
                 color: #111827;
@@ -508,7 +512,7 @@
                     &__category {
                         text-align: center;
                         font-weight: bold;
-                        color: #939393;
+                        color: #64748b;
                         margin-top: 0.5rem;
                     }
 
@@ -524,7 +528,7 @@
                         text-align: center;
                         font-weight: bold;
                         font-size: 1rem;
-                        color: #0b5fff;
+                        color: #0f172a;
 
                         &--sale {
                             display: flex;
@@ -532,12 +536,13 @@
                             justify-content: center;
 
                             &__sale {
-                                color: #0b5fff;
+                                color: #b91c1c;
                             }
 
                             &__original {
                                 text-decoration: line-through;
-                                color: gray;
+                                color: #64748b;
+                                font-weight: 600;
                             }
                         }
                     }
