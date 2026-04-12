@@ -224,7 +224,7 @@ const HomePage = () => {
                 />
                 <link
                     rel="preload"
-                    href="../../assets/images/carousel_1.jpg"
+                    href="../../../public/carousel_1.jpg"
                     as="image"
                     media="(max-width: 600px)"
                     imageSrcSet="small.jpg 600w, medium.jpg 1200w, large.jpg 2000w"
@@ -273,7 +273,11 @@ const HomePage = () => {
                         >
                             {slides.map((slide, index) => (
                                 <div className="home__hero__slide" key={`hero-slide-${index}`}>
-                                    <img src={`../../assets/images/carousel_${index + 1}.jpg`} alt={slide.title} />
+                                    <img
+                                        src={`../../../public/carousel_${index + 1}.jpg`}
+                                        alt={slide.title}
+                                        fetchPriority="high"
+                                    />
                                     <div className="home__hero__slide__overlay">
                                         <h3>{slide.title}</h3>
                                         <p>{slide.subtitle}</p>
