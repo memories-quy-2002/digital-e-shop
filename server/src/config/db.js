@@ -52,7 +52,7 @@ pool.query = (sql, values, callback) => {
             !/^\s*explain/i.test(sqlText || "");
 
         if (shouldExplain) {
-            const explainSql = `EXPLAIN ${compactSql}`;
+            const explainSql = `EXPLAIN ANALYZE ${compactSql}`;
             originalQuery(explainSql, params || [], (explainErr, rows) => {
                 if (explainErr) {
                     console.warn(`[db] EXPLAIN failed: ${explainErr.message}`);

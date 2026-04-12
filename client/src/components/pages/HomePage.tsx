@@ -224,10 +224,11 @@ const HomePage = () => {
                 />
                 <link
                     rel="preload"
-                    href="https://2txtqipejre57csy.public.blob.vercel-storage.com/uploads/carousel_1.jpg"
+                    href="src/assets/images/carousel_1.jpg"
                     as="image"
                     media="(max-width: 600px)"
                     imageSrcSet="small.jpg 600w, medium.jpg 1200w, large.jpg 2000w"
+                    fetchPriority="high"
                 />
             </Helmet>
 
@@ -272,16 +273,7 @@ const HomePage = () => {
                         >
                             {slides.map((slide, index) => (
                                 <div className="home__hero__slide" key={`hero-slide-${index}`}>
-                                    <img
-                                        src={`https://2txtqipejre57csy.public.blob.vercel-storage.com/uploads/carousel_${
-                                            index + 1
-                                        }.jpg`}
-                                        alt={slide.title}
-                                        loading={index > 0 ? "lazy" : "eager"}
-                                        width="100%"
-                                        height="auto"
-                                        decoding="async"
-                                    />
+                                    <img src={`src/assets/images/carousel_${index + 1}.jpg`} alt={slide.title} />
                                     <div className="home__hero__slide__overlay">
                                         <h3>{slide.title}</h3>
                                         <p>{slide.subtitle}</p>
