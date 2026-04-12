@@ -11,7 +11,7 @@
         "@types/node": "^25.5.2",
         "@vercel/analytics": "^2.0.1",
         "@vercel/speed-insights": "^2.0.0",
-        "axios": "^1.14.0",
+        "axios": "^1.15.0",
         "eslint": "^10.2.0",
         "firebase": "^12.11.0",
         "fs": "0.0.1-security",
