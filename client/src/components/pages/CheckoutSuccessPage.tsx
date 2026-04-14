@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from "react";
-import { BsCheckCircle } from "react-icons/bs";
+import { CheckCircleIcon } from "../common/Icons";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import "../../styles/CheckoutSuccessPage.scss";
@@ -54,7 +54,7 @@ const CheckoutSuccessPage = () => {
             </Helmet>
             <article className="success__container">
                 <div className="success__container__icon">
-                    <BsCheckCircle size={90} color="#22c55e" />
+                    <CheckCircleIcon size={90} color="#22c55e" />
                 </div>
                 <p className="success__container__eyebrow">
                     Thank you {userData && !loading ? userData.username : "there"}!

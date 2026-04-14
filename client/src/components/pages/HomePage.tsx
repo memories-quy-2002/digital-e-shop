@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { BsArrowRight } from "react-icons/bs";
+import { ArrowRightIcon } from "../common/Icons";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
@@ -227,14 +227,7 @@ const HomePage = () => {
                     property="og:description"
                     content="Shop laptops, phones, audio, accessories, and smart devices with fast delivery and secure checkout."
                 />
-                <link
-                    rel="preload"
-                    href="../../assets/images/carousel_1.jpg"
-                    as="image"
-                    media="(max-width: 600px)"
-                    imageSrcSet="small.jpg 600w, medium.jpg 1200w, large.jpg 2000w"
-                    fetchPriority="high"
-                />
+                <link rel="preload" as="image" href={carouselImages[0]} fetchPriority="high" />
             </Helmet>
 
             <main className="home">
@@ -248,7 +241,7 @@ const HomePage = () => {
                         </p>
                         <div className="home__hero__actions">
                             <button type="button" onClick={() => navigate("/shops")}>
-                                Shop All Products <BsArrowRight />
+                                Shop All Products <ArrowRightIcon />
                             </button>
                             <Link to="/news" className="ghost">
                                 What&apos;s New
@@ -278,7 +271,13 @@ const HomePage = () => {
                         >
                             {slides.map((slide, index) => (
                                 <div className="home__hero__slide" key={`hero-slide-${index}`}>
-                                    <img src={carouselImages[index]} alt={slide.title} fetchPriority="high" />
+                                    <img
+                                        src={carouselImages[index]}
+                                        alt={slide.title}
+                                        loading={index === currentIndex ? "eager" : "lazy"}
+                                        fetchPriority={index === currentIndex ? "high" : "auto"}
+                                        decoding="async"
+                                    />
                                     <div className="home__hero__slide__overlay">
                                         <h2>{slide.title}</h2>
                                         <p>{slide.subtitle}</p>
@@ -321,7 +320,7 @@ const HomePage = () => {
                             </p>
                         </div>
                         <Link to="/shops" className="home__product__cta">
-                            View all products <BsArrowRight />
+                            View all products <ArrowRightIcon />
                         </Link>
                     </header>
 

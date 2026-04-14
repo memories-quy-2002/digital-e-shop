@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import "../../styles/Footer.scss";
-import { BsFacebook, BsInstagram, BsLinkedin, BsTwitter } from "react-icons/bs";
+import { FacebookIcon, InstagramIcon, LinkedinIcon, TwitterIcon } from "../common/Icons";
 import { useToast } from "../../context/ToastContext";
 import React, { useState } from "react";
 
@@ -9,22 +9,22 @@ const Footer = () => {
         {
             platform: "Facebook",
             url: "https://www.facebook.com",
-            icon: <BsFacebook />,
+            icon: <FacebookIcon />,
         },
         {
             platform: "Twitter",
             url: "https://www.twitter.com",
-            icon: <BsTwitter />,
+            icon: <TwitterIcon />,
         },
         {
             platform: "Instagram",
             url: "https://www.instagram.com",
-            icon: <BsInstagram />,
+            icon: <InstagramIcon />,
         },
         {
             platform: "LinkedIn",
             url: "https://www.linkedin.com",
-            icon: <BsLinkedin />,
+            icon: <LinkedinIcon />,
         },
     ];
     const [email, setEmail] = useState<string>("");

@@ -1,5 +1,5 @@
 import React from "react";
-import { BsTrash } from "react-icons/bs";
+import { TrashIcon } from "../Icons";
 import { Product } from "../../../utils/interface";
 import loadImage from "../../../utils/loadImage";
 interface AdminProductItemProp {
@@ -34,7 +34,7 @@ const AdminProductItem = ({ products, product, handleOpen }: AdminProductItemPro
                         <FaRegEdit />
                      </button> */}
                     <button data-testid="deleteProductBtn" type="button" onClick={() => handleOpen(product.id)}>
-                        <BsTrash />
+                        <TrashIcon />
                     </button>
                 </div>
             </td>

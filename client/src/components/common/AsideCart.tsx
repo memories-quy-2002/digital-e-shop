@@ -1,5 +1,5 @@
-import { BsBank, BsCreditCard2Front, BsCurrencyBitcoin } from "react-icons/bs";
 import React, { useState } from "react";
+import { BankIcon, CreditCardIcon, BitcoinIcon } from "../common/Icons";
 
 type AsideCartProps = {
     totalPrice: number;
@@ -9,9 +9,9 @@ type AsideCartProps = {
 };
 
 const paymentIcon: React.ReactNode[] = [
-    <BsBank key="bank" size={36} aria-hidden />,
-    <BsCreditCard2Front key="card" size={36} aria-hidden />,
-    <BsCurrencyBitcoin key="crypto" size={36} aria-hidden />,
+    <BankIcon key="bank" size={36} aria-hidden />,
+    <CreditCardIcon key="card" size={36} aria-hidden />,
+    <BitcoinIcon key="crypto" size={36} aria-hidden />,
 ];
 
 const AsideCart = ({ totalPrice, discount, subtotal, applyDiscount }: AsideCartProps) => {

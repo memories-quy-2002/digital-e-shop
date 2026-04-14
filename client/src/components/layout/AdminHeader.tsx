@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Button, Modal } from "react-bootstrap";
-import { BsBell, BsBoxArrowRight, BsHouse, BsSearch } from "react-icons/bs";
+import { BellIcon, BoxArrowRightIcon, HouseIcon, SearchIcon } from "../common/Icons";
 import Cookies from "universal-cookie";
 import axios from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
@@ -43,23 +43,22 @@ const AdminHeader = () => {
             </Helmet>
 
             <div className="admin__layout__main__header__left">
-                <button type="button" className="admin__layout__main__header__home" onClick={() => navigate("/")}
-                >
-                    <BsHouse />
+                <button type="button" className="admin__layout__main__header__home" onClick={() => navigate("/")}>
+                    <HouseIcon />
                     <span>Home</span>
                 </button>
 
                 <div className="admin__layout__main__header__search">
                     <input type="text" placeholder="Search..." />
                     <button type="submit">
-                        <BsSearch size={20} />
+                        <SearchIcon size={20} />
                     </button>
                 </div>
             </div>
 
             <div className="admin__layout__main__header__right">
                 <div className="admin__layout__main__header__notifications">
-                    <BsBell className="admin__layout__main__header__notifications__icon" size={24} />
+                    <BellIcon className="admin__layout__main__header__notifications__icon" size={24} />
                     {UNREAD_COUNT > 0 && (
                         <span className="admin__layout__main__header__notifications__badge">{UNREAD_COUNT}</span>
                     )}
@@ -67,7 +66,7 @@ const AdminHeader = () => {
 
                 <button className="admin__layout__main__header__logout" onClick={() => handleClick()}>
                     <span>Logout</span>
-                    <BsBoxArrowRight size={20} />
+                    <BoxArrowRightIcon size={20} />
                 </button>
             </div>
 

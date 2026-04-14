@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BsArrowDown, BsArrowUp, BsBoxSeam, BsCart3, BsCashStack, BsPersonFill } from "react-icons/bs";
+import { ArrowDownIcon, ArrowUpIcon, BoxSeamIcon, CartIcon, CashStackIcon, PersonIcon } from "../../common/Icons";
 import axios from "../../../api/axios";
 import { Product, Role } from "../../../utils/interface";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -73,7 +73,7 @@ const Card: React.FC<CardProps> = ({ title, value, description, accent, percenta
                 <p>{description}</p>
                 {percentage !== undefined && (
                     <span className={trendUp ? "trend-up" : "trend-down"}>
-                        {trendUp ? <BsArrowUp /> : <BsArrowDown />}
+                        {trendUp ? <ArrowUpIcon /> : <ArrowDownIcon />}
                         {Math.abs(percentage).toFixed(2)}%
                     </span>
                 )}
@@ -213,7 +213,7 @@ const AdminDashboard = () => {
         const text = `**Report**\n\n**Sales this month:** ${getMonthlySales(orders, orderItems)[5].sales}\n\n**Revenues this month:** $${getMonthlyRevenues(orders)[5].revenue.toFixed(2)}\n\n**Products:** ${products.length}\n\n**Users:** ${users.length}\n\n**Percentage Change**\n\n* **Sales:** ${salesPercentageChange.toFixed(2)}%  (${getMonthlySales(orders, orderItems)[4].sales} -> ${
             getMonthlySales(orders, orderItems)[5].sales
         })\n* **Revenue:** ${revenuePercentageChange.toFixed(2)}%  ($${getMonthlyRevenues(orders)[4].revenue.toFixed(
-            2
+            2,
         )} -> $${getMonthlyRevenues(orders)[5].revenue.toFixed(2)})\n\n**Top Revenue Products**\n\n| Product Name | Sales | Revenue |\n|---|---|---|\n| ${topRevenueProducts[0]?.name || ""} | ${topRevenueProducts[0]?.sales || 0} | $${(
             topRevenueProducts[0]?.revenue || 0
         ).toFixed(2)} |\n| ${topRevenueProducts[1]?.name || ""} | ${topRevenueProducts[1]?.sales || 0} | $${(
@@ -236,12 +236,12 @@ const AdminDashboard = () => {
 
     const revenuePercentageChange = calculatePercentageChange(
         getMonthlyRevenues(orders)[5].revenue,
-        getMonthlyRevenues(orders)[4].revenue
+        getMonthlyRevenues(orders)[4].revenue,
     );
 
     const salesPercentageChange = calculatePercentageChange(
         getMonthlySales(orders, orderItems)[5].sales,
-        getMonthlySales(orders, orderItems)[4].sales
+        getMonthlySales(orders, orderItems)[4].sales,
     );
 
     const topRevenueProducts = getTopRevenueProducts(orderItems);
@@ -258,7 +258,8 @@ const AdminDashboard = () => {
                         <span className="admin__dashboard__hero__eyebrow">Store performance</span>
                         <h2 className="admin__dashboard__hero__title">Admin Dashboard</h2>
                         <p className="admin__dashboard__hero__subtitle">
-                            A complete snapshot of revenue, sales momentum, and customer activity over the last 6 months.
+                            A complete snapshot of revenue, sales momentum, and customer activity over the last 6
+                            months.
                         </p>
                     </div>
                     <div className="admin__dashboard__hero__actions">
@@ -308,7 +309,7 @@ const AdminDashboard = () => {
                         description="Sales this month"
                         accent="purple"
                         percentage={salesPercentageChange}
-                        icon={<BsCart3 />}
+                        icon={<CartIcon />}
                     />
                     <Card
                         title="Revenue"
@@ -316,21 +317,21 @@ const AdminDashboard = () => {
                         description="Revenue this month"
                         accent="blue"
                         percentage={revenuePercentageChange}
-                        icon={<BsCashStack />}
+                        icon={<CashStackIcon />}
                     />
                     <Card
                         title="Products"
                         value={productTotal || products.length}
                         description="Active listings"
                         accent="green"
-                        icon={<BsBoxSeam />}
+                        icon={<BoxSeamIcon />}
                     />
                     <Card
                         title="Users"
                         value={userTotal || users.length}
                         description="Registered accounts"
                         accent="teal"
-                        icon={<BsPersonFill />}
+                        icon={<PersonIcon />}
                     />
                 </section>
 

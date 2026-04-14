@@ -4,7 +4,7 @@ import ReactPaginate from "react-paginate";
 import axios from "../../../api/axios";
 import AdminLayout from "../../layout/AdminLayout";
 import { useToast } from "../../../context/ToastContext";
-import { BsCheckCircle, BsXCircle } from "react-icons/bs";
+import { CheckCircleIcon, XCircleIcon } from "../../common/Icons";
 import { Helmet } from "react-helmet";
 
 interface Order {
@@ -191,14 +191,14 @@ const AdminOrderPage = () => {
                                                         data-testid="cancelBtn"
                                                         onClick={() => handleChangeStatus(2, order.id)}
                                                     >
-                                                        <BsXCircle size={22} />
+                                                        <XCircleIcon size={22} />
                                                     </button>
                                                     <button
                                                         type="button"
                                                         data-testid="doneBtn"
                                                         onClick={() => handleChangeStatus(1, order.id)}
                                                     >
-                                                        <BsCheckCircle size={22} />
+                                                        <CheckCircleIcon size={22} />
                                                     </button>
                                                 </div>
                                             )}

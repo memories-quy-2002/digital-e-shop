@@ -160,6 +160,16 @@
         &__aside {
             position: sticky;
             top: 110px;
+            z-index: 10;
+        }
+
+        @media (max-width: 1023px) {
+            grid-template-columns: 1fr;
+            &__aside {
+                position: static;
+                top: auto;
+                width: 100%;
+            }
         }
 
         &__main {

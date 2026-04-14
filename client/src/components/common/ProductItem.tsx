@@ -1,5 +1,5 @@
 import React from "react";
-import { BsHeart, BsHeartFill } from "react-icons/bs";
+import { HeartIcon, HeartFillIcon } from "../common/Icons";
 import { useNavigate } from "react-router-dom";
 import { Product } from "../../utils/interface";
 import ratingStar from "../../utils/ratingStar";
@@ -23,7 +23,7 @@ const ProductItem = ({ product, uid, isWishlist, onToggleWishlist, onAddingCart 
             </div>
 
             <div className="home__product__menu__item__like" onClick={() => onToggleWishlist(uid, product.id)}>
-                {isWishlist ? <BsHeartFill size={24} color="red" /> : <BsHeart size={24} color="red" />}
+                {isWishlist ? <HeartFillIcon size={24} color="red" /> : <HeartIcon size={24} color="red" />}
             </div>
 
             <p className="home__product__menu__item__category">{product.category}</p>

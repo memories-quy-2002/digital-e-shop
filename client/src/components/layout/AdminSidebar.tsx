@@ -1,14 +1,14 @@
 import React from "react";
-import { BsBoxSeam, BsCart3, BsPersonFill, BsSpeedometer2 } from "react-icons/bs";
+import { BoxSeamIcon, CartIcon, PersonIcon, SpeedometerIcon } from "../common/Icons";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import productPlaceholder from "../../assets/images/product_placeholder.jpg";
 const items = ["Dashboard", "Products", "Orders", "Accounts"];
 const itemIcons = [
-    <BsSpeedometer2 size={20} key={0} />,
-    <BsBoxSeam size={20} key={1} />,
-    <BsCart3 size={20} key={2} />,
-    <BsPersonFill size={20} key={3} />,
+    <SpeedometerIcon size={20} key={0} />,
+    <BoxSeamIcon size={20} key={1} />,
+    <CartIcon size={20} key={2} />,
+    <PersonIcon size={20} key={3} />,
 ];
 
 const AdminSidebar = () => {

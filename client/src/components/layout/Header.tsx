@@ -1,5 +1,5 @@
 import React, { JSX, useState } from "react";
-import { BsCart3, BsEnvelopeFill, BsHeart, BsHouseFill, BsTelephoneFill } from "react-icons/bs";
+import { CartIcon, EnvelopeIcon, HeartIcon, HouseFillIcon, TelephoneIcon } from "../common/Icons";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import "../../styles/Header.scss";
@@ -55,15 +55,15 @@ export const Header = (): JSX.Element => {
             <div className="header__top">
                 <div className="header__top__contact">
                     <span className="header__top__contact__item">
-                        <BsTelephoneFill />
+                        <TelephoneIcon />
                         (+84) 123 456 7890
                     </span>
                     <span className="header__top__contact__item">
-                        <BsEnvelopeFill />
+                        <EnvelopeIcon />
                         digital-e@gmail.com
                     </span>
                     <span className="header__top__contact__item">
-                        <BsHouseFill />
+                        <HouseFillIcon />
                         123 ABC Street, HCM City
                     </span>
                 </div>
@@ -125,7 +125,7 @@ export const Header = (): JSX.Element => {
                             type="button"
                             onClick={() => handleRequireLogin("/wishlist")}
                         >
-                            <BsHeart size={22} />
+                            <HeartIcon size={22} />
                             Wishlist
                         </button>
                         <button
@@ -133,7 +133,7 @@ export const Header = (): JSX.Element => {
                             type="button"
                             onClick={() => handleRequireLogin("/cart")}
                         >
-                            <BsCart3 size={22} />
+                            <CartIcon size={22} />
                             Cart
                         </button>
                     </div>
@@ -201,7 +201,7 @@ export const Header = (): JSX.Element => {
                             setIsMenuOpen(false);
                         }}
                     >
-                        <BsHeart size={20} />
+                        <HeartIcon size={20} />
                         Wishlist
                     </button>
                     <button
@@ -211,7 +211,7 @@ export const Header = (): JSX.Element => {
                             setIsMenuOpen(false);
                         }}
                     >
-                        <BsCart3 size={20} />
+                        <CartIcon size={20} />
                         Cart
                     </button>
                 </div>

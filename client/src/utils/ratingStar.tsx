@@ -1,4 +1,4 @@
-import { BsStar, BsStarFill, BsStarHalf } from "react-icons/bs";
+import { StarIcon, StarFillIcon, StarHalfIcon } from "../components/common/Icons";
 
 const ratingStar = (overallScore: number, color: string = "#FFCC4A", size: number = 18) => {
     const stars = [];
@@ -8,20 +8,20 @@ const ratingStar = (overallScore: number, color: string = "#FFCC4A", size: numbe
         if (i <= overallScore) {
             stars.push(
                 <div key={i} data-testid="starBtn" className="d-flex align-items-center">
-                    <BsStarFill color={color} size={size} />
-                </div>
+                    <StarFillIcon color={color} size={size} />
+                </div>,
             ); // Full star
         } else if (i - 1 < overallScore && overallScore < i) {
             stars.push(
                 <div key={i} className="d-flex align-items-center">
-                    <BsStarHalf color={color} size={size} />
-                </div>
+                    <StarHalfIcon color={color} size={size} />
+                </div>,
             ); // Half star
         } else {
             stars.push(
                 <div key={i} className="d-flex align-items-center">
-                    <BsStar color={color} size={size} />
-                </div>
+                    <StarIcon color={color} size={size} />
+                </div>,
             ); // Empty star
         }
     }

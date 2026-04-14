@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { BsStar, BsStarFill } from "react-icons/bs";
+import { StarIcon, StarFillIcon } from "../common/Icons";
 import axios from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
 import "../../styles/ProductPage.scss";
@@ -359,13 +359,21 @@ const ProductPage = () => {
                         productDetail.description || "Explore product details, pricing, and availability on Digital-E."
                     }
                 />
+                {activeImageUrl ? <link rel="preload" as="image" href={activeImageUrl} fetchPriority="high" /> : null}
             </Helmet>
             <div className="product__container">
                 <section className="product__hero">
                     <div className="product__hero__gallery">
                         <div className="product__hero__gallery__main">
                             {activeImageUrl ? (
-                                <LazyLoadImage src={activeImageUrl} alt={productDetail.name} />
+                                <LazyLoadImage
+                                    src={activeImageUrl}
+                                    alt={productDetail.name}
+                                    eager
+                                    onError={(e) => {
+                                        e.currentTarget.src = productPlaceholder;
+                                    }}
+                                />
                             ) : (
                                 <img src={productPlaceholder} alt={productDetail.name} />
                             )}
@@ -381,7 +389,7 @@ const ProductPage = () => {
                                             className={img === activeImage ? "active" : ""}
                                             onClick={() => setActiveImage(img)}
                                         >
-                                            <img src={src} alt={productDetail.name} />
+                                            <img src={src} alt={productDetail.name} loading="lazy" decoding="async" />
                                         </button>
                                     );
                                 })}
@@ -519,9 +527,9 @@ const ProductPage = () => {
                                             {[1, 2, 3, 4, 5].map((rating) => (
                                                 <span key={rating} onClick={() => handleStarClick(rating)}>
                                                     {rating <= ratingScore ? (
-                                                        <BsStarFill size={18} color="#FFCC4A" />
+                                                        <StarFillIcon size={18} color="#FFCC4A" />
                                                     ) : (
-                                                        <BsStar size={18} data-testid="reviewStar" color="#FFCC4A" />
+                                                        <StarIcon size={18} data-testid="reviewStar" color="#FFCC4A" />
                                                     )}
                                                 </span>
                                             ))}

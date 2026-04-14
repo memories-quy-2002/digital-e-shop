@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Button, Container, Modal } from "react-bootstrap";
 import { Helmet } from "react-helmet";
-import { BsArrowLeft, BsArrowRight } from "react-icons/bs";
+import { ArrowLeftIcon, ArrowRightIcon } from "../common/Icons";
 import { useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
@@ -193,10 +193,10 @@ const CartPage = () => {
 
                                 <div className="cart__layout__actions">
                                     <button className="ghost" onClick={() => navigate("/")}>
-                                        <BsArrowLeft /> Continue shopping
+                                        <ArrowLeftIcon /> Continue shopping
                                     </button>
                                     <button className="primary" onClick={handleShow} disabled={cart.length === 0}>
-                                        Proceed to checkout <BsArrowRight />
+                                        Proceed to checkout <ArrowRightIcon />
                                     </button>
                                 </div>
                                 <div className="cart__layout__note">

@@ -1,6 +1,6 @@
 import React, { memo, useState } from "react";
 import { Button, Modal } from "react-bootstrap";
-import { BsTrash } from "react-icons/bs";
+import { TrashIcon } from "./Icons";
 import { useNavigate } from "react-router-dom";
 import { Product } from "../../utils/interface";
 import productPlaceholder from "../../assets/images/product_placeholder.jpg";
@@ -67,7 +67,7 @@ const WishlistItem = ({ item, uid, onAddingCart, onRemoveWishlist }: WishlistIte
                     aria-label={`delete-btn-${item.id}`}
                     onClick={() => setShow(true)}
                 >
-                    <BsTrash size={24} />
+                    <TrashIcon size={24} />
                 </button>
             </div>
 
