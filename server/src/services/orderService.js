@@ -5,9 +5,9 @@ const util = require("util");
 const QUERY_TIMEOUT = 8000;
 const getConnection = util.promisify(pool.getConnection).bind(pool);
 
-async function makePurchase(uid, { totalPrice, cart, discount, subtotal, shippingAddress }) {
+async function makePurchase(uid, { totalPrice, cart, discount, subtotal, shippingAddress, paymentMethod }) {
     const startedAt = Date.now();
-    console.log("[makePurchase] start", { uid, items: cart?.length, totalPrice });
+    console.log("[makePurchase] start", { uid, items: cart?.length, totalPrice, paymentMethod });
 
     if (!cart || cart.length === 0) {
         throw new Error("Cart is empty");
@@ -39,8 +39,8 @@ async function makePurchase(uid, { totalPrice, cart, discount, subtotal, shippin
             console.log("[makePurchase] cart updated");
 
             const orderResult = await q(
-                "INSERT INTO orders (user_id, total_price, discount, subtotal, shipping_address) VALUES (?, ?, ?, ?, ?)",
-                [uid, totalPrice, discount, subtotal, shippingAddress]
+                "INSERT INTO orders (user_id, total_price, discount, subtotal, shipping_address, payment_method) VALUES (?, ?, ?, ?, ?, ?)",
+                [uid, totalPrice, discount, subtotal, shippingAddress, paymentMethod]
             );
             const orderId = orderResult.insertId;
             console.log("[makePurchase] order inserted", { orderId });

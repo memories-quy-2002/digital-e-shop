@@ -46,6 +46,9 @@ const ShopsPage = () => {
     const { userData } = useAuth();
     const uid = userData?.id || "";
     const { addToast } = useToast();
+    const searchInputId = "shops-search";
+    const sortSelectId = "shops-sort";
+    const resultsHeadingId = "shops-results-heading";
 
     const updateURL = useCallback(
         (newFilters: Filters) => {
@@ -62,7 +65,6 @@ const ShopsPage = () => {
         [navigate, location.pathname],
     );
 
-    // Optimized filter handlers
     const handleTermChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const trimmedValue = e.target.value.trim();
         setFilters((prev) => ({ ...prev, term: trimmedValue }));
@@ -130,6 +132,7 @@ const ShopsPage = () => {
     }, [products, updateURL]);
 
     useEffect(() => {
+        // Keep the UI state in sync with sharable filter query params.
         const queryParams = new URLSearchParams(location.search);
         const newFilters: Filters = {
             term: queryParams.get("term") ?? "",
@@ -157,6 +160,7 @@ const ShopsPage = () => {
         const fetchProducts = async () => {
             setIsLoading(true);
             try {
+                // The product grid is paginated on the server, then refined client-side with active filters.
                 const response = await axios.get(`/api/products?page=${currentPage}&limit=${ITEMS_PER_PAGE}`);
                 if (response.status === 200) {
                     setProducts(response.data.products);
@@ -234,10 +238,14 @@ const ShopsPage = () => {
                     </div>
                 </header>
 
-                <div className="shops__toolbar">
-                    <div className="shops__toolbar__search">
+                <div className="shops__toolbar" aria-label="Shop filters and search controls">
+                    <div className="shops__toolbar__search" role="search">
+                        <label className="shops__sr-only" htmlFor={searchInputId}>
+                            Search products, brands, or categories
+                        </label>
                         <input
                             type="text"
+                            id={searchInputId}
                             placeholder="Search products, brands, categories..."
                             value={filters.term}
                             onChange={handleTermChange}
@@ -252,7 +260,15 @@ const ShopsPage = () => {
                         </button>
                     </div>
                     <div className="shops__toolbar__controls">
-                        <select value={filters.sortBy} onChange={handleSortChange}>
+                        <label className="shops__sr-only" htmlFor={sortSelectId}>
+                            Sort product results
+                        </label>
+                        <select
+                            id={sortSelectId}
+                            value={filters.sortBy}
+                            onChange={handleSortChange}
+                            aria-label="Sort product results"
+                        >
                             <option value="relevance">Sort: Relevance</option>
                             <option value="price-asc">Price: Low to High</option>
                             <option value="price-desc">Price: High to Low</option>
@@ -277,9 +293,18 @@ const ShopsPage = () => {
                             onApplyFilters={applyFilters}
                         />
                     </aside>
-                    <section data-testid="shops__container" className="shops__layout__main">
+                    <section
+                        data-testid="shops__container"
+                        className="shops__layout__main"
+                        aria-labelledby={resultsHeadingId}
+                    >
+                        <h2 id={resultsHeadingId} className="shops__sr-only">
+                            Product results
+                        </h2>
                         {isLoading ? (
-                            <div className="shops__layout__loading">Loading products...</div>
+                            <div className="shops__layout__loading" aria-live="polite">
+                                Loading products...
+                            </div>
                         ) : (
                             <PaginatedItems
                                 itemsPerPage={ITEMS_PER_PAGE}

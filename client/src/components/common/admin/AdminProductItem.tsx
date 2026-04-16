@@ -5,7 +5,7 @@ import loadImage from "../../../utils/loadImage";
 interface AdminProductItemProp {
     products: Product[];
     product: Product;
-    handleOpen: (pid: number) => void;
+    handleOpen: (product: Product) => void;
 }
 
 const AdminProductItem = ({ products, product, handleOpen }: AdminProductItemProp) => {
@@ -33,8 +33,15 @@ const AdminProductItem = ({ products, product, handleOpen }: AdminProductItemPro
                     {/* <button type="button">
                         <FaRegEdit />
                      </button> */}
-                    <button data-testid="deleteProductBtn" type="button" onClick={() => handleOpen(product.id)}>
+                    <button
+                        data-testid="deleteProductBtn"
+                        type="button"
+                        className="admin__delete-button"
+                        aria-label={`Delete ${product.name}`}
+                        onClick={() => handleOpen(product)}
+                    >
                         <TrashIcon />
+                        <span>Delete</span>
                     </button>
                 </div>
             </td>

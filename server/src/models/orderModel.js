@@ -25,10 +25,10 @@ const updateCartDone = (uid, callback) => {
     query("UPDATE cart SET done = 1 WHERE user_id = ?", [uid], callback);
 };
 
-const insertOrder = (uid, totalPrice, discount, subtotal, shippingAddress, callback) => {
+const insertOrder = (uid, totalPrice, discount, subtotal, shippingAddress, paymentMethod, callback) => {
     query(
-        "INSERT INTO orders (user_id, total_price, discount, subtotal, shipping_address) VALUES (?, ?, ?, ?, ?)",
-        [uid, totalPrice, discount, subtotal, shippingAddress],
+        "INSERT INTO orders (user_id, total_price, discount, subtotal, shipping_address, payment_method) VALUES (?, ?, ?, ?, ?, ?)",
+        [uid, totalPrice, discount, subtotal, shippingAddress, paymentMethod],
         callback
     );
 };

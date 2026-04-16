@@ -2,8 +2,24 @@
     padding: 2.5rem 2rem 3.5rem;
     background: radial-gradient(circle at top left, rgba(0, 102, 255, 0.08), transparent 45%);
 
+    &__sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
     @media (min-width: 1024px) {
         padding: 3.5rem 4rem 4rem;
+    }
+
+    @media (max-width: 640px) {
+        padding: 1.5rem 1rem 2.5rem;
     }
 
     &__header {
@@ -80,6 +96,11 @@
             display: flex;
             gap: 0.75rem;
             flex: 1;
+
+            @media (max-width: 640px) {
+                flex-direction: column;
+            }
+
             input {
                 flex: 1;
                 height: 44px;
@@ -107,6 +128,10 @@
                 border-radius: 12px;
                 padding: 0 1.2rem;
                 font-weight: 700;
+
+                @media (max-width: 640px) {
+                    height: 44px;
+                }
             }
         }
 
@@ -114,6 +139,12 @@
             display: flex;
             flex-wrap: wrap;
             gap: 0.75rem;
+
+            @media (max-width: 640px) {
+                > * {
+                    width: 100%;
+                }
+            }
 
             select {
                 height: 44px;
@@ -465,48 +496,108 @@
             }
 
             &__price {
+                &__header {
+                    p {
+                        margin: 0 0 1rem;
+                        color: #64748b;
+                        line-height: 1.5;
+                        font-size: 0.92rem;
+                    }
+                }
+
+                &__summary {
+                    display: grid;
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                    gap: 0.75rem;
+                    margin-bottom: 1rem;
+
+                    div {
+                        padding: 0.85rem 0.9rem;
+                        border-radius: 12px;
+                        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+                        border: 1px solid #d8e6ff;
+                        display: flex;
+                        flex-direction: column;
+                        gap: 0.25rem;
+                    }
+
+                    span {
+                        color: #64748b;
+                        font-size: 0.8rem;
+                        text-transform: uppercase;
+                        letter-spacing: 0.06em;
+                    }
+
+                    strong {
+                        color: #0f172a;
+                        font-size: 1.15rem;
+                    }
+                }
+
                 &__slider {
                     display: flex;
                     justify-content: center;
                     align-items: center;
                     flex-direction: column;
 
-                    &__num {
-                        width: 100%;
-                        display: flex;
-                        flex-direction: row;
-                        justify-content: space-between;
-                        margin-top: 1rem;
-                    }
-
-                    span {
-                        text-align: center;
-                    }
-
                     .horizontal-slider {
                         width: 100%;
-                        margin: 0.5rem 0;
+                        margin: 0.85rem 0 0.5rem;
+                        height: 28px;
 
                         .example-thumb {
-                            bottom: -10px;
-                            width: 18px;
-                            height: 18px;
-                            border-radius: 50%;
-                            background-color: #0066ff;
+                            top: 50%;
+                            width: 22px;
+                            height: 22px;
+                            border-radius: 999px;
+                            background: linear-gradient(135deg, #0066ff 0%, #38bdf8 100%);
                             color: white;
                             cursor: pointer;
+                            transform: translateY(-50%);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            box-shadow: 0 10px 24px rgba(0, 102, 255, 0.3);
+                            outline: none;
+
+                            span {
+                                position: absolute;
+                                top: -34px;
+                                left: 50%;
+                                transform: translateX(-50%);
+                                padding: 0.3rem 0.55rem;
+                                border-radius: 999px;
+                                background: #0f172a;
+                                color: #fff;
+                                font-size: 0.72rem;
+                                font-weight: 700;
+                                white-space: nowrap;
+                            }
+
+                            &:focus-visible {
+                                box-shadow:
+                                    0 0 0 4px rgba(11, 95, 255, 0.18),
+                                    0 10px 24px rgba(0, 102, 255, 0.3);
+                            }
                         }
 
                         .example-track {
-                            height: 5px;
+                            top: 50%;
+                            height: 8px;
+                            border-radius: 999px;
+                            transform: translateY(-50%);
                         }
 
                         .example-track.example-track-0 {
-                            background: #d9d9d9;
+                            background: #d9e2f2;
                         }
 
                         .example-track.example-track-1 {
-                            background: #0b5fff;
+                            background: linear-gradient(90deg, #0b5fff 0%, #38bdf8 100%);
+                        }
+
+                        .example-track.example-track-2 {
+                            background: #d9e2f2;
                         }
                     }
                 }
@@ -524,6 +615,11 @@
                 font-size: 1rem;
                 transition: background-color 0.3s;
                 border-radius: 12px;
+
+                &:focus-visible {
+                    outline: 3px solid rgba(11, 95, 255, 0.2);
+                    outline-offset: 2px;
+                }
 
                 &:hover {
                     background-color: #0047cc;

@@ -1,6 +1,15 @@
-import React, { JSX, useState } from "react";
-import { CartIcon, EnvelopeIcon, HeartIcon, HouseFillIcon, TelephoneIcon } from "../common/Icons";
-import { Link, useNavigate } from "react-router-dom";
+import React, { JSX, useMemo, useState } from "react";
+import {
+    BoxSeamIcon,
+    CartIcon,
+    EnvelopeIcon,
+    HeartIcon,
+    HouseFillIcon,
+    PersonIcon,
+    SearchIcon,
+    TelephoneIcon,
+} from "../common/Icons";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import "../../styles/Header.scss";
 import { useToast } from "../../context/ToastContext";
@@ -8,19 +17,62 @@ import axios from "../../api/axios";
 import { signOut } from "firebase/auth";
 import { auth } from "../../services/firebase";
 
+const quickCategories = [
+    {
+        label: "Laptops",
+        to: "/shops?categories=Laptop&brands=&minPrice=0&maxPrice=5000&term=",
+    },
+    {
+        label: "Phones",
+        to: "/shops?categories=Smartphone&brands=&minPrice=0&maxPrice=5000&term=",
+    },
+    {
+        label: "Audio",
+        to: "/shops?categories=Speaker&brands=&minPrice=0&maxPrice=5000&term=",
+    },
+    {
+        label: "TVs",
+        to: "/shops?categories=Television&brands=&minPrice=0&maxPrice=5000&term=",
+    },
+    {
+        label: "Cameras",
+        to: "/shops?categories=Camera&brands=&minPrice=0&maxPrice=5000&term=",
+    },
+    {
+        label: "Components",
+        to: "/shops?categories=Graphics+Card&brands=&minPrice=0&maxPrice=5000&term=",
+    },
+];
+
+const primaryLinks = [
+    { label: "Home", to: "/" },
+    { label: "Shop", to: "/shops" },
+    { label: "About", to: "/about-us" },
+    { label: "News", to: "/news" },
+    { label: "Support", to: "/support" },
+    { label: "Contact", to: "/contact-us" },
+];
+
 export const Header = (): JSX.Element => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { addToast } = useToast();
     const [searchTerm, setSearchTerm] = useState<string>("");
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const { userData, loading, setUserData } = useAuth();
+    const desktopSearchId = "header_search";
+    const mobileSearchId = "header_mobile_search";
+    const mobileMenuId = "header-mobile-menu";
+
+    const activePath = useMemo(() => location.pathname, [location.pathname]);
 
     const handleSearch = () => {
         if (!searchTerm.trim()) {
             addToast("Search empty", "Type something to search.");
             return;
         }
-        navigate(`/shops?term=${searchTerm}`);
+
+        navigate(`/shops?term=${encodeURIComponent(searchTerm.trim())}`);
     };
 
     const handleLogout = async () => {
@@ -43,6 +95,7 @@ export const Header = (): JSX.Element => {
             addToast("Checking login", "Please wait a moment and try again.");
             return;
         }
+
         if (userData) {
             navigate(place);
         } else {
@@ -50,64 +103,88 @@ export const Header = (): JSX.Element => {
         }
     };
 
+    const handleAccountAction = () => {
+        if (loading) {
+            addToast("Checking login", "Please wait a moment and try again.");
+            return;
+        }
+
+        if (userData) {
+            addToast("Account", "Profile tools are coming soon.");
+            return;
+        }
+
+        navigate("/login");
+    };
+
+    const closeMenu = () => setIsMenuOpen(false);
+
     return (
         <header className="header">
-            <div className="header__top">
-                <div className="header__top__contact">
-                    <span className="header__top__contact__item">
-                        <TelephoneIcon />
-                        (+84) 123 456 7890
-                    </span>
-                    <span className="header__top__contact__item">
-                        <EnvelopeIcon />
-                        digital-e@gmail.com
-                    </span>
-                    <span className="header__top__contact__item">
-                        <HouseFillIcon />
-                        123 ABC Street, HCM City
-                    </span>
+            <div className="header__promo">
+                <div className="header__promo__inner">
+                    <span>Fresh arrivals for creators, gamers, and smart-home setups.</span>
+                    <Link to="/shops">Shop the latest gear</Link>
                 </div>
-                <div className="header__top__auth">
-                    <span className="header__top__welcome">
-                        Welcome {userData && !loading ? userData.username : "Anonymous"}
-                    </span>
-                    <div className="header__top__links">
+            </div>
+
+            <div className="header__utility">
+                <div className="header__utility__inner">
+                    <div className="header__utility__contact" aria-label="Store contact details">
+                        <a href="tel:+841234567890">
+                            <TelephoneIcon size={16} />
+                            (+84) 123 456 7890
+                        </a>
+                        <a href="mailto:digital-e@gmail.com">
+                            <EnvelopeIcon size={16} />
+                            digital-e@gmail.com
+                        </a>
+                        <span>
+                            <HouseFillIcon size={16} />
+                            HCM City, Vietnam
+                        </span>
+                    </div>
+
+                    <div className="header__utility__account">
+                        <span className="header__utility__welcome">
+                            {userData && !loading ? `Welcome back, ${userData.username}` : "Guest browsing mode"}
+                        </span>
                         {userData && !loading ? (
-                            <Link to="/" onClick={handleLogout}>
+                            <button type="button" onClick={handleLogout}>
                                 Logout
-                            </Link>
+                            </button>
                         ) : (
-                            <>
+                            <div className="header__utility__authlinks">
                                 <Link to="/login">Login</Link>
-                                <span className="header__top__divider">/</span>
-                                <Link to="/signup">Signup</Link>
-                            </>
+                                <Link to="/signup">Create account</Link>
+                            </div>
                         )}
                     </div>
                 </div>
             </div>
-            <div className="header__main">
-                <div className="header__brand">
-                    <Link to="/" className="header__brand__logo">
-                        DIGITAL-E
-                    </Link>
-                    <span className="header__brand__tag">Smart tech marketplace</span>
-                </div>
-                <nav className="header__nav">
-                    <Link to="/">Home</Link>
-                    <Link to="/shops">Shop</Link>
-                    <Link to="/about-us">About</Link>
-                    <Link to="/news">News</Link>
-                    <Link to="/support">Support</Link>
-                    <Link to="/contact-us">Contact</Link>
-                </nav>
-                <div className="header__actions">
-                    <div className="header__search">
+
+            <div className="header__shell">
+                <div className="header__main">
+                    <div className="header__brand">
+                        <Link to="/" className="header__brand__logo">
+                            <span className="header__brand__mark">DE</span>
+                            <span className="header__brand__wordmark">
+                                <strong>DIGITAL-E</strong>
+                                <small>Tech marketplace for modern setups</small>
+                            </span>
+                        </Link>
+                    </div>
+
+                    <div className="header__search" role="search">
+                        <label className="header__sr-only" htmlFor={desktopSearchId}>
+                            Search the shop
+                        </label>
+                        <SearchIcon size={18} className="header__search__icon" />
                         <input
                             type="text"
                             name="header_search"
-                            id="header_search"
-                            placeholder="Search products, brands, categories"
+                            id={desktopSearchId}
+                            placeholder="Search laptops, phones, speakers, and more"
                             className="header__search__bar"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -117,49 +194,86 @@ export const Header = (): JSX.Element => {
                                 }
                             }}
                         />
-                        <button onClick={handleSearch}>Search</button>
-                    </div>
-                    <div className="header__quick">
-                        <button
-                            className="header__quick__item"
-                            type="button"
-                            onClick={() => handleRequireLogin("/wishlist")}
-                        >
-                            <HeartIcon size={22} />
-                            Wishlist
-                        </button>
-                        <button
-                            className="header__quick__item"
-                            type="button"
-                            onClick={() => handleRequireLogin("/cart")}
-                        >
-                            <CartIcon size={22} />
-                            Cart
+                        <button type="button" onClick={handleSearch}>
+                            Search
                         </button>
                     </div>
-                    <button
-                        className="header__burger"
-                        type="button"
-                        onClick={() => setIsMenuOpen((prev) => !prev)}
-                        aria-label="Toggle menu"
-                    >
-                        <span />
-                        <span />
-                        <span />
-                    </button>
+
+                    <div className="header__actions" aria-label="Quick account actions">
+                        <button type="button" className="header__action" onClick={() => handleRequireLogin("/wishlist")}>
+                            <HeartIcon size={20} />
+                            <span>Wishlist</span>
+                        </button>
+                        <button type="button" className="header__action" onClick={() => handleRequireLogin("/cart")}>
+                            <CartIcon size={20} />
+                            <span>Cart</span>
+                        </button>
+                        <button type="button" className="header__action" onClick={handleAccountAction}>
+                            <PersonIcon size={20} />
+                            <span>Account</span>
+                        </button>
+                        <button
+                            className="header__burger"
+                            type="button"
+                            onClick={() => setIsMenuOpen((prev) => !prev)}
+                            aria-label="Toggle menu"
+                            aria-expanded={isMenuOpen}
+                            aria-controls={mobileMenuId}
+                        >
+                            <span />
+                            <span />
+                            <span />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="header__subnav">
+                    <nav className="header__nav" aria-label="Primary navigation">
+                        {primaryLinks.map((link) => (
+                            <Link
+                                key={link.to}
+                                to={link.to}
+                                className={activePath === link.to ? "is-active" : ""}
+                            >
+                                {link.label}
+                            </Link>
+                        ))}
+                    </nav>
+
+                    <div className="header__benefits" aria-label="Store benefits">
+                        <span>
+                            <BoxSeamIcon size={16} />
+                            Fast delivery
+                        </span>
+                        <span>Secure checkout</span>
+                        <span>Trusted gear picks</span>
+                    </div>
+                </div>
+
+                <div className="header__categories" aria-label="Popular shopping categories">
+                    {quickCategories.map((category) => (
+                        <Link key={category.label} to={category.to}>
+                            {category.label}
+                        </Link>
+                    ))}
                 </div>
             </div>
-            <div className={`header__mobile ${isMenuOpen ? "is-open" : ""}`}>
-                <div className="header__mobile__search">
+
+            <div className={`header__mobile ${isMenuOpen ? "is-open" : ""}`} id={mobileMenuId}>
+                <div className="header__mobile__search" role="search">
+                    <label className="header__sr-only" htmlFor={mobileSearchId}>
+                        Search the shop from the mobile menu
+                    </label>
                     <input
                         type="text"
-                        placeholder="Search products, brands, categories"
+                        id={mobileSearchId}
+                        placeholder="Search products"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         onKeyDown={(e) => {
                             if (e.key === "Enter") {
                                 handleSearch();
-                                setIsMenuOpen(false);
+                                closeMenu();
                             }
                         }}
                     />
@@ -167,53 +281,50 @@ export const Header = (): JSX.Element => {
                         type="button"
                         onClick={() => {
                             handleSearch();
-                            setIsMenuOpen(false);
+                            closeMenu();
                         }}
                     >
                         Search
                     </button>
                 </div>
-                <div className="header__mobile__links">
-                    <Link to="/" onClick={() => setIsMenuOpen(false)}>
-                        Home
-                    </Link>
-                    <Link to="/shops" onClick={() => setIsMenuOpen(false)}>
-                        Shop
-                    </Link>
-                    <Link to="/about-us" onClick={() => setIsMenuOpen(false)}>
-                        About
-                    </Link>
-                    <Link to="/news" onClick={() => setIsMenuOpen(false)}>
-                        News
-                    </Link>
-                    <Link to="/support" onClick={() => setIsMenuOpen(false)}>
-                        Support
-                    </Link>
-                    <Link to="/contact-us" onClick={() => setIsMenuOpen(false)}>
-                        Contact
-                    </Link>
-                </div>
+
+                <nav className="header__mobile__links" aria-label="Mobile navigation">
+                    {primaryLinks.map((link) => (
+                        <Link key={link.to} to={link.to} onClick={closeMenu}>
+                            {link.label}
+                        </Link>
+                    ))}
+                </nav>
+
                 <div className="header__mobile__actions">
                     <button
                         type="button"
                         onClick={() => {
                             handleRequireLogin("/wishlist");
-                            setIsMenuOpen(false);
+                            closeMenu();
                         }}
                     >
-                        <HeartIcon size={20} />
+                        <HeartIcon size={18} />
                         Wishlist
                     </button>
                     <button
                         type="button"
                         onClick={() => {
                             handleRequireLogin("/cart");
-                            setIsMenuOpen(false);
+                            closeMenu();
                         }}
                     >
-                        <CartIcon size={20} />
+                        <CartIcon size={18} />
                         Cart
                     </button>
+                </div>
+
+                <div className="header__mobile__categories">
+                    {quickCategories.map((category) => (
+                        <Link key={category.label} to={category.to} onClick={closeMenu}>
+                            {category.label}
+                        </Link>
+                    ))}
                 </div>
             </div>
         </header>

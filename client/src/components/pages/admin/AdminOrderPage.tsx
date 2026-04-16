@@ -13,7 +13,10 @@ interface Order {
     user_id: string;
     status: number;
     total_price: number;
+    discount: number;
+    subtotal: number;
     shipping_address: string;
+    payment_method?: "bank_transfer" | "cash";
 }
 
 const ITEMS_PER_PAGE = 5;
@@ -29,6 +32,17 @@ const AdminOrderPage = () => {
     const { addToast } = useToast();
     const endOffset = itemOffset + ITEMS_PER_PAGE;
     const currentOrders = filteredOrders.slice(itemOffset, endOffset);
+    const getPaymentMethodLabel = (paymentMethod?: Order["payment_method"]) => {
+        if (paymentMethod === "bank_transfer") return "Bank transfer";
+        if (paymentMethod === "cash") return "Cash on delivery";
+        return "Not recorded";
+    };
+
+    const getStatusLabel = (status: number) => {
+        if (status === 1) return "Done";
+        if (status === 0) return "Pending";
+        return "Canceled";
+    };
 
     const handlePageClick = (event: any) => {
         setItemOffset(0);
@@ -92,15 +106,16 @@ const AdminOrderPage = () => {
             setItemOffset(0);
             return (
                 order.id.toString().toLowerCase().includes(lowerSearchTerm) ||
-                order.shipping_address.toLowerCase().includes(lowerSearchTerm)
+                order.shipping_address.toLowerCase().includes(lowerSearchTerm) ||
+                order.user_id.toLowerCase().includes(lowerSearchTerm) ||
+                getPaymentMethodLabel(order.payment_method).toLowerCase().includes(lowerSearchTerm) ||
+                getStatusLabel(order.status).toLowerCase().includes(lowerSearchTerm)
             );
         });
         setFilteredOrders(filtered);
         return () => {};
     }, [searchTerm, orders]);
-    useEffect(() => {
-        console.log("Orders updated:", orders);
-    }, [orders]);
+
     return (
         <AdminLayout>
             <Helmet>
@@ -128,6 +143,11 @@ const AdminOrderPage = () => {
                         <p>Awaiting action</p>
                     </div>
                     <div className="admin__summary-card">
+                        <span>Bank transfer</span>
+                        <strong>{orders.filter((o) => o.payment_method === "bank_transfer").length}</strong>
+                        <p>Awaiting transfer check</p>
+                    </div>
+                    <div className="admin__summary-card">
                         <span>Completed</span>
                         <strong>{orders.filter((o) => o.status === 1).length}</strong>
                         <p>Delivered</p>
@@ -150,7 +170,7 @@ const AdminOrderPage = () => {
                                 type="text"
                                 name="product"
                                 id="product"
-                                placeholder="Search orders"
+                                placeholder="Search by order ID, address, user, payment, or status"
                                 value={searchTerm}
                                 onChange={handleSearchChange}
                             />
@@ -165,9 +185,12 @@ const AdminOrderPage = () => {
                                 <tr>
                                     <th>#</th>
                                     <th>Order ID</th>
+                                    <th>User</th>
+                                    <th>Payment</th>
                                     <th>Address</th>
                                     <th>Date</th>
-                                    <th>Price</th>
+                                    <th>Total</th>
+                                    <th>Discount</th>
                                     <th>Status</th>
                                     <th>Action</th>
                                 </tr>
@@ -177,11 +200,36 @@ const AdminOrderPage = () => {
                                     <tr key={order.id}>
                                         <td width="50px">{filteredOrders.indexOf(order) + 1}</td>
                                         <td width="150px">{order.id}</td>
+                                        <td width="220px">{order.user_id}</td>
+                                        <td width="180px">
+                                            <span
+                                                className={
+                                                    order.payment_method === "bank_transfer"
+                                                        ? "admin__pill admin__pill--info"
+                                                        : order.payment_method === "cash"
+                                                          ? "admin__pill admin__pill--success"
+                                                          : "admin__pill admin__pill--muted"
+                                                }
+                                            >
+                                                {getPaymentMethodLabel(order.payment_method)}
+                                            </span>
+                                        </td>
                                         <td width="450px">{order.shipping_address || "None"}</td>
                                         <td width="150px">{new Date(order.date_added).toLocaleDateString("en-GB")}</td>
                                         <td width="125px">${order.total_price.toFixed(2)}</td>
+                                        <td width="125px">${order.discount.toFixed(2)}</td>
                                         <td width="150px">
-                                            {order.status === 1 ? "Done" : order.status === 0 ? "Pending" : "Canceled"}
+                                            <span
+                                                className={
+                                                    order.status === 1
+                                                        ? "admin__pill admin__pill--success"
+                                                        : order.status === 0
+                                                          ? "admin__pill admin__pill--warning"
+                                                          : "admin__pill admin__pill--danger"
+                                                }
+                                            >
+                                                {getStatusLabel(order.status)}
+                                            </span>
                                         </td>
                                         <td width="100px">
                                             {order.status === 0 && (

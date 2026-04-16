@@ -26,6 +26,7 @@ type Order = {
     total_price: number;
     discount: number;
     subtotal: number;
+    payment_method?: "bank_transfer" | "cash";
 };
 
 type OrderItem = {
@@ -57,6 +58,22 @@ type MonthlySales = {
     name: string;
     sales: number;
 };
+
+const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        maximumFractionDigits: 2,
+    }).format(value || 0);
+
+const formatReportDate = (date = new Date()) =>
+    date.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
 
 const Card: React.FC<CardProps> = ({ title, value, description, accent, percentage, icon }) => {
     const trendUp = percentage !== undefined && percentage >= 0;
@@ -93,6 +110,20 @@ const AdminDashboard = () => {
     const { addToast } = useToast();
 
     useEffect(() => {
+        const normalizeOrder = (order: any): Order => ({
+            ...order,
+            id: Number(order.id),
+            date_added: new Date(order.date_added),
+        });
+
+        const normalizeOrderItem = (orderItem: any): OrderItem => ({
+            ...orderItem,
+            order_id: Number(orderItem.order_id),
+            sales: Number(orderItem.sales),
+            revenue: Number(orderItem.revenue),
+            price: Number(orderItem.price),
+        });
+
         const fetchData = async () => {
             try {
                 const productResponse = await axios.get("/api/products?page=1&limit=100");
@@ -103,7 +134,7 @@ const AdminDashboard = () => {
 
                 const orderResponse = await axios.get(`/api/orders?page=1&limit=100`);
                 if (orderResponse.status === 200) {
-                    setOrders(orderResponse.data.orders);
+                    setOrders(orderResponse.data.orders.map(normalizeOrder));
                     setOrderTotal(orderResponse.data.pagination?.total ?? orderResponse.data.orders.length);
                 }
 
@@ -115,8 +146,8 @@ const AdminDashboard = () => {
 
                 const orderItemResponse = await axios.get(`/api/orders/item?page=1&limit=100`);
                 if (orderItemResponse.status === 200) {
-                    setOrderItems(orderItemResponse.data.orderItems);
-                } else if (orderItemResponse.status === 500) {
+                    const orderItemsData = orderItemResponse.data.orderItems ?? orderItemResponse.data.order_items ?? [];
+                    setOrderItems(orderItemsData.map(normalizeOrderItem));
                 }
             } catch (err) {
                 addToast("Dashboard", "Unable to load dashboard data.");
@@ -209,42 +240,116 @@ const AdminDashboard = () => {
         return sortedItems;
     };
 
-    const handleDownloadReport = () => {
-        const text = `**Report**\n\n**Sales this month:** ${getMonthlySales(orders, orderItems)[5].sales}\n\n**Revenues this month:** $${getMonthlyRevenues(orders)[5].revenue.toFixed(2)}\n\n**Products:** ${products.length}\n\n**Users:** ${users.length}\n\n**Percentage Change**\n\n* **Sales:** ${salesPercentageChange.toFixed(2)}%  (${getMonthlySales(orders, orderItems)[4].sales} -> ${
-            getMonthlySales(orders, orderItems)[5].sales
-        })\n* **Revenue:** ${revenuePercentageChange.toFixed(2)}%  ($${getMonthlyRevenues(orders)[4].revenue.toFixed(
-            2,
-        )} -> $${getMonthlyRevenues(orders)[5].revenue.toFixed(2)})\n\n**Top Revenue Products**\n\n| Product Name | Sales | Revenue |\n|---|---|---|\n| ${topRevenueProducts[0]?.name || ""} | ${topRevenueProducts[0]?.sales || 0} | $${(
-            topRevenueProducts[0]?.revenue || 0
-        ).toFixed(2)} |\n| ${topRevenueProducts[1]?.name || ""} | ${topRevenueProducts[1]?.sales || 0} | $${(
-            topRevenueProducts[1]?.revenue || 0
-        ).toFixed(2)} |\n| ${topRevenueProducts[2]?.name || ""} | ${topRevenueProducts[2]?.sales || 0} | $${(
-            topRevenueProducts[2]?.revenue || 0
-        ).toFixed(2)} |\n| ... | ... | ... |`;
-        const blob = new Blob([text], { type: "text/plain" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "report.txt";
-        a.click();
-        URL.revokeObjectURL(url);
+    const getOrderStatusLabel = (status: number) => {
+        switch (status) {
+            case 0:
+                return "Pending";
+            case 1:
+                return "Done";
+            case 2:
+                return "Shipping";
+            default:
+                return "Cancelled";
+        }
     };
 
     const calculatePercentageChange = (currentValue: number, previousValue: number): number => {
         return previousValue > 0 ? ((currentValue - previousValue) / previousValue) * 100 : 0;
     };
 
-    const revenuePercentageChange = calculatePercentageChange(
-        getMonthlyRevenues(orders)[5].revenue,
-        getMonthlyRevenues(orders)[4].revenue,
+    const monthlySales = React.useMemo(() => getMonthlySales(orders, orderItems), [orders, orderItems]);
+    const monthlyRevenues = React.useMemo(() => getMonthlyRevenues(orders), [orders]);
+    const topRevenueProducts = React.useMemo(() => getTopRevenueProducts(orderItems), [orderItems]);
+
+    const thisMonthSales = monthlySales[5]?.sales || 0;
+    const previousMonthSales = monthlySales[4]?.sales || 0;
+    const thisMonthRevenue = monthlyRevenues[5]?.revenue || 0;
+    const previousMonthRevenue = monthlyRevenues[4]?.revenue || 0;
+
+    const revenuePercentageChange = React.useMemo(
+        () => calculatePercentageChange(thisMonthRevenue, previousMonthRevenue),
+        [thisMonthRevenue, previousMonthRevenue],
     );
 
-    const salesPercentageChange = calculatePercentageChange(
-        getMonthlySales(orders, orderItems)[5].sales,
-        getMonthlySales(orders, orderItems)[4].sales,
+    const salesPercentageChange = React.useMemo(
+        () => calculatePercentageChange(thisMonthSales, previousMonthSales),
+        [thisMonthSales, previousMonthSales],
     );
 
-    const topRevenueProducts = getTopRevenueProducts(orderItems);
+    const handleDownloadReport = () => {
+        const pendingOrders = orders.filter((order) => order.status === 0).length;
+        const shippingOrders = orders.filter((order) => order.status === 2).length;
+        const completedOrders = orders.filter((order) => order.status === 1).length;
+        const bankTransferOrders = orders.filter((order) => order.payment_method === "bank_transfer").length;
+        const cashOrders = orders.filter((order) => order.payment_method === "cash").length;
+        const lowStockProducts = products.filter((product) => product.stock <= 5).sort((a, b) => a.stock - b.stock).slice(0, 5);
+        const latestOrders = [...orders]
+            .sort((a, b) => new Date(b.date_added).getTime() - new Date(a.date_added).getTime())
+            .slice(0, 5);
+        const latestUsers = [...users]
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .slice(0, 5);
+
+        const text = [
+            "DIGITAL-E OPERATIONS REPORT",
+            `Generated at: ${formatReportDate()}`,
+            "",
+            "OVERVIEW",
+            `- Orders tracked: ${orderTotal || orders.length}`,
+            `- Active products: ${productTotal || products.length}`,
+            `- Registered users: ${userTotal || users.length}`,
+            `- Sales this month: ${thisMonthSales}`,
+            `- Revenue this month: ${formatCurrency(thisMonthRevenue)}`,
+            "",
+            "MOMENTUM",
+            `- Sales change vs last month: ${salesPercentageChange.toFixed(2)}% (${previousMonthSales} -> ${thisMonthSales})`,
+            `- Revenue change vs last month: ${revenuePercentageChange.toFixed(2)}% (${formatCurrency(previousMonthRevenue)} -> ${formatCurrency(thisMonthRevenue)})`,
+            "",
+            "ORDER PIPELINE",
+            `- Pending orders: ${pendingOrders}`,
+            `- Shipping orders: ${shippingOrders}`,
+            `- Completed orders: ${completedOrders}`,
+            "",
+            "PAYMENT MIX",
+            `- Bank transfer orders: ${bankTransferOrders}`,
+            `- Cash orders: ${cashOrders}`,
+            "",
+            "TOP REVENUE PRODUCTS",
+            ...topRevenueProducts.slice(0, 5).map((product, index) => {
+                return `${index + 1}. ${product.name} | Sales: ${product.sales} | Revenue: ${formatCurrency(product.revenue)}`;
+            }),
+            "",
+            "LOW STOCK WATCHLIST",
+            ...(lowStockProducts.length > 0
+                ? lowStockProducts.map((product, index) => `${index + 1}. ${product.name} | Remaining stock: ${product.stock}`)
+                : ["- No products are currently below the low-stock threshold."]),
+            "",
+            "LATEST ORDERS",
+            ...(latestOrders.length > 0
+                ? latestOrders.map((order) => {
+                      return `- Order #${order.id} | ${getOrderStatusLabel(order.status)} | ${formatCurrency(order.total_price)} | ${formatReportDate(
+                          new Date(order.date_added),
+                      )}`;
+                  })
+                : ["- No recent orders found."]),
+            "",
+            "NEWEST CUSTOMERS",
+            ...(latestUsers.length > 0
+                ? latestUsers.map((user) => {
+                      const name = [user.first_name, user.last_name].filter(Boolean).join(" ").trim() || user.username;
+                      return `- ${name} | ${user.email} | Joined ${formatReportDate(new Date(user.created_at))}`;
+                  })
+                : ["- No recent users found."]),
+            "",
+        ].join("\n");
+        const blob = new Blob([text], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "digital-e-operations-report.txt";
+        a.click();
+        URL.revokeObjectURL(url);
+    };
 
     return (
         <AdminLayout>
@@ -264,7 +369,7 @@ const AdminDashboard = () => {
                     </div>
                     <div className="admin__dashboard__hero__actions">
                         <button className="admin__dashboard__hero__action" onClick={handleDownloadReport}>
-                            Download Report
+                            Download Detailed Report
                         </button>
                     </div>
                 </section>
@@ -272,12 +377,12 @@ const AdminDashboard = () => {
                 <section className="admin__dashboard__summary">
                     <div>
                         <span>Sales</span>
-                        <strong>{getMonthlySales(orders, orderItems)[5].sales}</strong>
+                        <strong>{thisMonthSales}</strong>
                         <p>This month</p>
                     </div>
                     <div>
                         <span>Revenue</span>
-                        <strong>${getMonthlyRevenues(orders)[5].revenue.toFixed(2)}</strong>
+                        <strong>{formatCurrency(thisMonthRevenue)}</strong>
                         <p>This month</p>
                     </div>
                     <div>
@@ -305,7 +410,7 @@ const AdminDashboard = () => {
                 <section className="admin__dashboard__metrics">
                     <Card
                         title="Sales"
-                        value={getMonthlySales(orders, orderItems)[5].sales}
+                        value={thisMonthSales}
                         description="Sales this month"
                         accent="purple"
                         percentage={salesPercentageChange}
@@ -313,7 +418,7 @@ const AdminDashboard = () => {
                     />
                     <Card
                         title="Revenue"
-                        value={`$${getMonthlyRevenues(orders)[5].revenue.toFixed(2)}`}
+                        value={formatCurrency(thisMonthRevenue)}
                         description="Revenue this month"
                         accent="blue"
                         percentage={revenuePercentageChange}
@@ -343,7 +448,7 @@ const AdminDashboard = () => {
                         </div>
                         <div className="admin__card__body">
                             <ResponsiveContainer width="100%" height={260}>
-                                <LineChart data={getMonthlySales(orders, orderItems)}>
+                                <LineChart data={monthlySales}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="name" />
                                     <YAxis />
@@ -361,7 +466,7 @@ const AdminDashboard = () => {
                         </div>
                         <div className="admin__card__body">
                             <ResponsiveContainer width="100%" height={260}>
-                                <LineChart data={getMonthlyRevenues(orders)}>
+                                <LineChart data={monthlyRevenues}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="name" />
                                     <YAxis />

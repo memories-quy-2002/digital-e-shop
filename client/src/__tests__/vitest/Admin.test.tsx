@@ -20,6 +20,7 @@ type Order = {
     total_price: number;
     discount: number;
     subtotal: number;
+    payment_method?: "bank_transfer" | "cash";
 };
 
 type OrderItem = {
@@ -180,25 +181,40 @@ describe("AdminDashboard", () => {
         // Mock the API responses
         mockedAxios.get.mockImplementation((url: string) => {
             switch (url) {
-                case "/api/products/":
+                case "/api/products?page=1&limit=100":
                     return Promise.resolve({
                         status: 200,
-                        data: { products: mockProducts, msg: "Products have been fetched successfully" },
+                        data: { products: mockProducts, pagination: { total: mockProducts.length }, msg: "Products have been fetched successfully" },
                     });
-                case "/api/orders/":
+                case "/api/orders?page=1&limit=100":
                     return Promise.resolve({
                         status: 200,
-                        data: { orders: mockOrders, msg: "Orders have been fetched successfully" },
+                        data: { orders: mockOrders, pagination: { total: mockOrders.length }, msg: "Orders have been fetched successfully" },
                     });
-                case "/api/users/":
+                case "/api/users?page=1&limit=100":
+                    return Promise.resolve({
+                        status: 200,
+                        data: { accounts: mockUsers, pagination: { total: mockUsers.length } },
+                    });
+                case "/api/orders/item?page=1&limit=100":
+                    return Promise.resolve({
+                        status: 200,
+                        data: { orderItems: mockOrderItems },
+                    });
+                case "/api/orders?page=1&limit=10":
+                    return Promise.resolve({
+                        status: 200,
+                        data: { orders: mockOrders },
+                    });
+                case "/api/users?page=1&limit=10":
                     return Promise.resolve({
                         status: 200,
                         data: { accounts: mockUsers },
                     });
-                case "/api/orders/item":
+                case "/api/products?page=1&limit=10":
                     return Promise.resolve({
                         status: 200,
-                        data: { orderItems: mockOrderItems },
+                        data: { products: mockProducts, pagination: { total: mockProducts.length } },
                     });
                 default:
                     return Promise.reject(new Error("Unknown endpoint"));
@@ -215,16 +231,16 @@ describe("AdminDashboard", () => {
 
         // Ensure the API calls are made correctly
         await waitFor(() => {
-            expect(mockedAxios.get).toHaveBeenCalledWith("/api/products/");
+            expect(mockedAxios.get).toHaveBeenCalledWith("/api/products?page=1&limit=100");
         });
 
-        const salesElement = await screen.findByText(/Sales Over Time/i);
+        const salesElement = await screen.findByText(/Sales momentum/i);
         expect(salesElement).toBeInTheDocument();
 
-        expect(mockedAxios.get).toHaveBeenCalledWith("/api/orders/");
-        expect(mockedAxios.get).toHaveBeenCalledWith("/api/users/");
+        expect(mockedAxios.get).toHaveBeenCalledWith("/api/orders?page=1&limit=100");
+        expect(mockedAxios.get).toHaveBeenCalledWith("/api/users?page=1&limit=100");
         await waitFor(() => {
-            expect(mockedAxios.get).toHaveBeenCalledWith("/api/orders/item");
+            expect(mockedAxios.get).toHaveBeenCalledWith("/api/orders/item?page=1&limit=100");
         });
 
         // You can use similar checks for other elements
@@ -235,25 +251,40 @@ describe("AdminDashboard", () => {
     it("should trigger download report on button click", async () => {
         mockedAxios.get.mockImplementation((url: string) => {
             switch (url) {
-                case "/api/products/":
+                case "/api/products?page=1&limit=100":
                     return Promise.resolve({
                         status: 200,
-                        data: { products: mockProducts, msg: "Products have been fetched successfully" },
+                        data: { products: mockProducts, pagination: { total: mockProducts.length }, msg: "Products have been fetched successfully" },
                     });
-                case "/api/orders/":
+                case "/api/orders?page=1&limit=100":
                     return Promise.resolve({
                         status: 200,
-                        data: { orders: mockOrders, msg: "Orders have been fetched successfully" },
+                        data: { orders: mockOrders, pagination: { total: mockOrders.length }, msg: "Orders have been fetched successfully" },
                     });
-                case "/api/users/":
+                case "/api/users?page=1&limit=100":
+                    return Promise.resolve({
+                        status: 200,
+                        data: { accounts: mockUsers, pagination: { total: mockUsers.length } },
+                    });
+                case "/api/orders/item?page=1&limit=100":
+                    return Promise.resolve({
+                        status: 200,
+                        data: { orderItems: mockOrderItems },
+                    });
+                case "/api/orders?page=1&limit=10":
+                    return Promise.resolve({
+                        status: 200,
+                        data: { orders: mockOrders },
+                    });
+                case "/api/users?page=1&limit=10":
                     return Promise.resolve({
                         status: 200,
                         data: { accounts: mockUsers },
                     });
-                case "/api/orders/item":
+                case "/api/products?page=1&limit=10":
                     return Promise.resolve({
                         status: 200,
-                        data: { orderItems: mockOrderItems },
+                        data: { products: mockProducts, pagination: { total: mockProducts.length } },
                     });
                 default:
                     return Promise.reject(new Error("Unknown endpoint"));
@@ -274,13 +305,13 @@ describe("AdminDashboard", () => {
         );
 
         await waitFor(() => {
-            expect(mockedAxios.get).toHaveBeenCalledWith("/api/products/");
+            expect(mockedAxios.get).toHaveBeenCalledWith("/api/products?page=1&limit=100");
         });
 
-        expect(mockedAxios.get).toHaveBeenCalledWith("/api/orders/");
-        expect(mockedAxios.get).toHaveBeenCalledWith("/api/users/");
+        expect(mockedAxios.get).toHaveBeenCalledWith("/api/orders?page=1&limit=100");
+        expect(mockedAxios.get).toHaveBeenCalledWith("/api/users?page=1&limit=100");
         await waitFor(() => {
-            expect(mockedAxios.get).toHaveBeenCalledWith("/api/orders/item");
+            expect(mockedAxios.get).toHaveBeenCalledWith("/api/orders/item?page=1&limit=100");
         });
         const downloadButton = screen.getByText(/Download Detailed Report/i);
         fireEvent.click(downloadButton);
@@ -291,7 +322,7 @@ describe("AdminDashboard", () => {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = "report.txt";
+        link.download = "digital-e-operations-report.txt";
         link.click();
         // Cleanup
         window.URL.revokeObjectURL(url);
@@ -300,11 +331,30 @@ describe("AdminDashboard", () => {
     });
 
     it("should render product list and filter by search term", async () => {
-        mockedAxios.get.mockImplementationOnce(() => {
-            return Promise.resolve({
-                status: 200,
-                data: { products: mockProducts, msg: "Products are fetched successfully" },
-            });
+        mockedAxios.get.mockImplementation((url: string) => {
+            if (url === "/api/products?page=1&limit=5") {
+                return Promise.resolve({
+                    status: 200,
+                    data: { products: mockProducts, pagination: { total: mockProducts.length }, msg: "Products are fetched successfully" },
+                });
+            }
+
+            if (url === "/api/orders?page=1&limit=10") {
+                return Promise.resolve({ status: 200, data: { orders: [] } });
+            }
+
+            if (url === "/api/users?page=1&limit=10") {
+                return Promise.resolve({ status: 200, data: { accounts: [] } });
+            }
+
+            if (url === "/api/products?page=1&limit=100") {
+                return Promise.resolve({
+                    status: 200,
+                    data: { products: mockProducts, pagination: { total: mockProducts.length } },
+                });
+            }
+
+            return Promise.reject(new Error("Unknown endpoint"));
         });
 
         render(
@@ -322,11 +372,34 @@ describe("AdminDashboard", () => {
     });
 
     it("should delete a product", async () => {
-        mockedAxios.get.mockImplementationOnce(() => {
-            return Promise.resolve({
-                status: 200,
-                data: { products: mockProducts, msg: "Products are fetched successfully" },
-            });
+        mockedAxios.get.mockImplementation((url: string) => {
+            if (url === "/api/products?page=1&limit=5") {
+                return Promise.resolve({
+                    status: 200,
+                    data: { products: mockProducts, pagination: { total: mockProducts.length }, msg: "Products are fetched successfully" },
+                });
+            }
+
+            if (url === "/api/orders?page=1&limit=10") {
+                return Promise.resolve({ status: 200, data: { orders: [] } });
+            }
+
+            if (url === "/api/users?page=1&limit=10") {
+                return Promise.resolve({ status: 200, data: { accounts: [] } });
+            }
+
+            if (url === "/api/products?page=1&limit=100") {
+                return Promise.resolve({
+                    status: 200,
+                    data: { products: mockProducts, pagination: { total: mockProducts.length } },
+                });
+            }
+
+            return Promise.reject(new Error("Unknown endpoint"));
+        });
+        mockedAxios.delete.mockResolvedValueOnce({
+            status: 200,
+            data: { msg: "Delete product with id = 1 successfully" },
         });
 
         render(
@@ -345,13 +418,13 @@ describe("AdminDashboard", () => {
         fireEvent.click(deleteBtn);
 
         await waitFor(() => {
-            expect(screen.getByText("Purchase Confirmation")).toBeInTheDocument();
+            expect(screen.getByText("Delete product")).toBeInTheDocument();
         });
-        fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+        fireEvent.click(screen.getByRole("button", { name: "Delete product" }));
 
         await waitFor(() => {
-            expect(mockedAxios.post).toHaveBeenCalledWith("/api/products/delete", {
-                pid: 1,
+            expect(mockedAxios.delete).toHaveBeenCalledWith("/api/products/", {
+                data: { pid: 1 },
             });
         });
     });
@@ -441,7 +514,10 @@ describe("AdminDashboard", () => {
                 user_id: "12345",
                 status: 0,
                 total_price: 300,
+                discount: 0,
+                subtotal: 300,
                 shipping_address: "HCM City, Vietnam",
+                payment_method: "bank_transfer",
             },
             {
                 id: 2,
@@ -449,7 +525,10 @@ describe("AdminDashboard", () => {
                 user_id: "12345",
                 status: 1,
                 total_price: 400,
+                discount: 0,
+                subtotal: 400,
                 shipping_address: "HCM City, Vietnam",
+                payment_method: "cash",
             },
         ];
         mockedAxios.get.mockImplementationOnce(() => {
@@ -466,11 +545,12 @@ describe("AdminDashboard", () => {
             </ToastProvider>
         );
         await waitFor(() => {
-            expect(mockedAxios.get).toHaveBeenCalledWith("/api/orders");
+            expect(mockedAxios.get).toHaveBeenCalledWith("/api/orders?page=1&limit=5");
         });
         await waitFor(() => {
             expect(screen.getAllByText("HCM City, Vietnam")[0]).toBeInTheDocument();
         });
+        expect(screen.getByText("Bank transfer")).toBeInTheDocument();
         const doneBtn = screen.getAllByTestId("doneBtn")[0];
         fireEvent.click(doneBtn);
         await waitFor(() => {

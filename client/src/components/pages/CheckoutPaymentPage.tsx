@@ -5,6 +5,7 @@ import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Helmet } from "react-helmet";
 import { useToast } from "../../context/ToastContext";
+import { BankIcon, CashStackIcon } from "../common/Icons";
 
 interface CartProps {
     cartItemId: number;
@@ -25,10 +26,8 @@ interface CheckoutForm {
     address: string;
     city: string;
     country: string | null;
-    card_number: string | null;
-    exp_date: Date | null;
-    CVV: string | null;
     phone_number: string | null;
+    payment_method: "bank_transfer" | "cash";
 }
 
 type CheckoutPaymentProps = {
@@ -51,10 +50,8 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
         address: "",
         city: "",
         country: null,
-        card_number: null,
-        exp_date: null,
-        CVV: null,
         phone_number: null,
+        payment_method: "bank_transfer",
     });
     const [errors, setErrors] = useState<string[]>([]);
     const validateForm = (): string[] => {
@@ -66,6 +63,8 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
             errorsList.push("Invalid email format");
         } else if (!formCheckout.address) {
             errorsList.push("Shipping address is required");
+        } else if (!formCheckout.payment_method) {
+            errorsList.push("Please select a payment method");
         }
         return errorsList;
     };
@@ -93,6 +92,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                 discount,
                 subtotal,
                 shippingAddress: formCheckout.address,
+                paymentMethod: formCheckout.payment_method,
             });
             if (response.status === 201) {
                 const orderId =
@@ -107,6 +107,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                     subtotal,
                     itemsCount: cart.reduce((sum, item) => sum + item.quantity, 0),
                     placedAt: new Date().toISOString(),
+                    paymentMethod: formCheckout.payment_method,
                 };
                 const payloadSensitive = {
                     ...payload,
@@ -280,37 +281,97 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                     <div className="checkout__card">
                         <div className="checkout__card__header">
                             <h2>Payment</h2>
-                            <p>Securely enter your card details.</p>
+                            <p>Choose how you want to complete this order.</p>
                         </div>
-                        <Form>
-                            <Form.Group className="mb-3" controlId="formCreditCardNumber">
-                                <Form.Label>Card number</Form.Label>
-                                <Form.Control
-                                    type="number"
-                                    name="card_number"
-                                    placeholder="1234 5678 9012 3456"
-                                    onChange={handleInputChange}
-                                />
-                            </Form.Group>
-                            <div className="row">
-                                <div className="col-md-6">
-                                    <Form.Group className="mb-3" controlId="formExpirationDate">
-                                        <Form.Label>Expiration date</Form.Label>
-                                        <Form.Control type="date" name="exp_date" placeholder="MM/YY" />
-                                    </Form.Group>
-                                </div>
-                                <div className="col-md-6">
-                                    <Form.Group className="mb-3" controlId="formCVV">
-                                        <Form.Label>CVV</Form.Label>
-                                        <Form.Control
-                                            type="number"
-                                            name="CVV"
-                                            placeholder="123"
-                                            onChange={handleInputChange}
-                                        />
-                                    </Form.Group>
-                                </div>
+                        <Form className="checkout__payment">
+                            <div className="checkout__payment__methods" role="radiogroup" aria-label="Payment method">
+                                <label
+                                    className={
+                                        formCheckout.payment_method === "bank_transfer"
+                                            ? "checkout__payment__method is-active"
+                                            : "checkout__payment__method"
+                                    }
+                                    htmlFor="payment-bank-transfer"
+                                >
+                                    <input
+                                        type="radio"
+                                        id="payment-bank-transfer"
+                                        name="payment_method"
+                                        value="bank_transfer"
+                                        checked={formCheckout.payment_method === "bank_transfer"}
+                                        onChange={handleInputChange}
+                                    />
+                                    <span className="checkout__payment__method__icon">
+                                        <BankIcon size={20} />
+                                    </span>
+                                    <span className="checkout__payment__method__content">
+                                        <strong>Bank transfer</strong>
+                                        <small>Transfer before shipment and use your order ID as the payment note.</small>
+                                    </span>
+                                </label>
+
+                                <label
+                                    className={
+                                        formCheckout.payment_method === "cash"
+                                            ? "checkout__payment__method is-active"
+                                            : "checkout__payment__method"
+                                    }
+                                    htmlFor="payment-cash"
+                                >
+                                    <input
+                                        type="radio"
+                                        id="payment-cash"
+                                        name="payment_method"
+                                        value="cash"
+                                        checked={formCheckout.payment_method === "cash"}
+                                        onChange={handleInputChange}
+                                    />
+                                    <span className="checkout__payment__method__icon">
+                                        <CashStackIcon size={20} />
+                                    </span>
+                                    <span className="checkout__payment__method__content">
+                                        <strong>Cash on delivery</strong>
+                                        <small>Pay with cash when your order arrives at your address.</small>
+                                    </span>
+                                </label>
                             </div>
+
+                            {formCheckout.payment_method === "bank_transfer" ? (
+                                <div className="checkout__payment__details">
+                                    <h3>Bank transfer instructions</h3>
+                                    <div className="checkout__payment__details__grid">
+                                        <div>
+                                            <span>Bank</span>
+                                            <strong>Vietcombank</strong>
+                                        </div>
+                                        <div>
+                                            <span>Account name</span>
+                                            <strong>Digital-E Store</strong>
+                                        </div>
+                                        <div>
+                                            <span>Account number</span>
+                                            <strong>1029384756</strong>
+                                        </div>
+                                        <div>
+                                            <span>Reference</span>
+                                            <strong>Use your order ID after checkout</strong>
+                                        </div>
+                                    </div>
+                                    <p>
+                                        We&apos;ll confirm the transfer and start processing your order as soon as the
+                                        payment arrives.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="checkout__payment__details">
+                                    <h3>Cash on delivery notes</h3>
+                                    <p>
+                                        Please prepare the exact amount if possible. Our delivery partner will collect
+                                        the payment when handing over the package.
+                                    </p>
+                                    <p>Orders paid by cash are confirmed before dispatch and may be verified by phone.</p>
+                                </div>
+                            )}
                         </Form>
                     </div>
                 </section>

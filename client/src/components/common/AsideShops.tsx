@@ -28,25 +28,32 @@ const AsideShops = ({
 }: AsideShopsProps) => {
     const [categories, setCategories] = useState<string[]>([]);
     const [brands, setBrands] = useState<string[]>([]);
+    const [priceRange, setPriceRange] = useState<[number, number]>(filters.priceRange);
 
     useEffect(() => {
+        setPriceRange(filters.priceRange);
+    }, [filters.priceRange]);
+
+    useEffect(() => {
+        // Build compact filter lists from the products currently available on the page.
         setCategories([...new Set(products.map((product) => product.category))]);
         setBrands([...new Set(products.map((product) => product.brand))]);
     }, [products]);
 
     return (
         <aside className="shops__container__aside">
-            <section className="shops__container__aside__categories">
+            <section className="shops__container__aside__categories" aria-labelledby="shops-filter-categories">
                 <div>
-                    <h2>Categories</h2>
-                    {categories.map((category, index) => {
+                    <h2 id="shops-filter-categories">Categories</h2>
+                    {categories.map((category) => {
+                        const checkboxId = `shops-category-${category.replace(/\s+/g, "-").toLowerCase()}`;
                         return (
-                            <div key={index}>
-                                <label className="container">
+                            <div key={category}>
+                                <label className="container" htmlFor={checkboxId}>
                                     {category}
                                     <input
                                         type="checkbox"
-                                        id={category}
+                                        id={checkboxId}
                                         checked={filters.categories.includes(category)}
                                         onChange={() => onCheckboxChange("categories", category)}
                                     />
@@ -57,17 +64,22 @@ const AsideShops = ({
                     })}
                 </div>
             </section>
-            <section className="shops__container__aside__brands" data-testid="shops__aside__brand">
+            <section
+                className="shops__container__aside__brands"
+                data-testid="shops__aside__brand"
+                aria-labelledby="shops-filter-brands"
+            >
                 <div>
-                    <h2>Brands</h2>
-                    {brands.map((brand, index) => {
+                    <h2 id="shops-filter-brands">Brands</h2>
+                    {brands.map((brand) => {
+                        const checkboxId = `shops-brand-${brand.replace(/\s+/g, "-").toLowerCase()}`;
                         return (
-                            <div key={index}>
-                                <label className="container">
+                            <div key={brand}>
+                                <label className="container" htmlFor={checkboxId}>
                                     {brand}
                                     <input
                                         type="checkbox"
-                                        id={brand}
+                                        id={checkboxId}
                                         checked={filters.brands.includes(brand)}
                                         onChange={() => onCheckboxChange("brands", brand)}
                                     />
@@ -78,23 +90,43 @@ const AsideShops = ({
                     })}
                 </div>
             </section>
-            <section className="shops__container__aside__price">
-                <h2>Price range</h2>
+            <section className="shops__container__aside__price" aria-labelledby="shops-filter-price">
+                <div className="shops__container__aside__price__header">
+                    <h2 id="shops-filter-price">Price range</h2>
+                    <p>Choose the budget window that fits what you want to browse.</p>
+                </div>
+                <div className="shops__container__aside__price__summary" aria-live="polite">
+                    <div>
+                        <span>Min</span>
+                        <strong>${priceRange[0]}</strong>
+                    </div>
+                    <div>
+                        <span>Max</span>
+                        <strong>${priceRange[1]}</strong>
+                    </div>
+                </div>
                 <div className="shops__container__aside__price__slider">
                     <ReactSlider
                         className="horizontal-slider"
                         thumbClassName="example-thumb"
                         trackClassName="example-track"
-                        defaultValue={[0, MAX_PRICE_RANGE]}
+                        value={priceRange}
                         min={0}
                         max={MAX_PRICE_RANGE}
-                        minDistance={100}
-                        onAfterChange={(newValue: [number, number]) => onPriceRangeChange(newValue)}
+                        pearling
+                        minDistance={150}
+                        renderThumb={(props, state) => (
+                            <div
+                                {...props}
+                                aria-label={state.index === 0 ? "Minimum price" : "Maximum price"}
+                                aria-valuetext={`$${state.valueNow}`}
+                            >
+                                <span>${state.valueNow}</span>
+                            </div>
+                        )}
+                        onChange={(newValue) => setPriceRange(newValue as [number, number])}
+                        onAfterChange={(newValue) => onPriceRangeChange(newValue as [number, number])}
                     />
-                    <div className="shops__container__aside__price__slider__num">
-                        <span>{filters.priceRange[0]}</span>
-                        <span>{filters.priceRange[1]}</span>
-                    </div>
                 </div>
             </section>
             <button

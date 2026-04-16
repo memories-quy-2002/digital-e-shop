@@ -13,6 +13,7 @@ type CheckoutSuccessData = {
     subtotal: number;
     itemsCount: number;
     placedAt: string;
+    paymentMethod?: "bank_transfer" | "cash";
     email?: string;
     name?: string;
     address?: string;
@@ -99,6 +100,14 @@ const CheckoutSuccessPage = () => {
                             {combinedData?.placedAt
                                 ? new Date(combinedData.placedAt).toLocaleString("en-GB")
                                 : new Date().toLocaleString("en-GB")}
+                        </p>
+                        <p>
+                            Payment method:{" "}
+                            {combinedData?.paymentMethod === "bank_transfer"
+                                ? "Bank transfer"
+                                : combinedData?.paymentMethod === "cash"
+                                  ? "Cash on delivery"
+                                  : "-"}
                         </p>
                     </div>
                 </section>

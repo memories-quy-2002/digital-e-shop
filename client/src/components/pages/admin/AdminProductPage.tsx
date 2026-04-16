@@ -17,7 +17,8 @@ const AdminProductPage = () => {
     const [searchTerm, setSearchTerm] = useState<string>("");
     const [filteredProducts, setFilteredProducts] = useState<Product[]>(products);
     const [show, setShow] = useState<boolean>(false);
-    const [pid, setPid] = useState<number>(0);
+    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalProducts, setTotalProducts] = useState(0);
     const { addToast } = useToast();
@@ -34,25 +35,37 @@ const AdminProductPage = () => {
         setSearchTerm("");
     };
 
-    const handleOpen = (pid: number) => {
+    const handleOpen = (product: Product) => {
         setShow(true);
-        setPid(pid);
+        setSelectedProduct(product);
     };
 
     const handleClose = () => {
         setShow(false);
+        setSelectedProduct(null);
     };
 
-    const handleDelete = async (pid: number) => {
+    const handleDelete = async () => {
+        if (!selectedProduct) {
+            return;
+        }
+
         try {
+            setIsDeleting(true);
             const response = await axios.delete("/api/products/", {
-                data: { pid },
+                data: { pid: selectedProduct.id },
             });
             if (response.status === 200) {
-                window.location.reload();
+                setProducts((currentProducts) => currentProducts.filter((product) => product.id !== selectedProduct.id));
+                setFilteredProducts((currentProducts) => currentProducts.filter((product) => product.id !== selectedProduct.id));
+                setTotalProducts((currentTotal) => Math.max(0, currentTotal - 1));
+                addToast("Delete product", `${selectedProduct.name} has been removed from the catalog.`);
+                handleClose();
             }
         } catch (err) {
             addToast("Delete product", "Unable to delete product.");
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -165,7 +178,7 @@ const AdminProductPage = () => {
                             <tbody>
                                 {currentProducts.map((product, index) => (
                                     <AdminProductItem
-                                        key={index}
+                                        key={product.id}
                                         products={filteredProducts}
                                         product={product}
                                         handleOpen={handleOpen}
@@ -197,13 +210,22 @@ const AdminProductPage = () => {
                             <Modal.Header closeButton>
                                 <Modal.Title>Delete product</Modal.Title>
                             </Modal.Header>
-                            <Modal.Body>Are you sure you want to remove this product?</Modal.Body>
+                            <Modal.Body>
+                                {selectedProduct ? (
+                                    <>
+                                        Are you sure you want to remove <strong>{selectedProduct.name}</strong> from the
+                                        catalog?
+                                    </>
+                                ) : (
+                                    "Are you sure you want to remove this product?"
+                                )}
+                            </Modal.Body>
                             <Modal.Footer>
                                 <Button variant="secondary" onClick={handleClose}>
                                     Cancel
                                 </Button>
-                                <Button variant="primary" onClick={() => handleDelete(pid)}>
-                                    Confirm
+                                <Button variant="danger" onClick={handleDelete} disabled={isDeleting}>
+                                    {isDeleting ? "Deleting..." : "Delete product"}
                                 </Button>
                             </Modal.Footer>
                         </Modal>

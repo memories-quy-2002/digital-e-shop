@@ -95,19 +95,30 @@ async function changeOrderStatus(req, res) {
 
 async function makePurchase(req, res) {
     const uid = req.params.uid;
-    const { totalPrice, cart, discount, subtotal, shippingAddress } = req.body;
+    const { totalPrice, cart, discount, subtotal, shippingAddress, paymentMethod } = req.body;
     const requestId = `purchase-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     console.log("[makePurchase] request", { requestId, uid, items: cart?.length });
 
     if (!cart || cart.length === 0) {
         return res.status(400).json({ msg: "Cart cannot be empty" });
     }
+    if (!["bank_transfer", "cash"].includes(paymentMethod)) {
+        return res.status(400).json({ msg: "Unsupported payment method" });
+    }
 
     try {
-        const orderId = await orderService.makePurchase(uid, { totalPrice, cart, discount, subtotal, shippingAddress });
+        const orderId = await orderService.makePurchase(uid, {
+            totalPrice,
+            cart,
+            discount,
+            subtotal,
+            shippingAddress,
+            paymentMethod,
+        });
         console.log("[makePurchase] success", { requestId, orderId });
         res.status(201).json({
             orderId,
+            paymentMethod,
             msg: `Order has been created successfully with id = ${orderId}`,
         });
     } catch (err) {
