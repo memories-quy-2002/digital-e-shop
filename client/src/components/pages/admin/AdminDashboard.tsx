@@ -146,7 +146,8 @@ const AdminDashboard = () => {
 
                 const orderItemResponse = await axios.get(`/api/orders/item?page=1&limit=100`);
                 if (orderItemResponse.status === 200) {
-                    const orderItemsData = orderItemResponse.data.orderItems ?? orderItemResponse.data.order_items ?? [];
+                    const orderItemsData =
+                        orderItemResponse.data.orderItems ?? orderItemResponse.data.order_items ?? [];
                     setOrderItems(orderItemsData.map(normalizeOrderItem));
                 }
             } catch (err) {
@@ -282,7 +283,10 @@ const AdminDashboard = () => {
         const completedOrders = orders.filter((order) => order.status === 1).length;
         const bankTransferOrders = orders.filter((order) => order.payment_method === "bank_transfer").length;
         const cashOrders = orders.filter((order) => order.payment_method === "cash").length;
-        const lowStockProducts = products.filter((product) => product.stock <= 5).sort((a, b) => a.stock - b.stock).slice(0, 5);
+        const lowStockProducts = products
+            .filter((product) => product.stock <= 5)
+            .sort((a, b) => a.stock - b.stock)
+            .slice(0, 5);
         const latestOrders = [...orders]
             .sort((a, b) => new Date(b.date_added).getTime() - new Date(a.date_added).getTime())
             .slice(0, 5);
@@ -321,7 +325,9 @@ const AdminDashboard = () => {
             "",
             "LOW STOCK WATCHLIST",
             ...(lowStockProducts.length > 0
-                ? lowStockProducts.map((product, index) => `${index + 1}. ${product.name} | Remaining stock: ${product.stock}`)
+                ? lowStockProducts.map(
+                      (product, index) => `${index + 1}. ${product.name} | Remaining stock: ${product.stock}`,
+                  )
                 : ["- No products are currently below the low-stock threshold."]),
             "",
             "LATEST ORDERS",
