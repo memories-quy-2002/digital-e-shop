@@ -30,7 +30,7 @@
         "p-limit": "^7.3.0",
         "path": "^0.12.7",
         "streamifier": "^0.1.1",
-        "vercel": "^50.44.0"
+        "vercel": "^52.0.0"
     },
     "devDependencies": {
         "globals": "^17.5.0",
