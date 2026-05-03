@@ -93,7 +93,7 @@
         "@vitejs/plugin-react": "^6.0.1",
         "babel-jest": "^30.3.0",
         "eslint-formatter-pretty": "^7.1.0",
-        "globals": "^17.5.0",
+        "globals": "^17.6.0",
         "identity-obj-proxy": "^3.0.0",
         "jest": "^30.3.0",
         "jsdom": "^29.1.0",
