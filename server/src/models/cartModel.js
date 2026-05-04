@@ -2,10 +2,10 @@ const pool = require("../config/db");
 
 const addItemToCartByUserId = (uid, pid, quantity, callback) => {
     pool.query(
-        `INSERT INTO cart (user_id)
+        `INSERT INTO carts (user_id)
         SELECT ? 
         WHERE NOT EXISTS ( 
-            SELECT 1 FROM cart WHERE user_id = ? AND done = 0);`,
+            SELECT 1 FROM carts WHERE user_id = ? AND done = 0);`,
         [uid, uid],
         callback
     );
@@ -13,7 +13,7 @@ const addItemToCartByUserId = (uid, pid, quantity, callback) => {
 
 const getCartIdByUserId = (uid, callback) => {
     pool.query(
-        "SELECT id FROM cart WHERE user_id = ? AND done = 0 LIMIT 1",
+        "SELECT id FROM carts WHERE user_id = ? AND done = 0 LIMIT 1",
         [uid],
         callback
     );
@@ -31,7 +31,7 @@ const addItemToCart = (cartId, pid, quantity, callback) => {
 
 const getCartItemsByUserId = (uid, callback) => {
     pool.query(
-        `SELECT id FROM cart WHERE user_id = ? AND done = 0 LIMIT 1`,
+        `SELECT id FROM carts WHERE user_id = ? AND done = 0 LIMIT 1`,
         [uid],
         callback
     );

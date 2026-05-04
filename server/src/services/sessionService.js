@@ -69,13 +69,11 @@ async function endSession(sessionId) {
                 return resolve(null); // session not found
             }
 
-            const sessionStart = results[0].session_start;
             const sessionEnd = new Date();
-            const sessionDuration = Math.floor((sessionEnd - new Date(sessionStart)) / 1000);
 
-            Session.updateSession(sessionId, sessionEnd, sessionDuration, (err) => {
+            Session.updateSession(sessionId, sessionEnd, (err) => {
                 if (err) return reject(err);
-                resolve({ sessionEnd, sessionDuration });
+                resolve({ sessionEnd });
             });
         });
     });

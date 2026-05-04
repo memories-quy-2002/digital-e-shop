@@ -35,7 +35,7 @@ async function makePurchase(uid, { totalPrice, cart, discount, subtotal, shippin
             await begin();
             console.log("[makePurchase] transaction started");
 
-            await q("UPDATE cart SET done = 1 WHERE user_id = ?", [uid]);
+            await q("UPDATE carts SET done = 1 WHERE user_id = ?", [uid]);
             console.log("[makePurchase] cart updated");
 
             const orderResult = await q(

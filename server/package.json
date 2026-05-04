@@ -10,14 +10,14 @@
     "license": "ISC",
     "dependencies": {
         "@vercel/blob": "^2.3.3",
-        "axios": "^1.15.2",
+        "axios": "^1.16.0",
         "bcryptjs": "^3.0.3",
         "body-parser": "^2.2.2",
         "cookie-parser": "^1.4.7",
         "cors": "^2.8.6",
         "csrf-csrf": "^4.0.3",
         "dotenv": "^17.4.2",
-        "eslint": "^10.2.1",
+        "eslint": "^10.3.0",
         "express": "^5.2.1",
         "express-rate-limit": "^8.4.1",
         "fs": "0.0.1-security",
@@ -33,7 +33,7 @@
         "vercel": "^50.44.0"
     },
     "devDependencies": {
-        "globals": "^17.5.0",
+        "globals": "^17.6.0",
         "prettier": "^3.8.3"
     }
 }

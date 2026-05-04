@@ -22,7 +22,7 @@ const rollback = (callback) => {
 };
 
 const updateCartDone = (uid, callback) => {
-    query("UPDATE cart SET done = 1 WHERE user_id = ?", [uid], callback);
+    query("UPDATE carts SET done = 1 WHERE user_id = ?", [uid], callback);
 };
 
 const insertOrder = (uid, totalPrice, discount, subtotal, shippingAddress, paymentMethod, callback) => {
@@ -129,7 +129,7 @@ const getOrderItemsCount = (callback) => {
 };
 
 const applyDiscount = (discountCode, callback) => {
-    query(`SELECT * FROM discount WHERE discount_code = ?`, [discountCode], callback);
+    query(`SELECT * FROM discounts WHERE discount_code = ?`, [discountCode], callback);
 };
 
 module.exports = {
