@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosHeaders, AxiosRequestHeaders } from "axios";
 
 declare module "axios" {
     export interface AxiosRequestConfig {
@@ -53,7 +53,7 @@ api.interceptors.request.use(async (config) => {
         config.headers = {
             ...config.headers,
             [csrfHeaderName]: token,
-        };
+        } as unknown as AxiosRequestHeaders;
     }
 
     return config;
@@ -84,7 +84,7 @@ api.interceptors.response.use(
         }
 
         return Promise.reject(error);
-    }
+    },
 );
 
 export default api;

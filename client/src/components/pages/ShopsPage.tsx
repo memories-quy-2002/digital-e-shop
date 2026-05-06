@@ -31,8 +31,6 @@ const ShopsPage = () => {
     const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [totalProducts, setTotalProducts] = useState(0);
     const [filters, setFilters] = useState<Filters>({
         term: "",
         categories: [],
@@ -81,37 +79,42 @@ const ShopsPage = () => {
         setFilters((prev) => ({ ...prev, priceRange: newValue }));
     }, []);
 
-    const getFilteredProducts = useCallback((filters: Filters, allProducts: Product[]): Product[] => {
-        const { term, categories, brands, priceRange } = filters;
-        const termLower = term.trim().toLowerCase();
+    const getVisibleProducts = useCallback((activeFilters: Filters, allProducts: Product[]): Product[] => {
+        const { priceRange } = activeFilters;
+        const termLower = activeFilters.term.trim().toLowerCase();
 
-        return allProducts.filter((product) => {
+        const filtered = allProducts.filter((product) => {
             const price = product.sale_price ?? product.price;
-            const nameLower = product.name.toLowerCase();
+            const haystack = `${product.name} ${product.brand} ${product.category}`.toLowerCase();
 
             return (
-                (!categories.length || categories.includes(product.category)) &&
-                (!brands.length || brands.includes(product.brand)) &&
+                (!activeFilters.categories.length || activeFilters.categories.includes(product.category)) &&
+                (!activeFilters.brands.length || activeFilters.brands.includes(product.brand)) &&
                 price >= priceRange[0] &&
                 price <= priceRange[1] &&
-                (!termLower || nameLower.includes(termLower))
+                (!termLower || haystack.includes(termLower))
             );
         });
+
+        if (activeFilters.sortBy === "price-asc") {
+            return [...filtered].sort((a, b) => (a.sale_price ?? a.price) - (b.sale_price ?? b.price));
+        }
+
+        if (activeFilters.sortBy === "price-desc") {
+            return [...filtered].sort((a, b) => (b.sale_price ?? b.price) - (a.sale_price ?? a.price));
+        }
+
+        if (activeFilters.sortBy === "rating-desc") {
+            return [...filtered].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+        }
+
+        return filtered;
     }, []);
 
-    const applyFilters = () => {
+    const applyFilters = useCallback(() => {
         updateURL(filters);
-        const baseList = getFilteredProducts(filters, products);
-        let sorted = [...baseList];
-        if (filters.sortBy === "price-asc") {
-            sorted.sort((a, b) => (a.sale_price ?? a.price) - (b.sale_price ?? b.price));
-        } else if (filters.sortBy === "price-desc") {
-            sorted.sort((a, b) => (b.sale_price ?? b.price) - (a.sale_price ?? a.price));
-        } else if (filters.sortBy === "rating-desc") {
-            sorted.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-        }
-        setFilteredProducts(sorted);
-    };
+        setFilteredProducts(getVisibleProducts(filters, products));
+    }, [filters, getVisibleProducts, products, updateURL]);
 
     const handleSortChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
         const value = event.target.value as Filters["sortBy"];
@@ -128,8 +131,8 @@ const ShopsPage = () => {
         };
         setFilters(reset);
         updateURL(reset);
-        setFilteredProducts(products);
-    }, [products, updateURL]);
+        setFilteredProducts(getVisibleProducts(reset, products));
+    }, [getVisibleProducts, products, updateURL]);
 
     useEffect(() => {
         // Keep the UI state in sync with sharable filter query params.
@@ -160,16 +163,10 @@ const ShopsPage = () => {
         const fetchProducts = async () => {
             setIsLoading(true);
             try {
-                // The product grid is paginated on the server, then refined client-side with active filters.
-                const response = await axios.get(`/api/products?page=${currentPage}&limit=${ITEMS_PER_PAGE}`);
+                const response = await axios.get("/api/products");
                 if (response.status === 200) {
-                    setProducts(response.data.products);
-                    setFilteredProducts(response.data.products);
-                    if (response.data.pagination) {
-                        setTotalProducts(response.data.pagination.total || 0);
-                    } else {
-                        setTotalProducts(response.data.products.length);
-                    }
+                    const catalog: Product[] = response.data.products || [];
+                    setProducts(catalog);
                 }
             } catch (err) {
                 addToast("Products", "Unable to load products right now.");
@@ -179,7 +176,11 @@ const ShopsPage = () => {
         };
         fetchProducts();
         return () => {};
-    }, [currentPage]);
+    }, [addToast]);
+
+    useEffect(() => {
+        setFilteredProducts(getVisibleProducts(filters, products));
+    }, [filters, getVisibleProducts, products]);
 
     useEffect(() => {
         const fetchWishlist = async () => {
@@ -232,7 +233,7 @@ const ShopsPage = () => {
                             <span>Results</span>
                         </div>
                         <div>
-                            <strong>{totalProducts || products.length}</strong>
+                            <strong>{products.length}</strong>
                             <span>Total products</span>
                         </div>
                     </div>
@@ -312,10 +313,6 @@ const ShopsPage = () => {
                                 uid={uid}
                                 wishlist={wishlist}
                                 isWishlistPage={false}
-                                serverSide
-                                totalItems={totalProducts}
-                                currentPage={currentPage}
-                                onPageChange={setCurrentPage}
                             />
                         )}
                     </section>

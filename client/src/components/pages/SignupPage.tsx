@@ -1,13 +1,12 @@
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import React, { useState } from "react";
-import { Button, Container, Form } from "react-bootstrap";
+import { Form } from "react-bootstrap";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
 import { auth } from "../../services/firebase";
 import "../../styles/SignupPage.scss";
 import { Role } from "../../utils/interface";
 import { Helmet } from "react-helmet";
-import bgImage from "../../assets/images/background_form.jpg";
 import { AxiosError } from "axios";
 import { useToast } from "../../context/ToastContext";
 
@@ -30,6 +29,7 @@ const SignupPage = () => {
     });
 
     const [errors, setErrors] = useState<string[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
     const validateForm = (): string[] => {
         const errorsList: string[] = [];
@@ -65,6 +65,9 @@ const SignupPage = () => {
     const handleChangeInput = (event: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = event.target;
         setUser({ ...user, [name]: value });
+        if (errors.length > 0) {
+            setErrors([]);
+        }
     };
     const handleChangeRadio = (event: React.ChangeEvent<HTMLInputElement>) => {
         const selectedRole = event.target.value as Role;
@@ -78,6 +81,7 @@ const SignupPage = () => {
             setErrors(errorsList); // Display errors, no need to proceed further
             return;
         } else {
+            setIsSubmitting(true);
             try {
                 let uid = "";
                 try {
@@ -128,34 +132,28 @@ const SignupPage = () => {
                     setErrors(["An unexpected error occurred."]);
                     addToast("Signup failed", "An unexpected error occurred.");
                 }
+            } finally {
+                setIsSubmitting(false);
             }
         }
     };
 
     return (
-        <Container
-            fluid
-            style={{
-                backgroundColor: "#E6F0FD",
-                padding: "3rem",
-                display: "flex",
-                justifyContent: "center",
-            }}
-        >
+        <main className="auth-page">
             <Helmet>
                 <title>Create Account | Digital-E</title>
                 <meta name="description" content="Create a Digital-E account to shop faster and track orders." />
             </Helmet>
             <div className="signup">
                 <aside className="signup__image">
-                    <img src={bgImage} alt="backgroundImage" className="signup__image__background"></img>
                     <div className="signup__image__content">
                         <strong className="signup__image__content__name">DIGITAL-E</strong>
-                        <p className="signup__image__content__desc">An E-commerce platforms of electronics devices</p>
+                        <p className="signup__image__content__desc">Create an account for faster checkout.</p>
                     </div>
                 </aside>
                 <main className="signup__form">
                     <h1 className="signup__form__title">Create new account</h1>
+                    <p className="signup__form__subtitle">Save your cart, wishlist products, and track orders.</p>
                     <Form
                         className="signup__form__container"
                         onSubmit={handleSubmit}
@@ -170,7 +168,7 @@ const SignupPage = () => {
                                 placeholder="Username"
                                 className="signup__form__container__group__input"
                                 required
-                                autoComplete="off"
+                                autoComplete="username"
                                 value={user.username}
                                 onChange={handleChangeInput}
                             />
@@ -183,7 +181,7 @@ const SignupPage = () => {
                                 placeholder="Email"
                                 className="signup__form__container__group__input"
                                 required
-                                autoComplete="off"
+                                autoComplete="email"
                                 value={user.email}
                                 onChange={handleChangeInput}
                             />
@@ -196,7 +194,7 @@ const SignupPage = () => {
                                 placeholder="Password"
                                 className="signup__form__container__group__input"
                                 required
-                                autoComplete="off"
+                                autoComplete="new-password"
                                 value={user.password}
                                 onChange={handleChangeInput}
                             />
@@ -212,18 +210,17 @@ const SignupPage = () => {
                                 placeholder="Confirm Password"
                                 className="signup__form__container__group__input"
                                 required
-                                autoComplete="off"
+                                autoComplete="new-password"
                                 value={user.confirm}
                                 onChange={handleChangeInput}
                             />
                         </Form.Group>
-                        <Form.Group className="signup__form__container__group mb-3 mt-5">
+                        <Form.Group className="signup__form__container__group signup__role">
                             <Form.Label>Signup as:</Form.Label>
-                            <br />
                             <Form.Check
                                 inline
                                 type="radio"
-                                name="signup-customer"
+                                name="signup-role"
                                 id="customer-radio"
                                 value={Role.Customer}
                                 checked={user.role === Role.Customer}
@@ -236,7 +233,7 @@ const SignupPage = () => {
                             <Form.Check
                                 inline
                                 type="radio"
-                                name="signup-admin"
+                                name="signup-role"
                                 id="admin-radio"
                                 value={Role.Admin}
                                 checked={user.role === Role.Admin}
@@ -245,32 +242,27 @@ const SignupPage = () => {
                             <Form.Label htmlFor="admin-radio">Admin</Form.Label>
                         </Form.Group>
 
-                        <div className="mb-5">
+                        <div className="signup__form__errors" aria-live="polite">
                             {errors.map((error, id) => (
-                                <div key={id} className="text-danger mb-2">
+                                <div key={id}>
                                     {error}
                                 </div>
                             ))}
                         </div>
-                        <Button
-                            variant="primary"
+                        <button
+                            className="signup__form__submit"
                             type="submit"
-                            style={{
-                                width: "100%",
-                                height: "3rem",
-                                fontSize: "16px",
-                                textTransform: "uppercase",
-                            }}
+                            disabled={isSubmitting}
                         >
-                            Sign up
-                        </Button>
-                        <div className="mt-4" style={{ textAlign: "center" }}>
+                            {isSubmitting ? "Creating account..." : "Sign up"}
+                        </button>
+                        <div className="signup__form__switch">
                             Already registered? <Link to="/login">Login</Link>
                         </div>
                     </Form>
                 </main>
             </div>
-        </Container>
+        </main>
     );
 };
 

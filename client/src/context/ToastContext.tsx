@@ -1,11 +1,12 @@
-// ToastContext.tsx
 import React, { createContext, useContext, useReducer, ReactNode } from "react";
 import { Toast, ToastContainer } from "react-bootstrap";
+import "../styles/Toast.scss";
 
 interface ToastMessage {
     id: number;
     title: string;
     body: string;
+    tone: "success" | "error" | "info";
 }
 
 type Action =
@@ -36,6 +37,33 @@ const toastReducer = (
 
 let toastId = 1;
 
+const inferToastTone = (title: string, body: string): ToastMessage["tone"] => {
+    const content = `${title} ${body}`.toLowerCase();
+
+    if (
+        content.includes("failed") ||
+        content.includes("error") ||
+        content.includes("invalid") ||
+        content.includes("unable") ||
+        content.includes("expired") ||
+        content.includes("not found")
+    ) {
+        return "error";
+    }
+
+    if (
+        content.includes("success") ||
+        content.includes("successfully") ||
+        content.includes("added") ||
+        content.includes("created") ||
+        content.includes("updated")
+    ) {
+        return "success";
+    }
+
+    return "info";
+};
+
 const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [toasts, dispatch] = useReducer(toastReducer, []);
 
@@ -44,6 +72,7 @@ const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
             id: toastId++,
             title,
             body,
+            tone: inferToastTone(title, body),
         };
         dispatch({ type: "ADD_TOAST", toast: newToast });
     };
@@ -56,14 +85,8 @@ const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
             {children}
             <ToastContainer
-                className="p-3"
+                className="app-toast"
                 position="bottom-end"
-                style={{
-                    zIndex: 1,
-                    position: "fixed",
-                    bottom: 0,
-                    right: 0,
-                }}
             >
                 {toasts.map((toast) => (
                     <Toast
@@ -72,12 +95,16 @@ const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
                         delay={3000}
                         autohide
                         animation
+                        className={`app-toast__item app-toast__item--${toast.tone}`}
                     >
-                        <Toast.Header>
+                        <Toast.Header className="app-toast__header" closeButton>
+                            <span className="app-toast__badge" aria-hidden="true">
+                                {toast.title.slice(0, 1).toUpperCase()}
+                            </span>
                             <strong className="me-auto">{toast.title}</strong>
-                            <small>just now</small>
+                            <small>now</small>
                         </Toast.Header>
-                        <Toast.Body>{toast.body}</Toast.Body>
+                        <Toast.Body className="app-toast__body">{toast.body}</Toast.Body>
                     </Toast>
                 ))}
             </ToastContainer>

@@ -1,6 +1,6 @@
 import { signInWithEmailAndPassword } from "firebase/auth";
 import React, { useState } from "react";
-import { Button, Container, Form } from "react-bootstrap";
+import { Form } from "react-bootstrap";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
 import { auth } from "../../services/firebase";
@@ -9,7 +9,6 @@ import { Role } from "../../utils/interface";
 import { Helmet } from "react-helmet";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
-import backgroundForm from "../../assets/images/background_form.jpg";
 interface User {
     email: string;
     password: string;
@@ -26,6 +25,7 @@ const LoginPage = () => {
     const { setUserData } = useAuth();
     const [rememberMe, setRememberMe] = useState<boolean>(false);
     const [errors, setErrors] = useState<string[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
     const validateForm = (): string[] => {
         const errorsList: string[] = [];
@@ -49,6 +49,9 @@ const LoginPage = () => {
     const handleChangeInput = (event: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = event.target;
         setUser({ ...user, [name]: value });
+        if (errors.length > 0) {
+            setErrors([]);
+        }
     };
     const handleChangeRadio = (event: React.ChangeEvent<HTMLInputElement>) => {
         const selectedRole = event.target.value as Role;
@@ -66,6 +69,7 @@ const LoginPage = () => {
             setErrors(errors); // Display errors, no need to proceed further
             return;
         }
+        setIsSubmitting(true);
         try {
             const userCredential = await signInWithEmailAndPassword(auth, user.email, user.password);
             const uid = userCredential.user.uid;
@@ -103,33 +107,27 @@ const LoginPage = () => {
                 setErrors(["An unexpected error occurred."]);
                 addToast("Login failed", "An unexpected error occurred.");
             }
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     return (
-        <Container
-            fluid
-            style={{
-                backgroundColor: "#E6F0FD",
-                padding: "3rem",
-                display: "flex",
-                justifyContent: "center",
-            }}
-        >
+        <main className="auth-page">
             <Helmet>
                 <title>Login | Digital-E</title>
                 <meta name="description" content="Log in to manage your orders, wishlist, and account." />
             </Helmet>
             <div className="login">
                 <aside className="login__image">
-                    <img src={backgroundForm} alt="" className="login__image__background"></img>
                     <div className="login__image__content">
                         <strong className="login__image__content__name">DIGITAL-E</strong>
-                        <p className="login__image__content__desc">An E-commerce platforms of electronics devices</p>
+                        <p className="login__image__content__desc">Fast checkout, saved carts, and order tracking.</p>
                     </div>
                 </aside>
                 <main className="login__form">
                     <h1 className="login__form__title">Welcome back</h1>
+                    <p className="login__form__subtitle">Sign in to continue shopping with your saved preferences.</p>
                     <Form
                         className="login__form__container"
                         onSubmit={handleSubmit}
@@ -144,7 +142,7 @@ const LoginPage = () => {
                                 placeholder="Email"
                                 className="login__form__container__group__input"
                                 required
-                                autoComplete="off"
+                                autoComplete="email"
                                 value={user.email}
                                 onChange={handleChangeInput}
                             />
@@ -158,19 +156,18 @@ const LoginPage = () => {
                                 placeholder="Password"
                                 className="login__form__container__group__input"
                                 required
-                                autoComplete="off"
+                                autoComplete="current-password"
                                 value={user.password}
                                 onChange={handleChangeInput}
                             />
                         </Form.Group>
 
-                        <Form.Group className="login__form__container__group mb-5 mt-5">
+                        <Form.Group className="login__form__container__group login__role">
                             <Form.Label>Login as:</Form.Label>
-                            <br />
                             <Form.Check
                                 inline
                                 type="radio"
-                                name="signup-customer"
+                                name="login-role"
                                 id="customer-radio"
                                 value={Role.Customer}
                                 checked={user.role === Role.Customer}
@@ -183,7 +180,7 @@ const LoginPage = () => {
                             <Form.Check
                                 inline
                                 type="radio"
-                                name="signup-admin"
+                                name="login-role"
                                 id="admin-radio"
                                 value={Role.Admin}
                                 checked={user.role === Role.Admin}
@@ -191,7 +188,7 @@ const LoginPage = () => {
                             />
                             <Form.Label htmlFor="admin-radio">Admin</Form.Label>
                         </Form.Group>
-                        <Form.Group className="login__form__container__group mb-3 mt-5" controlId="formBasicCheckbox">
+                        <Form.Group className="login__form__container__group mb-3" controlId="formBasicCheckbox">
                             <Form.Check
                                 inline
                                 type="checkbox"
@@ -201,33 +198,28 @@ const LoginPage = () => {
                                 label="Remember me"
                             />
                         </Form.Group>
-                        <div className="mb-5">
+                        <div className="login__form__errors" aria-live="polite">
                             {errors.map((error, id) => (
-                                <div className="text-danger mb-2" key={id}>
+                                <div key={id}>
                                     {error}
                                 </div>
                             ))}
                         </div>
-                        <Button
-                            variant="primary"
+                        <button
+                            className="login__form__submit"
                             name="login"
                             type="submit"
-                            style={{
-                                width: "100%",
-                                height: "3rem",
-                                fontSize: "16px",
-                                textTransform: "uppercase",
-                            }}
+                            disabled={isSubmitting}
                         >
-                            Login
-                        </Button>
-                        <div className="mt-4" style={{ textAlign: "center" }}>
+                            {isSubmitting ? "Signing in..." : "Login"}
+                        </button>
+                        <div className="login__form__switch">
                             Don't have an account? <Link to="/signup">Register</Link>
                         </div>
                     </Form>
                 </main>
             </div>
-        </Container>
+        </main>
     );
 };
 export default LoginPage;

@@ -47,7 +47,7 @@ const CartPage = () => {
     };
 
     const handleQuantityChange = (itemId: number, event: React.ChangeEvent<HTMLInputElement>) => {
-        const newQuantity = parseInt(event.target.value, 10);
+        const newQuantity = Math.max(1, parseInt(event.target.value, 10) || 1);
         updateQuantity(itemId, newQuantity);
     };
 

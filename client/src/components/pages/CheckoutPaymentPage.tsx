@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Helmet } from "react-helmet";
 import { useToast } from "../../context/ToastContext";
-import { BankIcon, CashStackIcon } from "../common/Icons";
+import { BoxSeamIcon, CreditCardIcon } from "../common/Icons";
 
 interface CartProps {
     cartItemId: number;
@@ -302,7 +302,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                                         onChange={handleInputChange}
                                     />
                                     <span className="checkout__payment__method__icon">
-                                        <BankIcon size={20} />
+                                        <CreditCardIcon size={20} />
                                     </span>
                                     <span className="checkout__payment__method__content">
                                         <strong>Bank transfer</strong>
@@ -327,7 +327,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                                         onChange={handleInputChange}
                                     />
                                     <span className="checkout__payment__method__icon">
-                                        <CashStackIcon size={20} />
+                                        <BoxSeamIcon size={20} />
                                     </span>
                                     <span className="checkout__payment__method__content">
                                         <strong>Cash on delivery</strong>

@@ -1,5 +1,5 @@
 import React from "react";
-import productPlaceholder from "../../assets/images/product_placeholder.jpg";
+import { TrashIcon } from "./Icons";
 import loadImage from "../../utils/loadImage";
 interface Item {
     cartItemId: number;
@@ -22,14 +22,14 @@ const CartItem = ({ item, handleQuantityChange, handleRemoveCartItem }: CartItem
     const imageUrl = item.main_image ? item.main_image.replace(".jpg", "") : null;
     const productPrice = item.sale_price || item.price;
     return (
-        <div key={item.cartItemId} className="cart__container__box__main__list__item">
-            <div className="cart__container__box__main__list__item__image">{loadImage(imageUrl, item.productName)}</div>
-            <div className="cart__container__box__main__list__item__info">
+        <article className="cart-item">
+            <div className="cart-item__image">{loadImage(imageUrl, item.productName)}</div>
+            <div className="cart-item__info">
+                <span>{item.brand}</span>
                 <strong>{item.productName}</strong>
-                <p>Category: {item.category}</p>
-                <p>Brand: {item.brand}</p>
+                <p>{item.category}</p>
             </div>
-            <div className="cart__container__box__main__list__item__qty">
+            <div className="cart-item__qty">
                 <label htmlFor={`cart-${item.cartItemId}-quantity`}>Qty</label>
                 <input
                     type="number"
@@ -41,14 +41,19 @@ const CartItem = ({ item, handleQuantityChange, handleRemoveCartItem }: CartItem
                     onChange={(event) => handleQuantityChange(item.cartItemId, event)}
                 />
             </div>
-            <div className="cart__container__box__main__list__item__price">
+            <div className="cart-item__price">
                 <strong>${(productPrice * item.quantity).toFixed(2)}</strong>
                 <p>${productPrice.toFixed(2)} each</p>
             </div>
-            <button type="button" onClick={() => handleRemoveCartItem(item.cartItemId)}>
-                Remove
+            <button
+                className="cart-item__remove"
+                type="button"
+                onClick={() => handleRemoveCartItem(item.cartItemId)}
+                aria-label={`Remove ${item.productName} from cart`}
+            >
+                <TrashIcon size={18} />
             </button>
-        </div>
+        </article>
     );
 };
 

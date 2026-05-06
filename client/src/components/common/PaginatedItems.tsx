@@ -45,7 +45,7 @@ const PaginatedItems = ({
 
     useEffect(() => {
         setItemOffset(0);
-    }, [items.length]);
+    }, [items]);
 
     const wishlistIdSet = useMemo(() => {
         return new Set(currentWishlist.map((item) => item.product.id));
