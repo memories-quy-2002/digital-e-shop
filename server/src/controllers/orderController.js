@@ -95,7 +95,7 @@ async function changeOrderStatus(req, res) {
 
 async function makePurchase(req, res) {
     const uid = req.params.uid;
-    const { totalPrice, cart, discount, subtotal, shippingAddress, paymentMethod } = req.body;
+    const { totalPrice, cart, discount, shippingAddress, paymentMethod } = req.body;
     const requestId = `purchase-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     console.log("[makePurchase] request", { requestId, uid, items: cart?.length });
 
@@ -111,7 +111,6 @@ async function makePurchase(req, res) {
             totalPrice,
             cart,
             discount,
-            subtotal,
             shippingAddress,
             paymentMethod,
         });

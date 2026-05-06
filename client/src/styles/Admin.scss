@@ -747,6 +747,97 @@
     gap: 1.25rem;
 }
 
+.admin__dashboard__highlights {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.25rem;
+}
+
+.admin__dashboard__insights {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.admin__dashboard__insight {
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 1rem;
+    background: linear-gradient(180deg, #ffffff, #f8fafc);
+}
+
+.admin__dashboard__insight span {
+    display: block;
+    color: #64748b;
+    font-size: 0.85rem;
+    margin-bottom: 0.35rem;
+}
+
+.admin__dashboard__insight strong {
+    display: block;
+    color: #111827;
+    font-size: 1.4rem;
+    margin-bottom: 0.3rem;
+}
+
+.admin__dashboard__insight p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
+.admin__dashboard__activity {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.admin__dashboard__activity__item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.85rem;
+    align-items: center;
+    padding: 0.95rem 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #fff;
+}
+
+.admin__dashboard__activity__item strong {
+    display: block;
+    color: #111827;
+    margin-bottom: 0.2rem;
+}
+
+.admin__dashboard__activity__item p {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.88rem;
+}
+
+.admin__dashboard__activity__item span {
+    color: #94a3b8;
+    font-size: 0.78rem;
+    text-align: right;
+}
+
+.admin__dashboard__activity__icon {
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.admin__dashboard__activity__icon--user {
+    background: #ecfeff;
+    color: #0f766e;
+}
+
 .admin__metric-card {
     background: #fff;
     border-radius: 18px;
@@ -1020,5 +1111,20 @@
     .admin__filters input {
         min-width: 0;
         width: 100%;
+    }
+}
+
+@media (max-width: 640px) {
+    .admin__dashboard__insights {
+        grid-template-columns: 1fr;
+    }
+
+    .admin__dashboard__activity__item {
+        grid-template-columns: auto 1fr;
+    }
+
+    .admin__dashboard__activity__item span {
+        grid-column: 2;
+        text-align: left;
     }
 }

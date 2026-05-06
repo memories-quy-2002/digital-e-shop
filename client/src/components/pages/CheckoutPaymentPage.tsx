@@ -90,7 +90,6 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                 cart,
                 totalPrice,
                 discount,
-                subtotal,
                 shippingAddress: formCheckout.address,
                 paymentMethod: formCheckout.payment_method,
             });

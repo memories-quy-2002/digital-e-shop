@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Table } from "react-bootstrap";
 import ReactPaginate from "react-paginate";
 import axios from "../../../api/axios";
@@ -14,38 +14,104 @@ interface Order {
     status: number;
     total_price: number;
     discount: number;
-    subtotal: number;
     shipping_address: string;
     payment_method?: "bank_transfer" | "cash";
 }
 
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 8;
+
+const normalizeOrder = (order: any): Order => ({
+    ...order,
+    id: Number(order.id),
+    total_price: Number(order.total_price) || 0,
+    discount: Number(order.discount) || 0,
+    date_added: new Date(order.date_added),
+});
+
+const getPaymentMethodLabel = (paymentMethod?: Order["payment_method"]) => {
+    if (paymentMethod === "bank_transfer") return "Bank transfer";
+    if (paymentMethod === "cash") return "Cash on delivery";
+    return "Not recorded";
+};
+
+const getStatusLabel = (status: number) => {
+    if (status === 1) return "Done";
+    if (status === 0) return "Pending";
+    return "Canceled";
+};
+
+const getNetRevenue = (order: Order) => Math.max(order.total_price - order.discount, 0);
 
 const AdminOrderPage = () => {
     const [orders, setOrders] = useState<Order[]>([]);
-    const [itemOffset, setItemOffset] = useState(0);
-    const [searchTerm, setSearchTerm] = useState<string>("");
-    const [filteredOrders, setFilteredOrders] = useState<Order[]>(orders);
+    const [searchTerm, setSearchTerm] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
-    const [totalOrders, setTotalOrders] = useState(0);
-
     const { addToast } = useToast();
-    const endOffset = itemOffset + ITEMS_PER_PAGE;
-    const currentOrders = filteredOrders.slice(itemOffset, endOffset);
-    const getPaymentMethodLabel = (paymentMethod?: Order["payment_method"]) => {
-        if (paymentMethod === "bank_transfer") return "Bank transfer";
-        if (paymentMethod === "cash") return "Cash on delivery";
-        return "Not recorded";
-    };
 
-    const getStatusLabel = (status: number) => {
-        if (status === 1) return "Done";
-        if (status === 0) return "Pending";
-        return "Canceled";
-    };
+    useEffect(() => {
+        const fetchOrders = async () => {
+            try {
+                const response = await axios.get("/api/orders");
+                if (response.status === 200) {
+                    setOrders((response.data.orders || []).map(normalizeOrder));
+                }
+            } catch (err) {
+                addToast("Orders", "Unable to load orders.");
+            }
+        };
 
-    const handlePageClick = (event: any) => {
-        setItemOffset(0);
+        fetchOrders();
+    }, [addToast]);
+
+    const filteredOrders = useMemo(() => {
+        const lowerSearchTerm = searchTerm.trim().toLowerCase();
+
+        if (!lowerSearchTerm) {
+            return orders;
+        }
+
+        return orders.filter((order) => {
+            return (
+                order.id.toString().includes(lowerSearchTerm) ||
+                (order.shipping_address || "").toLowerCase().includes(lowerSearchTerm) ||
+                order.user_id.toLowerCase().includes(lowerSearchTerm) ||
+                getPaymentMethodLabel(order.payment_method).toLowerCase().includes(lowerSearchTerm) ||
+                getStatusLabel(order.status).toLowerCase().includes(lowerSearchTerm)
+            );
+        });
+    }, [orders, searchTerm]);
+
+    const pageCount = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
+    const currentOrders = useMemo(() => {
+        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+        return filteredOrders.slice(start, start + ITEMS_PER_PAGE);
+    }, [currentPage, filteredOrders]);
+
+    const orderStats = useMemo(() => {
+        const pending = orders.filter((order) => order.status === 0).length;
+        const completed = orders.filter((order) => order.status === 1).length;
+        const canceled = orders.filter((order) => order.status === 2).length;
+        const bankTransfer = orders.filter((order) => order.payment_method === "bank_transfer").length;
+        const revenue = orders.reduce((sum, order) => sum + getNetRevenue(order), 0);
+
+        return {
+            total: orders.length,
+            pending,
+            completed,
+            canceled,
+            bankTransfer,
+            revenue,
+        };
+    }, [orders]);
+
+    useEffect(() => {
+        const safePageCount = Math.max(pageCount, 1);
+        if (currentPage > safePageCount) {
+            setCurrentPage(1);
+        }
+    }, [currentPage, pageCount]);
+
+    const handlePageClick = (event: { selected: number }) => {
         setCurrentPage(event.selected + 1);
     };
 
@@ -55,10 +121,10 @@ const AdminOrderPage = () => {
                 status,
             });
             if (response.status === 200) {
-                const updatedOrders = orders.map((order) =>
-                    order.id === response.data.order.id ? response.data.order : order,
+                const updatedOrder = normalizeOrder(response.data.order);
+                setOrders((previousOrders) =>
+                    previousOrders.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)),
                 );
-                setOrders(updatedOrders);
                 addToast("Update Order Status", "Order status updated successfully");
             }
         } catch (err) {
@@ -75,47 +141,6 @@ const AdminOrderPage = () => {
         }
     };
 
-    const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const searchValue = event.target.value;
-        setSearchTerm(searchValue);
-    };
-
-    const handleClear = () => {
-        setSearchTerm("");
-    };
-
-    useEffect(() => {
-        const fetchOrders = async () => {
-            try {
-                const response = await axios.get(`/api/orders?page=${currentPage}&limit=${ITEMS_PER_PAGE}`);
-                if (response.status === 200) {
-                    setOrders(response.data.orders);
-                    setTotalOrders(response.data.pagination?.total ?? response.data.orders.length);
-                }
-            } catch (err) {
-                addToast("Orders", "Unable to load orders.");
-            }
-        };
-        fetchOrders();
-        return () => {};
-    }, [addToast, currentPage]);
-
-    useEffect(() => {
-        const filtered = orders.filter((order) => {
-            const lowerSearchTerm = searchTerm.toLowerCase();
-            setItemOffset(0);
-            return (
-                order.id.toString().toLowerCase().includes(lowerSearchTerm) ||
-                order.shipping_address.toLowerCase().includes(lowerSearchTerm) ||
-                order.user_id.toLowerCase().includes(lowerSearchTerm) ||
-                getPaymentMethodLabel(order.payment_method).toLowerCase().includes(lowerSearchTerm) ||
-                getStatusLabel(order.status).toLowerCase().includes(lowerSearchTerm)
-            );
-        });
-        setFilteredOrders(filtered);
-        return () => {};
-    }, [searchTerm, orders]);
-
     return (
         <AdminLayout>
             <Helmet>
@@ -127,35 +152,42 @@ const AdminOrderPage = () => {
                     <div>
                         <span className="admin__page__eyebrow">Operations</span>
                         <h2 className="admin__page__title">Orders</h2>
-                        <p className="admin__page__subtitle">Monitor order flow, fulfillment, and delivery progress.</p>
+                        <p className="admin__page__subtitle">
+                            Monitor the full order pipeline, keep tabs on payment mix, and resolve pending deliveries.
+                        </p>
                     </div>
                 </header>
 
                 <section className="admin__summary">
                     <div className="admin__summary-card">
                         <span>Total orders</span>
-                        <strong>{totalOrders || orders.length}</strong>
-                        <p>All time</p>
+                        <strong>{orderStats.total}</strong>
+                        <p>Across every recorded purchase</p>
                     </div>
                     <div className="admin__summary-card">
                         <span>Pending</span>
-                        <strong>{orders.filter((o) => o.status === 0).length}</strong>
-                        <p>Awaiting action</p>
+                        <strong>{orderStats.pending}</strong>
+                        <p>Still waiting for action</p>
                     </div>
                     <div className="admin__summary-card">
                         <span>Bank transfer</span>
-                        <strong>{orders.filter((o) => o.payment_method === "bank_transfer").length}</strong>
-                        <p>Awaiting transfer check</p>
+                        <strong>{orderStats.bankTransfer}</strong>
+                        <p>Need payment confirmation</p>
                     </div>
                     <div className="admin__summary-card">
                         <span>Completed</span>
-                        <strong>{orders.filter((o) => o.status === 1).length}</strong>
-                        <p>Delivered</p>
+                        <strong>{orderStats.completed}</strong>
+                        <p>Successfully fulfilled</p>
                     </div>
                     <div className="admin__summary-card">
                         <span>Canceled</span>
-                        <strong>{orders.filter((o) => o.status === 2).length}</strong>
-                        <p>Rejected</p>
+                        <strong>{orderStats.canceled}</strong>
+                        <p>Closed without fulfillment</p>
+                    </div>
+                    <div className="admin__summary-card">
+                        <span>Net revenue</span>
+                        <strong>${orderStats.revenue.toFixed(2)}</strong>
+                        <p>Total after discounts</p>
                     </div>
                 </section>
 
@@ -163,18 +195,28 @@ const AdminOrderPage = () => {
                     <div className="admin__card__header">
                         <div>
                             <h3>Order list</h3>
-                            <span>{filteredOrders.length} results</span>
+                            <span>{filteredOrders.length} matching orders</span>
                         </div>
                         <div className="admin__filters">
                             <input
                                 type="text"
-                                name="product"
-                                id="product"
+                                name="order-search"
+                                id="order-search"
                                 placeholder="Search by order ID, address, user, payment, or status"
                                 value={searchTerm}
-                                onChange={handleSearchChange}
+                                onChange={(event) => {
+                                    setSearchTerm(event.target.value);
+                                    setCurrentPage(1);
+                                }}
                             />
-                            <button type="button" className="admin__button admin__button--ghost" onClick={handleClear}>
+                            <button
+                                type="button"
+                                className="admin__button admin__button--ghost"
+                                onClick={() => {
+                                    setSearchTerm("");
+                                    setCurrentPage(1);
+                                }}
+                            >
                                 Clear
                             </button>
                         </div>
@@ -189,17 +231,18 @@ const AdminOrderPage = () => {
                                     <th>Payment</th>
                                     <th>Address</th>
                                     <th>Date</th>
-                                    <th>Total</th>
+                                    <th>Gross</th>
                                     <th>Discount</th>
+                                    <th>Net</th>
                                     <th>Status</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {currentOrders.map((order) => (
+                                {currentOrders.map((order, index) => (
                                     <tr key={order.id}>
-                                        <td width="50px">{filteredOrders.indexOf(order) + 1}</td>
-                                        <td width="150px">{order.id}</td>
+                                        <td width="50px">{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</td>
+                                        <td width="110px">#{order.id}</td>
                                         <td width="220px">{order.user_id}</td>
                                         <td width="180px">
                                             <span
@@ -214,10 +257,11 @@ const AdminOrderPage = () => {
                                                 {getPaymentMethodLabel(order.payment_method)}
                                             </span>
                                         </td>
-                                        <td width="450px">{order.shipping_address || "None"}</td>
+                                        <td width="360px">{order.shipping_address || "None"}</td>
                                         <td width="150px">{new Date(order.date_added).toLocaleDateString("en-GB")}</td>
                                         <td width="125px">${order.total_price.toFixed(2)}</td>
                                         <td width="125px">${order.discount.toFixed(2)}</td>
+                                        <td width="125px">${getNetRevenue(order).toFixed(2)}</td>
                                         <td width="150px">
                                             <span
                                                 className={
@@ -232,7 +276,7 @@ const AdminOrderPage = () => {
                                             </span>
                                         </td>
                                         <td width="100px">
-                                            {order.status === 0 && (
+                                            {order.status === 0 ? (
                                                 <div className="admin__table__actions">
                                                     <button
                                                         type="button"
@@ -249,7 +293,7 @@ const AdminOrderPage = () => {
                                                         <CheckCircleIcon size={22} />
                                                     </button>
                                                 </div>
-                                            )}
+                                            ) : null}
                                         </td>
                                     </tr>
                                 ))}
@@ -269,9 +313,9 @@ const AdminOrderPage = () => {
                                 nextLabel="Next"
                                 onPageChange={handlePageClick}
                                 pageRangeDisplayed={5}
-                                pageCount={Math.ceil((totalOrders || filteredOrders.length) / ITEMS_PER_PAGE)}
+                                pageCount={pageCount}
                                 previousLabel="Previous"
-                                forcePage={currentPage - 1}
+                                forcePage={Math.max(currentPage - 1, 0)}
                                 renderOnZeroPageCount={null}
                             />
                         </div>
