@@ -1,54 +1,52 @@
 # 🛒 Digital-E — Full-stack E-commerce Platform
 
-> A scalable, performance-optimized e-commerce platform built with React.js, Node.js, and MySQL. Features secure authentication, shopping cart, order flow, and CI/CD deployment with Vercel.
+> A practical full-stack e-commerce monorepo with a React frontend, Express backend, and Vercel-ready API configuration. Includes authentication, product browsing, cart/wishlist management, orders, and reviews.
 
 ![Tech Stack](https://img.shields.io/badge/Stack-Full--stack-blueviolet)
 ![Build](https://img.shields.io/badge/CI-CD%20via%20GitHub%20Actions-success)
 ![Live](https://img.shields.io/badge/Demo-Online-green)
 
 🔗 **Live Site**: [https://digital-e.vercel.app](https://digital-e.vercel.app)  
-💻 **Backend Repo**: _coming soon if separated_  
 📘 **Frontend + Backend**: This repo (monorepo style)
 
 ---
 
 ## 🧠 Overview
 
-Digital-E was designed and developed as a realistic, production-ready e-commerce platform featuring:
+Digital-E is a monorepo implementation of a modern e-commerce platform. It pairs a React/Vite frontend with an Express backend and includes:
 
-- Secure JWT-based authentication with role access control
-- Dynamic product catalog & cart functionality
-- Persistent orders and admin dashboard (conceptual)
-- Modular API architecture
-- CI/CD integration for seamless deployment
+- Secure JWT authentication with refresh tokens and CSRF protection
+- Product catalog, cart, wishlist, orders, and reviews
+- Modular backend controllers, routes, and middleware
+- Client-side API service layer and lazy-loaded UI
+- Vercel-friendly deployment configuration
 
 ---
 
 ## 🔧 Tech Stack
 
-| Layer       | Technology                     |
-|-------------|--------------------------------|
-| Frontend    | React.js, React Router, Vite, SCSS |
-| Backend     | Node.js, Express.js            |
-| Database    | MySQL (hosted via Aiven Database) |
-| Auth        | JWT (access + refresh token)   |
-| DevOps      | GitHub Actions + Vercel        |
-| Linting     | ESLint, Prettier               |
-| Tools       | Postman, Figma (UI prototype)  |
+| Layer       | Technology                                      |
+|-------------|-------------------------------------------------|
+| Frontend    | React 19, Vite, TypeScript/JS, SCSS             |
+| Backend     | Node.js, Express 5, Axios, CSRF                 |
+| Database    | MySQL / relational storage                      |
+| Auth        | JWT (access + refresh tokens), cookies          |
+| Deployment  | Vercel, GitHub Actions                          |
+| Tooling     | pnpm, ESLint, Prettier, Vitest                  |
 
 ---
 
 ## ✨ Features
 
-- ✅ User Sign Up / Sign In with access & refresh tokens  
-- ✅ Role-based access control (admin/user)  
-- ✅ Add-to-cart, remove-from-cart, and live item count  
-- ✅ Order simulation & user purchase history  
-- ✅ Lazy loading of assets and routes  
-- ✅ GitHub Actions pipeline + Vercel auto-deploy  
-- ✅ Lighthouse score: **90+** across performance metrics
+- ✅ User sign up / sign in with protected routes
+- ✅ Role-based admin/user endpoints
+- ✅ Product browsing with filters and search
+- ✅ Cart and wishlist management
+- ✅ Order creation and purchase history
+- ✅ Reviews and ratings
+- ✅ Responsive UI with lazy loading and optimization
 
-## 📁 Project Structure (Simplified)
+## 📁 Project Structure
 
 ```bash
 digital-e-shop/
@@ -80,56 +78,56 @@ digital-e-shop/
 
 ## 🚀 Getting Started
 
-### Clone the repository
-
-```bash
-git clone https://github.com/memories-quy-2002/digital-e-shop.git
-cd digital-e-shop
-```
-
 ### Prerequisites
 
-- Node.js ≥ v18
-- MySQL local or cloud DB (PlanetScale recommended)
-- Vercel account (optional)
+- Node.js ≥ 18
+- pnpm package manager
+- MySQL local or cloud database
+- Optional: Vercel account for deployment
 
-### Local Setup
+### Install dependencies
 
 ```bash
-# Clone repository
-git clone https://github.com/memories-quy-2002/digital-e-shop.git
-cd digital-e-shop
-
-# Install dependencies
+cd client
 pnpm install
-
-# Start development servers
-pnpm dev
+cd ../server
+pnpm install
 ```
 
-## 📊 Performance
+### Run locally
 
-- ✅ Lazy-loaded routes
-- ✅ Image optimization
-- ✅ Bundle splitting (via Vite)
-- ✅ Lighthouse Score:
-  + Performance: 91
-  + Accessibility: 95
-  + Best Practices: 100
-  + SEO: 90
+```bash
+# Start backend
+cd server
+pnpm start
 
-## 📌 Lessons Learned
+# In another terminal, start frontend
+cd ../client
+pnpm start
+```
 
-- Implemented custom JWT token refresh & storage logic
-- Designed normalized DB schema with referential integrity
-- Configured zero-downtime CI/CD with GitHub Actions + Vercel
-- Debugged async/await flow with protected routes
-- Built for responsiveness across device breakpoints
+### Useful scripts
 
-## 🔮 Roadmap (Planned)
+- `cd client && pnpm start` — Run frontend development server
+- `cd client && pnpm build` — Build frontend for production
+- `cd client && pnpm lint` — Lint frontend source files
+- `cd client && pnpm test` — Run frontend tests
+- `cd server && pnpm start` — Start backend with nodemon
+
+---
+
+## 📌 Notes
+
+- This repository uses separate `client/` and `server/` packages, not a single root package.
+- The backend includes CSRF protection and a Vercel-compatible API entrypoint.
+- Frontend API logic is centralized under `client/src/api` and `client/src/services`.
+
+---
+
+## 🔮 Roadmap
 
 - Admin dashboard with product management
-- Stripe/PayPal integration (mock only)
-- Review system and product ratings
-- Global state using Redux Toolkit or Zustand
-- Dockerization for scalable deployment
+- Payment provider integration (Stripe/PayPal)
+- Enhanced review moderation and product ratings
+- Docker support for local development
+- Expanded end-to-end test coverage
