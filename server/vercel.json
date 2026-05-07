@@ -1,15 +1,9 @@
 {
     "version": 2,
-    "builds": [
+    "rewrites": [
         {
-            "src": "index.js",
-            "use": "@vercel/node"
-        }
-    ],
-    "routes": [
-        {
-            "src": "/(.*)",
-            "dest": "index.js",
+            "source": "/(.*)",
+            "destination": "/api/index.js",
             "headers": {
                 "Access-Control-Allow-Origin": "https://digital-e.vercel.app",
                 "Access-Control-Allow-Credentials": "true",
