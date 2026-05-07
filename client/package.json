@@ -1,8 +1,7 @@
 {
-    "name": "e-commerce-website-1",
-    "version": "0.1.0",
+    "name": "client",
+    "version": "1.0.0",
     "description": "A e-commerce system selling electronic components and devices",
-    "private": true,
     "dependencies": {
         "@reduxjs/toolkit": "^2.11.2",
         "@testing-library/jest-dom": "^6.9.1",

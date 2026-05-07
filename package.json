@@ -1,0 +1,17 @@
+{
+  "name": "digital-e-shop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A full-stack e-commerce system selling electronic components and devices",
+  "scripts": {
+    "start": "concurrently \"pnpm --filter server start\" \"pnpm --filter client start\"",
+    "dev": "concurrently \"pnpm --filter server dev\" \"pnpm --filter client dev\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.33.2",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

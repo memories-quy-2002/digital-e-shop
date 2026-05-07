@@ -10,15 +10,13 @@ const requestLogger = require("./middlewares/requestLogger");
 const errorHandler = require("./middlewares/errorHandler");
 
 const PORT = process.env.PORT || 4000;
-const vercelPreviewPattern = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
 
 app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', 'https://digital-e.vercel.app');
+    res.header('Access-Control-Allow-Origin', process.env.NODE_ENV === 'production' ? 'https://digital-e.vercel.app' : 'http://localhost:5173');
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-CSRF-Token');
 
-    // Trả về 200 ngay cho preflight, không đi tiếp xuống routes
     if (req.method === 'OPTIONS') {
         return res.sendStatus(200);
     }
