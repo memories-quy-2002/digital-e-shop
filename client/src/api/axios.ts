@@ -12,7 +12,7 @@ let csrfTokenCache = "";
 
 const baseURL =
     process.env.NODE_ENV === "production"
-        ? "https://e-commerce-express-server-app.vercel.app/"
+        ? "https://e-commerce-express-server-app.vercel.app"
         : "http://localhost:4000";
 
 const csrfClient = axios.create({
