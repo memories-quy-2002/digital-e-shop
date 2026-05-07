@@ -10,24 +10,26 @@ const requestLogger = require("./middlewares/requestLogger");
 const errorHandler = require("./middlewares/errorHandler");
 
 const PORT = process.env.PORT || 4000;
-
-const allowedOrigins = ["http://localhost:5173", "https://digital-e.vercel.app"];
 const vercelPreviewPattern = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
 
-const corsOptions = {
-    origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps, curl, Postman, server-to-server)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin) || vercelPreviewPattern.test(origin)) {
-            return callback(null, true);
+const allowedOrigins = [
+    'http://localhost:5173', // local dev
+    'https://digital-e.vercel.app' // production
+];
+
+app.use(cors({
+    origin: function (origin, callback) {
+        // Cho phép request không có origin (Postman, server-to-server)
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
         }
-        // Do not throw here; let CORS respond without a hard error
-        return callback(null, false);
     },
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
-    credentials: true,
-};
+    credentials: true, // ⚠️ BẮT BUỘC khi dùng cookie/session
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+}));
 
 const csrfSecret = process.env.CSRF_SECRET || process.env.JWT_SECRET_KEY || "dev_csrf_secret";
 if (!process.env.CSRF_SECRET) {
@@ -64,8 +66,7 @@ const authLimiter = rateLimit({
     message: "Too many authentication attempts, please try again later.",
 });
 
-app.use(cors(corsOptions));
-app.options(/.*/, cors(corsOptions));
+app.options(/.*/, cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
