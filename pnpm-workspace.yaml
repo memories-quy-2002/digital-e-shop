@@ -1,3 +1,12 @@
 packages:
-    - "client"
-    - "server"
+  - "client"
+  - "server"
+allowBuilds:
+  '@firebase/util': false
+  '@parcel/watcher': false
+  esbuild: false
+  geckodriver: false
+  msw: false
+  protobufjs: false
+  sharp: false
+  unrs-resolver: false
