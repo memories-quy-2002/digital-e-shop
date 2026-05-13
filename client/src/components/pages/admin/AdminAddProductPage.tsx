@@ -5,6 +5,7 @@ import axios from "../../../api/axios";
 import { useToast } from "../../../context/ToastContext";
 import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet";
+import { highlightsFromText, rowsFromText, serializeProductDetails } from "../../../utils/productDetails";
 
 interface ProductData {
     [key: string]: string | number | File | null;
@@ -15,6 +16,10 @@ interface ProductData {
     category: string;
     brand: string;
     specifications: string;
+    model: string;
+    warranty: string;
+    datasheet: string;
+    highlights: string;
     price: number;
     inventory: number;
 }
@@ -29,6 +34,10 @@ const AdminAddProductPage = () => {
         category: "",
         brand: "",
         specifications: "",
+        model: "",
+        warranty: "",
+        datasheet: "",
+        highlights: "",
         price: 0,
         inventory: 0,
     });
@@ -75,10 +84,24 @@ const AdminAddProductPage = () => {
         try {
             const formData = new FormData();
             Object.keys(productData).forEach((key) => {
+                if (["model", "warranty", "datasheet", "highlights"].includes(key)) return;
                 const value = productData[key];
                 if (value !== null) {
                     if (typeof value === "string") {
                         if (key === "imageUrl" && value === "") return;
+                        if (key === "specifications") {
+                            formData.append(
+                                key,
+                                serializeProductDetails({
+                                    model: productData.model,
+                                    warranty: productData.warranty,
+                                    datasheet: productData.datasheet,
+                                    highlights: highlightsFromText(productData.highlights),
+                                    specifications: rowsFromText(productData.specifications),
+                                }),
+                            );
+                            return;
+                        }
                         formData.append(key, value);
                     } else if (value instanceof File) {
                         if (!productData.imageUrl) {
@@ -211,13 +234,60 @@ const AdminAddProductPage = () => {
                                         <Form.Control
                                             as="textarea"
                                             rows={6}
-                                            placeholder="Enter specifications (optional)"
+                                            placeholder={"Processor: Intel Core i7\nMemory: 16GB\nStorage: 1TB SSD"}
                                             name="specifications"
                                             value={productData.specifications}
                                             onChange={handleInputChange}
                                         />
                                     </Form.Group>
                                 </div>
+                            </div>
+
+                            <div className="admin__form-grid admin__form-grid--compact">
+                                <Form.Group className="mb-3" controlId="formModel">
+                                    <Form.Label>Model</Form.Label>
+                                    <Form.Control
+                                        type="text"
+                                        placeholder="Enter model number"
+                                        name="model"
+                                        value={productData.model}
+                                        onChange={handleInputChange}
+                                    />
+                                </Form.Group>
+
+                                <Form.Group className="mb-3" controlId="formWarranty">
+                                    <Form.Label>Warranty</Form.Label>
+                                    <Form.Control
+                                        type="text"
+                                        placeholder="12 months, 24 months..."
+                                        name="warranty"
+                                        value={productData.warranty}
+                                        onChange={handleInputChange}
+                                    />
+                                </Form.Group>
+
+                                <Form.Group className="mb-3" controlId="formDatasheet">
+                                    <Form.Label>Datasheet URL</Form.Label>
+                                    <Form.Control
+                                        type="url"
+                                        placeholder="https://example.com/manual.pdf"
+                                        name="datasheet"
+                                        value={productData.datasheet}
+                                        onChange={handleInputChange}
+                                    />
+                                </Form.Group>
+
+                                <Form.Group className="mb-3" controlId="formHighlights">
+                                    <Form.Label>Customer highlights</Form.Label>
+                                    <Form.Control
+                                        as="textarea"
+                                        rows={4}
+                                        placeholder={"Fast charging support\nEnergy efficient design\nQuiet operation"}
+                                        name="highlights"
+                                        value={productData.highlights}
+                                        onChange={handleInputChange}
+                                    />
+                                </Form.Group>
                             </div>
 
                             <div className="admin__form-grid admin__form-grid--compact">

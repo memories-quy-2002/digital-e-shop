@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { BankIcon, CreditCardIcon, BitcoinIcon } from "../common/Icons";
+import { BankIcon, CashStackIcon, ShieldIcon } from "../common/Icons";
 
 type AsideCartProps = {
     totalPrice: number;
@@ -8,10 +8,22 @@ type AsideCartProps = {
     applyDiscount: (discountCode: string, totalPrice: number) => void;
 };
 
-const paymentIcon: React.ReactNode[] = [
-    <BankIcon key="bank" size={36} aria-hidden />,
-    <CreditCardIcon key="card" size={36} aria-hidden />,
-    <BitcoinIcon key="crypto" size={36} aria-hidden />,
+const paymentMethods = [
+    {
+        label: "Bank transfer",
+        note: "Receipt friendly",
+        icon: <BankIcon size={24} aria-hidden />,
+    },
+    {
+        label: "Cash on delivery",
+        note: "Pay at delivery",
+        icon: <CashStackIcon size={24} aria-hidden />,
+    },
+    {
+        label: "Secure checkout",
+        note: "UTC order time",
+        icon: <ShieldIcon size={24} aria-hidden />,
+    },
 ];
 
 const AsideCart = ({ totalPrice, discount, subtotal, applyDiscount }: AsideCartProps) => {
@@ -64,23 +76,18 @@ const AsideCart = ({ totalPrice, discount, subtotal, applyDiscount }: AsideCartP
                 <hr />
                 <div className="cart__container__box__aside__box__payment">
                     <h3>Payment method</h3>
-                    <div>
-                        <ul
-                            style={{
-                                listStyleType: "none",
-                                display: "flex",
-                                flexDirection: "row",
-                                justifyContent: "space-around",
-                                padding: "0",
-                            }}
-                        >
-                            {paymentIcon.map((icon: any, index: number) => (
-                                <li style={{ cursor: "pointer" }} key={index}>
-                                    {icon}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
+                    <p>Choose your payment option in the next checkout step.</p>
+                    <ul>
+                        {paymentMethods.map((method) => (
+                            <li key={method.label}>
+                                <span>{method.icon}</span>
+                                <div>
+                                    <strong>{method.label}</strong>
+                                    <small>{method.note}</small>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
                 </div>
             </div>
         </aside>

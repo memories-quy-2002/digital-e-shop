@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../layout/Layout";
 import axios from "../../api/axios";
 import { Product } from "../../utils/interface";
 import "../../styles/WishlistPage.scss";
-import PaginatedItems from "../common/PaginatedItems";
 import { Helmet } from "react-helmet";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
+import WishlistItem from "../common/WishlistItem";
 
 interface Wishlist {
     id: number;
@@ -15,11 +15,15 @@ interface Wishlist {
 
 const WishlistPage = () => {
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
+    const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const { userData } = useAuth();
-    const uid = userData?.id || null;
+    const uid = userData?.id || "";
     const { addToast } = useToast();
+
     useEffect(() => {
         const fetchWishlist = async () => {
+            if (!uid) return;
+
             try {
                 const response = await axios.get(`/api/wishlist/${uid}`);
                 if (response.status === 200) {
@@ -31,6 +35,9 @@ const WishlistPage = () => {
                             product: {
                                 id: product_id,
                                 ...productProps,
+                                price: Number(productProps.price) || 0,
+                                sale_price: productProps.sale_price === null ? null : Number(productProps.sale_price) || null,
+                                stock: Number(productProps.stock) || 0,
                             },
                         };
                     });
@@ -38,14 +45,116 @@ const WishlistPage = () => {
                     setWishlist(newWishlist);
                 }
             } catch (err) {
-                if (uid) {
-                    addToast("Wishlist", "Unable to load wishlist.");
-                }
+                addToast("Wishlist", "Unable to load wishlist.");
             }
         };
         fetchWishlist();
-        return () => {};
-    }, [uid]);
+    }, [addToast, uid]);
+
+    const selectedProducts = useMemo(
+        () => wishlist.filter((item) => selectedIds.includes(item.product.id)),
+        [selectedIds, wishlist],
+    );
+
+    const handleSelect = (productId: number, checked: boolean) => {
+        setSelectedIds((currentIds) =>
+            checked ? [...currentIds, productId] : currentIds.filter((id) => id !== productId),
+        );
+    };
+
+    const handleSelectAll = () => {
+        if (selectedIds.length === wishlist.length) {
+            setSelectedIds([]);
+            return;
+        }
+
+        setSelectedIds(wishlist.map((item) => item.product.id));
+    };
+
+    const handleRemoveWishlist = async (productId: number) => {
+        try {
+            const response = await axios.delete(`/api/wishlist/${productId}`, {
+                data: { uid },
+            });
+            if (response.status === 200) {
+                setWishlist((currentWishlist) => currentWishlist.filter((item) => item.product.id !== productId));
+                setSelectedIds((currentIds) => currentIds.filter((id) => id !== productId));
+                addToast("Wishlist", "Item removed from wishlist.");
+            }
+        } catch (err) {
+            addToast("Wishlist", "Unable to remove wishlist item.");
+        }
+    };
+
+    const handleBulkRemove = async () => {
+        if (selectedIds.length === 0) {
+            addToast("Wishlist", "Select at least one wishlist item.");
+            return;
+        }
+
+        try {
+            const response = await axios.delete("/api/wishlist/", {
+                data: { uid, productIds: selectedIds },
+            });
+            if (response.status === 200) {
+                setWishlist((currentWishlist) => currentWishlist.filter((item) => !selectedIds.includes(item.product.id)));
+                setSelectedIds([]);
+                addToast("Wishlist", "Selected wishlist items were removed.");
+            }
+        } catch (err) {
+            addToast("Wishlist", "Unable to remove selected items.");
+        }
+    };
+
+    const handleMoveToCart = async (product: Product) => {
+        if (product.stock <= 0) {
+            addToast("Wishlist", "This product is out of stock.");
+            return;
+        }
+
+        try {
+            const response = await axios.post("/api/cart/", {
+                uid,
+                pid: product.id,
+                quantity: 1,
+            });
+            if (response.status === 200) {
+                await handleRemoveWishlist(product.id);
+                addToast("Wishlist", "Product moved to cart.");
+            }
+        } catch (err) {
+            addToast("Wishlist", "Unable to move product to cart.");
+        }
+    };
+
+    const handleMoveSelectedToCart = async () => {
+        const availableSelected = selectedProducts.filter((item) => item.product.stock > 0);
+        if (availableSelected.length === 0) {
+            addToast("Wishlist", "Selected products are out of stock.");
+            return;
+        }
+
+        try {
+            await Promise.all(
+                availableSelected.map((item) =>
+                    axios.post("/api/cart/", {
+                        uid,
+                        pid: item.product.id,
+                        quantity: 1,
+                    }),
+                ),
+            );
+            const movedIds = availableSelected.map((item) => item.product.id);
+            await axios.delete("/api/wishlist/", {
+                data: { uid, productIds: movedIds },
+            });
+            setWishlist((currentWishlist) => currentWishlist.filter((item) => !movedIds.includes(item.product.id)));
+            setSelectedIds([]);
+            addToast("Wishlist", "Available selected products moved to cart.");
+        } catch (err) {
+            addToast("Wishlist", "Unable to move selected products to cart.");
+        }
+    };
 
     return (
         <Layout>
@@ -57,26 +166,43 @@ const WishlistPage = () => {
                 />
             </Helmet>
             <main className="wishlist">
-                <h1 className="wishlist__title">My Wishlist</h1>
-                {wishlist.length > 0 ? (
-                    <div className="wishlist__category">
-                        <div className="wishlist__category__item">Product</div>
-                        <div className="wishlist__category__item">Price</div>
-                        <div className="wishlist__category__item">Stock status</div>
-                        <div className="wishlist__category__item"></div>
-                        <div className="wishlist__category__item"></div>
+                <header className="wishlist__header">
+                    <div>
+                        <span>Saved products</span>
+                        <h1>My Wishlist</h1>
+                        <p>Watch sale prices, stock changes, and move ready-to-buy items into your cart.</p>
                     </div>
-                ) : (
-                    <div className="wishlist__empty">Your wishlist is empty.</div>
-                )}
+                    {wishlist.length > 0 ? (
+                        <div className="wishlist__actions">
+                            <button type="button" onClick={handleSelectAll}>
+                                {selectedIds.length === wishlist.length ? "Clear selection" : "Select all"}
+                            </button>
+                            <button type="button" onClick={handleMoveSelectedToCart} disabled={selectedIds.length === 0}>
+                                Move selected
+                            </button>
+                            <button type="button" className="danger" onClick={handleBulkRemove} disabled={selectedIds.length === 0}>
+                                Remove selected
+                            </button>
+                        </div>
+                    ) : null}
+                </header>
 
-                <PaginatedItems
-                    items={wishlist}
-                    itemsPerPage={4}
-                    uid={uid ? uid : ""}
-                    wishlist={wishlist}
-                    isWishlistPage={true}
-                />
+                {wishlist.length === 0 ? (
+                    <div className="wishlist__empty">Your wishlist is empty.</div>
+                ) : (
+                    <section className="wishlist__main">
+                        {wishlist.map((item) => (
+                            <WishlistItem
+                                key={item.id}
+                                item={item}
+                                selected={selectedIds.includes(item.product.id)}
+                                onSelect={handleSelect}
+                                onMoveToCart={handleMoveToCart}
+                                onRemoveWishlist={handleRemoveWishlist}
+                            />
+                        ))}
+                    </section>
+                )}
             </main>
         </Layout>
     );

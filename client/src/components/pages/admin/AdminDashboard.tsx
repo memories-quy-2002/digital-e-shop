@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
     ArrowDownIcon,
     ArrowUpIcon,
@@ -10,7 +10,23 @@ import {
 } from "../../common/Icons";
 import axios from "../../../api/axios";
 import { Product, Role } from "../../../utils/interface";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import {
+    Area,
+    AreaChart,
+    Bar,
+    BarChart,
+    CartesianGrid,
+    Cell,
+    Line,
+    LineChart,
+    Pie,
+    PieChart,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis,
+    YAxis,
+} from "recharts";
+import { formatUtcDateTime } from "../../../utils/dateTime";
 import AdminLayout from "../../layout/AdminLayout";
 import { Table } from "react-bootstrap";
 import { Helmet } from "react-helmet";
@@ -62,6 +78,37 @@ type TrendPoint = {
     revenue: number;
 };
 
+type ChartDatum = {
+    name: string;
+    value: number;
+    revenue?: number;
+    orders?: number;
+    stock?: number;
+};
+
+type AnalyticsSummary = {
+    overview: {
+        orders: number;
+        revenue: number;
+        average_order_value: number;
+        customers: number;
+        out_of_stock: number;
+        low_stock: number;
+    };
+    revenueTrend: Array<{ date: string; orders: number; revenue: number }>;
+    categoryRevenue: Array<{ name: string; revenue: number; units: number }>;
+    customerSegments: ChartDatum[];
+    inventoryRisk: Array<{ id: number; name: string; stock: number; category: string; brand: string }>;
+    promotionPerformance: Array<{
+        name: string;
+        discount_percent: number;
+        discount_given: number;
+        estimated_orders: number;
+    }>;
+};
+
+const CHART_COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2"];
+
 const formatCurrency = (value: number) =>
     new Intl.NumberFormat("en-US", {
         style: "currency",
@@ -69,14 +116,21 @@ const formatCurrency = (value: number) =>
         maximumFractionDigits: 2,
     }).format(value || 0);
 
-const formatReportDate = (date = new Date()) =>
-    date.toLocaleString("en-GB", {
-        day: "2-digit",
+const formatReportDate = (date = new Date()) => formatUtcDateTime(date);
+
+const formatUtcMonth = (date: Date) =>
+    new Intl.DateTimeFormat("en-US", {
+        timeZone: "UTC",
         month: "short",
         year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-    });
+    }).format(date);
+
+const formatUtcDay = (date: Date) =>
+    new Intl.DateTimeFormat("en-US", {
+        timeZone: "UTC",
+        month: "short",
+        day: "numeric",
+    }).format(date);
 
 const normalizeOrder = (order: any): Order => ({
     ...order,
@@ -113,13 +167,13 @@ const buildMonthlyTrends = (orders: Order[], orderItems: OrderItem[]): TrendPoin
     });
 
     for (let i = 5; i >= 0; i--) {
-        const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-        const label = date.toLocaleString("default", { month: "short", year: "numeric" });
+        const date = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth() - i, 1));
+        const label = formatUtcMonth(date);
         monthlyMap.set(label, { name: label, sales: 0, revenue: 0 });
     }
 
     orders.forEach((order) => {
-        const label = new Date(order.date_added).toLocaleString("default", { month: "short", year: "numeric" });
+        const label = formatUtcMonth(new Date(order.date_added));
         const entry = monthlyMap.get(label);
 
         if (!entry) {
@@ -155,6 +209,79 @@ const getTopRevenueProducts = (orderItems: OrderItem[]) => {
 
     return Object.values(revenueMap).sort((a, b) => b.revenue - a.revenue);
 };
+
+const buildDailyActivity = (orders: Order[]): ChartDatum[] => {
+    const dailyMap = new Map<string, ChartDatum>();
+    const currentDate = new Date();
+
+    for (let i = 6; i >= 0; i--) {
+        const date = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), currentDate.getUTCDate() - i));
+        const key = date.toISOString().slice(0, 10);
+        const label = formatUtcDay(date);
+        dailyMap.set(key, { name: label, value: 0, orders: 0, revenue: 0 });
+    }
+
+    orders.forEach((order) => {
+        const key = new Date(order.date_added).toISOString().slice(0, 10);
+        const entry = dailyMap.get(key);
+
+        if (!entry) {
+            return;
+        }
+
+        entry.orders = (entry.orders || 0) + 1;
+        entry.value = entry.orders;
+        entry.revenue = Number(((entry.revenue || 0) + getNetRevenue(order)).toFixed(2));
+    });
+
+    return Array.from(dailyMap.values());
+};
+
+const buildPaymentMix = (orders: Order[]): ChartDatum[] => [
+    {
+        name: "Bank transfer",
+        value: orders.filter((order) => order.payment_method === "bank_transfer").length,
+    },
+    {
+        name: "Cash",
+        value: orders.filter((order) => order.payment_method === "cash").length,
+    },
+    {
+        name: "Unknown",
+        value: orders.filter((order) => !order.payment_method).length,
+    },
+].filter((item) => item.value > 0);
+
+const buildStatusMix = (orders: Order[]): ChartDatum[] => [
+    { name: "Pending", value: orders.filter((order) => order.status === 0).length },
+    { name: "Done", value: orders.filter((order) => order.status === 1).length },
+    { name: "Cancelled", value: orders.filter((order) => order.status === 2).length },
+].filter((item) => item.value > 0);
+
+const buildCategoryRevenue = (products: Product[], orderItems: OrderItem[]): ChartDatum[] => {
+    const productCategoryById = new Map(products.map((product) => [product.id, product.category || "Uncategorized"]));
+    const categoryRevenue = new Map<string, number>();
+
+    orderItems.forEach((item) => {
+        const category = productCategoryById.get(item.id) || "Uncategorized";
+        categoryRevenue.set(category, (categoryRevenue.get(category) || 0) + item.revenue);
+    });
+
+    return Array.from(categoryRevenue.entries())
+        .map(([name, value]) => ({ name, value: Number(value.toFixed(2)) }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 7);
+};
+
+const buildStockRisk = (products: Product[]): ChartDatum[] =>
+    [...products]
+        .sort((a, b) => a.stock - b.stock)
+        .slice(0, 8)
+        .map((product) => ({
+            name: product.name,
+            value: product.stock,
+            stock: product.stock,
+        }));
 
 const getOrderStatusLabel = (status: number) => {
     switch (status) {
@@ -207,39 +334,112 @@ const AdminDashboard = () => {
     const [orders, setOrders] = useState<Order[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+    const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary | null>(null);
     const [loading, setLoading] = useState(true);
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const { addToast } = useToast();
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setLoading(true);
+    const fetchDashboardData = useCallback(async (showToast = false) => {
+        try {
+            setLoading(true);
 
-                const [productResponse, orderResponse, userResponse, orderItemResponse] = await Promise.all([
-                    axios.get("/api/products"),
-                    axios.get("/api/orders"),
-                    axios.get("/api/users"),
-                    axios.get("/api/orders/item"),
-                ]);
+            const [productResponse, orderResponse, userResponse, orderItemResponse] = await Promise.allSettled([
+                axios.get("/api/products"),
+                axios.get("/api/orders"),
+                axios.get("/api/users"),
+                axios.get("/api/orders/item"),
+            ]);
 
-                setProducts(productResponse.data.products || []);
-                setOrders((orderResponse.data.orders || []).map(normalizeOrder));
-                setUsers((userResponse.data.accounts || []).map(normalizeUser));
+            let loadedSections = 0;
 
-                const orderItemsData = orderItemResponse.data.orderItems ?? orderItemResponse.data.order_items ?? [];
-                setOrderItems(orderItemsData.map(normalizeOrderItem));
-            } catch (err) {
-                addToast("Dashboard", "Unable to load dashboard data.");
-            } finally {
-                setLoading(false);
+            if (productResponse.status === "fulfilled") {
+                setProducts(productResponse.value.data.products || []);
+                loadedSections += 1;
             }
-        };
 
-        fetchData();
+            if (orderResponse.status === "fulfilled") {
+                setOrders((orderResponse.value.data.orders || []).map(normalizeOrder));
+                loadedSections += 1;
+            }
+
+            if (userResponse.status === "fulfilled") {
+                setUsers((userResponse.value.data.accounts || []).map(normalizeUser));
+                loadedSections += 1;
+            }
+
+            if (orderItemResponse.status === "fulfilled") {
+                const orderItemsData = orderItemResponse.value.data.orderItems ?? orderItemResponse.value.data.order_items ?? [];
+                setOrderItems(orderItemsData.map(normalizeOrderItem));
+                loadedSections += 1;
+            }
+
+            if (loadedSections === 0) {
+                addToast("Dashboard", "Unable to load dashboard data.");
+                return;
+            }
+
+            setLastUpdated(new Date());
+
+            axios
+                .get("/api/analytics/summary")
+                .then((analyticsResponse) => {
+                    setAnalyticsSummary(analyticsResponse.data);
+                })
+                .catch(() => {
+                    setAnalyticsSummary(null);
+                    if (showToast) {
+                        addToast("Dashboard analytics", "Core dashboard loaded, but analytics summary is unavailable.");
+                    }
+                });
+
+            if (showToast) {
+                addToast(
+                    "Dashboard",
+                    loadedSections === 4 ? "Dashboard data refreshed." : "Dashboard loaded with partial data.",
+                );
+            }
+        } catch (err) {
+            addToast("Dashboard", "Unable to load dashboard data.");
+        } finally {
+            setLoading(false);
+        }
     }, [addToast]);
+
+    useEffect(() => {
+        fetchDashboardData();
+
+        const refreshTimer = window.setInterval(() => {
+            fetchDashboardData();
+        }, 30000);
+
+        return () => window.clearInterval(refreshTimer);
+    }, [fetchDashboardData]);
 
     const monthlyTrends = useMemo(() => buildMonthlyTrends(orders, orderItems), [orders, orderItems]);
     const topRevenueProducts = useMemo(() => getTopRevenueProducts(orderItems), [orderItems]);
+    const dailyActivity = useMemo(() => buildDailyActivity(orders), [orders]);
+    const paymentMix = useMemo(() => buildPaymentMix(orders), [orders]);
+    const statusMix = useMemo(() => buildStatusMix(orders), [orders]);
+    const categoryRevenue = useMemo(() => buildCategoryRevenue(products, orderItems), [products, orderItems]);
+    const stockRisk = useMemo(() => buildStockRisk(products), [products]);
+    const analyticsTrend = useMemo(
+        () =>
+            (analyticsSummary?.revenueTrend || []).map((point) => ({
+                name: formatUtcDay(new Date(`${point.date}T00:00:00Z`)),
+                revenue: Number(point.revenue) || 0,
+                orders: Number(point.orders) || 0,
+            })),
+        [analyticsSummary],
+    );
+    const analyticsCategoryRevenue = useMemo(
+        () =>
+            (analyticsSummary?.categoryRevenue || []).map((point) => ({
+                name: point.name,
+                value: Number(point.revenue) || 0,
+                units: Number(point.units) || 0,
+            })),
+        [analyticsSummary],
+    );
 
     const thisMonth = monthlyTrends[5] || { name: "", sales: 0, revenue: 0 };
     const previousMonth = monthlyTrends[4] || { name: "", sales: 0, revenue: 0 };
@@ -349,6 +549,20 @@ const AdminDashboard = () => {
         URL.revokeObjectURL(url);
     };
 
+    const handleExportRevenueCsv = () => {
+        const rows = [
+            ["month", "sales", "revenue"],
+            ...monthlyTrends.map((trend) => [trend.name, String(trend.sales), trend.revenue.toFixed(2)]),
+        ];
+        const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+        const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "digital-e-revenue.csv";
+        link.click();
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <AdminLayout>
             <Helmet>
@@ -361,13 +575,32 @@ const AdminDashboard = () => {
                         <span className="admin__dashboard__hero__eyebrow">Store performance</span>
                         <h2 className="admin__dashboard__hero__title">Admin Dashboard</h2>
                         <p className="admin__dashboard__hero__subtitle">
-                            A faster, cleaner snapshot of sales, revenue, fulfillment, and customer activity across the
-                            whole store.
+                            Real-time store signals for sales, revenue, fulfillment, inventory risk, and customer
+                            activity across the whole store.
                         </p>
                     </div>
                     <div className="admin__dashboard__hero__actions">
+                        <span className="admin__dashboard__live">
+                            <i />
+                            {loading ? "Refreshing" : `Updated ${lastUpdated ? lastUpdated.toLocaleTimeString("en-GB") : "now"}`}
+                        </span>
+                        <button
+                            type="button"
+                            className="admin__dashboard__hero__action admin__dashboard__hero__action--secondary"
+                            onClick={() => fetchDashboardData(true)}
+                            disabled={loading}
+                        >
+                            Refresh
+                        </button>
                         <button className="admin__dashboard__hero__action" onClick={handleDownloadReport}>
                             Download Detailed Report
+                        </button>
+                        <button
+                            type="button"
+                            className="admin__dashboard__hero__action"
+                            onClick={handleExportRevenueCsv}
+                        >
+                            Export Revenue CSV
                         </button>
                     </div>
                 </section>
@@ -438,6 +671,189 @@ const AdminDashboard = () => {
                     />
                 </section>
 
+                {analyticsSummary ? (
+                    <section className="admin__dashboard__analysis">
+                        <div className="admin__card">
+                            <div className="admin__card__header">
+                                <div>
+                                    <h3>Executive analytics</h3>
+                                    <span>Server-calculated business health</span>
+                                </div>
+                            </div>
+                            <div className="admin__dashboard__insights">
+                                <div className="admin__dashboard__insight">
+                                    <span>Average order value</span>
+                                    <strong>{formatCurrency(analyticsSummary.overview.average_order_value)}</strong>
+                                    <p>Completed orders only.</p>
+                                </div>
+                                <div className="admin__dashboard__insight">
+                                    <span>Low stock</span>
+                                    <strong>{analyticsSummary.overview.low_stock}</strong>
+                                    <p>Products with 1-5 units.</p>
+                                </div>
+                                <div className="admin__dashboard__insight">
+                                    <span>Out of stock</span>
+                                    <strong>{analyticsSummary.overview.out_of_stock}</strong>
+                                    <p>Products needing restock now.</p>
+                                </div>
+                                <div className="admin__dashboard__insight">
+                                    <span>Customers</span>
+                                    <strong>{analyticsSummary.overview.customers}</strong>
+                                    <p>Customer accounts only.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="admin__card">
+                            <div className="admin__card__header">
+                                <h3>14-day revenue pulse</h3>
+                                <span>Orders and revenue</span>
+                            </div>
+                            <div className="admin__card__body admin__chart-body">
+                                <ResponsiveContainer width="100%" height={260}>
+                                    <AreaChart data={analyticsTrend}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                        <XAxis dataKey="name" tickLine={false} axisLine={false} />
+                                        <YAxis tickLine={false} axisLine={false} />
+                                        <Tooltip
+                                            formatter={(value: any, name: any) => [
+                                                name === "revenue" ? formatCurrency(Number(value || 0)) : Number(value || 0),
+                                                name === "revenue" ? "Revenue" : "Orders",
+                                            ]}
+                                        />
+                                        <Area type="monotone" dataKey="revenue" stroke="#2563eb" fill="#dbeafe" strokeWidth={3} />
+                                        <Area type="monotone" dataKey="orders" stroke="#16a34a" fill="#dcfce7" strokeWidth={3} />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </section>
+                ) : null}
+
+                <section className="admin__dashboard__realtime">
+                    <div className="admin__card admin__card--wide">
+                        <div className="admin__card__header">
+                            <div>
+                                <h3>Live order activity</h3>
+                                <span>Revenue and order count across the last 7 days</span>
+                            </div>
+                        </div>
+                        <div className="admin__card__body admin__chart-body">
+                            <ResponsiveContainer width="100%" height={300}>
+                                <AreaChart data={dailyActivity}>
+                                    <defs>
+                                        <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#2563eb" stopOpacity={0.02} />
+                                        </linearGradient>
+                                        <linearGradient id="ordersFill" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#16a34a" stopOpacity={0.25} />
+                                            <stop offset="95%" stopColor="#16a34a" stopOpacity={0.02} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                    <XAxis dataKey="name" tickLine={false} axisLine={false} />
+                                    <YAxis tickLine={false} axisLine={false} />
+                                    <Tooltip
+                                        formatter={(value: any, name: any) => [
+                                            name === "revenue" ? formatCurrency(Number(value || 0)) : Number(value || 0),
+                                            name === "revenue" ? "Revenue" : "Orders",
+                                        ]}
+                                    />
+                                    <Area
+                                        type="monotone"
+                                        dataKey="revenue"
+                                        stroke="#2563eb"
+                                        strokeWidth={3}
+                                        fill="url(#revenueFill)"
+                                    />
+                                    <Area
+                                        type="monotone"
+                                        dataKey="orders"
+                                        stroke="#16a34a"
+                                        strokeWidth={3}
+                                        fill="url(#ordersFill)"
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    <div className="admin__dashboard__mix-grid">
+                        <div className="admin__card">
+                            <div className="admin__card__header">
+                                <h3>Payment mix</h3>
+                                <span>All orders</span>
+                            </div>
+                            <div className="admin__card__body admin__chart-body">
+                                <ResponsiveContainer width="100%" height={220}>
+                                    <PieChart>
+                                        <Pie
+                                            data={paymentMix}
+                                            dataKey="value"
+                                            nameKey="name"
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={52}
+                                            outerRadius={78}
+                                            paddingAngle={3}
+                                        >
+                                            {paymentMix.map((entry, index) => (
+                                                <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip formatter={(value: any) => [Number(value || 0), "Orders"]} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                <div className="admin__chart-legend">
+                                    {paymentMix.map((entry, index) => (
+                                        <span key={entry.name}>
+                                            <i style={{ background: CHART_COLORS[index % CHART_COLORS.length] }} />
+                                            {entry.name}: {entry.value}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="admin__card">
+                            <div className="admin__card__header">
+                                <h3>Order status</h3>
+                                <span>Fulfillment split</span>
+                            </div>
+                            <div className="admin__card__body admin__chart-body">
+                                <ResponsiveContainer width="100%" height={220}>
+                                    <PieChart>
+                                        <Pie
+                                            data={statusMix}
+                                            dataKey="value"
+                                            nameKey="name"
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={52}
+                                            outerRadius={78}
+                                            paddingAngle={3}
+                                        >
+                                            {statusMix.map((entry, index) => (
+                                                <Cell key={entry.name} fill={CHART_COLORS[(index + 2) % CHART_COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip formatter={(value: any) => [Number(value || 0), "Orders"]} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                <div className="admin__chart-legend">
+                                    {statusMix.map((entry, index) => (
+                                        <span key={entry.name}>
+                                            <i style={{ background: CHART_COLORS[(index + 2) % CHART_COLORS.length] }} />
+                                            {entry.name}: {entry.value}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <section className="admin__dashboard__highlights">
                     <div className="admin__card">
                         <div className="admin__card__header">
@@ -482,7 +898,7 @@ const AdminDashboard = () => {
                                     <div>
                                         <strong>Order #{order.id}</strong>
                                         <p>
-                                            {getOrderStatusLabel(order.status)} · {formatCurrency(getNetRevenue(order))}
+                                            {getOrderStatusLabel(order.status)} | {formatCurrency(getNetRevenue(order))}
                                         </p>
                                     </div>
                                     <span>{formatReportDate(new Date(order.date_added))}</span>
@@ -539,6 +955,62 @@ const AdminDashboard = () => {
                                     <Tooltip formatter={(value: any) => [formatCurrency(Number(value || 0)), "Revenue"]} />
                                     <Line type="monotone" dataKey="revenue" stroke="#0ea5e9" strokeWidth={3} dot={false} />
                                 </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </section>
+
+                <section className="admin__dashboard__analysis">
+                    <div className="admin__card">
+                        <div className="admin__card__header">
+                            <h3>Revenue by category</h3>
+                            <span>Top performing product groups</span>
+                        </div>
+                        <div className="admin__card__body admin__chart-body">
+                            <ResponsiveContainer width="100%" height={300}>
+                                <BarChart
+                                    data={analyticsCategoryRevenue.length > 0 ? analyticsCategoryRevenue : categoryRevenue}
+                                    layout="vertical"
+                                    margin={{ left: 18 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                                    <XAxis type="number" tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
+                                    <YAxis
+                                        type="category"
+                                        dataKey="name"
+                                        tickLine={false}
+                                        axisLine={false}
+                                        width={120}
+                                        tickFormatter={(value) => String(value).slice(0, 18)}
+                                    />
+                                    <Tooltip formatter={(value: any) => [formatCurrency(Number(value || 0)), "Revenue"]} />
+                                    <Bar dataKey="value" fill="#2563eb" radius={[0, 8, 8, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    <div className="admin__card">
+                        <div className="admin__card__header">
+                            <h3>Inventory risk</h3>
+                            <span>Lowest stock items</span>
+                        </div>
+                        <div className="admin__card__body admin__chart-body">
+                            <ResponsiveContainer width="100%" height={300}>
+                                <BarChart data={stockRisk} layout="vertical" margin={{ left: 18 }}>
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                                    <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} />
+                                    <YAxis
+                                        type="category"
+                                        dataKey="name"
+                                        tickLine={false}
+                                        axisLine={false}
+                                        width={120}
+                                        tickFormatter={(value) => String(value).slice(0, 18)}
+                                    />
+                                    <Tooltip formatter={(value: any) => [Number(value || 0), "Stock"]} />
+                                    <Bar dataKey="stock" fill="#f59e0b" radius={[0, 8, 8, 0]} />
+                                </BarChart>
                             </ResponsiveContainer>
                         </div>
                     </div>

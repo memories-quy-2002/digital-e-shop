@@ -13,6 +13,8 @@ import { Helmet } from "react-helmet";
 import { useLocation } from "react-router-dom";
 import LazyLoadImage from "../../utils/LazyLoadingImage";
 import productPlaceholder from "../../assets/images/product_placeholder.jpg";
+import { parseProductDetails } from "../../utils/productDetails";
+import { formatUtcDate } from "../../utils/dateTime";
 
 interface relevantProductsItem {
     product_id: number;
@@ -25,10 +27,18 @@ type Wishlist = {
 };
 
 type Review = {
+    id?: number;
     username: string;
     rating: number;
     reviewText: string;
-    created_at: Date;
+    created_at: string;
+    verified_purchase?: boolean;
+};
+
+type ReviewSummary = {
+    total: number;
+    average: number;
+    distribution: Record<1 | 2 | 3 | 4 | 5, number>;
 };
 
 const ProductPage = () => {
@@ -58,6 +68,11 @@ const ProductPage = () => {
     const [ratingScore, setRatingScore] = useState<number>(0);
     const [reviewText, setReviewText] = useState<string>("");
     const [reviews, setReviews] = useState<Review[]>([]);
+    const [reviewSummary, setReviewSummary] = useState<ReviewSummary>({
+        total: 0,
+        average: 0,
+        distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+    });
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
     const [toggle, setToggle] = useState<boolean>(false);
     const [quantity, setQuantity] = useState<number>(1);
@@ -76,10 +91,32 @@ const ProductPage = () => {
         return Array.from(new Set(merged));
     }, [productDetail.main_image]);
 
-    const specs = useMemo(() => {
-        if (!productDetail.specifications) return [];
-        return productDetail.specifications.split(",").map((spec) => spec.trim());
-    }, [productDetail.specifications]);
+    const productDetails = useMemo(
+        () => parseProductDetails(productDetail.specifications),
+        [productDetail.specifications],
+    );
+
+    const normalizeReviews = (items: any[] = []): Review[] =>
+        items.map((review: any) => ({
+            id: review.id,
+            username: review.username,
+            rating: Number(review.rating) || 0,
+            reviewText: review.review_text || review.reviewText || "",
+            created_at: review.created_at,
+            verified_purchase: Boolean(review.verified_purchase),
+        }));
+
+    const normalizeSummary = (summary?: any): ReviewSummary => ({
+        total: Number(summary?.total) || 0,
+        average: Number(summary?.average) || 0,
+        distribution: {
+            5: Number(summary?.distribution?.[5]) || 0,
+            4: Number(summary?.distribution?.[4]) || 0,
+            3: Number(summary?.distribution?.[3]) || 0,
+            2: Number(summary?.distribution?.[2]) || 0,
+            1: Number(summary?.distribution?.[1]) || 0,
+        },
+    });
 
     useEffect(() => {
         const fetchSingleProduct = async () => {
@@ -174,20 +211,14 @@ const ProductPage = () => {
 
     useEffect(() => {
         const fetchReviews = async () => {
+            if (!productDetail.id) return;
+
             try {
                 const response = await axios.get(`/api/reviews/${productDetail.id}`);
 
                 if (response.status === 200) {
-                    setReviews(
-                        response.data.reviews.map((review: any) => {
-                            return {
-                                username: review.username,
-                                rating: review.rating,
-                                reviewText: review.review_text,
-                                created_at: review.created_at,
-                            };
-                        }),
-                    );
+                    setReviews(normalizeReviews(response.data.reviews || []));
+                    setReviewSummary(normalizeSummary(response.data.summary));
                 }
             } catch (err) {
                 addToast("Reviews", "Unable to load reviews.");
@@ -195,7 +226,7 @@ const ProductPage = () => {
         };
         fetchReviews();
         return () => {};
-    }, [productDetail]);
+    }, [productDetail.id]);
 
     useEffect(() => {
         if (allImages.length > 0) {
@@ -319,18 +350,8 @@ const ProductPage = () => {
                 ]);
 
                 if (reviewsResponse.status === 200) {
-                    setReviews(
-                        reviewsResponse.data.reviews.map((review: any) => {
-                            return {
-                                username: review.username,
-                                rating: review.rating,
-                                reviewText: review.review_text,
-                                created_at: review.created_at,
-                            };
-                        }),
-                    );
-                } else if (reviewsResponse.status === 204) {
-                    setReviews([]);
+                    setReviews(normalizeReviews(reviewsResponse.data.reviews || []));
+                    setReviewSummary(normalizeSummary(reviewsResponse.data.summary));
                 }
 
                 if (productResponse.status === 200) {
@@ -348,6 +369,9 @@ const ProductPage = () => {
 
     const isWishlisted = wishlist.length > 0 && wishlist.some((item) => item.product.id === pid);
     const activeImageUrl = activeImage ? `${imageBase}${activeImage}.jpg` : "";
+    const displayedRating = reviewSummary.total > 0 ? reviewSummary.average : productDetail.rating;
+    const displayedReviewCount = reviewSummary.total > 0 ? reviewSummary.total : productDetail.reviews;
+    const ratingDistribution = [5, 4, 3, 2, 1] as const;
 
     return (
         <Layout>
@@ -406,10 +430,10 @@ const ProductPage = () => {
                         <h1 className="product__hero__summary__title">{productDetail.name}</h1>
                         <div className="product__hero__summary__rating">
                             <div className="product__hero__summary__rating__stars">
-                                {ratingStar(productDetail.rating, "#FFCC4A", 22)}
+                                {ratingStar(displayedRating, "#FFCC4A", 22)}
                             </div>
                             <span>
-                                {productDetail.rating} ({productDetail.reviews} reviews)
+                                {displayedRating.toFixed(1)} ({displayedReviewCount} reviews)
                             </span>
                         </div>
                         <div className="product__hero__summary__price">
@@ -487,16 +511,16 @@ const ProductPage = () => {
 
                         <div className="product__hero__summary__highlights">
                             <div>
-                                <strong>Free delivery</strong>
-                                <span>Orders over $50</span>
+                                <strong>{productDetails.model || "Ready to ship"}</strong>
+                                <span>{productDetail.brand || "Digital-E catalog"}</span>
                             </div>
                             <div>
                                 <strong>Warranty</strong>
-                                <span>12 months included</span>
+                                <span>{productDetails.warranty || "12 months included"}</span>
                             </div>
                             <div>
-                                <strong>Support</strong>
-                                <span>24/7 email support</span>
+                                <strong>Stock</strong>
+                                <span>{productDetail.stock > 0 ? `${productDetail.stock} available` : "Restock required"}</span>
                             </div>
                         </div>
                     </div>
@@ -516,75 +540,101 @@ const ProductPage = () => {
 
                 {toggle ? (
                     <div className="product__review">
-                        {!uid ? (
-                            <div className="product__review__container">You need to login to use this feature</div>
-                        ) : (
-                            <div className="product__review__container">
-                                <div className="product__review__container__rating">
-                                    <h2 className="product__review__container__rating__title">Rating</h2>
-                                    <div className="product__review__container__rating__container">
-                                        <div className="product__review__container__rating__container__star">
-                                            {[1, 2, 3, 4, 5].map((rating) => (
-                                                <span key={rating} onClick={() => handleStarClick(rating)}>
-                                                    {rating <= ratingScore ? (
-                                                        <StarFillIcon size={18} color="#FFCC4A" />
-                                                    ) : (
-                                                        <StarIcon size={18} data-testid="reviewStar" color="#FFCC4A" />
-                                                    )}
-                                                </span>
-                                            ))}
-                                        </div>
-                                        <div className="product__review__container__rating__container__score">
-                                            <span>({ratingScore.toFixed(0)})</span>
-                                        </div>
-                                    </div>
+                        <div className="product__review__container">
+                            <section className="product__review__summary">
+                                <div className="product__review__summary__score">
+                                    <strong>{displayedRating.toFixed(1)}</strong>
+                                    <span>{ratingStar(displayedRating, "#FFCC4A", 20)}</span>
+                                    <p>{displayedReviewCount} customer reviews</p>
                                 </div>
-                                <div className="product__review__container__text">
-                                    <h2 className="product__review__container__text__title">Review</h2>
+                                <div className="product__review__summary__bars">
+                                    {ratingDistribution.map((star) => {
+                                        const count = reviewSummary.distribution[star] || 0;
+                                        const percent = reviewSummary.total > 0 ? (count / reviewSummary.total) * 100 : 0;
+                                        return (
+                                            <div key={star}>
+                                                <span>{star} stars</span>
+                                                <i>
+                                                    <b style={{ width: `${percent}%` }}></b>
+                                                </i>
+                                                <strong>{count}</strong>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </section>
+
+                            {!uid ? (
+                                <div className="product__review__login">Login to write a review and rate this product.</div>
+                            ) : (
+                                <section className="product__review__form">
+                                    <div>
+                                        <h2>Write a review</h2>
+                                        <p>Your latest review for this product will update your previous rating.</p>
+                                    </div>
+                                    <div className="product__review__form__stars">
+                                        {[1, 2, 3, 4, 5].map((rating) => (
+                                            <button
+                                                key={rating}
+                                                type="button"
+                                                className={rating <= ratingScore ? "active" : ""}
+                                                onClick={() => handleStarClick(rating)}
+                                                aria-label={`Rate ${rating} stars`}
+                                            >
+                                                {rating <= ratingScore ? (
+                                                    <StarFillIcon size={22} color="#FFCC4A" />
+                                                ) : (
+                                                    <StarIcon size={22} data-testid="reviewStar" color="#FFCC4A" />
+                                                )}
+                                            </button>
+                                        ))}
+                                        <span>{ratingScore > 0 ? `${ratingScore}/5` : "Select rating"}</span>
+                                    </div>
                                     <textarea
-                                        className="product__review__container__text__area"
                                         name="review"
                                         id="review"
                                         value={reviewText}
                                         onChange={(event) => setReviewText(event.target.value)}
-                                        rows={10}
-                                        placeholder="Enter your review"
+                                        rows={5}
+                                        placeholder="Share what stood out, how you used it, and whether you recommend it."
                                     ></textarea>
                                     <button
-                                        className="product__review__container__text__button"
-                                        type="submit"
-                                        onClick={() =>
-                                            handleSubmitReview(uid, productDetail.id, ratingScore, reviewText)
-                                        }
+                                        type="button"
+                                        onClick={() => handleSubmitReview(uid, productDetail.id, ratingScore, reviewText)}
                                     >
-                                        Submit
+                                        Submit review
                                     </button>
+                                </section>
+                            )}
+
+                            <section className="product__review__list">
+                                <div className="product__review__list__header">
+                                    <h2>Customer reviews</h2>
+                                    <span>{reviews.length} visible</span>
                                 </div>
-                                <div className="product__review__container__all">
-                                    <h2 className="product__review__container__all__title">
-                                        All reviews ({reviews.length})
-                                    </h2>
-                                    <div className="product__review__container__all__list">
+                                {reviews.length > 0 ? (
+                                    <div className="product__review__list__items">
                                         {reviews.map((review, index) => (
-                                            <div key={index} className="product__review__container__all__list__item">
-                                                <div className="product__review__container__all__list__item__info">
-                                                    <strong>{review.username}</strong>
-                                                    <span className="product__review__container__all__list__item__info__star">
-                                                        {ratingStar(review.rating, "#FFCC4A", 18)}
-                                                    </span>
-                                                    <span>
-                                                        {new Date(review.created_at).toLocaleDateString("en-GB")}
-                                                    </span>
+                                            <article key={review.id || index} className="product__review__item">
+                                                <div className="product__review__item__header">
+                                                    <div>
+                                                        <strong>{review.username}</strong>
+                                                        {review.verified_purchase ? <span>Verified purchase</span> : null}
+                                                    </div>
+                                                    <small>{formatUtcDate(review.created_at)}</small>
                                                 </div>
-                                                <div className="product__review__container__all__list__item__review">
-                                                    <p>{review.reviewText}</p>
+                                                <div className="product__review__item__stars">
+                                                    {ratingStar(review.rating, "#FFCC4A", 18)}
                                                 </div>
-                                            </div>
+                                                <p>{review.reviewText}</p>
+                                            </article>
                                         ))}
                                     </div>
-                                </div>
-                            </div>
-                        )}
+                                ) : (
+                                    <div className="product__review__empty">No reviews yet. Be the first to rate this product.</div>
+                                )}
+                            </section>
+                        </div>
                     </div>
                 ) : (
                     <div className="product__description">
@@ -593,15 +643,61 @@ const ProductPage = () => {
                             <p>{productDetail.description}</p>
                         </div>
                         <div className="product__description__card">
-                            <h2>Specifications</h2>
-                            {specs.length > 0 ? (
-                                <ul>
-                                    {specs.map((item, index) => (
+                            <h2>Key details</h2>
+                            <div className="product__details-grid">
+                                <div>
+                                    <span>Brand</span>
+                                    <strong>{productDetail.brand || "Not specified"}</strong>
+                                </div>
+                                <div>
+                                    <span>Category</span>
+                                    <strong>{productDetail.category || "Not specified"}</strong>
+                                </div>
+                                <div>
+                                    <span>Model</span>
+                                    <strong>{productDetails.model || "Not specified"}</strong>
+                                </div>
+                                <div>
+                                    <span>Warranty</span>
+                                    <strong>{productDetails.warranty || "12 months"}</strong>
+                                </div>
+                            </div>
+                            {productDetails.datasheet ? (
+                                <a
+                                    className="product__datasheet"
+                                    href={productDetails.datasheet}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    View datasheet
+                                </a>
+                            ) : null}
+                        </div>
+                        <div className="product__description__card">
+                            <h2>Highlights</h2>
+                            {productDetails.highlights.length > 0 ? (
+                                <ul className="product__feature-list">
+                                    {productDetails.highlights.map((item, index) => (
                                         <li key={index}>{item}</li>
                                     ))}
                                 </ul>
                             ) : (
-                                <p>No specifications provided.</p>
+                                <p>Reliable quality, checked stock, and support from Digital-E.</p>
+                            )}
+                        </div>
+                        <div className="product__description__card product__description__card--table">
+                            <h2>Specifications</h2>
+                            {productDetails.specifications.length > 0 ? (
+                                <div className="product__spec-table">
+                                    {productDetails.specifications.map((item, index) => (
+                                        <div key={`${item.label}-${index}`}>
+                                            <span>{item.label}</span>
+                                            <strong>{item.value || "Included"}</strong>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p>No specifications provided yet.</p>
                             )}
                         </div>
                     </div>

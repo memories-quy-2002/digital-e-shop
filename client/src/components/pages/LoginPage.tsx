@@ -1,5 +1,5 @@
 import { signInWithEmailAndPassword } from "firebase/auth";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Form } from "react-bootstrap";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
@@ -9,6 +9,7 @@ import { Role } from "../../utils/interface";
 import { Helmet } from "react-helmet";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
+import { EyeIcon, EyeOffIcon, ShieldIcon } from "../common/Icons";
 interface User {
     email: string;
     password: string;
@@ -26,11 +27,16 @@ const LoginPage = () => {
     const [rememberMe, setRememberMe] = useState<boolean>(false);
     const [errors, setErrors] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const [showPassword, setShowPassword] = useState<boolean>(false);
+
+    const canSubmit = useMemo(
+        () => user.email.trim().length > 0 && user.password.length > 0 && !isSubmitting,
+        [isSubmitting, user.email, user.password],
+    );
 
     const validateForm = (): string[] => {
         const errorsList: string[] = [];
         const emailPattern = /^([A-Za-z0-9_\-.])+@([A-Za-z0-9_\-.])+\.([A-Za-z]{2,4})$/;
-        const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
         if (!user.email) {
             errorsList.push("Email is required");
         } else if (!user.email.match(emailPattern)) {
@@ -38,10 +44,6 @@ const LoginPage = () => {
         }
         if (!user.password) {
             errorsList.push("Password is required");
-        } else if (!passwordPattern.test(user.password)) {
-            errorsList.push(
-                "Password must be at least 8 characters long, contain at least one lowercase letter, one uppercase letter, one number, and one special character."
-            );
         }
         return errorsList;
     };
@@ -123,9 +125,18 @@ const LoginPage = () => {
                     <div className="login__image__content">
                         <strong className="login__image__content__name">DIGITAL-E</strong>
                         <p className="login__image__content__desc">Fast checkout, saved carts, and order tracking.</p>
+                        <div className="login__image__content__trust">
+                            <span>Secure sessions</span>
+                            <span>Saved carts</span>
+                            <span>Order history</span>
+                        </div>
                     </div>
                 </aside>
                 <main className="login__form">
+                    <div className="login__form__badge">
+                        <ShieldIcon size={18} />
+                        Protected account access
+                    </div>
                     <h1 className="login__form__title">Welcome back</h1>
                     <p className="login__form__subtitle">Sign in to continue shopping with your saved preferences.</p>
                     <Form
@@ -150,43 +161,43 @@ const LoginPage = () => {
 
                         <Form.Group className="login__form__container__group mb-3" controlId="formBasicPassword">
                             <Form.Label>Password</Form.Label>
-                            <Form.Control
-                                type="password"
-                                name="password"
-                                placeholder="Password"
-                                className="login__form__container__group__input"
-                                required
-                                autoComplete="current-password"
-                                value={user.password}
-                                onChange={handleChangeInput}
-                            />
+                            <div className="login__password-field">
+                                <Form.Control
+                                    type={showPassword ? "text" : "password"}
+                                    name="password"
+                                    placeholder="Password"
+                                    className="login__form__container__group__input"
+                                    required
+                                    autoComplete="current-password"
+                                    value={user.password}
+                                    onChange={handleChangeInput}
+                                />
+                                <button
+                                    type="button"
+                                    aria-label={showPassword ? "Hide password" : "Show password"}
+                                    onClick={() => setShowPassword((value) => !value)}
+                                >
+                                    {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+                                </button>
+                            </div>
                         </Form.Group>
 
                         <Form.Group className="login__form__container__group login__role">
-                            <Form.Label>Login as:</Form.Label>
-                            <Form.Check
-                                inline
-                                type="radio"
-                                name="login-role"
-                                id="customer-radio"
-                                value={Role.Customer}
-                                checked={user.role === Role.Customer}
-                                onChange={handleChangeRadio}
-                            />
-                            <Form.Label htmlFor="customer-radio" className="me-3">
-                                Customer
-                            </Form.Label>
-
-                            <Form.Check
-                                inline
-                                type="radio"
-                                name="login-role"
-                                id="admin-radio"
-                                value={Role.Admin}
-                                checked={user.role === Role.Admin}
-                                onChange={handleChangeRadio}
-                            />
-                            <Form.Label htmlFor="admin-radio">Admin</Form.Label>
+                            <Form.Label>Login as</Form.Label>
+                            <div className="login__role__options">
+                                {[Role.Customer, Role.Admin].map((role) => (
+                                    <label key={role} className={user.role === role ? "active" : ""}>
+                                        <input
+                                            type="radio"
+                                            name="login-role"
+                                            value={role}
+                                            checked={user.role === role}
+                                            onChange={handleChangeRadio}
+                                        />
+                                        {role}
+                                    </label>
+                                ))}
+                            </div>
                         </Form.Group>
                         <Form.Group className="login__form__container__group mb-3" controlId="formBasicCheckbox">
                             <Form.Check
@@ -209,7 +220,7 @@ const LoginPage = () => {
                             className="login__form__submit"
                             name="login"
                             type="submit"
-                            disabled={isSubmitting}
+                            disabled={!canSubmit}
                         >
                             {isSubmitting ? "Signing in..." : "Login"}
                         </button>

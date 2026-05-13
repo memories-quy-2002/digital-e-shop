@@ -1,10 +1,9 @@
-import React, { memo, useState } from "react";
-import { Button, Modal } from "react-bootstrap";
-import { TrashIcon } from "./Icons";
+import React, { memo } from "react";
+import { CartIcon, TrashIcon } from "./Icons";
 import { useNavigate } from "react-router-dom";
 import { Product } from "../../utils/interface";
-import productPlaceholder from "../../assets/images/product_placeholder.jpg";
 import loadImage from "../../utils/loadImage";
+
 interface Item {
     id: number;
     product: Product;
@@ -12,87 +11,69 @@ interface Item {
 
 type WishlistItemProps = {
     item: Item;
-    uid: string;
-    onAddingCart: (user_id: string, product_id: number) => void;
-    onRemoveWishlist: (user_id: string, product_id: number) => void;
+    selected: boolean;
+    onSelect: (productId: number, checked: boolean) => void;
+    onMoveToCart: (product: Product) => void;
+    onRemoveWishlist: (productId: number) => void;
 };
 
-const WishlistItem = ({ item, uid, onAddingCart, onRemoveWishlist }: WishlistItemProps) => {
+const WishlistItem = ({ item, selected, onSelect, onMoveToCart, onRemoveWishlist }: WishlistItemProps) => {
     const { product } = item;
-    const [show, setShow] = useState<boolean>(false);
     const navigate = useNavigate();
-    const handleClose = () => setShow(false);
-
     const imageUrl = product.main_image ? product.main_image.replace(".jpg", "") : null;
+    const activePrice = product.sale_price ?? product.price;
+    const hasSale = product.sale_price !== null && product.sale_price < product.price;
 
     return (
-        <div className="wishlist__row">
-            {/* Product */}
+        <article className="wishlist__row">
+            <label className="wishlist__row__select">
+                <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={(event) => onSelect(product.id, event.target.checked)}
+                    aria-label={`Select ${product.name}`}
+                />
+            </label>
             <div className="wishlist__row__product">
-                <div
+                <button
+                    type="button"
                     className="wishlist__row__product__image"
                     onClick={() => navigate(`/product?id=${item.product.id}`)}
                 >
                     {loadImage(imageUrl, product.name)}
-                </div>
-                <div className="wishlist__row__product__info">
-                    <div className="wishlist__row__product__info__name">{product.name}</div>
-                    <div className="wishlist__row__product__info__category">Category: {product.category}</div>
-                    <div className="wishlist__row__product__info__brand">Brand: {product.brand}</div>
-                </div>
-            </div>
-
-            {/* Price */}
-            <div className="wishlist__row__price">${product.sale_price ? product.sale_price : product.price}</div>
-
-            {/* Stock */}
-            {product.stock > 0 ? (
-                <div className="wishlist__row__stock wishlist__row__stock--in">In stock</div>
-            ) : (
-                <div className="wishlist__row__stock wishlist__row__stock--out">Out of stock</div>
-            )}
-
-            {/* Button */}
-            <div className="wishlist__row__button">
-                <button type="button" onClick={() => onAddingCart(uid, product.id)}>
-                    Add to cart
                 </button>
+                <div className="wishlist__row__product__info">
+                    <strong>{product.name}</strong>
+                    <span>{product.brand} | {product.category}</span>
+                    <small>{product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}</small>
+                </div>
             </div>
 
-            {/* Delete */}
-            <div className="wishlist__row__delete">
+            <div className="wishlist__row__price">
+                <strong>${activePrice.toFixed(2)}</strong>
+                {hasSale ? <span>Sale from ${product.price.toFixed(2)}</span> : <span>No sale change</span>}
+            </div>
+
+            <span className={product.stock > 0 ? "wishlist__stock is-in" : "wishlist__stock is-out"}>
+                {product.stock > 0 ? "Available" : "Unavailable"}
+            </span>
+
+            <div className="wishlist__row__actions">
+                <button type="button" onClick={() => onMoveToCart(product)} disabled={product.stock <= 0}>
+                    <CartIcon size={17} />
+                    Move to cart
+                </button>
                 <button
                     type="button"
+                    className="danger"
                     data-testid="delete-btn"
                     aria-label={`delete-btn-${item.id}`}
-                    onClick={() => setShow(true)}
+                    onClick={() => onRemoveWishlist(product.id)}
                 >
-                    <TrashIcon size={24} />
+                    <TrashIcon size={18} />
                 </button>
             </div>
-
-            {/* Modal */}
-            <Modal show={show} onHide={handleClose}>
-                <Modal.Header closeButton>
-                    <Modal.Title>Remove Wishlist</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>Are you sure to remove this item?</Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={handleClose}>
-                        Close
-                    </Button>
-                    <Button
-                        variant="primary"
-                        onClick={() => {
-                            onRemoveWishlist(uid, item.product.id);
-                            setShow(false);
-                        }}
-                    >
-                        Save Changes
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-        </div>
+        </article>
     );
 };
 

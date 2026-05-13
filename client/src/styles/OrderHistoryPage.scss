@@ -1,0 +1,207 @@
+.order-history {
+    padding: 2.5rem 2rem 4rem;
+    background: #f8fafc;
+    min-height: 100vh;
+
+    &__header {
+        margin-bottom: 1.5rem;
+
+        span {
+            color: #64748b;
+            font-size: 0.78rem;
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 0.35rem 0 0.4rem;
+            color: #0f172a;
+            font-size: 2.4rem;
+        }
+
+        p {
+            color: #64748b;
+            margin: 0;
+        }
+    }
+
+    &__empty,
+    &__list,
+    &__detail {
+        background: #fff;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 18px;
+        box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+    }
+
+    &__empty {
+        padding: 2rem;
+    }
+
+    &__layout {
+        display: grid;
+        grid-template-columns: minmax(260px, 0.75fr) minmax(0, 1.6fr);
+        gap: 1.25rem;
+        align-items: flex-start;
+    }
+
+    &__list {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+
+        button {
+            border: none;
+            border-bottom: 1px solid #e5e7eb;
+            background: #fff;
+            padding: 1rem;
+            text-align: left;
+            display: grid;
+            gap: 0.25rem;
+            cursor: pointer;
+
+            &.is-active,
+            &:hover {
+                background: #eff6ff;
+            }
+
+            strong {
+                color: #0f172a;
+            }
+
+            span,
+            small {
+                color: #64748b;
+            }
+        }
+    }
+
+    &__detail {
+        padding: 1.5rem;
+    }
+
+    &__detail__header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1rem;
+
+        h2 {
+            margin: 0.4rem 0 0.25rem;
+            color: #0f172a;
+        }
+
+        p {
+            margin: 0;
+            color: #64748b;
+        }
+
+        button {
+            border: none;
+            border-radius: 12px;
+            background: #0b5fff;
+            color: #fff;
+            padding: 0.7rem 1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            font-weight: 800;
+        }
+    }
+
+    &__pill {
+        display: inline-flex;
+        border-radius: 999px;
+        padding: 0.35rem 0.7rem;
+        background: #fef3c7;
+        color: #92400e;
+        font-weight: 800;
+        font-size: 0.8rem;
+
+        &.status-1 {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        &.status-2 {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+    }
+
+    &__meta {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+
+        div {
+            background: #f8fafc;
+            border-radius: 14px;
+            padding: 0.9rem;
+        }
+
+        span {
+            display: block;
+            color: #64748b;
+            font-size: 0.78rem;
+            font-weight: 800;
+            margin-bottom: 0.3rem;
+        }
+
+        strong {
+            color: #0f172a;
+        }
+    }
+
+    &__timeline {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+
+        span {
+            text-align: center;
+            border-radius: 999px;
+            padding: 0.55rem;
+            background: #e5e7eb;
+            color: #64748b;
+            font-weight: 800;
+
+            &.is-done {
+                background: #dcfce7;
+                color: #166534;
+            }
+        }
+    }
+
+    &__items {
+        display: grid;
+        gap: 0.75rem;
+
+        > div {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 0.75rem;
+        }
+
+        strong {
+            color: #0f172a;
+        }
+
+        span {
+            color: #64748b;
+        }
+    }
+
+    @media (max-width: 860px) {
+        &__layout,
+        &__meta {
+            grid-template-columns: 1fr;
+        }
+    }
+}

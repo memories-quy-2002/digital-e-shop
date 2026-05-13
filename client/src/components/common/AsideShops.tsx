@@ -35,22 +35,36 @@ const AsideShops = ({
     }, [filters.priceRange]);
 
     useEffect(() => {
-        // Build compact filter lists from the products currently available on the page.
-        setCategories([...new Set(products.map((product) => product.category))]);
-        setBrands([...new Set(products.map((product) => product.brand))]);
+        setCategories([...new Set(products.map((product) => product.category).filter(Boolean))].sort());
+        setBrands([...new Set(products.map((product) => product.brand).filter(Boolean))].sort());
     }, [products]);
+
+    const selectedCount = filters.categories.length + filters.brands.length;
 
     return (
         <aside className="shops__container__aside">
-            <section className="shops__container__aside__categories" aria-labelledby="shops-filter-categories">
+            <div className="shops__container__aside__header">
                 <div>
+                    <span>Catalog filters</span>
+                    <h2>Refine products</h2>
+                </div>
+                <strong>{selectedCount}</strong>
+            </div>
+
+            <section
+                className="shops__container__aside__categories shops__filter-section"
+                aria-labelledby="shops-filter-categories"
+            >
+                <div className="shops__filter-section__header">
                     <h2 id="shops-filter-categories">Categories</h2>
+                    <span>{categories.length}</span>
+                </div>
+                <div className="shops__filter-options">
                     {categories.map((category) => {
                         const checkboxId = `shops-category-${category.replace(/\s+/g, "-").toLowerCase()}`;
                         return (
                             <div key={category}>
                                 <label className="container" htmlFor={checkboxId}>
-                                    {category}
                                     <input
                                         type="checkbox"
                                         id={checkboxId}
@@ -58,6 +72,7 @@ const AsideShops = ({
                                         onChange={() => onCheckboxChange("categories", category)}
                                     />
                                     <span className="checkmark"></span>
+                                    <span className="filter-label">{category}</span>
                                 </label>
                             </div>
                         );
@@ -69,14 +84,16 @@ const AsideShops = ({
                 data-testid="shops__aside__brand"
                 aria-labelledby="shops-filter-brands"
             >
-                <div>
+                <div className="shops__filter-section__header">
                     <h2 id="shops-filter-brands">Brands</h2>
+                    <span>{brands.length}</span>
+                </div>
+                <div className="shops__filter-options">
                     {brands.map((brand) => {
                         const checkboxId = `shops-brand-${brand.replace(/\s+/g, "-").toLowerCase()}`;
                         return (
                             <div key={brand}>
                                 <label className="container" htmlFor={checkboxId}>
-                                    {brand}
                                     <input
                                         type="checkbox"
                                         id={checkboxId}
@@ -84,6 +101,7 @@ const AsideShops = ({
                                         onChange={() => onCheckboxChange("brands", brand)}
                                     />
                                     <span className="checkmark"></span>
+                                    <span className="filter-label">{brand}</span>
                                 </label>
                             </div>
                         );

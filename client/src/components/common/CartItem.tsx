@@ -8,9 +8,10 @@ interface Item {
     category: string;
     brand: string;
     price: number;
-    sale_price: number;
+    sale_price: number | null;
     main_image: string;
     quantity: number;
+    stock: number;
 }
 
 type CartItemProps = {
@@ -37,9 +38,11 @@ const CartItem = ({ item, handleQuantityChange, handleRemoveCartItem }: CartItem
                     aria-label={`cart-${item.cartItemId}-quantity`}
                     id={`cart-${item.cartItemId}-quantity`}
                     min={1}
+                    max={Math.max(item.stock, 1)}
                     value={item.quantity}
                     onChange={(event) => handleQuantityChange(item.cartItemId, event)}
                 />
+                {item.stock <= 5 ? <span className="cart-item__qty__stock">{item.stock} left</span> : null}
             </div>
             <div className="cart-item__price">
                 <strong>${(productPrice * item.quantity).toFixed(2)}</strong>

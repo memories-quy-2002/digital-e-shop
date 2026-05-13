@@ -1,60 +1,111 @@
 .wishlist {
-    padding: 2rem;
+    padding: 2.5rem 2rem 4rem;
+    background: #f8fafc;
+    min-height: 100vh;
 
-    &__title {
-        font-size: 28px;
-        font-weight: bold;
-        margin-bottom: 2rem;
-    }
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        gap: 1.25rem;
+        align-items: flex-end;
+        margin-bottom: 1.5rem;
 
-    // Header row (category)
-    &__category {
-        display: grid;
-        grid-template-columns: 2fr 1fr 1fr 0.5fr 1fr; // khớp layout với row
-        padding: 1rem;
-        background-color: #f5f5f5;
-        border-bottom: 2px solid #ddd;
-        font-weight: bold;
-        text-align: center;
+        span {
+            color: #64748b;
+            font-size: 0.78rem;
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
 
-        &__item {
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        h1 {
+            margin: 0.35rem 0 0.4rem;
+            color: #0f172a;
+            font-size: 2.25rem;
+        }
+
+        p {
+            margin: 0;
+            color: #64748b;
         }
     }
 
-    // Each wishlist row
+    &__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+
+        button {
+            border: none;
+            border-radius: 999px;
+            background: #e9f1ff;
+            color: #0b5fff;
+            padding: 0.65rem 1rem;
+            font-weight: 800;
+
+            &.danger {
+                background: #fee2e2;
+                color: #b91c1c;
+            }
+
+            &:disabled {
+                opacity: 0.55;
+                cursor: not-allowed;
+            }
+        }
+    }
+
+    &__empty {
+        background: #fff;
+        border-radius: 18px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        padding: 2rem;
+        color: #64748b;
+        box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+    }
+
+    &__main {
+        display: grid;
+        gap: 0.85rem;
+    }
+
     &__row {
         display: grid;
-        grid-template-columns: 2fr 1fr 1fr 0.5fr 1fr;
+        grid-template-columns: 36px minmax(0, 1.5fr) 180px 130px 190px;
+        gap: 1rem;
         align-items: center;
-        padding: 1rem;
-        border-bottom: 1px solid #eee;
+        background: #fff;
+        border-radius: 16px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        padding: 0.9rem;
+        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
 
-        &:hover {
-            background-color: #fafafa;
+        &__select {
+            display: flex;
+            justify-content: center;
         }
 
         &__product {
             display: flex;
-            align-items: flex-start;
             gap: 1rem;
+            align-items: center;
+            min-width: 0;
 
             &__image {
-                width: 80px;
-                height: 80px;
+                border: none;
+                width: 82px;
+                height: 82px;
+                border-radius: 12px;
+                background: #f8fafc;
+                padding: 0.55rem;
                 display: flex;
-                justify-content: center;
                 align-items: center;
-                cursor: pointer;
+                justify-content: center;
 
                 img {
-                    max-width: 100%;
-                    max-height: 100%;
+                    width: 100%;
+                    height: 100%;
                     object-fit: contain;
-                    border-radius: 6px;
-                    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
                 }
             }
 
@@ -62,105 +113,101 @@
                 display: flex;
                 flex-direction: column;
                 gap: 0.25rem;
+                min-width: 0;
 
-                &__name {
-                    font-weight: bold;
-                    font-size: 16px;
-                    margin-bottom: 0.25rem;
+                strong {
+                    color: #0f172a;
+                    line-height: 1.35;
                 }
 
-                &__category,
-                &__brand {
-                    font-size: 14px;
-                    color: #666;
+                span,
+                small {
+                    color: #64748b;
+                    font-size: 0.88rem;
                 }
             }
         }
 
         &__price {
-            font-weight: 700;
-            font-size: 16px;
-            text-align: center;
-            color: #0f172a;
-        }
-
-        &__stock {
-            font-size: 14px;
-            font-weight: 600;
-            text-align: center;
-            padding: 0.25rem 0.5rem;
-
-            &--in {
-                color: #2e7d32; // xanh đậm
-            }
-
-            &--out {
-                color: #c62828; // đỏ đậm
-            }
-        }
-        &__button {
             display: flex;
-            justify-content: center;
+            flex-direction: column;
+            gap: 0.25rem;
+
+            strong {
+                color: #0f172a;
+            }
+
+            span {
+                color: #64748b;
+                font-size: 0.85rem;
+            }
+        }
+
+        &__actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
 
             button {
-                background-color: #0047ff;
+                border: none;
+                border-radius: 12px;
+                background: #0b5fff;
                 color: #fff;
-                border: none;
-                border-radius: 20px;
-                padding: 0.5rem 1rem;
-                font-size: 14px;
-                font-weight: bold;
-                cursor: pointer;
-                transition: all 0.3s ease;
+                padding: 0.65rem 0.8rem;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.4rem;
+                font-weight: 800;
 
-                &:hover {
-                    background-color: #0036c7;
+                &.danger {
+                    background: #fff1f2;
+                    color: #be123c;
                 }
-            }
-        }
 
-        &__delete {
-            display: flex;
-            justify-content: center;
-
-            button {
-                background: none;
-                border: none;
-                cursor: pointer;
-                color: #c62828;
-
-                &:hover {
-                    color: #ff4444;
+                &:disabled {
+                    opacity: 0.55;
+                    cursor: not-allowed;
                 }
             }
         }
     }
 
-    // 📱 Responsive
-    @media (max-width: 992px) {
-        &__category {
-            display: none; // Ẩn header trên mobile
+    &__stock {
+        justify-self: start;
+        border-radius: 999px;
+        padding: 0.4rem 0.7rem;
+        font-size: 0.82rem;
+        font-weight: 900;
+
+        &.is-in {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        &.is-out {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+    }
+
+    @media (max-width: 980px) {
+        &__header {
+            align-items: flex-start;
+            flex-direction: column;
         }
 
         &__row {
-            grid-template-columns: 1fr;
-            gap: 1rem;
-            padding: 1rem;
-            border: 1px solid #eee;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-
-            &__product {
-                flex-direction: row;
-                align-items: flex-start;
-            }
+            grid-template-columns: 36px minmax(0, 1fr);
 
             &__price,
-            &__stock,
-            &__button,
-            &__delete {
-                text-align: left;
+            &__actions,
+            .wishlist__stock {
+                grid-column: 2;
+            }
+
+            &__actions {
                 justify-content: flex-start;
+                flex-wrap: wrap;
             }
         }
     }

@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowRightIcon } from "../common/Icons";
+import { ArrowLeftIcon, ArrowRightIcon } from "../common/Icons";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
 import { useAuth } from "../../context/AuthContext";
 import "../../styles/HomePage.scss";
 import { Product } from "../../utils/interface";
-import recommendations from "../../utils/recommendations.json";
 import ProductItem from "../common/ProductItem";
 import Layout from "../layout/Layout";
 import { Helmet } from "react-helmet";
@@ -16,7 +15,36 @@ import carousel3 from "../../assets/images/carousel_3.jpg";
 import carousel4 from "../../assets/images/carousel_4.jpg";
 
 const DISPLAYED_NUMBER = 12;
-const carouselImages = [carousel1, carousel2, carousel3, carousel4];
+const heroSlides = [
+    {
+        image: carousel1,
+        kicker: "Workspace deals",
+        title: "Upgrade your workspace without the clutter.",
+        subtitle: "Premium laptops, monitors, keyboards, and accessories selected for smoother daily work.",
+        cta: "Shop Work Gear",
+    },
+    {
+        image: carousel2,
+        kicker: "Audio picks",
+        title: "Sound that makes every setup feel alive.",
+        subtitle: "Immersive speakers, noise-cancelling headphones, and studio-grade gear for every listener.",
+        cta: "Explore Audio",
+    },
+    {
+        image: carousel3,
+        kicker: "Mobile essentials",
+        title: "Phones and accessories ready for everyday speed.",
+        subtitle: "Discover smartphones, chargers, and cases with fast delivery and secure checkout.",
+        cta: "Browse Phones",
+    },
+    {
+        image: carousel4,
+        kicker: "Smart home",
+        title: "Build a smarter home one device at a time.",
+        subtitle: "Control, secure, and automate your space with dependable connected devices.",
+        cta: "Shop Smart Home",
+    },
+];
 
 interface Wishlist {
     id: number;
@@ -26,8 +54,8 @@ interface Wishlist {
 const HomePage = () => {
     const navigate = useNavigate();
     const [products, setProducts] = useState<Product[]>([]);
+    const [smartRecommendations, setSmartRecommendations] = useState<Product[]>([]);
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
-    const [userRecommendations, setUserRecommendations] = useState<number[]>([]);
     const [activeFilter, setActiveFilter] = useState<"recommended" | "popular" | "new">("recommended");
     const [currentIndex, setCurrentIndex] = useState(0);
     const { userData, loading } = useAuth();
@@ -35,35 +63,12 @@ const HomePage = () => {
     const { addToast } = useToast();
 
     const handleNext = () => {
-        setCurrentIndex((currentIndex + 1) % 4);
+        setCurrentIndex((currentIndex + 1) % heroSlides.length);
     };
 
     const handlePrev = () => {
-        setCurrentIndex((currentIndex - 1 + 4) % 4);
+        setCurrentIndex((currentIndex - 1 + heroSlides.length) % heroSlides.length);
     };
-
-    const slides = [
-        {
-            title: "Upgrade Your Workspace",
-            subtitle: "Shop premium laptops, monitors, and smart gear curated for focus and performance.",
-            cta: "Shop Work Gear",
-        },
-        {
-            title: "Audio That Hits Different",
-            subtitle: "Immersive speakers, noise-cancelling headphones, and studio-grade sound.",
-            cta: "Explore Audio",
-        },
-        {
-            title: "Phones, Smarter Every Day",
-            subtitle: "Discover the latest smartphones and accessories with fast delivery.",
-            cta: "Browse Phones",
-        },
-        {
-            title: "Smart Home Essentials",
-            subtitle: "Control, secure, and automate your home with next-gen devices.",
-            cta: "Shop Smart Home",
-        },
-    ];
 
     const toggleWishlist = async (user_id: string, product_id: number) => {
         if (!uid) {
@@ -125,7 +130,7 @@ const HomePage = () => {
 
     useEffect(() => {
         const interval = setInterval(() => {
-            setCurrentIndex((prevIndex) => (prevIndex + 1) % 4);
+            setCurrentIndex((prevIndex) => (prevIndex + 1) % heroSlides.length);
         }, 5000);
 
         return () => clearInterval(interval);
@@ -175,13 +180,30 @@ const HomePage = () => {
     }, [uid]);
 
     useEffect(() => {
-        const getProductIdsByUserId = (userId: string): number[] => {
-            const userProductData = recommendations.find((user) => user.user_id === userId);
-            return userProductData ? userProductData.products : [];
+        const fetchRecommendations = async () => {
+            if (!userData || loading) {
+                setSmartRecommendations([]);
+                return;
+            }
+
+            try {
+                const response = await axios.get(`/api/products/recommendations/${userData.id}?limit=${DISPLAYED_NUMBER}`);
+                if (response.status === 200) {
+                    setSmartRecommendations((response.data.products || []).map((product: Product) => ({
+                        ...product,
+                        price: Number(product.price) || 0,
+                        sale_price: product.sale_price === null ? null : Number(product.sale_price) || null,
+                        stock: Number(product.stock) || 0,
+                        rating: Number(product.rating) || 0,
+                        reviews: Number(product.reviews) || 0,
+                    })));
+                }
+            } catch (err) {
+                setSmartRecommendations([]);
+            }
         };
-        if (userData && !loading) {
-            setUserRecommendations(getProductIdsByUserId(userData.id));
-        }
+
+        fetchRecommendations();
     }, [userData, loading]);
 
     const featuredProducts = useMemo(() => {
@@ -193,12 +215,11 @@ const HomePage = () => {
     }, [products]);
 
     const recommendedProducts = useMemo(() => {
-        if (uid && userRecommendations.length > 0) {
-            const matches = allProducts.filter((product) => userRecommendations.includes(product.id));
-            return matches.length > 0 ? matches : allProducts.slice(0, DISPLAYED_NUMBER);
+        if (uid && smartRecommendations.length > 0) {
+            return smartRecommendations.slice(0, DISPLAYED_NUMBER);
         }
         return allProducts.slice(0, DISPLAYED_NUMBER);
-    }, [allProducts, uid, userRecommendations]);
+    }, [allProducts, uid, smartRecommendations]);
 
     const popularProducts = useMemo(() => {
         return [...allProducts].sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, DISPLAYED_NUMBER);
@@ -213,6 +234,7 @@ const HomePage = () => {
         if (activeFilter === "new") return newProducts;
         return recommendedProducts;
     }, [activeFilter, popularProducts, newProducts, recommendedProducts]);
+    const activeSlide = heroSlides[currentIndex] || heroSlides[0];
 
     return (
         <Layout>
@@ -227,21 +249,39 @@ const HomePage = () => {
                     property="og:description"
                     content="Shop laptops, phones, audio, accessories, and smart devices with fast delivery and secure checkout."
                 />
-                <link rel="preload" as="image" href={carouselImages[0]} fetchPriority="high" />
+                <link rel="preload" as="image" href={heroSlides[0].image} fetchPriority="high" />
             </Helmet>
 
             <main className="home">
-                <section className="home__hero">
+                <section className="home__hero" aria-label="Digital-E featured slides">
+                    <div className="home__hero__media" aria-hidden="true">
+                        <div
+                            className="home__hero__media__track"
+                            style={{
+                                transform: `translateX(${currentIndex * -100}%)`,
+                            }}
+                        >
+                            {heroSlides.map((slide, index) => (
+                                <div className="home__hero__media__slide" key={`hero-slide-${slide.title}`}>
+                                    <img
+                                        src={slide.image}
+                                        alt={slide.title}
+                                        loading={index === currentIndex ? "eager" : "lazy"}
+                                        fetchPriority={index === currentIndex ? "high" : "auto"}
+                                        decoding="async"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="home__hero__shade" />
                     <div className="home__hero__content">
-                        <span className="home__hero__badge">Digital-E Featured</span>
-                        <h1>Electronics that feel premium, priced for everyone.</h1>
-                        <p>
-                            Shop curated tech across laptops, phones, audio, and smart home devices with fast delivery
-                            and secure checkout.
-                        </p>
+                        <span className="home__hero__badge">{activeSlide.kicker}</span>
+                        <h1>{activeSlide.title}</h1>
+                        <p>{activeSlide.subtitle}</p>
                         <div className="home__hero__actions">
                             <button type="button" onClick={() => navigate("/shops")}>
-                                Shop All Products <ArrowRightIcon />
+                                {activeSlide.cta} <ArrowRightIcon />
                             </button>
                             <Link to="/news" className="ghost">
                                 What&apos;s New
@@ -257,56 +297,45 @@ const HomePage = () => {
                                 <span>Support</span>
                             </div>
                             <div>
-                                <strong>Secure</strong>
-                                <span>Checkout</span>
+                                <strong>UTC</strong>
+                                <span>Order time</span>
                             </div>
                         </div>
                     </div>
-                    <div className="home__hero__slider">
-                        <div
-                            className="home__hero__slider__track"
-                            style={{
-                                transform: `translateX(${currentIndex * -100}%)`,
-                            }}
-                        >
-                            {slides.map((slide, index) => (
-                                <div className="home__hero__slide" key={`hero-slide-${index}`}>
-                                    <img
-                                        src={carouselImages[index]}
-                                        alt={slide.title}
-                                        loading={index === currentIndex ? "eager" : "lazy"}
-                                        fetchPriority={index === currentIndex ? "high" : "auto"}
-                                        decoding="async"
-                                    />
-                                    <div className="home__hero__slide__overlay">
-                                        <h2>{slide.title}</h2>
-                                        <p>{slide.subtitle}</p>
-                                        <button type="button" onClick={() => navigate("/shops")}>
-                                            {slide.cta}
-                                        </button>
-                                    </div>
-                                </div>
+                    <div className="home__hero__controls" aria-label="Hero slide controls">
+                        <button type="button" onClick={handlePrev} aria-label="Previous slide">
+                            <ArrowLeftIcon size={20} />
+                        </button>
+                        <div className="home__hero__dots">
+                            {heroSlides.map((_, index) => (
+                                <button
+                                    key={`dot-${index}`}
+                                    type="button"
+                                    className={currentIndex === index ? "active" : ""}
+                                    onClick={() => setCurrentIndex(index)}
+                                    aria-label={`Go to slide ${index + 1}`}
+                                />
                             ))}
                         </div>
-                        <div className="home__hero__slider__controls">
-                            <button type="button" onClick={handlePrev} aria-label="Previous slide">
-                                &#10094;
+                        <button type="button" onClick={handleNext} aria-label="Next slide">
+                            <ArrowRightIcon size={20} />
+                        </button>
+                    </div>
+                    <div className="home__hero__previews">
+                        {heroSlides.map((slide, index) => (
+                            <button
+                                key={`preview-${slide.title}`}
+                                type="button"
+                                className={currentIndex === index ? "active" : ""}
+                                onClick={() => setCurrentIndex(index)}
+                            >
+                                <img src={slide.image} alt="" loading="lazy" decoding="async" />
+                                <span>
+                                    <small>{String(index + 1).padStart(2, "0")}</small>
+                                    <strong>{slide.kicker}</strong>
+                                </span>
                             </button>
-                            <div className="home__hero__slider__dots">
-                                {slides.map((_, index) => (
-                                    <button
-                                        key={`dot-${index}`}
-                                        type="button"
-                                        className={currentIndex === index ? "active" : ""}
-                                        onClick={() => setCurrentIndex(index)}
-                                        aria-label={`Go to slide ${index + 1}`}
-                                    />
-                                ))}
-                            </div>
-                            <button type="button" onClick={handleNext} aria-label="Next slide">
-                                &#10095;
-                            </button>
-                        </div>
+                        ))}
                     </div>
                 </section>
 

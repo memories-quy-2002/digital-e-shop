@@ -5,7 +5,8 @@ import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Helmet } from "react-helmet";
 import { useToast } from "../../context/ToastContext";
-import { BoxSeamIcon, CreditCardIcon } from "../common/Icons";
+import { BankIcon, CashStackIcon, CheckCircleIcon, ShieldIcon } from "../common/Icons";
+import { toUtcIsoString } from "../../utils/dateTime";
 
 interface CartProps {
     cartItemId: number;
@@ -17,6 +18,7 @@ interface CartProps {
     sale_price?: number | null;
     main_image: string;
     quantity: number;
+    stock?: number;
 }
 
 interface CheckoutForm {
@@ -54,6 +56,29 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
         payment_method: "bank_transfer",
     });
     const [errors, setErrors] = useState<string[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const paymentOptions = [
+        {
+            value: "bank_transfer" as const,
+            title: "Bank transfer",
+            eyebrow: "Best for receipts",
+            description: "Send payment before shipment. Use the order ID as your transfer reference.",
+            meta: "Manual confirmation",
+            icon: <BankIcon size={22} />,
+        },
+        {
+            value: "cash" as const,
+            title: "Cash on delivery",
+            eyebrow: "Pay at your door",
+            description: "Pay when the delivery partner hands over your package.",
+            meta: "Phone verification may apply",
+            icon: <CashStackIcon size={22} />,
+        },
+    ];
+
+    const selectedPayment = paymentOptions.find((option) => option.value === formCheckout.payment_method) || paymentOptions[0];
+
     const validateForm = (): string[] => {
         const errorsList: string[] = [];
         const emailPattern = /^([A-Za-z0-9_\-.])+@([A-Za-z0-9_\-.])+\.([A-Za-z]{2,4})$/;
@@ -85,7 +110,14 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
             addToast("Checkout", "Please login to complete checkout.");
             return;
         }
+        const unavailableItems = cart.filter((item) => item.stock !== undefined && item.quantity > item.stock);
+        if (unavailableItems.length > 0) {
+            setErrors(["Some cart items exceed the available stock."]);
+            addToast("Checkout", "Please update cart quantities before placing the order.");
+            return;
+        }
         try {
+            setIsSubmitting(true);
             const response = await axios.post(`/api/orders/purchase/${uid}`, {
                 cart,
                 totalPrice,
@@ -99,13 +131,14 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                     response.data?.orderId ||
                     response.data?.id ||
                     `ORD-${Date.now()}`;
+                const placedAt = response.data?.order?.date_added || response.data?.placedAt || toUtcIsoString();
                 const payload = {
                     orderId,
                     totalPrice,
                     discount,
                     subtotal,
                     itemsCount: cart.reduce((sum, item) => sum + item.quantity, 0),
-                    placedAt: new Date().toISOString(),
+                    placedAt,
                     paymentMethod: formCheckout.payment_method,
                 };
                 const payloadSensitive = {
@@ -129,6 +162,8 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                 setErrors(["An unexpected error occurred."]);
                 addToast("Checkout", "An unexpected error occurred.");
             }
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -283,56 +318,47 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                             <p>Choose how you want to complete this order.</p>
                         </div>
                         <Form className="checkout__payment">
+                            <div className="checkout__payment__secure">
+                                <ShieldIcon size={18} />
+                                <span>No card details are stored by Digital-E. Orders are timestamped in UTC.</span>
+                            </div>
                             <div className="checkout__payment__methods" role="radiogroup" aria-label="Payment method">
-                                <label
-                                    className={
-                                        formCheckout.payment_method === "bank_transfer"
-                                            ? "checkout__payment__method is-active"
-                                            : "checkout__payment__method"
-                                    }
-                                    htmlFor="payment-bank-transfer"
-                                >
-                                    <input
-                                        type="radio"
-                                        id="payment-bank-transfer"
-                                        name="payment_method"
-                                        value="bank_transfer"
-                                        checked={formCheckout.payment_method === "bank_transfer"}
-                                        onChange={handleInputChange}
-                                    />
-                                    <span className="checkout__payment__method__icon">
-                                        <CreditCardIcon size={20} />
-                                    </span>
-                                    <span className="checkout__payment__method__content">
-                                        <strong>Bank transfer</strong>
-                                        <small>Transfer before shipment and use your order ID as the payment note.</small>
-                                    </span>
-                                </label>
+                                {paymentOptions.map((option) => (
+                                    <label
+                                        key={option.value}
+                                        className={
+                                            formCheckout.payment_method === option.value
+                                                ? `checkout__payment__method checkout__payment__method--${option.value} is-active`
+                                                : `checkout__payment__method checkout__payment__method--${option.value}`
+                                        }
+                                        htmlFor={`payment-${option.value}`}
+                                    >
+                                        <input
+                                            type="radio"
+                                            id={`payment-${option.value}`}
+                                            name="payment_method"
+                                            value={option.value}
+                                            checked={formCheckout.payment_method === option.value}
+                                            onChange={handleInputChange}
+                                        />
+                                        <span className="checkout__payment__method__check">
+                                            <CheckCircleIcon size={18} />
+                                        </span>
+                                        <span className="checkout__payment__method__icon">{option.icon}</span>
+                                        <span className="checkout__payment__method__content">
+                                            <small>{option.eyebrow}</small>
+                                            <strong>{option.title}</strong>
+                                            <span>{option.description}</span>
+                                            <em>{option.meta}</em>
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
 
-                                <label
-                                    className={
-                                        formCheckout.payment_method === "cash"
-                                            ? "checkout__payment__method is-active"
-                                            : "checkout__payment__method"
-                                    }
-                                    htmlFor="payment-cash"
-                                >
-                                    <input
-                                        type="radio"
-                                        id="payment-cash"
-                                        name="payment_method"
-                                        value="cash"
-                                        checked={formCheckout.payment_method === "cash"}
-                                        onChange={handleInputChange}
-                                    />
-                                    <span className="checkout__payment__method__icon">
-                                        <BoxSeamIcon size={20} />
-                                    </span>
-                                    <span className="checkout__payment__method__content">
-                                        <strong>Cash on delivery</strong>
-                                        <small>Pay with cash when your order arrives at your address.</small>
-                                    </span>
-                                </label>
+                            <div className="checkout__payment__selected">
+                                <span>Selected payment</span>
+                                <strong>{selectedPayment.title}</strong>
+                                <p>{selectedPayment.description}</p>
                             </div>
 
                             {formCheckout.payment_method === "bank_transfer" ? (
@@ -412,8 +438,8 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                             <span>Total</span>
                             <strong>${(totalPrice - discount).toFixed(2)}</strong>
                         </div>
-                        <button type="button" onClick={handlePurchase}>
-                            Place order
+                        <button type="button" onClick={handlePurchase} disabled={isSubmitting}>
+                            {isSubmitting ? "Placing order..." : "Place order"}
                         </button>
                         <p className="checkout__summary__footnote">
                             By placing your order, you agree to our store policies.

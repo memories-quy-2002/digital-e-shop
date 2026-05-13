@@ -199,9 +199,10 @@ const PaginatedItems = ({
                                 <WishlistItem
                                     key={item.id}
                                     item={item as Item}
-                                    uid={uid}
-                                    onRemoveWishlist={handleRemoveWishlist}
-                                    onAddingCart={handleAddingCart}
+                                    selected={false}
+                                    onSelect={() => {}}
+                                    onRemoveWishlist={(productId) => handleRemoveWishlist(uid, productId)}
+                                    onMoveToCart={(product) => handleAddingCart(uid, product.id)}
                                 />
                             );
                         })}

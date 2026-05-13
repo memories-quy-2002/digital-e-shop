@@ -9,6 +9,7 @@ import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../services/firebase";
 import { useAuth } from "../../context/AuthContext";
+import { formatUtcDateTime } from "../../utils/dateTime";
 
 const cookies = new Cookies();
 const POLL_INTERVAL = 60000;
@@ -55,16 +56,10 @@ const formatCurrency = (value: number) =>
     }).format(value || 0);
 
 const formatActivityTime = (value: string | Date) => {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
+    if (value === "Inventory alert") {
         return "Just now";
     }
-    return date.toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-    });
+    return formatUtcDateTime(value);
 };
 
 const getDisplayName = (username?: string, firstName?: string | null, lastName?: string | null) => {
@@ -384,6 +379,16 @@ const AdminHeader = () => {
                                     onClick={() => syncActivityFeed(false)}
                                 >
                                     Refresh
+                                </button>
+                                <button
+                                    type="button"
+                                    className="admin__layout__main__header__notifications__refresh"
+                                    onClick={() => {
+                                        setShowNotifications(false);
+                                        navigate("/admin/notifications");
+                                    }}
+                                >
+                                    Open center
                                 </button>
                             </div>
                             <div className="admin__layout__main__header__notifications__list">

@@ -15,20 +15,26 @@ const ShopsPage = lazy(() => import("../components/pages/ShopsPage"));
 const NewsPage = lazy(() => import("../components/pages/NewsPage"));
 const SupportPage = lazy(() => import("../components/pages/SupportPage"));
 const CheckoutSuccessPage = lazy(() => import("../components/pages/CheckoutSuccessPage"));
+const OrderHistoryPage = lazy(() => import("../components/pages/OrderHistoryPage"));
 const AdminDashboard = lazy(() => import("../components/pages/admin/AdminDashboard"));
+const AdminNotificationsPage = lazy(() => import("../components/pages/admin/AdminNotificationsPage"));
 const AdminProductPage = lazy(() => import("../components/pages/admin/AdminProductPage"));
 const AdminOrderPage = lazy(() => import("../components/pages/admin/AdminOrderPage"));
 const AdminAccountPage = lazy(() => import("../components/pages/admin/AdminAccountPage"));
+const AdminPromotionsPage = lazy(() => import("../components/pages/admin/AdminPromotionsPage"));
 const AdminAddProductPage = lazy(() => import("../components/pages/admin/AdminAddProductPage"));
 const NoPage = lazy(() => import("../components/pages/NoPage"));
 
 const ProtectedCartPage = withSessionCheck(CartPage);
 const ProtectedCheckoutSuccessPage = withSessionCheck(CheckoutSuccessPage);
+const ProtectedOrderHistoryPage = withSessionCheck(OrderHistoryPage);
 const ProtectedWishlistPage = withSessionCheck(WishlistPage);
 const ProtectedAdminDashboard = withSessionCheck(AdminDashboard);
+const ProtectedAdminNotificationsPage = withSessionCheck(AdminNotificationsPage);
 const ProtectedAdminProductPage = withSessionCheck(AdminProductPage);
 const ProtectedAdminAccountPage = withSessionCheck(AdminAccountPage);
 const ProtectedAdminOrderPage = withSessionCheck(AdminOrderPage);
+const ProtectedAdminPromotionsPage = withSessionCheck(AdminPromotionsPage);
 
 const AppRoutes = () => {
     return (
@@ -46,10 +52,13 @@ const AppRoutes = () => {
                 <Route path="/news" element={<NewsPage />} />
                 <Route path="/support" element={<SupportPage />} />
                 <Route path="/checkout-success" element={<ProtectedCheckoutSuccessPage />} />
+                <Route path="/orders" element={<ProtectedOrderHistoryPage />} />
                 <Route path="/admin" element={<ProtectedAdminDashboard />} />
+                <Route path="/admin/notifications" element={<ProtectedAdminNotificationsPage />} />
                 <Route path="/admin/products" element={<ProtectedAdminProductPage />} />
                 <Route path="/admin/orders" element={<ProtectedAdminOrderPage />} />
                 <Route path="/admin/accounts" element={<ProtectedAdminAccountPage />} />
+                <Route path="/admin/promotions" element={<ProtectedAdminPromotionsPage />} />
                 <Route path="/admin/add" element={<AdminAddProductPage />} />
                 <Route path="*" element={<NoPage />} />
             </Routes>

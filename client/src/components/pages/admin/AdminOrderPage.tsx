@@ -1,22 +1,38 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Table } from "react-bootstrap";
+import { Button, Modal, Table } from "react-bootstrap";
 import ReactPaginate from "react-paginate";
 import axios from "../../../api/axios";
 import AdminLayout from "../../layout/AdminLayout";
 import { useToast } from "../../../context/ToastContext";
 import { CheckCircleIcon, XCircleIcon } from "../../common/Icons";
 import { Helmet } from "react-helmet";
+import { formatUtcDate, formatUtcDateTime, toUtcIsoString } from "../../../utils/dateTime";
 
 interface Order {
     id: number;
     date_added: Date;
     user_id: string;
+    customer_name?: string;
+    customer_email?: string;
     status: number;
     total_price: number;
     discount: number;
     shipping_address: string;
     payment_method?: "bank_transfer" | "cash";
 }
+
+type OrderDetail = Order & {
+    items: Array<{
+        productId: number;
+        productName: string;
+        brand: string;
+        category: string;
+        price: number;
+        sale_price: number | null;
+        quantity: number;
+        totalPrice: number;
+    }>;
+};
 
 const ITEMS_PER_PAGE = 8;
 
@@ -42,10 +58,18 @@ const getStatusLabel = (status: number) => {
 
 const getNetRevenue = (order: Order) => Math.max(order.total_price - order.discount, 0);
 
+const getShortId = (value: string) => (value.length > 14 ? `${value.slice(0, 10)}...` : value);
+
+const getCustomerName = (order: Order) => order.customer_name || getShortId(order.user_id);
+
+const getCustomerMeta = (order: Order) => order.customer_email || order.user_id;
+
 const AdminOrderPage = () => {
     const [orders, setOrders] = useState<Order[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
+    const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null);
+    const [showDetail, setShowDetail] = useState(false);
     const { addToast } = useToast();
 
     useEffect(() => {
@@ -75,6 +99,8 @@ const AdminOrderPage = () => {
                 order.id.toString().includes(lowerSearchTerm) ||
                 (order.shipping_address || "").toLowerCase().includes(lowerSearchTerm) ||
                 order.user_id.toLowerCase().includes(lowerSearchTerm) ||
+                (order.customer_name || "").toLowerCase().includes(lowerSearchTerm) ||
+                (order.customer_email || "").toLowerCase().includes(lowerSearchTerm) ||
                 getPaymentMethodLabel(order.payment_method).toLowerCase().includes(lowerSearchTerm) ||
                 getStatusLabel(order.status).toLowerCase().includes(lowerSearchTerm)
             );
@@ -141,6 +167,56 @@ const AdminOrderPage = () => {
         }
     };
 
+    const handleOpenDetail = async (orderId: number) => {
+        try {
+            const response = await axios.get(`/api/orders/${orderId}`);
+            if (response.status === 200) {
+                setSelectedOrder(response.data.order);
+                setShowDetail(true);
+            }
+        } catch (err) {
+            addToast("Orders", "Unable to load order detail.");
+        }
+    };
+
+    const exportOrdersCsv = () => {
+        const rows = [
+            [
+                "id",
+                "customer_name",
+                "customer_email",
+                "user_id",
+                "date_added",
+                "payment_method",
+                "status",
+                "gross_total",
+                "discount",
+                "net_total",
+                "shipping_address",
+            ],
+            ...orders.map((order) => [
+                String(order.id),
+                getCustomerName(order),
+                order.customer_email || "",
+                order.user_id,
+                toUtcIsoString(order.date_added),
+                getPaymentMethodLabel(order.payment_method),
+                getStatusLabel(order.status),
+                order.total_price.toFixed(2),
+                order.discount.toFixed(2),
+                getNetRevenue(order).toFixed(2),
+                order.shipping_address || "",
+            ]),
+        ];
+        const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+        const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "digital-e-orders.csv";
+        link.click();
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <AdminLayout>
             <Helmet>
@@ -155,6 +231,11 @@ const AdminOrderPage = () => {
                         <p className="admin__page__subtitle">
                             Monitor the full order pipeline, keep tabs on payment mix, and resolve pending deliveries.
                         </p>
+                    </div>
+                    <div className="admin__page__actions">
+                        <button type="button" className="admin__button admin__button--primary" onClick={exportOrdersCsv}>
+                            Export orders CSV
+                        </button>
                     </div>
                 </header>
 
@@ -202,7 +283,7 @@ const AdminOrderPage = () => {
                                 type="text"
                                 name="order-search"
                                 id="order-search"
-                                placeholder="Search by order ID, address, user, payment, or status"
+                                placeholder="Search by order ID, customer, email, address, payment, or status"
                                 value={searchTerm}
                                 onChange={(event) => {
                                     setSearchTerm(event.target.value);
@@ -226,24 +307,31 @@ const AdminOrderPage = () => {
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>Order ID</th>
-                                    <th>User</th>
+                                    <th>Order</th>
+                                    <th>Customer</th>
                                     <th>Payment</th>
-                                    <th>Address</th>
-                                    <th>Date</th>
-                                    <th>Gross</th>
-                                    <th>Discount</th>
-                                    <th>Net</th>
+                                    <th>Total</th>
                                     <th>Status</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {currentOrders.map((order, index) => (
-                                    <tr key={order.id}>
+                                    <tr key={order.id} className="admin__order-row">
                                         <td width="50px">{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</td>
-                                        <td width="110px">#{order.id}</td>
-                                        <td width="220px">{order.user_id}</td>
+                                        <td width="190px">
+                                            <div className="admin__table__stack">
+                                                <strong>#{order.id}</strong>
+                                                <span>{formatUtcDate(order.date_added)}</span>
+                                            </div>
+                                        </td>
+                                        <td width="260px">
+                                            <div className="admin__table__stack">
+                                                <strong title={order.user_id}>{getCustomerName(order)}</strong>
+                                                <span>{getCustomerMeta(order)}</span>
+                                                <small>{order.shipping_address || "No address"}</small>
+                                            </div>
+                                        </td>
                                         <td width="180px">
                                             <span
                                                 className={
@@ -257,11 +345,12 @@ const AdminOrderPage = () => {
                                                 {getPaymentMethodLabel(order.payment_method)}
                                             </span>
                                         </td>
-                                        <td width="360px">{order.shipping_address || "None"}</td>
-                                        <td width="150px">{new Date(order.date_added).toLocaleDateString("en-GB")}</td>
-                                        <td width="125px">${order.total_price.toFixed(2)}</td>
-                                        <td width="125px">${order.discount.toFixed(2)}</td>
-                                        <td width="125px">${getNetRevenue(order).toFixed(2)}</td>
+                                        <td width="160px">
+                                            <div className="admin__table__stack">
+                                                <strong>${getNetRevenue(order).toFixed(2)}</strong>
+                                                <span>Discount ${order.discount.toFixed(2)}</span>
+                                            </div>
+                                        </td>
                                         <td width="150px">
                                             <span
                                                 className={
@@ -280,6 +369,13 @@ const AdminOrderPage = () => {
                                                 <div className="admin__table__actions">
                                                     <button
                                                         type="button"
+                                                        className="admin__button admin__button--ghost admin__icon-button"
+                                                        onClick={() => handleOpenDetail(order.id)}
+                                                    >
+                                                        View
+                                                    </button>
+                                                    <button
+                                                        type="button"
                                                         data-testid="cancelBtn"
                                                         onClick={() => handleChangeStatus(2, order.id)}
                                                     >
@@ -293,7 +389,15 @@ const AdminOrderPage = () => {
                                                         <CheckCircleIcon size={22} />
                                                     </button>
                                                 </div>
-                                            ) : null}
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    className="admin__button admin__button--ghost admin__icon-button"
+                                                    onClick={() => handleOpenDetail(order.id)}
+                                                >
+                                                    View
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}
@@ -321,6 +425,69 @@ const AdminOrderPage = () => {
                         </div>
                     </div>
                 </section>
+
+                <Modal show={showDetail} onHide={() => setShowDetail(false)} size="lg" centered>
+                    <Modal.Header closeButton>
+                        <Modal.Title>Order detail</Modal.Title>
+                    </Modal.Header>
+                    <Modal.Body>
+                        {selectedOrder ? (
+                            <div className="admin__order-detail">
+                                <div className="admin__order-detail__summary">
+                                    <div>
+                                        <span>Order</span>
+                                        <strong>#{selectedOrder.id}</strong>
+                                        <small>{formatUtcDateTime(selectedOrder.date_added)}</small>
+                                    </div>
+                                    <div>
+                                        <span>Customer</span>
+                                        <strong>{getCustomerName(selectedOrder)}</strong>
+                                        <small>{getCustomerMeta(selectedOrder)}</small>
+                                    </div>
+                                    <div>
+                                        <span>Status</span>
+                                        <strong>{getStatusLabel(selectedOrder.status)}</strong>
+                                    </div>
+                                    <div>
+                                        <span>Total</span>
+                                        <strong>${getNetRevenue(selectedOrder).toFixed(2)}</strong>
+                                    </div>
+                                    <div>
+                                        <span>Payment</span>
+                                        <strong>{getPaymentMethodLabel(selectedOrder.payment_method)}</strong>
+                                    </div>
+                                </div>
+                                <div className="admin__order-detail__timeline">
+                                    <span className="is-done">Placed</span>
+                                    <span className={selectedOrder.status === 1 ? "is-done" : ""}>Confirmed</span>
+                                    <span className={selectedOrder.status === 1 ? "is-done" : ""}>Completed</span>
+                                </div>
+                                <div className="admin__order-detail__address">
+                                    <span>Shipping address</span>
+                                    <strong>{selectedOrder.shipping_address || "Not recorded"}</strong>
+                                </div>
+                                <div className="admin__order-detail__items">
+                                    {selectedOrder.items.map((item) => (
+                                        <div key={`${selectedOrder.id}-${item.productId}`}>
+                                            <div>
+                                                <strong>{item.productName}</strong>
+                                                <span>{item.brand} | {item.category}</span>
+                                            </div>
+                                            <span>
+                                                {item.quantity} x ${(item.sale_price ?? item.price).toFixed(2)}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : null}
+                    </Modal.Body>
+                    <Modal.Footer>
+                        <Button variant="secondary" onClick={() => setShowDetail(false)}>
+                            Close
+                        </Button>
+                    </Modal.Footer>
+                </Modal>
             </main>
         </AdminLayout>
     );

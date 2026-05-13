@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import "../../styles/CheckoutSuccessPage.scss";
 import Layout from "../layout/Layout";
 import { Helmet } from "react-helmet";
+import { formatUtcDateTime } from "../../utils/dateTime";
 
 type CheckoutSuccessData = {
     orderId: string;
@@ -98,8 +99,8 @@ const CheckoutSuccessPage = () => {
                         <p>
                             Placed on{" "}
                             {combinedData?.placedAt
-                                ? new Date(combinedData.placedAt).toLocaleString("en-GB")
-                                : new Date().toLocaleString("en-GB")}
+                                ? formatUtcDateTime(combinedData.placedAt)
+                                : formatUtcDateTime()}
                         </p>
                         <p>
                             Payment method:{" "}

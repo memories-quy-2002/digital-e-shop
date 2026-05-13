@@ -1,7 +1,8 @@
 import React from "react";
-import { TrashIcon } from "../Icons";
+import { PencilIcon } from "../Icons";
 import { Product } from "../../../utils/interface";
 import loadImage from "../../../utils/loadImage";
+
 interface AdminProductItemProp {
     products: Product[];
     product: Product;
@@ -17,31 +18,27 @@ const AdminProductItem = ({ products, product, handleOpen }: AdminProductItemPro
             <td>
                 {loadImage(imageUrl, product.name, {
                     width: "144px",
-                    height: "96px", // thêm height cố định
-                    objectFit: "contain", // crop ảnh để fill đều, không bị méo
+                    height: "96px",
+                    objectFit: "contain",
                 })}
             </td>
             <td width="450px">{product.name}</td>
             <td width="150px">{product.category}</td>
             <td width="150px">{product.brand}</td>
-            <td width="150px">{product.price}</td>
-            <td width="150px">{product.sale_price || "None"}</td>
-
+            <td width="150px">${product.price.toFixed(2)}</td>
+            <td width="150px">{product.sale_price !== null ? `$${product.sale_price.toFixed(2)}` : "None"}</td>
             <td width="150px">{product.stock}</td>
             <td>
-                <div>
-                    {/* <button type="button">
-                        <FaRegEdit />
-                     </button> */}
+                <div className="admin__table__actions">
                     <button
-                        data-testid="deleteProductBtn"
+                        data-testid="manageProductBtn"
                         type="button"
-                        className="admin__delete-button"
-                        aria-label={`Delete ${product.name}`}
+                        className="admin__button admin__button--ghost admin__icon-button"
+                        aria-label={`Manage ${product.name}`}
                         onClick={() => handleOpen(product)}
                     >
-                        <TrashIcon />
-                        <span>Delete</span>
+                        <PencilIcon size={18} />
+                        <span>Manage</span>
                     </button>
                 </div>
             </td>

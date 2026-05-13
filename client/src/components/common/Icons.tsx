@@ -238,6 +238,13 @@ export const BellIcon = (props: IconProps) => (
     </Svg>
 );
 
+export const BellFillIcon = (props: IconProps) => (
+    <FillSvg {...props}>
+        <path d="M18 14v-5a6 6 0 1 0-12 0v5l-2 2v1h16v-1l-2-2" />
+        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </FillSvg>
+);
+
 export const BoxArrowRightIcon = (props: IconProps) => (
     <Svg {...props}>
         <path d="M10 17l5-5-5-5" />
@@ -268,5 +275,45 @@ export const TrashIcon = (props: IconProps) => (
         <path d="M6 7h12" />
         <path d="M10 7V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2" />
         <path d="M8 7v11a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V7" />
+    </Svg>
+);
+
+export const PencilIcon = (props: IconProps) => (
+    <Svg {...props}>
+        <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z" />
+        <path d="M13.5 8.5l3 3" />
+    </Svg>
+);
+
+export const EyeIcon = (props: IconProps) => (
+    <Svg {...props}>
+        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" />
+        <circle cx="12" cy="12" r="3" />
+    </Svg>
+);
+
+export const EyeOffIcon = (props: IconProps) => (
+    <Svg {...props}>
+        <path d="M3 3l18 18" />
+        <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
+        <path d="M9.9 5.2A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.4 17.4 0 0 1-2.6 3.5" />
+        <path d="M6.2 6.9C3.5 8.8 2 12 2 12s3.5 7 10 7c1.5 0 2.8-.3 4-.8" />
+    </Svg>
+);
+
+export const ShieldIcon = (props: IconProps) => (
+    <Svg {...props}>
+        <path d="M12 3l7 3v5c0 4.6-2.8 8.6-7 10-4.2-1.4-7-5.4-7-10V6l7-3z" />
+        <path d="M9.5 12l1.8 1.8 3.4-4" />
+    </Svg>
+);
+
+export const ClipboardListIcon = (props: IconProps) => (
+    <Svg {...props}>
+        <rect x="5" y="4" width="14" height="17" rx="2" />
+        <path d="M9 4a3 3 0 0 1 6 0" />
+        <path d="M9 10h6" />
+        <path d="M9 14h6" />
+        <path d="M9 18h4" />
     </Svg>
 );

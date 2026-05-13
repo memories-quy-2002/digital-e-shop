@@ -1,5 +1,5 @@
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Form } from "react-bootstrap";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
@@ -9,6 +9,7 @@ import { Role } from "../../utils/interface";
 import { Helmet } from "react-helmet";
 import { AxiosError } from "axios";
 import { useToast } from "../../context/ToastContext";
+import { EyeIcon, EyeOffIcon, ShieldIcon } from "../common/Icons";
 
 interface User {
     username: string;
@@ -30,6 +31,29 @@ const SignupPage = () => {
 
     const [errors, setErrors] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
+
+    const passwordStrength = useMemo(() => {
+        const checks = [
+            user.password.length >= 8,
+            /[a-z]/.test(user.password),
+            /[A-Z]/.test(user.password),
+            /\d/.test(user.password),
+            /[@$!%*?&]/.test(user.password),
+        ];
+        return checks.filter(Boolean).length;
+    }, [user.password]);
+
+    const canSubmit = useMemo(
+        () =>
+            user.username.trim().length > 0 &&
+            user.email.trim().length > 0 &&
+            user.password.length > 0 &&
+            user.confirm.length > 0 &&
+            !isSubmitting,
+        [isSubmitting, user.confirm, user.email, user.password, user.username],
+    );
 
     const validateForm = (): string[] => {
         const errorsList: string[] = [];
@@ -149,9 +173,18 @@ const SignupPage = () => {
                     <div className="signup__image__content">
                         <strong className="signup__image__content__name">DIGITAL-E</strong>
                         <p className="signup__image__content__desc">Create an account for faster checkout.</p>
+                        <div className="signup__image__content__trust">
+                            <span>Wishlist sync</span>
+                            <span>Checkout history</span>
+                            <span>Customer support</span>
+                        </div>
                     </div>
                 </aside>
                 <main className="signup__form">
+                    <div className="signup__form__badge">
+                        <ShieldIcon size={18} />
+                        Secure account creation
+                    </div>
                     <h1 className="signup__form__title">Create new account</h1>
                     <p className="signup__form__subtitle">Save your cart, wishlist products, and track orders.</p>
                     <Form
@@ -188,58 +221,72 @@ const SignupPage = () => {
                         </Form.Group>
                         <Form.Group className="signup__form__container__group mb-3" controlId="formBasicPassword">
                             <Form.Label>Password</Form.Label>
-                            <Form.Control
-                                type="password"
-                                name="password"
-                                placeholder="Password"
-                                className="signup__form__container__group__input"
-                                required
-                                autoComplete="new-password"
-                                value={user.password}
-                                onChange={handleChangeInput}
-                            />
+                            <div className="signup__password-field">
+                                <Form.Control
+                                    type={showPassword ? "text" : "password"}
+                                    name="password"
+                                    placeholder="Password"
+                                    className="signup__form__container__group__input"
+                                    required
+                                    autoComplete="new-password"
+                                    value={user.password}
+                                    onChange={handleChangeInput}
+                                />
+                                <button
+                                    type="button"
+                                    aria-label={showPassword ? "Hide password" : "Show password"}
+                                    onClick={() => setShowPassword((value) => !value)}
+                                >
+                                    {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+                                </button>
+                            </div>
+                            <div className="signup__password-meter" aria-label="Password strength">
+                                {[1, 2, 3, 4, 5].map((level) => (
+                                    <span key={level} className={passwordStrength >= level ? "active" : ""}></span>
+                                ))}
+                            </div>
                         </Form.Group>
                         <Form.Group
                             className="signup__form__container__group mb-3"
                             controlId="formBasicConfirmPassword"
                         >
                             <Form.Label>Confirm Password</Form.Label>
-                            <Form.Control
-                                type="password"
-                                name="confirm"
-                                placeholder="Confirm Password"
-                                className="signup__form__container__group__input"
-                                required
-                                autoComplete="new-password"
-                                value={user.confirm}
-                                onChange={handleChangeInput}
-                            />
+                            <div className="signup__password-field">
+                                <Form.Control
+                                    type={showConfirm ? "text" : "password"}
+                                    name="confirm"
+                                    placeholder="Confirm Password"
+                                    className="signup__form__container__group__input"
+                                    required
+                                    autoComplete="new-password"
+                                    value={user.confirm}
+                                    onChange={handleChangeInput}
+                                />
+                                <button
+                                    type="button"
+                                    aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
+                                    onClick={() => setShowConfirm((value) => !value)}
+                                >
+                                    {showConfirm ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+                                </button>
+                            </div>
                         </Form.Group>
                         <Form.Group className="signup__form__container__group signup__role">
-                            <Form.Label>Signup as:</Form.Label>
-                            <Form.Check
-                                inline
-                                type="radio"
-                                name="signup-role"
-                                id="customer-radio"
-                                value={Role.Customer}
-                                checked={user.role === Role.Customer}
-                                onChange={handleChangeRadio}
-                            />
-                            <Form.Label htmlFor="customer-radio" className="me-3">
-                                Customer
-                            </Form.Label>
-
-                            <Form.Check
-                                inline
-                                type="radio"
-                                name="signup-role"
-                                id="admin-radio"
-                                value={Role.Admin}
-                                checked={user.role === Role.Admin}
-                                onChange={handleChangeRadio}
-                            />
-                            <Form.Label htmlFor="admin-radio">Admin</Form.Label>
+                            <Form.Label>Signup as</Form.Label>
+                            <div className="signup__role__options">
+                                {[Role.Customer, Role.Admin].map((role) => (
+                                    <label key={role} className={user.role === role ? "active" : ""}>
+                                        <input
+                                            type="radio"
+                                            name="signup-role"
+                                            value={role}
+                                            checked={user.role === role}
+                                            onChange={handleChangeRadio}
+                                        />
+                                        {role}
+                                    </label>
+                                ))}
+                            </div>
                         </Form.Group>
 
                         <div className="signup__form__errors" aria-live="polite">
@@ -252,7 +299,7 @@ const SignupPage = () => {
                         <button
                             className="signup__form__submit"
                             type="submit"
-                            disabled={isSubmitting}
+                            disabled={!canSubmit}
                         >
                             {isSubmitting ? "Creating account..." : "Sign up"}
                         </button>

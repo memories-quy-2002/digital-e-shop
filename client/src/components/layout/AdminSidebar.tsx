@@ -1,14 +1,16 @@
 import React from "react";
-import { BoxSeamIcon, CartIcon, PersonIcon, SpeedometerIcon } from "../common/Icons";
+import { BellIcon, BoxSeamIcon, CartIcon, CashStackIcon, PersonIcon, SpeedometerIcon } from "../common/Icons";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
-const items = ["Dashboard", "Products", "Orders", "Accounts"];
+const items = ["Dashboard", "Notifications", "Products", "Orders", "Accounts", "Promotions"];
 const itemIcons = [
     <SpeedometerIcon size={20} key={0} />,
-    <BoxSeamIcon size={20} key={1} />,
-    <CartIcon size={20} key={2} />,
-    <PersonIcon size={20} key={3} />,
+    <BellIcon size={20} key={1} />,
+    <BoxSeamIcon size={20} key={2} />,
+    <CartIcon size={20} key={3} />,
+    <PersonIcon size={20} key={4} />,
+    <CashStackIcon size={20} key={5} />,
 ];
 
 const getDisplayName = (username?: string, firstName?: string | null, lastName?: string | null) => {

@@ -19,9 +19,10 @@ type CartProps = {
     category: string;
     brand: string;
     price: number;
-    sale_price: number;
+    sale_price: number | null;
     main_image: string;
     quantity: number;
+    stock: number;
 };
 
 const CartPage = () => {
@@ -46,15 +47,41 @@ const CartPage = () => {
         );
     };
 
-    const handleQuantityChange = (itemId: number, event: React.ChangeEvent<HTMLInputElement>) => {
-        const newQuantity = Math.max(1, parseInt(event.target.value, 10) || 1);
+    const handleQuantityChange = async (itemId: number, event: React.ChangeEvent<HTMLInputElement>) => {
+        const item = cart.find((cartItem) => cartItem.cartItemId === itemId);
+        if (!item || !uid) {
+            return;
+        }
+
+        const requestedQuantity = Math.max(1, parseInt(event.target.value, 10) || 1);
+        const newQuantity = Math.min(requestedQuantity, item.stock);
+        if (requestedQuantity > item.stock) {
+            addToast("Quantity adjusted", `Only ${item.stock} item(s) available for ${item.productName}.`);
+        }
+
         updateQuantity(itemId, newQuantity);
+
+        try {
+            await axios.put("/api/cart/", {
+                uid,
+                cartItemId: itemId,
+                quantity: newQuantity,
+            });
+        } catch (err) {
+            addToast("Cart", "Unable to save the quantity change.");
+        }
     };
 
+    const unavailableItems = cart.filter((item) => item.stock <= 0 || item.quantity > item.stock);
     const handleClickPayment = useCallback(() => {
+        if (unavailableItems.length > 0) {
+            addToast("Checkout blocked", "Some cart items are unavailable or exceed current stock.");
+            setShow(false);
+            return;
+        }
         togglePayment();
         setShow(false);
-    }, [togglePayment]);
+    }, [addToast, togglePayment, unavailableItems.length]);
 
     const handleRemoveCartItem = useCallback(
         async (cartItemId: number) => {
@@ -114,6 +141,7 @@ const CartPage = () => {
                         sale_price: item.sale_price,
                         main_image: item.main_image,
                         quantity: item.quantity,
+                        stock: item.stock,
                     }));
                     setCart(cartItems);
                 }
@@ -199,6 +227,12 @@ const CartPage = () => {
                                         Proceed to checkout <ArrowRightIcon />
                                     </button>
                                 </div>
+                                {unavailableItems.length > 0 ? (
+                                    <div className="cart__layout__warning">
+                                        Some items need attention before checkout. Update quantities or remove unavailable
+                                        products.
+                                    </div>
+                                ) : null}
                                 <div className="cart__layout__note">
                                     Free delivery in 1-2 business days for orders over $50.
                                 </div>

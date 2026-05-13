@@ -90,7 +90,7 @@ export const Header = (): JSX.Element => {
         }
 
         if (userData) {
-            addToast("Account", "Profile tools are coming soon.");
+            navigate("/orders");
             return;
         }
 
