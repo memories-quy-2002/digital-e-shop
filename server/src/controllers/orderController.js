@@ -70,6 +70,40 @@ async function getOrderItems(req, res) {
     }
 }
 
+async function getCustomerOrders(req, res) {
+    const uid = req.params.uid;
+
+    try {
+        const orders = await orderService.getOrdersByUserId(uid);
+        return res.status(200).json({ orders, msg: "Customer orders retrieved successfully" });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ msg: err.message });
+    }
+}
+
+async function getOrderDetail(req, res) {
+    const orderId = req.params.oid;
+
+    try {
+        const order = await orderService.getOrderDetail(orderId);
+        if (!order) {
+            return res.status(404).json({ msg: "Order not found" });
+        }
+
+        const isOwner = req.user?.id === order.user_id;
+        const isAdmin = String(req.user?.role || "").toLowerCase() === "admin";
+        if (!isOwner && !isAdmin) {
+            return res.status(403).json({ msg: "Forbidden" });
+        }
+
+        return res.status(200).json({ order, msg: "Order detail retrieved successfully" });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ msg: err.message });
+    }
+}
+
 async function changeOrderStatus(req, res) {
     const orderId = req.params.oid;
     const { status } = req.body;
@@ -107,18 +141,19 @@ async function makePurchase(req, res) {
     }
 
     try {
-        const orderId = await orderService.makePurchase(uid, {
+        const order = await orderService.makePurchase(uid, {
             totalPrice,
             cart,
             discount,
             shippingAddress,
             paymentMethod,
         });
-        console.log("[makePurchase] success", { requestId, orderId });
+        console.log("[makePurchase] success", { requestId, orderId: order.id });
         res.status(201).json({
-            orderId,
+            orderId: order.id,
+            order,
             paymentMethod,
-            msg: `Order has been created successfully with id = ${orderId}`,
+            msg: `Order has been created successfully with id = ${order.id}`,
         });
     } catch (err) {
         console.error("[makePurchase] error", { requestId, err: err?.message || err });
@@ -133,6 +168,11 @@ async function applyDiscount(req, res) {
         const discount = await orderService.applyDiscount(discountCode);
         if (!discount) {
             return res.status(404).json({ msg: "Discount code not found" });
+        }
+
+        const minOrderValue = Number(discount.min_order_value) || 0;
+        if (Number(price) < minOrderValue) {
+            return res.status(400).json({ msg: `This promotion requires a minimum order of $${minOrderValue.toFixed(2)}` });
         }
 
         const discountPercent = discount.discount_percent;
@@ -150,6 +190,8 @@ async function applyDiscount(req, res) {
 module.exports = {
     makePurchase,
     getOrders,
+    getCustomerOrders,
+    getOrderDetail,
     changeOrderStatus,
     getOrderItems,
     applyDiscount,

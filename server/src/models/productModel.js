@@ -1,5 +1,18 @@
 const pool = require("../config/db");
 
+const productRatingJoin = `
+    LEFT JOIN (
+        SELECT product_id, COUNT(*) AS reviews, ROUND(COALESCE(AVG(rating), 0), 1) AS rating
+        FROM reviews
+        GROUP BY product_id
+    ) review_summary ON review_summary.product_id = products.id
+`;
+
+const productRatingSelect = `
+    COALESCE(review_summary.rating, 0) AS rating,
+    COALESCE(review_summary.reviews, 0) AS reviews
+`;
+
 // Insert product
 const insertProduct = (product, callback) => {
     pool.query(
@@ -44,11 +57,12 @@ const getProductById = (pid, callback) => {
     pool.query(
         `SELECT products.id, products.name, description, categories.name AS category,
             brands.name AS brand, price, sale_price, stock, main_image,
-            specifications, rating, reviews
+            specifications, ${productRatingSelect}
         FROM products
         JOIN categories ON categories.id = products.category_id
         JOIN brands ON brands.id = products.brand_id
-        WHERE products.id = ?`,
+        ${productRatingJoin}
+        WHERE products.id = ? AND products.stock >= 0`,
         [pid],
         callback
     );
@@ -59,10 +73,12 @@ const getAllProducts = (callback) => {
     pool.query(
         `SELECT products.id, products.name, description, categories.name AS category,
             brands.name AS brand, price, sale_price, stock, main_image,
-            specifications, rating, reviews
+            specifications, ${productRatingSelect}
         FROM products
         JOIN categories ON categories.id = products.category_id
-        JOIN brands ON brands.id = products.brand_id`,
+        JOIN brands ON brands.id = products.brand_id
+        ${productRatingJoin}
+        WHERE products.stock >= 0`,
         callback
     );
 };
@@ -71,10 +87,12 @@ const getAllProductsPaginated = (limit, offset, callback) => {
     pool.query(
         `SELECT products.id, products.name, description, categories.name AS category,
             brands.name AS brand, price, sale_price, stock, main_image,
-            specifications, rating, reviews
+            specifications, ${productRatingSelect}
         FROM products
         JOIN categories ON categories.id = products.category_id
         JOIN brands ON brands.id = products.brand_id
+        ${productRatingJoin}
+        WHERE products.stock >= 0
         ORDER BY products.id DESC
         LIMIT ? OFFSET ?`,
         [limit, offset],
@@ -83,12 +101,51 @@ const getAllProductsPaginated = (limit, offset, callback) => {
 };
 
 const getProductsCount = (callback) => {
-    pool.query("SELECT COUNT(*) AS total FROM products", callback);
+    pool.query("SELECT COUNT(*) AS total FROM products WHERE stock >= 0", callback);
+};
+
+const getInventorySummary = (callback) => {
+    pool.query(
+        `SELECT
+            COUNT(*) AS total_products,
+            SUM(CASE WHEN stock = 0 THEN 1 ELSE 0 END) AS out_of_stock,
+            SUM(CASE WHEN stock > 0 AND stock <= 5 THEN 1 ELSE 0 END) AS low_stock,
+            SUM(CASE WHEN stock > 5 THEN 1 ELSE 0 END) AS healthy_stock,
+            SUM(stock) AS total_units
+        FROM products
+        WHERE stock >= 0`,
+        callback
+    );
+};
+
+const updateProductStock = (pid, stock, callback) => {
+    pool.query("UPDATE products SET stock = ? WHERE id = ? AND stock >= 0", [stock, pid], callback);
 };
 
 // Delete product
 const deleteProduct = (pid, callback) => {
-    pool.query("DELETE FROM products WHERE id = ?", [pid], callback);
+    pool.query("UPDATE products SET stock = -1 WHERE id = ?", [pid], callback);
+};
+
+// Update editable product fields
+const updateProductDetails = (pid, product, callback) => {
+    pool.query(
+        `UPDATE products
+        SET name = ?, description = ?, category_id = ?, brand_id = ?, specifications = ?, price = ?, sale_price = ?, stock = ?
+        WHERE id = ?`,
+        [
+            product.name,
+            product.description,
+            product.categoryId,
+            product.brandId,
+            product.specifications,
+            product.price,
+            product.salePrice,
+            product.stock,
+            pid,
+        ],
+        callback
+    );
 };
 
 // Get relevant products by product id (same category or brand)
@@ -97,16 +154,83 @@ const getRelevantProductsByProductId = (pid, limit, callback) => {
         SELECT p.id AS product_id, p.name AS product_name
         FROM products p
         JOIN products base ON base.id = ?
+        LEFT JOIN (
+            SELECT product_id, ROUND(COALESCE(AVG(rating), 0), 1) AS rating
+            FROM reviews
+            GROUP BY product_id
+        ) review_summary ON review_summary.product_id = p.id
         WHERE p.id <> base.id
+            AND p.stock >= 0
             AND (p.category_id = base.category_id OR p.brand_id = base.brand_id)
         ORDER BY
             (p.category_id = base.category_id) DESC,
             (p.brand_id = base.brand_id) DESC,
-            p.rating DESC,
+            COALESCE(review_summary.rating, 0) DESC,
             p.id DESC
         LIMIT ?
     `;
     pool.query(sql, [pid, limit], callback);
+};
+
+const getRecommendedProductsByUserId = (uid, limit, callback) => {
+    const sql = `
+        SELECT
+            p.id,
+            p.name,
+            p.description,
+            c.name AS category,
+            b.name AS brand,
+            p.price,
+            p.sale_price,
+            p.stock,
+            p.main_image,
+            p.specifications,
+            COALESCE(review_summary.rating, 0) AS rating,
+            COALESCE(review_summary.reviews, 0) AS reviews
+        FROM products p
+        JOIN categories c ON c.id = p.category_id
+        JOIN brands b ON b.id = p.brand_id
+        LEFT JOIN (
+            SELECT product_id, COUNT(*) AS reviews, ROUND(COALESCE(AVG(rating), 0), 1) AS rating
+            FROM reviews
+            GROUP BY product_id
+        ) review_summary ON review_summary.product_id = p.id
+        LEFT JOIN (
+            SELECT oi.product_id, SUM(oi.quantity) AS sales
+            FROM order_items oi
+            JOIN orders o ON o.id = oi.order_id
+            WHERE o.status <> 2
+            GROUP BY oi.product_id
+        ) sales_summary ON sales_summary.product_id = p.id
+        WHERE p.stock > 0
+        ORDER BY
+            (
+                CASE WHEN EXISTS (
+                    SELECT 1
+                    FROM orders o
+                    JOIN order_items oi ON oi.order_id = o.id
+                    JOIN products purchased ON purchased.id = oi.product_id
+                    WHERE o.user_id = ? AND purchased.category_id = p.category_id
+                ) THEN 5 ELSE 0 END
+                + CASE WHEN EXISTS (
+                    SELECT 1
+                    FROM orders o
+                    JOIN order_items oi ON oi.order_id = o.id
+                    JOIN products purchased ON purchased.id = oi.product_id
+                    WHERE o.user_id = ? AND purchased.brand_id = p.brand_id
+                ) THEN 3 ELSE 0 END
+                + CASE WHEN EXISTS (
+                    SELECT 1
+                    FROM wishlist w
+                    WHERE w.user_id = ? AND w.product_id = p.id
+                ) THEN 4 ELSE 0 END
+                + COALESCE(sales_summary.sales, 0) * 0.2
+                + COALESCE(review_summary.rating, 0)
+            ) DESC,
+            p.id DESC
+        LIMIT ?
+    `;
+    pool.query(sql, [uid, uid, uid, limit], callback);
 };
 
 module.exports = {
@@ -119,6 +243,10 @@ module.exports = {
     getAllProducts,
     getAllProductsPaginated,
     getProductsCount,
+    getInventorySummary,
     deleteProduct,
+    updateProductDetails,
+    updateProductStock,
     getRelevantProductsByProductId,
+    getRecommendedProductsByUserId,
 };

@@ -39,7 +39,7 @@ async function makePurchase(uid, { totalPrice, cart, discount, shippingAddress, 
             console.log("[makePurchase] cart updated");
 
             const orderResult = await q(
-                "INSERT INTO orders (user_id, total_price, discount, shipping_address, payment_method) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO orders (user_id, total_price, discount, shipping_address, payment_method, date_added) VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP())",
                 [uid, totalPrice, discount, shippingAddress, paymentMethod]
             );
             const orderId = orderResult.insertId;
@@ -98,7 +98,13 @@ async function makePurchase(uid, { totalPrice, cart, discount, shippingAddress, 
 
             await commit();
             console.log("[makePurchase] commit ok", { orderId, ms: Date.now() - startedAt });
-            return orderId;
+            const [order] = await q(
+                `SELECT id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
+                FROM orders
+                WHERE id = ?`,
+                [orderId]
+            );
+            return order || { id: orderId, date_added: new Date().toISOString() };
         } catch (err) {
             console.error("[makePurchase] item processing error", err);
             try {
@@ -142,6 +148,55 @@ async function getOrdersCount() {
         Order.getOrdersCount((err, results) => {
             if (err) return reject(err);
             resolve(results[0]?.total || 0);
+        });
+    });
+}
+
+async function getOrdersByUserId(uid) {
+    return new Promise((resolve, reject) => {
+        Order.getOrdersByUserId(uid, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
+async function getOrderDetail(orderId) {
+    return new Promise((resolve, reject) => {
+        Order.getOrderDetail(orderId, (err, results) => {
+            if (err) return reject(err);
+            if (results.length === 0) return resolve(null);
+
+            const first = results[0];
+            const order = {
+                id: first.id,
+                date_added: first.date_added,
+                user_id: first.user_id,
+                customer_name: first.customer_name,
+                customer_email: first.customer_email,
+                status: first.status,
+                total_price: Number(first.total_price) || 0,
+                discount: Number(first.discount) || 0,
+                shipping_address: first.shipping_address,
+                payment_method: first.payment_method,
+                items: results
+                    .filter((row) => row.product_id)
+                    .map((row) => ({
+                        id: row.order_item_id,
+                        productId: row.product_id,
+                        productName: row.product_name,
+                        category: row.category,
+                        brand: row.brand,
+                        price: Number(row.price) || 0,
+                        sale_price: row.sale_price === null ? null : Number(row.sale_price) || null,
+                        stock: Number(row.stock) || 0,
+                        main_image: row.main_image,
+                        quantity: Number(row.quantity) || 0,
+                        totalPrice: Number(row.item_total_price) || 0,
+                    })),
+            };
+
+            resolve(order);
         });
     });
 }
@@ -204,6 +259,8 @@ module.exports = {
     getOrders,
     getOrdersPaginated,
     getOrdersCount,
+    getOrdersByUserId,
+    getOrderDetail,
     changeOrderStatus,
     getOrderItems,
     getOrderItemsPaginated,

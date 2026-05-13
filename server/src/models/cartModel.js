@@ -47,6 +47,7 @@ const getCartItemsDetails = (cartId, callback) => {
             c.name AS category,
             p.price,
             p.sale_price,
+            p.stock,
             p.main_image,
             ci.quantity
         FROM
@@ -57,8 +58,27 @@ const getCartItemsDetails = (cartId, callback) => {
             p.brand_id = b.id
         JOIN categories c ON
             p.category_id = c.id
-        WHERE ci.cart_id = ?;  `,
+        WHERE ci.cart_id = ? AND p.stock >= 0;  `,
         [cartId],
+        callback
+    );
+}
+
+const updateCartItemQuantity = (cartItemId, quantity, callback) => {
+    pool.query(
+        `UPDATE cart_items SET quantity = ? WHERE id = ?`,
+        [quantity, cartItemId],
+        callback
+    );
+}
+
+const getCartItemStock = (cartItemId, callback) => {
+    pool.query(
+        `SELECT p.stock
+        FROM cart_items ci
+        JOIN products p ON p.id = ci.product_id
+        WHERE ci.id = ?`,
+        [cartItemId],
         callback
     );
 }
@@ -77,5 +97,7 @@ module.exports = {
     addItemToCart,
     getCartItemsByUserId,
     getCartItemsDetails,
+    updateCartItemQuantity,
+    getCartItemStock,
     deleteCartItem
 }

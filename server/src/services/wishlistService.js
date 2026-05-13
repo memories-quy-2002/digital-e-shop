@@ -37,8 +37,24 @@ async function deleteWishlistItem(uid, pid) {
     });
 }
 
+async function deleteWishlistItems(uid, productIds) {
+    return new Promise((resolve, reject) => {
+        if (!Array.isArray(productIds) || productIds.length === 0) {
+            return resolve("No wishlist items selected.");
+        }
+
+        Wishlist.deleteWishlistItems(uid, productIds, (err) => {
+            if (err) {
+                return reject(err);
+            }
+            resolve(`${productIds.length} wishlist item(s) deleted for user_id = ${uid}`);
+        });
+    });
+}
+
 module.exports = {
     addItemToWishlist,
     getWishlist,
-    deleteWishlistItem
+    deleteWishlistItem,
+    deleteWishlistItems
 }

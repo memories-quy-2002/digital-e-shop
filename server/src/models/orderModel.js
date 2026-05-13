@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const { ensurePromotionColumns } = require("./promotionModel");
 
 const QUERY_TIMEOUT = 8000;
 
@@ -27,7 +28,7 @@ const updateCartDone = (uid, callback) => {
 
 const insertOrder = (uid, totalPrice, discount, shippingAddress, paymentMethod, callback) => {
     query(
-        "INSERT INTO orders (user_id, total_price, discount, shipping_address, payment_method) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO orders (user_id, total_price, discount, shipping_address, payment_method, date_added) VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP())",
         [uid, totalPrice, discount, shippingAddress, paymentMethod],
         callback
     );
@@ -45,12 +46,30 @@ const updateProductStock = (productId, quantity, callback) => {
     query("UPDATE products SET stock = stock - ? WHERE id = ?", [quantity, productId], callback);
 };
 
+const orderSelect = `
+    o.id,
+    o.user_id,
+    COALESCE(u.username, o.user_id) AS customer_name,
+    u.email AS customer_email,
+    DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added,
+    o.total_price,
+    o.discount,
+    o.status,
+    o.shipping_address,
+    o.payment_method
+`;
+
+const orderUserJoin = `
+    FROM orders o
+    LEFT JOIN users u ON u.id = o.user_id
+`;
+
 const getOrders = (callback) => {
-    query(`SELECT * FROM orders`, callback);
+    query(`SELECT ${orderSelect} ${orderUserJoin} ORDER BY o.date_added DESC`, callback);
 };
 
 const getOrdersPaginated = (limit, offset, callback) => {
-    query(`SELECT * FROM orders ORDER BY date_added DESC LIMIT ? OFFSET ?`, [limit, offset], callback);
+    query(`SELECT ${orderSelect} ${orderUserJoin} ORDER BY o.date_added DESC LIMIT ? OFFSET ?`, [limit, offset], callback);
 };
 
 const getOrdersCount = (callback) => {
@@ -62,7 +81,41 @@ const updateOrderStatus = (orderId, status, callback) => {
 };
 
 const getOrderById = (orderId, callback) => {
-    query(`SELECT * FROM orders WHERE id = ?`, [orderId], callback);
+    query(`SELECT ${orderSelect} ${orderUserJoin} WHERE o.id = ?`, [orderId], callback);
+};
+
+const getOrdersByUserId = (uid, callback) => {
+    query(`SELECT ${orderSelect} ${orderUserJoin} WHERE o.user_id = ? ORDER BY o.date_added DESC`, [uid], callback);
+};
+
+const getOrderDetail = (orderId, callback) => {
+    query(
+        `SELECT 
+            o.*,
+            COALESCE(u.username, o.user_id) AS customer_name,
+            u.email AS customer_email,
+            DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added,
+            oi.id AS order_item_id,
+            oi.product_id,
+            oi.quantity,
+            oi.total_price AS item_total_price,
+            p.name AS product_name,
+            p.price,
+            p.sale_price,
+            p.stock,
+            p.main_image,
+            c.name AS category,
+            b.name AS brand
+        FROM orders o
+        LEFT JOIN users u ON u.id = o.user_id
+        LEFT JOIN order_items oi ON oi.order_id = o.id
+        LEFT JOIN products p ON p.id = oi.product_id
+        LEFT JOIN categories c ON c.id = p.category_id
+        LEFT JOIN brands b ON b.id = p.brand_id
+        WHERE o.id = ?`,
+        [orderId],
+        callback
+    );
 };
 
 const getOrderItems = (callback) => {
@@ -129,7 +182,19 @@ const getOrderItemsCount = (callback) => {
 };
 
 const applyDiscount = (discountCode, callback) => {
-    query(`SELECT * FROM discounts WHERE discount_code = ?`, [discountCode], callback);
+    ensurePromotionColumns((err) => {
+        if (err) return callback(err);
+        query(
+            `SELECT *
+            FROM discounts
+            WHERE discount_code = ?
+                AND active = 1
+                AND (starts_at IS NULL OR starts_at <= UTC_TIMESTAMP())
+                AND (expires_at IS NULL OR expires_at >= UTC_TIMESTAMP())`,
+            [discountCode],
+            callback
+        );
+    });
 };
 
 module.exports = {
@@ -144,6 +209,8 @@ module.exports = {
     getOrdersPaginated,
     getOrdersCount,
     getOrderById,
+    getOrdersByUserId,
+    getOrderDetail,
     updateOrderStatus,
     getOrderItems,
     getOrderItemsPaginated,

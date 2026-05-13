@@ -5,7 +5,11 @@ const {
     getSingleProduct,
     getListProduct,
     deleteProduct,
-    retrieveRelevantProducts
+    getInventorySummary,
+    updateInventory,
+    updateProduct,
+    retrieveRelevantProducts,
+    getRecommendations
 } = require("../controllers/productController");
 const { requireAdmin } = require("../middlewares/authMiddleWares");
 const router = express.Router();
@@ -23,7 +27,11 @@ const productLimiter = rateLimit({
 
 router.get("/:id", productLimiter, getSingleProduct);
 router.get("/", productLimiter, getListProduct);
+router.get("/admin/inventory-summary", productLimiter, requireAdmin, getInventorySummary);
+router.get("/recommendations/:uid", productLimiter, getRecommendations);
 router.post("/add", productLimiter, requireAdmin, addSingleProduct);
+router.put("/:id/inventory", productLimiter, requireAdmin, updateInventory);
+router.put("/:id", productLimiter, requireAdmin, updateProduct);
 router.delete("/", productLimiter, requireAdmin, deleteProduct);
 router.get("/relevant/:pid", productLimiter, retrieveRelevantProducts);
 router.get('/images/:filename', async (req, res) => {

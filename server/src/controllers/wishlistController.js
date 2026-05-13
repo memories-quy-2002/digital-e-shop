@@ -47,8 +47,25 @@ async function deleteWishlistItem(req, res) {
     }
 }
 
+async function deleteWishlistItems(req, res) {
+    const { uid, productIds } = req.body;
+    try {
+        const msg = await wishlistService.deleteWishlistItems(uid, productIds);
+        return res.status(200).json({
+            msg: msg,
+        });
+    } catch (err) {
+        console.error(err.message);
+        return res.status(500).json({
+            msg: "Error deleting wishlist items",
+            error: err.message,
+        });
+    }
+}
+
 module.exports = {
     addItemToWishlist,
     getWishlist,
     deleteWishlistItem,
+    deleteWishlistItems,
 };

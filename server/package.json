@@ -5,7 +5,10 @@
     "main": "src/app.js",
     "scripts": {
         "start": "nodemon src/app.js",
-        "dev": "nodemon src/app.js"
+        "dev": "nodemon src/app.js",
+        "seed:mock": "node scripts/seedMockOrdersReviews.js",
+        "perf:readonly": "k6 run test/performance-test.js",
+        "perf:admin-readonly": "k6 run test/k6-admin-readonly.js"
     },
     "author": "",
     "license": "ISC",

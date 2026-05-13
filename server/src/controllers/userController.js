@@ -75,6 +75,37 @@ async function getAllUsers(req, res) {
     }
 }
 
+async function updateUserAdmin(req, res) {
+    const uid = req.params.id;
+    const { role, status } = req.body;
+    const validRoles = ["Customer", "Admin"];
+    const validStatuses = ["Active", "Suspended"];
+
+    if (!validRoles.includes(role) || !validStatuses.includes(status)) {
+        return res.status(400).json({ msg: "Invalid role or status" });
+    }
+
+    try {
+        const account = await userService.updateUserAdmin(uid, { role, status });
+        return res.status(200).json({ account, msg: "Account updated successfully" });
+    } catch (err) {
+        return res.status(500).json({ msg: err.message || "Error updating account" });
+    }
+}
+
+async function getCustomerProfile(req, res) {
+    try {
+        const profile = await userService.getCustomerProfile(req.params.id);
+        if (!profile) {
+            return res.status(404).json({ msg: "Customer not found" });
+        }
+        return res.status(200).json({ profile, msg: "Customer profile retrieved successfully" });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ msg: "Error fetching customer profile" });
+    }
+}
+
 async function userLogin(req, res) {
     const { uid, role, rememberMe } = req.body;
     try {
@@ -174,4 +205,6 @@ module.exports = {
     userRefreshToken,
     userLogout,
     getAllUsers,
+    updateUserAdmin,
+    getCustomerProfile,
 };

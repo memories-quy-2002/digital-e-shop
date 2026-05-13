@@ -1,12 +1,12 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
-const { addReview, getReviews } = require("../controllers/reviewController");
-const { requireAuth, requireOwnerOrAdmin } = require("../middlewares/authMiddleWares");
+const { getAnalyticsSummary } = require("../controllers/analyticsController");
+const { requireAdmin } = require("../middlewares/authMiddleWares");
 const { getRouteLimit } = require("../utils/rateLimitConfig");
 
 const router = express.Router();
 
-const reviewLimiter = rateLimit({
+const analyticsLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: getRouteLimit(100),
     standardHeaders: true,
@@ -14,7 +14,6 @@ const reviewLimiter = rateLimit({
     message: "Too many requests, please try again later.",
 });
 
-router.get("/:pid", reviewLimiter, getReviews);
-router.post("/", reviewLimiter, requireAuth, requireOwnerOrAdmin("uid"), addReview);
+router.get("/summary", analyticsLimiter, requireAdmin, getAnalyticsSummary);
 
 module.exports = router;

@@ -74,6 +74,62 @@ function deleteProduct(req, res) {
     });
 }
 
+function getInventorySummary(req, res) {
+    Product.getInventorySummary((err, results) => {
+        if (err) return res.status(500).json({ msg: "Internal server error" });
+        const summary = results?.[0] || {};
+        return res.status(200).json({
+            summary: {
+                total_products: Number(summary.total_products) || 0,
+                out_of_stock: Number(summary.out_of_stock) || 0,
+                low_stock: Number(summary.low_stock) || 0,
+                healthy_stock: Number(summary.healthy_stock) || 0,
+                total_units: Number(summary.total_units) || 0,
+            },
+            msg: "Inventory summary retrieved successfully",
+        });
+    });
+}
+
+function updateInventory(req, res) {
+    const pid = Number(req.params.id);
+    const stock = Number(req.body.stock);
+
+    if (!Number.isInteger(pid) || pid <= 0 || !Number.isInteger(stock) || stock < 0) {
+        return res.status(400).json({ msg: "Product id and stock must be valid" });
+    }
+
+    Product.updateProductStock(pid, stock, (err, result) => {
+        if (err) return res.status(500).json({ msg: "Internal server error" });
+        if (result.affectedRows === 0) return res.status(404).json({ msg: "Product not found" });
+        Product.getProductById(pid, (findErr, rows) => {
+            if (findErr) return res.status(500).json({ msg: "Internal server error" });
+            return res.status(200).json({ product: rows[0], msg: "Inventory updated successfully" });
+        });
+    });
+}
+
+async function updateProduct(req, res) {
+    const pid = Number(req.params.id);
+
+    if (!Number.isInteger(pid) || pid <= 0) {
+        return res.status(400).json({ msg: "Invalid product id" });
+    }
+
+    try {
+        const product = await productService.updateProductDetailsService(pid, req.body);
+        return res.status(200).json({
+            product,
+            msg: "Product has been updated successfully",
+        });
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        return res.status(statusCode).json({
+            msg: statusCode === 500 ? "Internal server error" : err.message,
+        });
+    }
+}
+
 async function retrieveRelevantProducts(req, res) {
     const pid = parseInt(req.params.pid);
     if (!pid) {
@@ -136,10 +192,30 @@ async function retrieveRelevantProducts(req, res) {
     }
 }
 
+function getRecommendations(req, res) {
+    const uid = req.params.uid || "";
+    const limit = Math.min(Number(req.query.limit) || 12, 24);
+
+    Product.getRecommendedProductsByUserId(uid, limit, (err, results) => {
+        if (err) {
+            console.error("Recommendation error: ", err.message);
+            return res.status(500).json({ msg: "Unable to load recommendations" });
+        }
+        return res.status(200).json({
+            products: results || [],
+            msg: "Recommendations retrieved successfully",
+        });
+    });
+}
+
 module.exports = {
     addSingleProduct,
     getSingleProduct,
     getListProduct,
     deleteProduct,
+    getInventorySummary,
+    updateInventory,
+    updateProduct,
     retrieveRelevantProducts,
+    getRecommendations,
 };

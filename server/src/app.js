@@ -8,6 +8,7 @@ const app = express();
 const rateLimit = require("express-rate-limit");
 const requestLogger = require("./middlewares/requestLogger");
 const errorHandler = require("./middlewares/errorHandler");
+const { getRouteLimit } = require("./utils/rateLimitConfig");
 
 const PORT = process.env.PORT || 4000;
 
@@ -72,7 +73,7 @@ const { doubleCsrfProtection, generateCsrfToken, invalidCsrfTokenError } = doubl
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 500,
+    max: getRouteLimit(500),
     standardHeaders: true,
     legacyHeaders: false,
     message: "Too many authentication attempts, please try again later.",
@@ -98,6 +99,8 @@ const orderRoutes = require("./routes/orderRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
 const wishlistRoutes = require("./routes/wishlistRoutes");
 const blobRoutes = require("./routes/blobRoutes");
+const promotionRoutes = require("./routes/promotionRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
 
 app.use("/api/users/login", authLimiter);
 app.use("/api/users/register", authLimiter);
@@ -111,6 +114,8 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/blob", blobRoutes);
+app.use("/api/promotions", promotionRoutes);
+app.use("/api/analytics", analyticsRoutes);
 
 // Fallback routes for serverless environments that strip the /api prefix
 app.use("/users/login", authLimiter);
@@ -122,6 +127,8 @@ app.use("/orders", orderRoutes);
 app.use("/reviews", reviewRoutes);
 app.use("/wishlist", wishlistRoutes);
 app.use("/blob", blobRoutes);
+app.use("/promotions", promotionRoutes);
+app.use("/analytics", analyticsRoutes);
 
 app.get('/get-user', (req, res) => {
     res.send(req.cookies);

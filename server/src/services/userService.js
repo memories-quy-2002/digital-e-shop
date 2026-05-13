@@ -34,6 +34,7 @@ async function loginUser(uid, role, rememberMe) {
 
             const user = results[0];
             if (role && user.role !== role) return reject(new Error("Invalid username, password, or role"));
+            if (user.status === "Suspended") return reject(new Error("Account is suspended"));
 
             const payload = { id: user.id, email: user.email, role: user.role };
             const accessToken = jwt.sign(payload, process.env.JWT_SECRET_KEY, {
@@ -113,6 +114,54 @@ async function getUsersCount() {
     });
 }
 
+async function updateUserAdmin(uid, { role, status }) {
+    return new Promise((resolve, reject) => {
+        User.updateUserAdmin(uid, role, status, (err, result) => {
+            if (err) return reject(err);
+            if (result.affectedRows === 0) return reject(new Error("User not found"));
+
+            User.getUserById(uid, (getErr, results) => {
+                if (getErr) return reject(getErr);
+                resolve(results[0]);
+            });
+        });
+    });
+}
+
+async function getCustomerProfile(uid) {
+    const [profileRows, recentOrders] = await Promise.all([
+        new Promise((resolve, reject) => {
+            User.getCustomerProfile(uid, (err, results) => {
+                if (err) return reject(err);
+                resolve(results || []);
+            });
+        }),
+        new Promise((resolve, reject) => {
+            User.getCustomerRecentOrders(uid, (err, results) => {
+                if (err) return reject(err);
+                resolve(results || []);
+            });
+        }),
+    ]);
+
+    if (profileRows.length === 0) {
+        return null;
+    }
+
+    const profile = profileRows[0];
+    return {
+        ...profile,
+        order_count: Number(profile.order_count) || 0,
+        total_spent: Number(profile.total_spent) || 0,
+        wishlist_count: Number(profile.wishlist_count) || 0,
+        recent_orders: recentOrders.map((order) => ({
+            ...order,
+            total_price: Number(order.total_price) || 0,
+            discount: Number(order.discount) || 0,
+        })),
+    };
+}
+
 async function getCurrentUser(accessToken, sessionId) {
     if (!accessToken || !sessionId) {
         throw { status: 401, msg: "Not authenticated" };
@@ -143,4 +192,6 @@ module.exports = {
     getAllUsers,
     getAllUsersPaginated,
     getUsersCount,
+    updateUserAdmin,
+    getCustomerProfile,
 };
