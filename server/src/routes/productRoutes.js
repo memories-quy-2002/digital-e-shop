@@ -11,6 +11,7 @@ const {
     retrieveRelevantProducts,
     getRecommendations
 } = require("../controllers/productController");
+const { getInventoryMovements } = require("../controllers/inventoryMovementController");
 const { requireAdmin } = require("../middlewares/authMiddleWares");
 const router = express.Router();
 const path = require("path");
@@ -25,14 +26,9 @@ const productLimiter = rateLimit({
     message: "Too many requests, please try again later.",
 });
 
-router.get("/:id", productLimiter, getSingleProduct);
-router.get("/", productLimiter, getListProduct);
 router.get("/admin/inventory-summary", productLimiter, requireAdmin, getInventorySummary);
+router.get("/admin/inventory-movements", productLimiter, requireAdmin, getInventoryMovements);
 router.get("/recommendations/:uid", productLimiter, getRecommendations);
-router.post("/add", productLimiter, requireAdmin, addSingleProduct);
-router.put("/:id/inventory", productLimiter, requireAdmin, updateInventory);
-router.put("/:id", productLimiter, requireAdmin, updateProduct);
-router.delete("/", productLimiter, requireAdmin, deleteProduct);
 router.get("/relevant/:pid", productLimiter, retrieveRelevantProducts);
 router.get('/images/:filename', async (req, res) => {
     const requestedFilename = req.params.filename + '.jpg';
@@ -44,5 +40,11 @@ router.get('/images/:filename', async (req, res) => {
 
     res.sendFile(imagePath);
 });
+router.get("/:id", productLimiter, getSingleProduct);
+router.get("/", productLimiter, getListProduct);
+router.post("/add", productLimiter, requireAdmin, addSingleProduct);
+router.put("/:id/inventory", productLimiter, requireAdmin, updateInventory);
+router.put("/:id", productLimiter, requireAdmin, updateProduct);
+router.delete("/", productLimiter, requireAdmin, deleteProduct);
 
 module.exports = router;
