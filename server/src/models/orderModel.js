@@ -1,5 +1,5 @@
 const pool = require("../config/db");
-const { ensurePromotionColumns } = require("./promotionModel");
+const Promotion = require("./promotionModel");
 
 const QUERY_TIMEOUT = 8000;
 
@@ -182,19 +182,7 @@ const getOrderItemsCount = (callback) => {
 };
 
 const applyDiscount = (discountCode, callback) => {
-    ensurePromotionColumns((err) => {
-        if (err) return callback(err);
-        query(
-            `SELECT *
-            FROM discounts
-            WHERE discount_code = ?
-                AND active = 1
-                AND (starts_at IS NULL OR starts_at <= UTC_TIMESTAMP())
-                AND (expires_at IS NULL OR expires_at >= UTC_TIMESTAMP())`,
-            [discountCode],
-            callback
-        );
-    });
+    Promotion.getActivePromotionByCode(discountCode, callback);
 };
 
 module.exports = {

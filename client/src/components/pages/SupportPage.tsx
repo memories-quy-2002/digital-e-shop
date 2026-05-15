@@ -2,26 +2,55 @@ import React, { useState } from "react";
 import "../../styles/SupportPage.scss";
 import Layout from "../layout/Layout";
 import { Helmet } from "react-helmet";
+import { Link } from "react-router-dom";
 
 const SupportPage: React.FC = () => {
     const [faqOpen, setFaqOpen] = useState<number | null>(0);
 
+    const channels = [
+        {
+            title: "Live chat",
+            text: "Fast help for product questions, checkout issues, delivery updates, and returns.",
+            detail: "Average response: 3 minutes",
+            action: "Start chat",
+        },
+        {
+            title: "Email support",
+            text: "Send details, screenshots, order IDs, or warranty documents for deeper help.",
+            detail: "support@digital-e.com",
+            action: "Send email",
+        },
+        {
+            title: "Hotline",
+            text: "Speak with a support agent when delivery, payment, or account access needs urgent attention.",
+            detail: "+84 123 456 789",
+            action: "Call now",
+        },
+    ];
+
+    const resources = [
+        { title: "Track an order", text: "Check status, payment method, delivery address, and order items from your account." },
+        { title: "Returns and refunds", text: "Review return conditions, refund timelines, and what to prepare before sending items back." },
+        { title: "Warranty help", text: "Understand coverage, repair steps, proof-of-purchase needs, and service options." },
+        { title: "Payment support", text: "Get help with cash on delivery, bank transfer confirmation, and failed checkout attempts." },
+    ];
+
     const faqs = [
         {
             q: "How can I track my order?",
-            a: "Go to your account dashboard and open Orders. Each order includes a live tracking link.",
+            a: "Sign in and open Order History. Each order shows status, payment method, total, address, and item details.",
         },
         {
-            q: "What is your return policy?",
-            a: "Returns are accepted within 30 days of delivery, unused and in original packaging.",
+            q: "Can I change the shipping address after checkout?",
+            a: "Contact support as soon as possible. Address changes are easiest before the order is confirmed or packed.",
         },
         {
-            q: "How long does delivery take?",
-            a: "Standard delivery takes 2-4 business days, express delivery takes 24-48 hours.",
+            q: "What happens if an item is out of stock?",
+            a: "Checkout blocks unavailable stock. If stock changes after purchase, support will contact you with replacement or refund options.",
         },
         {
-            q: "How can I contact support?",
-            a: "Email support@digital-e.com or call the hotline for urgent cases.",
+            q: "How do promotions work?",
+            a: "Discount codes may have active dates, minimum order values, and usage limits. The cart will validate the promotion before checkout.",
         },
     ];
 
@@ -29,86 +58,80 @@ const SupportPage: React.FC = () => {
         <Layout>
             <Helmet>
                 <title>Support | Digital-E</title>
-                <meta name="description" content="Get help and support for your Digital-E orders and products." />
+                <meta name="description" content="Get help with Digital-E orders, payments, products, warranties, and account support." />
             </Helmet>
-            <div className="support">
+            <main className="support">
                 <header className="support__hero">
                     <span className="support__hero__badge">Support Center</span>
-                    <h1>We are here to help every step of the way</h1>
-                    <p>Find answers, troubleshoot, or contact our team for fast assistance.</p>
+                    <h1>Help that keeps your order moving.</h1>
+                    <p>
+                        Find quick answers, contact our support team, or review the practical guides customers need most
+                        before and after checkout.
+                    </p>
+                    <div className="support__hero__actions">
+                        <Link to="/orders">View order history</Link>
+                        <Link to="/contact-us" className="ghost">
+                            Contact us
+                        </Link>
+                    </div>
                 </header>
 
                 <section className="support__channels" aria-labelledby="support-contact-heading">
-                    <h2 id="support-contact-heading" className="support__channels__heading">
-                        Contact options
-                    </h2>
+                    <div className="support__section-heading">
+                        <span>Contact</span>
+                        <h2 id="support-contact-heading">Choose the fastest way to reach us</h2>
+                    </div>
                     <div className="support__channels__grid">
-                    <div className="support__channels__card">
-                        <h3>Live Chat</h3>
-                        <p>Instant answers for product questions, orders, and returns.</p>
-                        <span>Average response: 3 minutes</span>
-                        <button type="button">Start chat</button>
-                    </div>
-                    <div className="support__channels__card">
-                        <h3>Email Support</h3>
-                        <p>Get detailed help within 24 hours from our specialists.</p>
-                        <span>support@digital-e.com</span>
-                        <button type="button">Send an email</button>
-                    </div>
-                    <div className="support__channels__card">
-                        <h3>Hotline</h3>
-                        <p>Speak directly with a support agent for urgent requests.</p>
-                        <span>+84 123 456 789</span>
-                        <button type="button">Call now</button>
-                    </div>
+                        {channels.map((channel) => (
+                            <article className="support__channels__card" key={channel.title}>
+                                <h3>{channel.title}</h3>
+                                <p>{channel.text}</p>
+                                <span>{channel.detail}</span>
+                                <button type="button">{channel.action}</button>
+                            </article>
+                        ))}
                     </div>
                 </section>
 
                 <section className="support__resources">
-                    <div className="support__resources__intro">
-                        <h2>Popular resources</h2>
-                        <p>Start here for self-service answers and how-to guides.</p>
+                    <div className="support__section-heading">
+                        <span>Self service</span>
+                        <h2>Popular support topics</h2>
                     </div>
                     <div className="support__resources__grid">
-                        <div className="support__resources__card">
-                            <h3>Order tracking</h3>
-                            <p>Track shipments, update addresses, and manage delivery preferences.</p>
-                        </div>
-                        <div className="support__resources__card">
-                            <h3>Returns & exchanges</h3>
-                            <p>Start a return, print a label, and view refund timelines.</p>
-                        </div>
-                        <div className="support__resources__card">
-                            <h3>Warranty & repairs</h3>
-                            <p>Check coverage, claim warranties, and book repair services.</p>
-                        </div>
-                        <div className="support__resources__card">
-                            <h3>Account security</h3>
-                            <p>Reset passwords, enable 2FA, and protect your account.</p>
-                        </div>
+                        {resources.map((resource) => (
+                            <article className="support__resources__card" key={resource.title}>
+                                <h3>{resource.title}</h3>
+                                <p>{resource.text}</p>
+                            </article>
+                        ))}
                     </div>
                 </section>
 
                 <section className="support__faq">
-                    <div className="support__faq__header">
-                        <h2>Frequently Asked Questions</h2>
-                        <p>Quick answers to the questions we get most often.</p>
+                    <div className="support__section-heading">
+                        <span>FAQ</span>
+                        <h2>Answers customers ask for most often</h2>
                     </div>
                     <div className="support__faq__list">
                         {faqs.map((item, idx) => (
                             <button
-                                key={idx}
+                                key={item.q}
                                 type="button"
                                 className={`support__faq__item ${faqOpen === idx ? "active" : ""}`}
                                 onClick={() => setFaqOpen(faqOpen === idx ? null : idx)}
+                                aria-expanded={faqOpen === idx}
                             >
-                                <div className="support__faq__item__q">{item.q}</div>
+                                <div className="support__faq__item__q">
+                                    <span>{item.q}</span>
+                                    <strong>{faqOpen === idx ? "-" : "+"}</strong>
+                                </div>
                                 {faqOpen === idx && <div className="support__faq__item__a">{item.a}</div>}
                             </button>
                         ))}
                     </div>
                 </section>
-            </div>
+            </main>
         </Layout>
     );
 };
