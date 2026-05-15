@@ -8,13 +8,14 @@
         "dev": "nodemon src/app.js",
         "seed:mock": "node scripts/seedMockOrdersReviews.js",
         "perf:readonly": "k6 run test/performance-test.js",
-        "perf:admin-readonly": "k6 run test/k6-admin-readonly.js"
+        "perf:admin-readonly": "k6 run test/k6-admin-readonly.js",
+        "perf:customer-readonly": "k6 run test/k6-customer-readonly.js"
     },
     "author": "",
     "license": "ISC",
     "dependencies": {
         "@vercel/blob": "^2.3.3",
-        "axios": "^1.16.0",
+        "axios": "^1.16.1",
         "bcryptjs": "^3.0.3",
         "body-parser": "^2.2.2",
         "cookie-parser": "^1.4.7",
@@ -23,7 +24,7 @@
         "dotenv": "^17.4.2",
         "eslint": "^10.3.0",
         "express": "^5.2.1",
-        "express-rate-limit": "^8.4.1",
+        "express-rate-limit": "^8.5.1",
         "fs": "0.0.1-security",
         "jsonwebtoken": "^9.0.3",
         "lusca": "^1.7.0",
@@ -35,7 +36,7 @@
         "path": "^0.12.7",
         "sharp": "^0.34.5",
         "streamifier": "^0.1.1",
-        "vercel": "^50.44.0"
+        "vercel": "^54.0.0"
     },
     "devDependencies": {
         "globals": "^17.6.0",
