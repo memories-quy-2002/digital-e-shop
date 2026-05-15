@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet";
+import { useSearchParams } from "react-router-dom";
 import axios from "../../api/axios";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
@@ -32,6 +33,13 @@ type OrderItem = {
 
 type OrderDetail = Order & {
     items: OrderItem[];
+    timeline?: Array<{
+        id: number;
+        label: string;
+        note: string | null;
+        created_at: string | null;
+        status: number;
+    }>;
 };
 
 const getStatusLabel = (status: number) => {
@@ -50,6 +58,7 @@ const formatCurrency = (value: number) => `$${Number(value || 0).toFixed(2)}`;
 
 const OrderHistoryPage = () => {
     const { userData } = useAuth();
+    const [searchParams] = useSearchParams();
     const uid = userData?.id || "";
     const { addToast } = useToast();
     const [orders, setOrders] = useState<Order[]>([]);
@@ -104,9 +113,11 @@ const OrderHistoryPage = () => {
 
     useEffect(() => {
         if (!selectedOrderId && orders.length > 0) {
-            setSelectedOrderId(orders[0].id);
+            const requestedOrderId = Number(searchParams.get("order"));
+            const requestedOrder = orders.find((order) => order.id === requestedOrderId);
+            setSelectedOrderId(requestedOrder?.id || orders[0].id);
         }
-    }, [orders, selectedOrderId]);
+    }, [orders, searchParams, selectedOrderId]);
 
     const handleReorder = async () => {
         if (!uid || !orderDetail) return;
@@ -205,9 +216,16 @@ const OrderHistoryPage = () => {
                                     </div>
 
                                     <div className="order-history__timeline">
-                                        <span className="is-done">Placed</span>
-                                        <span className={orderDetail.status === 1 ? "is-done" : ""}>Confirmed</span>
-                                        <span className={orderDetail.status === 1 ? "is-done" : ""}>Completed</span>
+                                        {(orderDetail.timeline && orderDetail.timeline.length > 0
+                                            ? orderDetail.timeline
+                                            : [{ id: 0, label: "Placed", note: "Order was placed.", created_at: orderDetail.date_added, status: orderDetail.status }]
+                                        ).map((event) => (
+                                            <span key={`${event.id}-${event.label}`} className="is-done">
+                                                <strong>{event.label}</strong>
+                                                <small>{event.created_at ? formatUtcDateTime(event.created_at) : ""}</small>
+                                                {event.note ? <em>{event.note}</em> : null}
+                                            </span>
+                                        ))}
                                     </div>
 
                                     <div className="order-history__items">

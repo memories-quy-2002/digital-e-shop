@@ -32,6 +32,13 @@ type OrderDetail = Order & {
         quantity: number;
         totalPrice: number;
     }>;
+    timeline?: Array<{
+        id: number;
+        label: string;
+        note: string | null;
+        created_at: string | null;
+        status: number;
+    }>;
 };
 
 const ITEMS_PER_PAGE = 8;
@@ -458,9 +465,16 @@ const AdminOrderPage = () => {
                                     </div>
                                 </div>
                                 <div className="admin__order-detail__timeline">
-                                    <span className="is-done">Placed</span>
-                                    <span className={selectedOrder.status === 1 ? "is-done" : ""}>Confirmed</span>
-                                    <span className={selectedOrder.status === 1 ? "is-done" : ""}>Completed</span>
+                                    {(selectedOrder.timeline && selectedOrder.timeline.length > 0
+                                        ? selectedOrder.timeline
+                                        : [{ id: 0, label: "Placed", note: "Order was placed.", created_at: String(selectedOrder.date_added), status: selectedOrder.status }]
+                                    ).map((event) => (
+                                        <span key={`${event.id}-${event.label}`} className="is-done">
+                                            <strong>{event.label}</strong>
+                                            <small>{event.created_at ? formatUtcDateTime(event.created_at) : ""}</small>
+                                            {event.note ? <em>{event.note}</em> : null}
+                                        </span>
+                                    ))}
                                 </div>
                                 <div className="admin__order-detail__address">
                                     <span>Shipping address</span>
