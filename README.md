@@ -69,6 +69,15 @@ digital-e-shop/
   pnpm-lock.yaml          Root lockfile for client and server
 ```
 
+## Documentation
+
+- [Changelog](./CHANGELOG.md)
+- [Contributing Guide](./CONTRIBUTING.md)
+- [Architecture](./docs/ARCHITECTURE.md)
+- [API Guide](./docs/API.md)
+- [Development Guide](./docs/DEVELOPMENT.md)
+- [Testing Guide](./docs/TESTING.md)
+
 ## Prerequisites
 
 - Node.js compatible with the current package set.
