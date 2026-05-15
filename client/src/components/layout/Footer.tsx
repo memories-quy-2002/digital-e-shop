@@ -40,23 +40,23 @@ const socialLinks = [
 const trustItems = [
     {
         icon: <BoxSeamIcon size={18} />,
-        title: "Tracked delivery",
-        text: "Shipping updates from checkout to doorstep.",
+        title: "Order tracking",
+        text: "Clear order status from checkout to delivery.",
     },
     {
         icon: <CreditCardIcon size={18} />,
-        title: "Secure payments",
-        text: "Protected card handling and verified checkout flow.",
+        title: "Safer checkout",
+        text: "Stock validation and protected payment choices.",
     },
     {
         icon: <CashStackIcon size={18} />,
-        title: "Clear pricing",
-        text: "Straightforward promos and no hidden surprises.",
+        title: "Honest pricing",
+        text: "Promotions, totals, and discounts shown clearly.",
     },
     {
         icon: <CheckCircleIcon size={18} />,
-        title: "Curated products",
-        text: "Tech picks chosen for practical everyday setups.",
+        title: "Practical curation",
+        text: "Electronics selected for real everyday setups.",
     },
 ];
 
@@ -96,9 +96,15 @@ const Footer = () => {
                             DIGITAL-E
                         </Link>
                         <p className="footer__brand__text">
-                            A modern electronics storefront for productivity gear, creative tools, gaming hardware,
-                            and connected home essentials.
+                            Digital-E helps customers choose dependable electronics with clearer product details,
+                            smarter recommendations, and order support that stays visible after checkout.
                         </p>
+
+                        <div className="footer__brand__status">
+                            <span>UTC order timestamps</span>
+                            <span>Low-stock validation</span>
+                            <span>Customer support daily</span>
+                        </div>
 
                         <div className="footer__contact">
                             <a href="tel:+841234567890">
@@ -162,7 +168,7 @@ const Footer = () => {
 
                         <div className="footer__col footer__col--newsletter">
                             <h2 className="footer__col__heading">Stay in the loop</h2>
-                            <p>Get launch drops, promotions, and product highlights in your inbox.</p>
+                            <p>Get launch notes, support guides, limited promotions, and product highlights.</p>
                             <div className="footer__newsletter">
                                 <label className="footer__sr-only" htmlFor={newsletterInputId}>
                                     Email address for newsletter subscription
@@ -180,6 +186,10 @@ const Footer = () => {
                                 </button>
                             </div>
                             <small>No spam. Just launches, offers, and useful tech updates.</small>
+                            <div className="footer__payments" aria-label="Supported payment methods">
+                                <span>Bank transfer</span>
+                                <span>Cash on delivery</span>
+                            </div>
                         </div>
                     </div>
                 </section>

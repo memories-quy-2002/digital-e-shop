@@ -187,16 +187,20 @@ const HomePage = () => {
             }
 
             try {
-                const response = await axios.get(`/api/products/recommendations/${userData.id}?limit=${DISPLAYED_NUMBER}`);
+                const response = await axios.get(
+                    `/api/products/recommendations/${userData.id}?limit=${DISPLAYED_NUMBER}`,
+                );
                 if (response.status === 200) {
-                    setSmartRecommendations((response.data.products || []).map((product: Product) => ({
-                        ...product,
-                        price: Number(product.price) || 0,
-                        sale_price: product.sale_price === null ? null : Number(product.sale_price) || null,
-                        stock: Number(product.stock) || 0,
-                        rating: Number(product.rating) || 0,
-                        reviews: Number(product.reviews) || 0,
-                    })));
+                    setSmartRecommendations(
+                        (response.data.products || []).map((product: Product) => ({
+                            ...product,
+                            price: Number(product.price) || 0,
+                            sale_price: product.sale_price === null ? null : Number(product.sale_price) || null,
+                            stock: Number(product.stock) || 0,
+                            rating: Number(product.rating) || 0,
+                            reviews: Number(product.reviews) || 0,
+                        })),
+                    );
                 }
             } catch (err) {
                 setSmartRecommendations([]);
