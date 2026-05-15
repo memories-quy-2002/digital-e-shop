@@ -1,6 +1,7 @@
 const { put } = require("@vercel/blob");
 const util = require("util");
 const pool = require("../config/db");
+const inventoryMovementService = require("./inventoryMovementService");
 const query = util.promisify(pool.query).bind(pool);
 
 function extractFileName(url) {
@@ -53,13 +54,22 @@ async function addSingleProductService(data, file) {
         }
 
         // Insert product
-        await query(
+        const insertProduct = await query(
             `INSERT INTO products (name, description, main_image, category_id, brand_id, specifications, price, stock)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [name, description, fileName, categoryId, brandId, specifications, price, inventory]
         );
 
         await query("COMMIT");
+        inventoryMovementService.recordMovement({
+            productId: insertProduct.insertId,
+            movementType: "initial_stock",
+            quantityChange: Number(inventory) || 0,
+            stockBefore: 0,
+            stockAfter: Number(inventory) || 0,
+            note: "Initial stock when product was created",
+            actorId: "admin",
+        });
         return { msg: "Product added successfully" };
     } catch (err) {
         await query("ROLLBACK");
@@ -152,7 +162,22 @@ async function updateProductDetailsService(pid, updates) {
         [pid]
     );
 
-    return refreshedRows[0];
+    const refreshed = refreshedRows[0];
+    const previousStock = Number(current.stock) || 0;
+    const nextStock = Number(refreshed.stock) || 0;
+    if (previousStock !== nextStock) {
+        inventoryMovementService.recordMovement({
+            productId: pid,
+            movementType: "manual_adjustment",
+            quantityChange: nextStock - previousStock,
+            stockBefore: previousStock,
+            stockAfter: nextStock,
+            note: "Product stock changed in product editor",
+            actorId: updates.actorId || "admin",
+        });
+    }
+
+    return refreshed;
 }
 
 module.exports = { addSingleProductService, updateProductDetailsService };

@@ -1,7 +1,9 @@
 import React, { JSX, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
     CartIcon,
+    BellIcon,
     HeartIcon,
+    HouseIcon,
     PersonIcon,
     SearchIcon,
 } from "../common/Icons";
@@ -30,6 +32,7 @@ export const Header = (): JSX.Element => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [searchResults, setSearchResults] = useState<Product[]>([]);
     const [allProducts, setAllProducts] = useState<Product[]>([]);
+    const [unreadNotifications, setUnreadNotifications] = useState(0);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const { userData, loading, setUserData } = useAuth();
     const desktopSearchId = "header_search";
@@ -112,6 +115,24 @@ export const Header = (): JSX.Element => {
 
         fetchProducts();
     }, []);
+
+    useEffect(() => {
+        const fetchNotifications = async () => {
+            if (!userData?.id) {
+                setUnreadNotifications(0);
+                return;
+            }
+
+            try {
+                const response = await axios.get(`/api/users/${userData.id}/notifications?limit=10`);
+                setUnreadNotifications(Number(response.data.unread) || 0);
+            } catch {
+                setUnreadNotifications(0);
+            }
+        };
+
+        fetchNotifications();
+    }, [userData?.id]);
 
     useEffect(() => {
         const normalizedTerm = normalizedDeferredSearchTerm.toLowerCase();
@@ -263,6 +284,23 @@ export const Header = (): JSX.Element => {
                         </button>
                         <button
                             type="button"
+                            className="header__action header__action--badge"
+                            onClick={() => handleRequireLogin("/notifications")}
+                            aria-label="Open notifications"
+                        >
+                            <BellIcon size={20} />
+                            {unreadNotifications > 0 ? <span>{Math.min(unreadNotifications, 9)}</span> : null}
+                        </button>
+                        <button
+                            type="button"
+                            className="header__action"
+                            onClick={() => handleRequireLogin("/addresses")}
+                            aria-label="Open address book"
+                        >
+                            <HouseIcon size={20} />
+                        </button>
+                        <button
+                            type="button"
                             className="header__action"
                             onClick={() => handleRequireLogin("/cart")}
                             aria-label="Open cart"
@@ -349,6 +387,26 @@ export const Header = (): JSX.Element => {
                     >
                         <HeartIcon size={18} />
                         Wishlist
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            handleRequireLogin("/notifications");
+                            closeMenu();
+                        }}
+                    >
+                        <BellIcon size={18} />
+                        Notifications
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            handleRequireLogin("/addresses");
+                            closeMenu();
+                        }}
+                    >
+                        <HouseIcon size={18} />
+                        Addresses
                     </button>
                     <button
                         type="button"

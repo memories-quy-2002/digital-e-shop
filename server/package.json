@@ -8,7 +8,8 @@
         "dev": "nodemon src/app.js",
         "seed:mock": "node scripts/seedMockOrdersReviews.js",
         "perf:readonly": "k6 run test/performance-test.js",
-        "perf:admin-readonly": "k6 run test/k6-admin-readonly.js"
+        "perf:admin-readonly": "k6 run test/k6-admin-readonly.js",
+        "perf:customer-readonly": "k6 run test/k6-customer-readonly.js"
     },
     "author": "",
     "license": "ISC",

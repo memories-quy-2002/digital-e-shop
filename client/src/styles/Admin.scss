@@ -834,22 +834,31 @@
 
 .admin__order-detail__timeline {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 0.5rem;
 }
 
 .admin__order-detail__timeline span {
     background: #e5e7eb;
     color: #64748b;
-    border-radius: 999px;
-    padding: 0.55rem;
-    text-align: center;
+    border-radius: 14px;
+    padding: 0.75rem;
     font-weight: 800;
+    display: grid;
+    gap: 0.25rem;
 }
 
 .admin__order-detail__timeline .is-done {
     background: #dcfce7;
     color: #166534;
+}
+
+.admin__order-detail__timeline small,
+.admin__order-detail__timeline em {
+    color: inherit;
+    font-size: 0.75rem;
+    font-style: normal;
+    opacity: 0.8;
 }
 
 .admin__order-detail__items {

@@ -108,12 +108,12 @@ async function changeOrderStatus(req, res) {
     const orderId = req.params.oid;
     const { status } = req.body;
 
-    if (!status) {
+    if (status === undefined || status === null || ![0, 1, 2].includes(Number(status))) {
         return res.status(400).json({ msg: "Status is required" });
     }
 
     try {
-        const order = await orderService.changeOrderStatus(orderId, status);
+        const order = await orderService.changeOrderStatus(orderId, Number(status), req.user?.id || null);
         if (!order) {
             return res.status(404).json({ msg: "Order not found" });
         }

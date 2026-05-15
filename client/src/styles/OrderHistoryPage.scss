@@ -158,21 +158,31 @@
 
     &__timeline {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
         gap: 0.5rem;
         margin-bottom: 1rem;
 
         span {
-            text-align: center;
-            border-radius: 999px;
-            padding: 0.55rem;
+            border-radius: 14px;
+            padding: 0.75rem;
             background: #e5e7eb;
             color: #64748b;
             font-weight: 800;
+            display: grid;
+            gap: 0.25rem;
 
             &.is-done {
                 background: #dcfce7;
                 color: #166534;
+            }
+
+            small,
+            em {
+                font-size: 0.75rem;
+                font-style: normal;
+                font-weight: 700;
+                color: inherit;
+                opacity: 0.8;
             }
         }
     }

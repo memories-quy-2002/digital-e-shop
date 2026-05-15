@@ -34,6 +34,19 @@ type ProductEditForm = {
     specifications: string;
 };
 
+type InventoryMovement = {
+    id: number;
+    product_id: number;
+    product_name: string | null;
+    order_id: number | null;
+    movement_type: string;
+    quantity_change: number;
+    stock_before: number | null;
+    stock_after: number | null;
+    note: string | null;
+    created_at: string;
+};
+
 const normalizeProduct = (product: Product): Product => ({
     ...product,
     price: Number(product.price) || 0,
@@ -65,7 +78,17 @@ const AdminProductPage = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [restockValues, setRestockValues] = useState<Record<number, string>>({});
+    const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>([]);
     const { addToast } = useToast();
+
+    const fetchInventoryMovements = async () => {
+        try {
+            const response = await axios.get("/api/products/admin/inventory-movements?limit=12");
+            setInventoryMovements(response.data.movements || []);
+        } catch {
+            setInventoryMovements([]);
+        }
+    };
 
     useEffect(() => {
         const fetchProducts = async () => {
@@ -80,6 +103,7 @@ const AdminProductPage = () => {
         };
 
         fetchProducts();
+        fetchInventoryMovements();
     }, [addToast]);
 
     const filteredProducts = useMemo(() => {
@@ -198,6 +222,7 @@ const AdminProductPage = () => {
                 setProducts((currentProducts) =>
                     currentProducts.map((product) => (product.id === updatedProduct.id ? updatedProduct : product)),
                 );
+                fetchInventoryMovements();
                 addToast("Update product", `${updatedProduct.name} has been updated.`);
                 handleClose();
             }
@@ -249,10 +274,11 @@ const AdminProductPage = () => {
                     currentProducts.map((item) => (item.id === updatedProduct.id ? updatedProduct : item)),
                 );
                 setRestockValues((current) => ({ ...current, [product.id]: "" }));
+                fetchInventoryMovements();
                 addToast("Inventory", `${updatedProduct.name} stock updated.`);
             }
         } catch (err) {
-            addToast("Inventory", "Unable to update stock.");
+                addToast("Inventory", "Unable to update stock.");
         }
     };
 
@@ -318,6 +344,58 @@ const AdminProductPage = () => {
                         <span>Low stock</span>
                         <strong>{products.filter((product) => product.stock <= 5).length}</strong>
                         <p>Need attention</p>
+                    </div>
+                </section>
+
+                <section className="admin__card">
+                    <div className="admin__card__header">
+                        <div>
+                            <h3>Inventory movement log</h3>
+                            <span>Recent stock adjustments from sales, product creation, and admin updates.</span>
+                        </div>
+                    </div>
+                    <div className="admin__card__body">
+                        <Table responsive hover borderless className="admin__table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Product</th>
+                                    <th>Type</th>
+                                    <th>Change</th>
+                                    <th>Stock</th>
+                                    <th>Note</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {inventoryMovements.length > 0 ? (
+                                    inventoryMovements.map((movement) => (
+                                        <tr key={movement.id}>
+                                            <td width="180px">{new Date(movement.created_at).toLocaleString()}</td>
+                                            <td width="260px">
+                                                <div className="admin__table__stack">
+                                                    <strong>{movement.product_name || `Product #${movement.product_id}`}</strong>
+                                                    {movement.order_id ? <span>Order #{movement.order_id}</span> : null}
+                                                </div>
+                                            </td>
+                                            <td width="160px">{movement.movement_type.replace(/_/g, " ")}</td>
+                                            <td width="120px">
+                                                <span className={movement.quantity_change < 0 ? "admin__pill admin__pill--danger" : "admin__pill admin__pill--success"}>
+                                                    {movement.quantity_change > 0 ? "+" : ""}{movement.quantity_change}
+                                                </span>
+                                            </td>
+                                            <td width="140px">
+                                                {movement.stock_before ?? "-"} {"->"} {movement.stock_after ?? "-"}
+                                            </td>
+                                            <td>{movement.note || "-"}</td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={6}>No inventory movements recorded yet.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </Table>
                     </div>
                 </section>
 

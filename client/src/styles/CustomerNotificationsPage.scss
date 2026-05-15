@@ -1,0 +1,99 @@
+.customer-notifications {
+    min-height: 100vh;
+    padding: 2.5rem 2rem 4rem;
+    background: #f8fafc;
+
+    &__header {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+
+        span {
+            color: #64748b;
+            font-size: 0.78rem;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 0.35rem 0;
+            color: #0f172a;
+        }
+
+        p {
+            margin: 0;
+            color: #64748b;
+        }
+
+        button {
+            border: none;
+            border-radius: 12px;
+            background: #0b5fff;
+            color: #fff;
+            padding: 0.75rem 1rem;
+            font-weight: 900;
+        }
+    }
+
+    &__list {
+        display: grid;
+        gap: 1rem;
+
+        article,
+        .customer-notifications__empty {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 1rem;
+            box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+        }
+
+        article {
+            display: grid;
+            gap: 0.45rem;
+
+            &.is-unread {
+                border-color: #2563eb;
+                box-shadow: 0 16px 32px rgba(37, 99, 235, 0.12);
+            }
+
+            > div {
+                display: flex;
+                justify-content: space-between;
+                gap: 1rem;
+                color: #64748b;
+                font-size: 0.82rem;
+                text-transform: uppercase;
+                font-weight: 900;
+            }
+
+            strong {
+                color: #0f172a;
+                font-size: 1.05rem;
+            }
+
+            p {
+                margin: 0;
+                color: #475569;
+            }
+
+            a {
+                color: #0b5fff;
+                font-weight: 900;
+                text-decoration: none;
+            }
+        }
+    }
+
+    &__empty {
+        color: #64748b;
+    }
+
+    @media (max-width: 720px) {
+        &__header {
+            flex-direction: column;
+        }
+    }
+}

@@ -1,5 +1,6 @@
 const productService = require("../services/productService");
 const Product = require("../models/productModel");
+const inventoryMovementService = require("../services/inventoryMovementService");
 const multer = require("multer");
 const { MongoClient, ServerApiVersion } = require("mongodb");
 
@@ -99,12 +100,27 @@ function updateInventory(req, res) {
         return res.status(400).json({ msg: "Product id and stock must be valid" });
     }
 
-    Product.updateProductStock(pid, stock, (err, result) => {
-        if (err) return res.status(500).json({ msg: "Internal server error" });
-        if (result.affectedRows === 0) return res.status(404).json({ msg: "Product not found" });
-        Product.getProductById(pid, (findErr, rows) => {
-            if (findErr) return res.status(500).json({ msg: "Internal server error" });
-            return res.status(200).json({ product: rows[0], msg: "Inventory updated successfully" });
+    Product.getProductById(pid, (beforeErr, beforeRows) => {
+        if (beforeErr) return res.status(500).json({ msg: "Internal server error" });
+        if (beforeRows.length === 0) return res.status(404).json({ msg: "Product not found" });
+        const stockBefore = Number(beforeRows[0].stock) || 0;
+
+        Product.updateProductStock(pid, stock, (err, result) => {
+            if (err) return res.status(500).json({ msg: "Internal server error" });
+            if (result.affectedRows === 0) return res.status(404).json({ msg: "Product not found" });
+            Product.getProductById(pid, (findErr, rows) => {
+                if (findErr) return res.status(500).json({ msg: "Internal server error" });
+                inventoryMovementService.recordMovement({
+                    productId: pid,
+                    movementType: "manual_adjustment",
+                    quantityChange: stock - stockBefore,
+                    stockBefore,
+                    stockAfter: stock,
+                    note: "Inventory updated from admin quick restock",
+                    actorId: req.user?.id || "admin",
+                });
+                return res.status(200).json({ product: rows[0], msg: "Inventory updated successfully" });
+            });
         });
     });
 }
@@ -117,7 +133,10 @@ async function updateProduct(req, res) {
     }
 
     try {
-        const product = await productService.updateProductDetailsService(pid, req.body);
+        const product = await productService.updateProductDetailsService(pid, {
+            ...req.body,
+            actorId: req.user?.id || "admin",
+        });
         return res.status(200).json({
             product,
             msg: "Product has been updated successfully",

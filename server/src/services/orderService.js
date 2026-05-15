@@ -1,6 +1,9 @@
 const Order = require("../models/orderModel");
 const pool = require("../config/db");
 const util = require("util");
+const inventoryMovementService = require("./inventoryMovementService");
+const orderTimelineService = require("./orderTimelineService");
+const notificationService = require("./customerNotificationService");
 
 const QUERY_TIMEOUT = 8000;
 const getConnection = util.promisify(pool.getConnection).bind(pool);
@@ -58,6 +61,7 @@ async function makePurchase(uid, { totalPrice, cart, discount, shippingAddress, 
                 return acc;
             }, new Map());
 
+            let inventoryMovements = [];
             if (orderItemsValues.length > 0) {
                 console.log("[makePurchase] insertOrderItems", { orderId, count: orderItemsValues.length });
                 await q(
@@ -84,6 +88,20 @@ async function makePurchase(uid, { totalPrice, cart, discount, shippingAddress, 
                     }
                 }
 
+                inventoryMovements = [...productQuantities.entries()].map(([productId, quantity]) => {
+                    const stockBefore = Number(stockById.get(productId)) || 0;
+                    return {
+                        productId,
+                        orderId,
+                        movementType: "sale",
+                        quantityChange: -quantity,
+                        stockBefore,
+                        stockAfter: stockBefore - quantity,
+                        note: `Stock deducted for order #${orderId}`,
+                        actorId: uid,
+                    };
+                });
+
                 const cases = productIds.map(() => "WHEN ? THEN ?");
                 const caseValues = productIds.flatMap((productId) => [productId, productQuantities.get(productId)]);
 
@@ -97,6 +115,14 @@ async function makePurchase(uid, { totalPrice, cart, discount, shippingAddress, 
             }
 
             await commit();
+            orderTimelineService.recordTimelineEvent({
+                orderId,
+                status: 0,
+                note: "Order was placed by the customer.",
+                actorId: uid,
+            });
+            notificationService.notifyOrderPlaced(uid, orderId, Number(totalPrice) - Number(discount || 0));
+            inventoryMovementService.recordMovements(inventoryMovements);
             console.log("[makePurchase] commit ok", { orderId, ms: Date.now() - startedAt });
             const [order] = await q(
                 `SELECT id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
@@ -196,12 +222,14 @@ async function getOrderDetail(orderId) {
                     })),
             };
 
-            resolve(order);
+            orderTimelineService.getTimeline(orderId, order)
+                .then((timeline) => resolve({ ...order, timeline }))
+                .catch(() => resolve(order));
         });
     });
 }
 
-async function changeOrderStatus(orderId, status) {
+async function changeOrderStatus(orderId, status, actorId = null) {
     return new Promise((resolve, reject) => {
         Order.updateOrderStatus(orderId, status, (err) => {
             if (err) return reject(err);
@@ -209,6 +237,13 @@ async function changeOrderStatus(orderId, status) {
             Order.getOrderById(orderId, (err, results) => {
                 if (err) return reject(err);
                 if (results.length === 0) return reject(new Error("Order not found"));
+                orderTimelineService.recordTimelineEvent({
+                    orderId,
+                    status,
+                    note: `Order status changed to ${status}.`,
+                    actorId,
+                });
+                notificationService.notifyOrderStatus(results[0].user_id, orderId, status);
                 resolve(results[0]);
             });
         });

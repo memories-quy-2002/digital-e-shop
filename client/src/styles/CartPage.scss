@@ -299,6 +299,45 @@
         }
     }
 
+    &__saved-addresses {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+
+        button {
+            border: 1px solid #dbeafe;
+            border-radius: 14px;
+            background: #f8fbff;
+            padding: 0.85rem;
+            text-align: left;
+            display: grid;
+            gap: 0.25rem;
+            color: #0f172a;
+            cursor: pointer;
+
+            strong {
+                font-weight: 900;
+            }
+
+            span {
+                color: #64748b;
+                font-size: 0.9rem;
+            }
+
+            em {
+                width: fit-content;
+                border-radius: 999px;
+                background: #dbeafe;
+                color: #1d4ed8;
+                padding: 0.2rem 0.55rem;
+                font-size: 0.75rem;
+                font-style: normal;
+                font-weight: 900;
+            }
+        }
+    }
+
     &__payment {
         display: flex;
         flex-direction: column;
