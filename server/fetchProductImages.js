@@ -58,6 +58,7 @@ async function uploadToVercelBlob(filename, buffer, contentType) {
 }
 
 function buildFilename(imageUrl, product, index) {
+    console.log(index, imageUrl);
     try {
         const url = new URL(imageUrl);
         const ext = url.pathname.split(".").pop()?.split("?")[0] || "jpg";

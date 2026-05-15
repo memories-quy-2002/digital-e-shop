@@ -1,4 +1,4 @@
-const errorHandler = (err, req, res, next) => {
+const errorHandler = (err, req, res) => {
     if (err && err.code === "EBADCSRFTOKEN") {
         return res.status(403).json({ error: "Invalid CSRF token" });
     }

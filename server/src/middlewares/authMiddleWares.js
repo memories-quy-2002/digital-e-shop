@@ -40,6 +40,7 @@ const requireAuth = async (req, res, next) => {
             req.user = payload;
             return next();
         } catch (err) {
+            console.error("Authentication error:", err);
             return res.status(403).json({ msg: "Invalid or expired token" });
         }
     });
