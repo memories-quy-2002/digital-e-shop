@@ -46,6 +46,12 @@ export default function () {
             "analytics endpoint authorized": (res) => res.status === 200,
             "analytics has overview": (res) => Boolean(res.json("overview")),
         });
+
+        const inventoryMovements = getJson("/api/products/admin/inventory-movements?limit=20");
+        check(inventoryMovements, {
+            "inventory movements endpoint authorized": (res) => res.status === 200,
+            "inventory movements returns array": (res) => Array.isArray(res.json("movements")),
+        });
     });
 
     sleep(1);

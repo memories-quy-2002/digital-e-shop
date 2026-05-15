@@ -67,7 +67,17 @@ $env:COOKIE="session=...; accessToken=..."
 k6 run test/k6-admin-readonly.js
 ```
 
-## 5. Read the result
+## 5. Run the customer read-only test
+
+This test reads customer order history, saved addresses, and notifications. It does not create orders, cart rows, addresses, or notifications.
+
+```powershell
+$env:USER_ID="your-user-id"
+$env:COOKIE="session=...; accessToken=..."
+k6 run test/k6-customer-readonly.js
+```
+
+## 6. Read the result
 
 Important metrics:
 
@@ -82,13 +92,15 @@ The current thresholds fail the test if:
 - 95% response time is slower than 1200ms for public APIs.
 - Less than 95% of checks pass.
 
-## 6. Keep it database-safe
+## 7. Keep it database-safe
 
 Do not include these routes in a real database performance test unless you use a test database:
 
 - `POST /api/orders/purchase/:uid`
 - `POST /api/reviews`
 - `POST /api/cart`
+- `POST /api/users/:id/addresses`
+- `POST /api/users/:id/notifications/read-all`
 - `PUT /api/products/:id`
 - `DELETE /api/products`
 
