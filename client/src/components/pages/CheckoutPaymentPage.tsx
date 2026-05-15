@@ -1,7 +1,7 @@
 import { Form } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Helmet } from "react-helmet";
 import { useToast } from "../../context/ToastContext";
@@ -40,6 +40,17 @@ type CheckoutPaymentProps = {
     subtotal: number;
 };
 
+type SavedAddress = {
+    id: number;
+    label: string;
+    recipient_name: string | null;
+    phone_number: string | null;
+    address_line: string;
+    city: string | null;
+    country: string | null;
+    is_default: boolean;
+};
+
 const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtotal }: CheckoutPaymentProps) => {
     const navigate = useNavigate();
     const { userData, loading } = useAuth();
@@ -57,6 +68,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
     });
     const [errors, setErrors] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
 
     const paymentOptions = [
         {
@@ -78,6 +90,34 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
     ];
 
     const selectedPayment = paymentOptions.find((option) => option.value === formCheckout.payment_method) || paymentOptions[0];
+    const defaultAddress = useMemo(() => savedAddresses.find((address) => address.is_default) || savedAddresses[0], [savedAddresses]);
+
+    useEffect(() => {
+        const fetchAddresses = async () => {
+            if (!uid) return;
+            try {
+                const response = await axios.get(`/api/users/${uid}/addresses`);
+                setSavedAddresses(response.data.addresses || []);
+            } catch {
+                setSavedAddresses([]);
+            }
+        };
+
+        fetchAddresses();
+    }, [uid]);
+
+    useEffect(() => {
+        if (!defaultAddress || formCheckout.address) return;
+        setFormCheckout((current) => ({
+            ...current,
+            address: defaultAddress.address_line || "",
+            city: defaultAddress.city || "",
+            country: defaultAddress.country || "",
+            phone_number: defaultAddress.phone_number || "",
+            first_name: defaultAddress.recipient_name?.split(" ")[0] || current.first_name,
+            last_name: defaultAddress.recipient_name?.split(" ").slice(1).join(" ") || current.last_name,
+        }));
+    }, [defaultAddress, formCheckout.address]);
 
     const validateForm = (): string[] => {
         const errorsList: string[] = [];
@@ -97,6 +137,19 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
     const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = event.target;
         setFormCheckout({ ...formCheckout, [name]: value });
+    };
+
+    const applySavedAddress = (address: SavedAddress) => {
+        const nameParts = (address.recipient_name || "").split(" ").filter(Boolean);
+        setFormCheckout((current) => ({
+            ...current,
+            first_name: nameParts[0] || current.first_name,
+            last_name: nameParts.slice(1).join(" ") || current.last_name,
+            address: address.address_line,
+            city: address.city || "",
+            country: address.country || "",
+            phone_number: address.phone_number || "",
+        }));
     };
     const handlePurchase = async () => {
         setErrors([]);
@@ -237,6 +290,17 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                             <h2>Shipping</h2>
                             <p>Tell us where to deliver your items.</p>
                         </div>
+                        {savedAddresses.length > 0 ? (
+                            <div className="checkout__saved-addresses">
+                                {savedAddresses.map((address) => (
+                                    <button key={address.id} type="button" onClick={() => applySavedAddress(address)}>
+                                        <strong>{address.label}</strong>
+                                        <span>{address.address_line}</span>
+                                        {address.is_default ? <em>Default</em> : null}
+                                    </button>
+                                ))}
+                            </div>
+                        ) : null}
                         <Form>
                             <div className="row">
                                 <div className="col-md-6">
@@ -247,6 +311,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                                             name="first_name"
                                             placeholder="First name"
                                             required
+                                            value={formCheckout.first_name}
                                             onChange={handleInputChange}
                                         />
                                     </Form.Group>
@@ -259,6 +324,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                                             name="last_name"
                                             placeholder="Last name"
                                             required
+                                            value={formCheckout.last_name}
                                             onChange={handleInputChange}
                                         />
                                     </Form.Group>
@@ -272,6 +338,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                                     name="address"
                                     placeholder="Street address"
                                     required
+                                    value={formCheckout.address}
                                     onChange={handleInputChange}
                                 />
                             </Form.Group>
@@ -284,6 +351,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                                             name="city"
                                             placeholder="City"
                                             required
+                                            value={formCheckout.city}
                                             onChange={handleInputChange}
                                         />
                                     </Form.Group>
@@ -295,6 +363,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                                             type="text"
                                             name="country"
                                             placeholder="Country"
+                                            value={formCheckout.country || ""}
                                             onChange={handleInputChange}
                                         />
                                     </Form.Group>
@@ -306,6 +375,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                                     type="tel"
                                     name="phone_number"
                                     placeholder="Phone number"
+                                    value={formCheckout.phone_number || ""}
                                     onChange={handleInputChange}
                                 />
                             </Form.Group>

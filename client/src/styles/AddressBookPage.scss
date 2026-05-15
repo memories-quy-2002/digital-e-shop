@@ -1,0 +1,162 @@
+.address-book {
+    min-height: 100vh;
+    padding: 2.5rem 2rem 4rem;
+    background: #f8fafc;
+
+    &__header {
+        margin-bottom: 1.5rem;
+
+        span {
+            color: #64748b;
+            font-size: 0.78rem;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 0.35rem 0;
+            color: #0f172a;
+        }
+
+        p {
+            margin: 0;
+            color: #64748b;
+        }
+    }
+
+    &__layout {
+        display: grid;
+        grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.4fr);
+        gap: 1.25rem;
+        align-items: start;
+    }
+
+    &__form,
+    &__list article,
+    &__empty {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+    }
+
+    &__form {
+        padding: 1.25rem;
+        display: grid;
+        gap: 0.9rem;
+
+        h2 {
+            margin: 0;
+            color: #0f172a;
+        }
+
+        label {
+            display: grid;
+            gap: 0.35rem;
+            color: #334155;
+            font-weight: 800;
+        }
+
+        input {
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            padding: 0.75rem 0.85rem;
+            color: #0f172a;
+        }
+    }
+
+    &__form__grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+    }
+
+    &__check {
+        display: flex !important;
+        grid-template-columns: auto 1fr;
+        align-items: center;
+
+        input {
+            width: 18px;
+            height: 18px;
+        }
+    }
+
+    &__actions,
+    &__list__actions {
+        display: flex;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+
+        button {
+            border: none;
+            border-radius: 12px;
+            background: #0b5fff;
+            color: #fff;
+            padding: 0.7rem 1rem;
+            font-weight: 900;
+        }
+
+        .secondary {
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+
+        .danger {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+    }
+
+    &__list {
+        display: grid;
+        gap: 1rem;
+
+        article {
+            padding: 1rem;
+            display: grid;
+            gap: 0.45rem;
+
+            &.is-default {
+                border-color: #2563eb;
+            }
+
+            > div:first-child {
+                display: flex;
+                justify-content: space-between;
+                gap: 1rem;
+            }
+
+            strong {
+                color: #0f172a;
+            }
+
+            span {
+                border-radius: 999px;
+                background: #dbeafe;
+                color: #1d4ed8;
+                padding: 0.25rem 0.6rem;
+                font-size: 0.75rem;
+                font-weight: 900;
+            }
+
+            p,
+            small {
+                margin: 0;
+                color: #64748b;
+            }
+        }
+    }
+
+    &__empty {
+        padding: 1.5rem;
+        color: #64748b;
+    }
+
+    @media (max-width: 860px) {
+        &__layout,
+        &__form__grid {
+            grid-template-columns: 1fr;
+        }
+    }
+}

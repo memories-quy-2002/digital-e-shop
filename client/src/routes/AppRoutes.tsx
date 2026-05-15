@@ -16,6 +16,8 @@ const NewsPage = lazy(() => import("../components/pages/NewsPage"));
 const SupportPage = lazy(() => import("../components/pages/SupportPage"));
 const CheckoutSuccessPage = lazy(() => import("../components/pages/CheckoutSuccessPage"));
 const OrderHistoryPage = lazy(() => import("../components/pages/OrderHistoryPage"));
+const AddressBookPage = lazy(() => import("../components/pages/AddressBookPage"));
+const CustomerNotificationsPage = lazy(() => import("../components/pages/CustomerNotificationsPage"));
 const AdminDashboard = lazy(() => import("../components/pages/admin/AdminDashboard"));
 const AdminNotificationsPage = lazy(() => import("../components/pages/admin/AdminNotificationsPage"));
 const AdminProductPage = lazy(() => import("../components/pages/admin/AdminProductPage"));
@@ -28,6 +30,8 @@ const NoPage = lazy(() => import("../components/pages/NoPage"));
 const ProtectedCartPage = withSessionCheck(CartPage);
 const ProtectedCheckoutSuccessPage = withSessionCheck(CheckoutSuccessPage);
 const ProtectedOrderHistoryPage = withSessionCheck(OrderHistoryPage);
+const ProtectedAddressBookPage = withSessionCheck(AddressBookPage);
+const ProtectedCustomerNotificationsPage = withSessionCheck(CustomerNotificationsPage);
 const ProtectedWishlistPage = withSessionCheck(WishlistPage);
 const ProtectedAdminDashboard = withSessionCheck(AdminDashboard);
 const ProtectedAdminNotificationsPage = withSessionCheck(AdminNotificationsPage);
@@ -53,6 +57,8 @@ const AppRoutes = () => {
                 <Route path="/support" element={<SupportPage />} />
                 <Route path="/checkout-success" element={<ProtectedCheckoutSuccessPage />} />
                 <Route path="/orders" element={<ProtectedOrderHistoryPage />} />
+                <Route path="/addresses" element={<ProtectedAddressBookPage />} />
+                <Route path="/notifications" element={<ProtectedCustomerNotificationsPage />} />
                 <Route path="/admin" element={<ProtectedAdminDashboard />} />
                 <Route path="/admin/notifications" element={<ProtectedAdminNotificationsPage />} />
                 <Route path="/admin/products" element={<ProtectedAdminProductPage />} />
