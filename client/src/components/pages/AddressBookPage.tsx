@@ -100,7 +100,7 @@ const AddressBookPage = () => {
             }
             setForm(emptyForm);
             fetchAddresses();
-        } catch (err: any) {
+        } catch (err: {response: {data: {msg: string}}} | any) {
             addToast("Address book", err?.response?.data?.msg || "Unable to save address.");
         } finally {
             setIsSaving(false);

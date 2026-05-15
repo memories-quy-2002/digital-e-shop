@@ -2,6 +2,7 @@
     min-height: 100vh;
     padding: 2.5rem 2rem 4rem;
     background: #f8fafc;
+    overflow-x: hidden;
 
     &__header {
         margin-bottom: 1.5rem;
@@ -29,6 +30,13 @@
         grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.4fr);
         gap: 1.25rem;
         align-items: start;
+        width: 100%;
+        max-width: 1180px;
+        margin: 0 auto;
+
+        > * {
+            min-width: 0;
+        }
     }
 
     &__form,
@@ -44,6 +52,8 @@
         padding: 1.25rem;
         display: grid;
         gap: 0.9rem;
+        min-width: 0;
+        overflow: hidden;
 
         h2 {
             margin: 0;
@@ -55,28 +65,43 @@
             gap: 0.35rem;
             color: #334155;
             font-weight: 800;
+            min-width: 0;
         }
 
         input {
+            width: 100%;
+            min-width: 0;
+            max-width: 100%;
+            box-sizing: border-box;
             border: 1px solid #cbd5e1;
             border-radius: 12px;
             padding: 0.75rem 0.85rem;
             color: #0f172a;
+            background: #fff;
+
+            &:focus {
+                border-color: #2563eb;
+                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+                outline: none;
+            }
         }
     }
 
     &__form__grid {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.75rem;
+        min-width: 0;
     }
 
     &__check {
         display: flex !important;
-        grid-template-columns: auto 1fr;
         align-items: center;
+        gap: 0.6rem;
+        line-height: 1.35;
 
         input {
+            flex: 0 0 auto;
             width: 18px;
             height: 18px;
         }
@@ -111,11 +136,13 @@
     &__list {
         display: grid;
         gap: 1rem;
+        min-width: 0;
 
         article {
             padding: 1rem;
             display: grid;
             gap: 0.45rem;
+            min-width: 0;
 
             &.is-default {
                 border-color: #2563eb;
@@ -125,10 +152,12 @@
                 display: flex;
                 justify-content: space-between;
                 gap: 1rem;
+                min-width: 0;
             }
 
             strong {
                 color: #0f172a;
+                overflow-wrap: anywhere;
             }
 
             span {
@@ -144,6 +173,7 @@
             small {
                 margin: 0;
                 color: #64748b;
+                overflow-wrap: anywhere;
             }
         }
     }
@@ -157,6 +187,23 @@
         &__layout,
         &__form__grid {
             grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 520px) {
+        padding: 1.25rem 0.9rem 3rem;
+
+        &__form,
+        &__list article,
+        &__empty {
+            border-radius: 12px;
+        }
+
+        &__actions,
+        &__list__actions {
+            button {
+                flex: 1 1 140px;
+            }
         }
     }
 }
