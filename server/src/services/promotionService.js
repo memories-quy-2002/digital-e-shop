@@ -1,5 +1,7 @@
 const Promotion = require("../models/promotionModel");
 
+const createHttpError = (message, statusCode) => Object.assign(new Error(message), { statusCode });
+
 const normalizeDateInput = (value) => {
     const text = String(value || "").trim();
     if (!text) return null;
@@ -16,15 +18,21 @@ const normalizePromotionPayload = (data) => {
     const usageLimit = usageLimitValue === "" || usageLimitValue === null || usageLimitValue === undefined ? null : Number(usageLimitValue);
 
     if (!discountCode || Number.isNaN(discountPercent) || discountPercent <= 0 || discountPercent > 90) {
-        throw Object.assign(new Error("Code and discount percent must be valid"), { statusCode: 400 });
+        throw createHttpError("Code and discount percent must be valid", 400);
     }
 
     if (Number.isNaN(minOrderValue) || minOrderValue < 0) {
-        throw Object.assign(new Error("Minimum order value cannot be negative"), { statusCode: 400 });
+        throw createHttpError("Minimum order value cannot be negative", 400);
     }
 
     if (usageLimit !== null && (Number.isNaN(usageLimit) || usageLimit < 1)) {
-        throw Object.assign(new Error("Usage limit must be empty or greater than zero"), { statusCode: 400 });
+        throw createHttpError("Usage limit must be empty or greater than zero", 400);
+    }
+
+    const startsAt = normalizeDateInput(data.startsAt ?? data.starts_at);
+    const expiresAt = normalizeDateInput(data.expiresAt ?? data.expires_at);
+    if (startsAt && expiresAt && new Date(expiresAt) <= new Date(startsAt)) {
+        throw createHttpError("Expiry date must be after the start date", 400);
     }
 
     return {
@@ -32,10 +40,41 @@ const normalizePromotionPayload = (data) => {
         discountPercent,
         active: data.active === false || data.active === 0 || data.active === "0" ? 0 : 1,
         minOrderValue,
-        startsAt: normalizeDateInput(data.startsAt ?? data.starts_at),
-        expiresAt: normalizeDateInput(data.expiresAt ?? data.expires_at),
+        startsAt,
+        expiresAt,
         usageLimit,
     };
+};
+
+const normalizeDatabaseError = (err) => {
+    if (!err) return err;
+    if (err.statusCode) return err;
+
+    if (err.code === "ER_DUP_ENTRY") {
+        return createHttpError("Promotion code already exists", 409);
+    }
+
+    if (err.code === "ER_NO_SUCH_TABLE") {
+        return createHttpError("Discounts table is missing. Please run the database setup before creating promotions.", 500);
+    }
+
+    if (err.code === "ER_BAD_FIELD_ERROR") {
+        return createHttpError("Discounts table is missing a required promotion column.", 500);
+    }
+
+    if (err.code === "ER_NO_DEFAULT_FOR_FIELD") {
+        return createHttpError(`Discounts table requires a value for ${err.sqlMessage || "a column without a default"}`, 500);
+    }
+
+    if (err.code === "ER_DATA_TOO_LONG") {
+        return createHttpError("Promotion data is too long for the discounts table.", 400);
+    }
+
+    if (err.code === "ER_TRUNCATED_WRONG_VALUE" || err.code === "ER_TRUNCATED_WRONG_VALUE_FOR_FIELD") {
+        return createHttpError("Promotion contains a value that does not match the discounts table column type.", 400);
+    }
+
+    return err;
 };
 
 const normalizePromotion = (promotion = {}) => ({
@@ -62,7 +101,7 @@ async function createPromotion(data) {
     const promotion = normalizePromotionPayload(data);
     return new Promise((resolve, reject) => {
         Promotion.createPromotion(promotion, (err, result) => {
-            if (err) return reject(err);
+            if (err) return reject(normalizeDatabaseError(err));
             resolve({ id: result.insertId, ...promotion });
         });
     });
@@ -72,8 +111,8 @@ async function updatePromotion(id, data) {
     const promotion = normalizePromotionPayload(data);
     return new Promise((resolve, reject) => {
         Promotion.updatePromotion(id, promotion, (err, result) => {
-            if (err) return reject(err);
-            if (result.affectedRows === 0) return reject(Object.assign(new Error("Promotion not found"), { statusCode: 404 }));
+            if (err) return reject(normalizeDatabaseError(err));
+            if (result.affectedRows === 0) return reject(createHttpError("Promotion not found", 404));
             resolve({ id: Number(id), ...promotion });
         });
     });
@@ -82,8 +121,8 @@ async function updatePromotion(id, data) {
 async function deletePromotion(id) {
     return new Promise((resolve, reject) => {
         Promotion.deletePromotion(id, (err, result) => {
-            if (err) return reject(err);
-            if (result.affectedRows === 0) return reject(Object.assign(new Error("Promotion not found"), { statusCode: 404 }));
+            if (err) return reject(normalizeDatabaseError(err));
+            if (result.affectedRows === 0) return reject(createHttpError("Promotion not found", 404));
             resolve({ id: Number(id), active: false });
         });
     });
