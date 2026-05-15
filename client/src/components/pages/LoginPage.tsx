@@ -225,7 +225,7 @@ const LoginPage = () => {
                             {isSubmitting ? "Signing in..." : "Login"}
                         </button>
                         <div className="login__form__switch">
-                            Don't have an account? <Link to="/signup">Register</Link>
+                            Don&apos;t have an account? <Link to="/signup">Register</Link>
                         </div>
                     </Form>
                 </main>

@@ -66,7 +66,7 @@ const AdminPromotionsPage = () => {
             if (response.status === 200) {
                 setPromotions((response.data.promotions || []).map(normalizePromotion));
             }
-        } catch (err) {
+        } catch {
             addToast("Promotions", "Unable to load promotions.");
         }
     };
@@ -137,7 +137,7 @@ const AdminPromotionsPage = () => {
             await axios.delete(`/api/promotions/${promotion.id}`);
             addToast("Promotions", `${promotion.discount_code} has been deactivated.`);
             fetchPromotions();
-        } catch (err) {
+        } catch {
             addToast("Promotions", "Unable to deactivate promotion.");
         }
     };

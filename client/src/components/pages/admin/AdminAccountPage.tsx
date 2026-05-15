@@ -70,7 +70,7 @@ const AdminAccountPage = () => {
                         ),
                     );
                 }
-            } catch (err) {
+            } catch {
                 addToast("Accounts", "Unable to load accounts.");
             }
         };
@@ -122,7 +122,7 @@ const AdminAccountPage = () => {
                 );
                 addToast("Accounts", "Account updated successfully.");
             }
-        } catch (err) {
+        } catch {
             addToast("Accounts", "Unable to update account.");
         }
     };
@@ -163,7 +163,7 @@ const AdminAccountPage = () => {
                 });
                 setShowProfile(true);
             }
-        } catch (err) {
+        } catch {
             addToast("Customer profile", "Unable to load customer profile.");
         }
     };

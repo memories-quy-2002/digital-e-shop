@@ -97,7 +97,7 @@ const AdminProductPage = () => {
                 if (response.status === 200) {
                     setProducts((response.data.products || []).map(normalizeProduct).sort((a: Product, b: Product) => a.id - b.id));
                 }
-            } catch (err) {
+            } catch {
                 addToast("Products", "Unable to load products.");
             }
         };
@@ -226,7 +226,7 @@ const AdminProductPage = () => {
                 addToast("Update product", `${updatedProduct.name} has been updated.`);
                 handleClose();
             }
-        } catch (err) {
+        } catch {
             addToast("Update product", "Unable to update product.");
         } finally {
             setIsSaving(false);
@@ -248,7 +248,7 @@ const AdminProductPage = () => {
                 addToast("Delete product", `${selectedProduct.name} has been removed from the catalog.`);
                 handleClose();
             }
-        } catch (err) {
+        } catch {
             addToast("Delete product", "Unable to delete product.");
         } finally {
             setIsDeleting(false);
@@ -277,7 +277,7 @@ const AdminProductPage = () => {
                 fetchInventoryMovements();
                 addToast("Inventory", `${updatedProduct.name} stock updated.`);
             }
-        } catch (err) {
+        } catch {
                 addToast("Inventory", "Unable to update stock.");
         }
     };

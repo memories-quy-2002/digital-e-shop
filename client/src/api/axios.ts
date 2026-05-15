@@ -1,4 +1,4 @@
-import axios, { AxiosHeaders, AxiosRequestHeaders } from "axios";
+import axios, { AxiosRequestHeaders } from "axios";
 
 declare module "axios" {
     export interface AxiosRequestConfig {
@@ -35,6 +35,8 @@ const fetchCsrfToken = async () => {
     return token;
 };
 
+// Attach CSRF only to unsafe requests. Safe reads stay cache-friendly and do not
+// need the extra token round trip.
 api.interceptors.request.use(async (config) => {
     const method = (config.method || "get").toLowerCase();
     const isSafe = method === "get" || method === "head" || method === "options";
@@ -66,6 +68,9 @@ api.interceptors.response.use(
         const status = error.response?.status;
         const errorMsg = error.response?.data?.error || error.response?.data?.msg;
 
+        // A stale CSRF cookie/header pair can happen after refreshes or long
+        // sessions. Retry once with a fresh token, then surface the original
+        // error to the caller.
         if (status === 403 && !config?._retry && String(errorMsg).includes("CSRF")) {
             try {
                 config._retry = true;

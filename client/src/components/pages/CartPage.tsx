@@ -34,7 +34,6 @@ const CartPage = () => {
     const [totalPrice, setTotalPrice] = useState<number>(0);
     const [discount, setDiscount] = useState<number>(0);
     const [subtotal, setSubtotal] = useState<number>(0);
-    const [error, setError] = useState<string>("");
     const [show, setShow] = useState<boolean>(false);
     const [isPayment, setIsPayment] = useState<boolean>(false);
 
@@ -67,13 +66,15 @@ const CartPage = () => {
                 cartItemId: itemId,
                 quantity: newQuantity,
             });
-        } catch (err) {
+        } catch {
             addToast("Cart", "Unable to save the quantity change.");
         }
     };
 
     const unavailableItems = cart.filter((item) => item.stock <= 0 || item.quantity > item.stock);
     const handleClickPayment = useCallback(() => {
+        // Block checkout before opening payment so removed or over-requested
+        // stock cannot reach order creation.
         if (unavailableItems.length > 0) {
             addToast("Checkout blocked", "Some cart items are unavailable or exceed current stock.");
             setShow(false);
@@ -93,7 +94,7 @@ const CartPage = () => {
                     setCart((cart) => cart.filter((cart) => cart.cartItemId !== cartItemId));
                     addToast("Remove Cart item", "Item removed from cart successfully");
                 }
-            } catch (err) {
+            } catch {
                 addToast("Remove Cart item", "Unable to remove item from cart.");
             }
         },
@@ -102,6 +103,8 @@ const CartPage = () => {
 
     const applyDiscount = async (discountCode: string, price: number) => {
         try {
+            // Discount rules live on the server so minimum order, active dates,
+            // and schema-aware promotion fields stay consistent with checkout.
             const response = await axios.post(`/api/orders/discount`, {
                 discountCode,
                 price,
@@ -110,7 +113,6 @@ const CartPage = () => {
                 const newPrice = response.data.newPrice;
                 setDiscount(totalPrice - newPrice);
                 setSubtotal(newPrice);
-                setError("");
                 addToast("Applying Coupon", "Coupon has been applied successfully");
             }
         } catch (err: unknown) {
@@ -121,7 +123,6 @@ const CartPage = () => {
                 } else if (errorResponse.status === 500) {
                     addToast("Applying Coupon", "Internal server error, please try again later");
                 }
-                setError(`Error: ${errorResponse.data.msg}`);
             }
         }
     };
@@ -145,7 +146,7 @@ const CartPage = () => {
                     }));
                     setCart(cartItems);
                 }
-            } catch (err) {
+            } catch {
                 addToast("Cart", "Unable to load cart items.");
             }
         };

@@ -99,7 +99,7 @@ const PaginatedItems = ({
                     addToast("Add wishlist item", "Item added to wishlist successfully");
                 }
             }
-        } catch (err) {
+        } catch {
             addToast("Wishlist", "Unable to update wishlist.");
         }
     }, [addToast, productById, uid, wishlistIdSet]);
@@ -115,7 +115,7 @@ const PaginatedItems = ({
                 addToast("Remove wishlist item", "Item removed from wishlist successfully.");
                 setCurrentWishlist((prevWishlist) => prevWishlist.filter((item) => item.product.id !== product_id));
             }
-        } catch (err) {
+        } catch {
             addToast("Wishlist", "Unable to remove wishlist item.");
         }
     }, [addToast]);
@@ -141,7 +141,7 @@ const PaginatedItems = ({
             if (response.status === 200) {
                 addToast("Add cart item", "Product added to cart successfully");
             }
-        } catch (err) {
+        } catch {
             addToast("Add cart item", "Unable to add item to cart.");
         }
     }, [addToast, productById, uid]);

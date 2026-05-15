@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
-import { AxiosError, AxiosResponse } from "axios";
+import { AxiosError } from "axios";
 import { auth } from "../../services/firebase";
 import { useToast } from "../../context/ToastContext";
 
@@ -13,9 +13,9 @@ const withSessionCheck = (WrappedComponent: React.ComponentType) => {
             const checkSession = async () => {
                 try {
                     if (auth.currentUser) {
-                        const response: AxiosResponse = await axios.get("/api/users/session/check");
-                        if (response.status === 200) {
-                        }
+                        // Keep protected pages aligned with the backend session,
+                        // not only the local Firebase user state.
+                        await axios.get("/api/users/session/check");
                     }
                 } catch (err: unknown) {
                     if (err instanceof AxiosError && err.response?.status === 401) {
@@ -25,6 +25,8 @@ const withSessionCheck = (WrappedComponent: React.ComponentType) => {
                 }
             };
             checkSession();
+            // Re-check periodically so expired sessions are handled before the
+            // user submits a protected action.
             const intervalId = setInterval(checkSession, 300000);
 
             return () => clearInterval(intervalId);

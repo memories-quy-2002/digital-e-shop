@@ -167,7 +167,7 @@ const AdminNotificationsPage = () => {
             setOrders(orderResponse.data?.orders || []);
             setProducts(productResponse.data?.products || []);
             setAccounts(accountResponse.data?.accounts || []);
-        } catch (err) {
+        } catch {
             addToast("Notifications", "Unable to load admin notifications.");
         } finally {
             setIsLoading(false);

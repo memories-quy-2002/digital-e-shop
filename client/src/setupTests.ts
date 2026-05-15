@@ -7,7 +7,10 @@ class ResizeObserver {
 }
 
 class IntersectionObserver {
-    constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {}
+    constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+        void callback;
+        void options;
+    }
     observe() {}
     unobserve() {}
     disconnect() {}

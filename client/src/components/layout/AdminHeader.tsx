@@ -270,7 +270,7 @@ const AdminHeader = () => {
 
                 previousNewestOrderIdRef.current = sortedOrders[0]?.id ?? previousNewestOrderIdRef.current;
                 previousNewestUserIdRef.current = sortedUsers[0]?.id ?? previousNewestUserIdRef.current;
-            } catch (err) {
+            } catch {
                 if (!isInitialLoad) {
                     addToast("Admin notifications", "Activity sync failed. Showing the latest saved feed.");
                 }
@@ -314,7 +314,7 @@ const AdminHeader = () => {
             cookies.remove("rememberMe");
             await signOut(auth);
             addToast("Logout successfully", response.data?.msg || "Logged out");
-        } catch (err: Error | unknown) {
+        } catch {
             addToast("Logout", "You have been logged out.");
         } finally {
             navigate("/login");

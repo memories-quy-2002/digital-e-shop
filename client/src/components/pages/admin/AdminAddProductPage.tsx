@@ -72,7 +72,7 @@ const AdminAddProductPage = () => {
                 setProductData((prevData) => ({ ...prevData, imageUrl: url }));
                 addToast("Upload image", "Image uploaded to Blob successfully.");
             }
-        } catch (uploadErr) {
+        } catch {
             addToast("Upload image", "Unable to upload image.");
         } finally {
             setUploading(false);

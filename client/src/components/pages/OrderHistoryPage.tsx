@@ -75,7 +75,7 @@ const OrderHistoryPage = () => {
                 if (response.status === 200) {
                     setOrders(response.data.orders || []);
                 }
-            } catch (err) {
+            } catch {
                 addToast("Orders", "Unable to load order history.");
             }
         };
@@ -96,7 +96,7 @@ const OrderHistoryPage = () => {
                 if (response.status === 200) {
                     setOrderDetail(response.data.order);
                 }
-            } catch (err) {
+            } catch {
                 addToast("Orders", "Unable to load order detail.");
             } finally {
                 setLoadingDetail(false);
@@ -139,7 +139,7 @@ const OrderHistoryPage = () => {
                 ),
             );
             addToast("Reorder", "Available items were added to your cart.");
-        } catch (err) {
+        } catch {
             addToast("Reorder", "Unable to add the order items to your cart.");
         }
     };

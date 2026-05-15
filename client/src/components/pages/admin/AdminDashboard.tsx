@@ -398,7 +398,7 @@ const AdminDashboard = () => {
                     loadedSections === 4 ? "Dashboard data refreshed." : "Dashboard loaded with partial data.",
                 );
             }
-        } catch (err) {
+        } catch {
             addToast("Dashboard", "Unable to load dashboard data.");
         } finally {
             setLoading(false);

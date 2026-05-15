@@ -86,7 +86,7 @@ const AdminOrderPage = () => {
                 if (response.status === 200) {
                     setOrders((response.data.orders || []).map(normalizeOrder));
                 }
-            } catch (err) {
+            } catch {
                 addToast("Orders", "Unable to load orders.");
             }
         };
@@ -181,7 +181,7 @@ const AdminOrderPage = () => {
                 setSelectedOrder(response.data.order);
                 setShowDetail(true);
             }
-        } catch (err) {
+        } catch {
             addToast("Orders", "Unable to load order detail.");
         }
     };

@@ -125,7 +125,7 @@ const ProductPage = () => {
                 if (response.status === 200) {
                     setProductDetail(response.data.product);
                 }
-            } catch (err) {
+            } catch {
                 addToast("Product", "Unable to load product details.");
             }
         };
@@ -140,7 +140,7 @@ const ProductPage = () => {
                 if (response.status === 200) {
                     setProducts(response.data.products);
                 }
-            } catch (err) {
+            } catch {
                 addToast("Products", "Unable to load products.");
             }
         };
@@ -168,7 +168,7 @@ const ProductPage = () => {
 
                     setWishlist(newWishlist);
                 }
-            } catch (err) {
+            } catch {
                 if (uid) {
                     addToast("Wishlist", "Unable to load wishlist.");
                 }
@@ -200,7 +200,7 @@ const ProductPage = () => {
                             }),
                     );
                 }
-            } catch (err) {
+            } catch {
                 addToast("Recommendations", "Unable to load relevant products.");
             }
         };
@@ -220,7 +220,7 @@ const ProductPage = () => {
                     setReviews(normalizeReviews(response.data.reviews || []));
                     setReviewSummary(normalizeSummary(response.data.summary));
                 }
-            } catch (err) {
+            } catch {
                 addToast("Reviews", "Unable to load reviews.");
             }
         };
@@ -272,7 +272,7 @@ const ProductPage = () => {
             } else if (response.status === 204) {
                 addToast("Invalid action", "The product is already in your cart.");
             }
-        } catch (err) {
+        } catch {
             addToast("Add cart item", "Unable to add item to cart.");
         }
     };
@@ -311,7 +311,7 @@ const ProductPage = () => {
                     addToast("Add wishlist item", "Item added to wishlist successfully");
                 }
             }
-        } catch (err) {
+        } catch {
             addToast("Wishlist", "Unable to update wishlist.");
         }
     };
@@ -358,7 +358,7 @@ const ProductPage = () => {
                     setProductDetail(productResponse.data.product);
                 }
             }
-        } catch (err) {
+        } catch {
             addToast("Submit review", "Unable to submit review.");
         }
     };
@@ -520,7 +520,9 @@ const ProductPage = () => {
                             </div>
                             <div>
                                 <strong>Stock</strong>
-                                <span>{productDetail.stock > 0 ? `${productDetail.stock} available` : "Restock required"}</span>
+                                <span>
+                                    {productDetail.stock > 0 ? `${productDetail.stock} available` : "Restock required"}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -550,7 +552,8 @@ const ProductPage = () => {
                                 <div className="product__review__summary__bars">
                                     {ratingDistribution.map((star) => {
                                         const count = reviewSummary.distribution[star] || 0;
-                                        const percent = reviewSummary.total > 0 ? (count / reviewSummary.total) * 100 : 0;
+                                        const percent =
+                                            reviewSummary.total > 0 ? (count / reviewSummary.total) * 100 : 0;
                                         return (
                                             <div key={star}>
                                                 <span>{star} stars</span>
@@ -565,7 +568,9 @@ const ProductPage = () => {
                             </section>
 
                             {!uid ? (
-                                <div className="product__review__login">Login to write a review and rate this product.</div>
+                                <div className="product__review__login">
+                                    Login to write a review and rate this product.
+                                </div>
                             ) : (
                                 <section className="product__review__form">
                                     <div>
@@ -600,7 +605,9 @@ const ProductPage = () => {
                                     ></textarea>
                                     <button
                                         type="button"
-                                        onClick={() => handleSubmitReview(uid, productDetail.id, ratingScore, reviewText)}
+                                        onClick={() =>
+                                            handleSubmitReview(uid, productDetail.id, ratingScore, reviewText)
+                                        }
                                     >
                                         Submit review
                                     </button>
@@ -619,7 +626,9 @@ const ProductPage = () => {
                                                 <div className="product__review__item__header">
                                                     <div>
                                                         <strong>{review.username}</strong>
-                                                        {review.verified_purchase ? <span>Verified purchase</span> : null}
+                                                        {review.verified_purchase ? (
+                                                            <span>Verified purchase</span>
+                                                        ) : null}
                                                     </div>
                                                     <small>{formatUtcDate(review.created_at)}</small>
                                                 </div>
@@ -631,7 +640,9 @@ const ProductPage = () => {
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="product__review__empty">No reviews yet. Be the first to rate this product.</div>
+                                    <div className="product__review__empty">
+                                        No reviews yet. Be the first to rate this product.
+                                    </div>
                                 )}
                             </section>
                         </div>
@@ -703,7 +714,7 @@ const ProductPage = () => {
                     </div>
                 )}
 
-                <RecommendedProduct pid={productDetail.id} relevantProducts={relevantProducts} />
+                <RecommendedProduct relevantProducts={relevantProducts} />
             </div>
         </Layout>
     );

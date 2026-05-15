@@ -38,6 +38,8 @@ export const Header = (): JSX.Element => {
     const desktopSearchId = "header_search";
     const mobileSearchId = "header_mobile_search";
     const mobileMenuId = "header-mobile-menu";
+    // useDeferredValue keeps typing responsive while the filtered dropdown
+    // catches up shortly after input changes.
     const deferredSearchTerm = useDeferredValue(searchTerm);
     const searchRef = useRef<HTMLDivElement | null>(null);
 
@@ -67,7 +69,7 @@ export const Header = (): JSX.Element => {
                 addToast("Logout successfully", response.data.msg);
                 navigate("/");
             }
-        } catch (err) {
+        } catch {
             addToast("Logout failed", "Please try again.");
             setUserData(null);
         }
@@ -109,7 +111,8 @@ export const Header = (): JSX.Element => {
                 if (response.status === 200) {
                     setAllProducts(response.data.products || []);
                 }
-            } catch (err) {
+            } catch {
+                setAllProducts([]);
             }
         };
 
@@ -142,6 +145,8 @@ export const Header = (): JSX.Element => {
             return;
         }
 
+        // Debounce client-side filtering so the dropdown does not recalculate on
+        // every keystroke, especially when the product list grows.
         const timer = window.setTimeout(() => {
             const matches = allProducts
                 .filter((product) => {

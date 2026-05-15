@@ -1,16 +1,13 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Product } from "../../utils/interface";
-import ratingStar from "../../utils/ratingStar";
-import LazyLoadImage from "../../utils/LazyLoadingImage";
-import productPlaceholder from "../../assets/images/product_placeholder.jpg";
 import loadImage from "../../utils/loadImage";
+import ratingStar from "../../utils/ratingStar";
 
 type RecommendedProps = {
-    pid: number;
     relevantProducts: Product[];
 };
-const RecommendedProduct = ({ pid, relevantProducts }: RecommendedProps) => {
+const RecommendedProduct = ({ relevantProducts }: RecommendedProps) => {
     const navigate = useNavigate();
 
     return (

@@ -38,8 +38,7 @@ export const rowsFromText = (value: string): ProductSpecRow[] =>
         };
     });
 
-export const rowsToText = (rows: ProductSpecRow[]) =>
-    rows.map((row) => `${row.label}: ${row.value}`.trim()).join("\n");
+export const rowsToText = (rows: ProductSpecRow[]) => rows.map((row) => `${row.label}: ${row.value}`.trim()).join("\n");
 
 export const highlightsFromText = splitLines;
 
@@ -74,6 +73,7 @@ export const parseProductDetails = (raw?: string | null): ProductDetails => {
         }
     } catch (err) {
         // Existing products may still store comma-separated specs.
+        console.error(err);
     }
 
     const fallbackRows = raw

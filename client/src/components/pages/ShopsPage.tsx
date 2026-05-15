@@ -168,7 +168,7 @@ const ShopsPage = () => {
                     const catalog: Product[] = response.data.products || [];
                     setProducts(catalog);
                 }
-            } catch (err) {
+            } catch {
                 addToast("Products", "Unable to load products right now.");
             } finally {
                 setIsLoading(false);
@@ -202,7 +202,7 @@ const ShopsPage = () => {
                         setWishlist(newWishlist);
                     }
                 }
-            } catch (err) {
+            } catch {
                 if (uid) {
                     addToast("Wishlist", "Unable to load wishlist.");
                 }

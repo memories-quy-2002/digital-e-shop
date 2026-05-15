@@ -44,7 +44,7 @@ const WishlistPage = () => {
 
                     setWishlist(newWishlist);
                 }
-            } catch (err) {
+            } catch {
                 addToast("Wishlist", "Unable to load wishlist.");
             }
         };
@@ -81,7 +81,7 @@ const WishlistPage = () => {
                 setSelectedIds((currentIds) => currentIds.filter((id) => id !== productId));
                 addToast("Wishlist", "Item removed from wishlist.");
             }
-        } catch (err) {
+        } catch {
             addToast("Wishlist", "Unable to remove wishlist item.");
         }
     };
@@ -101,7 +101,7 @@ const WishlistPage = () => {
                 setSelectedIds([]);
                 addToast("Wishlist", "Selected wishlist items were removed.");
             }
-        } catch (err) {
+        } catch {
             addToast("Wishlist", "Unable to remove selected items.");
         }
     };
@@ -122,7 +122,7 @@ const WishlistPage = () => {
                 await handleRemoveWishlist(product.id);
                 addToast("Wishlist", "Product moved to cart.");
             }
-        } catch (err) {
+        } catch {
             addToast("Wishlist", "Unable to move product to cart.");
         }
     };
@@ -151,7 +151,7 @@ const WishlistPage = () => {
             setWishlist((currentWishlist) => currentWishlist.filter((item) => !movedIds.includes(item.product.id)));
             setSelectedIds([]);
             addToast("Wishlist", "Available selected products moved to cart.");
-        } catch (err) {
+        } catch {
             addToast("Wishlist", "Unable to move selected products to cart.");
         }
     };

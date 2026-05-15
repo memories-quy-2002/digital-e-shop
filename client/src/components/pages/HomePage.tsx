@@ -104,7 +104,7 @@ const HomePage = () => {
                     addToast("Add wishlist item", "Item added to wishlist successfully");
                 }
             }
-        } catch (error) {
+        } catch {
             addToast("Wishlist", "Unable to update wishlist. Please try again.");
         }
     };
@@ -123,7 +123,7 @@ const HomePage = () => {
             if (response.status === 200) {
                 addToast("Add cart item", "Product added to cart successfully");
             }
-        } catch (err) {
+        } catch {
             addToast("Add cart item", "Unable to add item to cart.");
         }
     };
@@ -143,7 +143,7 @@ const HomePage = () => {
                 if (response.status === 200) {
                     setProducts(response.data.products);
                 }
-            } catch (err) {
+            } catch {
                 addToast("Products", "Unable to load products right now.");
             }
         };
@@ -170,7 +170,7 @@ const HomePage = () => {
                         setWishlist(newWishlist);
                     }
                 }
-            } catch (err) {
+            } catch {
                 if (uid) {
                     addToast("Wishlist", "Unable to load wishlist.");
                 }
@@ -202,7 +202,7 @@ const HomePage = () => {
                         })),
                     );
                 }
-            } catch (err) {
+            } catch {
                 setSmartRecommendations([]);
             }
         };
