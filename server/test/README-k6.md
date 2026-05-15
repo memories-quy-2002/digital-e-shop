@@ -33,7 +33,7 @@ npm run dev
 or:
 
 ```powershell
-node src/app.js
+pnpm serve:ts
 ```
 
 The default test expects the API at `http://localhost:4000`.
