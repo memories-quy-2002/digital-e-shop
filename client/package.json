@@ -16,7 +16,7 @@
         "geckodriver": "^6.1.0",
         "immutable": "^5.1.5",
         "jest-environment-jsdom": "^30.4.1",
-        "js-cookie": "^3.0.5",
+        "js-cookie": "^3.0.7",
         "os": "^0.1.2",
         "pretty": "^2.0.0",
         "query-string": "^9.3.1",
