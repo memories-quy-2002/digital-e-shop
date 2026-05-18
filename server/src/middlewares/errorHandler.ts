@@ -1,6 +1,6 @@
-import type { Request, Response } from "express";
+import type { AppRequest, AppResponse } from "../types/domain";
 
-const errorHandler = (err: Error & { code?: string }, req: Request, res: Response) => {
+const errorHandler = (err: Error & { code?: string }, req: AppRequest, res: AppResponse) => {
     // Keep CSRF failures explicit so the Axios client can refresh the token and
     // retry once without treating the response as a generic server error.
     if (err && err.code === "EBADCSRFTOKEN") {

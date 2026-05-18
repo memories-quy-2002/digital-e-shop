@@ -2,10 +2,9 @@ const jwt = require("jsonwebtoken");
 const rateLimit = require("express-rate-limit");
 const { verifySessionToken } = require("../services/sessionService");
 const User = require("../models/userModel");
-import type { NextFunction, Request, Response } from "express";
-import type { UserRow } from "../types/domain";
+import type { AppNextFunction, AppRequest, AppResponse, UserRow } from "../types/domain";
 
-type AuthenticatedRequest = Request & {
+type AuthenticatedRequest = AppRequest & {
     user?: {
         id?: string;
         role?: string;
@@ -23,7 +22,7 @@ const authzLimiter = rateLimit({
 
 const normalizeRole = (role?: string | null) => (role ? String(role).toLowerCase() : "");
 
-const requireAuth = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+const requireAuth = async (req: AuthenticatedRequest, res: AppResponse, next: AppNextFunction) => {
     authzLimiter(req, res, async (limitErr: Error | null) => {
         if (limitErr) {
             return next(limitErr);
@@ -58,7 +57,7 @@ const requireAuth = async (req: AuthenticatedRequest, res: Response, next: NextF
     });
 };
 
-const requireRole = (role: string) => (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+const requireRole = (role: string) => (req: AuthenticatedRequest, res: AppResponse, next: AppNextFunction) => {
     const expected = normalizeRole(role);
     const actual = normalizeRole(req.user?.role);
     if (!actual || actual !== expected) {
@@ -69,7 +68,7 @@ const requireRole = (role: string) => (req: AuthenticatedRequest, res: Response,
 
 const requireAdmin = [requireAuth, requireRole("admin")];
 
-const requireCustomerOrAdmin = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+const requireCustomerOrAdmin = (req: AuthenticatedRequest, res: AppResponse, next: AppNextFunction) => {
     const actual = normalizeRole(req.user?.role);
     if (actual === "customer" || actual === "admin") {
         return next();
@@ -77,7 +76,7 @@ const requireCustomerOrAdmin = (req: AuthenticatedRequest, res: Response, next: 
     return res.status(403).json({ msg: "Forbidden" });
 };
 
-const requireOwnerOrAdmin = (paramKey: string) => (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+const requireOwnerOrAdmin = (paramKey: string) => (req: AuthenticatedRequest, res: AppResponse, next: AppNextFunction) => {
     const actual = normalizeRole(req.user?.role);
     if (actual === "admin") {
         return next();

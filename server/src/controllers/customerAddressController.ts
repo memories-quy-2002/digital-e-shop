@@ -1,7 +1,7 @@
-import type { Request, Response } from "express";
+import type { AppRequest, AppResponse } from "../types/domain";
 const addressService = require("../services/customerAddressService");
 
-async function getAddresses(req: Request, res: Response) {
+async function getAddresses(req: AppRequest, res: AppResponse) {
     try {
         const addresses = await addressService.getAddresses(req.params.id);
         return res.status(200).json({ addresses, msg: "Addresses retrieved successfully" });
@@ -11,7 +11,7 @@ async function getAddresses(req: Request, res: Response) {
     }
 }
 
-async function createAddress(req: Request, res: Response) {
+async function createAddress(req: AppRequest, res: AppResponse) {
     try {
         const address = await addressService.createAddress(req.params.id, req.body);
         return res.status(201).json({ address, msg: "Address created successfully" });
@@ -21,7 +21,7 @@ async function createAddress(req: Request, res: Response) {
     }
 }
 
-async function updateAddress(req: Request, res: Response) {
+async function updateAddress(req: AppRequest, res: AppResponse) {
     try {
         const address = await addressService.updateAddress(req.params.id, req.params.addressId, req.body);
         return res.status(200).json({ address, msg: "Address updated successfully" });
@@ -31,7 +31,7 @@ async function updateAddress(req: Request, res: Response) {
     }
 }
 
-async function deleteAddress(req: Request, res: Response) {
+async function deleteAddress(req: AppRequest, res: AppResponse) {
     try {
         const address = await addressService.deleteAddress(req.params.id, req.params.addressId);
         return res.status(200).json({ address, msg: "Address deleted successfully" });

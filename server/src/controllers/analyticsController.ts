@@ -1,4 +1,4 @@
-import type { Request, Response } from "express";
+import type { AppRequest, AppResponse } from "../types/domain";
 import type { LooseRecord } from "../types/domain";
 const util = require("util");
 const pool = require("../config/db");
@@ -16,7 +16,7 @@ const safeQuery = async <T extends LooseRecord = LooseRecord>(sql: string, fallb
     }
 };
 
-async function getAnalyticsSummary(req: Request, res: Response) {
+async function getAnalyticsSummary(req: AppRequest, res: AppResponse) {
     try {
         const [
             overviewRows,

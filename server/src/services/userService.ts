@@ -2,8 +2,8 @@ const jwt = require("jsonwebtoken");
 const { hashPassword } = require("../utils/hashPassword");
 const User = require("../models/userModel");
 const { startSession, verifySessionToken } = require("./sessionService");
-import type { Request } from "express";
 import type {
+    AppRequest,
     CountRow,
     CustomerProfileRow,
     CustomerRecentOrderRow,
@@ -95,7 +95,7 @@ async function refreshToken(oldRefreshToken: string): Promise<string> {
     });
 }
 
-async function getUserById(uid: string, req: Request): Promise<UserRow> {
+async function getUserById(uid: string, req: AppRequest): Promise<UserRow> {
     const { valid, message } = await verifySessionToken(req);
     if (!valid) throw new Error(message);
 

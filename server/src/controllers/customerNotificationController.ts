@@ -1,8 +1,8 @@
-import type { Request, Response } from "express";
+import type { AppRequest, AppResponse } from "../types/domain";
 import type { CustomerNotificationRow } from "../types/domain";
 const notificationService = require("../services/customerNotificationService");
 
-async function getNotifications(req: Request, res: Response) {
+async function getNotifications(req: AppRequest, res: AppResponse) {
     try {
         const notifications = await notificationService.getNotifications(req.params.id, req.query.limit);
         const unread = notifications.filter((notification: CustomerNotificationRow & { is_read?: boolean }) => !notification.is_read).length;
@@ -13,7 +13,7 @@ async function getNotifications(req: Request, res: Response) {
     }
 }
 
-async function markNotificationRead(req: Request, res: Response) {
+async function markNotificationRead(req: AppRequest, res: AppResponse) {
     try {
         const result = await notificationService.markRead(req.params.id, req.params.notificationId);
         return res.status(200).json({ result, msg: "Notification marked as read" });
@@ -23,7 +23,7 @@ async function markNotificationRead(req: Request, res: Response) {
     }
 }
 
-async function markAllNotificationsRead(req: Request, res: Response) {
+async function markAllNotificationsRead(req: AppRequest, res: AppResponse) {
     try {
         const result = await notificationService.markAllRead(req.params.id);
         return res.status(200).json({ result, msg: "Notifications marked as read" });

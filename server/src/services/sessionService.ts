@@ -1,7 +1,6 @@
 const jwt = require("jsonwebtoken");
 const Session = require("../models/sessionModel");
-import type { Request, Response } from "express";
-import type { DbError, InsertResult, SessionRow } from "../types/domain";
+import type { AppRequest, AppResponse, DbError, InsertResult, SessionRow } from "../types/domain";
 
 // Start session and save to DB
 async function startSession(userId: string): Promise<number> {
@@ -17,7 +16,7 @@ async function startSession(userId: string): Promise<number> {
 }
 
 // Verify session (sessionId + access token)
-async function verifySessionToken(req: Request): Promise<{ valid: boolean; message?: string }> {
+async function verifySessionToken(req: AppRequest): Promise<{ valid: boolean; message?: string }> {
     const sessionId = req.cookies.session; // only a number
     const accessToken = req.cookies.accessToken;
 
@@ -50,7 +49,7 @@ async function verifySessionToken(req: Request): Promise<{ valid: boolean; messa
 }
 
 // Endpoint check session
-async function checkSessionToken(req: Request, res: Response) {
+async function checkSessionToken(req: AppRequest, res: AppResponse) {
     try {
         const { valid, message } = await verifySessionToken(req);
         if (!valid) {

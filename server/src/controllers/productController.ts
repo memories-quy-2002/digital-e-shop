@@ -1,5 +1,4 @@
-import type { Request, Response } from "express";
-import type { AppRequest, CountRow, DbError, ProductEditorRow, UpdateResult } from "../types/domain";
+import type { AppRequest, AppResponse, CountRow, DbError, ProductEditorRow, UpdateResult } from "../types/domain";
 const productService = require("../services/productService");
 const Product = require("../models/productModel");
 const inventoryMovementService = require("../services/inventoryMovementService");
@@ -11,7 +10,7 @@ const upload = multer({ storage });
 
 const DB_URI = process.env.MONGO_URI;
 
-async function addSingleProduct(req: AppRequest, res: Response) {
+async function addSingleProduct(req: AppRequest, res: AppResponse) {
     upload.single("image")(req, res, async (err: Error | null) => {
         if (err) return res.status(400).json({ msg: "Error uploading file" });
 
@@ -26,7 +25,7 @@ async function addSingleProduct(req: AppRequest, res: Response) {
     });
 }
 
-function getSingleProduct(req: Request, res: Response) {
+function getSingleProduct(req: AppRequest, res: AppResponse) {
     Product.getProductById(req.params.id, (err: DbError | null, results: ProductEditorRow[]) => {
         if (err) return res.status(500).json({ msg: "Internal server error" });
         if (results.length === 0) return res.status(404).json({ msg: "Product not found" });
@@ -34,7 +33,7 @@ function getSingleProduct(req: Request, res: Response) {
     });
 }
 
-function getListProduct(req: Request, res: Response) {
+function getListProduct(req: AppRequest, res: AppResponse) {
     const page = Number(req.query.page);
     const limit = Number(req.query.limit);
     const usePagination = Number.isInteger(page) && page > 0 && Number.isInteger(limit) && limit > 0;
@@ -70,7 +69,7 @@ function getListProduct(req: Request, res: Response) {
     });
 }
 
-function deleteProduct(req: Request, res: Response) {
+function deleteProduct(req: AppRequest, res: AppResponse) {
     const { pid } = req.body;
     Product.deleteProduct(pid, (err: DbError | null) => {
         if (err) return res.status(500).json({ msg: "Internal server error" });
@@ -78,7 +77,7 @@ function deleteProduct(req: Request, res: Response) {
     });
 }
 
-function getInventorySummary(req: Request, res: Response) {
+function getInventorySummary(req: AppRequest, res: AppResponse) {
     Product.getInventorySummary((err: DbError | null, results: Array<Record<string, number>>) => {
         if (err) return res.status(500).json({ msg: "Internal server error" });
         const summary = results?.[0] || {};
@@ -95,7 +94,7 @@ function getInventorySummary(req: Request, res: Response) {
     });
 }
 
-function updateInventory(req: AppRequest, res: Response) {
+function updateInventory(req: AppRequest, res: AppResponse) {
     const pid = Number(req.params.id);
     const stock = Number(req.body.stock);
 
@@ -128,7 +127,7 @@ function updateInventory(req: AppRequest, res: Response) {
     });
 }
 
-async function updateProduct(req: AppRequest, res: Response) {
+async function updateProduct(req: AppRequest, res: AppResponse) {
     const pid = Number(req.params.id);
 
     if (!Number.isInteger(pid) || pid <= 0) {
@@ -153,7 +152,7 @@ async function updateProduct(req: AppRequest, res: Response) {
     }
 }
 
-async function retrieveRelevantProducts(req: Request, res: Response) {
+async function retrieveRelevantProducts(req: AppRequest, res: AppResponse) {
     const pid = parseInt(String(req.params.pid), 10);
     if (!pid) {
         return res.status(400).json({ msg: "Invalid product id" });
@@ -218,7 +217,7 @@ async function retrieveRelevantProducts(req: Request, res: Response) {
     }
 }
 
-function getRecommendations(req: Request, res: Response) {
+function getRecommendations(req: AppRequest, res: AppResponse) {
     const uid = req.params.uid || "";
     const limit = Math.min(Number(req.query.limit) || 12, 24);
 

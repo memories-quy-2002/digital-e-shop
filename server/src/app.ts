@@ -10,11 +10,11 @@ const rateLimit = require("express-rate-limit");
 const requestLogger = require("./middlewares/requestLogger");
 const errorHandler = require("./middlewares/errorHandler");
 const { getRouteLimit } = require("./utils/rateLimitConfig");
-import type { NextFunction, Request, Response } from "express";
+import type { AppNextFunction, AppRequest, AppResponse } from "./types/domain";
 
 const PORT = process.env.PORT || 4000;
 
-app.use((req: Request, res: Response, next: NextFunction) => {
+app.use((req: AppRequest, res: AppResponse, next: AppNextFunction) => {
     res.header(
         "Access-Control-Allow-Origin",
         process.env.NODE_ENV === "production" ? "https://digital-e.vercel.app" : "http://localhost:5173",
@@ -38,14 +38,13 @@ const allowedOrigins = [
 app.use(
     cors({
         origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-            // Cho phép request không có origin (Postman, server-to-server)
             if (!origin || allowedOrigins.includes(origin)) {
                 callback(null, true);
             } else {
                 callback(new Error("Not allowed by CORS"));
             }
         },
-        credentials: true, // ⚠️ BẮT BUỘC khi dùng cookie/session
+        credentials: true,
         methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
     }),
@@ -58,7 +57,7 @@ if (!process.env.CSRF_SECRET) {
 
 const { doubleCsrfProtection, generateCsrfToken, invalidCsrfTokenError } = doubleCsrf({
     getSecret: () => csrfSecret,
-    getSessionIdentifier: (req: Request) => req.cookies?.session || req.ip || "anonymous",
+    getSessionIdentifier: (req: AppRequest) => req.cookies?.session || req.ip || "anonymous",
     cookieName: "csrfToken",
     cookieOptions: {
         httpOnly: false,
@@ -68,8 +67,8 @@ const { doubleCsrfProtection, generateCsrfToken, invalidCsrfTokenError } = doubl
     },
     size: 64,
     ignoredMethods: ["GET", "HEAD", "OPTIONS"],
-    getCsrfTokenFromRequest: (req: Request) => req.headers["x-csrf-token"],
-    skipCsrfProtection: (req: Request) =>
+    getCsrfTokenFromRequest: (req: AppRequest) => req.headers["x-csrf-token"],
+    skipCsrfProtection: (req: AppRequest) =>
         req.path === "/api/users/login" ||
         req.path === "/api/users/register" ||
         req.path === "/api/users/refresh" ||
@@ -90,10 +89,10 @@ app.options(/.*/, cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.get("/api/csrf", (req: Request, res: Response) => {
+app.get("/api/csrf", (req: AppRequest, res: AppResponse) => {
     res.status(200).json({ csrfToken: generateCsrfToken(req, res) });
 });
-app.get("/csrf", (req: Request, res: Response) => {
+app.get("/csrf", (req: AppRequest, res: AppResponse) => {
     res.status(200).json({ csrfToken: generateCsrfToken(req, res) });
 });
 app.use(doubleCsrfProtection);
@@ -137,25 +136,25 @@ app.use("/blob", blobRoutes);
 app.use("/promotions", promotionRoutes);
 app.use("/analytics", analyticsRoutes);
 
-app.get("/get-user", (req: Request, res: Response) => {
+app.get("/get-user", (req: AppRequest, res: AppResponse) => {
     res.send(req.cookies);
 });
 
-app.get("/clear-user", (req: Request, res: Response) => {
+app.get("/clear-user", (req: AppRequest, res: AppResponse) => {
     res.clearCookie("username");
     res.clearCookie("userInfo");
     res.clearCookie("rememberMe");
     res.send("All cookies are clear");
 });
 
-app.get("/api/health", (req: Request, res: Response) => {
+app.get("/api/health", (req: AppRequest, res: AppResponse) => {
     res.status(200).json({
         status: "ok",
         timestamp: new Date().toISOString(),
     });
 });
 
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, req: AppRequest, res: AppResponse, next: AppNextFunction) => {
     if (err === invalidCsrfTokenError) {
         return res.status(403).json({ error: "Invalid CSRF token" });
     }

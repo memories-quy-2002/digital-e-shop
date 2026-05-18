@@ -15,7 +15,7 @@ const { getInventoryMovements } = require("../controllers/inventoryMovementContr
 const { requireAdmin } = require("../middlewares/authMiddleWares");
 const router = express.Router();
 const path = require("path");
-import type { Request, Response } from "express";
+import type { AppRequest, AppResponse } from "../types/domain";
 
 const UPLOADS_DIR = path.resolve(__dirname, '..', '..', 'server', 'src', 'uploads');
 
@@ -31,7 +31,7 @@ router.get("/admin/inventory-summary", productLimiter, requireAdmin, getInventor
 router.get("/admin/inventory-movements", productLimiter, requireAdmin, getInventoryMovements);
 router.get("/recommendations/:uid", productLimiter, getRecommendations);
 router.get("/relevant/:pid", productLimiter, retrieveRelevantProducts);
-router.get('/images/:filename', async (req: Request, res: Response) => {
+router.get('/images/:filename', async (req: AppRequest, res: AppResponse) => {
     const requestedFilename = req.params.filename + '.jpg';
     const imagePath = path.resolve(UPLOADS_DIR, requestedFilename);
 

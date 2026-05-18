@@ -1,7 +1,7 @@
-import type { Request, Response } from "express";
+import type { AppRequest, AppResponse } from "../types/domain";
 const reviewService = require("../services/reviewService");
 
-const addReview = async (req: Request, res: Response) => {
+const addReview = async (req: AppRequest, res: AppResponse) => {
     const { uid, pid, rating, comment, reviewText } = req.body;
     const safeRating = Number(rating);
     const safeProductId = Number(pid);
@@ -29,7 +29,7 @@ const addReview = async (req: Request, res: Response) => {
     }
 };
 
-async function getReviews(req: Request, res: Response) {
+async function getReviews(req: AppRequest, res: AppResponse) {
     const pid = Number(req.params.pid);
 
     if (!Number.isInteger(pid) || pid <= 0) {

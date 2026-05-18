@@ -1,7 +1,7 @@
-import type { Request, Response } from "express";
+import type { AppRequest, AppResponse } from "../types/domain";
 const cartService = require("../services/cartService");
 
-async function addItemToCart(req: Request, res: Response) {
+async function addItemToCart(req: AppRequest, res: AppResponse) {
     const { pid, uid, quantity } = req.body;
     try {
         const msg = await cartService.addItemToCart(pid, uid, quantity);
@@ -17,7 +17,7 @@ async function addItemToCart(req: Request, res: Response) {
     }
 };
 
-async function getCartItems(req: Request, res: Response) {
+async function getCartItems(req: AppRequest, res: AppResponse) {
     const uid = req.params.uid;
     try {
         const results = await cartService.getCartItems(uid);
@@ -34,7 +34,7 @@ async function getCartItems(req: Request, res: Response) {
     }
 };
 
-async function deleteCartItem(req: Request, res: Response) {
+async function deleteCartItem(req: AppRequest, res: AppResponse) {
     const { cartItemId } = req.body;
     try {
         const msg = await cartService.deleteCartItem(cartItemId);
@@ -50,7 +50,7 @@ async function deleteCartItem(req: Request, res: Response) {
     }
 };
 
-async function updateCartItemQuantity(req: Request, res: Response) {
+async function updateCartItemQuantity(req: AppRequest, res: AppResponse) {
     const { cartItemId, quantity } = req.body;
     try {
         const msg = await cartService.updateCartItemQuantity(cartItemId, quantity);

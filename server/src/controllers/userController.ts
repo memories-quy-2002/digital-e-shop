@@ -1,23 +1,22 @@
-import type { CookieOptions, Request, Response } from "express";
-import type { DbError } from "../types/domain";
+import type { AppCookieOptions, AppRequest, AppResponse, DbError } from "../types/domain";
 const userService = require("../services/userService");
 const { endSession } = require("../services/sessionService");
 
 const isProduction = process.env.NODE_ENV === "production";
 const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
 
-const baseCookieOptions: CookieOptions = {
+const baseCookieOptions: AppCookieOptions = {
     httpOnly: true,
     secure: isProduction,
     sameSite: isProduction ? "none" : "lax",
 };
 
-const withMaxAge = (maxAge: number): CookieOptions => ({
+const withMaxAge = (maxAge: number): AppCookieOptions => ({
     ...baseCookieOptions,
     maxAge,
 });
 
-async function registerUser(req: Request, res: Response) {
+async function registerUser(req: AppRequest, res: AppResponse) {
     const { uid, user } = req.body;
     try {
         const { uid: newUid, token, sessionId } = await userService.registerUser(uid, user);
@@ -37,7 +36,7 @@ async function registerUser(req: Request, res: Response) {
     }
 }
 
-async function getUserLoginById(req: Request, res: Response) {
+async function getUserLoginById(req: AppRequest, res: AppResponse) {
     try {
         const user = await userService.getUserById(req.params.id, req);
         res.status(200).json({ userData: user, msg: "User logged in successfully" });
@@ -47,7 +46,7 @@ async function getUserLoginById(req: Request, res: Response) {
     }
 }
 
-async function getAllUsers(req: Request, res: Response) {
+async function getAllUsers(req: AppRequest, res: AppResponse) {
     try {
         const page = Number(req.query.page);
         const limit = Number(req.query.limit);
@@ -79,9 +78,9 @@ async function getAllUsers(req: Request, res: Response) {
     }
 }
 
-async function updateUserAdmin(req: Request, res: Response) {
+async function updateUserAdmin(req: AppRequest, res: AppResponse) {
     const uid = req.params.id;
-    const { role, status } = req.body;
+    const { role, status } = req.body as { role: string; status: string };
     const validRoles = ["Customer", "Admin"];
     const validStatuses = ["Active", "Suspended"];
 
@@ -98,7 +97,7 @@ async function updateUserAdmin(req: Request, res: Response) {
     }
 }
 
-async function getCustomerProfile(req: Request, res: Response) {
+async function getCustomerProfile(req: AppRequest, res: AppResponse) {
     try {
         const profile = await userService.getCustomerProfile(req.params.id);
         if (!profile) {
@@ -111,7 +110,7 @@ async function getCustomerProfile(req: Request, res: Response) {
     }
 }
 
-async function userLogin(req: Request, res: Response) {
+async function userLogin(req: AppRequest, res: AppResponse) {
     const { uid, role, rememberMe } = req.body;
     try {
         const { user, token: accessToken, sessionId, refreshToken } =
@@ -138,7 +137,7 @@ async function userLogin(req: Request, res: Response) {
     }
 }
 
-async function userRefreshToken(req: Request, res: Response) {
+async function userRefreshToken(req: AppRequest, res: AppResponse) {
     const refreshTokenCookie = req.cookies.refreshToken;
     if (!refreshTokenCookie) {
         return res.status(401).json({ msg: "No refresh token" });
@@ -156,7 +155,7 @@ async function userRefreshToken(req: Request, res: Response) {
     }
 }
 
-async function getCurrentUser(req: Request, res: Response) {
+async function getCurrentUser(req: AppRequest, res: AppResponse) {
     try {
         const accessToken = req.cookies.accessToken;
         const sessionId = req.cookies.session;
@@ -171,7 +170,7 @@ async function getCurrentUser(req: Request, res: Response) {
     }
 }
 
-async function userLogout(req: Request, res: Response) {
+async function userLogout(req: AppRequest, res: AppResponse) {
     const sessionId = req.cookies.session;
 
     console.log("Logout sessionId:", sessionId);

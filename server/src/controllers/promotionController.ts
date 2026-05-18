@@ -1,7 +1,7 @@
-import type { Request, Response } from "express";
+import type { AppRequest, AppResponse } from "../types/domain";
 const promotionService = require("../services/promotionService");
 
-async function getPromotions(req: Request, res: Response) {
+async function getPromotions(req: AppRequest, res: AppResponse) {
     try {
         const promotions = await promotionService.getPromotions();
         return res.status(200).json({ promotions, msg: "Promotions retrieved successfully" });
@@ -11,7 +11,7 @@ async function getPromotions(req: Request, res: Response) {
     }
 }
 
-async function createPromotion(req: Request, res: Response) {
+async function createPromotion(req: AppRequest, res: AppResponse) {
     try {
         const promotion = await promotionService.createPromotion(req.body);
         return res.status(201).json({ promotion, msg: "Promotion created successfully" });
@@ -21,7 +21,7 @@ async function createPromotion(req: Request, res: Response) {
     }
 }
 
-async function updatePromotion(req: Request, res: Response) {
+async function updatePromotion(req: AppRequest, res: AppResponse) {
     try {
         const promotion = await promotionService.updatePromotion(req.params.id, req.body);
         return res.status(200).json({ promotion, msg: "Promotion updated successfully" });
@@ -31,7 +31,7 @@ async function updatePromotion(req: Request, res: Response) {
     }
 }
 
-async function deletePromotion(req: Request, res: Response) {
+async function deletePromotion(req: AppRequest, res: AppResponse) {
     try {
         const promotion = await promotionService.deletePromotion(req.params.id);
         return res.status(200).json({ promotion, msg: "Promotion deactivated successfully" });

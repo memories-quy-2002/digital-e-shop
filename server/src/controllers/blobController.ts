@@ -1,11 +1,10 @@
-import type { Request, Response } from "express";
-import type { UploadedFile } from "../types/domain";
+import type { AppRequest, AppResponse, UploadedFile } from "../types/domain";
 const { put, del } = require("@vercel/blob");
 const multer = require("multer");
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-async function blobHealthCheck(req: Request, res: Response) {
+async function blobHealthCheck(req: AppRequest, res: AppResponse) {
     const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (!token) {
         return res.status(500).json({ msg: "BLOB_READ_WRITE_TOKEN is not set" });
@@ -45,9 +44,9 @@ async function blobHealthCheck(req: Request, res: Response) {
     }
 }
 
-type UploadRequest = Request & { file?: UploadedFile & { originalname?: string; size?: number } };
+type UploadRequest = AppRequest & { file?: UploadedFile & { originalname?: string; size?: number } };
 
-const uploadImage = (req: UploadRequest, res: Response) => {
+const uploadImage = (req: UploadRequest, res: AppResponse) => {
     upload.single("file")(req, res, async (err: Error | null) => {
         if (err) {
             return res.status(400).json({ msg: "Error uploading file" });

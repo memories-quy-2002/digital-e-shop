@@ -8,6 +8,7 @@ export type QueryCallback<T = unknown> = (err?: DbError | null, results?: T, fie
 export type QueryParams = unknown[] | Record<string, unknown> | QueryCallback | undefined;
 
 export type LooseRecord = Record<string, unknown>;
+export type AppRequestMap = Record<string, unknown>;
 
 export type AppUser = {
     id?: string;
@@ -15,9 +16,39 @@ export type AppUser = {
     [key: string]: unknown;
 };
 
-export type AppRequest = import("express").Request & {
+export type AppRequest = {
     user?: AppUser;
     file?: UploadedFile;
+    body: AppRequestMap;
+    cookies: AppRequestMap;
+    headers: AppRequestMap;
+    ip?: string;
+    method: string;
+    params: AppRequestMap;
+    path: string;
+    query: AppRequestMap;
+    url: string;
+};
+
+export type AppResponse = {
+    clearCookie(name: string, options?: AppCookieOptions): AppResponse;
+    cookie(name: string, value: unknown, options?: AppCookieOptions): AppResponse;
+    header(name: string, value: string): AppResponse;
+    send(body?: unknown): AppResponse;
+    sendFile(path: string): void;
+    sendStatus(code: number): AppResponse;
+    status(code: number): AppResponse;
+    json(body?: unknown): AppResponse;
+};
+
+export type AppNextFunction = (err?: unknown) => void;
+
+export type AppCookieOptions = {
+    httpOnly?: boolean;
+    secure?: boolean;
+    sameSite?: boolean | "lax" | "strict" | "none";
+    maxAge?: number;
+    path?: string;
 };
 
 export type InsertResult = {

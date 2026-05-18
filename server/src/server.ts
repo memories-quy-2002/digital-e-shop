@@ -1,10 +1,10 @@
 require("dotenv").config();
 const app = require("./app");
-import type { Request, Response } from "express";
+import type { AppRequest, AppResponse } from "./types/domain";
 
 const PORT = process.env.PORT || 4000;
 
-app.get('/', (req: Request, res: Response) => {
+app.get('/', (req: AppRequest, res: AppResponse) => {
     res.send("Hello World from Express");
 });
 

@@ -1,7 +1,7 @@
-import type { Request, Response } from "express";
+import type { AppRequest, AppResponse } from "../types/domain";
 const wishlistService = require('../services/wishlistService');
 
-async function addItemToWishlist(req: Request, res: Response) {
+async function addItemToWishlist(req: AppRequest, res: AppResponse) {
     const { uid, pid } = req.body;
     try {
         const msg = await wishlistService.addItemToWishlist(uid, pid);
@@ -14,7 +14,7 @@ async function addItemToWishlist(req: Request, res: Response) {
     }
 };
 
-async function getWishlist(req: Request, res: Response) {
+async function getWishlist(req: AppRequest, res: AppResponse) {
     const uid = req.params.uid;
     try {
         const results = await wishlistService.getWishlist(uid);
@@ -30,7 +30,7 @@ async function getWishlist(req: Request, res: Response) {
         });
     }
 };
-async function deleteWishlistItem(req: Request, res: Response) {
+async function deleteWishlistItem(req: AppRequest, res: AppResponse) {
     const { pid } = req.params;
     const { uid } = req.body;
     try {
@@ -47,7 +47,7 @@ async function deleteWishlistItem(req: Request, res: Response) {
     }
 }
 
-async function deleteWishlistItems(req: Request, res: Response) {
+async function deleteWishlistItems(req: AppRequest, res: AppResponse) {
     const { uid, productIds } = req.body;
     try {
         const msg = await wishlistService.deleteWishlistItems(uid, productIds);

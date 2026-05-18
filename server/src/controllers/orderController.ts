@@ -1,8 +1,7 @@
-import type { Request, Response } from "express";
-import type { AppRequest } from "../types/domain";
+import type { AppRequest, AppResponse, PurchasePayload } from "../types/domain";
 const orderService = require("../services/orderService");
 
-async function getOrders(req: Request, res: Response) {
+async function getOrders(req: AppRequest, res: AppResponse) {
     try {
         const page = Number(req.query.page);
         const limit = Number(req.query.limit);
@@ -35,7 +34,7 @@ async function getOrders(req: Request, res: Response) {
     }
 }
 
-async function getOrderItems(req: Request, res: Response) {
+async function getOrderItems(req: AppRequest, res: AppResponse) {
     try {
         const page = Number(req.query.page);
         const limit = Number(req.query.limit);
@@ -71,7 +70,7 @@ async function getOrderItems(req: Request, res: Response) {
     }
 }
 
-async function getCustomerOrders(req: Request, res: Response) {
+async function getCustomerOrders(req: AppRequest, res: AppResponse) {
     const uid = req.params.uid;
 
     try {
@@ -83,7 +82,7 @@ async function getCustomerOrders(req: Request, res: Response) {
     }
 }
 
-async function getOrderDetail(req: AppRequest, res: Response) {
+async function getOrderDetail(req: AppRequest, res: AppResponse) {
     const orderId = req.params.oid;
 
     try {
@@ -105,7 +104,7 @@ async function getOrderDetail(req: AppRequest, res: Response) {
     }
 }
 
-async function changeOrderStatus(req: AppRequest, res: Response) {
+async function changeOrderStatus(req: AppRequest, res: AppResponse) {
     const orderId = req.params.oid;
     const { status } = req.body;
 
@@ -128,9 +127,9 @@ async function changeOrderStatus(req: AppRequest, res: Response) {
     }
 }
 
-async function makePurchase(req: Request, res: Response) {
+async function makePurchase(req: AppRequest, res: AppResponse) {
     const uid = req.params.uid;
-    const { totalPrice, cart, discount, shippingAddress, paymentMethod } = req.body;
+    const { totalPrice, cart, discount, shippingAddress, paymentMethod } = req.body as unknown as PurchasePayload;
     const requestId = `purchase-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     console.log("[makePurchase] request", { requestId, uid, items: cart?.length });
 
@@ -162,8 +161,8 @@ async function makePurchase(req: Request, res: Response) {
     }
 }
 
-async function applyDiscount(req: Request, res: Response) {
-    const { discountCode, price } = req.body;
+async function applyDiscount(req: AppRequest, res: AppResponse) {
+    const { discountCode, price } = req.body as { discountCode: string; price: number };
 
     try {
         const discount = await orderService.applyDiscount(discountCode);
