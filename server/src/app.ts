@@ -136,6 +136,14 @@ app.use("/blob", blobRoutes);
 app.use("/promotions", promotionRoutes);
 app.use("/analytics", analyticsRoutes);
 
+app.get("/", (req: AppRequest, res: AppResponse) => {
+    res.status(200).json({
+        status: "ok",
+        service: "digital-e-server",
+        timestamp: new Date().toISOString(),
+    });
+});
+
 app.get("/get-user", (req: AppRequest, res: AppResponse) => {
     res.send(req.cookies);
 });

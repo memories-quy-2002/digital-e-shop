@@ -4,7 +4,7 @@ import type { AppRequest, AppResponse } from "./types/domain";
 
 const PORT = process.env.PORT || 4000;
 
-app.get('/', (req: AppRequest, res: AppResponse) => {
+app.get("/", (req: AppRequest, res: AppResponse) => {
     res.send("Hello World from Express");
 });
 
