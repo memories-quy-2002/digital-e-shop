@@ -1,9 +1,15 @@
 {
     "version": 2,
+    "outputDirectory": "dist",
     "rewrites": [
         {
             "source": "/(.*)",
             "destination": "/api/index.ts"
         }
-    ]
+    ],
+    "functions": {
+        "api/index.ts": {
+            "runtime": "@vercel/node"
+        }
+    }
 }

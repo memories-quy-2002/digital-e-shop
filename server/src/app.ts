@@ -15,12 +15,15 @@ import type { NextFunction, Request, Response } from "express";
 const PORT = process.env.PORT || 4000;
 
 app.use((req: Request, res: Response, next: NextFunction) => {
-    res.header('Access-Control-Allow-Origin', process.env.NODE_ENV === 'production' ? 'https://digital-e.vercel.app' : 'http://localhost:5173');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-CSRF-Token');
+    res.header(
+        "Access-Control-Allow-Origin",
+        process.env.NODE_ENV === "production" ? "https://digital-e.vercel.app" : "http://localhost:5173",
+    );
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type,Authorization,X-CSRF-Token");
 
-    if (req.method === 'OPTIONS') {
+    if (req.method === "OPTIONS") {
         return res.sendStatus(200);
     }
 
@@ -28,23 +31,25 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 const allowedOrigins = [
-    'http://localhost:5173', // local dev
-    'https://digital-e.vercel.app' // production
+    "http://localhost:5173", // local dev
+    "https://digital-e.vercel.app", // production
 ];
 
-app.use(cors({
-    origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-        // Cho phép request không có origin (Postman, server-to-server)
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true, // ⚠️ BẮT BUỘC khi dùng cookie/session
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
-}));
+app.use(
+    cors({
+        origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+            // Cho phép request không có origin (Postman, server-to-server)
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error("Not allowed by CORS"));
+            }
+        },
+        credentials: true, // ⚠️ BẮT BUỘC khi dùng cookie/session
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
+    }),
+);
 
 const csrfSecret = process.env.CSRF_SECRET || process.env.JWT_SECRET_KEY || "dev_csrf_secret";
 if (!process.env.CSRF_SECRET) {
@@ -132,11 +137,11 @@ app.use("/blob", blobRoutes);
 app.use("/promotions", promotionRoutes);
 app.use("/analytics", analyticsRoutes);
 
-app.get('/get-user', (req: Request, res: Response) => {
+app.get("/get-user", (req: Request, res: Response) => {
     res.send(req.cookies);
 });
 
-app.get('/clear-user', (req: Request, res: Response) => {
+app.get("/clear-user", (req: Request, res: Response) => {
     res.clearCookie("username");
     res.clearCookie("userInfo");
     res.clearCookie("rememberMe");

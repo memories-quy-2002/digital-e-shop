@@ -2,6 +2,10 @@ import js from "@eslint/js";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 import { defineConfig } from "eslint/config";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const serverRoot = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig([
   {
@@ -30,6 +34,14 @@ export default defineConfig([
     },
   },
   ...tseslint.configs.recommended,
+  {
+    files: ["**/*.{ts,mts,cts}"],
+    languageOptions: {
+      parserOptions: {
+        tsconfigRootDir: serverRoot,
+      },
+    },
+  },
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "warn",
