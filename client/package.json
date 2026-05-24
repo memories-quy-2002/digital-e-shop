@@ -101,7 +101,7 @@
         "msw": "^2.14.6",
         "node-fetch": "^3.3.2",
         "prettier": "^3.8.3",
-        "ts-jest": "^29.4.9",
+        "ts-jest": "^29.4.11",
         "typescript": "^6.0.3",
         "typescript-eslint": "^8.59.3",
         "vite": "^8.0.13",
