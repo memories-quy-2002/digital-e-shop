@@ -31,7 +31,7 @@ router.get("/admin/inventory-summary", productLimiter, requireAdmin, getInventor
 router.get("/admin/inventory-movements", productLimiter, requireAdmin, getInventoryMovements);
 router.get("/recommendations/:uid", productLimiter, getRecommendations);
 router.get("/relevant/:pid", productLimiter, retrieveRelevantProducts);
-router.get('/images/:filename', async (req: AppRequest, res: AppResponse) => {
+router.get('/images/:filename', productLimiter, async (req: AppRequest, res: AppResponse) => {
     const requestedFilename = req.params.filename + '.jpg';
     const imagePath = path.resolve(UPLOADS_DIR, requestedFilename);
 

@@ -77,6 +77,10 @@ const { doubleCsrfProtection, generateCsrfToken, invalidCsrfTokenError } = doubl
         req.path === "/users/refresh",
 });
 
+const csrfProtection = (req: AppRequest, res: AppResponse, next: AppNextFunction) => {
+    doubleCsrfProtection(req, res, next);
+};
+
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: getRouteLimit(500),
@@ -95,7 +99,7 @@ app.get("/api/csrf", (req: AppRequest, res: AppResponse) => {
 app.get("/csrf", (req: AppRequest, res: AppResponse) => {
     res.status(200).json({ csrfToken: generateCsrfToken(req, res) });
 });
-app.use(doubleCsrfProtection);
+app.use(csrfProtection);
 app.use(requestLogger);
 
 const userRoutes = require("./routes/userRoutes");
