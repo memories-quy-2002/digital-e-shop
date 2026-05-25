@@ -2,29 +2,7 @@
     padding: 2.5rem 2rem 4rem;
     background: #f8fafc;
     min-height: 100vh;
-
-    &__header {
-        margin-bottom: 1.5rem;
-
-        span {
-            color: #64748b;
-            font-size: 0.78rem;
-            font-weight: 900;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-        }
-
-        h1 {
-            margin: 0.35rem 0 0.4rem;
-            color: #0f172a;
-            font-size: 2.4rem;
-        }
-
-        p {
-            color: #64748b;
-            margin: 0;
-        }
-    }
+    overflow-x: hidden;
 
     &__empty,
     &__list,
@@ -36,10 +14,14 @@
     }
 
     &__empty {
+        max-width: 1180px;
+        margin: 0 auto;
         padding: 2rem;
     }
 
     &__layout {
+        max-width: 1180px;
+        margin: 0 auto;
         display: grid;
         grid-template-columns: minmax(260px, 0.75fr) minmax(0, 1.6fr);
         gap: 1.25rem;
@@ -50,6 +32,7 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        min-width: 0;
 
         button {
             border: none;
@@ -68,17 +51,20 @@
 
             strong {
                 color: #0f172a;
+                overflow-wrap: anywhere;
             }
 
             span,
             small {
                 color: #64748b;
+                overflow-wrap: anywhere;
             }
         }
     }
 
     &__detail {
         padding: 1.5rem;
+        min-width: 0;
     }
 
     &__detail__header {
@@ -91,6 +77,7 @@
         h2 {
             margin: 0.4rem 0 0.25rem;
             color: #0f172a;
+            overflow-wrap: anywhere;
         }
 
         p {
@@ -153,6 +140,7 @@
 
         strong {
             color: #0f172a;
+            overflow-wrap: anywhere;
         }
     }
 
@@ -197,14 +185,17 @@
             gap: 1rem;
             border-top: 1px solid #e5e7eb;
             padding-top: 0.75rem;
+            min-width: 0;
         }
 
         strong {
             color: #0f172a;
+            overflow-wrap: anywhere;
         }
 
         span {
             color: #64748b;
+            overflow-wrap: anywhere;
         }
     }
 
@@ -212,6 +203,32 @@
         &__layout,
         &__meta {
             grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 520px) {
+        padding: 1.25rem 0.9rem 3rem;
+
+        &__detail,
+        &__empty {
+            padding: 1rem;
+        }
+
+        &__detail__header {
+            flex-direction: column;
+
+            button {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        &__timeline {
+            grid-template-columns: 1fr;
+        }
+
+        &__items > div {
+            flex-direction: column;
         }
     }
 }

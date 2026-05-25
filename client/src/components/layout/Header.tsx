@@ -12,6 +12,7 @@ import { useAuth } from "../../context/AuthContext";
 import "../../styles/Header.scss";
 import { useToast } from "../../context/ToastContext";
 import axios from "../../api/axios";
+import { fetchCustomerNotifications } from "../../api/customerAccount";
 import { signOut } from "firebase/auth";
 import { auth } from "../../services/firebase";
 import { Product } from "../../utils/interface";
@@ -127,8 +128,8 @@ export const Header = (): JSX.Element => {
             }
 
             try {
-                const response = await axios.get(`/api/users/${userData.id}/notifications?limit=10`);
-                setUnreadNotifications(Number(response.data.unread) || 0);
+                const response = await fetchCustomerNotifications(userData.id, 10);
+                setUnreadNotifications(response.unread);
             } catch {
                 setUnreadNotifications(0);
             }

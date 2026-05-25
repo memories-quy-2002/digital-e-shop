@@ -1,46 +1,20 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet";
 import { useSearchParams } from "react-router-dom";
-import axios from "../../api/axios";
+import {
+    CustomerOrder,
+    CustomerOrderDetail,
+    addItemsToCustomerCart,
+    fetchCustomerOrderDetail,
+    fetchCustomerOrders,
+} from "../../api/customerAccount";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import Layout from "../layout/Layout";
+import CustomerAccountShell from "../common/account/CustomerAccountShell";
 import { CartIcon } from "../common/Icons";
 import "../../styles/OrderHistoryPage.scss";
 import { formatUtcDate, formatUtcDateTime } from "../../utils/dateTime";
-
-type Order = {
-    id: number;
-    date_added: string;
-    status: number;
-    total_price: number;
-    discount: number;
-    shipping_address: string;
-    payment_method?: "bank_transfer" | "cash";
-};
-
-type OrderItem = {
-    productId: number;
-    productName: string;
-    brand: string;
-    category: string;
-    price: number;
-    sale_price: number | null;
-    stock: number;
-    quantity: number;
-    totalPrice: number;
-};
-
-type OrderDetail = Order & {
-    items: OrderItem[];
-    timeline?: Array<{
-        id: number;
-        label: string;
-        note: string | null;
-        created_at: string | null;
-        status: number;
-    }>;
-};
 
 const getStatusLabel = (status: number) => {
     if (status === 1) return "Done";
@@ -48,7 +22,7 @@ const getStatusLabel = (status: number) => {
     return "Canceled";
 };
 
-const getPaymentLabel = (payment?: Order["payment_method"]) => {
+const getPaymentLabel = (payment?: CustomerOrder["payment_method"]) => {
     if (payment === "bank_transfer") return "Bank transfer";
     if (payment === "cash") return "Cash on delivery";
     return "Not recorded";
@@ -61,9 +35,9 @@ const OrderHistoryPage = () => {
     const [searchParams] = useSearchParams();
     const uid = userData?.id || "";
     const { addToast } = useToast();
-    const [orders, setOrders] = useState<Order[]>([]);
+    const [orders, setOrders] = useState<CustomerOrder[]>([]);
     const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
-    const [orderDetail, setOrderDetail] = useState<OrderDetail | null>(null);
+    const [orderDetail, setOrderDetail] = useState<CustomerOrderDetail | null>(null);
     const [loadingDetail, setLoadingDetail] = useState(false);
 
     useEffect(() => {
@@ -71,10 +45,7 @@ const OrderHistoryPage = () => {
             if (!uid) return;
 
             try {
-                const response = await axios.get(`/api/orders/user/${uid}`);
-                if (response.status === 200) {
-                    setOrders(response.data.orders || []);
-                }
+                setOrders(await fetchCustomerOrders(uid));
             } catch {
                 addToast("Orders", "Unable to load order history.");
             }
@@ -92,10 +63,7 @@ const OrderHistoryPage = () => {
 
             try {
                 setLoadingDetail(true);
-                const response = await axios.get(`/api/orders/${selectedOrderId}`);
-                if (response.status === 200) {
-                    setOrderDetail(response.data.order);
-                }
+                setOrderDetail(await fetchCustomerOrderDetail(selectedOrderId));
             } catch {
                 addToast("Orders", "Unable to load order detail.");
             } finally {
@@ -129,15 +97,7 @@ const OrderHistoryPage = () => {
         }
 
         try {
-            await Promise.all(
-                availableItems.map((item) =>
-                    axios.post("/api/cart/", {
-                        uid,
-                        pid: item.productId,
-                        quantity: Math.min(item.quantity, item.stock),
-                    }),
-                ),
-            );
+            await addItemsToCustomerCart(uid, availableItems);
             addToast("Reorder", "Available items were added to your cart.");
         } catch {
             addToast("Reorder", "Unable to add the order items to your cart.");
@@ -151,13 +111,11 @@ const OrderHistoryPage = () => {
                 <meta name="description" content="Review previous orders and reorder available items." />
             </Helmet>
             <main className="order-history">
-                <header className="order-history__header">
-                    <div>
-                        <span>Orders</span>
-                        <h1>Order history</h1>
-                        <p>Track previous purchases, check payment details, and reorder available products.</p>
-                    </div>
-                </header>
+                <CustomerAccountShell
+                    eyebrow="Orders"
+                    title="Order history"
+                    description="Track previous purchases, check payment details, and reorder available products."
+                />
 
                 {orders.length === 0 ? (
                     <section className="order-history__empty">

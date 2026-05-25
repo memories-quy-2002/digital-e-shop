@@ -1,23 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet";
 import { Link } from "react-router-dom";
-import axios from "../../api/axios";
+import {
+    CustomerNotification,
+    fetchCustomerNotifications,
+    markAllCustomerNotificationsRead,
+} from "../../api/customerAccount";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
+import CustomerAccountShell from "../common/account/CustomerAccountShell";
 import Layout from "../layout/Layout";
 import { formatUtcDateTime } from "../../utils/dateTime";
 import "../../styles/CustomerNotificationsPage.scss";
-
-type CustomerNotification = {
-    id: number;
-    type: string;
-    title: string;
-    message: string;
-    link: string | null;
-    read_at: string | null;
-    created_at: string;
-    is_read: boolean;
-};
 
 const CustomerNotificationsPage = () => {
     const { userData } = useAuth();
@@ -28,8 +22,8 @@ const CustomerNotificationsPage = () => {
     const fetchNotifications = async () => {
         if (!uid) return;
         try {
-            const response = await axios.get(`/api/users/${uid}/notifications?limit=50`);
-            setNotifications(response.data.notifications || []);
+            const response = await fetchCustomerNotifications(uid, 50);
+            setNotifications(response.notifications);
         } catch {
             addToast("Notifications", "Unable to load notifications.");
         }
@@ -42,7 +36,7 @@ const CustomerNotificationsPage = () => {
     const markAllRead = async () => {
         if (!uid) return;
         try {
-            await axios.post(`/api/users/${uid}/notifications/read-all`);
+            await markAllCustomerNotificationsRead(uid);
             setNotifications((current) => current.map((item) => ({ ...item, is_read: true, read_at: item.read_at || new Date().toISOString() })));
         } catch {
             addToast("Notifications", "Unable to update notifications.");
@@ -56,14 +50,12 @@ const CustomerNotificationsPage = () => {
                 <meta name="description" content="Review customer account and order notifications." />
             </Helmet>
             <main className="customer-notifications">
-                <header className="customer-notifications__header">
-                    <div>
-                        <span>Account</span>
-                        <h1>Notifications</h1>
-                        <p>Order updates, checkout messages, and important account events.</p>
-                    </div>
-                    <button type="button" onClick={markAllRead}>Mark all read</button>
-                </header>
+                <CustomerAccountShell
+                    eyebrow="Account"
+                    title="Notifications"
+                    description="Order updates, checkout messages, and important account events."
+                    actions={<button type="button" onClick={markAllRead}>Mark all read</button>}
+                />
 
                 <section className="customer-notifications__list">
                     {notifications.length > 0 ? (
