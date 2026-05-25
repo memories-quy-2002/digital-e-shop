@@ -1,7 +1,0 @@
-allowBuilds:
-    "@firebase/util": false
-    "@parcel/watcher": true
-    geckodriver: false
-    msw: false
-    protobufjs: true
-    unrs-resolver: true

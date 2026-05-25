@@ -1,0 +1,12 @@
+packages:
+  - "client"
+  - "server"
+allowBuilds:
+  "@firebase/util": false
+  "@parcel/watcher": true
+  esbuild: true
+  geckodriver: false
+  msw: false
+  protobufjs: true
+  sharp: true
+  unrs-resolver: true
