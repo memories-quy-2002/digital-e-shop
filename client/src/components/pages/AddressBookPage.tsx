@@ -1,21 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet";
-import axios from "../../api/axios";
+import {
+    CustomerAddress,
+    CustomerAddressPayload,
+    createCustomerAddress,
+    deleteCustomerAddress,
+    fetchCustomerAddresses,
+    updateCustomerAddress,
+} from "../../api/customerAccount";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
+import CustomerAccountShell from "../common/account/CustomerAccountShell";
 import Layout from "../layout/Layout";
 import "../../styles/AddressBookPage.scss";
-
-type Address = {
-    id: number;
-    label: string;
-    recipient_name: string | null;
-    phone_number: string | null;
-    address_line: string;
-    city: string | null;
-    country: string | null;
-    is_default: boolean;
-};
 
 type AddressForm = {
     id?: number;
@@ -42,15 +39,14 @@ const AddressBookPage = () => {
     const { userData } = useAuth();
     const uid = userData?.id || "";
     const { addToast } = useToast();
-    const [addresses, setAddresses] = useState<Address[]>([]);
+    const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
     const [form, setForm] = useState<AddressForm>(emptyForm);
     const [isSaving, setIsSaving] = useState(false);
 
     const fetchAddresses = async () => {
         if (!uid) return;
         try {
-            const response = await axios.get(`/api/users/${uid}/addresses`);
-            setAddresses(response.data.addresses || []);
+            setAddresses(await fetchCustomerAddresses(uid));
         } catch {
             addToast("Address book", "Unable to load saved addresses.");
         }
@@ -60,7 +56,7 @@ const AddressBookPage = () => {
         fetchAddresses();
     }, [uid]);
 
-    const handleEdit = (address: Address) => {
+    const handleEdit = (address: CustomerAddress) => {
         setForm({
             id: address.id,
             label: address.label || "Shipping address",
@@ -82,7 +78,7 @@ const AddressBookPage = () => {
 
         try {
             setIsSaving(true);
-            const payload = {
+            const payload: CustomerAddressPayload = {
                 label: form.label,
                 recipientName: form.recipientName,
                 phoneNumber: form.phoneNumber,
@@ -92,10 +88,10 @@ const AddressBookPage = () => {
                 isDefault: form.isDefault,
             };
             if (form.id) {
-                await axios.put(`/api/users/${uid}/addresses/${form.id}`, payload);
+                await updateCustomerAddress(uid, form.id, payload);
                 addToast("Address book", "Address updated.");
             } else {
-                await axios.post(`/api/users/${uid}/addresses`, payload);
+                await createCustomerAddress(uid, payload);
                 addToast("Address book", "Address saved.");
             }
             setForm(emptyForm);
@@ -110,7 +106,7 @@ const AddressBookPage = () => {
     const handleDelete = async (addressId: number) => {
         if (!uid) return;
         try {
-            await axios.delete(`/api/users/${uid}/addresses/${addressId}`);
+            await deleteCustomerAddress(uid, addressId);
             addToast("Address book", "Address removed.");
             fetchAddresses();
         } catch {
@@ -125,11 +121,11 @@ const AddressBookPage = () => {
                 <meta name="description" content="Manage saved shipping addresses." />
             </Helmet>
             <main className="address-book">
-                <header className="address-book__header">
-                    <span>Account</span>
-                    <h1>Address book</h1>
-                    <p>Save delivery addresses and select a default address for faster checkout.</p>
-                </header>
+                <CustomerAccountShell
+                    eyebrow="Account"
+                    title="Address book"
+                    description="Save delivery addresses and select a default address for faster checkout."
+                />
 
                 <section className="address-book__layout">
                     <div className="address-book__form">

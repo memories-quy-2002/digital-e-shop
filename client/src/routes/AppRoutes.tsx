@@ -15,6 +15,7 @@ const ShopsPage = lazy(() => import("../components/pages/ShopsPage"));
 const NewsPage = lazy(() => import("../components/pages/NewsPage"));
 const SupportPage = lazy(() => import("../components/pages/SupportPage"));
 const CheckoutSuccessPage = lazy(() => import("../components/pages/CheckoutSuccessPage"));
+const CustomerAccountPage = lazy(() => import("../components/pages/CustomerAccountPage"));
 const OrderHistoryPage = lazy(() => import("../components/pages/OrderHistoryPage"));
 const AddressBookPage = lazy(() => import("../components/pages/AddressBookPage"));
 const CustomerNotificationsPage = lazy(() => import("../components/pages/CustomerNotificationsPage"));
@@ -29,6 +30,7 @@ const NoPage = lazy(() => import("../components/pages/NoPage"));
 
 const ProtectedCartPage = withSessionCheck(CartPage);
 const ProtectedCheckoutSuccessPage = withSessionCheck(CheckoutSuccessPage);
+const ProtectedCustomerAccountPage = withSessionCheck(CustomerAccountPage);
 const ProtectedOrderHistoryPage = withSessionCheck(OrderHistoryPage);
 const ProtectedAddressBookPage = withSessionCheck(AddressBookPage);
 const ProtectedCustomerNotificationsPage = withSessionCheck(CustomerNotificationsPage);
@@ -56,6 +58,7 @@ const AppRoutes = () => {
                 <Route path="/news" element={<NewsPage />} />
                 <Route path="/support" element={<SupportPage />} />
                 <Route path="/checkout-success" element={<ProtectedCheckoutSuccessPage />} />
+                <Route path="/account" element={<ProtectedCustomerAccountPage />} />
                 <Route path="/orders" element={<ProtectedOrderHistoryPage />} />
                 <Route path="/addresses" element={<ProtectedAddressBookPage />} />
                 <Route path="/notifications" element={<ProtectedCustomerNotificationsPage />} />

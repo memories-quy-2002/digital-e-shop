@@ -1,6 +1,7 @@
 import { Form } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import axios from "../../api/axios";
+import { CustomerAddress, fetchCustomerAddresses } from "../../api/customerAccount";
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Helmet } from "react-helmet";
@@ -40,16 +41,7 @@ type CheckoutPaymentProps = {
     subtotal: number;
 };
 
-type SavedAddress = {
-    id: number;
-    label: string;
-    recipient_name: string | null;
-    phone_number: string | null;
-    address_line: string;
-    city: string | null;
-    country: string | null;
-    is_default: boolean;
-};
+type SavedAddress = CustomerAddress;
 
 const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtotal }: CheckoutPaymentProps) => {
     const navigate = useNavigate();
@@ -96,8 +88,7 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
         const fetchAddresses = async () => {
             if (!uid) return;
             try {
-                const response = await axios.get(`/api/users/${uid}/addresses`);
-                setSavedAddresses(response.data.addresses || []);
+                setSavedAddresses(await fetchCustomerAddresses(uid));
             } catch {
                 setSavedAddresses([]);
             }
