@@ -761,6 +761,10 @@
     min-width: 0;
 }
 
+.admin__table__stack--compact {
+    justify-content: center;
+}
+
 .admin__table__stack strong {
     color: #111827;
     font-weight: 800;
@@ -774,6 +778,14 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.admin__table__value {
+    display: inline-flex;
+    align-items: center;
+    min-height: 38px;
+    color: #111827;
+    font-weight: 700;
 }
 
 .admin__edit-form__grid {
@@ -818,7 +830,8 @@
 }
 
 .admin__order-detail__summary span,
-.admin__order-detail__address span {
+.admin__order-detail__address span,
+.admin__order-detail__items__header span {
     display: block;
     color: #64748b;
     font-size: 0.78rem;
@@ -828,8 +841,16 @@
 }
 
 .admin__order-detail__summary strong,
-.admin__order-detail__address strong {
+.admin__order-detail__address strong,
+.admin__order-detail__items__header strong {
     color: #111827;
+}
+
+.admin__order-detail__summary small {
+    display: block;
+    margin-top: 0.35rem;
+    color: #64748b;
+    font-size: 0.78rem;
 }
 
 .admin__order-detail__timeline {
@@ -866,12 +887,40 @@
     gap: 0.7rem;
 }
 
-.admin__order-detail__items > div {
+.admin__order-detail__items__header,
+.admin__order-detail__item-row {
     display: flex;
     justify-content: space-between;
     gap: 1rem;
-    border-top: 1px solid #e5e7eb;
-    padding-top: 0.7rem;
+    align-items: flex-start;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 0.95rem 1rem;
+}
+
+.admin__order-detail__items__header {
+    background: #f8fafc;
+}
+
+.admin__order-detail__item-row {
+    flex-wrap: wrap;
+}
+
+.admin__order-detail__item-row__info,
+.admin__order-detail__item-row__pricing {
+    display: grid;
+    gap: 0.25rem;
+}
+
+.admin__order-detail__item-row__pricing {
+    text-align: right;
+    justify-items: end;
+}
+
+.admin__order-detail__item-row__info small {
+    color: #94a3b8;
+    font-size: 0.76rem;
 }
 
 .admin__order-detail__items strong {
@@ -1081,9 +1130,22 @@
 }
 
 @media (max-width: 720px) {
+    .admin__order-detail__summary,
+    .admin__customer-profile__hero,
     .admin__customer-profile__stats,
-    .admin__customer-profile__orders > div {
+    .admin__customer-profile__orders > div,
+    .admin__order-detail__item-row {
         grid-template-columns: 1fr;
+    }
+
+    .admin__order-detail__item-row,
+    .admin__order-detail__items__header {
+        flex-direction: column;
+    }
+
+    .admin__order-detail__item-row__pricing {
+        text-align: left;
+        justify-items: start;
     }
 }
 

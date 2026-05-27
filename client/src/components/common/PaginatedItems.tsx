@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useOptimistic, useState } from "react";
 import ReactPaginate from "react-paginate";
 import axios from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
@@ -10,6 +10,22 @@ interface Item {
     id: number;
     product: Product;
 }
+
+type WishlistMutation =
+    | { type: "add"; item: Item }
+    | { type: "remove"; productId: number };
+
+const applyWishlistMutation = (wishlist: Item[], mutation: WishlistMutation): Item[] => {
+    if (mutation.type === "remove") {
+        return wishlist.filter((item) => item.product.id !== mutation.productId);
+    }
+
+    if (wishlist.some((item) => item.product.id === mutation.item.product.id)) {
+        return wishlist;
+    }
+
+    return [...wishlist, mutation.item];
+};
 
 type PaginatedProps = {
     itemsPerPage: number;
@@ -35,11 +51,16 @@ const PaginatedItems = ({
     onPageChange,
 }: PaginatedProps) => {
     const { addToast } = useToast();
-    const [currentWishlist, setCurrentWishlist] = useState<Item[]>([]);
+    const [baseWishlist, setBaseWishlist] = useState<Item[]>([]);
+    const [pendingWishlistIds, setPendingWishlistIds] = useState<number[]>([]);
     const [itemOffset, setItemOffset] = useState(0);
+    const [optimisticWishlist, applyOptimisticWishlist] = useOptimistic(
+        baseWishlist,
+        (currentWishlist: Item[], mutation: WishlistMutation) => applyWishlistMutation(currentWishlist, mutation),
+    );
 
     useEffect(() => {
-        setCurrentWishlist(wishlist);
+        setBaseWishlist(wishlist);
         setItemOffset(0);
     }, [wishlist]);
 
@@ -48,8 +69,8 @@ const PaginatedItems = ({
     }, [items]);
 
     const wishlistIdSet = useMemo(() => {
-        return new Set(currentWishlist.map((item) => item.product.id));
-    }, [currentWishlist]);
+        return new Set(optimisticWishlist.map((item) => item.product.id));
+    }, [optimisticWishlist]);
 
     const productById = useMemo(() => {
         const map = new Map<number, Product>();
@@ -63,46 +84,77 @@ const PaginatedItems = ({
         return map;
     }, [items]);
 
+    const buildWishlistItem = useCallback(
+        (productId: number) => {
+            const product = productById.get(productId);
+            return product
+                ? {
+                      id: productId,
+                      product,
+                  }
+                : null;
+        },
+        [productById],
+    );
+
     const toggleWishlist = useCallback(async (user_id: string, product_id: number) => {
         if (uid === "") {
             addToast("Login required", "You need to login to use this feature.");
             return;
         }
+
+        if (pendingWishlistIds.includes(product_id)) {
+            return;
+        }
+
+        const exists = wishlistIdSet.has(product_id);
+        const optimisticItem = buildWishlistItem(product_id);
+        const mutation: WishlistMutation | null = exists
+            ? { type: "remove", productId: product_id }
+            : optimisticItem
+              ? { type: "add", item: optimisticItem }
+              : null;
+
+        setPendingWishlistIds((prev) => [...prev, product_id]);
+        if (mutation) {
+            applyOptimisticWishlist(mutation);
+        }
+        addToast(
+            exists ? "Wishlist updated" : "Wishlist updated",
+            exists ? "Item removed from wishlist." : "Item added to wishlist.",
+        );
+
         try {
-            const exists = wishlistIdSet.has(product_id);
             if (exists) {
                 const response = await axios.delete(`/api/wishlist/${product_id}/`, {
                     data: {
                         uid: user_id,
                     },
                 });
-                if (response.status === 200) {
-                    setCurrentWishlist((prevWishlist) => prevWishlist.filter((item) => item.product.id !== product_id));
-                    addToast("Remove wishlist item", "Item removed from wishlist successfully");
+                if (response.status !== 200) {
+                    throw new Error("Wishlist delete failed");
+                }
+                if (mutation) {
+                    setBaseWishlist((prevWishlist) => applyWishlistMutation(prevWishlist, mutation));
                 }
             } else {
                 const response = await axios.post("/api/wishlist/", {
                     uid: user_id,
                     pid: product_id,
                 });
-                if (response.status === 200) {
-                    const newProduct = productById.get(product_id);
-                    if (newProduct) {
-                        setCurrentWishlist((list) => [
-                            ...list,
-                            {
-                                id: product_id,
-                                product: newProduct,
-                            },
-                        ]);
-                    }
-                    addToast("Add wishlist item", "Item added to wishlist successfully");
+                if (response.status !== 200) {
+                    throw new Error("Wishlist add failed");
+                }
+                if (mutation) {
+                    setBaseWishlist((prevWishlist) => applyWishlistMutation(prevWishlist, mutation));
                 }
             }
         } catch {
             addToast("Wishlist", "Unable to update wishlist.");
+        } finally {
+            setPendingWishlistIds((prev) => prev.filter((id) => id !== product_id));
         }
-    }, [addToast, productById, uid, wishlistIdSet]);
+    }, [addToast, applyOptimisticWishlist, buildWishlistItem, pendingWishlistIds, uid, wishlistIdSet]);
 
     const handleRemoveWishlist = useCallback(async (user_id: string, product_id: number) => {
         try {
@@ -113,7 +165,7 @@ const PaginatedItems = ({
             });
             if (response.status === 200) {
                 addToast("Remove wishlist item", "Item removed from wishlist successfully.");
-                setCurrentWishlist((prevWishlist) => prevWishlist.filter((item) => item.product.id !== product_id));
+                setBaseWishlist((prevWishlist) => prevWishlist.filter((item) => item.product.id !== product_id));
             }
         } catch {
             addToast("Wishlist", "Unable to remove wishlist item.");
@@ -168,16 +220,16 @@ const PaginatedItems = ({
         return Math.ceil(items.length / itemsPerPage);
     }, [items.length, itemsPerPage, serverSide, totalItems]);
     const wishlistPageCount = useMemo(
-        () => Math.ceil(currentWishlist.length / itemsPerPage),
-        [currentWishlist.length, itemsPerPage]
+        () => Math.ceil(optimisticWishlist.length / itemsPerPage),
+        [optimisticWishlist.length, itemsPerPage]
     );
     const pageCountToUse = isWishlistPage ? wishlistPageCount : pageCount;
 
     return (
-        <div className="shops__container__main__pagination">
+        <div className="shops__products">
             {currentItems.length > 0 ? (
                 !isWishlistPage ? (
-                    <div className="shops__container__main__pagination__list">
+                    <div className="shops__list">
                         {currentItems.map((item) => {
                             const product = "product" in item ? item.product : item;
                             return (
@@ -186,6 +238,7 @@ const PaginatedItems = ({
                                     product={product}
                                     uid={uid}
                                     isWishlist={wishlistIdSet.has(product.id)}
+                                    isWishlistPending={pendingWishlistIds.includes(product.id)}
                                     onToggleWishlist={toggleWishlist}
                                     onAddingCart={handleAddingCart}
                                 />
@@ -194,7 +247,7 @@ const PaginatedItems = ({
                     </div>
                 ) : (
                     <div className="wishlist__main">
-                        {currentWishlist.slice(itemOffset, endOffset).map((item) => {
+                        {optimisticWishlist.slice(itemOffset, endOffset).map((item) => {
                             return (
                                 <WishlistItem
                                     key={item.id}
@@ -209,24 +262,17 @@ const PaginatedItems = ({
                     </div>
                 )
             ) : (
-                <div
-                    style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        height: "400px",
-                    }}
-                >
-                    <strong style={{ fontSize: "1.5rem" }}>
+                <div className="shops__empty">
+                    <strong>
                         {isWishlistPage
                             ? "There is no product in your wishlist"
                             : "There is no product matched the filters"}
                     </strong>
                 </div>
             )}
-            <div style={{ display: "flex", justifyContent: "center" }}>
+            <div className="shops__pagination-wrap">
                 <ReactPaginate
-                    className="shops__container__main__pagination__items"
+                    className="shops__pagination"
                     pageClassName="pagination__item"
                     pageLinkClassName="pagination__link"
                     previousClassName="pagination__item"
