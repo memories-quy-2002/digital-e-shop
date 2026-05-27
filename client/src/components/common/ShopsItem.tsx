@@ -9,70 +9,79 @@ type ProductProps = {
     product: Product;
     uid: string;
     isWishlist: boolean;
+    isWishlistPending?: boolean;
     onToggleWishlist: (user_id: string, product_id: number) => void;
     onAddingCart: (user_id: string, product_id: number) => void;
 };
 
-const ShopsItem = ({ product, uid, isWishlist, onToggleWishlist, onAddingCart }: ProductProps) => {
+const ShopsItem = ({ product, uid, isWishlist, isWishlistPending = false, onToggleWishlist, onAddingCart }: ProductProps) => {
     const navigate = useNavigate();
     const imageUrl = product.main_image ? product.main_image.replace(".jpg", "") : null;
     const activePrice = product.sale_price || product.price;
     const hasSale = product.sale_price !== null && product.sale_price !== undefined && product.sale_price < product.price;
 
     return (
-        <div className="shops__container__main__pagination__list__item" key={product.id}>
-            {hasSale ? <span className="shops__container__main__pagination__list__item__badge">Sale</span> : null}
+        <div className="shops__card" key={product.id}>
+            {hasSale ? <span className="shops__card-badge">Sale</span> : null}
             <button
                 type="button"
-                className="shops__container__main__pagination__list__item__like"
+                className={`shops__card-like${isWishlist ? " shops__card-like--active" : ""}`}
                 onClick={() => onToggleWishlist(uid, product.id)}
                 aria-label={isWishlist ? "Remove from wishlist" : "Add to wishlist"}
+                aria-pressed={isWishlist}
+                disabled={isWishlistPending}
+                title={isWishlist ? "Remove from wishlist" : "Add to wishlist"}
             >
-                {isWishlist ? <HeartFillIcon size={20} /> : <HeartIcon size={20} />}
+                {isWishlist ? <HeartFillIcon size={14} /> : <HeartIcon size={14} />}
             </button>
 
             <div
-                className="shops__container__main__pagination__list__item__image"
+                className="shops__card-image"
                 onClick={() => navigate(`/product?id=${product.id}`)}
             >
-                {loadImage(imageUrl, product.name)}
+                {loadImage(imageUrl, product.name, {
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block",
+                }, false, "(min-width: 1280px) 19vw, (min-width: 1024px) 25vw, (min-width: 768px) 34vw, 92vw")}
             </div>
 
-            <div className="shops__container__main__pagination__list__item__body">
-                <div className="shops__container__main__pagination__list__item__meta">
+            <div className="shops__card-body">
+                <div className="shops__card-meta">
                     <span>{product.category}</span>
                     <span>{product.brand}</span>
                 </div>
-                <p className="shops__container__main__pagination__list__item__name">{product.name}</p>
-                <div className="shops__container__main__pagination__list__item__stock">
+                <p className="shops__card-name">{product.name}</p>
+                <div className="shops__card-stock">
                     {product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}
                 </div>
 
-                <div className="shops__container__main__pagination__list__item__price-row">
+                <div className="shops__card-price-row">
                     <p
                         className={
                             hasSale
-                                ? "shops__container__main__pagination__list__item__price-sale"
-                                : "shops__container__main__pagination__list__item__price-current"
+                                ? "shops__card-price-sale"
+                                : "shops__card-price-current"
                         }
                     >
                         ${activePrice}
                     </p>
-                    {hasSale ? (
-                        <p className="shops__container__main__pagination__list__item__price-was">${product.price}</p>
-                    ) : null}
+                    {hasSale ? <p className="shops__card-price-was">${product.price}</p> : null}
                 </div>
             </div>
 
-            <div className="shops__container__main__pagination__list__item__rating">
-                <div
-                    className="shops__container__main__pagination__list__item__stars"
-                    aria-label={`${product.rating || 0} star rating`}
-                >
+            <div className="shops__card-rating">
+                <div className="shops__card-stars" aria-label={`${product.rating || 0} star rating`}>
                     {ratingStar(product.rating)}
                 </div>
 
-                <button type="button" onClick={() => onAddingCart(uid, product.id)} disabled={product.stock <= 0}>
+                <button
+                    type="button"
+                    className="shops__card-action"
+                    onClick={() => onAddingCart(uid, product.id)}
+                    disabled={product.stock <= 0}
+                >
                     <CartIcon size={17} />
                     Add
                 </button>

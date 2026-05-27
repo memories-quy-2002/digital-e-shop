@@ -90,6 +90,30 @@ const Footer = () => {
                     ))}
                 </section>
 
+                <section className="footer__newsletter-band" aria-label="Newsletter signup">
+                    <div className="footer__newsletter-band__copy">
+                        <h2>Stay in the loop</h2>
+                        <p>Get launch notes, support guides, limited promotions, and product highlights.</p>
+                    </div>
+                    <div className="footer__newsletter-band__form">
+                        <label className="footer__sr-only" htmlFor={newsletterInputId}>
+                            Email address for newsletter subscription
+                        </label>
+                        <input
+                            type="email"
+                            name="email_subs"
+                            id={newsletterInputId}
+                            placeholder="Enter your email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                        />
+                        <button type="button" onClick={handleSubscribe}>
+                            Subscribe
+                        </button>
+                    </div>
+                    <small>No spam. Just launches, offers, and useful tech updates.</small>
+                </section>
+
                 <section className="footer__main">
                     <div className="footer__brand">
                         <Link to="/" className="footer__brand__logo">
@@ -166,26 +190,8 @@ const Footer = () => {
                             <Link to="/support">Buying guides</Link>
                         </div>
 
-                        <div className="footer__col footer__col--newsletter">
-                            <h2 className="footer__col__heading">Stay in the loop</h2>
-                            <p>Get launch notes, support guides, limited promotions, and product highlights.</p>
-                            <div className="footer__newsletter">
-                                <label className="footer__sr-only" htmlFor={newsletterInputId}>
-                                    Email address for newsletter subscription
-                                </label>
-                                <input
-                                    type="email"
-                                    name="email_subs"
-                                    id={newsletterInputId}
-                                    placeholder="Enter your email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                />
-                                <button type="button" onClick={handleSubscribe}>
-                                    Subscribe
-                                </button>
-                            </div>
-                            <small>No spam. Just launches, offers, and useful tech updates.</small>
+                        <div className="footer__col footer__col--support">
+                            <h2 className="footer__col__heading">Payments</h2>
                             <div className="footer__payments" aria-label="Supported payment methods">
                                 <span>Bank transfer</span>
                                 <span>Cash on delivery</span>

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, ReactNode } from "react";
+import React, { createContext, useCallback, useContext, useMemo, useReducer, ReactNode } from "react";
 import { Toast, ToastContainer } from "react-bootstrap";
 import "../styles/Toast.scss";
 
@@ -67,7 +67,7 @@ const inferToastTone = (title: string, body: string): ToastMessage["tone"] => {
 const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [toasts, dispatch] = useReducer(toastReducer, []);
 
-    const addToast = (title: string, body: string) => {
+    const addToast = useCallback((title: string, body: string) => {
         const newToast = {
             id: toastId++,
             title,
@@ -75,14 +75,20 @@ const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
             tone: inferToastTone(title, body),
         };
         dispatch({ type: "ADD_TOAST", toast: newToast });
-    };
+    }, []);
 
-    const removeToast = (id: number) => {
+    const removeToast = useCallback((id: number) => {
         dispatch({ type: "REMOVE_TOAST", id });
-    };
+    }, []);
+
+    const contextValue = useMemo(() => ({
+        toasts,
+        addToast,
+        removeToast,
+    }), [addToast, removeToast, toasts]);
 
     return (
-        <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
+        <ToastContext.Provider value={contextValue}>
             {children}
             <ToastContainer
                 className="app-toast"

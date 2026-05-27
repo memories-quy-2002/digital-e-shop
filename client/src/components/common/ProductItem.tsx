@@ -8,11 +8,12 @@ type ProductProps = {
     product: Product;
     uid: string;
     isWishlist: boolean;
+    isWishlistPending?: boolean;
     onToggleWishlist: (user_id: string, product_id: number) => void;
     onAddingCart: (user_id: string, product_id: number) => void;
 };
 
-const ProductItem = ({ product, uid, isWishlist, onToggleWishlist, onAddingCart }: ProductProps) => {
+const ProductItem = ({ product, uid, isWishlist, isWishlistPending = false, onToggleWishlist, onAddingCart }: ProductProps) => {
     const navigate = useNavigate();
     const imageUrl = product.main_image ? product.main_image.replace(".jpg", "") : null;
 
@@ -22,9 +23,17 @@ const ProductItem = ({ product, uid, isWishlist, onToggleWishlist, onAddingCart 
                 {loadImage(imageUrl, product.name)}
             </div>
 
-            <div className="home__product__menu__item__like" onClick={() => onToggleWishlist(uid, product.id)}>
-                {isWishlist ? <HeartFillIcon size={24} color="red" /> : <HeartIcon size={24} color="red" />}
-            </div>
+            <button
+                type="button"
+                className={`home__product__menu__item__like${isWishlist ? " home__product__menu__item__like--active" : ""}`}
+                onClick={() => onToggleWishlist(uid, product.id)}
+                aria-label={isWishlist ? "Remove from wishlist" : "Add to wishlist"}
+                aria-pressed={isWishlist}
+                disabled={isWishlistPending}
+                title={isWishlist ? "Remove from wishlist" : "Add to wishlist"}
+            >
+                {isWishlist ? <HeartFillIcon size={16} color="currentColor" /> : <HeartIcon size={16} color="currentColor" />}
+            </button>
 
             <p className="home__product__menu__item__category">{product.category}</p>
             <p className="home__product__menu__item__name">{product.name}</p>

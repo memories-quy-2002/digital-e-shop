@@ -3,7 +3,6 @@ import {
     CartIcon,
     BellIcon,
     HeartIcon,
-    HouseIcon,
     PersonIcon,
     SearchIcon,
 } from "../common/Icons";
@@ -12,7 +11,7 @@ import { useAuth } from "../../context/AuthContext";
 import "../../styles/Header.scss";
 import { useToast } from "../../context/ToastContext";
 import axios from "../../api/axios";
-import { fetchCustomerNotifications } from "../../api/customerAccount";
+import { fetchCustomerNotifications } from "../../features/users/api";
 import { signOut } from "firebase/auth";
 import { auth } from "../../services/firebase";
 import { Product } from "../../utils/interface";
@@ -35,6 +34,7 @@ export const Header = (): JSX.Element => {
     const [allProducts, setAllProducts] = useState<Product[]>([]);
     const [unreadNotifications, setUnreadNotifications] = useState(0);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const { userData, loading, setUserData } = useAuth();
     const desktopSearchId = "header_search";
     const mobileSearchId = "header_mobile_search";
@@ -43,11 +43,18 @@ export const Header = (): JSX.Element => {
     // catches up shortly after input changes.
     const deferredSearchTerm = useDeferredValue(searchTerm);
     const searchRef = useRef<HTMLDivElement | null>(null);
+    const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
     const activePath = useMemo(() => location.pathname, [location.pathname]);
     const normalizedDeferredSearchTerm = deferredSearchTerm.trim();
     const shouldShowSearchResults = isSearchOpen && normalizedDeferredSearchTerm.length > 1;
     const hasSearchResults = shouldShowSearchResults && searchResults.length > 0;
+    const accountDisplayName = useMemo(() => {
+        if (!userData) return "Account";
+
+        const fullName = [userData.first_name, userData.last_name].filter(Boolean).join(" ").trim();
+        return fullName || userData.username || userData.email || "Account";
+    }, [userData]);
 
     const handleSearch = () => {
         if (!searchTerm.trim()) {
@@ -96,7 +103,7 @@ export const Header = (): JSX.Element => {
         }
 
         if (userData) {
-            navigate("/orders");
+            navigate("/account");
             return;
         }
 
@@ -167,11 +174,16 @@ export const Header = (): JSX.Element => {
             if (!searchRef.current?.contains(event.target as Node)) {
                 setIsSearchOpen(false);
             }
+
+            if (!profileMenuRef.current?.contains(event.target as Node)) {
+                setIsProfileMenuOpen(false);
+            }
         };
 
         const handleEscape = (event: KeyboardEvent) => {
             if (event.key === "Escape") {
                 setIsSearchOpen(false);
+                setIsProfileMenuOpen(false);
             }
         };
 
@@ -186,6 +198,7 @@ export const Header = (): JSX.Element => {
 
     useEffect(() => {
         setIsSearchOpen(false);
+        setIsProfileMenuOpen(false);
     }, [location.pathname, location.search]);
 
     return (
@@ -194,9 +207,13 @@ export const Header = (): JSX.Element => {
                 <div className="header__main">
                     <div className="header__brand">
                         <Link to="/" className="header__brand__logo">
-                            <span className="header__brand__mark">DE</span>
+                            <span className="header__brand__mark" aria-hidden="true">
+                                <span className="header__brand__mark-core">D</span>
+                                <span className="header__brand__mark-dot" />
+                            </span>
                             <span className="header__brand__wordmark">
-                                <strong>DIGITAL-E</strong>
+                                <strong>Digital-E</strong>
+                                <small>electronics store</small>
                             </span>
                         </Link>
                     </div>
@@ -282,14 +299,6 @@ export const Header = (): JSX.Element => {
                     <div className="header__actions" aria-label="Quick account actions">
                         <button
                             type="button"
-                            className="header__action"
-                            onClick={() => handleRequireLogin("/wishlist")}
-                            aria-label="Open wishlist"
-                        >
-                            <HeartIcon size={20} />
-                        </button>
-                        <button
-                            type="button"
                             className="header__action header__action--badge"
                             onClick={() => handleRequireLogin("/notifications")}
                             aria-label="Open notifications"
@@ -297,39 +306,68 @@ export const Header = (): JSX.Element => {
                             <BellIcon size={20} />
                             {unreadNotifications > 0 ? <span>{Math.min(unreadNotifications, 9)}</span> : null}
                         </button>
-                        <button
-                            type="button"
-                            className="header__action"
-                            onClick={() => handleRequireLogin("/addresses")}
-                            aria-label="Open address book"
-                        >
-                            <HouseIcon size={20} />
-                        </button>
-                        <button
-                            type="button"
-                            className="header__action"
-                            onClick={() => handleRequireLogin("/cart")}
-                            aria-label="Open cart"
-                        >
-                            <CartIcon size={20} />
-                        </button>
-                        {userData && !loading ? (
-                            <button type="button" className="header__account" onClick={handleLogout}>
-                                Logout
+                        <div className="header__profile" ref={profileMenuRef}>
+                            <button
+                                type="button"
+                                className={`header__action header__profile__trigger${isProfileMenuOpen ? " is-open" : ""}`}
+                                onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+                                aria-label="Open profile menu"
+                                aria-expanded={isProfileMenuOpen}
+                            >
+                                <PersonIcon size={20} />
+                                {userData && !loading ? <span className="header__profile__name">{accountDisplayName}</span> : null}
                             </button>
-                        ) : (
-                            <Link className="header__account" to="/login">
-                                Login
-                            </Link>
-                        )}
-                        <button
-                            type="button"
-                            className="header__action"
-                            onClick={handleAccountAction}
-                            aria-label="Open account"
-                        >
-                            <PersonIcon size={20} />
-                        </button>
+
+                            {isProfileMenuOpen ? (
+                                <div className="header__profile__menu">
+                                    <button
+                                        type="button"
+                                        className="header__profile__item"
+                                        onClick={() => {
+                                            handleAccountAction();
+                                            setIsProfileMenuOpen(false);
+                                        }}
+                                    >
+                                        <PersonIcon size={18} />
+                                        <span>{userData ? "My account" : "Login"}</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="header__profile__item"
+                                        onClick={() => {
+                                            handleRequireLogin("/wishlist");
+                                            setIsProfileMenuOpen(false);
+                                        }}
+                                    >
+                                        <HeartIcon size={18} />
+                                        <span>Wishlist</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="header__profile__item"
+                                        onClick={() => {
+                                            handleRequireLogin("/cart");
+                                            setIsProfileMenuOpen(false);
+                                        }}
+                                    >
+                                        <CartIcon size={18} />
+                                        <span>Cart</span>
+                                    </button>
+                                    {userData && !loading ? (
+                                        <button
+                                            type="button"
+                                            className="header__profile__item header__profile__item--danger"
+                                            onClick={() => {
+                                                handleLogout();
+                                                setIsProfileMenuOpen(false);
+                                            }}
+                                        >
+                                            <span>Logout</span>
+                                        </button>
+                                    ) : null}
+                                </div>
+                            ) : null}
+                        </div>
                         <button
                             className="header__burger"
                             type="button"
@@ -387,6 +425,16 @@ export const Header = (): JSX.Element => {
                     <button
                         type="button"
                         onClick={() => {
+                            handleAccountAction();
+                            closeMenu();
+                        }}
+                    >
+                        <PersonIcon size={18} />
+                        {userData && !loading ? "My account" : "Login"}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
                             handleRequireLogin("/wishlist");
                             closeMenu();
                         }}
@@ -403,16 +451,6 @@ export const Header = (): JSX.Element => {
                     >
                         <BellIcon size={18} />
                         Notifications
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            handleRequireLogin("/addresses");
-                            closeMenu();
-                        }}
-                    >
-                        <HouseIcon size={18} />
-                        Addresses
                     </button>
                     <button
                         type="button"

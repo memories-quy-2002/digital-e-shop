@@ -42,7 +42,7 @@ const CartItem = ({ item, handleQuantityChange, handleRemoveCartItem }: CartItem
                     value={item.quantity}
                     onChange={(event) => handleQuantityChange(item.cartItemId, event)}
                 />
-                {item.stock <= 5 ? <span className="cart-item__qty__stock">{item.stock} left</span> : null}
+                {item.stock <= 5 ? <span className="cart-item__stock">{item.stock} left</span> : null}
             </div>
             <div className="cart-item__price">
                 <strong>${(productPrice * item.quantity).toFixed(2)}</strong>
