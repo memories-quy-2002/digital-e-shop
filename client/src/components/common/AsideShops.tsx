@@ -42,8 +42,8 @@ const AsideShops = ({
     const selectedCount = filters.categories.length + filters.brands.length;
 
     return (
-        <aside className="shops__container__aside">
-            <div className="shops__container__aside__header">
+        <aside className="shops__filters">
+            <div className="shops__filters-header">
                 <div>
                     <span>Catalog filters</span>
                     <h2>Refine products</h2>
@@ -51,11 +51,8 @@ const AsideShops = ({
                 <strong>{selectedCount}</strong>
             </div>
 
-            <section
-                className="shops__container__aside__categories shops__filter-section"
-                aria-labelledby="shops-filter-categories"
-            >
-                <div className="shops__filter-section__header">
+            <section className="shops__filter-section shops__filter-section--categories" aria-labelledby="shops-filter-categories">
+                <div className="shops__filter-section-header">
                     <h2 id="shops-filter-categories">Categories</h2>
                     <span>{categories.length}</span>
                 </div>
@@ -64,15 +61,15 @@ const AsideShops = ({
                         const checkboxId = `shops-category-${category.replace(/\s+/g, "-").toLowerCase()}`;
                         return (
                             <div key={category}>
-                                <label className="container" htmlFor={checkboxId}>
+                                <label className="shops__filter-option" htmlFor={checkboxId}>
                                     <input
                                         type="checkbox"
                                         id={checkboxId}
                                         checked={filters.categories.includes(category)}
                                         onChange={() => onCheckboxChange("categories", category)}
                                     />
-                                    <span className="checkmark"></span>
-                                    <span className="filter-label">{category}</span>
+                                    <span className="shops__filter-checkmark"></span>
+                                    <span className="shops__filter-label">{category}</span>
                                 </label>
                             </div>
                         );
@@ -80,11 +77,11 @@ const AsideShops = ({
                 </div>
             </section>
             <section
-                className="shops__container__aside__brands"
+                className="shops__filter-section shops__filter-section--brands"
                 data-testid="shops__aside__brand"
                 aria-labelledby="shops-filter-brands"
             >
-                <div className="shops__filter-section__header">
+                <div className="shops__filter-section-header">
                     <h2 id="shops-filter-brands">Brands</h2>
                     <span>{brands.length}</span>
                 </div>
@@ -93,27 +90,27 @@ const AsideShops = ({
                         const checkboxId = `shops-brand-${brand.replace(/\s+/g, "-").toLowerCase()}`;
                         return (
                             <div key={brand}>
-                                <label className="container" htmlFor={checkboxId}>
+                                <label className="shops__filter-option" htmlFor={checkboxId}>
                                     <input
                                         type="checkbox"
                                         id={checkboxId}
                                         checked={filters.brands.includes(brand)}
                                         onChange={() => onCheckboxChange("brands", brand)}
                                     />
-                                    <span className="checkmark"></span>
-                                    <span className="filter-label">{brand}</span>
+                                    <span className="shops__filter-checkmark"></span>
+                                    <span className="shops__filter-label">{brand}</span>
                                 </label>
                             </div>
                         );
                     })}
                 </div>
             </section>
-            <section className="shops__container__aside__price" aria-labelledby="shops-filter-price">
-                <div className="shops__container__aside__price__header">
+            <section className="shops__filter-section shops__filter-section--price" aria-labelledby="shops-filter-price">
+                <div className="shops__price-header">
                     <h2 id="shops-filter-price">Price range</h2>
                     <p>Choose the budget window that fits what you want to browse.</p>
                 </div>
-                <div className="shops__container__aside__price__summary" aria-live="polite">
+                <div className="shops__price-summary" aria-live="polite">
                     <div>
                         <span>Min</span>
                         <strong>${priceRange[0]}</strong>
@@ -123,7 +120,7 @@ const AsideShops = ({
                         <strong>${priceRange[1]}</strong>
                     </div>
                 </div>
-                <div className="shops__container__aside__price__slider">
+                <div className="shops__price-slider">
                     <ReactSlider
                         className="horizontal-slider"
                         thumbClassName="example-thumb"
@@ -149,7 +146,7 @@ const AsideShops = ({
             </section>
             <button
                 type="button"
-                className="btn btn-info shops__container__aside__button"
+                className="btn btn-info shops__filters-button"
                 onClick={() => onApplyFilters()}
             >
                 Apply
