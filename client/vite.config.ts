@@ -7,4 +7,9 @@ export default defineConfig({
     build: {
         outDir: "dist",
     },
+    resolve: {
+        alias: {
+            "react-dom": "react-dom/profiling",
+        },
+    },
 });
