@@ -3,6 +3,7 @@ const rateLimit = require("express-rate-limit");
 const {
     addItemToCart,
     getCartItems,
+    validateCartForCheckout,
     updateCartItemQuantity,
     deleteCartItem,
 } = require("../controllers/cartController");
@@ -19,6 +20,7 @@ const cartLimiter = rateLimit({
 });
 
 router.get("/:uid", cartLimiter, requireAuth, requireOwnerOrAdmin("uid"), getCartItems);
+router.get("/:uid/validation", cartLimiter, requireAuth, requireOwnerOrAdmin("uid"), validateCartForCheckout);
 router.post("/", cartLimiter, requireAuth, requireOwnerOrAdmin("uid"), addItemToCart);
 router.put("/", cartLimiter, requireAuth, requireOwnerOrAdmin("uid"), updateCartItemQuantity);
 router.delete("/", cartLimiter, requireAuth, deleteCartItem);
