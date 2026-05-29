@@ -14,6 +14,7 @@ const CustomerNotificationsPage = () => {
     const uid = userData?.id || "";
     const { addToast } = useToast();
     const [notifications, setNotifications] = useState<CustomerNotification[]>([]);
+    const unreadCount = notifications.filter((notification) => !notification.is_read).length;
 
     const loadNotifications = async () => {
         if (!uid) return;
@@ -53,11 +54,23 @@ const CustomerNotificationsPage = () => {
                     title="Notifications"
                     description="Order updates, checkout messages, and important account events."
                     actions={
-                        <button type="button" onClick={markAllRead}>
+                        <button type="button" onClick={markAllRead} disabled={unreadCount === 0}>
                             Mark all read
                         </button>
                     }
                 />
+
+                <section className="customer-notifications__summary" aria-label="Notification summary">
+                    <div>
+                        <strong>{unreadCount}</strong>
+                        <span>Unread</span>
+                    </div>
+                    <p>
+                        {unreadCount > 0
+                            ? "Unread messages are highlighted first so important order updates are easier to scan."
+                            : "All notifications are currently read."}
+                    </p>
+                </section>
 
                 <section className="customer-notifications__list">
                     {notifications.length > 0 ? (

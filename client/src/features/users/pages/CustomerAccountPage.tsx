@@ -164,18 +164,27 @@ const CustomerAccountPage = () => {
                             </div>
                         </section>
 
-                        <section className="customer-account-page__actions">
+                        <section className="customer-account-page__workflow" aria-label="Customer workflow shortcuts">
                             <Link to="/orders">
-                                <CartIcon size={18} />
-                                Order history
+                                <span>
+                                    <CartIcon size={18} />
+                                </span>
+                                <strong>Review orders</strong>
+                                <small>Track purchases and reorder available items.</small>
                             </Link>
                             <Link to="/addresses">
-                                <HouseIcon size={18} />
-                                Address book
+                                <span>
+                                    <HouseIcon size={18} />
+                                </span>
+                                <strong>Manage shipping</strong>
+                                <small>Keep delivery addresses ready for checkout.</small>
                             </Link>
                             <Link to="/notifications">
-                                <BellIcon size={18} />
-                                Notifications
+                                <span>
+                                    <BellIcon size={18} />
+                                </span>
+                                <strong>Check updates</strong>
+                                <small>Read account and order notifications.</small>
                             </Link>
                         </section>
 
@@ -185,24 +194,26 @@ const CustomerAccountPage = () => {
                                     <h3>Recent orders</h3>
                                     <Link to="/orders">View all</Link>
                                 </div>
-                                {recentOrders.length > 0 ? (
-                                    <div className="customer-account-page__order-list">
-                                        {recentOrders.map((order) => (
-                                            <Link key={order.id} to={`/orders?order=${order.id}`}>
-                                                <div>
-                                                    <strong>Order #{order.id}</strong>
-                                                    <span>{formatUtcDate(order.date_added)}</span>
-                                                </div>
-                                                <div>
-                                                    <em>{getStatusLabel(order.status)}</em>
-                                                    <small>{formatCurrency(Math.max(order.total_price - order.discount, 0))}</small>
-                                                </div>
-                                            </Link>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="customer-account-page__empty">No orders yet.</p>
-                                )}
+                                <div className="customer-account-page__panel-body">
+                                    {recentOrders.length > 0 ? (
+                                        <div className="customer-account-page__order-list">
+                                            {recentOrders.map((order) => (
+                                                <Link key={order.id} to={`/orders?order=${order.id}`}>
+                                                    <div>
+                                                        <strong>Order #{order.id}</strong>
+                                                        <span>{formatUtcDate(order.date_added)}</span>
+                                                    </div>
+                                                    <div>
+                                                        <em>{getStatusLabel(order.status)}</em>
+                                                        <small>{formatCurrency(Math.max(order.total_price - order.discount, 0))}</small>
+                                                    </div>
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="customer-account-page__empty">No orders yet.</p>
+                                    )}
+                                </div>
                             </article>
 
                             <article className="customer-account-page__panel">
@@ -210,23 +221,25 @@ const CustomerAccountPage = () => {
                                     <h3>Saved address</h3>
                                     <Link to="/addresses">Manage</Link>
                                 </div>
-                                {primaryAddress ? (
-                                    <div className="customer-account-page__address">
-                                        <strong>{primaryAddress.label}</strong>
-                                        <p>{primaryAddress.address_line}</p>
-                                        <span>
-                                            {[primaryAddress.city, primaryAddress.country].filter(Boolean).join(", ") ||
-                                                "Location not specified"}
-                                        </span>
-                                        <small>
-                                            {[primaryAddress.recipient_name, primaryAddress.phone_number]
-                                                .filter(Boolean)
-                                                .join(" | ") || "No recipient details"}
-                                        </small>
-                                    </div>
-                                ) : (
-                                    <p className="customer-account-page__empty">No saved addresses yet.</p>
-                                )}
+                                <div className="customer-account-page__panel-body">
+                                    {primaryAddress ? (
+                                        <div className="customer-account-page__address">
+                                            <strong>{primaryAddress.label}</strong>
+                                            <p>{primaryAddress.address_line}</p>
+                                            <span>
+                                                {[primaryAddress.city, primaryAddress.country].filter(Boolean).join(", ") ||
+                                                    "Location not specified"}
+                                            </span>
+                                            <small>
+                                                {[primaryAddress.recipient_name, primaryAddress.phone_number]
+                                                    .filter(Boolean)
+                                                    .join(" | ") || "No recipient details"}
+                                            </small>
+                                        </div>
+                                    ) : (
+                                        <p className="customer-account-page__empty">No saved addresses yet.</p>
+                                    )}
+                                </div>
                             </article>
 
                             <article className="customer-account-page__panel">
@@ -234,23 +247,25 @@ const CustomerAccountPage = () => {
                                     <h3>Recent notifications</h3>
                                     <Link to="/notifications">Open</Link>
                                 </div>
-                                {recentNotifications.length > 0 ? (
-                                    <div className="customer-account-page__notification-list">
-                                        {recentNotifications.map((notification) => (
-                                            <Link
-                                                key={notification.id}
-                                                to={notification.link || "/notifications"}
-                                                className={notification.is_read ? "" : "is-unread"}
-                                            >
-                                                <strong>{notification.title}</strong>
-                                                <span>{formatUtcDateTime(notification.created_at)}</span>
-                                                <p>{notification.message}</p>
-                                            </Link>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="customer-account-page__empty">No notifications yet.</p>
-                                )}
+                                <div className="customer-account-page__panel-body">
+                                    {recentNotifications.length > 0 ? (
+                                        <div className="customer-account-page__notification-list">
+                                            {recentNotifications.map((notification) => (
+                                                <Link
+                                                    key={notification.id}
+                                                    to={notification.link || "/notifications"}
+                                                    className={notification.is_read ? "" : "is-unread"}
+                                                >
+                                                    <strong>{notification.title}</strong>
+                                                    <span>{formatUtcDateTime(notification.created_at)}</span>
+                                                    <p>{notification.message}</p>
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="customer-account-page__empty">No notifications yet.</p>
+                                    )}
+                                </div>
                             </article>
                         </section>
                     </>
