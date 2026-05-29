@@ -87,6 +87,82 @@ type ChartDatum = {
 };
 
 type AnalyticsSummary = {
+    generatedAt?: string;
+    currency?: string;
+    windows?: {
+        trendDays?: number;
+        comparisonDays?: number;
+    };
+    kpis?: {
+        orders?: {
+            total?: number;
+            completed?: number;
+            pending?: number;
+            cancelled?: number;
+            nonCancelled?: number;
+            completionRate?: number;
+            comparison?: {
+                current?: number;
+                previous?: number;
+                deltaPercent?: number;
+            };
+        };
+        revenue?: {
+            gross?: number;
+            net?: number;
+            discounts?: number;
+            averageOrderValue?: number;
+            comparison?: {
+                current?: number;
+                previous?: number;
+                deltaPercent?: number;
+            };
+        };
+        customers?: {
+            total?: number;
+            active?: number;
+            inactive?: number;
+            activeRate?: number;
+        };
+        inventory?: {
+            totalProducts?: number;
+            outOfStock?: number;
+            lowStock?: number;
+            lowStockThreshold?: number;
+        };
+    };
+    charts?: {
+        revenueTrend?: Array<{
+            date: string;
+            orders: number;
+            completedOrders: number;
+            grossRevenue: number;
+            netRevenue: number;
+            discounts: number;
+        }>;
+        orderStatusBreakdown?: ChartDatum[];
+        categoryPerformance?: Array<{ name: string; revenue: number; units: number; orders: number; share: number }>;
+        customerSegments?: ChartDatum[];
+        paymentMethods?: Array<{ name: string; value: number; revenue: number }>;
+    };
+    operations?: {
+        inventoryRisk?: Array<{ id: number; name: string; stock: number; category: string; brand: string }>;
+        promotions?: {
+            discountedOrders?: number;
+            totalDiscountGiven?: number;
+            discountedRevenue?: number;
+            attachedCodesTracked?: boolean;
+            configured?: Array<{
+                id: number;
+                code: string;
+                discountPercent: number;
+                active: boolean;
+                startsAt: string | null;
+                expiresAt: string | null;
+                usageLimit: number | null;
+            }>;
+        };
+    };
     overview: {
         orders: number;
         revenue: number;
@@ -105,6 +181,15 @@ type AnalyticsSummary = {
         discount_given: number;
         estimated_orders: number;
     }>;
+};
+
+const normalizeAnalyticsSummary = (payload: any): AnalyticsSummary | null => {
+    if (!payload || typeof payload !== "object") {
+        return null;
+    }
+
+    const raw = payload.summary && typeof payload.summary === "object" ? payload.summary : payload;
+    return raw as AnalyticsSummary;
 };
 
 const CHART_COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2"];
@@ -343,14 +428,25 @@ const AdminDashboard = () => {
         try {
             setLoading(true);
 
-            const [productResponse, orderResponse, userResponse, orderItemResponse] = await Promise.allSettled([
-                axios.get("/api/products"),
-                axios.get("/api/orders"),
-                axios.get("/api/users"),
-                axios.get("/api/orders/item"),
+            const [analyticsResponse, productResponse, orderResponse, userResponse, orderItemResponse] = await Promise.allSettled([
+                axios.get("/api/analytics/summary"),
+                axios.get("/api/products?page=1&limit=60"),
+                axios.get("/api/orders?page=1&limit=80"),
+                axios.get("/api/users?page=1&limit=80"),
+                axios.get("/api/orders/item?page=1&limit=120"),
             ]);
 
             let loadedSections = 0;
+            let analyticsLoaded = false;
+
+            if (analyticsResponse.status === "fulfilled") {
+                const nextAnalyticsSummary = normalizeAnalyticsSummary(analyticsResponse.value.data);
+                setAnalyticsSummary(nextAnalyticsSummary);
+                analyticsLoaded = !!nextAnalyticsSummary;
+                loadedSections += nextAnalyticsSummary ? 1 : 0;
+            } else {
+                setAnalyticsSummary(null);
+            }
 
             if (productResponse.status === "fulfilled") {
                 setProducts(productResponse.value.data.products || []);
@@ -379,23 +475,14 @@ const AdminDashboard = () => {
             }
 
             setLastUpdated(new Date());
-
-            axios
-                .get("/api/analytics/summary")
-                .then((analyticsResponse) => {
-                    setAnalyticsSummary(analyticsResponse.data);
-                })
-                .catch(() => {
-                    setAnalyticsSummary(null);
-                    if (showToast) {
-                        addToast("Dashboard analytics", "Core dashboard loaded, but analytics summary is unavailable.");
-                    }
-                });
+            if (!analyticsLoaded && showToast) {
+                addToast("Dashboard analytics", "Core dashboard loaded, but analytics summary is unavailable.");
+            }
 
             if (showToast) {
                 addToast(
-                    "Dashboard",
-                    loadedSections === 4 ? "Dashboard data refreshed." : "Dashboard loaded with partial data.",
+                    "Dashboard refresh",
+                    loadedSections >= 4 ? "Dashboard data refreshed." : "Dashboard loaded with partial data.",
                 );
             }
         } catch {
@@ -424,25 +511,51 @@ const AdminDashboard = () => {
     const stockRisk = useMemo(() => buildStockRisk(products), [products]);
     const analyticsTrend = useMemo(
         () =>
-            (analyticsSummary?.revenueTrend || []).map((point) => ({
+            (analyticsSummary?.charts?.revenueTrend || analyticsSummary?.revenueTrend || []).map((point: any) => ({
                 name: formatUtcDay(new Date(`${point.date}T00:00:00Z`)),
-                revenue: Number(point.revenue) || 0,
+                revenue: Number(point.netRevenue ?? point.revenue) || 0,
                 orders: Number(point.orders) || 0,
             })),
         [analyticsSummary],
     );
     const analyticsCategoryRevenue = useMemo(
         () =>
-            (analyticsSummary?.categoryRevenue || []).map((point) => ({
+            (analyticsSummary?.charts?.categoryPerformance || analyticsSummary?.categoryRevenue || []).map((point: any) => ({
                 name: point.name,
-                value: Number(point.revenue) || 0,
+                value: Number(point.revenue ?? point.value) || 0,
                 units: Number(point.units) || 0,
+            })),
+        [analyticsSummary],
+    );
+    const analyticsPaymentMix = useMemo(
+        () =>
+            (analyticsSummary?.charts?.paymentMethods || []).map((point: any) => ({
+                name: point.name === "bank_transfer" ? "Bank transfer" : point.name === "cash" ? "Cash" : "Unknown",
+                value: Number(point.value) || 0,
+            })),
+        [analyticsSummary],
+    );
+    const analyticsStatusMix = useMemo(
+        () =>
+            (analyticsSummary?.charts?.orderStatusBreakdown || []).map((point: any) => ({
+                name: point.name,
+                value: Number(point.value) || 0,
+            })),
+        [analyticsSummary],
+    );
+    const analyticsInventoryRisk = useMemo(
+        () =>
+            (analyticsSummary?.operations?.inventoryRisk || analyticsSummary?.inventoryRisk || []).map((point: any) => ({
+                name: point.name,
+                value: Number(point.stock) || 0,
+                stock: Number(point.stock) || 0,
             })),
         [analyticsSummary],
     );
 
     const thisMonth = monthlyTrends[5] || { name: "", sales: 0, revenue: 0 };
     const previousMonth = monthlyTrends[4] || { name: "", sales: 0, revenue: 0 };
+    const hasAnalyticsKpis = Boolean(analyticsSummary?.kpis);
 
     const salesPercentageChange = useMemo(
         () => calculatePercentageChange(thisMonth.sales, previousMonth.sales),
@@ -454,13 +567,17 @@ const AdminDashboard = () => {
     );
 
     const dashboardStats = useMemo(() => {
-        const pendingOrders = orders.filter((order) => order.status === 0).length;
-        const completedOrders = orders.filter((order) => order.status === 1).length;
-        const cancelledOrders = orders.filter((order) => order.status === 2).length;
-        const bankTransferOrders = orders.filter((order) => order.payment_method === "bank_transfer").length;
-        const cashOrders = orders.filter((order) => order.payment_method === "cash").length;
-        const totalRevenue = orders.reduce((sum, order) => sum + getNetRevenue(order), 0);
-        const lowStockProducts = products
+        const pendingOrders = Number(analyticsSummary?.kpis?.orders?.pending) || orders.filter((order) => order.status === 0).length;
+        const completedOrders = Number(analyticsSummary?.kpis?.orders?.completed) || orders.filter((order) => order.status === 1).length;
+        const cancelledOrders = Number(analyticsSummary?.kpis?.orders?.cancelled) || orders.filter((order) => order.status === 2).length;
+        const bankTransferOrders = analyticsPaymentMix.find((item) => item.name === "Bank transfer")?.value || orders.filter((order) => order.payment_method === "bank_transfer").length;
+        const cashOrders = analyticsPaymentMix.find((item) => item.name === "Cash")?.value || orders.filter((order) => order.payment_method === "cash").length;
+        const totalRevenue = Number(analyticsSummary?.kpis?.revenue?.net) || orders.reduce((sum, order) => sum + getNetRevenue(order), 0);
+        const lowStockProducts = (analyticsSummary?.operations?.inventoryRisk || [])
+            .filter((product: any) => Number(product.stock) <= 5)
+            .sort((a: any, b: any) => Number(a.stock) - Number(b.stock))
+            .slice(0, 5);
+        const fallbackLowStockProducts = products
             .filter((product) => product.stock <= 5)
             .sort((a, b) => a.stock - b.stock)
             .slice(0, 5);
@@ -478,11 +595,11 @@ const AdminDashboard = () => {
             bankTransferOrders,
             cashOrders,
             totalRevenue,
-            lowStockProducts,
+            lowStockProducts: lowStockProducts.length > 0 ? lowStockProducts : fallbackLowStockProducts,
             latestOrders,
             latestUsers,
         };
-    }, [orders, products, users]);
+    }, [analyticsPaymentMix, analyticsSummary, orders, products, users]);
 
     const handleDownloadReport = () => {
         const text = [
@@ -491,8 +608,8 @@ const AdminDashboard = () => {
             "",
             "OVERVIEW",
             `- Orders tracked: ${orders.length}`,
-            `- Active products: ${products.length}`,
-            `- Registered users: ${users.length}`,
+            `- Active products: ${analyticsSummary?.kpis?.inventory?.totalProducts ?? products.length}`,
+            `- Registered users: ${analyticsSummary?.kpis?.customers?.total ?? users.length}`,
             `- Sales this month: ${thisMonth.sales}`,
             `- Revenue this month: ${formatCurrency(thisMonth.revenue)}`,
             "",
@@ -597,23 +714,23 @@ const AdminDashboard = () => {
                     </div>
                     <div>
                         <span>Products</span>
-                        <strong>{products.length}</strong>
+                        <strong>{analyticsSummary?.kpis?.inventory?.totalProducts ?? products.length}</strong>
                         <p>Active listings</p>
                     </div>
                     <div>
                         <span>Users</span>
-                        <strong>{users.length}</strong>
+                        <strong>{analyticsSummary?.kpis?.customers?.total ?? users.length}</strong>
                         <p>Registered accounts</p>
                     </div>
                     <div>
                         <span>Orders</span>
-                        <strong>{orders.length}</strong>
-                        <p>All recorded orders</p>
+                        <strong>{analyticsSummary?.kpis?.orders?.total ?? orders.length}</strong>
+                        <p>{hasAnalyticsKpis ? "All recorded orders" : "Loaded orders snapshot"}</p>
                     </div>
                     <div>
                         <span>Top product</span>
                         <strong>{topRevenueProducts[0]?.name || "N/A"}</strong>
-                        <p>Highest revenue earner</p>
+                        <p>{hasAnalyticsKpis ? "Highest revenue earner" : "Top item from loaded sales rows"}</p>
                     </div>
                 </section>
 
@@ -636,14 +753,14 @@ const AdminDashboard = () => {
                     />
                     <Card
                         title="Products"
-                        value={products.length}
+                        value={analyticsSummary?.kpis?.inventory?.totalProducts ?? products.length}
                         description="Live items in catalog"
                         accent="green"
                         icon={<BoxSeamIcon />}
                     />
                     <Card
                         title="Users"
-                        value={users.length}
+                        value={analyticsSummary?.kpis?.customers?.total ?? users.length}
                         description="Registered customer accounts"
                         accent="teal"
                         icon={<PersonIcon />}
@@ -662,22 +779,28 @@ const AdminDashboard = () => {
                             <div className="admin__dashboard__insights">
                                 <div className="admin__dashboard__insight">
                                     <span>Average order value</span>
-                                    <strong>{formatCurrency(analyticsSummary.overview.average_order_value)}</strong>
+                                    <strong>
+                                        {formatCurrency(
+                                            analyticsSummary?.kpis?.revenue?.averageOrderValue ??
+                                                analyticsSummary?.overview?.average_order_value ??
+                                                0,
+                                        )}
+                                    </strong>
                                     <p>Completed orders only.</p>
                                 </div>
                                 <div className="admin__dashboard__insight">
                                     <span>Low stock</span>
-                                    <strong>{analyticsSummary.overview.low_stock}</strong>
+                                    <strong>{analyticsSummary?.kpis?.inventory?.lowStock ?? analyticsSummary?.overview?.low_stock ?? 0}</strong>
                                     <p>Products with 1-5 units.</p>
                                 </div>
                                 <div className="admin__dashboard__insight">
                                     <span>Out of stock</span>
-                                    <strong>{analyticsSummary.overview.out_of_stock}</strong>
+                                    <strong>{analyticsSummary?.kpis?.inventory?.outOfStock ?? analyticsSummary?.overview?.out_of_stock ?? 0}</strong>
                                     <p>Products needing restock now.</p>
                                 </div>
                                 <div className="admin__dashboard__insight">
                                     <span>Customers</span>
-                                    <strong>{analyticsSummary.overview.customers}</strong>
+                                    <strong>{analyticsSummary?.kpis?.customers?.total ?? analyticsSummary?.overview?.customers ?? 0}</strong>
                                     <p>Customer accounts only.</p>
                                 </div>
                             </div>
@@ -768,7 +891,7 @@ const AdminDashboard = () => {
                                 <ResponsiveContainer width="100%" height={220}>
                                     <PieChart>
                                         <Pie
-                                            data={paymentMix}
+                                            data={analyticsPaymentMix.length > 0 ? analyticsPaymentMix : paymentMix}
                                             dataKey="value"
                                             nameKey="name"
                                             cx="50%"
@@ -777,7 +900,7 @@ const AdminDashboard = () => {
                                             outerRadius={78}
                                             paddingAngle={3}
                                         >
-                                            {paymentMix.map((entry, index) => (
+                                            {(analyticsPaymentMix.length > 0 ? analyticsPaymentMix : paymentMix).map((entry, index) => (
                                                 <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                                             ))}
                                         </Pie>
@@ -785,7 +908,7 @@ const AdminDashboard = () => {
                                     </PieChart>
                                 </ResponsiveContainer>
                                 <div className="admin__chart-legend">
-                                    {paymentMix.map((entry, index) => (
+                                    {(analyticsPaymentMix.length > 0 ? analyticsPaymentMix : paymentMix).map((entry, index) => (
                                         <span key={entry.name}>
                                             <i style={{ background: CHART_COLORS[index % CHART_COLORS.length] }} />
                                             {entry.name}: {entry.value}
@@ -804,7 +927,7 @@ const AdminDashboard = () => {
                                 <ResponsiveContainer width="100%" height={220}>
                                     <PieChart>
                                         <Pie
-                                            data={statusMix}
+                                            data={analyticsStatusMix.length > 0 ? analyticsStatusMix : statusMix}
                                             dataKey="value"
                                             nameKey="name"
                                             cx="50%"
@@ -813,7 +936,7 @@ const AdminDashboard = () => {
                                             outerRadius={78}
                                             paddingAngle={3}
                                         >
-                                            {statusMix.map((entry, index) => (
+                                            {(analyticsStatusMix.length > 0 ? analyticsStatusMix : statusMix).map((entry, index) => (
                                                 <Cell key={entry.name} fill={CHART_COLORS[(index + 2) % CHART_COLORS.length]} />
                                             ))}
                                         </Pie>
@@ -821,7 +944,7 @@ const AdminDashboard = () => {
                                     </PieChart>
                                 </ResponsiveContainer>
                                 <div className="admin__chart-legend">
-                                    {statusMix.map((entry, index) => (
+                                    {(analyticsStatusMix.length > 0 ? analyticsStatusMix : statusMix).map((entry, index) => (
                                         <span key={entry.name}>
                                             <i style={{ background: CHART_COLORS[(index + 2) % CHART_COLORS.length] }} />
                                             {entry.name}: {entry.value}
@@ -976,7 +1099,7 @@ const AdminDashboard = () => {
                         </div>
                         <div className="admin__card__body admin__chart-body">
                             <ResponsiveContainer width="100%" height={300}>
-                                <BarChart data={stockRisk} layout="vertical" margin={{ left: 18 }}>
+                                <BarChart data={analyticsInventoryRisk.length > 0 ? analyticsInventoryRisk : stockRisk} layout="vertical" margin={{ left: 18 }}>
                                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
                                     <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} />
                                     <YAxis
@@ -998,7 +1121,7 @@ const AdminDashboard = () => {
                 <section className="admin__card">
                     <div className="admin__card__header">
                         <h3>Top 10 best-selling products</h3>
-                        <span>All time</span>
+                        <span>{hasAnalyticsKpis ? "Loaded order-item coverage" : "Loaded order-item snapshot"}</span>
                     </div>
                     <div className="admin__card__body">
                         <Table responsive hover borderless>
