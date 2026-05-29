@@ -13,7 +13,7 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import "../styles/HomePage.scss";
 import { Product } from "../utils/interface";
-import { HERO_IMAGE_WIDTHS, getResponsiveImageSource, normalizeProductImageName } from "../utils/images";
+import { HERO_IMAGE_WIDTHS, THUMBNAIL_IMAGE_WIDTHS, getResponsiveImageSource, normalizeProductImageName } from "../utils/images";
 import loadImage from "../utils/loadImage";
 
 const DISPLAYED_NUMBER = 12;
@@ -295,6 +295,17 @@ const HomePage = () => {
         sizes: "100vw",
         fit: "fill",
     });
+    const heroPreviewSources = useMemo(
+        () =>
+            heroSlides.map((slide) =>
+                getResponsiveImageSource(slide.image, {
+                    widths: THUMBNAIL_IMAGE_WIDTHS,
+                    sizes: "(min-width: 900px) 12vw, 28vw",
+                    fit: "fill",
+                }),
+            ),
+        [],
+    );
 
     return (
         <Layout>
@@ -398,7 +409,14 @@ const HomePage = () => {
                                 className={currentIndex === index ? "active" : ""}
                                 onClick={() => setCurrentIndex(index)}
                             >
-                                <img src={slide.image} alt="" loading="lazy" decoding="async" />
+                                <img
+                                    src={heroPreviewSources[index].src}
+                                    srcSet={heroPreviewSources[index].srcSet}
+                                    sizes={heroPreviewSources[index].sizes}
+                                    alt=""
+                                    loading="lazy"
+                                    decoding="async"
+                                />
                                 <span>
                                     <small>{String(index + 1).padStart(2, "0")}</small>
                                     <strong>{slide.kicker}</strong>

@@ -4,10 +4,12 @@ import React, { useMemo, useState } from "react";
 import { Form } from "react-bootstrap";
 import { Helmet } from "react-helmet";
 import { Link, useNavigate } from "react-router-dom";
+import authImage from "../../../assets/images/background_form.jpg";
 import { useToast } from "../../../context/ToastContext";
 import http from "../../../lib/http";
 import { auth } from "../../../services/firebase";
 import "../../../styles/SignupPage.scss";
+import { PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../../../utils/images";
 import { Role } from "../../../utils/interface";
 import { EyeIcon, EyeOffIcon, ShieldIcon } from "../../../components/common/Icons";
 
@@ -33,6 +35,11 @@ const SignupPage = () => {
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+    const authImageSource = getResponsiveImageSource(authImage, {
+        widths: PAGE_IMAGE_WIDTHS,
+        sizes: "(min-width: 960px) 42vw, 100vw",
+        fit: "fill",
+    });
 
     const passwordStrength = useMemo(() => {
         const checks = [
@@ -165,6 +172,15 @@ const SignupPage = () => {
             </Helmet>
             <div className="signup">
                 <aside className="signup__image">
+                    <img
+                        src={authImageSource.src}
+                        srcSet={authImageSource.srcSet}
+                        sizes={authImageSource.sizes}
+                        alt=""
+                        aria-hidden="true"
+                        loading="lazy"
+                        decoding="async"
+                    />
                     <div className="signup__image__content">
                         <strong className="signup__image__content__name">DIGITAL-E</strong>
                         <p className="signup__image__content__desc">Create an account for faster checkout.</p>

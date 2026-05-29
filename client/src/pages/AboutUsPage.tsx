@@ -1,11 +1,18 @@
 import React from "react";
 import { Helmet } from "react-helmet";
 import { Link } from "react-router-dom";
-import heroImage from "../assets/images/carousel_3.jpg";
+import heroImage from "../assets/images/about_us.jpg";
 import Layout from "../components/layout/Layout";
+import { PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../utils/images";
 import "../styles/AboutUsPage.scss";
 
 const AboutUsPage: React.FC = () => {
+    const heroImageSource = getResponsiveImageSource(heroImage, {
+        widths: PAGE_IMAGE_WIDTHS,
+        sizes: "(min-width: 1024px) 42vw, 92vw",
+        fit: "fill",
+    });
+
     const values = [
         {
             title: "Curated, not crowded",
@@ -24,8 +31,14 @@ const AboutUsPage: React.FC = () => {
     const milestones = [
         { year: "2023", text: "Digital-E launched with a curated catalog for laptops and workspace accessories." },
         { year: "2024", text: "The store expanded into audio, smart home, phones, and gaming essentials." },
-        { year: "2025", text: "Personalized search, wishlist signals, and smarter recommendations became part of the experience." },
-        { year: "2026", text: "Admin analytics, inventory alerts, and customer profiles turned operations into a stronger system." },
+        {
+            year: "2025",
+            text: "Personalized search, wishlist signals, and smarter recommendations became part of the experience.",
+        },
+        {
+            year: "2026",
+            text: "Admin analytics, inventory alerts, and customer profiles turned operations into a stronger system.",
+        },
     ];
 
     const teams = [
@@ -38,7 +51,10 @@ const AboutUsPage: React.FC = () => {
         <Layout>
             <Helmet>
                 <title>About Us | Digital-E</title>
-                <meta name="description" content="Learn more about Digital-E, our mission, and how we build a trusted electronics shopping experience." />
+                <meta
+                    name="description"
+                    content="Learn more about Digital-E, our mission, and how we build a trusted electronics shopping experience."
+                />
             </Helmet>
             <main className="about">
                 <section className="about__hero">
@@ -47,7 +63,8 @@ const AboutUsPage: React.FC = () => {
                         <h1>We build a clearer way to shop for everyday technology.</h1>
                         <p>
                             Digital-E is an electronics store designed for people who want useful recommendations,
-                            honest product information, smooth checkout, and support that does not disappear after delivery.
+                            honest product information, smooth checkout, and support that does not disappear after
+                            delivery.
                         </p>
                         <div className="about__hero__actions">
                             <Link to="/shops">Explore products</Link>
@@ -57,7 +74,15 @@ const AboutUsPage: React.FC = () => {
                         </div>
                     </div>
                     <div className="about__hero__media">
-                        <img src={heroImage} alt="Digital-E mobile technology selection" />
+                        <img
+                            src={heroImageSource.src}
+                            srcSet={heroImageSource.srcSet}
+                            sizes={heroImageSource.sizes}
+                            alt="Digital-E mobile technology selection"
+                            loading="eager"
+                            fetchPriority="high"
+                            decoding="async"
+                        />
                     </div>
                 </section>
 

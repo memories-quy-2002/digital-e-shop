@@ -42,6 +42,12 @@ type CheckoutPaymentProps = {
 };
 
 type SavedAddress = CustomerAddress;
+type CartValidationIssue = {
+    productName: string;
+    requestedQuantity: number;
+    availableStock: number;
+    reason: "out_of_stock" | "insufficient_stock";
+};
 
 const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtotal }: CheckoutPaymentProps) => {
     const navigate = useNavigate();
@@ -143,6 +149,37 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
         }));
     };
 
+    const getCartValidationMessage = (issues: CartValidationIssue[]) => {
+        const firstIssue = issues[0];
+        if (!firstIssue) {
+            return "Some cart items are unavailable or exceed current stock.";
+        }
+
+        if (firstIssue.reason === "out_of_stock") {
+            return `${firstIssue.productName} is out of stock.`;
+        }
+
+        return `${firstIssue.productName} has only ${firstIssue.availableStock} item(s) available.`;
+    };
+
+    const validateCartStock = async () => {
+        try {
+            const response = await http.get(`/api/cart/${uid}/validation`);
+            return response.status === 200 && response.data.valid === true;
+        } catch (err: unknown) {
+            if (err && typeof err === "object" && "response" in err) {
+                const response = (err as { response?: { data?: { issues?: CartValidationIssue[]; msg?: string } } }).response;
+                const message = getCartValidationMessage(response?.data?.issues || []);
+                setErrors([message]);
+                addToast("Checkout", message);
+            } else {
+                setErrors(["Unable to validate cart stock right now."]);
+                addToast("Checkout", "Unable to validate cart stock right now.");
+            }
+            return false;
+        }
+    };
+
     const handlePurchase = async () => {
         setErrors([]);
         const validationErrors = validateForm();
@@ -159,6 +196,9 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
         if (unavailableItems.length > 0) {
             setErrors(["Some cart items exceed the available stock."]);
             addToast("Checkout", "Please update cart quantities before placing the order.");
+            return;
+        }
+        if (!(await validateCartStock())) {
             return;
         }
         try {

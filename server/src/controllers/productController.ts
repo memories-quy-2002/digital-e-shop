@@ -2,6 +2,13 @@ import type { AppRequest, AppResponse, CountRow, DbError, ProductEditorRow, Upda
 const productService = require("../services/productService");
 const Product = require("../models/productModel");
 const inventoryMovementService = require("../services/inventoryMovementService");
+const {
+    getValidationMessage,
+    inventoryUpdateSchema,
+    parseBody,
+    productCreateSchema,
+    productUpdateSchema,
+} = require("../validation/requestSchemas");
 const multer = require("multer");
 const { MongoClient, ServerApiVersion } = require("mongodb");
 
@@ -15,9 +22,13 @@ async function addSingleProduct(req: AppRequest, res: AppResponse) {
         if (err) return res.status(400).json({ msg: "Error uploading file" });
 
         try {
-            const result = await productService.addSingleProductService(req.body, req.file);
+            const payload = parseBody(productCreateSchema, req.body);
+            const result = await productService.addSingleProductService(payload, req.file);
             res.status(200).json(result);
         } catch (error) {
+            if (error?.name === "ZodError") {
+                return res.status(400).json({ msg: getValidationMessage(error) });
+            }
             const err = error as Error;
             console.error(err.message);
             res.status(500).json({ msg: "Internal server error", error: err.message });
@@ -96,10 +107,16 @@ function getInventorySummary(req: AppRequest, res: AppResponse) {
 
 function updateInventory(req: AppRequest, res: AppResponse) {
     const pid = Number(req.params.id);
-    const stock = Number(req.body.stock);
 
-    if (!Number.isInteger(pid) || pid <= 0 || !Number.isInteger(stock) || stock < 0) {
+    if (!Number.isInteger(pid) || pid <= 0) {
         return res.status(400).json({ msg: "Product id and stock must be valid" });
+    }
+
+    let stock: number;
+    try {
+        stock = parseBody(inventoryUpdateSchema, req.body).stock;
+    } catch (err) {
+        return res.status(400).json({ msg: getValidationMessage(err) });
     }
 
     Product.getProductById(pid, (beforeErr: DbError | null, beforeRows: ProductEditorRow[]) => {
@@ -135,8 +152,9 @@ async function updateProduct(req: AppRequest, res: AppResponse) {
     }
 
     try {
+        const payload = parseBody(productUpdateSchema, req.body);
         const product = await productService.updateProductDetailsService(pid, {
-            ...req.body,
+            ...payload,
             actorId: req.user?.id || "admin",
         });
         return res.status(200).json({
@@ -144,6 +162,9 @@ async function updateProduct(req: AppRequest, res: AppResponse) {
             msg: "Product has been updated successfully",
         });
     } catch (err) {
+        if (err?.name === "ZodError") {
+            return res.status(400).json({ msg: getValidationMessage(err) });
+        }
         const error = err as Error & { statusCode?: number };
         const statusCode = error.statusCode || 500;
         return res.status(statusCode).json({

@@ -4,6 +4,7 @@ import ReactPaginate from "react-paginate";
 import axios from "../../../api/axios";
 import { Role } from "../../../utils/interface";
 import AdminLayout from "../../../components/layout/AdminLayout";
+import AdminWorkflowSteps from "../../../components/common/admin/AdminWorkflowSteps";
 import { Helmet } from "react-helmet";
 import { useToast } from "../../../context/ToastContext";
 
@@ -34,6 +35,8 @@ type CustomerProfile = Account & {
 };
 
 const ITEMS_PER_PAGE = 8;
+
+const accountWorkflowSteps = ["Search across all users", "Review customer profile", "Update role or status"];
 
 const formatCurrency = (value: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value || 0);
@@ -215,6 +218,8 @@ const AdminAccountPage = () => {
                         <p>Limited access</p>
                     </div>
                 </section>
+
+                <AdminWorkflowSteps steps={accountWorkflowSteps} />
 
                 <section className="admin__card">
                     <div className="admin__card__header">

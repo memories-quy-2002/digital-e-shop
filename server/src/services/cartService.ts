@@ -1,6 +1,14 @@
 const Cart = require('../models/cartModel');
 const Product = require("../models/productModel");
-import type { CartItemRow, CartRow, DbError, ProductEditorRow, ServiceResultMessage } from "../types/domain";
+import type {
+    CartItemRow,
+    CartRow,
+    CartValidationIssue,
+    CartValidationResult,
+    DbError,
+    ProductEditorRow,
+    ServiceResultMessage,
+} from "../types/domain";
 
 async function addItemToCart(pid: number, uid: string, quantity: number): Promise<ServiceResultMessage> {
     return new Promise((resolve, reject) => {
@@ -73,6 +81,49 @@ async function deleteCartItem(cartItemId: number): Promise<ServiceResultMessage>
     });
 }
 
+async function validateCartForCheckout(uid: string): Promise<CartValidationResult> {
+    const cartItems = await getCartItems(uid);
+    const issues: CartValidationIssue[] = cartItems
+        .map((item) => {
+            const cartItemId = Number(item.cart_item_id || item.id || 0);
+            const productId = Number(item.product_id || 0);
+            const productName = String(item.product_name || `Product #${productId}`);
+            const requestedQuantity = Number(item.quantity) || 0;
+            const availableStock = Number(item.stock) || 0;
+
+            if (availableStock <= 0) {
+                return {
+                    cartItemId,
+                    productId,
+                    productName,
+                    requestedQuantity,
+                    availableStock,
+                    reason: "out_of_stock" as const,
+                };
+            }
+
+            if (requestedQuantity > availableStock) {
+                return {
+                    cartItemId,
+                    productId,
+                    productName,
+                    requestedQuantity,
+                    availableStock,
+                    reason: "insufficient_stock" as const,
+                };
+            }
+
+            return null;
+        })
+        .filter((issue): issue is CartValidationIssue => issue !== null);
+
+    return {
+        valid: cartItems.length > 0 && issues.length === 0,
+        cartItems,
+        issues,
+    };
+}
+
 async function updateCartItemQuantity(cartItemId: number, quantity: number): Promise<ServiceResultMessage> {
     return new Promise((resolve, reject) => {
         const safeQuantity = Math.max(1, Number(quantity) || 1);
@@ -97,6 +148,7 @@ async function updateCartItemQuantity(cartItemId: number, quantity: number): Pro
 module.exports = {
     addItemToCart,
     getCartItems,
+    validateCartForCheckout,
     updateCartItemQuantity,
     deleteCartItem
 }

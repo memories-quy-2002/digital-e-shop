@@ -24,6 +24,7 @@ const getPaymentLabel = (payment?: CustomerOrder["payment_method"]) => {
 };
 
 const formatCurrency = (value: number) => `$${Number(value || 0).toFixed(2)}`;
+const ORDER_PAGE_SIZE = 8;
 
 const OrderHistoryPage = () => {
     const { userData } = useAuth();
@@ -34,6 +35,7 @@ const OrderHistoryPage = () => {
     const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
     const [orderDetail, setOrderDetail] = useState<CustomerOrderDetail | null>(null);
     const [loadingDetail, setLoadingDetail] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
 
     useEffect(() => {
         const fetchOrders = async () => {
@@ -74,13 +76,45 @@ const OrderHistoryPage = () => {
         [orders, selectedOrderId],
     );
 
+    const totalPages = Math.max(1, Math.ceil(orders.length / ORDER_PAGE_SIZE));
+
+    const visibleOrders = useMemo(() => {
+        const startIndex = (currentPage - 1) * ORDER_PAGE_SIZE;
+        return orders.slice(startIndex, startIndex + ORDER_PAGE_SIZE);
+    }, [currentPage, orders]);
+
     useEffect(() => {
         if (!selectedOrderId && orders.length > 0) {
             const requestedOrderId = Number(searchParams.get("order"));
             const requestedOrder = orders.find((order) => order.id === requestedOrderId);
-            setSelectedOrderId(requestedOrder?.id || orders[0].id);
+            const initialOrder = requestedOrder || orders[0];
+            setSelectedOrderId(initialOrder.id);
+            const initialOrderIndex = orders.findIndex((order) => order.id === initialOrder.id);
+            setCurrentPage(Math.floor(initialOrderIndex / ORDER_PAGE_SIZE) + 1);
         }
     }, [orders, searchParams, selectedOrderId]);
+
+    useEffect(() => {
+        if (visibleOrders.length === 0 || selectedOrderId === null) return;
+
+        const selectedOrderIsVisible = visibleOrders.some((order) => order.id === selectedOrderId);
+        if (!selectedOrderIsVisible) {
+            setSelectedOrderId(visibleOrders[0].id);
+        }
+    }, [selectedOrderId, visibleOrders]);
+
+    useEffect(() => {
+        if (orders.length === 0) {
+            if (currentPage !== 1) {
+                setCurrentPage(1);
+            }
+            return;
+        }
+
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, orders.length, totalPages]);
 
     const handleReorder = async () => {
         if (!uid || !orderDetail) return;
@@ -120,20 +154,54 @@ const OrderHistoryPage = () => {
                 ) : (
                     <section className="order-history__layout">
                         <div className="order-history__list">
-                            {orders.map((order) => (
-                                <button
-                                    key={order.id}
-                                    type="button"
-                                    className={`order-history__order-button${
-                                        selectedOrder?.id === order.id ? " order-history__order-button--active" : ""
-                                    }`}
-                                    onClick={() => setSelectedOrderId(order.id)}
-                                >
-                                    <strong>Order #{order.id}</strong>
-                                    <span>{formatUtcDate(order.date_added)}</span>
-                                    <small>{formatCurrency(Math.max(order.total_price - order.discount, 0))}</small>
-                                </button>
-                            ))}
+                            <div className="order-history__list-header">
+                                <div>
+                                    <h2>Orders</h2>
+                                    <p>
+                                        {orders.length} total order{orders.length === 1 ? "" : "s"}
+                                    </p>
+                                </div>
+                                <span>
+                                    Page {currentPage} / {totalPages}
+                                </span>
+                            </div>
+                            <div className="order-history__list-body">
+                                {visibleOrders.map((order) => (
+                                    <button
+                                        key={order.id}
+                                        type="button"
+                                        className={`order-history__order-button${
+                                            selectedOrder?.id === order.id ? " order-history__order-button--active" : ""
+                                        }`}
+                                        onClick={() => setSelectedOrderId(order.id)}
+                                    >
+                                        <strong>Order #{order.id}</strong>
+                                        <span>{formatUtcDate(order.date_added)}</span>
+                                        <small>{formatCurrency(Math.max(order.total_price - order.discount, 0))}</small>
+                                    </button>
+                                ))}
+                            </div>
+                            {totalPages > 1 ? (
+                                <div className="order-history__pagination">
+                                    <button
+                                        type="button"
+                                        onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                                        disabled={currentPage === 1}
+                                    >
+                                        Previous
+                                    </button>
+                                    <span>
+                                        Page {currentPage} of {totalPages}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                                        disabled={currentPage === totalPages}
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            ) : null}
                         </div>
 
                         <aside className="order-history__detail">

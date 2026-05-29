@@ -5,7 +5,9 @@ import { useNavigate } from "react-router-dom";
 import axios from "../../../api/axios";
 import { Product } from "../../../utils/interface";
 import AdminLayout from "../../../components/layout/AdminLayout";
+import AdminWorkflowSteps from "../../../components/common/admin/AdminWorkflowSteps";
 import AdminProductItem from "../../../components/common/admin/AdminProductItem";
+import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
 import { Helmet } from "react-helmet";
 import { useToast } from "../../../context/ToastContext";
 import {
@@ -18,6 +20,8 @@ import {
 } from "../../../utils/productDetails";
 
 const ITEMS_PER_PAGE = 8;
+
+const productWorkflowSteps = ["Find listing", "Edit product or restock", "Hide only when needed"];
 
 type ProductEditForm = {
     name: string;
@@ -76,6 +80,7 @@ const AdminProductPage = () => {
     });
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [restockValues, setRestockValues] = useState<Record<number, string>>({});
     const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>([]);
@@ -245,11 +250,12 @@ const AdminProductPage = () => {
             });
             if (response.status === 200) {
                 setProducts((currentProducts) => currentProducts.filter((product) => product.id !== selectedProduct.id));
-                addToast("Delete product", `${selectedProduct.name} has been removed from the catalog.`);
+                addToast("Hide product", `${selectedProduct.name} has been hidden from the catalog.`);
+                setShowDeleteConfirm(false);
                 handleClose();
             }
         } catch {
-            addToast("Delete product", "Unable to delete product.");
+            addToast("Hide product", "Unable to hide product.");
         } finally {
             setIsDeleting(false);
         }
@@ -278,7 +284,7 @@ const AdminProductPage = () => {
                 addToast("Inventory", `${updatedProduct.name} stock updated.`);
             }
         } catch {
-                addToast("Inventory", "Unable to update stock.");
+            addToast("Inventory", "Unable to update stock.");
         }
     };
 
@@ -346,6 +352,8 @@ const AdminProductPage = () => {
                         <p>Need attention</p>
                     </div>
                 </section>
+
+                <AdminWorkflowSteps steps={productWorkflowSteps} />
 
                 <section className="admin__card">
                     <div className="admin__card__header">
@@ -672,8 +680,12 @@ const AdminProductPage = () => {
                                 </Form>
                             </Modal.Body>
                             <Modal.Footer className="admin__modal-actions">
-                                <Button variant="outline-danger" onClick={handleDelete} disabled={isDeleting || isSaving}>
-                                    {isDeleting ? "Deleting..." : "Delete product"}
+                                <Button
+                                    variant="outline-danger"
+                                    onClick={() => setShowDeleteConfirm(true)}
+                                    disabled={isDeleting || isSaving}
+                                >
+                                    {isDeleting ? "Hiding..." : "Hide product"}
                                 </Button>
                                 <div>
                                     <Button variant="secondary" onClick={handleClose} disabled={isDeleting || isSaving}>
@@ -685,6 +697,15 @@ const AdminProductPage = () => {
                                 </div>
                             </Modal.Footer>
                         </Modal>
+                        <ConfirmActionModal
+                            show={showDeleteConfirm && selectedProduct !== null}
+                            title="Hide product"
+                            message={`Hide "${selectedProduct?.name || "this product"}" from the catalog? Use this when the product should no longer appear in the storefront.`}
+                            confirmLabel="Hide product"
+                            isConfirming={isDeleting}
+                            onCancel={() => setShowDeleteConfirm(false)}
+                            onConfirm={handleDelete}
+                        />
                     </div>
                 </section>
             </main>

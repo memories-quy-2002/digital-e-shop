@@ -153,8 +153,6 @@ export const Header = (): JSX.Element => {
             return;
         }
 
-        // Debounce client-side filtering so the dropdown does not recalculate on
-        // every keystroke, especially when the product list grows.
         const timer = window.setTimeout(() => {
             const matches = allProducts
                 .filter((product) => {

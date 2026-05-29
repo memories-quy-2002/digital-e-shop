@@ -3,6 +3,7 @@ import { Button, Modal, Table } from "react-bootstrap";
 import ReactPaginate from "react-paginate";
 import axios from "../../../api/axios";
 import AdminLayout from "../../../components/layout/AdminLayout";
+import AdminWorkflowSteps from "../../../components/common/admin/AdminWorkflowSteps";
 import { useToast } from "../../../context/ToastContext";
 import { CheckCircleIcon, XCircleIcon } from "../../../components/common/Icons";
 import { Helmet } from "react-helmet";
@@ -42,6 +43,8 @@ type OrderDetail = Order & {
 };
 
 const ITEMS_PER_PAGE = 8;
+
+const orderWorkflowSteps = ["Review pending orders", "Open detail before changing status", "Mark done or cancel"];
 
 const normalizeOrder = (order: any): Order => ({
     ...order,
@@ -281,6 +284,8 @@ const AdminOrderPage = () => {
                     </div>
                 </section>
 
+                <AdminWorkflowSteps steps={orderWorkflowSteps} />
+
                 <section className="admin__card">
                     <div className="admin__card__header">
                         <div>
@@ -385,17 +390,23 @@ const AdminOrderPage = () => {
                                                     </button>
                                                     <button
                                                         type="button"
+                                                        className="admin__button admin__button--danger admin__button--compact"
                                                         data-testid="cancelBtn"
+                                                        aria-label={`Cancel order ${order.id}`}
                                                         onClick={() => handleChangeStatus(2, order.id)}
                                                     >
                                                         <XCircleIcon size={22} />
+                                                        <span>Cancel</span>
                                                     </button>
                                                     <button
                                                         type="button"
+                                                        className="admin__button admin__button--success admin__button--compact"
                                                         data-testid="doneBtn"
+                                                        aria-label={`Mark order ${order.id} as done`}
                                                         onClick={() => handleChangeStatus(1, order.id)}
                                                     >
                                                         <CheckCircleIcon size={22} />
+                                                        <span>Done</span>
                                                     </button>
                                                 </div>
                                             ) : (

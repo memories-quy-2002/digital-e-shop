@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
 import Layout from "../../../components/layout/Layout";
+import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
 import "../../../styles/AddressBookPage.scss";
 import CustomerAccountShell from "../components/CustomerAccountShell";
 import {
@@ -42,6 +43,8 @@ const AddressBookPage = () => {
     const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
     const [form, setForm] = useState<AddressForm>(emptyForm);
     const [isSaving, setIsSaving] = useState(false);
+    const [pendingDeleteAddress, setPendingDeleteAddress] = useState<CustomerAddress | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const loadAddresses = async () => {
         if (!uid) return;
@@ -111,15 +114,24 @@ const AddressBookPage = () => {
         }
     };
 
-    const handleDelete = async (addressId: number) => {
-        if (!uid) return;
+    const handleDelete = async () => {
+        if (!uid || !pendingDeleteAddress) return;
         try {
-            await deleteCustomerAddress(uid, addressId);
+            setIsDeleting(true);
+            await deleteCustomerAddress(uid, pendingDeleteAddress.id);
             addToast("Address book", "Address removed.");
+            setPendingDeleteAddress(null);
             loadAddresses();
         } catch {
             addToast("Address book", "Unable to remove address.");
+        } finally {
+            setIsDeleting(false);
         }
+    };
+
+    const handleRequestDelete = (addressId: number) => {
+        const address = addresses.find((item) => item.id === addressId) || null;
+        setPendingDeleteAddress(address);
     };
 
     return (
@@ -137,7 +149,19 @@ const AddressBookPage = () => {
 
                 <section className="address-book__layout">
                     <div className="address-book__form">
-                        <h2>{form.id ? "Edit address" : "Add address"}</h2>
+                        <div className="address-book__form-header">
+                            <div>
+                                <span>{form.id ? "Editing address" : "New address"}</span>
+                                <h2>{form.id ? form.label || "Saved address" : "Add address"}</h2>
+                            </div>
+                            {form.id ? (
+                                <button type="button" onClick={() => setForm(emptyForm)}>
+                                    Cancel edit
+                                </button>
+                            ) : null}
+                        </div>
+                        <div className="address-book__form-section">
+                            <h3>Recipient</h3>
                         <label>
                             Label
                             <input value={form.label} onChange={(event) => setForm((current) => ({ ...current, label: event.target.value }))} />
@@ -150,6 +174,9 @@ const AddressBookPage = () => {
                             Phone
                             <input value={form.phoneNumber} onChange={(event) => setForm((current) => ({ ...current, phoneNumber: event.target.value }))} />
                         </label>
+                        </div>
+                        <div className="address-book__form-section">
+                            <h3>Delivery location</h3>
                         <label>
                             Address
                             <input value={form.addressLine} onChange={(event) => setForm((current) => ({ ...current, addressLine: event.target.value }))} />
@@ -163,6 +190,7 @@ const AddressBookPage = () => {
                                 Country
                                 <input value={form.country} onChange={(event) => setForm((current) => ({ ...current, country: event.target.value }))} />
                             </label>
+                        </div>
                         </div>
                         <label className="address-book__check">
                             <input
@@ -200,7 +228,7 @@ const AddressBookPage = () => {
                                         <button type="button" onClick={() => handleEdit(address)}>
                                             Edit
                                         </button>
-                                        <button type="button" className="danger" onClick={() => handleDelete(address.id)}>
+                                        <button type="button" className="danger" onClick={() => handleRequestDelete(address.id)}>
                                             Delete
                                         </button>
                                     </div>
@@ -211,6 +239,15 @@ const AddressBookPage = () => {
                         )}
                     </div>
                 </section>
+                <ConfirmActionModal
+                    show={pendingDeleteAddress !== null}
+                    title="Delete address"
+                    message={`Delete "${pendingDeleteAddress?.label || "this address"}" from your address book?`}
+                    confirmLabel="Delete"
+                    isConfirming={isDeleting}
+                    onCancel={() => setPendingDeleteAddress(null)}
+                    onConfirm={handleDelete}
+                />
             </main>
         </Layout>
     );

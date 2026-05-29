@@ -4,6 +4,7 @@ import { Helmet } from "react-helmet";
 import { useNavigate } from "react-router-dom";
 import AsideCart from "../../../components/common/AsideCart";
 import CartItem from "../../../components/common/CartItem";
+import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
 import { ArrowLeftIcon, ArrowRightIcon } from "../../../components/common/Icons";
 import Layout from "../../../components/layout/Layout";
 import { useAuth } from "../../../context/AuthContext";
@@ -31,6 +32,27 @@ type DiscountActionResult = {
     message?: string;
 };
 
+type CartValidationIssue = {
+    productName: string;
+    requestedQuantity: number;
+    availableStock: number;
+    reason: "out_of_stock" | "insufficient_stock";
+};
+
+const normalizeCartItems = (items: any[]): CartProps[] =>
+    items.map((item: any) => ({
+        cartItemId: item.cart_item_id,
+        productId: item.product_id,
+        productName: item.product_name,
+        category: item.category,
+        brand: item.brand,
+        price: item.price,
+        sale_price: item.sale_price,
+        main_image: item.main_image,
+        quantity: item.quantity,
+        stock: item.stock,
+    }));
+
 const CartPage = () => {
     const navigate = useNavigate();
     const { userData } = useAuth();
@@ -42,8 +64,10 @@ const CartPage = () => {
     const [subtotal, setSubtotal] = useState<number>(0);
     const [show, setShow] = useState<boolean>(false);
     const [isPayment, setIsPayment] = useState<boolean>(false);
+    const [pendingRemoveItem, setPendingRemoveItem] = useState<CartProps | null>(null);
+    const [isRemovingItem, setIsRemovingItem] = useState(false);
+    const [isValidatingCheckout, setIsValidatingCheckout] = useState(false);
 
-    const handleShow = useCallback(() => setShow(true), []);
     const handleClose = useCallback(() => setShow(false), []);
     const togglePayment = useCallback(() => setIsPayment((prev) => !prev), []);
 
@@ -79,6 +103,63 @@ const CartPage = () => {
     };
 
     const unavailableItems = cart.filter((item) => item.stock <= 0 || item.quantity > item.stock);
+    const getCartValidationMessage = (issues: CartValidationIssue[]) => {
+        const firstIssue = issues[0];
+        if (!firstIssue) {
+            return "Some cart items are unavailable or exceed current stock.";
+        }
+
+        if (firstIssue.reason === "out_of_stock") {
+            return `${firstIssue.productName} is out of stock.`;
+        }
+
+        return `${firstIssue.productName} has only ${firstIssue.availableStock} item(s) available.`;
+    };
+
+    const refreshCartFromValidation = (cartItems?: any[]) => {
+        if (Array.isArray(cartItems)) {
+            setCart(normalizeCartItems(cartItems));
+        }
+    };
+
+    const validateCartBeforeCheckout = useCallback(async () => {
+        if (!uid) {
+            addToast("Checkout blocked", "Please login before checkout.");
+            return false;
+        }
+
+        try {
+            setIsValidatingCheckout(true);
+            const response = await http.get(`/api/cart/${uid}/validation`);
+            refreshCartFromValidation(response.data.cartItems);
+            return response.status === 200 && response.data.valid === true;
+        } catch (err: unknown) {
+            if (err && typeof err === "object" && "response" in err) {
+                const response = (err as {
+                    response?: { data?: { msg?: string; issues?: CartValidationIssue[]; cartItems?: any[] } };
+                }).response;
+                refreshCartFromValidation(response?.data?.cartItems);
+                addToast("Checkout blocked", getCartValidationMessage(response?.data?.issues || []));
+            } else {
+                addToast("Checkout blocked", "Unable to validate cart stock right now.");
+            }
+            return false;
+        } finally {
+            setIsValidatingCheckout(false);
+        }
+    }, [addToast, uid]);
+
+    const handleShow = useCallback(async () => {
+        if (unavailableItems.length > 0) {
+            addToast("Checkout blocked", "Some cart items are unavailable or exceed current stock.");
+            return;
+        }
+
+        if (await validateCartBeforeCheckout()) {
+            setShow(true);
+        }
+    }, [addToast, unavailableItems.length, validateCartBeforeCheckout]);
+
     const handleClickPayment = useCallback(() => {
         if (unavailableItems.length > 0) {
             addToast("Checkout blocked", "Some cart items are unavailable or exceed current stock.");
@@ -89,21 +170,38 @@ const CartPage = () => {
         setShow(false);
     }, [addToast, togglePayment, unavailableItems.length]);
 
-    const handleRemoveCartItem = useCallback(
-        async (cartItemId: number) => {
+    const handleConfirmRemoveCartItem = useCallback(
+        async () => {
+            if (!pendingRemoveItem) {
+                return;
+            }
             try {
+                setIsRemovingItem(true);
                 const response = await http.delete("/api/cart/", {
-                    data: { cartItemId },
+                    data: { cartItemId: pendingRemoveItem.cartItemId },
                 });
                 if (response.status === 200) {
-                    setCart((currentCart) => currentCart.filter((item) => item.cartItemId !== cartItemId));
+                    setCart((currentCart) =>
+                        currentCart.filter((item) => item.cartItemId !== pendingRemoveItem.cartItemId),
+                    );
                     addToast("Remove Cart item", "Item removed from cart successfully");
+                    setPendingRemoveItem(null);
                 }
             } catch {
                 addToast("Remove Cart item", "Unable to remove item from cart.");
+            } finally {
+                setIsRemovingItem(false);
             }
         },
-        [addToast],
+        [addToast, pendingRemoveItem],
+    );
+
+    const handleRemoveCartItem = useCallback(
+        (cartItemId: number) => {
+            const item = cart.find((cartItem) => cartItem.cartItemId === cartItemId) || null;
+            setPendingRemoveItem(item);
+        },
+        [cart],
     );
 
     const applyDiscount = async (discountCode: string, price: number): Promise<DiscountActionResult> => {
@@ -156,19 +254,7 @@ const CartPage = () => {
             try {
                 const response = await http.get(`/api/cart/${uid}`);
                 if (response.status === 200) {
-                    const cartItems: CartProps[] = response.data.cartItems.map((item: any) => ({
-                        cartItemId: item.cart_item_id,
-                        productId: item.product_id,
-                        productName: item.product_name,
-                        category: item.category,
-                        brand: item.brand,
-                        price: item.price,
-                        sale_price: item.sale_price,
-                        main_image: item.main_image,
-                        quantity: item.quantity,
-                        stock: item.stock,
-                    }));
-                    setCart(cartItems);
+                    setCart(normalizeCartItems(response.data.cartItems));
                 }
             } catch {
                 addToast("Cart", "Unable to load cart items.");
@@ -248,8 +334,12 @@ const CartPage = () => {
                                     <button className="ghost" onClick={() => navigate("/")}>
                                         <ArrowLeftIcon /> Continue shopping
                                     </button>
-                                    <button className="primary" onClick={handleShow} disabled={cart.length === 0}>
-                                        Proceed to checkout <ArrowRightIcon />
+                                    <button
+                                        className="primary"
+                                        onClick={handleShow}
+                                        disabled={cart.length === 0 || isValidatingCheckout}
+                                    >
+                                        {isValidatingCheckout ? "Checking stock..." : "Proceed to checkout"} <ArrowRightIcon />
                                     </button>
                                 </div>
                                 {unavailableItems.length > 0 ? (
@@ -289,6 +379,15 @@ const CartPage = () => {
                         </Button>
                     </Modal.Footer>
                 </Modal>
+                <ConfirmActionModal
+                    show={pendingRemoveItem !== null}
+                    title="Remove cart item"
+                    message={`Remove "${pendingRemoveItem?.productName || "this item"}" from your cart?`}
+                    confirmLabel="Remove"
+                    isConfirming={isRemovingItem}
+                    onCancel={() => setPendingRemoveItem(null)}
+                    onConfirm={handleConfirmRemoveCartItem}
+                />
             </Container>
         </Layout>
     );

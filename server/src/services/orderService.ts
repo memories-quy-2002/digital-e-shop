@@ -28,6 +28,8 @@ type DbConnection = {
     release: () => void;
 };
 
+const createCheckoutError = (message: string, statusCode = 409) => Object.assign(new Error(message), { statusCode });
+
 async function makePurchase(uid: string, { totalPrice, cart, discount, shippingAddress, paymentMethod }: PurchasePayload) {
     const startedAt = Date.now();
     console.log("[makePurchase] start", { uid, items: cart?.length, totalPrice, paymentMethod });
@@ -103,10 +105,10 @@ async function makePurchase(uid: string, { totalPrice, cart, discount, shippingA
                 for (const [productId, quantity] of productQuantities.entries()) {
                     const stock = stockById.get(productId);
                     if (stock == null) {
-                        throw new Error(`Product ${productId} not found`);
+                        throw createCheckoutError(`Product ${productId} is no longer available`, 409);
                     }
                     if (stock < quantity) {
-                        throw new Error(`Insufficient stock for product ${productId}`);
+                        throw createCheckoutError(`Insufficient stock for product ${productId}`, 409);
                     }
                 }
 

@@ -1,14 +1,24 @@
 import type { AppRequest, AppResponse } from "../types/domain";
 const cartService = require("../services/cartService");
+const {
+    cartAddItemSchema,
+    cartDeleteItemSchema,
+    cartUpdateQuantitySchema,
+    getValidationMessage,
+    parseBody,
+} = require("../validation/requestSchemas");
 
 async function addItemToCart(req: AppRequest, res: AppResponse) {
-    const { pid, uid, quantity } = req.body;
     try {
+        const { pid, uid, quantity } = parseBody(cartAddItemSchema, req.body);
         const msg = await cartService.addItemToCart(pid, uid, quantity);
         res.status(200).json({
             msg: msg,
         });
     } catch (err) {
+        if (err?.name === "ZodError") {
+            return res.status(400).json({ msg: getValidationMessage(err) });
+        }
         console.error(err.message);
         res.status(500).json({
             msg: "Error adding item to cart",
@@ -35,13 +45,16 @@ async function getCartItems(req: AppRequest, res: AppResponse) {
 };
 
 async function deleteCartItem(req: AppRequest, res: AppResponse) {
-    const { cartItemId } = req.body;
     try {
+        const { cartItemId } = parseBody(cartDeleteItemSchema, req.body);
         const msg = await cartService.deleteCartItem(cartItemId);
         res.status(200).json({
             msg: msg,
         });
     } catch (err) {
+        if (err?.name === "ZodError") {
+            return res.status(400).json({ msg: getValidationMessage(err) });
+        }
         console.error(err.message);
         res.status(500).json({
             msg: "Error deleting cart item",
@@ -50,14 +63,37 @@ async function deleteCartItem(req: AppRequest, res: AppResponse) {
     }
 };
 
-async function updateCartItemQuantity(req: AppRequest, res: AppResponse) {
-    const { cartItemId, quantity } = req.body;
+async function validateCartForCheckout(req: AppRequest, res: AppResponse) {
+    const uid = String(req.params.uid || "");
     try {
+        const result = await cartService.validateCartForCheckout(uid);
+        const status = result.valid ? 200 : 409;
+        return res.status(status).json({
+            msg: result.valid
+                ? "Cart is valid for checkout"
+                : "Some cart items are unavailable or exceed current stock",
+            ...result,
+        });
+    } catch (err) {
+        console.error(err.message);
+        return res.status(500).json({
+            msg: "Error validating cart items",
+            error: err.message,
+        });
+    }
+};
+
+async function updateCartItemQuantity(req: AppRequest, res: AppResponse) {
+    try {
+        const { cartItemId, quantity } = parseBody(cartUpdateQuantitySchema, req.body);
         const msg = await cartService.updateCartItemQuantity(cartItemId, quantity);
         res.status(200).json({
             msg: msg,
         });
     } catch (err) {
+        if (err?.name === "ZodError") {
+            return res.status(400).json({ msg: getValidationMessage(err) });
+        }
         console.error(err.message);
         res.status(500).json({
             msg: "Error updating cart item",
@@ -69,6 +105,7 @@ async function updateCartItemQuantity(req: AppRequest, res: AppResponse) {
 module.exports = {
     addItemToCart,
     getCartItems,
+    validateCartForCheckout,
     updateCartItemQuantity,
     deleteCartItem,
 };

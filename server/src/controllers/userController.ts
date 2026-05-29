@@ -1,6 +1,13 @@
 import type { AppCookieOptions, AppRequest, AppResponse, DbError } from "../types/domain";
 const userService = require("../services/userService");
 const { endSession } = require("../services/sessionService");
+const {
+    adminUserUpdateSchema,
+    getValidationMessage,
+    parseBody,
+    registerUserSchema,
+    userLoginSchema,
+} = require("../validation/requestSchemas");
 
 const isProduction = process.env.NODE_ENV === "production";
 const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
@@ -17,8 +24,8 @@ const withMaxAge = (maxAge: number): AppCookieOptions => ({
 });
 
 async function registerUser(req: AppRequest, res: AppResponse) {
-    const { uid, user } = req.body;
     try {
+        const { uid, user } = parseBody(registerUserSchema, req.body);
         const { uid: newUid, token, sessionId } = await userService.registerUser(uid, user);
 
         res.cookie("session", sessionId, withMaxAge(THIRTY_DAYS));
@@ -27,6 +34,9 @@ async function registerUser(req: AppRequest, res: AppResponse) {
 
         res.status(200).json({ uid: newUid, token, msg: "User created successfully" });
     } catch (err) {
+        if (err?.name === "ZodError") {
+            return res.status(400).json({ msg: getValidationMessage(err) });
+        }
         const error = err as DbError;
         if (error && error.code === "ER_DUP_ENTRY") {
             return res.status(409).json({ msg: "User already exists" });
@@ -80,18 +90,15 @@ async function getAllUsers(req: AppRequest, res: AppResponse) {
 
 async function updateUserAdmin(req: AppRequest, res: AppResponse) {
     const uid = req.params.id;
-    const { role, status } = req.body as { role: string; status: string };
-    const validRoles = ["Customer", "Admin"];
-    const validStatuses = ["Active", "Suspended"];
-
-    if (!validRoles.includes(role) || !validStatuses.includes(status)) {
-        return res.status(400).json({ msg: "Invalid role or status" });
-    }
 
     try {
+        const { role, status } = parseBody(adminUserUpdateSchema, req.body);
         const account = await userService.updateUserAdmin(uid, { role, status });
         return res.status(200).json({ account, msg: "Account updated successfully" });
     } catch (err) {
+        if (err?.name === "ZodError") {
+            return res.status(400).json({ msg: getValidationMessage(err) });
+        }
         const error = err as Error;
         return res.status(500).json({ msg: error.message || "Error updating account" });
     }
@@ -111,8 +118,8 @@ async function getCustomerProfile(req: AppRequest, res: AppResponse) {
 }
 
 async function userLogin(req: AppRequest, res: AppResponse) {
-    const { uid, role, rememberMe } = req.body;
     try {
+        const { uid, role, rememberMe } = parseBody(userLoginSchema, req.body);
         const { user, token: accessToken, sessionId, refreshToken } =
             await userService.loginUser(uid, role, rememberMe);
 
@@ -132,6 +139,9 @@ async function userLogin(req: AppRequest, res: AppResponse) {
             msg: "Login successfully",
         });
     } catch (err) {
+        if (err?.name === "ZodError") {
+            return res.status(400).json({ msg: getValidationMessage(err) });
+        }
         const error = err as Error;
         res.status(401).json({ msg: error.message });
     }

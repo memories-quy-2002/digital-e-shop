@@ -66,6 +66,45 @@
         }
     }
 
+    &__form-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+
+        span {
+            color: #64748b;
+            font-size: 0.78rem;
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        button {
+            flex: 0 0 auto;
+            border: none;
+            border-radius: 10px;
+            background: #e2e8f0;
+            color: #0f172a;
+            padding: 0.55rem 0.75rem;
+            font-weight: 900;
+        }
+    }
+
+    &__form-section {
+        display: grid;
+        gap: 0.75rem;
+        min-width: 0;
+        padding-top: 0.85rem;
+        border-top: 1px solid #e2e8f0;
+
+        h3 {
+            margin: 0;
+            color: #0f172a;
+            font-size: 0.95rem;
+        }
+    }
+
     &__form__grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));

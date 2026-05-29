@@ -1,6 +1,6 @@
 import "../App.scss";
 import AppProviders from "./providers";
-import AppRouter from "./router";
+import AppRouter from "../routes/router";
 
 function App() {
     return (

@@ -264,6 +264,21 @@ export type CartItemRow = {
     [key: string]: unknown;
 };
 
+export type CartValidationIssue = {
+    cartItemId: number;
+    productId: number;
+    productName: string;
+    requestedQuantity: number;
+    availableStock: number;
+    reason: "out_of_stock" | "insufficient_stock";
+};
+
+export type CartValidationResult = {
+    valid: boolean;
+    cartItems: CartItemRow[];
+    issues: CartValidationIssue[];
+};
+
 export type WishlistRow = {
     id?: number;
     user_id?: string;

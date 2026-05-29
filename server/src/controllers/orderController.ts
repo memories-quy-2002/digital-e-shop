@@ -1,5 +1,12 @@
 import type { AppRequest, AppResponse, PurchasePayload } from "../types/domain";
 const orderService = require("../services/orderService");
+const {
+    applyDiscountSchema,
+    getValidationMessage,
+    orderStatusSchema,
+    parseBody,
+    purchaseSchema,
+} = require("../validation/requestSchemas");
 
 async function getOrders(req: AppRequest, res: AppResponse) {
     try {
@@ -106,13 +113,9 @@ async function getOrderDetail(req: AppRequest, res: AppResponse) {
 
 async function changeOrderStatus(req: AppRequest, res: AppResponse) {
     const orderId = req.params.oid;
-    const { status } = req.body;
-
-    if (status === undefined || status === null || ![0, 1, 2].includes(Number(status))) {
-        return res.status(400).json({ msg: "Status is required" });
-    }
 
     try {
+        const { status } = parseBody(orderStatusSchema, req.body);
         const order = await orderService.changeOrderStatus(orderId, Number(status), req.user?.id || null);
         if (!order) {
             return res.status(404).json({ msg: "Order not found" });
@@ -122,6 +125,9 @@ async function changeOrderStatus(req: AppRequest, res: AppResponse) {
             msg: "Order status has been updated successfully",
         });
     } catch (err) {
+        if (err?.name === "ZodError") {
+            return res.status(400).json({ msg: getValidationMessage(err) });
+        }
         console.error(err);
         return res.status(500).json({ msg: err.message });
     }
@@ -129,7 +135,15 @@ async function changeOrderStatus(req: AppRequest, res: AppResponse) {
 
 async function makePurchase(req: AppRequest, res: AppResponse) {
     const uid = req.params.uid;
-    const { totalPrice, cart, discount, shippingAddress, paymentMethod } = req.body as unknown as PurchasePayload;
+    let payload: PurchasePayload;
+
+    try {
+        payload = parseBody(purchaseSchema, req.body);
+    } catch (err) {
+        return res.status(400).json({ msg: getValidationMessage(err) });
+    }
+
+    const { totalPrice, cart, discount, shippingAddress, paymentMethod } = payload;
     const requestId = `purchase-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     console.log("[makePurchase] request", { requestId, uid, items: cart?.length });
 
@@ -156,15 +170,18 @@ async function makePurchase(req: AppRequest, res: AppResponse) {
             msg: `Order has been created successfully with id = ${order.id}`,
         });
     } catch (err) {
-        console.error("[makePurchase] error", { requestId, err: err?.message || err });
-        return res.status(500).json({ msg: err.message });
+        const error = err as Error & { statusCode?: number };
+        const statusCode = error.statusCode || 500;
+        console.error("[makePurchase] error", { requestId, err: error.message || err });
+        return res.status(statusCode).json({
+            msg: statusCode === 500 ? "Unable to place order right now" : error.message,
+        });
     }
 }
 
 async function applyDiscount(req: AppRequest, res: AppResponse) {
-    const { discountCode, price } = req.body as { discountCode: string; price: number };
-
     try {
+        const { discountCode, price } = parseBody(applyDiscountSchema, req.body);
         const discount = await orderService.applyDiscount(discountCode);
         if (!discount) {
             return res.status(404).json({ msg: "Discount code not found" });
@@ -182,6 +199,9 @@ async function applyDiscount(req: AppRequest, res: AppResponse) {
             msg: "Discount code has been applied successfully",
         });
     } catch (err) {
+        if (err?.name === "ZodError") {
+            return res.status(400).json({ msg: getValidationMessage(err) });
+        }
         console.error(err);
         return res.status(500).json({ msg: "Internal server error", error: err.message });
     }

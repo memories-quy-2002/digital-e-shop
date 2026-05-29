@@ -11,10 +11,10 @@ type CustomerAccountShellProps = {
 };
 
 const navItems = [
-    { to: "/account", label: "Account", icon: <PersonIcon size={16} /> },
-    { to: "/orders", label: "Orders", icon: <CartIcon size={16} /> },
-    { to: "/addresses", label: "Addresses", icon: <HouseIcon size={16} /> },
-    { to: "/notifications", label: "Notifications", icon: <BellIcon size={16} /> },
+    { to: "/account", label: "Account", helper: "Overview", icon: <PersonIcon size={16} /> },
+    { to: "/orders", label: "Orders", helper: "History", icon: <CartIcon size={16} /> },
+    { to: "/addresses", label: "Addresses", helper: "Shipping", icon: <HouseIcon size={16} /> },
+    { to: "/notifications", label: "Notifications", helper: "Updates", icon: <BellIcon size={16} /> },
 ];
 
 const CustomerAccountShell = ({ eyebrow, title, description, actions }: CustomerAccountShellProps) => {
@@ -32,12 +32,29 @@ const CustomerAccountShell = ({ eyebrow, title, description, actions }: Customer
             </div>
 
             <nav className="customer-account-shell__nav" aria-label="Customer account navigation">
-                {navItems.map((item) => (
-                    <Link key={item.to} to={item.to} className={location.pathname === item.to ? "is-active" : ""}>
-                        {item.icon}
-                        <span>{item.label}</span>
-                    </Link>
-                ))}
+                {navItems.map((item, index) => {
+                    const isActive = location.pathname === item.to;
+
+                    return (
+                        <Link
+                            key={item.to}
+                            to={item.to}
+                            className={
+                                isActive
+                                    ? "customer-account-shell__nav-link is-active"
+                                    : "customer-account-shell__nav-link"
+                            }
+                            aria-current={isActive ? "page" : undefined}
+                        >
+                            <span className="customer-account-shell__nav-index">{index + 1}</span>
+                            <span className="customer-account-shell__nav-icon">{item.icon}</span>
+                            <span className="customer-account-shell__nav-copy">
+                                <strong>{item.label}</strong>
+                                <small>{item.helper}</small>
+                            </span>
+                        </Link>
+                    );
+                })}
             </nav>
         </section>
     );

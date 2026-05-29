@@ -11,7 +11,23 @@ export default function loadImage(
     sizes = "(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 768px) 50vw, 92vw",
 ) {
     if (!imageUrl) {
-        return <img src={productPlaceholder} alt={productName} style={style} loading="lazy" decoding="async" />;
+        const placeholderSource = getResponsiveImageSource(productPlaceholder, {
+            widths: PRODUCT_CARD_WIDTHS,
+            sizes,
+            fit: "fill",
+        });
+
+        return (
+            <img
+                src={placeholderSource.src}
+                srcSet={placeholderSource.srcSet}
+                sizes={placeholderSource.sizes}
+                alt={productName}
+                style={style}
+                loading="lazy"
+                decoding="async"
+            />
+        );
     }
 
     const imageSrc = getProductImageUrl(imageUrl);
@@ -22,7 +38,11 @@ export default function loadImage(
     });
 
     const handleError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-        e.currentTarget.src = productPlaceholder;
+        e.currentTarget.src = getResponsiveImageSource(productPlaceholder, {
+            widths: PRODUCT_CARD_WIDTHS,
+            sizes,
+            fit: "fill",
+        }).src;
     };
 
     return (

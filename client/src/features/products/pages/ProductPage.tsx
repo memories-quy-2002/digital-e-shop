@@ -459,6 +459,11 @@ const ProductPage = () => {
               fit: "fill",
           })
         : null;
+    const placeholderImageSource = getResponsiveImageSource(productPlaceholder, {
+        widths: PRODUCT_GALLERY_WIDTHS,
+        sizes: "(min-width: 1180px) 38vw, (min-width: 860px) 45vw, 92vw",
+        fit: "fill",
+    });
     const displayedRating = reviewSummary.total > 0 ? reviewSummary.average : productDetail.rating;
     const displayedReviewCount = reviewSummary.total > 0 ? reviewSummary.total : productDetail.reviews;
     const ratingDistribution = [5, 4, 3, 2, 1] as const;
@@ -486,11 +491,18 @@ const ProductPage = () => {
                                     eager
                                     fetchPriority="high"
                                     onError={(e) => {
-                                        e.currentTarget.src = productPlaceholder;
+                                        e.currentTarget.src = placeholderImageSource.src;
                                     }}
                                 />
                             ) : (
-                                <img src={productPlaceholder} alt={productDetail.name} />
+                                <img
+                                    src={placeholderImageSource.src}
+                                    srcSet={placeholderImageSource.srcSet}
+                                    sizes={placeholderImageSource.sizes}
+                                    alt={productDetail.name}
+                                    loading="lazy"
+                                    decoding="async"
+                                />
                             )}
                         </div>
                         {allImages.length > 1 ? (

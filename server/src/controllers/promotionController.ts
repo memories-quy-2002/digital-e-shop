@@ -1,5 +1,6 @@
 import type { AppRequest, AppResponse } from "../types/domain";
 const promotionService = require("../services/promotionService");
+const { getValidationMessage, parseBody, promotionSchema } = require("../validation/requestSchemas");
 
 async function getPromotions(req: AppRequest, res: AppResponse) {
     try {
@@ -13,9 +14,13 @@ async function getPromotions(req: AppRequest, res: AppResponse) {
 
 async function createPromotion(req: AppRequest, res: AppResponse) {
     try {
-        const promotion = await promotionService.createPromotion(req.body);
+        const payload = parseBody(promotionSchema, req.body);
+        const promotion = await promotionService.createPromotion(payload);
         return res.status(201).json({ promotion, msg: "Promotion created successfully" });
     } catch (err) {
+        if (err?.name === "ZodError") {
+            return res.status(400).json({ msg: getValidationMessage(err) });
+        }
         console.error(err);
         return res.status(err.statusCode || 500).json({ msg: err.statusCode ? err.message : "Internal server error" });
     }
@@ -23,9 +28,13 @@ async function createPromotion(req: AppRequest, res: AppResponse) {
 
 async function updatePromotion(req: AppRequest, res: AppResponse) {
     try {
-        const promotion = await promotionService.updatePromotion(req.params.id, req.body);
+        const payload = parseBody(promotionSchema, req.body);
+        const promotion = await promotionService.updatePromotion(req.params.id, payload);
         return res.status(200).json({ promotion, msg: "Promotion updated successfully" });
     } catch (err) {
+        if (err?.name === "ZodError") {
+            return res.status(400).json({ msg: getValidationMessage(err) });
+        }
         console.error(err);
         return res.status(err.statusCode || 500).json({ msg: err.statusCode ? err.message : "Internal server error" });
     }
