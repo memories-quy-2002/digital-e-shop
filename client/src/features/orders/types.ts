@@ -32,3 +32,56 @@ export type CustomerOrderDetail = CustomerOrder & {
     items: CustomerOrderItem[];
     timeline?: CustomerOrderTimelineEvent[];
 };
+
+export type CheckoutCartItem = {
+    cartItemId: number;
+    productId: number;
+    productName: string;
+    category: string;
+    brand: string;
+    price: number;
+    sale_price: number | null;
+    main_image: string;
+    quantity: number;
+    stock: number;
+};
+
+export type CartValidationIssue = {
+    productId?: number;
+    cartItemId?: number;
+    productName: string;
+    requestedQuantity: number;
+    availableStock: number;
+    reason: "unavailable" | "out_of_stock" | "insufficient_stock";
+};
+
+export const normalizeCheckoutCartItems = (items: any[] = []): CheckoutCartItem[] =>
+    items.map((item: any) => ({
+        cartItemId: Number(item.cart_item_id || item.id || 0),
+        productId: Number(item.product_id || 0),
+        productName: String(item.product_name || `Product #${item.product_id || 0}`),
+        category: String(item.category || "Unavailable"),
+        brand: String(item.brand || "Unavailable"),
+        price: Number(item.price) || 0,
+        sale_price: item.sale_price === null || item.sale_price === undefined ? null : Number(item.sale_price) || 0,
+        main_image: String(item.main_image || ""),
+        quantity: Number(item.quantity) || 0,
+        stock: item.stock === null || item.stock === undefined ? 0 : Number(item.stock) || 0,
+    }));
+
+export const getCartValidationMessage = (issues: CartValidationIssue[]) => {
+    const firstIssue = issues[0];
+    if (!firstIssue) {
+        return "Some cart items are unavailable or exceed current stock.";
+    }
+
+    if (firstIssue.reason === "unavailable") {
+        return `${firstIssue.productName} is no longer available. Remove it from your cart to continue.`;
+    }
+
+    if (firstIssue.reason === "out_of_stock") {
+        return `${firstIssue.productName} is out of stock.`;
+    }
+
+    return `${firstIssue.productName} has only ${firstIssue.availableStock} item(s) available.`;
+};

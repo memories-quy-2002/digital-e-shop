@@ -61,7 +61,6 @@ const PaginatedItems = ({
 
     useEffect(() => {
         setBaseWishlist(wishlist);
-        setItemOffset(0);
     }, [wishlist]);
 
     useEffect(() => {
@@ -71,6 +70,7 @@ const PaginatedItems = ({
     const wishlistIdSet = useMemo(() => {
         return new Set(optimisticWishlist.map((item) => item.product.id));
     }, [optimisticWishlist]);
+    const pendingWishlistIdSet = useMemo(() => new Set(pendingWishlistIds), [pendingWishlistIds]);
 
     const productById = useMemo(() => {
         const map = new Map<number, Product>();
@@ -103,7 +103,7 @@ const PaginatedItems = ({
             return;
         }
 
-        if (pendingWishlistIds.includes(product_id)) {
+        if (pendingWishlistIdSet.has(product_id)) {
             return;
         }
 
@@ -154,7 +154,7 @@ const PaginatedItems = ({
         } finally {
             setPendingWishlistIds((prev) => prev.filter((id) => id !== product_id));
         }
-    }, [addToast, applyOptimisticWishlist, buildWishlistItem, pendingWishlistIds, uid, wishlistIdSet]);
+    }, [addToast, applyOptimisticWishlist, buildWishlistItem, pendingWishlistIdSet, uid, wishlistIdSet]);
 
     const handleRemoveWishlist = useCallback(async (user_id: string, product_id: number) => {
         try {
@@ -238,7 +238,7 @@ const PaginatedItems = ({
                                     product={product}
                                     uid={uid}
                                     isWishlist={wishlistIdSet.has(product.id)}
-                                    isWishlistPending={pendingWishlistIds.includes(product.id)}
+                                    isWishlistPending={pendingWishlistIdSet.has(product.id)}
                                     onToggleWishlist={toggleWishlist}
                                     onAddingCart={handleAddingCart}
                                 />

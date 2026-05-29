@@ -1,6 +1,7 @@
 import React from "react";
 import { TrashIcon } from "./Icons";
 import loadImage from "../../utils/loadImage";
+import { CartValidationIssue } from "../../features/orders/types";
 interface Item {
     cartItemId: number;
     productId: number;
@@ -16,19 +17,31 @@ interface Item {
 
 type CartItemProps = {
     item: Item;
+    validationIssue?: CartValidationIssue;
     handleQuantityChange: (itemId: number, event: React.ChangeEvent<HTMLInputElement>) => void;
     handleRemoveCartItem: (cartItemId: number) => void;
 };
-const CartItem = ({ item, handleQuantityChange, handleRemoveCartItem }: CartItemProps) => {
+const CartItem = ({ item, validationIssue, handleQuantityChange, handleRemoveCartItem }: CartItemProps) => {
     const imageUrl = item.main_image ? item.main_image.replace(".jpg", "") : null;
     const productPrice = item.sale_price || item.price;
+    const stockMessage =
+        validationIssue?.reason === "unavailable"
+            ? "No longer available. Remove this item to continue."
+            : validationIssue?.reason === "out_of_stock"
+            ? "Out of stock. Remove this item to continue."
+            : validationIssue?.reason === "insufficient_stock"
+              ? `Only ${validationIssue.availableStock} item(s) available.`
+              : item.stock <= 5
+                ? `${item.stock} left`
+                : null;
     return (
-        <article className="cart-item">
+        <article className={validationIssue ? "cart-item is-invalid" : "cart-item"}>
             <div className="cart-item__image">{loadImage(imageUrl, item.productName)}</div>
             <div className="cart-item__info">
                 <span>{item.brand}</span>
                 <strong>{item.productName}</strong>
                 <p>{item.category}</p>
+                {validationIssue ? <small className="cart-item__issue">{stockMessage}</small> : null}
             </div>
             <div className="cart-item__qty">
                 <label htmlFor={`cart-${item.cartItemId}-quantity`}>Qty</label>
@@ -42,7 +55,7 @@ const CartItem = ({ item, handleQuantityChange, handleRemoveCartItem }: CartItem
                     value={item.quantity}
                     onChange={(event) => handleQuantityChange(item.cartItemId, event)}
                 />
-                {item.stock <= 5 ? <span className="cart-item__stock">{item.stock} left</span> : null}
+                {stockMessage ? <span className="cart-item__stock">{stockMessage}</span> : null}
             </div>
             <div className="cart-item__price">
                 <strong>${(productPrice * item.quantity).toFixed(2)}</strong>

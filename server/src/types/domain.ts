@@ -76,6 +76,11 @@ export type CartCheckoutItem = {
     sale_price?: number | null;
 };
 
+export type CheckoutUnitPrice = {
+    price: number;
+    sale_price: number | null;
+};
+
 export type PurchasePayload = {
     totalPrice: number;
     cart: CartCheckoutItem[];
@@ -86,6 +91,7 @@ export type PurchasePayload = {
 
 export type LockedProductRow = {
     id: number;
+    name?: string | null;
     stock: number;
 };
 
@@ -243,6 +249,15 @@ export type ProductEditorRow = {
     reviews?: number;
 };
 
+export type ProductFacetValueRow = {
+    name: string;
+};
+
+export type ProductPriceBoundsRow = {
+    min_price: number | null;
+    max_price: number | null;
+};
+
 export type UploadedFile = {
     buffer: Buffer;
 };
@@ -259,8 +274,13 @@ export type CartItemRow = {
     cart_item_id?: number;
     product_id?: number;
     product_name?: string;
+    brand?: string | null;
+    category?: string | null;
+    price?: number | null;
+    sale_price?: number | null;
+    main_image?: string | null;
     quantity?: number;
-    stock?: number;
+    stock?: number | null;
     [key: string]: unknown;
 };
 
@@ -270,13 +290,30 @@ export type CartValidationIssue = {
     productName: string;
     requestedQuantity: number;
     availableStock: number;
-    reason: "out_of_stock" | "insufficient_stock";
+    reason: "unavailable" | "out_of_stock" | "insufficient_stock";
 };
 
 export type CartValidationResult = {
     valid: boolean;
     cartItems: CartItemRow[];
     issues: CartValidationIssue[];
+};
+
+export type CheckoutMismatch = {
+    productId: number;
+    productName: string;
+    reason: "missing_item" | "unexpected_item" | "quantity_changed" | "price_changed" | "total_changed";
+    submittedQuantity?: number;
+    authoritativeQuantity?: number;
+    submittedUnitPrice?: number;
+    authoritativeUnitPrice?: number;
+    submittedTotalPrice?: number;
+    authoritativeTotalPrice?: number;
+};
+
+export type CheckoutValidationResult = CartValidationResult & {
+    mismatches: CheckoutMismatch[];
+    authoritativeTotalPrice: number;
 };
 
 export type WishlistRow = {

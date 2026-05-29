@@ -9,7 +9,9 @@ const {
     updateInventory,
     updateProduct,
     retrieveRelevantProducts,
-    getRecommendations
+    getRecommendations,
+    searchProducts,
+    getProductFacets,
 } = require("../controllers/productController");
 const { getInventoryMovements } = require("../controllers/inventoryMovementController");
 const { requireAdmin } = require("../middlewares/authMiddleWares");
@@ -29,6 +31,8 @@ const productLimiter = rateLimit({
 
 router.get("/admin/inventory-summary", productLimiter, requireAdmin, getInventorySummary);
 router.get("/admin/inventory-movements", productLimiter, requireAdmin, getInventoryMovements);
+router.get("/facets", productLimiter, getProductFacets);
+router.get("/search", productLimiter, searchProducts);
 router.get("/recommendations/:uid", productLimiter, getRecommendations);
 router.get("/relevant/:pid", productLimiter, retrieveRelevantProducts);
 router.get('/images/:filename', productLimiter, async (req: AppRequest, res: AppResponse) => {

@@ -1,11 +1,14 @@
 const Order = require("../models/orderModel");
 const pool = require("../config/db");
 const util = require("util");
+const cartService = require("./cartService");
 const inventoryMovementService = require("./inventoryMovementService");
 const orderTimelineService = require("./orderTimelineService");
 const notificationService = require("./customerNotificationService");
 import type {
-    CartCheckoutItem,
+    CartItemRow,
+    CartValidationIssue,
+    CheckoutValidationResult,
     InsertResult,
     InventoryMovementInput,
     LockedProductRow,
@@ -28,7 +31,8 @@ type DbConnection = {
     release: () => void;
 };
 
-const createCheckoutError = (message: string, statusCode = 409) => Object.assign(new Error(message), { statusCode });
+const createCheckoutError = (message: string, statusCode = 409, details: Record<string, unknown> = {}) =>
+    Object.assign(new Error(message), { statusCode, details });
 
 async function makePurchase(uid: string, { totalPrice, cart, discount, shippingAddress, paymentMethod }: PurchasePayload) {
     const startedAt = Date.now();
@@ -37,6 +41,36 @@ async function makePurchase(uid: string, { totalPrice, cart, discount, shippingA
     if (!cart || cart.length === 0) {
         throw new Error("Cart is empty");
     }
+
+    const checkoutValidation = await cartService.validateCheckoutSubmission(uid, cart, totalPrice) as CheckoutValidationResult;
+    if (checkoutValidation.cartItems.length === 0) {
+        throw createCheckoutError("Your cart is empty. Refresh your cart and try again.", 400);
+    }
+    if (checkoutValidation.issues.length > 0) {
+        throw createCheckoutError(
+            "Some items in your cart are unavailable or no longer have enough stock. Update your cart and try again.",
+            409,
+            {
+                issues: checkoutValidation.issues,
+                authoritativeCart: checkoutValidation.cartItems,
+                authoritativeTotalPrice: checkoutValidation.authoritativeTotalPrice,
+            }
+        );
+    }
+    if (checkoutValidation.mismatches.length > 0) {
+        throw createCheckoutError(
+            "Your cart changed before checkout. Refresh your cart and confirm the latest prices and quantities.",
+            409,
+            {
+                mismatches: checkoutValidation.mismatches,
+                authoritativeCart: checkoutValidation.cartItems,
+                authoritativeTotalPrice: checkoutValidation.authoritativeTotalPrice,
+            }
+        );
+    }
+
+    const authoritativeCart = checkoutValidation.cartItems;
+    const authoritativeTotalPrice = checkoutValidation.authoritativeTotalPrice;
 
     const connection = await getConnection() as DbConnection;
     const query = util.promisify(connection.query).bind(connection);
@@ -60,28 +94,27 @@ async function makePurchase(uid: string, { totalPrice, cart, discount, shippingA
             await begin();
             console.log("[makePurchase] transaction started");
 
-            await q("UPDATE carts SET done = 1 WHERE user_id = ?", [uid]);
-            console.log("[makePurchase] cart updated");
-
             const orderResult = await q<InsertResult>(
                 "INSERT INTO orders (user_id, total_price, discount, shipping_address, payment_method, date_added) VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP())",
-                [uid, totalPrice, discount, shippingAddress, paymentMethod]
+                [uid, authoritativeTotalPrice, discount, shippingAddress, paymentMethod]
             );
             const orderId = orderResult.insertId;
             console.log("[makePurchase] order inserted", { orderId });
 
-            const orderItemsValues = cart.map((product: CartCheckoutItem) => [
+            const orderItemsValues = authoritativeCart.map((product: CartItemRow) => [
                 orderId,
-                product.productId,
-                product.quantity,
-                (product.sale_price ? product.sale_price : product.price) * product.quantity,
+                Number(product.product_id || 0),
+                Number(product.quantity) || 0,
+                ((product.sale_price !== null && product.sale_price !== undefined ? Number(product.sale_price) : Number(product.price) || 0) || 0) * (Number(product.quantity) || 0),
             ]);
 
-            const productQuantities = cart.reduce((acc, product) => {
-                const currentQuantity = acc.get(product.productId) || 0;
-                acc.set(product.productId, currentQuantity + product.quantity);
+            const productQuantities = authoritativeCart.reduce((acc, product) => {
+                const productId = Number(product.product_id || 0);
+                const quantity = Number(product.quantity) || 0;
+                const currentQuantity = acc.get(productId) || 0;
+                acc.set(productId, currentQuantity + quantity);
                 return acc;
-            }, new Map());
+            }, new Map<number, number>());
 
             let inventoryMovements: InventoryMovementInput[] = [];
             if (orderItemsValues.length > 0) {
@@ -93,9 +126,10 @@ async function makePurchase(uid: string, { totalPrice, cart, discount, shippingA
 
                 const productIds = [...productQuantities.keys()];
                 const placeholderList = productIds.map(() => "?").join(", ");
+                const authoritativeItemsById = new Map(authoritativeCart.map((item) => [Number(item.product_id || 0), item]));
 
                 const lockedProducts = await q<LockedProductRow[]>(
-                    `SELECT id, stock FROM products WHERE id IN (${placeholderList}) FOR UPDATE`,
+                    `SELECT id, name, stock FROM products WHERE id IN (${placeholderList}) AND stock >= 0 FOR UPDATE`,
                     productIds
                 );
 
@@ -103,12 +137,46 @@ async function makePurchase(uid: string, { totalPrice, cart, discount, shippingA
                 // concurrent checkouts cannot oversell the same product.
                 const stockById = new Map(lockedProducts.map((row) => [row.id, row.stock]));
                 for (const [productId, quantity] of productQuantities.entries()) {
+                    const authoritativeItem = authoritativeItemsById.get(productId);
+                    const productName = String(authoritativeItem?.product_name || `Product #${productId}`);
                     const stock = stockById.get(productId);
                     if (stock == null) {
-                        throw createCheckoutError(`Product ${productId} is no longer available`, 409);
+                        const issues: CartValidationIssue[] = [{
+                            cartItemId: Number(authoritativeItem?.cart_item_id || 0),
+                            productId,
+                            productName,
+                            requestedQuantity: quantity,
+                            availableStock: 0,
+                            reason: "unavailable",
+                        }];
+                        throw createCheckoutError(
+                            `${productName} is no longer available. Remove it from your cart and try again.`,
+                            409,
+                            {
+                                issues,
+                                authoritativeCart,
+                                authoritativeTotalPrice,
+                            }
+                        );
                     }
                     if (stock < quantity) {
-                        throw createCheckoutError(`Insufficient stock for product ${productId}`, 409);
+                        const issues: CartValidationIssue[] = [{
+                            cartItemId: Number(authoritativeItem?.cart_item_id || 0),
+                            productId,
+                            productName,
+                            requestedQuantity: quantity,
+                            availableStock: Number(stock) || 0,
+                            reason: stock <= 0 ? "out_of_stock" : "insufficient_stock",
+                        }];
+                        throw createCheckoutError(
+                            `${productName} only has ${stock} item(s) left. Update your cart and try again.`,
+                            409,
+                            {
+                                issues,
+                                authoritativeCart,
+                                authoritativeTotalPrice,
+                            }
+                        );
                     }
                 }
 
@@ -140,6 +208,9 @@ async function makePurchase(uid: string, { totalPrice, cart, discount, shippingA
                 );
             }
 
+            await q("UPDATE carts SET done = 1 WHERE user_id = ? AND done = 0", [uid]);
+            console.log("[makePurchase] cart updated");
+
             await commit();
             // Audit-style side effects happen after commit. A logging failure
             // should not roll back a successfully placed order.
@@ -149,7 +220,7 @@ async function makePurchase(uid: string, { totalPrice, cart, discount, shippingA
                 note: "Order was placed by the customer.",
                 actorId: uid,
             });
-            notificationService.notifyOrderPlaced(uid, orderId, Number(totalPrice) - Number(discount || 0));
+            notificationService.notifyOrderPlaced(uid, orderId, Number(authoritativeTotalPrice) - Number(discount || 0));
             inventoryMovementService.recordMovements(inventoryMovements);
             console.log("[makePurchase] commit ok", { orderId, ms: Date.now() - startedAt });
             const [order] = await q<Array<{ id: number; date_added: string }>>(

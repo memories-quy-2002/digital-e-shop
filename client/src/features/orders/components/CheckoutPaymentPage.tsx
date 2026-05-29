@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Form } from "react-bootstrap";
 import { Helmet } from "react-helmet";
 import { useNavigate } from "react-router-dom";
@@ -8,19 +8,12 @@ import { BankIcon, CashStackIcon, CheckCircleIcon, ShieldIcon } from "../../../c
 import http from "../../../lib/http";
 import { toUtcIsoString } from "../../../utils/dateTime";
 import { CustomerAddress, fetchCustomerAddresses } from "../../users/api";
-
-interface CartProps {
-    cartItemId: number;
-    productId: number;
-    productName: string;
-    category: string;
-    brand: string;
-    price: number;
-    sale_price?: number | null;
-    main_image: string;
-    quantity: number;
-    stock?: number;
-}
+import {
+    CartValidationIssue,
+    CheckoutCartItem,
+    getCartValidationMessage,
+    normalizeCheckoutCartItems,
+} from "../types";
 
 interface CheckoutForm {
     email: string;
@@ -35,21 +28,24 @@ interface CheckoutForm {
 
 type CheckoutPaymentProps = {
     setIsPayment: (isPayment: boolean) => void;
-    cart: CartProps[];
+    cart: CheckoutCartItem[];
     totalPrice: number;
     discount: number;
     subtotal: number;
+    validationIssues: CartValidationIssue[];
+    onValidationRefresh: (nextCart: CheckoutCartItem[], issues: CartValidationIssue[]) => void;
 };
 
 type SavedAddress = CustomerAddress;
-type CartValidationIssue = {
-    productName: string;
-    requestedQuantity: number;
-    availableStock: number;
-    reason: "out_of_stock" | "insufficient_stock";
-};
-
-const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtotal }: CheckoutPaymentProps) => {
+const CheckoutPaymentPage = ({
+    setIsPayment,
+    cart,
+    totalPrice,
+    discount,
+    subtotal,
+    validationIssues,
+    onValidationRefresh,
+}: CheckoutPaymentProps) => {
     const navigate = useNavigate();
     const { userData, loading } = useAuth();
     const uid = userData?.id || "";
@@ -67,6 +63,27 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
     const [errors, setErrors] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+    const [isValidatingCart, setIsValidatingCart] = useState(false);
+    const cartRef = useRef(cart);
+
+    const applyValidationPayload = useCallback(
+        (data?: { issues?: CartValidationIssue[]; cartItems?: unknown[] }) => {
+            if (!data) {
+                return;
+            }
+
+            const issues = data.issues || [];
+            if (Array.isArray(data.cartItems)) {
+                onValidationRefresh(normalizeCheckoutCartItems(data.cartItems), issues);
+                return;
+            }
+
+            if (issues.length > 0) {
+                onValidationRefresh(cartRef.current, issues);
+            }
+        },
+        [onValidationRefresh],
+    );
 
     const paymentOptions = [
         {
@@ -89,6 +106,10 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
 
     const selectedPayment = paymentOptions.find((option) => option.value === formCheckout.payment_method) || paymentOptions[0];
     const defaultAddress = useMemo(() => savedAddresses.find((address) => address.is_default) || savedAddresses[0], [savedAddresses]);
+
+    useEffect(() => {
+        cartRef.current = cart;
+    }, [cart]);
 
     useEffect(() => {
         const loadAddresses = async () => {
@@ -123,9 +144,20 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
             errorsList.push("Email is required");
         } else if (!formCheckout.email.match(emailPattern)) {
             errorsList.push("Invalid email format");
-        } else if (!formCheckout.address) {
+        }
+        if (!formCheckout.first_name.trim()) {
+            errorsList.push("First name is required");
+        }
+        if (!formCheckout.last_name.trim()) {
+            errorsList.push("Last name is required");
+        }
+        if (!formCheckout.address.trim()) {
             errorsList.push("Shipping address is required");
-        } else if (!formCheckout.payment_method) {
+        }
+        if (!formCheckout.city.trim()) {
+            errorsList.push("City is required");
+        }
+        if (!formCheckout.payment_method) {
             errorsList.push("Please select a payment method");
         }
         return errorsList;
@@ -149,27 +181,26 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
         }));
     };
 
-    const getCartValidationMessage = (issues: CartValidationIssue[]) => {
-        const firstIssue = issues[0];
-        if (!firstIssue) {
-            return "Some cart items are unavailable or exceed current stock.";
+    const validateCartStock = useCallback(async () => {
+        if (!uid) {
+            return false;
         }
 
-        if (firstIssue.reason === "out_of_stock") {
-            return `${firstIssue.productName} is out of stock.`;
-        }
-
-        return `${firstIssue.productName} has only ${firstIssue.availableStock} item(s) available.`;
-    };
-
-    const validateCartStock = async () => {
         try {
+            setIsValidatingCart(true);
             const response = await http.get(`/api/cart/${uid}/validation`);
+            if (Array.isArray(response.data.cartItems)) {
+                onValidationRefresh(normalizeCheckoutCartItems(response.data.cartItems), []);
+            }
             return response.status === 200 && response.data.valid === true;
         } catch (err: unknown) {
             if (err && typeof err === "object" && "response" in err) {
-                const response = (err as { response?: { data?: { issues?: CartValidationIssue[]; msg?: string } } }).response;
-                const message = getCartValidationMessage(response?.data?.issues || []);
+                const response = (err as {
+                    response?: { data?: { issues?: CartValidationIssue[]; msg?: string; cartItems?: any[] } };
+                }).response;
+                const issues = response?.data?.issues || [];
+                applyValidationPayload(response?.data);
+                const message = getCartValidationMessage(issues);
                 setErrors([message]);
                 addToast("Checkout", message);
             } else {
@@ -177,8 +208,10 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                 addToast("Checkout", "Unable to validate cart stock right now.");
             }
             return false;
+        } finally {
+            setIsValidatingCart(false);
         }
-    };
+    }, [addToast, onValidationRefresh, uid]);
 
     const handlePurchase = async () => {
         setErrors([]);
@@ -192,9 +225,9 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
             addToast("Checkout", "Please login to complete checkout.");
             return;
         }
-        const unavailableItems = cart.filter((item) => item.stock !== undefined && item.quantity > item.stock);
-        if (unavailableItems.length > 0) {
-            setErrors(["Some cart items exceed the available stock."]);
+        if (validationIssues.length > 0) {
+            const message = getCartValidationMessage(validationIssues);
+            setErrors([message]);
             addToast("Checkout", "Please update cart quantities before placing the order.");
             return;
         }
@@ -240,7 +273,20 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
             }
         } catch (err: unknown) {
             if (err && typeof err === "object" && "response" in err) {
-                const axiosError = err as { response: { data: { msg?: string } } };
+                const axiosError = err as {
+                    response: {
+                        data: {
+                            msg?: string;
+                            issues?: CartValidationIssue[];
+                            authoritativeCart?: unknown[];
+                            cartItems?: unknown[];
+                        };
+                    };
+                };
+                applyValidationPayload({
+                    issues: axiosError.response.data.issues,
+                    cartItems: axiosError.response.data.authoritativeCart || axiosError.response.data.cartItems,
+                });
                 const message = axiosError.response.data.msg || "Checkout failed.";
                 setErrors([message]);
                 addToast("Checkout", message);
@@ -254,6 +300,15 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
     };
 
     const itemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+    const hasValidationIssues = validationIssues.length > 0;
+
+    useEffect(() => {
+        if (!uid || cart.length === 0) {
+            return;
+        }
+
+        validateCartStock();
+    }, [cart.length, uid, validateCartStock]);
 
     return (
         <div className="checkout">
@@ -288,10 +343,25 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
             <div className="checkout__layout">
                 <section className="checkout__form">
                     {loading ? <div className="checkout__note">Checking session...</div> : null}
+                    {isValidatingCart ? <div className="checkout__note">Checking latest stock before payment...</div> : null}
                     {errors.length > 0 ? (
                         <div className="checkout__alert">
                             {errors.map((error, id) => (
                                 <span key={id}>{error}</span>
+                            ))}
+                        </div>
+                    ) : null}
+                    {hasValidationIssues ? (
+                        <div className="checkout__alert checkout__alert--warning">
+                            <strong>Review your cart before placing the order.</strong>
+                            {validationIssues.map((issue) => (
+                                <span key={`${issue.cartItemId || issue.productName}-${issue.reason}`}>
+                                    {issue.reason === "unavailable"
+                                        ? `${issue.productName} is no longer available.`
+                                        : issue.reason === "out_of_stock"
+                                        ? `${issue.productName} is out of stock.`
+                                        : `${issue.productName} has ${issue.availableStock} item(s) available, but your cart has ${issue.requestedQuantity}.`}
+                                </span>
                             ))}
                         </div>
                     ) : null}
@@ -541,8 +611,8 @@ const CheckoutPaymentPage = ({ setIsPayment, cart, totalPrice, discount, subtota
                             <span>Total</span>
                             <strong>${(totalPrice - discount).toFixed(2)}</strong>
                         </div>
-                        <button type="button" onClick={handlePurchase} disabled={isSubmitting}>
-                            {isSubmitting ? "Placing order..." : "Place order"}
+                        <button type="button" onClick={handlePurchase} disabled={isSubmitting || isValidatingCart || hasValidationIssues}>
+                            {isSubmitting ? "Placing order..." : isValidatingCart ? "Checking stock..." : "Place order"}
                         </button>
                         <p className="checkout__summary__footnote">
                             By placing your order, you agree to our store policies.

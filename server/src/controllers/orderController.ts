@@ -170,11 +170,12 @@ async function makePurchase(req: AppRequest, res: AppResponse) {
             msg: `Order has been created successfully with id = ${order.id}`,
         });
     } catch (err) {
-        const error = err as Error & { statusCode?: number };
+        const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
         const statusCode = error.statusCode || 500;
         console.error("[makePurchase] error", { requestId, err: error.message || err });
         return res.status(statusCode).json({
             msg: statusCode === 500 ? "Unable to place order right now" : error.message,
+            ...(statusCode === 500 ? {} : error.details || {}),
         });
     }
 }

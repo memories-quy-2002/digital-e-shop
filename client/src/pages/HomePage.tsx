@@ -1,4 +1,4 @@
-import React, { useEffect, useEffectEvent, useMemo, useOptimistic, useState } from "react";
+import React, { useCallback, useEffect, useEffectEvent, useMemo, useOptimistic, useState } from "react";
 import { Helmet } from "react-helmet";
 import { Link, useNavigate } from "react-router-dom";
 import carousel1 from "../assets/images/carousel_1.jpg";
@@ -17,6 +17,7 @@ import { HERO_IMAGE_WIDTHS, THUMBNAIL_IMAGE_WIDTHS, getResponsiveImageSource, no
 import loadImage from "../utils/loadImage";
 
 const DISPLAYED_NUMBER = 12;
+const HOME_PRODUCT_LIMIT = DISPLAYED_NUMBER * 2;
 const heroSlides = [
     {
         image: carousel1,
@@ -47,6 +48,22 @@ const heroSlides = [
         cta: "Shop Smart Home",
     },
 ];
+
+const heroImageSources = heroSlides.map((slide) =>
+    getResponsiveImageSource(slide.image, {
+        widths: HERO_IMAGE_WIDTHS,
+        sizes: "100vw",
+        fit: "fill",
+    }),
+);
+
+const heroPreviewSources = heroSlides.map((slide) =>
+    getResponsiveImageSource(slide.image, {
+        widths: THUMBNAIL_IMAGE_WIDTHS,
+        sizes: "(min-width: 900px) 12vw, 28vw",
+        fit: "fill",
+    }),
+);
 
 interface Wishlist {
     id: number;
@@ -86,24 +103,25 @@ const HomePage = () => {
         (currentWishlist: Wishlist[], mutation: WishlistMutation) => applyWishlistMutation(currentWishlist, mutation),
     );
     const wishlistIdSet = useMemo(() => new Set(optimisticWishlist.map((item) => item.product.id)), [optimisticWishlist]);
+    const pendingWishlistIdSet = useMemo(() => new Set(pendingWishlistIds), [pendingWishlistIds]);
     const advanceSlide = useEffectEvent(() => {
         setCurrentIndex((prevIndex) => (prevIndex + 1) % heroSlides.length);
     });
 
-    const handleNext = () => {
-        setCurrentIndex((currentIndex + 1) % heroSlides.length);
-    };
+    const handleNext = useCallback(() => {
+        setCurrentIndex((prevIndex) => (prevIndex + 1) % heroSlides.length);
+    }, []);
 
-    const handlePrev = () => {
-        setCurrentIndex((currentIndex - 1 + heroSlides.length) % heroSlides.length);
-    };
+    const handlePrev = useCallback(() => {
+        setCurrentIndex((prevIndex) => (prevIndex - 1 + heroSlides.length) % heroSlides.length);
+    }, []);
 
-    const toggleWishlist = async (user_id: string, product_id: number) => {
+    const toggleWishlist = useCallback(async (user_id: string, product_id: number) => {
         if (!uid) {
             addToast("Login required", "You need to login to use this feature.");
             return;
         }
-        if (pendingWishlistIds.includes(product_id)) {
+        if (pendingWishlistIdSet.has(product_id)) {
             return;
         }
 
@@ -157,9 +175,9 @@ const HomePage = () => {
         } finally {
             setPendingWishlistIds((prev) => prev.filter((id) => id !== product_id));
         }
-    };
+    }, [addToast, applyOptimisticWishlist, pendingWishlistIdSet, products, uid, wishlistIdSet]);
 
-    const handleAddingCart = async (user_id: string, product_id: number) => {
+    const handleAddingCart = useCallback(async (user_id: string, product_id: number) => {
         if (!uid) {
             addToast("Login required", "You need to login to use this feature.");
             return;
@@ -176,7 +194,7 @@ const HomePage = () => {
         } catch {
             addToast("Add cart item", "Unable to add item to cart.");
         }
-    };
+    }, [addToast, uid]);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -190,7 +208,7 @@ const HomePage = () => {
         const fetchProducts = async () => {
             setIsLoadingProducts(true);
             try {
-                const response = await axios.get(`/api/products?page=1&limit=${DISPLAYED_NUMBER * 5}`);
+                const response = await axios.get(`/api/products?page=1&limit=${HOME_PRODUCT_LIMIT}`);
                 if (response.status === 200) {
                     setProducts(response.data.products);
                 }
@@ -290,22 +308,7 @@ const HomePage = () => {
         return recommendedProducts;
     }, [activeFilter, popularProducts, newProducts, recommendedProducts]);
     const activeSlide = heroSlides[currentIndex] || heroSlides[0];
-    const activeHeroImage = getResponsiveImageSource(activeSlide.image, {
-        widths: HERO_IMAGE_WIDTHS,
-        sizes: "100vw",
-        fit: "fill",
-    });
-    const heroPreviewSources = useMemo(
-        () =>
-            heroSlides.map((slide) =>
-                getResponsiveImageSource(slide.image, {
-                    widths: THUMBNAIL_IMAGE_WIDTHS,
-                    sizes: "(min-width: 900px) 12vw, 28vw",
-                    fit: "fill",
-                }),
-            ),
-        [],
-    );
+    const activeHeroImage = heroImageSources[currentIndex] || heroImageSources[0];
 
     return (
         <Layout>
@@ -340,11 +343,7 @@ const HomePage = () => {
                                     style={{ flexBasis: `${100 / heroSlides.length}%` }}
                                 >
                                     <img
-                                        {...getResponsiveImageSource(slide.image, {
-                                            widths: HERO_IMAGE_WIDTHS,
-                                            sizes: "100vw",
-                                            fit: "fill",
-                                        })}
+                                        {...heroImageSources[index]}
                                         alt={slide.title}
                                         loading={index === currentIndex ? "eager" : "lazy"}
                                         fetchPriority={index === currentIndex ? "high" : "auto"}
@@ -540,21 +539,9 @@ const HomePage = () => {
                                     product={product}
                                     uid={uid || ""}
                                     isWishlist={wishlistIdSet.has(product.id)}
-                                    isWishlistPending={pendingWishlistIds.includes(product.id)}
-                                    onToggleWishlist={() => {
-                                        if (uid) {
-                                            toggleWishlist(uid, product.id);
-                                        } else {
-                                            addToast("Login required", "You need to login to use this feature.");
-                                        }
-                                    }}
-                                    onAddingCart={() => {
-                                        if (uid) {
-                                            handleAddingCart(uid, product.id);
-                                        } else {
-                                            addToast("Login required", "You need to login to use this feature.");
-                                        }
-                                    }}
+                                    isWishlistPending={pendingWishlistIdSet.has(product.id)}
+                                    onToggleWishlist={toggleWishlist}
+                                    onAddingCart={handleAddingCart}
                                 />
                             ))}
                         </div>
