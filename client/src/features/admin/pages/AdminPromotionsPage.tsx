@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Table } from "react-bootstrap";
 import axios from "../../../api/axios";
 import AdminLayout from "../../../components/layout/AdminLayout";
+import AdminWorkflowSteps from "../../../components/common/admin/AdminWorkflowSteps";
 import { Helmet } from "react-helmet";
 import { useToast } from "../../../context/ToastContext";
+import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
 
 type Promotion = {
     id: number;
@@ -37,6 +39,8 @@ const emptyForm: PromotionForm = {
     active: true,
 };
 
+const promotionWorkflowSteps = ["Create or edit code", "Set schedule and limits", "Deactivate expired campaigns"];
+
 const normalizePromotion = (promotion: Promotion): Promotion => ({
     ...promotion,
     id: Number(promotion.id),
@@ -58,6 +62,8 @@ const AdminPromotionsPage = () => {
     const [form, setForm] = useState<PromotionForm>(emptyForm);
     const [searchTerm, setSearchTerm] = useState("");
     const [isSaving, setIsSaving] = useState(false);
+    const [pendingDeactivatePromotion, setPendingDeactivatePromotion] = useState<Promotion | null>(null);
+    const [isDeactivating, setIsDeactivating] = useState(false);
     const { addToast } = useToast();
 
     const fetchPromotions = async () => {
@@ -132,13 +138,20 @@ const AdminPromotionsPage = () => {
         }
     };
 
-    const handleDeactivate = async (promotion: Promotion) => {
+    const handleDeactivate = async () => {
+        if (!pendingDeactivatePromotion) {
+            return;
+        }
         try {
-            await axios.delete(`/api/promotions/${promotion.id}`);
-            addToast("Promotions", `${promotion.discount_code} has been deactivated.`);
+            setIsDeactivating(true);
+            await axios.delete(`/api/promotions/${pendingDeactivatePromotion.id}`);
+            addToast("Promotions", `${pendingDeactivatePromotion.discount_code} has been deactivated.`);
+            setPendingDeactivatePromotion(null);
             fetchPromotions();
         } catch {
             addToast("Promotions", "Unable to deactivate promotion.");
+        } finally {
+            setIsDeactivating(false);
         }
     };
 
@@ -176,6 +189,8 @@ const AdminPromotionsPage = () => {
                         <p>Starts in the future</p>
                     </div>
                 </section>
+
+                <AdminWorkflowSteps steps={promotionWorkflowSteps} />
 
                 <section className="admin__card">
                     <div className="admin__card__header">
@@ -269,6 +284,9 @@ const AdminPromotionsPage = () => {
                                 onChange={(event) => setSearchTerm(event.target.value)}
                                 placeholder="Search promotion code"
                             />
+                            <button type="button" className="admin__button admin__button--ghost" onClick={() => setSearchTerm("")}>
+                                Clear
+                            </button>
                         </div>
                     </div>
                     <div className="admin__card__body">
@@ -307,7 +325,11 @@ const AdminPromotionsPage = () => {
                                                 <button type="button" className="admin__button admin__button--ghost" onClick={() => handleEdit(promotion)}>
                                                     Edit
                                                 </button>
-                                                <button type="button" className="admin__button admin__button--danger" onClick={() => handleDeactivate(promotion)}>
+                                                <button
+                                                    type="button"
+                                                    className="admin__button admin__button--danger"
+                                                    onClick={() => setPendingDeactivatePromotion(promotion)}
+                                                >
                                                     Deactivate
                                                 </button>
                                             </div>
@@ -318,6 +340,16 @@ const AdminPromotionsPage = () => {
                         </Table>
                     </div>
                 </section>
+                <ConfirmActionModal
+                    show={pendingDeactivatePromotion !== null}
+                    title="Deactivate promotion"
+                    message={`Deactivate "${pendingDeactivatePromotion?.discount_code || "this promotion"}"? Customers will no longer be able to use it at checkout.`}
+                    confirmLabel="Deactivate"
+                    confirmVariant="warning"
+                    isConfirming={isDeactivating}
+                    onCancel={() => setPendingDeactivatePromotion(null)}
+                    onConfirm={handleDeactivate}
+                />
             </main>
         </AdminLayout>
     );

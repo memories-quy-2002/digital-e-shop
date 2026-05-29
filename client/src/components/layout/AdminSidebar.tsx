@@ -3,14 +3,13 @@ import { BellIcon, BoxSeamIcon, CartIcon, CashStackIcon, PersonIcon, Speedometer
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
-const items = ["Dashboard", "Notifications", "Products", "Orders", "Accounts", "Promotions"];
-const itemIcons = [
-    <SpeedometerIcon size={20} key={0} />,
-    <BellIcon size={20} key={1} />,
-    <BoxSeamIcon size={20} key={2} />,
-    <CartIcon size={20} key={3} />,
-    <PersonIcon size={20} key={4} />,
-    <CashStackIcon size={20} key={5} />,
+const adminNavItems = [
+    { label: "Dashboard", path: "/admin", match: "dashboard", icon: <SpeedometerIcon size={20} /> },
+    { label: "Orders", path: "/admin/orders", match: "orders", icon: <CartIcon size={20} /> },
+    { label: "Products", path: "/admin/products", match: "products", icon: <BoxSeamIcon size={20} /> },
+    { label: "Promotions", path: "/admin/promotions", match: "promotions", icon: <CashStackIcon size={20} /> },
+    { label: "Accounts", path: "/admin/accounts", match: "accounts", icon: <PersonIcon size={20} /> },
+    { label: "Notifications", path: "/admin/notifications", match: "notifications", icon: <BellIcon size={20} /> },
 ];
 
 const getDisplayName = (username?: string, firstName?: string | null, lastName?: string | null) => {
@@ -35,14 +34,6 @@ const AdminSidebar = () => {
     const { userData, loading } = useAuth();
     const displayName = getDisplayName(userData?.username, userData?.first_name, userData?.last_name);
     const initials = getInitials(userData?.username, userData?.first_name, userData?.last_name);
-
-    const handleAdminNavigate = (item: string) => {
-        if (item === "dashboard") {
-            navigate("/admin");
-        } else {
-            navigate(`/admin/${item}`);
-        }
-    };
 
     return (
         <aside className="admin__layout__sidebar">
@@ -69,17 +60,17 @@ const AdminSidebar = () => {
 
             {/* Navigation */}
             <nav className="admin__layout__sidebar__navigation">
-                {items.map((item, index) => (
+                {adminNavItems.map((item) => (
                     <button
                         type="button"
-                        key={index}
-                        onClick={() => handleAdminNavigate(item.toLowerCase())}
+                        key={item.path}
+                        onClick={() => navigate(item.path)}
                         className={`admin__layout__sidebar__navigation__item ${
-                            paramItem === item.toLowerCase() || (!paramItem && item === "Dashboard") ? "active" : ""
+                            paramItem === item.match || (!paramItem && item.match === "dashboard") ? "active" : ""
                         }`}
                     >
-                        <span className="admin__layout__sidebar__navigation__icon">{itemIcons[index]}</span>
-                        <span className="admin__layout__sidebar__navigation__label">{item}</span>
+                        <span className="admin__layout__sidebar__navigation__icon">{item.icon}</span>
+                        <span className="admin__layout__sidebar__navigation__label">{item.label}</span>
                     </button>
                 ))}
             </nav>

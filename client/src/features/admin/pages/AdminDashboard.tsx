@@ -549,20 +549,6 @@ const AdminDashboard = () => {
         URL.revokeObjectURL(url);
     };
 
-    const handleExportRevenueCsv = () => {
-        const rows = [
-            ["month", "sales", "revenue"],
-            ...monthlyTrends.map((trend) => [trend.name, String(trend.sales), trend.revenue.toFixed(2)]),
-        ];
-        const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
-        const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "digital-e-revenue.csv";
-        link.click();
-        URL.revokeObjectURL(url);
-    };
-
     return (
         <AdminLayout>
             <Helmet>
@@ -594,13 +580,6 @@ const AdminDashboard = () => {
                         </button>
                         <button className="admin__dashboard__hero__action" onClick={handleDownloadReport}>
                             Download Detailed Report
-                        </button>
-                        <button
-                            type="button"
-                            className="admin__dashboard__hero__action"
-                            onClick={handleExportRevenueCsv}
-                        >
-                            Export Revenue CSV
                         </button>
                     </div>
                 </section>
