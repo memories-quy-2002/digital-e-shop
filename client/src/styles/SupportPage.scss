@@ -14,15 +14,36 @@
     }
 
     &__hero {
+        position: relative;
+        overflow: hidden;
         border-radius: 28px;
-        background:
-            linear-gradient(120deg, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.74)),
-            url("../assets/images/carousel_4.jpg") center/cover;
+        background: #0f172a;
         color: #fff;
         padding: 2rem;
         min-height: 470px;
         display: grid;
         align-content: center;
+
+        &::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            background: linear-gradient(120deg, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.74));
+        }
+
+        > img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        > *:not(img) {
+            position: relative;
+            z-index: 2;
+        }
 
         @media (min-width: 860px) {
             padding: 4rem;
@@ -72,12 +93,23 @@
                 color: var(--ink);
                 font-weight: 900;
                 text-decoration: none;
+                text-align: center;
+                overflow-wrap: anywhere;
             }
 
             .ghost {
                 background: rgba(255, 255, 255, 0.1);
                 color: #fff;
                 border: 1px solid rgba(255, 255, 255, 0.2);
+            }
+        }
+
+        @media (max-width: 520px) {
+            min-height: 420px;
+
+            &__actions {
+                align-items: stretch;
+                flex-direction: column;
             }
         }
     }

@@ -1,9 +1,10 @@
 import React from "react";
 import { Helmet } from "react-helmet";
 import { Link } from "react-router-dom";
-import featureImage from "../assets/images/carousel_1.jpg";
-import heroImage from "../assets/images/carousel_2.jpg";
+import featureImage from "../assets/images/news_1.jpg";
+import heroImage from "../assets/images/news_2.jpg";
 import Layout from "../components/layout/Layout";
+import { HERO_IMAGE_WIDTHS, PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../utils/images";
 import "../styles/NewsPage.scss";
 
 type Article = {
@@ -17,6 +18,17 @@ type Article = {
 };
 
 const NewsPage: React.FC = () => {
+    const heroImageSource = getResponsiveImageSource(heroImage, {
+        widths: HERO_IMAGE_WIDTHS,
+        sizes: "100vw",
+        fit: "fill",
+    });
+    const featureImageSource = getResponsiveImageSource(featureImage, {
+        widths: PAGE_IMAGE_WIDTHS,
+        sizes: "(min-width: 1024px) 42vw, 92vw",
+        fit: "fill",
+    });
+
     const featured = {
         title: "Digital-E expands faster order tracking and personalized product discovery",
         excerpt:
@@ -30,7 +42,8 @@ const NewsPage: React.FC = () => {
         {
             id: 1,
             title: "How we pick laptops for creators, students, and hybrid teams",
-            excerpt: "A look inside our selection process for performance, battery life, display quality, and long-term value.",
+            excerpt:
+                "A look inside our selection process for performance, battery life, display quality, and long-term value.",
             date: "2026-05-06",
             author: "Product Desk",
             tag: "Buying guide",
@@ -39,7 +52,8 @@ const NewsPage: React.FC = () => {
         {
             id: 2,
             title: "What changed in our checkout and payment experience",
-            excerpt: "Cleaner payment choices, better stock validation, and clearer order confirmation for every purchase.",
+            excerpt:
+                "Cleaner payment choices, better stock validation, and clearer order confirmation for every purchase.",
             date: "2026-04-28",
             author: "Operations",
             tag: "Store update",
@@ -65,7 +79,12 @@ const NewsPage: React.FC = () => {
         },
     ];
 
-    const briefs = ["New gaming monitors added", "More COD coverage", "Weekend laptop deals", "Warranty guide refreshed"];
+    const briefs = [
+        "New gaming monitors added",
+        "More COD coverage",
+        "Weekend laptop deals",
+        "Warranty guide refreshed",
+    ];
 
     return (
         <Layout>
@@ -75,7 +94,16 @@ const NewsPage: React.FC = () => {
             </Helmet>
             <main className="news">
                 <header className="news__hero">
-                    <img src={heroImage} alt="" aria-hidden="true" />
+                    <img
+                        src={heroImageSource.src}
+                        srcSet={heroImageSource.srcSet}
+                        sizes={heroImageSource.sizes}
+                        alt=""
+                        aria-hidden="true"
+                        loading="eager"
+                        fetchPriority="high"
+                        decoding="async"
+                    />
                     <div className="news__hero__content">
                         <span className="news__hero__badge">Digital-E Newsroom</span>
                         <h1>Product news, buying advice, and store improvements.</h1>
@@ -99,7 +127,14 @@ const NewsPage: React.FC = () => {
 
                 <section className="news__featured">
                     <div className="news__featured__media">
-                        <img src={featureImage} alt="Workspace with electronics and productivity gear" />
+                        <img
+                            src={featureImageSource.src}
+                            srcSet={featureImageSource.srcSet}
+                            sizes={featureImageSource.sizes}
+                            alt="Workspace with electronics and productivity gear"
+                            loading="lazy"
+                            decoding="async"
+                        />
                     </div>
                     <div className="news__featured__content">
                         <span className="news__featured__tag">Featured update</span>

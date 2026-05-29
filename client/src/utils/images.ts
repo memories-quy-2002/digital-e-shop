@@ -3,6 +3,8 @@ export const PRODUCT_IMAGE_BASE_URL = "https://2txtqipejre57csy.public.blob.verc
 export const PRODUCT_CARD_WIDTHS = [240, 320, 480, 640, 960];
 export const PRODUCT_GALLERY_WIDTHS = [480, 720, 960, 1280, 1600];
 export const HERO_IMAGE_WIDTHS = [640, 960, 1280, 1600, 1920];
+export const PAGE_IMAGE_WIDTHS = [480, 720, 960, 1280];
+export const THUMBNAIL_IMAGE_WIDTHS = [120, 180, 240, 320];
 
 type ImageTransformOptions = {
     width?: number;

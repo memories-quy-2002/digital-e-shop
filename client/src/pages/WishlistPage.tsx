@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet";
 import axios from "../api/axios";
 import WishlistItem from "../components/common/WishlistItem";
+import ConfirmActionModal from "../components/common/ConfirmActionModal";
 import Layout from "../components/layout/Layout";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -16,6 +17,9 @@ interface Wishlist {
 const WishlistPage = () => {
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
+    const [pendingRemoveProductId, setPendingRemoveProductId] = useState<number | null>(null);
+    const [showBulkRemoveConfirm, setShowBulkRemoveConfirm] = useState(false);
+    const [isRemoving, setIsRemoving] = useState(false);
     const { userData } = useAuth();
     const uid = userData?.id || "";
     const { addToast } = useToast();
@@ -66,8 +70,9 @@ const WishlistPage = () => {
         setSelectedIds(wishlist.map((item) => item.product.id));
     };
 
-    const handleRemoveWishlist = async (productId: number) => {
+    const handleConfirmRemoveWishlist = async (productId: number) => {
         try {
+            setIsRemoving(true);
             const response = await axios.delete(`/api/wishlist/${productId}`, {
                 data: { uid },
             });
@@ -75,10 +80,17 @@ const WishlistPage = () => {
                 setWishlist((currentWishlist) => currentWishlist.filter((item) => item.product.id !== productId));
                 setSelectedIds((currentIds) => currentIds.filter((id) => id !== productId));
                 addToast("Wishlist", "Item removed from wishlist.");
+                setPendingRemoveProductId(null);
             }
         } catch {
             addToast("Wishlist", "Unable to remove wishlist item.");
+        } finally {
+            setIsRemoving(false);
         }
+    };
+
+    const handleRemoveWishlist = (productId: number) => {
+        setPendingRemoveProductId(productId);
     };
 
     const handleBulkRemove = async () => {
@@ -88,6 +100,7 @@ const WishlistPage = () => {
         }
 
         try {
+            setIsRemoving(true);
             const response = await axios.delete("/api/wishlist/", {
                 data: { uid, productIds: selectedIds },
             });
@@ -95,9 +108,12 @@ const WishlistPage = () => {
                 setWishlist((currentWishlist) => currentWishlist.filter((item) => !selectedIds.includes(item.product.id)));
                 setSelectedIds([]);
                 addToast("Wishlist", "Selected wishlist items were removed.");
+                setShowBulkRemoveConfirm(false);
             }
         } catch {
             addToast("Wishlist", "Unable to remove selected items.");
+        } finally {
+            setIsRemoving(false);
         }
     };
 
@@ -175,7 +191,12 @@ const WishlistPage = () => {
                             <button type="button" onClick={handleMoveSelectedToCart} disabled={selectedIds.length === 0}>
                                 Move selected
                             </button>
-                            <button type="button" className="danger" onClick={handleBulkRemove} disabled={selectedIds.length === 0}>
+                            <button
+                                type="button"
+                                className="danger"
+                                onClick={() => setShowBulkRemoveConfirm(true)}
+                                disabled={selectedIds.length === 0}
+                            >
                                 Remove selected
                             </button>
                         </div>
@@ -198,6 +219,32 @@ const WishlistPage = () => {
                         ))}
                     </section>
                 )}
+                <ConfirmActionModal
+                    show={pendingRemoveProductId !== null}
+                    title="Remove wishlist item"
+                    message={`Remove "${
+                        wishlist.find((item) => item.product.id === pendingRemoveProductId)?.product.name || "this product"
+                    }" from your wishlist?`}
+                    confirmLabel="Remove"
+                    isConfirming={isRemoving}
+                    onCancel={() => setPendingRemoveProductId(null)}
+                    onConfirm={() => {
+                        if (pendingRemoveProductId !== null) {
+                            void handleConfirmRemoveWishlist(pendingRemoveProductId);
+                        }
+                    }}
+                />
+                <ConfirmActionModal
+                    show={showBulkRemoveConfirm}
+                    title="Remove selected items"
+                    message={`Remove ${selectedIds.length} selected item${selectedIds.length === 1 ? "" : "s"} from your wishlist?`}
+                    confirmLabel="Remove selected"
+                    isConfirming={isRemoving}
+                    onCancel={() => setShowBulkRemoveConfirm(false)}
+                    onConfirm={() => {
+                        void handleBulkRemove();
+                    }}
+                />
             </main>
         </Layout>
     );

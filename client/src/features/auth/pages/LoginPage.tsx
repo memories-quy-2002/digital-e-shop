@@ -3,11 +3,13 @@ import React, { useMemo, useState } from "react";
 import { Form } from "react-bootstrap";
 import { Helmet } from "react-helmet";
 import { Link, useNavigate } from "react-router-dom";
+import authImage from "../../../assets/images/background_form.jpg";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
 import http from "../../../lib/http";
 import { auth } from "../../../services/firebase";
 import "../../../styles/LoginPage.scss";
+import { PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../../../utils/images";
 import { Role } from "../../../utils/interface";
 import { EyeIcon, EyeOffIcon, ShieldIcon } from "../../../components/common/Icons";
 
@@ -30,6 +32,11 @@ const LoginPage = () => {
     const [errors, setErrors] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const [showPassword, setShowPassword] = useState<boolean>(false);
+    const authImageSource = getResponsiveImageSource(authImage, {
+        widths: PAGE_IMAGE_WIDTHS,
+        sizes: "(min-width: 960px) 42vw, 100vw",
+        fit: "fill",
+    });
 
     const canSubmit = useMemo(
         () => user.email.trim().length > 0 && user.password.length > 0 && !isSubmitting,
@@ -120,6 +127,15 @@ const LoginPage = () => {
             </Helmet>
             <div className="login">
                 <aside className="login__image">
+                    <img
+                        src={authImageSource.src}
+                        srcSet={authImageSource.srcSet}
+                        sizes={authImageSource.sizes}
+                        alt=""
+                        aria-hidden="true"
+                        loading="lazy"
+                        decoding="async"
+                    />
                     <div className="login__image__content">
                         <strong className="login__image__content__name">DIGITAL-E</strong>
                         <p className="login__image__content__desc">Fast checkout, saved carts, and order tracking.</p>

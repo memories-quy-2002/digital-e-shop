@@ -1,11 +1,18 @@
 import React, { useState } from "react";
 import { Helmet } from "react-helmet";
 import { Link } from "react-router-dom";
+import supportImage from "../assets/images/support.jpg";
 import Layout from "../components/layout/Layout";
+import { HERO_IMAGE_WIDTHS, getResponsiveImageSource } from "../utils/images";
 import "../styles/SupportPage.scss";
 
 const SupportPage: React.FC = () => {
     const [faqOpen, setFaqOpen] = useState<number | null>(0);
+    const heroImageSource = getResponsiveImageSource(supportImage, {
+        widths: HERO_IMAGE_WIDTHS,
+        sizes: "100vw",
+        fit: "fill",
+    });
 
     const channels = [
         {
@@ -62,6 +69,16 @@ const SupportPage: React.FC = () => {
             </Helmet>
             <main className="support">
                 <header className="support__hero">
+                    <img
+                        src={heroImageSource.src}
+                        srcSet={heroImageSource.srcSet}
+                        sizes={heroImageSource.sizes}
+                        alt=""
+                        aria-hidden="true"
+                        loading="eager"
+                        fetchPriority="high"
+                        decoding="async"
+                    />
                     <span className="support__hero__badge">Support Center</span>
                     <h1>Help that keeps your order moving.</h1>
                     <p>
