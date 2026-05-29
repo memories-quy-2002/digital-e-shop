@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { Helmet } from "react-helmet";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "../api/axios";
@@ -26,10 +26,31 @@ type Filters = {
     sortBy: "relevance" | "price-asc" | "price-desc" | "rating-desc";
 };
 
+type ProductFacets = {
+    categories: string[];
+    brands: string[];
+    minPrice: number;
+    maxPrice: number;
+    totalProducts: number;
+};
+
 const ShopsPage = () => {
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
+    const [facets, setFacets] = useState<ProductFacets>({
+        categories: [],
+        brands: [],
+        minPrice: 0,
+        maxPrice: MAX_PRICE_RANGE,
+        totalProducts: 0,
+    });
+    const [pagination, setPagination] = useState({
+        page: 1,
+        limit: ITEMS_PER_PAGE,
+        total: 0,
+        totalPages: 1,
+    });
     const [filters, setFilters] = useState<Filters>({
         term: "",
         categories: [],
@@ -47,11 +68,10 @@ const ShopsPage = () => {
     const sortSelectId = "shops-sort";
     const resultsHeadingId = "shops-results-heading";
     const loadingCardCount = ITEMS_PER_PAGE;
-    const deferredSearchTerm = useDeferredValue(filters.term);
     const [isUpdatingFilters, startFilterTransition] = useTransition();
 
     const updateURL = useCallback(
-        (newFilters: Filters) => {
+        (newFilters: Filters, nextPage = 1) => {
             const queryParams = new URLSearchParams({
                 categories: newFilters.categories.join(","),
                 brands: newFilters.brands.join(","),
@@ -59,6 +79,7 @@ const ShopsPage = () => {
                 maxPrice: newFilters.priceRange[1].toString(),
                 term: newFilters.term.trim(),
                 sortBy: newFilters.sortBy,
+                page: String(nextPage),
             });
             navigate(`${location.pathname}?${queryParams.toString()}`, { replace: true });
         },
@@ -80,56 +101,9 @@ const ShopsPage = () => {
         setFilters((prev) => ({ ...prev, priceRange: newValue }));
     }, []);
 
-    const getVisibleProducts = useCallback((activeFilters: Filters, allProducts: Product[]): Product[] => {
-        const { priceRange } = activeFilters;
-        const termLower = activeFilters.term.trim().toLowerCase();
-
-        const filtered = allProducts.filter((product) => {
-            const price = product.sale_price ?? product.price;
-            const haystack = `${product.name} ${product.brand} ${product.category}`.toLowerCase();
-
-            return (
-                (!activeFilters.categories.length || activeFilters.categories.includes(product.category)) &&
-                (!activeFilters.brands.length || activeFilters.brands.includes(product.brand)) &&
-                price >= priceRange[0] &&
-                price <= priceRange[1] &&
-                (!termLower || haystack.includes(termLower))
-            );
-        });
-
-        if (activeFilters.sortBy === "price-asc") {
-            return [...filtered].sort((a, b) => (a.sale_price ?? a.price) - (b.sale_price ?? b.price));
-        }
-
-        if (activeFilters.sortBy === "price-desc") {
-            return [...filtered].sort((a, b) => (b.sale_price ?? b.price) - (a.sale_price ?? a.price));
-        }
-
-        if (activeFilters.sortBy === "rating-desc") {
-            return [...filtered].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-        }
-
-        return filtered;
-    }, []);
-
-    const visibleProducts = useMemo(
-        () =>
-            getVisibleProducts(
-                {
-                    term: deferredSearchTerm,
-                    categories: filters.categories,
-                    brands: filters.brands,
-                    priceRange: filters.priceRange,
-                    sortBy: filters.sortBy,
-                },
-                products,
-            ),
-        [deferredSearchTerm, filters.brands, filters.categories, filters.priceRange, filters.sortBy, getVisibleProducts, products],
-    );
-
     const applyFilters = useCallback(() => {
         startFilterTransition(() => {
-            updateURL(filters);
+            updateURL(filters, 1);
         });
     }, [filters, updateURL]);
 
@@ -143,44 +117,103 @@ const ShopsPage = () => {
             term: "",
             categories: [],
             brands: [],
-            priceRange: [0, MAX_PRICE_RANGE],
+            priceRange: [facets.minPrice, facets.maxPrice || MAX_PRICE_RANGE],
             sortBy: "relevance",
         };
         setFilters(reset);
         startFilterTransition(() => {
-            updateURL(reset);
+            updateURL(reset, 1);
         });
-    }, [updateURL]);
+    }, [facets.maxPrice, facets.minPrice, updateURL]);
 
     useEffect(() => {
         const queryParams = new URLSearchParams(location.search);
+        const nextMinPrice = Number(queryParams.get("minPrice"));
+        const nextMaxPrice = Number(queryParams.get("maxPrice"));
         const newFilters: Filters = {
             term: queryParams.get("term") ?? "",
             categories: queryParams.get("categories")?.split(",").filter((category) => category !== "") ?? [],
             brands: queryParams.get("brands")?.split(",").filter((brand) => brand !== "") ?? [],
-            priceRange: [Number(queryParams.get("minPrice") ?? 0), Number(queryParams.get("maxPrice") ?? MAX_PRICE_RANGE)],
+            priceRange: [
+                Number.isFinite(nextMinPrice) ? nextMinPrice : 0,
+                Number.isFinite(nextMaxPrice) ? nextMaxPrice : MAX_PRICE_RANGE,
+            ],
             sortBy: (queryParams.get("sortBy") as Filters["sortBy"]) ?? "relevance",
         };
         setFilters(newFilters);
     }, [location.search]);
 
     useEffect(() => {
+        const fetchFacets = async () => {
+            try {
+                const response = await axios.get("/api/products/facets");
+                if (response.status === 200) {
+                    const nextFacets = response.data.facets as ProductFacets;
+                    setFacets(nextFacets);
+                    setFilters((current) => {
+                        if (current.priceRange[0] !== 0 || current.priceRange[1] !== MAX_PRICE_RANGE) {
+                            return current;
+                        }
+
+                        return {
+                            ...current,
+                            priceRange: [nextFacets.minPrice, nextFacets.maxPrice || MAX_PRICE_RANGE],
+                        };
+                    });
+                }
+            } catch {
+                addToast("Products", "Unable to load filter options.");
+            }
+        };
+        fetchFacets();
+    }, [addToast]);
+
+    useEffect(() => {
+        const queryParams = new URLSearchParams(location.search);
+        const activePage = Math.max(1, Number(queryParams.get("page")) || 1);
+        const requestParams = new URLSearchParams({
+            page: String(activePage),
+            limit: String(ITEMS_PER_PAGE),
+            sortBy: filters.sortBy,
+        });
+
+        if (filters.term.trim()) {
+            requestParams.set("term", filters.term.trim());
+        }
+        if (filters.categories.length > 0) {
+            requestParams.set("categories", filters.categories.join(","));
+        }
+        if (filters.brands.length > 0) {
+            requestParams.set("brands", filters.brands.join(","));
+        }
+        requestParams.set("minPrice", String(filters.priceRange[0]));
+        requestParams.set("maxPrice", String(filters.priceRange[1]));
+
         const fetchProducts = async () => {
             setIsLoading(true);
             try {
-                const response = await axios.get("/api/products");
+                const response = await axios.get(`/api/products?${requestParams.toString()}`);
                 if (response.status === 200) {
-                    const catalog: Product[] = response.data.products || [];
-                    setProducts(catalog);
+                    setProducts(response.data.products || []);
+                    setPagination(
+                        response.data.pagination || {
+                            page: activePage,
+                            limit: ITEMS_PER_PAGE,
+                            total: response.data.products?.length || 0,
+                            totalPages: 1,
+                        },
+                    );
                 }
             } catch {
                 addToast("Products", "Unable to load products right now.");
+                setProducts([]);
             } finally {
                 setIsLoading(false);
             }
         };
+
         fetchProducts();
-    }, [addToast]);
+    }, [addToast, filters, location.search]);
 
     useEffect(() => {
         const fetchWishlist = async () => {
@@ -209,7 +242,7 @@ const ShopsPage = () => {
             }
         };
         fetchWishlist();
-    }, [uid]);
+    }, [addToast, uid]);
 
     return (
         <Layout>
@@ -229,11 +262,11 @@ const ShopsPage = () => {
                     </div>
                     <div className="shops__header__summary">
                         <div>
-                            <strong>{isLoading ? "..." : visibleProducts.length}</strong>
+                            <strong>{isLoading ? "..." : pagination.total}</strong>
                             <span>Results</span>
                         </div>
                         <div>
-                            <strong>{isLoading ? "..." : products.length}</strong>
+                            <strong>{isLoading ? "..." : facets.totalProducts}</strong>
                             <span>Total products</span>
                         </div>
                     </div>
@@ -288,6 +321,8 @@ const ShopsPage = () => {
                     <aside className="shops__sidebar">
                         <AsideShops
                             products={products}
+                            categories={facets.categories}
+                            brands={facets.brands}
                             filters={filters}
                             onCheckboxChange={handleCheckboxChange}
                             onPriceRangeChange={handlePriceRangeChange}
@@ -318,10 +353,14 @@ const ShopsPage = () => {
                         ) : (
                             <PaginatedItems
                                 itemsPerPage={ITEMS_PER_PAGE}
-                                items={visibleProducts}
+                                items={products}
                                 uid={uid}
                                 wishlist={wishlist}
                                 isWishlistPage={false}
+                                serverSide
+                                totalItems={pagination.total}
+                                currentPage={pagination.page}
+                                onPageChange={(page) => updateURL(filters, page)}
                             />
                         )}
                     </section>

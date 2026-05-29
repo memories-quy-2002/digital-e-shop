@@ -47,9 +47,61 @@ function getSingleProduct(req: AppRequest, res: AppResponse) {
 function getListProduct(req: AppRequest, res: AppResponse) {
     const page = Number(req.query.page);
     const limit = Number(req.query.limit);
+    const term = typeof req.query.term === "string" ? req.query.term.trim() : "";
+    const categories =
+        typeof req.query.categories === "string"
+            ? req.query.categories.split(",").map((item) => item.trim()).filter(Boolean)
+            : [];
+    const brands =
+        typeof req.query.brands === "string"
+            ? req.query.brands.split(",").map((item) => item.trim()).filter(Boolean)
+            : [];
+    const minPrice = Number(req.query.minPrice);
+    const maxPrice = Number(req.query.maxPrice);
+    const sortBy =
+        typeof req.query.sortBy === "string"
+            ? req.query.sortBy
+            : "relevance";
+    const filters = {
+        term,
+        categories,
+        brands,
+        minPrice: Number.isFinite(minPrice) ? minPrice : undefined,
+        maxPrice: Number.isFinite(maxPrice) ? maxPrice : undefined,
+        sortBy,
+    };
     const usePagination = Number.isInteger(page) && page > 0 && Number.isInteger(limit) && limit > 0;
     const safeLimit = usePagination ? Math.min(limit, 100) : null;
     const offset = usePagination ? (page - 1) * safeLimit : 0;
+    const useFilteredQuery =
+        Boolean(term) ||
+        categories.length > 0 ||
+        brands.length > 0 ||
+        Number.isFinite(minPrice) ||
+        Number.isFinite(maxPrice) ||
+        sortBy !== "relevance";
+
+    if (useFilteredQuery) {
+        const resolvedLimit = safeLimit || 100;
+        Product.getProductsByFilters(filters, resolvedLimit, offset, (err: DbError | null, results: ProductEditorRow[]) => {
+            if (err) return res.status(500).json({ msg: "Internal server error" });
+            Product.countProductsByFilters(filters, (countErr: DbError | null, countResults: CountRow[]) => {
+                if (countErr) return res.status(500).json({ msg: "Internal server error" });
+                const total = countResults?.[0]?.total || 0;
+                return res.status(200).json({
+                    products: results || [],
+                    pagination: {
+                        page: usePagination ? page : 1,
+                        limit: resolvedLimit,
+                        total,
+                        totalPages: Math.max(1, Math.ceil(total / resolvedLimit)),
+                    },
+                    msg: "Get list products successfully",
+                });
+            });
+        });
+        return;
+    }
 
     if (usePagination) {
         Product.getAllProductsPaginated(safeLimit, offset, (err: DbError | null, results: ProductEditorRow[]) => {
@@ -78,6 +130,48 @@ function getListProduct(req: AppRequest, res: AppResponse) {
         if (results.length === 0) return res.status(204).json({ msg: "No product found" });
         res.status(200).json({ products: results, msg: "Get list products successfully" });
     });
+}
+
+function searchProducts(req: AppRequest, res: AppResponse) {
+    const term = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    const limit = Math.min(Math.max(Number(req.query.limit) || 6, 1), 20);
+
+    if (term.length < 2) {
+        return res.status(200).json({ products: [], msg: "Search term too short" });
+    }
+
+    Product.searchProducts(term, limit, (err: DbError | null, results: ProductEditorRow[]) => {
+        if (err) return res.status(500).json({ msg: "Internal server error" });
+        return res.status(200).json({ products: results || [], msg: "Search products successfully" });
+    });
+}
+
+function getProductFacets(req: AppRequest, res: AppResponse) {
+    Product.getProductFacets(
+        (
+            err: DbError | null,
+            results?: {
+                categories: Array<{ name: string }>;
+                brands: Array<{ name: string }>;
+                priceBounds: Array<{ min_price: number | null; max_price: number | null }>;
+                totals: Array<{ total: number }>;
+            },
+        ) => {
+            if (err) return res.status(500).json({ msg: "Internal server error" });
+            const priceBounds = results?.priceBounds?.[0] || { min_price: 0, max_price: 0 };
+            const totals = results?.totals?.[0] || { total: 0 };
+            return res.status(200).json({
+                facets: {
+                    categories: (results?.categories || []).map((item) => item.name),
+                    brands: (results?.brands || []).map((item) => item.name),
+                    minPrice: Number(priceBounds.min_price) || 0,
+                    maxPrice: Number(priceBounds.max_price) || 0,
+                    totalProducts: Number(totals.total) || 0,
+                },
+                msg: "Get product facets successfully",
+            });
+        },
+    );
 }
 
 function deleteProduct(req: AppRequest, res: AppResponse) {
@@ -210,8 +304,35 @@ async function retrieveRelevantProducts(req: AppRequest, res: AppResponse) {
         await client.close();
 
         if (documents.length > 0) {
+            const mongoRelevantProducts = Array.isArray(documents[0].relevant_products)
+                ? documents[0].relevant_products
+                : [];
+            const relevantIds = mongoRelevantProducts
+                .map((item: unknown) => {
+                    if (typeof item === "number") return item;
+                    if (typeof item === "string") return Number(item);
+                    if (item && typeof item === "object" && "product_id" in item) {
+                        return Number((item as { product_id?: unknown }).product_id);
+                    }
+                    return 0;
+                })
+                .filter((item: number) => Number.isInteger(item) && item > 0);
+
+            if (relevantIds.length > 0) {
+                return Product.getProductsByIdsOrdered(relevantIds, (mysqlErr: DbError | null, mysqlResults: ProductEditorRow[]) => {
+                    if (mysqlErr) {
+                        console.error("Mongo id hydration error: ", mysqlErr.message);
+                        return res.status(500).json({ msg: "Error retrieving relevant products" });
+                    }
+                    return res.status(200).json({
+                        relevantProducts: mysqlResults || [],
+                        msg: "Retrieved relevant products successfully",
+                    });
+                });
+            }
+
             return res.status(200).json({
-                relevantProducts: documents[0].relevant_products || [],
+                relevantProducts: [],
                 msg: "Retrieved relevant products successfully",
             });
         }
@@ -258,6 +379,8 @@ module.exports = {
     addSingleProduct,
     getSingleProduct,
     getListProduct,
+    searchProducts,
+    getProductFacets,
     deleteProduct,
     getInventorySummary,
     updateInventory,

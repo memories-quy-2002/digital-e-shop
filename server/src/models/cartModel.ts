@@ -65,6 +65,29 @@ const getCartItemsDetails = (cartId: number, callback: QueryCallback<CartItemRow
     );
 }
 
+const getCheckoutCartItemsDetails = (cartId: number, callback: QueryCallback<CartItemRow[]>) => {
+    pool.query(
+        `SELECT
+            ci.id AS cart_item_id,
+            ci.product_id,
+            p.name AS product_name,
+            b.name AS brand,
+            c.name AS category,
+            p.price,
+            p.sale_price,
+            p.stock,
+            p.main_image,
+            ci.quantity
+        FROM cart_items ci
+        LEFT JOIN products p ON p.id = ci.product_id
+        LEFT JOIN brands b ON b.id = p.brand_id
+        LEFT JOIN categories c ON c.id = p.category_id
+        WHERE ci.cart_id = ?`,
+        [cartId],
+        callback
+    );
+}
+
 const updateCartItemQuantity = (cartItemId: number, quantity: number, callback: QueryCallback<UpdateResult>) => {
     pool.query(
         `UPDATE cart_items SET quantity = ? WHERE id = ?`,
@@ -98,6 +121,7 @@ module.exports = {
     addItemToCart,
     getCartItemsByUserId,
     getCartItemsDetails,
+    getCheckoutCartItemsDetails,
     updateCartItemQuantity,
     getCartItemStock,
     deleteCartItem

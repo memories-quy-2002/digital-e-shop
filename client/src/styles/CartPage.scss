@@ -139,11 +139,22 @@
     }
 
     &__warning {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
         padding: 1rem 1.25rem;
         border-radius: 14px;
         background: #fff7ed;
         color: #c2410c;
-        font-weight: 700;
+
+        strong {
+            font-weight: 800;
+        }
+
+        span,
+        small {
+            font-weight: 600;
+        }
     }
 
     &__note {
@@ -277,6 +288,15 @@
         padding: 0.9rem 1rem;
         border-radius: 12px;
         font-weight: 600;
+
+        strong {
+            font-size: 0.95rem;
+        }
+
+        &--warning {
+            background: #fff7ed;
+            color: #c2410c;
+        }
     }
 
     &__card {
@@ -765,6 +785,15 @@
         }
     }
 
+    &__issue {
+        display: block;
+        margin-top: 0.45rem;
+        color: #b45309;
+        font-size: 0.82rem;
+        font-weight: 700;
+        line-height: 1.4;
+    }
+
     &__qty {
         display: flex;
         flex-direction: column;
@@ -820,6 +849,21 @@
         align-items: center;
         justify-content: center;
         justify-self: end;
+    }
+
+    &.is-invalid {
+        border-color: #fdba74;
+        background: #fffaf5;
+        box-shadow: 0 12px 24px rgba(194, 65, 12, 0.08);
+
+        .cart-item__qty input {
+            border-color: #fb923c;
+            background: #fff7ed;
+        }
+
+        .cart-item__stock {
+            color: #b45309;
+        }
     }
 
     @media (max-width: 860px) {

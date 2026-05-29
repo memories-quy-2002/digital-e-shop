@@ -31,7 +31,6 @@ export const Header = (): JSX.Element => {
     const [searchTerm, setSearchTerm] = useState<string>("");
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [searchResults, setSearchResults] = useState<Product[]>([]);
-    const [allProducts, setAllProducts] = useState<Product[]>([]);
     const [unreadNotifications, setUnreadNotifications] = useState(0);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -113,21 +112,6 @@ export const Header = (): JSX.Element => {
     const closeMenu = () => setIsMenuOpen(false);
 
     useEffect(() => {
-        const fetchProducts = async () => {
-            try {
-                const response = await axios.get("/api/products");
-                if (response.status === 200) {
-                    setAllProducts(response.data.products || []);
-                }
-            } catch {
-                setAllProducts([]);
-            }
-        };
-
-        fetchProducts();
-    }, []);
-
-    useEffect(() => {
         const fetchNotifications = async () => {
             if (!userData?.id) {
                 setUnreadNotifications(0);
@@ -154,18 +138,22 @@ export const Header = (): JSX.Element => {
         }
 
         const timer = window.setTimeout(() => {
-            const matches = allProducts
-                .filter((product) => {
-                    const haystack = `${product.name} ${product.brand} ${product.category}`.toLowerCase();
-                    return haystack.includes(normalizedTerm);
+            axios
+                .get(`/api/products/search?q=${encodeURIComponent(normalizedTerm)}&limit=6`)
+                .then((response) => {
+                    if (response.status === 200) {
+                        setSearchResults(response.data.products || []);
+                    } else {
+                        setSearchResults([]);
+                    }
                 })
-                .slice(0, 6);
-
-            setSearchResults(matches);
+                .catch(() => {
+                    setSearchResults([]);
+                });
         }, 220);
 
         return () => window.clearTimeout(timer);
-    }, [allProducts, normalizedDeferredSearchTerm]);
+    }, [normalizedDeferredSearchTerm]);
 
     useEffect(() => {
         const handlePointerDown = (event: MouseEvent) => {

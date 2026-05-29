@@ -17,11 +17,6 @@ import { parseProductDetails } from "../../../utils/productDetails";
 import ratingStar from "../../../utils/ratingStar";
 import RecommendedProduct from "../components/RecommendedProduct";
 
-interface relevantProductsItem {
-    product_id: number;
-    product_name: string;
-}
-
 type Wishlist = {
     id: number;
     product: Product;
@@ -79,7 +74,6 @@ const ProductPage = () => {
     const uid = userData?.id || "";
     const productId = url.get("id");
     const pid = productId !== null ? parseInt(productId) : 0;
-    const [products, setProducts] = useState<Product[]>([]);
     const [productDetail, setProductDetail] = useState<Product>({
         id: 0,
         name: "",
@@ -224,20 +218,6 @@ const ProductPage = () => {
     const wishlistIdSet = useMemo(() => new Set(optimisticWishlist.map((item) => item.product.id)), [optimisticWishlist]);
 
     useEffect(() => {
-        const fetchAllProducts = async () => {
-            try {
-                const response = await axios.get("/api/products?page=1&limit=60");
-                if (response.status === 200) {
-                    setProducts(response.data.products);
-                }
-            } catch {
-                addToast("Products", "Unable to load products.");
-            }
-        };
-        fetchAllProducts();
-    }, [addToast]);
-
-    useEffect(() => {
         const fetchWishlist = async () => {
             try {
                 const response = await axios.get(`/api/wishlist/${uid}`);
@@ -271,29 +251,14 @@ const ProductPage = () => {
             try {
                 const response = await axios.get(`/api/products/relevant/${pid}`);
                 if (response.status === 200) {
-                    if (response.data.relevantProducts.length === 0) {
-                        setRelevantProducts(products);
-                        return;
-                    }
-                    const newRelevantProducts: relevantProductsItem[] = response.data.relevantProducts;
-                    const relevantProductsIds: number[] = newRelevantProducts.map((product) => product.product_id);
-
-                    setRelevantProducts(
-                        products
-                            .filter((product) => relevantProductsIds.includes(product.id))
-                            .sort((a, b) => {
-                                const indexA = relevantProductsIds.indexOf(a.id);
-                                const indexB = relevantProductsIds.indexOf(b.id);
-                                return indexA - indexB;
-                            }),
-                    );
+                    setRelevantProducts(response.data.relevantProducts || []);
                 }
             } catch {
                 addToast("Recommendations", "Unable to load relevant products.");
             }
         };
         fetchRelevantProducts();
-    }, [addToast, pid, products]);
+    }, [addToast, pid]);
 
     useEffect(() => {
         const fetchReviews = async () => {
@@ -394,8 +359,7 @@ const ProductPage = () => {
         }
 
         const exists = wishlistIdSet.has(product_id);
-        const optimisticProduct =
-            productDetail.id === product_id ? productDetail : products.find((product) => product.id === product_id);
+        const optimisticProduct = productDetail.id === product_id ? productDetail : null;
         const mutation: WishlistMutation | null = exists
             ? { type: "remove", productId: product_id }
             : optimisticProduct

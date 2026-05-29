@@ -1,8 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { memo, useEffect, useState } from "react";
 import ReactSlider from "react-slider";
 import { Product } from "../../utils/interface";
-
-const MAX_PRICE_RANGE: number = 5000;
 
 type Filters = {
     term: string;
@@ -13,6 +11,8 @@ type Filters = {
 
 interface AsideShopsProps {
     products: Product[];
+    categories: string[];
+    brands: string[];
     filters: Filters;
     onCheckboxChange: (type: "categories" | "brands", value: string) => void;
     onPriceRangeChange: (newValue: [number, number]) => void;
@@ -21,25 +21,20 @@ interface AsideShopsProps {
 
 const AsideShops = ({
     products,
+    categories,
+    brands,
     filters,
     onCheckboxChange,
     onPriceRangeChange,
     onApplyFilters,
 }: AsideShopsProps) => {
-    const [categories, setCategories] = useState<string[]>([]);
-    const [brands, setBrands] = useState<string[]>([]);
     const [priceRange, setPriceRange] = useState<[number, number]>(filters.priceRange);
+    const visibleProductCount = products.length;
+    const sliderMax = Math.max(filters.priceRange[1], 5000);
 
     useEffect(() => {
         setPriceRange(filters.priceRange);
     }, [filters.priceRange]);
-
-    useEffect(() => {
-        setCategories([...new Set(products.map((product) => product.category).filter(Boolean))].sort());
-        setBrands([...new Set(products.map((product) => product.brand).filter(Boolean))].sort());
-    }, [products]);
-
-    const selectedCount = filters.categories.length + filters.brands.length;
 
     return (
         <aside className="shops__filters">
@@ -48,7 +43,7 @@ const AsideShops = ({
                     <span>Catalog filters</span>
                     <h2>Refine products</h2>
                 </div>
-                <strong>{selectedCount}</strong>
+                <strong>{visibleProductCount}</strong>
             </div>
 
             <section className="shops__filter-section shops__filter-section--categories" aria-labelledby="shops-filter-categories">
@@ -127,7 +122,7 @@ const AsideShops = ({
                         trackClassName="example-track"
                         value={priceRange}
                         min={0}
-                        max={MAX_PRICE_RANGE}
+                        max={sliderMax}
                         pearling
                         minDistance={150}
                         renderThumb={(props, state) => (
@@ -155,4 +150,4 @@ const AsideShops = ({
     );
 };
 
-export default AsideShops;
+export default memo(AsideShops);
