@@ -1,12 +1,6 @@
 import pool from "#/config/database.config";
-import type { PrismaClient } from "@prisma/client";
-const prisma: PrismaClient = require("#/database/prisma/client");
-import type {
-    CountRow,
-    IdNameRow,
-    QueryCallback,
-    UpdateResult,
-} from "#/shared/interfaces/domain";
+import prisma = require("#/database/prisma/client");
+import type { CountRow, IdNameRow, QueryCallback, UpdateResult } from "#/shared/interfaces/domain";
 import type { ProductEditorRow, ProductFacetValueRow, ProductPriceBoundsRow } from "./products.types";
 
 type ProductInsertRecord = {
@@ -288,29 +282,29 @@ const getProductFacets = (
 ) => {
     (async () => {
         const [categories, brands, priceBoundsRows, totalProducts] = await Promise.all([
-            prisma.$queryRawUnsafe<Array<{ name: string }>>(
+            prisma.$queryRawUnsafe(
                 `SELECT categories.name
                  FROM categories
                  JOIN products ON products.category_id = categories.id
                  WHERE products.stock >= 0
                  GROUP BY categories.name
                  ORDER BY categories.name ASC`,
-            ),
-            prisma.$queryRawUnsafe<Array<{ name: string }>>(
+            ) as Promise<Array<{ name: string }>>,
+            prisma.$queryRawUnsafe(
                 `SELECT brands.name
                  FROM brands
                  JOIN products ON products.brand_id = brands.id
                  WHERE products.stock >= 0
                  GROUP BY brands.name
                  ORDER BY brands.name ASC`,
-            ),
-            prisma.$queryRawUnsafe<Array<{ min_price: number | null; max_price: number | null }>>(
+            ) as Promise<Array<{ name: string }>>,
+            prisma.$queryRawUnsafe(
                 `SELECT
                     COALESCE(MIN(COALESCE(products.sale_price, products.price)), 0) AS min_price,
                     COALESCE(MAX(COALESCE(products.sale_price, products.price)), 0) AS max_price
                  FROM products
                  WHERE products.stock >= 0`,
-            ),
+            ) as Promise<Array<{ min_price: number | null; max_price: number | null }>>,
             prisma.product.count({
                 where: {
                     stock: {
