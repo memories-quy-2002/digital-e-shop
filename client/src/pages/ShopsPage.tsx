@@ -4,10 +4,11 @@ import { useLocation, useNavigate } from "react-router-dom";
 import axios from "../api/axios";
 import AsideShops from "../components/common/AsideShops";
 import PaginatedItems from "../components/common/PaginatedItems";
+import { ProductGridSkeleton } from "../components/common/StorefrontSkeleton";
 import Layout from "../components/layout/Layout";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import "../styles/ShopsPage.scss";
+import "../styles/pages/_shops.scss";
 import { Product } from "../utils/interface";
 
 const MAX_PRICE_RANGE: number = 5000;
@@ -132,8 +133,16 @@ const ShopsPage = () => {
         const nextMaxPrice = Number(queryParams.get("maxPrice"));
         const newFilters: Filters = {
             term: queryParams.get("term") ?? "",
-            categories: queryParams.get("categories")?.split(",").filter((category) => category !== "") ?? [],
-            brands: queryParams.get("brands")?.split(",").filter((brand) => brand !== "") ?? [],
+            categories:
+                queryParams
+                    .get("categories")
+                    ?.split(",")
+                    .filter((category) => category !== "") ?? [],
+            brands:
+                queryParams
+                    .get("brands")
+                    ?.split(",")
+                    .filter((brand) => brand !== "") ?? [],
             priceRange: [
                 Number.isFinite(nextMinPrice) ? nextMinPrice : 0,
                 Number.isFinite(nextMaxPrice) ? nextMaxPrice : MAX_PRICE_RANGE,
@@ -253,12 +262,26 @@ const ShopsPage = () => {
                     content="Browse the full catalog of electronics, filter by brand, category, and price, and find your next upgrade."
                 />
             </Helmet>
-            <main className="shops">
+            <main className="shops app-page">
                 <header className="shops__header">
-                    <div>
+                    <div className="shops__hero-copy">
                         <span className="shops__header__eyebrow">Shop Digital-E</span>
                         <h1>Browse curated electronics for every workspace</h1>
-                        <p>Filter by category, brand, and price to find your next upgrade.</p>
+                        <p>Find your next upgrade with focused filters, trusted brands, and clear pricing.</p>
+                        <div className="shops__hero-features">
+                            <article className="shops__hero-feature">
+                                <strong>Curated selection</strong>
+                                <span>Professionals-grade devices that are easy to compare.</span>
+                            </article>
+                            <article className="shops__hero-feature">
+                                <strong>Clear filters</strong>
+                                <span>Sort by price, rating, brand, and availability in one place.</span>
+                            </article>
+                            <article className="shops__hero-feature">
+                                <strong>Fast discovery</strong>
+                                <span>See what is in stock and ready to ship today.</span>
+                            </article>
+                        </div>
                     </div>
                     <div className="shops__header__summary">
                         <div>
@@ -311,7 +334,12 @@ const ShopsPage = () => {
                         <button type="button" className="primary" onClick={applyFilters} disabled={isUpdatingFilters}>
                             {isUpdatingFilters ? "Applying..." : "Apply filters"}
                         </button>
-                        <button type="button" className="ghost" onClick={handleResetFilters} disabled={isUpdatingFilters}>
+                        <button
+                            type="button"
+                            className="ghost"
+                            onClick={handleResetFilters}
+                            disabled={isUpdatingFilters}
+                        >
                             Reset
                         </button>
                     </div>
@@ -321,6 +349,7 @@ const ShopsPage = () => {
                     <aside className="shops__sidebar">
                         <AsideShops
                             products={products}
+                            filteredCount={pagination.total}
                             categories={facets.categories}
                             brands={facets.brands}
                             filters={filters}
@@ -329,26 +358,28 @@ const ShopsPage = () => {
                             onApplyFilters={applyFilters}
                         />
                     </aside>
-                    <section data-testid="shops__container" className="shops__content" aria-labelledby={resultsHeadingId}>
+                    <section
+                        data-testid="shops__container"
+                        className="shops__content"
+                        aria-labelledby={resultsHeadingId}
+                    >
                         <h2 id={resultsHeadingId} className="shops__sr-only">
                             Product results
                         </h2>
+                        <div className="shops__content__header app-card">
+                            <div>
+                                <small>Catalog results</small>
+                                <strong>
+                                    {isLoading ? "Loading products..." : `${pagination.total} matching products`}
+                                </strong>
+                            </div>
+                            <span>
+                                {pagination.page} / {Math.max(1, pagination.totalPages)}
+                            </span>
+                        </div>
                         {isLoading ? (
                             <div className="shops__loading" aria-live="polite">
-                                <div className="shops__loading-grid" aria-hidden="true">
-                                    {Array.from({ length: loadingCardCount }, (_, index) => (
-                                        <div key={`shops-loading-${index}`} className="shops__loading-card">
-                                            <div className="shops__skeleton shops__skeleton--image" />
-                                            <div className="shops__skeleton shops__skeleton--line shops__skeleton--xs" />
-                                            <div className="shops__skeleton shops__skeleton--line shops__skeleton--lg" />
-                                            <div className="shops__skeleton shops__skeleton--line shops__skeleton--sm" />
-                                            <div className="shops__loading-card-footer">
-                                                <div className="shops__skeleton shops__skeleton--line shops__skeleton--sm" />
-                                                <div className="shops__skeleton shops__skeleton--pill" />
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                <ProductGridSkeleton count={loadingCardCount} className="shops__loading-grid" />
                             </div>
                         ) : (
                             <PaginatedItems

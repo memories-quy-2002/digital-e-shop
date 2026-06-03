@@ -287,36 +287,39 @@ const AdminOrderPage = () => {
                 <AdminWorkflowSteps steps={orderWorkflowSteps} />
 
                 <section className="admin__card">
-                    <div className="admin__card__header">
+                    <div className="admin__card__header admin__card__header--stacked">
                         <div>
                             <h3>Order list</h3>
                             <span>{filteredOrders.length} matching orders</span>
                         </div>
-                        <div className="admin__filters">
-                            <input
-                                type="text"
-                                name="order-search"
-                                id="order-search"
-                                placeholder="Search by order ID, customer, email, address, payment, or status"
-                                value={searchTerm}
-                                onChange={(event) => {
-                                    setSearchTerm(event.target.value);
-                                    setCurrentPage(1);
-                                }}
-                            />
-                            <button
-                                type="button"
-                                className="admin__button admin__button--ghost"
-                                onClick={() => {
-                                    setSearchTerm("");
-                                    setCurrentPage(1);
-                                }}
-                            >
-                                Clear
-                            </button>
+                        <div className="admin__list-toolbar">
+                            <div className="admin__filters">
+                                <input
+                                    type="text"
+                                    name="order-search"
+                                    id="order-search"
+                                    placeholder="Search by order ID, customer, email, address, payment, or status"
+                                    value={searchTerm}
+                                    onChange={(event) => {
+                                        setSearchTerm(event.target.value);
+                                        setCurrentPage(1);
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    className="admin__button admin__button--ghost"
+                                    onClick={() => {
+                                        setSearchTerm("");
+                                        setCurrentPage(1);
+                                    }}
+                                >
+                                    Clear
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div className="admin__card__body">
+                    <div className="admin__card__body admin__list-shell">
+                        <div className="admin__table-wrap">
                         <Table responsive hover borderless className="admin__table">
                             <thead>
                                 <tr>
@@ -423,6 +426,7 @@ const AdminOrderPage = () => {
                                 ))}
                             </tbody>
                         </Table>
+                        </div>
                         <div className="admin__table__pagination">
                             <ReactPaginate
                                 className="shops__container__main__pagination__items"
@@ -446,14 +450,26 @@ const AdminOrderPage = () => {
                     </div>
                 </section>
 
-                <Modal show={showDetail} onHide={() => setShowDetail(false)} size="lg" centered>
+                <Modal
+                    show={showDetail}
+                    onHide={() => setShowDetail(false)}
+                    size="lg"
+                    centered
+                    dialogClassName="admin__dialog"
+                    contentClassName="admin__dialog__content"
+                >
                     <Modal.Header closeButton>
                         <Modal.Title>Order detail</Modal.Title>
                     </Modal.Header>
                     <Modal.Body>
                         {selectedOrder ? (
                             <div className="admin__order-detail">
-                                <div className="admin__order-detail__summary">
+                                <section className="admin__detail-section">
+                                    <div className="admin__detail-section__header">
+                                        <h4>Order summary</h4>
+                                        <p>Core order, customer, payment, and pricing information.</p>
+                                    </div>
+                                    <div className="admin__order-detail__summary">
                                     <div>
                                         <span>Order</span>
                                         <strong>#{selectedOrder.id}</strong>
@@ -477,8 +493,14 @@ const AdminOrderPage = () => {
                                         <span>Payment</span>
                                         <strong>{getPaymentMethodLabel(selectedOrder.payment_method)}</strong>
                                     </div>
-                                </div>
-                                <div className="admin__order-detail__timeline">
+                                    </div>
+                                </section>
+                                <section className="admin__detail-section">
+                                    <div className="admin__detail-section__header">
+                                        <h4>Timeline</h4>
+                                        <p>Important events recorded for this order.</p>
+                                    </div>
+                                    <div className="admin__order-detail__timeline">
                                     {(selectedOrder.timeline && selectedOrder.timeline.length > 0
                                         ? selectedOrder.timeline
                                         : [{ id: 0, label: "Placed", note: "Order was placed.", created_at: String(selectedOrder.date_added), status: selectedOrder.status }]
@@ -489,12 +511,24 @@ const AdminOrderPage = () => {
                                             {event.note ? <em>{event.note}</em> : null}
                                         </span>
                                     ))}
-                                </div>
-                                <div className="admin__order-detail__address">
+                                    </div>
+                                </section>
+                                <section className="admin__detail-section">
+                                    <div className="admin__detail-section__header">
+                                        <h4>Shipping</h4>
+                                        <p>Recorded delivery destination for this order.</p>
+                                    </div>
+                                    <div className="admin__order-detail__address">
                                     <span>Shipping address</span>
                                     <strong>{selectedOrder.shipping_address || "Not recorded"}</strong>
-                                </div>
-                                <div className="admin__order-detail__items">
+                                    </div>
+                                </section>
+                                <section className="admin__detail-section">
+                                    <div className="admin__detail-section__header">
+                                        <h4>Items ordered</h4>
+                                        <p>Line items included in the purchase.</p>
+                                    </div>
+                                    <div className="admin__order-detail__items">
                                     <div className="admin__order-detail__items__header">
                                         <span>Items ordered</span>
                                         <strong>{selectedOrder.items.length} products</strong>
@@ -516,7 +550,8 @@ const AdminOrderPage = () => {
                                             </div>
                                         </div>
                                     ))}
-                                </div>
+                                    </div>
+                                </section>
                             </div>
                         ) : null}
                     </Modal.Body>

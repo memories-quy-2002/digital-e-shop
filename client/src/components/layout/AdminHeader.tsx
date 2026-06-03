@@ -5,9 +5,8 @@ import Cookies from "universal-cookie";
 import axios from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
 import { Helmet } from "react-helmet";
-import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { auth } from "../../services/firebase";
+import { signOutFirebaseUser } from "../../services/firebase";
 import { useAuth } from "../../context/AuthContext";
 import { formatUtcDateTime } from "../../utils/dateTime";
 
@@ -312,7 +311,7 @@ const AdminHeader = () => {
             const response = await axios.post("/api/users/logout");
             sessionStorage.removeItem("rememberMe");
             cookies.remove("rememberMe");
-            await signOut(auth);
+            await signOutFirebaseUser();
             addToast("Logout successfully", response.data?.msg || "Logged out");
         } catch {
             addToast("Logout", "You have been logged out.");

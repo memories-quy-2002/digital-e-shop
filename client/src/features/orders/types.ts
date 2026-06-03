@@ -55,6 +55,19 @@ export type CartValidationIssue = {
     reason: "unavailable" | "out_of_stock" | "insufficient_stock";
 };
 
+const normalizeOptionalSalePrice = (value: unknown) => {
+    if (value === null || value === undefined || value === "") {
+        return null;
+    }
+
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue) || numericValue <= 0) {
+        return null;
+    }
+
+    return numericValue;
+};
+
 export const normalizeCheckoutCartItems = (items: any[] = []): CheckoutCartItem[] =>
     items.map((item: any) => ({
         cartItemId: Number(item.cart_item_id || item.id || 0),
@@ -63,7 +76,7 @@ export const normalizeCheckoutCartItems = (items: any[] = []): CheckoutCartItem[
         category: String(item.category || "Unavailable"),
         brand: String(item.brand || "Unavailable"),
         price: Number(item.price) || 0,
-        sale_price: item.sale_price === null || item.sale_price === undefined ? null : Number(item.sale_price) || 0,
+        sale_price: normalizeOptionalSalePrice(item.sale_price),
         main_image: String(item.main_image || ""),
         quantity: Number(item.quantity) || 0,
         stock: item.stock === null || item.stock === undefined ? 0 : Number(item.stock) || 0,

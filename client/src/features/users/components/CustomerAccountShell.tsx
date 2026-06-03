@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { BellIcon, CartIcon, HouseIcon, PersonIcon } from "../../../components/common/Icons";
-import "../../../styles/CustomerAccountShell.scss";
+import "../../../styles/features/users/_customer-account-shell.scss";
 
 type CustomerAccountShellProps = {
     eyebrow: string;

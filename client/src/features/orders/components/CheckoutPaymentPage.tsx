@@ -74,7 +74,9 @@ const CheckoutPaymentPage = ({
 
             const issues = data.issues || [];
             if (Array.isArray(data.cartItems)) {
-                onValidationRefresh(normalizeCheckoutCartItems(data.cartItems), issues);
+                const nextCart = normalizeCheckoutCartItems(data.cartItems);
+                cartRef.current = nextCart;
+                onValidationRefresh(nextCart, issues);
                 return;
             }
 
@@ -181,18 +183,23 @@ const CheckoutPaymentPage = ({
         }));
     };
 
-    const validateCartStock = useCallback(async () => {
+    const validateCartStock = useCallback(async (): Promise<CheckoutCartItem[] | null> => {
         if (!uid) {
-            return false;
+            return null;
         }
 
         try {
             setIsValidatingCart(true);
             const response = await http.get(`/api/cart/${uid}/validation`);
             if (Array.isArray(response.data.cartItems)) {
-                onValidationRefresh(normalizeCheckoutCartItems(response.data.cartItems), []);
+                const nextCart = normalizeCheckoutCartItems(response.data.cartItems);
+                cartRef.current = nextCart;
+                onValidationRefresh(nextCart, []);
+                if (response.status === 200 && response.data.valid === true) {
+                    return nextCart;
+                }
             }
-            return response.status === 200 && response.data.valid === true;
+            return response.status === 200 && response.data.valid === true ? cartRef.current : null;
         } catch (err: unknown) {
             if (err && typeof err === "object" && "response" in err) {
                 const response = (err as {
@@ -207,7 +214,7 @@ const CheckoutPaymentPage = ({
                 setErrors(["Unable to validate cart stock right now."]);
                 addToast("Checkout", "Unable to validate cart stock right now.");
             }
-            return false;
+            return null;
         } finally {
             setIsValidatingCart(false);
         }
@@ -231,14 +238,19 @@ const CheckoutPaymentPage = ({
             addToast("Checkout", "Please update cart quantities before placing the order.");
             return;
         }
-        if (!(await validateCartStock())) {
+        const latestCart = await validateCartStock();
+        if (!latestCart) {
             return;
         }
         try {
             setIsSubmitting(true);
+            const latestTotalPrice = latestCart.reduce(
+                (sum, item) => sum + (item.sale_price ?? item.price) * item.quantity,
+                0,
+            );
             const response = await http.post(`/api/orders/purchase/${uid}`, {
-                cart,
-                totalPrice,
+                cart: latestCart,
+                totalPrice: latestTotalPrice,
                 discount,
                 shippingAddress: formCheckout.address,
                 paymentMethod: formCheckout.payment_method,
@@ -252,10 +264,10 @@ const CheckoutPaymentPage = ({
                 const placedAt = response.data?.order?.date_added || response.data?.placedAt || toUtcIsoString();
                 const payload = {
                     orderId,
-                    totalPrice,
+                    totalPrice: latestTotalPrice,
                     discount,
-                    subtotal,
-                    itemsCount: cart.reduce((sum, item) => sum + item.quantity, 0),
+                    subtotal: latestTotalPrice - discount,
+                    itemsCount: latestCart.reduce((sum, item) => sum + item.quantity, 0),
                     placedAt,
                     paymentMethod: formCheckout.payment_method,
                 };
@@ -405,8 +417,8 @@ const CheckoutPaymentPage = ({
                             </div>
                         ) : null}
                         <Form>
-                            <div className="row">
-                                <div className="col-md-6">
+                            <div className="checkout__field-grid">
+                                <div className="checkout__field">
                                     <Form.Group className="mb-3" controlId="formFirstName">
                                         <Form.Label>First name</Form.Label>
                                         <Form.Control
@@ -419,7 +431,7 @@ const CheckoutPaymentPage = ({
                                         />
                                     </Form.Group>
                                 </div>
-                                <div className="col-md-6">
+                                <div className="checkout__field">
                                     <Form.Group className="mb-3" controlId="formLastName">
                                         <Form.Label>Last name</Form.Label>
                                         <Form.Control
@@ -445,8 +457,8 @@ const CheckoutPaymentPage = ({
                                     onChange={handleInputChange}
                                 />
                             </Form.Group>
-                            <div className="row">
-                                <div className="col-md-6">
+                            <div className="checkout__field-grid">
+                                <div className="checkout__field">
                                     <Form.Group className="mb-3" controlId="formCity">
                                         <Form.Label>City</Form.Label>
                                         <Form.Control
@@ -459,7 +471,7 @@ const CheckoutPaymentPage = ({
                                         />
                                     </Form.Group>
                                 </div>
-                                <div className="col-md-6">
+                                <div className="checkout__field">
                                     <Form.Group className="mb-3" controlId="formCountry">
                                         <Form.Label>Country</Form.Label>
                                         <Form.Control
@@ -577,6 +589,10 @@ const CheckoutPaymentPage = ({
                 <aside className="checkout__summary">
                     <div className="checkout__summary__card">
                         <h2>Order summary</h2>
+                        <div className="checkout__summary__badge">
+                            <ShieldIcon size={16} />
+                            <span>Stock and pricing are rechecked before the order is placed.</span>
+                        </div>
                         <div className="checkout__summary__list">
                             {cart.slice(0, 3).map((item) => (
                                 <div key={item.cartItemId} className="checkout__summary__item">

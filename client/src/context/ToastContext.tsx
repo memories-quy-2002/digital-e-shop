@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useMemo, useReducer, ReactNode } from "react";
 import { Toast, ToastContainer } from "react-bootstrap";
-import "../styles/Toast.scss";
+import "../styles/components/_toast.scss";
 
 interface ToastMessage {
     id: number;
@@ -108,7 +108,6 @@ const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
                                 {toast.title.slice(0, 1).toUpperCase()}
                             </span>
                             <strong className="me-auto">{toast.title}</strong>
-                            <small>now</small>
                         </Toast.Header>
                         <Toast.Body className="app-toast__body">{toast.body}</Toast.Body>
                     </Toast>

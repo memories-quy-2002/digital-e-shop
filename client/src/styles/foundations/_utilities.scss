@@ -1,0 +1,53 @@
+.app-page {
+    width: min(100%, var(--de-max-width-content));
+    margin: 0 auto;
+    padding: var(--de-space-6) var(--de-space-4) var(--de-space-8);
+
+    @media (min-width: 992px) {
+        padding-inline: var(--de-space-6);
+    }
+}
+
+.app-card {
+    background: var(--de-color-surface);
+    border: 1px solid var(--de-color-border);
+    border-radius: var(--de-radius-md);
+    box-shadow: var(--de-shadow-sm);
+}
+
+.app-section-title {
+    display: grid;
+    gap: var(--de-space-2);
+
+    small {
+        color: var(--de-color-primary-strong);
+        font-family: var(--de-font-family-mono);
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+    }
+
+    p {
+        color: var(--de-color-text-muted);
+    }
+}
+
+.app-empty-state,
+.app-feedback {
+    @extend .app-card;
+    display: grid;
+    justify-items: start;
+    gap: var(--de-space-3);
+    padding: var(--de-space-6);
+
+    strong {
+        font-size: 1rem;
+    }
+
+    p,
+    span {
+        color: var(--de-color-text-muted);
+        line-height: 1.55;
+    }
+}

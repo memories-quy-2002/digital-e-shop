@@ -1,0 +1,403 @@
+// Dashboard page styles
+.admin__dashboard__hero {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    background: linear-gradient(135deg, #111827, #1e293b);
+    color: #fff;
+    padding: 2rem;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.35);
+}
+
+@media (min-width: 900px) {
+    .admin__dashboard__hero {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+}
+
+.admin__dashboard__hero__eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.admin__dashboard__hero__title {
+    font-size: 2rem;
+    font-weight: 800;
+    margin: 0.35rem 0;
+}
+
+.admin__dashboard__hero__subtitle {
+    color: rgba(255, 255, 255, 0.75);
+    max-width: 520px;
+}
+
+.admin__dashboard__hero__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.admin__dashboard__hero__action {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 14px 24px rgba(37, 99, 235, 0.4);
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.admin__dashboard__hero__action--secondary {
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: none;
+}
+
+.admin__dashboard__hero__action:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.admin__dashboard__hero__action:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 26px rgba(37, 99, 235, 0.5);
+}
+
+.admin__dashboard__hero__action--secondary:hover {
+    box-shadow: none;
+}
+
+.admin__dashboard__live {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #dbeafe;
+    font-size: 0.85rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.admin__dashboard__live i {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: #22c55e;
+    box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.18);
+}
+
+.admin__dashboard__summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+}
+
+.admin__dashboard__summary div {
+    background: #fff;
+    border-radius: 14px;
+    padding: 1rem 1.25rem;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.admin__dashboard__summary span {
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+.admin__dashboard__summary strong {
+    font-size: 1.5rem;
+}
+
+.admin__dashboard__summary p {
+    margin: 0;
+    color: #94a3b8;
+    font-size: 0.85rem;
+}
+
+.admin__dashboard__metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
+}
+
+.admin__dashboard__highlights {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.25rem;
+}
+
+.admin__dashboard__realtime {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+    gap: 1.25rem;
+}
+
+.admin__dashboard__mix-grid {
+    display: grid;
+    gap: 1.25rem;
+}
+
+.admin__dashboard__analysis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 1.25rem;
+}
+
+.admin__card--wide {
+    min-width: 0;
+}
+
+.admin__chart-body {
+    min-height: 220px;
+}
+
+.admin__chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem 0.85rem;
+    margin-top: 0.25rem;
+}
+
+.admin__chart-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: #475569;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.admin__chart-legend i {
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 999px;
+}
+
+.admin__dashboard__insights {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.admin__dashboard__insight {
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 1rem;
+    background: linear-gradient(180deg, #ffffff, #f8fafc);
+}
+
+.admin__dashboard__insight span {
+    display: block;
+    color: #64748b;
+    font-size: 0.85rem;
+    margin-bottom: 0.35rem;
+}
+
+.admin__dashboard__insight strong {
+    display: block;
+    color: #111827;
+    font-size: 1.4rem;
+    margin-bottom: 0.3rem;
+}
+
+.admin__dashboard__insight p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
+.admin__dashboard__activity {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.admin__dashboard__activity__item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.85rem;
+    align-items: center;
+    padding: 0.95rem 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #fff;
+}
+
+.admin__dashboard__activity__item strong {
+    display: block;
+    color: #111827;
+    margin-bottom: 0.2rem;
+}
+
+.admin__dashboard__activity__item p {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.88rem;
+}
+
+.admin__dashboard__activity__item span {
+    color: #94a3b8;
+    font-size: 0.78rem;
+    text-align: right;
+}
+
+.admin__dashboard__activity__icon {
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.admin__dashboard__activity__icon--user {
+    background: #ecfeff;
+    color: #0f766e;
+}
+
+.admin__metric-card {
+    background: #fff;
+    border-radius: 18px;
+    padding: 1.5rem;
+    box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.admin__metric-card__header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.admin__metric-card__icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    color: #fff;
+}
+
+.admin__metric-card__title span {
+    font-size: 0.9rem;
+    color: #6b7280;
+}
+
+.admin__metric-card__title strong {
+    font-size: 1.6rem;
+    display: block;
+    color: #111827;
+}
+
+.admin__metric-card__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.admin__metric-card__footer p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+.admin__metric-card__footer span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 600;
+}
+
+.admin__metric-card__footer .trend-up {
+    color: #16a34a;
+}
+
+.admin__metric-card__footer .trend-down {
+    color: #dc2626;
+}
+
+.admin__metric-card--purple .admin__metric-card__icon {
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+}
+
+.admin__metric-card--blue .admin__metric-card__icon {
+    background: linear-gradient(135deg, #2563eb, #38bdf8);
+}
+
+.admin__metric-card--green .admin__metric-card__icon {
+    background: linear-gradient(135deg, #16a34a, #4ade80);
+}
+
+.admin__metric-card--teal .admin__metric-card__icon {
+    background: linear-gradient(135deg, #0ea5e9, #14b8a6);
+}
+
+.admin__dashboard__charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.25rem;
+}
+
+.admin__card {
+    background: #fff;
+    border-radius: 18px;
+    padding: 1.5rem;
+    box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.admin__card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    min-width: 0;
+}
+
+.admin__card__header--stacked {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.admin__card__header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.admin__card__header span {
+    color: #94a3b8;
+    font-size: 0.85rem;
+}
+
+.admin__card__body table th {
+    color: #6b7280;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.admin__card__body table td {
+    font-weight: 500;
+}
+

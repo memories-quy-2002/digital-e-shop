@@ -2,7 +2,7 @@ import React, { useEffect, useEffectEvent } from "react";
 import { AxiosError } from "axios";
 import { useNavigate } from "react-router-dom";
 import http from "../../../lib/http";
-import { auth } from "../../../services/firebase";
+import { getFirebaseAuth } from "../../../services/firebase";
 import { useToast } from "../../../context/ToastContext";
 
 const withSessionCheck = (WrappedComponent: React.ComponentType) => {
@@ -11,6 +11,7 @@ const withSessionCheck = (WrappedComponent: React.ComponentType) => {
         const { addToast } = useToast();
         const checkSession = useEffectEvent(async () => {
             try {
+                const auth = await getFirebaseAuth();
                 if (auth.currentUser) {
                     await http.get("/api/users/session/check");
                 }

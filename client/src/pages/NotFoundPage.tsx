@@ -1,7 +1,10 @@
 import React from "react";
 import { Helmet } from "react-helmet";
 import { Link } from "react-router-dom";
+import { SearchIcon } from "../components/common/Icons";
+import EmptyState from "../components/common/EmptyState";
 import Layout from "../components/layout/Layout";
+import "../styles/pages/_not-found.scss";
 
 const NotFoundPage = () => {
     return (
@@ -10,23 +13,32 @@ const NotFoundPage = () => {
                 <title>Page Not Found | Digital-E</title>
                 <meta name="description" content="The page you are looking for does not exist." />
             </Helmet>
-            <main
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    flexDirection: "column",
-                    padding: "2rem",
-                    gap: "0.75rem",
-                }}
-            >
-                <h1>Page not found</h1>
-                <h2 style={{ fontSize: "1.1rem", fontWeight: 600, margin: 0 }}>404 - we could not find that page</h2>
-                <p style={{ color: "#374151", textAlign: "center", maxWidth: "28rem" }}>
-                    Check the address or return to the store home to keep shopping.
-                </p>
-                <Link to="/" style={{ color: "#1d4ed8", fontWeight: 600 }}>
-                    Back to Digital-E home
-                </Link>
+            <main className="not-found">
+                <section className="not-found__hero">
+                    <span className="not-found__eyebrow">Error 404</span>
+                    <h1>That page is not available.</h1>
+                    <p>
+                        The link may be outdated, the address may be incorrect, or the page may have moved somewhere
+                        else in the store.
+                    </p>
+                    <div className="not-found__actions">
+                        <Link to="/">Go to home</Link>
+                        <Link to="/shops" className="ghost">
+                            Browse products
+                        </Link>
+                    </div>
+                </section>
+
+                <section className="not-found__panel">
+                    <EmptyState
+                        compact
+                        icon={<SearchIcon size={20} />}
+                        title="Try a different route"
+                        description="Return to the storefront, search for a product, or head back to your account to continue where you left off."
+                        actionLabel="Open account"
+                        actionTo="/account"
+                    />
+                </section>
             </main>
         </Layout>
     );

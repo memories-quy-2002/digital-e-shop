@@ -1,16 +1,17 @@
-import { signInWithEmailAndPassword } from "firebase/auth";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Form } from "react-bootstrap";
 import { Helmet } from "react-helmet";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import authImage from "../../../assets/images/background_form.jpg";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
 import http from "../../../lib/http";
-import { auth } from "../../../services/firebase";
-import "../../../styles/LoginPage.scss";
+import { signInWithFirebaseEmail } from "../../../services/firebase";
+import "../../../styles/features/auth/_login.scss";
 import { PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../../../utils/images";
 import { Role } from "../../../utils/interface";
+import SocialAuthButtons from "../components/SocialAuthButtons";
+import { getSocialAuthMessage } from "../utils/socialAuth";
 import { EyeIcon, EyeOffIcon, ShieldIcon } from "../../../components/common/Icons";
 
 interface User {
@@ -21,6 +22,7 @@ interface User {
 
 const LoginPage = () => {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { addToast } = useToast();
     const [user, setUser] = useState<User>({
         email: "",
@@ -42,6 +44,19 @@ const LoginPage = () => {
         () => user.email.trim().length > 0 && user.password.length > 0 && !isSubmitting,
         [isSubmitting, user.email, user.password],
     );
+
+    useEffect(() => {
+        const message = getSocialAuthMessage(searchParams.get("socialAuth"));
+        if (!message) {
+            return;
+        }
+
+        setErrors([message]);
+        addToast("Social login", message);
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete("socialAuth");
+        setSearchParams(nextParams, { replace: true });
+    }, [addToast, searchParams, setSearchParams]);
 
     const validateForm = (): string[] => {
         const errorsList: string[] = [];
@@ -85,7 +100,7 @@ const LoginPage = () => {
 
         setIsSubmitting(true);
         try {
-            const userCredential = await signInWithEmailAndPassword(auth, user.email, user.password);
+            const userCredential = await signInWithFirebaseEmail(user.email, user.password);
             const uid = userCredential.user.uid;
             const response = await http.post("/api/users/login", {
                 uid,
@@ -153,6 +168,7 @@ const LoginPage = () => {
                     </div>
                     <h1 className="login__form__title">Welcome back</h1>
                     <p className="login__form__subtitle">Sign in to continue shopping with your saved preferences.</p>
+                    <SocialAuthButtons intent="login" role={user.role} disabled={user.role === Role.Admin} />
                     <Form className="login__form__container" onSubmit={handleSubmit} name="login-form" aria-label="login-form">
                         <Form.Group className="login__form__container__group mb-3" controlId="formBasicUserName">
                             <Form.Label>Email</Form.Label>

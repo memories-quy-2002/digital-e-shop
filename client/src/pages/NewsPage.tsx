@@ -5,7 +5,7 @@ import featureImage from "../assets/images/news_1.jpg";
 import heroImage from "../assets/images/news_2.jpg";
 import Layout from "../components/layout/Layout";
 import { HERO_IMAGE_WIDTHS, PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../utils/images";
-import "../styles/NewsPage.scss";
+import "../styles/pages/_news.scss";
 
 type Article = {
     id: number;
@@ -92,7 +92,7 @@ const NewsPage: React.FC = () => {
                 <title>News & Updates | Digital-E</title>
                 <meta name="description" content="Product releases, buying guides, and store updates from Digital-E." />
             </Helmet>
-            <main className="news">
+            <main className="news info-page">
                 <header className="news__hero">
                     <img
                         src={heroImageSource.src}
@@ -105,13 +105,13 @@ const NewsPage: React.FC = () => {
                         decoding="async"
                     />
                     <div className="news__hero__content">
-                        <span className="news__hero__badge">Digital-E Newsroom</span>
-                        <h1>Product news, buying advice, and store improvements.</h1>
+                        <span className="info-page__hero-badge">Digital-E Newsroom</span>
+                        <h1>Stay updated on launches, buying guidance, and store improvements that matter.</h1>
                         <p>
-                            Follow the latest launches, checkout updates, buying guides, and behind-the-scenes decisions
-                            that shape the Digital-E shopping experience.
+                            Follow product drops, practical buying advice, and the operational updates that keep
+                            Digital-E running smoothly.
                         </p>
-                        <div className="news__hero__actions">
+                        <div className="news__hero__actions info-page__actions">
                             <Link to="/shops">Browse new arrivals</Link>
                             <Link to="/support" className="ghost">
                                 Visit support
@@ -149,7 +149,7 @@ const NewsPage: React.FC = () => {
                 </section>
 
                 <section className="news__list" aria-labelledby="news-list-heading">
-                    <div className="news__section-heading">
+                    <div className="news__section-heading info-page__section-heading">
                         <span>Latest articles</span>
                         <h2 id="news-list-heading">Helpful updates for smarter tech shopping</h2>
                     </div>

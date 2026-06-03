@@ -4,10 +4,11 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
 import { BellIcon, CartIcon, HouseIcon, PersonIcon } from "../../../components/common/Icons";
+import EmptyState from "../../../components/common/EmptyState";
 import Layout from "../../../components/layout/Layout";
 import { formatUtcDate, formatUtcDateTime } from "../../../utils/dateTime";
 import "../../orders/types";
-import "../../../styles/CustomerAccountPage.scss";
+import "../../../styles/features/users/_customer-account.scss";
 import CustomerAccountShell from "../components/CustomerAccountShell";
 import {
     CustomerAddress,
@@ -211,7 +212,14 @@ const CustomerAccountPage = () => {
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="customer-account-page__empty">No orders yet.</p>
+                                        <EmptyState
+                                            compact
+                                            className="customer-account-page__empty"
+                                            title="No orders yet"
+                                            description="Your recent orders will appear here after checkout."
+                                            actionLabel="Start shopping"
+                                            actionTo="/shops"
+                                        />
                                     )}
                                 </div>
                             </article>
@@ -237,7 +245,14 @@ const CustomerAccountPage = () => {
                                             </small>
                                         </div>
                                     ) : (
-                                        <p className="customer-account-page__empty">No saved addresses yet.</p>
+                                        <EmptyState
+                                            compact
+                                            className="customer-account-page__empty"
+                                            title="No saved addresses yet"
+                                            description="Add a delivery address to speed up future checkout."
+                                            actionLabel="Manage addresses"
+                                            actionTo="/addresses"
+                                        />
                                     )}
                                 </div>
                             </article>
@@ -263,7 +278,14 @@ const CustomerAccountPage = () => {
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="customer-account-page__empty">No notifications yet.</p>
+                                        <EmptyState
+                                            compact
+                                            className="customer-account-page__empty"
+                                            title="No notifications yet"
+                                            description="Account and order updates will show up here when there is activity."
+                                            actionLabel="Open notifications"
+                                            actionTo="/notifications"
+                                        />
                                     )}
                                 </div>
                             </article>

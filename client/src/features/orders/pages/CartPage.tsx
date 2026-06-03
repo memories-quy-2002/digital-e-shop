@@ -16,7 +16,7 @@ import {
     normalizeCheckoutCartItems,
 } from "../types";
 import http from "../../../lib/http";
-import "../../../styles/CartPage.scss";
+import "../../../styles/features/orders/_cart.scss";
 import CheckoutPaymentPage from "../components/CheckoutPaymentPage";
 
 type DiscountActionResult = {
@@ -289,7 +289,7 @@ const CartPage = () => {
                 <title>Your Cart | Digital-E</title>
                 <meta name="description" content="Review your items, update quantities, and proceed to checkout." />
             </Helmet>
-            <Container fluid className="cart">
+            <Container fluid className="cart app-page">
                 {isPayment ? (
                     <CheckoutPaymentPage
                         setIsPayment={setIsPayment}
@@ -322,51 +322,62 @@ const CartPage = () => {
 
                         <main className="cart__layout">
                             <section className="cart__main">
-                                <div className="cart__list">
-                                    {cart.length === 0 ? (
-                                        <div className="cart__empty">
-                                            <h3>Your cart is empty</h3>
-                                            <p>Browse our collection and add items to your cart.</p>
-                                            <button type="button" onClick={() => navigate("/shops")}>
-                                                Shop now
-                                            </button>
+                                <div className="cart__list-card">
+                                    <div className="cart__list-header">
+                                        <div>
+                                            <h3>Cart items</h3>
+                                            <p>Keep quantities accurate before moving into checkout.</p>
                                         </div>
-                                    ) : (
-                                        cart.map((item) => (
-                                            <CartItem
-                                                key={item.cartItemId}
-                                                item={item}
-                                                validationIssue={issueByCartItemId.get(item.cartItemId)}
-                                                handleQuantityChange={handleQuantityChange}
-                                                handleRemoveCartItem={handleRemoveCartItem}
-                                            />
-                                        ))
-                                    )}
+                                        <span>{cart.length} item(s)</span>
+                                    </div>
+                                    <div className="cart__list">
+                                        {cart.length === 0 ? (
+                                            <div className="cart__empty">
+                                                <h3>Your cart is empty</h3>
+                                                <p>Browse our collection and add items to your cart.</p>
+                                                <button type="button" onClick={() => navigate("/shops")}>
+                                                    Shop now
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            cart.map((item) => (
+                                                <CartItem
+                                                    key={item.cartItemId}
+                                                    item={item}
+                                                    validationIssue={issueByCartItemId.get(item.cartItemId)}
+                                                    handleQuantityChange={handleQuantityChange}
+                                                    handleRemoveCartItem={handleRemoveCartItem}
+                                                />
+                                            ))
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="cart__actions">
-                                    <button className="ghost" onClick={() => navigate("/")}>
+                                    <button className="cart__action cart__action--ghost" onClick={() => navigate("/")}>
                                         <ArrowLeftIcon /> Continue shopping
                                     </button>
                                     <button
-                                        className="primary"
+                                        className="cart__action cart__action--primary"
                                         onClick={handleShow}
                                         disabled={cart.length === 0 || isValidatingCheckout}
                                     >
                                         {isValidatingCheckout ? "Checking stock..." : "Proceed to checkout"} <ArrowRightIcon />
                                     </button>
                                 </div>
-                                {activeValidationIssues.length > 0 ? (
-                                    <div className="cart__warning">
-                                        <strong>Checkout needs updates.</strong>
-                                        <span>{getCartValidationMessage(activeValidationIssues)}</span>
-                                        {activeValidationIssues.length > 1 ? (
-                                            <small>{activeValidationIssues.length} cart items need attention.</small>
-                                        ) : null}
+                                <div className="cart__support">
+                                    {activeValidationIssues.length > 0 ? (
+                                        <div className="cart__warning">
+                                            <strong>Checkout needs updates.</strong>
+                                            <span>{getCartValidationMessage(activeValidationIssues)}</span>
+                                            {activeValidationIssues.length > 1 ? (
+                                                <small>{activeValidationIssues.length} cart items need attention.</small>
+                                            ) : null}
+                                        </div>
+                                    ) : null}
+                                    <div className="cart__note">
+                                        Free delivery in 1-2 business days for orders over $50.
                                     </div>
-                                ) : null}
-                                <div className="cart__note">
-                                    Free delivery in 1-2 business days for orders over $50.
                                 </div>
                             </section>
 

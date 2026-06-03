@@ -1,0 +1,149 @@
+// Notifications page styles
+.admin__notifications-toolbar {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.admin__notifications-toolbar input {
+    width: 100%;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 0.75rem 0.9rem;
+    outline: none;
+}
+
+.admin__notifications-toolbar input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.admin__notifications-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+.admin__notifications-tabs button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 999px;
+    background: #fff;
+    color: #475569;
+    padding: 0.5rem 0.85rem;
+    font-weight: 800;
+}
+
+.admin__notifications-tabs button span {
+    min-width: 1.35rem;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #64748b;
+    padding: 0.1rem 0.4rem;
+    font-size: 0.76rem;
+}
+
+.admin__notifications-tabs button.active {
+    background: #111827;
+    border-color: #111827;
+    color: #fff;
+}
+
+.admin__notifications-tabs button.active span {
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+}
+
+.admin__notifications-list {
+    display: grid;
+    gap: 0.9rem;
+}
+
+.admin__notification {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 1rem;
+    align-items: center;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 1rem;
+    background: #fff;
+}
+
+.admin__notification--order {
+    border-left: 5px solid #2563eb;
+}
+
+.admin__notification--inventory {
+    border-left: 5px solid #f97316;
+}
+
+.admin__notification--payment {
+    border-left: 5px solid #7c3aed;
+}
+
+.admin__notification--customer {
+    border-left: 5px solid #0f766e;
+}
+
+.admin__notification__icon {
+    width: 2.7rem;
+    height: 2.7rem;
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8fafc;
+    color: #111827;
+}
+
+.admin__notification__content {
+    min-width: 0;
+}
+
+.admin__notification__title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.admin__notification__title-row strong {
+    color: #111827;
+}
+
+.admin__notification__content p {
+    margin: 0.25rem 0;
+    color: #64748b;
+    line-height: 1.45;
+}
+
+.admin__notification__content > span {
+    color: #94a3b8;
+    font-size: 0.82rem;
+}
+
+.admin__notification__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.admin__notifications-empty {
+    min-height: 220px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    color: #64748b;
+    background: #f8fafc;
+    text-align: center;
+}
+
+.admin__notifications-empty strong {
+    color: #111827;
+}

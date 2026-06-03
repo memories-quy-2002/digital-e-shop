@@ -1,0 +1,124 @@
+// Orders page styles
+.admin__order-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.admin__order-detail__summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.admin__order-detail__summary div,
+.admin__order-detail__address {
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 0.9rem;
+}
+
+.admin__order-detail__summary span,
+.admin__order-detail__address span,
+.admin__order-detail__items__header span {
+    display: block;
+    color: #64748b;
+    font-size: 0.78rem;
+    font-weight: 800;
+    margin-bottom: 0.3rem;
+    text-transform: uppercase;
+}
+
+.admin__order-detail__summary strong,
+.admin__order-detail__address strong,
+.admin__order-detail__items__header strong {
+    color: #111827;
+}
+
+.admin__order-detail__summary small {
+    display: block;
+    margin-top: 0.35rem;
+    color: #64748b;
+    font-size: 0.78rem;
+}
+
+.admin__order-detail__timeline {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.5rem;
+}
+
+.admin__order-detail__timeline span {
+    background: #e5e7eb;
+    color: #64748b;
+    border-radius: 14px;
+    padding: 0.75rem;
+    font-weight: 800;
+    display: grid;
+    gap: 0.25rem;
+}
+
+.admin__order-detail__timeline .is-done {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.admin__order-detail__timeline small,
+.admin__order-detail__timeline em {
+    color: inherit;
+    font-size: 0.75rem;
+    font-style: normal;
+    opacity: 0.8;
+}
+
+.admin__order-detail__items {
+    display: grid;
+    gap: 0.7rem;
+}
+
+.admin__order-detail__items__header,
+.admin__order-detail__item-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: flex-start;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 0.95rem 1rem;
+}
+
+.admin__order-detail__items__header {
+    background: #f8fafc;
+}
+
+.admin__order-detail__item-row {
+    flex-wrap: wrap;
+}
+
+.admin__order-detail__item-row__info,
+.admin__order-detail__item-row__pricing {
+    display: grid;
+    gap: 0.25rem;
+}
+
+.admin__order-detail__item-row__pricing {
+    text-align: right;
+    justify-items: end;
+}
+
+.admin__order-detail__item-row__info small {
+    color: #94a3b8;
+    font-size: 0.76rem;
+}
+
+.admin__order-detail__items strong {
+    display: block;
+    color: #111827;
+}
+
+.admin__order-detail__items span {
+    color: #64748b;
+}
+

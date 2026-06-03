@@ -1,6 +1,6 @@
 import React from "react";
 import { BellIcon, BoxSeamIcon, CartIcon, CashStackIcon, PersonIcon, SpeedometerIcon } from "../common/Icons";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 const adminNavItems = [
@@ -29,8 +29,8 @@ const getInitials = (username?: string, firstName?: string | null, lastName?: st
 
 const AdminSidebar = () => {
     const navigate = useNavigate();
-    const url = window.location.href;
-    const paramItem = url.split("/admin/")[1];
+    const location = useLocation();
+    const paramItem = location.pathname.split("/admin/")[1];
     const { userData, loading } = useAuth();
     const displayName = getDisplayName(userData?.username, userData?.first_name, userData?.last_name);
     const initials = getInitials(userData?.username, userData?.first_name, userData?.last_name);
@@ -60,6 +60,7 @@ const AdminSidebar = () => {
 
             {/* Navigation */}
             <nav className="admin__layout__sidebar__navigation">
+                <span className="admin__layout__sidebar__navigation__caption">Workspace</span>
                 {adminNavItems.map((item) => (
                     <button
                         type="button"

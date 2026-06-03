@@ -362,7 +362,8 @@ const AdminProductPage = () => {
                             <span>Recent stock adjustments from sales, product creation, and admin updates.</span>
                         </div>
                     </div>
-                    <div className="admin__card__body">
+                    <div className="admin__card__body admin__list-shell">
+                        <div className="admin__table-wrap">
                         <Table responsive hover borderless className="admin__table">
                             <thead>
                                 <tr>
@@ -404,6 +405,7 @@ const AdminProductPage = () => {
                                 )}
                             </tbody>
                         </Table>
+                        </div>
                     </div>
                 </section>
 
@@ -414,7 +416,8 @@ const AdminProductPage = () => {
                             <span>Restock the products that are closest to selling out.</span>
                         </div>
                     </div>
-                    <div className="admin__card__body">
+                    <div className="admin__card__body admin__list-shell">
+                        <div className="admin__table-wrap">
                         <Table responsive hover borderless className="admin__table">
                             <thead>
                                 <tr>
@@ -481,40 +484,44 @@ const AdminProductPage = () => {
                                 )}
                             </tbody>
                         </Table>
+                        </div>
                     </div>
                 </section>
 
                 <section className="admin__card">
-                    <div className="admin__card__header">
+                    <div className="admin__card__header admin__card__header--stacked">
                         <div>
                             <h3>Product list</h3>
                             <span>{filteredProducts.length} results</span>
                         </div>
-                        <div className="admin__filters">
-                            <input
-                                type="text"
-                                name="product"
-                                id="product"
-                                placeholder="Search all products by name, category, brand, or ID"
-                                value={searchTerm}
-                                onChange={(event) => {
-                                    setSearchTerm(event.target.value);
-                                    setCurrentPage(1);
-                                }}
-                            />
-                            <button
-                                type="button"
-                                className="admin__button admin__button--ghost"
-                                onClick={() => {
-                                    setSearchTerm("");
-                                    setCurrentPage(1);
-                                }}
-                            >
-                                Clear
-                            </button>
+                        <div className="admin__list-toolbar">
+                            <div className="admin__filters">
+                                <input
+                                    type="text"
+                                    name="product"
+                                    id="product"
+                                    placeholder="Search all products by name, category, brand, or ID"
+                                    value={searchTerm}
+                                    onChange={(event) => {
+                                        setSearchTerm(event.target.value);
+                                        setCurrentPage(1);
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    className="admin__button admin__button--ghost"
+                                    onClick={() => {
+                                        setSearchTerm("");
+                                        setCurrentPage(1);
+                                    }}
+                                >
+                                    Clear
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div className="admin__card__body">
+                    <div className="admin__card__body admin__list-shell">
+                        <div className="admin__table-wrap">
                         <Table responsive hover borderless className="admin__table">
                             <thead>
                                 <tr>
@@ -540,6 +547,7 @@ const AdminProductPage = () => {
                                 ))}
                             </tbody>
                         </Table>
+                        </div>
                         <div className="admin__table__pagination">
                             <ReactPaginate
                                 className="shops__container__main__pagination__items"
@@ -560,12 +568,25 @@ const AdminProductPage = () => {
                                 renderOnZeroPageCount={null}
                             />
                         </div>
-                        <Modal show={show} onHide={handleClose} animation={false} centered size="lg">
+                        <Modal
+                            show={show}
+                            onHide={handleClose}
+                            animation={false}
+                            centered
+                            size="lg"
+                            dialogClassName="admin__dialog"
+                            contentClassName="admin__dialog__content"
+                        >
                             <Modal.Header closeButton>
                                 <Modal.Title>Manage product</Modal.Title>
                             </Modal.Header>
                             <Modal.Body>
                                 <Form className="admin__edit-form">
+                                    <section className="admin__form-section">
+                                        <div className="admin__form-section__header">
+                                            <h4>Core content</h4>
+                                            <p>Name, storefront description, and primary product taxonomy.</p>
+                                        </div>
                                     <Form.Group className="mb-3" controlId="productName">
                                         <Form.Label>Name</Form.Label>
                                         <Form.Control name="name" value={editForm.name} onChange={handleEditChange} />
@@ -580,6 +601,12 @@ const AdminProductPage = () => {
                                             onChange={handleEditChange}
                                         />
                                     </Form.Group>
+                                    </section>
+                                    <section className="admin__form-section">
+                                        <div className="admin__form-section__header">
+                                            <h4>Commercial details</h4>
+                                            <p>Price, sale price, quantity, and commercial metadata.</p>
+                                        </div>
                                     <div className="admin__edit-form__grid">
                                         <Form.Group className="mb-3" controlId="productCategory">
                                             <Form.Label>Category</Form.Label>
@@ -632,6 +659,12 @@ const AdminProductPage = () => {
                                             />
                                         </Form.Group>
                                     </div>
+                                    </section>
+                                    <section className="admin__form-section">
+                                        <div className="admin__form-section__header">
+                                            <h4>Support and specifications</h4>
+                                            <p>Model, warranty, datasheet, highlights, and technical details.</p>
+                                        </div>
                                     <div className="admin__edit-form__grid">
                                         <Form.Group className="mb-3" controlId="productModel">
                                             <Form.Label>Model</Form.Label>
@@ -677,6 +710,7 @@ const AdminProductPage = () => {
                                             />
                                         </Form.Group>
                                     </div>
+                                    </section>
                                 </Form>
                             </Modal.Body>
                             <Modal.Footer className="admin__modal-actions">

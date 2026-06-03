@@ -1,6 +1,6 @@
 import React, { memo } from "react";
 import { CartIcon, HeartIcon, HeartFillIcon } from "../common/Icons";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Product } from "../../utils/interface";
 import ratingStar from "../../utils/ratingStar";
 import loadImage from "../../utils/loadImage";
@@ -35,25 +35,29 @@ const ShopsItem = ({ product, uid, isWishlist, isWishlistPending = false, onTogg
                 {isWishlist ? <HeartFillIcon size={14} /> : <HeartIcon size={14} />}
             </button>
 
-            <div
+            <button
+                type="button"
                 className="shops__card-image"
                 onClick={() => navigate(`/product?id=${product.id}`)}
+                aria-label={`View ${product.name}`}
             >
                 {loadImage(imageUrl, product.name, {
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
+                    width: "168px",
+                    height: "168px",
+                    objectFit: "contain",
                     display: "block",
                 }, false, "(min-width: 1280px) 19vw, (min-width: 1024px) 25vw, (min-width: 768px) 34vw, 92vw")}
-            </div>
+            </button>
 
             <div className="shops__card-body">
                 <div className="shops__card-meta">
                     <span>{product.category}</span>
                     <span>{product.brand}</span>
                 </div>
-                <p className="shops__card-name">{product.name}</p>
-                <div className="shops__card-stock">
+                <Link className="shops__card-name" to={`/product?id=${product.id}`}>
+                    {product.name}
+                </Link>
+                <div className={`shops__card-stock${product.stock > 0 ? "" : " shops__card-stock--empty"}`}>
                     {product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}
                 </div>
 
@@ -72,8 +76,11 @@ const ShopsItem = ({ product, uid, isWishlist, isWishlistPending = false, onTogg
             </div>
 
             <div className="shops__card-rating">
-                <div className="shops__card-stars" aria-label={`${product.rating || 0} star rating`}>
-                    {ratingStar(product.rating)}
+                <div className="shops__card-review">
+                    <div className="shops__card-stars" aria-label={`${product.rating || 0} star rating`}>
+                        {ratingStar(product.rating)}
+                    </div>
+                    <span className="shops__card-review-count">{product.reviews || 0} reviews</span>
                 </div>
 
                 <button
@@ -83,7 +90,7 @@ const ShopsItem = ({ product, uid, isWishlist, isWishlistPending = false, onTogg
                     disabled={product.stock <= 0}
                 >
                     <CartIcon size={17} />
-                    Add
+                    Add to cart
                 </button>
             </div>
         </div>

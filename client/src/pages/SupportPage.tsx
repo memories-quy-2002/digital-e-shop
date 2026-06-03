@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import supportImage from "../assets/images/support.jpg";
 import Layout from "../components/layout/Layout";
 import { HERO_IMAGE_WIDTHS, getResponsiveImageSource } from "../utils/images";
-import "../styles/SupportPage.scss";
+import "../styles/pages/_support.scss";
 
 const SupportPage: React.FC = () => {
     const [faqOpen, setFaqOpen] = useState<number | null>(0);
@@ -36,10 +36,22 @@ const SupportPage: React.FC = () => {
     ];
 
     const resources = [
-        { title: "Track an order", text: "Check status, payment method, delivery address, and order items from your account." },
-        { title: "Returns and refunds", text: "Review return conditions, refund timelines, and what to prepare before sending items back." },
-        { title: "Warranty help", text: "Understand coverage, repair steps, proof-of-purchase needs, and service options." },
-        { title: "Payment support", text: "Get help with cash on delivery, bank transfer confirmation, and failed checkout attempts." },
+        {
+            title: "Track an order",
+            text: "Check status, payment method, delivery address, and order items from your account.",
+        },
+        {
+            title: "Returns and refunds",
+            text: "Review return conditions, refund timelines, and what to prepare before sending items back.",
+        },
+        {
+            title: "Warranty help",
+            text: "Understand coverage, repair steps, proof-of-purchase needs, and service options.",
+        },
+        {
+            title: "Payment support",
+            text: "Get help with cash on delivery, bank transfer confirmation, and failed checkout attempts.",
+        },
     ];
 
     const faqs = [
@@ -65,9 +77,12 @@ const SupportPage: React.FC = () => {
         <Layout>
             <Helmet>
                 <title>Support | Digital-E</title>
-                <meta name="description" content="Get help with Digital-E orders, payments, products, warranties, and account support." />
+                <meta
+                    name="description"
+                    content="Get help with Digital-E orders, payments, products, warranties, and account support."
+                />
             </Helmet>
-            <main className="support">
+            <main className="support info-page">
                 <header className="support__hero">
                     <img
                         src={heroImageSource.src}
@@ -79,13 +94,13 @@ const SupportPage: React.FC = () => {
                         fetchPriority="high"
                         decoding="async"
                     />
-                    <span className="support__hero__badge">Support Center</span>
-                    <h1>Help that keeps your order moving.</h1>
+                    <span className="info-page__hero-badge">Support Center</span>
+                    <h1>Clear help before, during, and after every order.</h1>
                     <p>
-                        Find quick answers, contact our support team, or review the practical guides customers need most
-                        before and after checkout.
+                        Get fast answers, practical guidance, and direct support for orders, payments, warranties, and
+                        account questions.
                     </p>
-                    <div className="support__hero__actions">
+                    <div className="support__hero__actions info-page__actions">
                         <Link to="/orders">View order history</Link>
                         <Link to="/contact-us" className="ghost">
                             Contact us
@@ -94,7 +109,7 @@ const SupportPage: React.FC = () => {
                 </header>
 
                 <section className="support__channels" aria-labelledby="support-contact-heading">
-                    <div className="support__section-heading">
+                    <div className="support__section-heading info-page__section-heading">
                         <span>Contact</span>
                         <h2 id="support-contact-heading">Choose the fastest way to reach us</h2>
                     </div>
@@ -111,7 +126,7 @@ const SupportPage: React.FC = () => {
                 </section>
 
                 <section className="support__resources">
-                    <div className="support__section-heading">
+                    <div className="support__section-heading info-page__section-heading">
                         <span>Self service</span>
                         <h2>Popular support topics</h2>
                     </div>
@@ -126,7 +141,7 @@ const SupportPage: React.FC = () => {
                 </section>
 
                 <section className="support__faq">
-                    <div className="support__section-heading">
+                    <div className="support__section-heading info-page__section-heading">
                         <span>FAQ</span>
                         <h2>Answers customers ask for most often</h2>
                     </div>

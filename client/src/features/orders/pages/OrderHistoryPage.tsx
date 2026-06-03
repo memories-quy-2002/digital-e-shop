@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet";
 import { useSearchParams } from "react-router-dom";
 import { CartIcon } from "../../../components/common/Icons";
+import EmptyState from "../../../components/common/EmptyState";
 import Layout from "../../../components/layout/Layout";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
-import "../../../styles/OrderHistoryPage.scss";
+import "../../../styles/features/orders/_order-history.scss";
 import { formatUtcDate, formatUtcDateTime } from "../../../utils/dateTime";
 import CustomerAccountShell from "../../users/components/CustomerAccountShell";
 import { addItemsToCustomerCart, fetchCustomerOrderDetail, fetchCustomerOrders } from "../api";
@@ -146,10 +147,30 @@ const OrderHistoryPage = () => {
                     description="Track previous purchases, check payment details, and reorder available products."
                 />
 
+                <section className="order-history__summary" aria-label="Order history summary">
+                    <article>
+                        <span>Total orders</span>
+                        <strong>{orders.length}</strong>
+                    </article>
+                    <article>
+                        <span>Current page</span>
+                        <strong>{currentPage}</strong>
+                    </article>
+                    <article>
+                        <span>Selected order</span>
+                        <strong>{selectedOrder ? `#${selectedOrder.id}` : "None"}</strong>
+                    </article>
+                </section>
+
                 {orders.length === 0 ? (
                     <section className="order-history__empty">
-                        <h2>No orders yet</h2>
-                        <p>Your completed checkout history will appear here.</p>
+                        <EmptyState
+                            title="No orders yet"
+                            description="Your completed checkout history will appear here once you place your first order."
+                            actionLabel="Start shopping"
+                            actionTo="/shops"
+                            compact
+                        />
                     </section>
                 ) : (
                     <section className="order-history__layout">
@@ -177,7 +198,10 @@ const OrderHistoryPage = () => {
                                     >
                                         <strong>Order #{order.id}</strong>
                                         <span>{formatUtcDate(order.date_added)}</span>
-                                        <small>{formatCurrency(Math.max(order.total_price - order.discount, 0))}</small>
+                                        <div className="order-history__order-button-meta">
+                                            <em>{getStatusLabel(order.status)}</em>
+                                            <small>{formatCurrency(Math.max(order.total_price - order.discount, 0))}</small>
+                                        </div>
                                     </button>
                                 ))}
                             </div>

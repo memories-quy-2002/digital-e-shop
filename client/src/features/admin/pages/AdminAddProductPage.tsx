@@ -1,10 +1,10 @@
-import { Button, Form } from "react-bootstrap";
-import AdminLayout from "../../../components/layout/AdminLayout";
 import React, { useState } from "react";
-import axios from "../../../api/axios";
-import { useToast } from "../../../context/ToastContext";
-import { useNavigate } from "react-router-dom";
+import { Form } from "react-bootstrap";
 import { Helmet } from "react-helmet";
+import { useNavigate } from "react-router-dom";
+import axios from "../../../api/axios";
+import AdminLayout from "../../../components/layout/AdminLayout";
+import { useToast } from "../../../context/ToastContext";
 import { highlightsFromText, rowsFromText, serializeProductDetails } from "../../../utils/productDetails";
 
 interface ProductData {
@@ -165,185 +165,205 @@ const AdminAddProductPage = () => {
                     </div>
                     <div className="admin__card__body">
                         <Form onSubmit={handleSubmit}>
-                            <div className="admin__form-grid">
-                                <div>
-                                    <Form.Group className="mb-3" controlId="formProductName">
+                            <section className="admin__form-section">
+                                <div className="admin__form-section__header">
+                                    <h4>Core content</h4>
+                                    <p>Name, description, image, and specification copy for the storefront.</p>
+                                </div>
+                                <div className="admin__form-grid">
+                                    <div>
+                                        <Form.Group className="mb-3" controlId="formProductName">
+                                            <Form.Label>
+                                                Product Name <span className="required">*</span>
+                                            </Form.Label>
+                                            <Form.Control
+                                                type="text"
+                                                placeholder="Enter product name"
+                                                name="name"
+                                                value={productData.name}
+                                                onChange={handleInputChange}
+                                            />
+                                        </Form.Group>
+
+                                        <Form.Group className="mb-3" controlId="formDescription">
+                                            <Form.Label>
+                                                Description <span className="required">*</span>
+                                            </Form.Label>
+                                            <Form.Control
+                                                as="textarea"
+                                                rows={6}
+                                                name="description"
+                                                placeholder="Write a short description..."
+                                                value={productData.description}
+                                                onChange={handleInputChange}
+                                            />
+                                        </Form.Group>
+                                    </div>
+
+                                    <div>
+                                        <Form.Group className="mb-3" controlId="formImage">
+                                            <Form.Label>
+                                                Product Image <span className="required">*</span>
+                                            </Form.Label>
+                                            <Form.Control
+                                                type="file"
+                                                accept="image/*"
+                                                name="image"
+                                                onChange={handleImageChange}
+                                            />
+                                            <Form.Text className="text-muted">
+                                                Upload a high-quality image (JPG, PNG)
+                                            </Form.Text>
+                                            <div className="admin__form-upload">
+                                                <button
+                                                    type="button"
+                                                    className="admin__button admin__button--ghost"
+                                                    onClick={handleUploadToBlob}
+                                                    disabled={uploading}
+                                                >
+                                                    {uploading ? "Uploading..." : "Upload to Blob"}
+                                                </button>
+                                                {productData.imageUrl ? (
+                                                    <span className="admin__form-upload__status">Uploaded</span>
+                                                ) : null}
+                                            </div>
+                                            {productData.imageUrl ? (
+                                                <div className="admin__form-upload__preview">
+                                                    <img src={productData.imageUrl} alt="Uploaded preview" />
+                                                </div>
+                                            ) : null}
+                                        </Form.Group>
+
+                                        <Form.Group className="mb-3" controlId="formSpecifications">
+                                            <Form.Label>Specifications</Form.Label>
+                                            <Form.Control
+                                                as="textarea"
+                                                rows={6}
+                                                placeholder={"Processor: Intel Core i7\nMemory: 16GB\nStorage: 1TB SSD"}
+                                                name="specifications"
+                                                value={productData.specifications}
+                                                onChange={handleInputChange}
+                                            />
+                                        </Form.Group>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section className="admin__form-section">
+                                <div className="admin__form-section__header">
+                                    <h4>Product metadata</h4>
+                                    <p>Model details, warranty, datasheet, and customer-facing highlights.</p>
+                                </div>
+                                <div className="admin__form-grid admin__form-grid--compact">
+                                    <Form.Group className="mb-3" controlId="formModel">
+                                        <Form.Label>Model</Form.Label>
+                                        <Form.Control
+                                            type="text"
+                                            placeholder="Enter model number"
+                                            name="model"
+                                            value={productData.model}
+                                            onChange={handleInputChange}
+                                        />
+                                    </Form.Group>
+
+                                    <Form.Group className="mb-3" controlId="formWarranty">
+                                        <Form.Label>Warranty</Form.Label>
+                                        <Form.Control
+                                            type="text"
+                                            placeholder="12 months, 24 months..."
+                                            name="warranty"
+                                            value={productData.warranty}
+                                            onChange={handleInputChange}
+                                        />
+                                    </Form.Group>
+
+                                    <Form.Group className="mb-3" controlId="formDatasheet">
+                                        <Form.Label>Datasheet URL</Form.Label>
+                                        <Form.Control
+                                            type="url"
+                                            placeholder="https://example.com/manual.pdf"
+                                            name="datasheet"
+                                            value={productData.datasheet}
+                                            onChange={handleInputChange}
+                                        />
+                                    </Form.Group>
+
+                                    <Form.Group className="mb-3" controlId="formHighlights">
+                                        <Form.Label>Customer highlights</Form.Label>
+                                        <Form.Control
+                                            as="textarea"
+                                            rows={4}
+                                            placeholder={
+                                                "Fast charging support\nEnergy efficient design\nQuiet operation"
+                                            }
+                                            name="highlights"
+                                            value={productData.highlights}
+                                            onChange={handleInputChange}
+                                        />
+                                    </Form.Group>
+                                </div>
+                            </section>
+
+                            <section className="admin__form-section">
+                                <div className="admin__form-section__header">
+                                    <h4>Catalog and pricing</h4>
+                                    <p>Category, brand, unit price, and inventory available for sale.</p>
+                                </div>
+                                <div className="admin__form-grid admin__form-grid--compact">
+                                    <Form.Group className="mb-3" controlId="formCategory">
                                         <Form.Label>
-                                            Product Name <span className="required">*</span>
+                                            Category <span className="required">*</span>
                                         </Form.Label>
                                         <Form.Control
                                             type="text"
-                                            placeholder="Enter product name"
-                                            name="name"
-                                            value={productData.name}
+                                            placeholder="Enter category"
+                                            name="category"
+                                            value={productData.category}
                                             onChange={handleInputChange}
                                         />
                                     </Form.Group>
 
-                                    <Form.Group className="mb-3" controlId="formDescription">
+                                    <Form.Group className="mb-3" controlId="formBrand">
                                         <Form.Label>
-                                            Description <span className="required">*</span>
+                                            Brand <span className="required">*</span>
                                         </Form.Label>
                                         <Form.Control
-                                            as="textarea"
-                                            rows={6}
-                                            name="description"
-                                            placeholder="Write a short description..."
-                                            value={productData.description}
+                                            type="text"
+                                            placeholder="Enter brand"
+                                            name="brand"
+                                            value={productData.brand}
+                                            onChange={handleInputChange}
+                                        />
+                                    </Form.Group>
+
+                                    <Form.Group className="mb-3" controlId="formPrice">
+                                        <Form.Label>Price ($)</Form.Label>
+                                        <Form.Control
+                                            type="number"
+                                            placeholder="Enter price"
+                                            name="price"
+                                            value={productData.price}
+                                            onChange={handleInputChange}
+                                        />
+                                    </Form.Group>
+
+                                    <Form.Group className="mb-3" controlId="formInventory">
+                                        <Form.Label>Inventory Quantity</Form.Label>
+                                        <Form.Control
+                                            type="number"
+                                            placeholder="Enter quantity"
+                                            name="inventory"
+                                            value={productData.inventory}
                                             onChange={handleInputChange}
                                         />
                                     </Form.Group>
                                 </div>
-
-                                <div>
-                                    <Form.Group className="mb-3" controlId="formImage">
-                                        <Form.Label>
-                                            Product Image <span className="required">*</span>
-                                        </Form.Label>
-                                        <Form.Control
-                                            type="file"
-                                            accept="image/*"
-                                            name="image"
-                                            onChange={handleImageChange}
-                                        />
-                                        <Form.Text className="text-muted">
-                                            Upload a high-quality image (JPG, PNG)
-                                        </Form.Text>
-                                        <div className="admin__form-upload">
-                                            <button
-                                                type="button"
-                                                className="admin__button admin__button--ghost"
-                                                onClick={handleUploadToBlob}
-                                                disabled={uploading}
-                                            >
-                                                {uploading ? "Uploading..." : "Upload to Blob"}
-                                            </button>
-                                            {productData.imageUrl ? (
-                                                <span className="admin__form-upload__status">Uploaded</span>
-                                            ) : null}
-                                        </div>
-                                        {productData.imageUrl ? (
-                                            <div className="admin__form-upload__preview">
-                                                <img src={productData.imageUrl} alt="Uploaded preview" />
-                                            </div>
-                                        ) : null}
-                                    </Form.Group>
-
-                                    <Form.Group className="mb-3" controlId="formSpecifications">
-                                        <Form.Label>Specifications</Form.Label>
-                                        <Form.Control
-                                            as="textarea"
-                                            rows={6}
-                                            placeholder={"Processor: Intel Core i7\nMemory: 16GB\nStorage: 1TB SSD"}
-                                            name="specifications"
-                                            value={productData.specifications}
-                                            onChange={handleInputChange}
-                                        />
-                                    </Form.Group>
-                                </div>
-                            </div>
-
-                            <div className="admin__form-grid admin__form-grid--compact">
-                                <Form.Group className="mb-3" controlId="formModel">
-                                    <Form.Label>Model</Form.Label>
-                                    <Form.Control
-                                        type="text"
-                                        placeholder="Enter model number"
-                                        name="model"
-                                        value={productData.model}
-                                        onChange={handleInputChange}
-                                    />
-                                </Form.Group>
-
-                                <Form.Group className="mb-3" controlId="formWarranty">
-                                    <Form.Label>Warranty</Form.Label>
-                                    <Form.Control
-                                        type="text"
-                                        placeholder="12 months, 24 months..."
-                                        name="warranty"
-                                        value={productData.warranty}
-                                        onChange={handleInputChange}
-                                    />
-                                </Form.Group>
-
-                                <Form.Group className="mb-3" controlId="formDatasheet">
-                                    <Form.Label>Datasheet URL</Form.Label>
-                                    <Form.Control
-                                        type="url"
-                                        placeholder="https://example.com/manual.pdf"
-                                        name="datasheet"
-                                        value={productData.datasheet}
-                                        onChange={handleInputChange}
-                                    />
-                                </Form.Group>
-
-                                <Form.Group className="mb-3" controlId="formHighlights">
-                                    <Form.Label>Customer highlights</Form.Label>
-                                    <Form.Control
-                                        as="textarea"
-                                        rows={4}
-                                        placeholder={"Fast charging support\nEnergy efficient design\nQuiet operation"}
-                                        name="highlights"
-                                        value={productData.highlights}
-                                        onChange={handleInputChange}
-                                    />
-                                </Form.Group>
-                            </div>
-
-                            <div className="admin__form-grid admin__form-grid--compact">
-                                <Form.Group className="mb-3" controlId="formCategory">
-                                    <Form.Label>
-                                        Category <span className="required">*</span>
-                                    </Form.Label>
-                                    <Form.Control
-                                        type="text"
-                                        placeholder="Enter category"
-                                        name="category"
-                                        value={productData.category}
-                                        onChange={handleInputChange}
-                                    />
-                                </Form.Group>
-
-                                <Form.Group className="mb-3" controlId="formBrand">
-                                    <Form.Label>
-                                        Brand <span className="required">*</span>
-                                    </Form.Label>
-                                    <Form.Control
-                                        type="text"
-                                        placeholder="Enter brand"
-                                        name="brand"
-                                        value={productData.brand}
-                                        onChange={handleInputChange}
-                                    />
-                                </Form.Group>
-
-                                <Form.Group className="mb-3" controlId="formPrice">
-                                    <Form.Label>Price ($)</Form.Label>
-                                    <Form.Control
-                                        type="number"
-                                        placeholder="Enter price"
-                                        name="price"
-                                        value={productData.price}
-                                        onChange={handleInputChange}
-                                    />
-                                </Form.Group>
-
-                                <Form.Group className="mb-3" controlId="formInventory">
-                                    <Form.Label>Inventory Quantity</Form.Label>
-                                    <Form.Control
-                                        type="number"
-                                        placeholder="Enter quantity"
-                                        name="inventory"
-                                        value={productData.inventory}
-                                        onChange={handleInputChange}
-                                    />
-                                </Form.Group>
-                            </div>
+                            </section>
 
                             <div className="admin__form-actions">
-                                <Button variant="success" size="lg" type="submit">
+                                <button type="submit" className="admin__button admin__button--success">
                                     Save Product
-                                </Button>
+                                </button>
                             </div>
                         </Form>
                     </div>
@@ -354,4 +374,3 @@ const AdminAddProductPage = () => {
 };
 
 export default AdminAddProductPage;
-

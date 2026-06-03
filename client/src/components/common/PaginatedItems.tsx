@@ -262,35 +262,40 @@ const PaginatedItems = ({
                     </div>
                 )
             ) : (
-                <div className="shops__empty">
+                <div className="shops__empty app-empty-state">
                     <strong>
                         {isWishlistPage
                             ? "There is no product in your wishlist"
                             : "There is no product matched the filters"}
                     </strong>
+                    {!isWishlistPage ? (
+                        <p>Try adjusting your search term, brand selection, or price range.</p>
+                    ) : null}
                 </div>
             )}
-            <div className="shops__pagination-wrap">
-                <ReactPaginate
-                    className="shops__pagination"
-                    pageClassName="pagination__item"
-                    pageLinkClassName="pagination__link"
-                    previousClassName="pagination__item"
-                    nextClassName="pagination__item"
-                    breakClassName="pagination__item"
-                    activeClassName="selected"
-                    disabledClassName="disabled"
-                    breakLabel="..."
-                    nextLabel="Next"
-                    onPageChange={handlePageClick}
-                    pageRangeDisplayed={5}
-                    pageCount={pageCountToUse}
-                    previousLabel="Previous"
-                    forcePage={serverSide && currentPage ? currentPage - 1 : undefined}
-                    ariaLabelBuilder={(index) => `Page-${index}`}
-                    renderOnZeroPageCount={null}
-                />
-            </div>
+            {pageCountToUse > 1 ? (
+                <div className="shops__pagination-wrap">
+                    <ReactPaginate
+                        className="shops__pagination"
+                        pageClassName="pagination__item"
+                        pageLinkClassName="pagination__link"
+                        previousClassName="pagination__item"
+                        nextClassName="pagination__item"
+                        breakClassName="pagination__item"
+                        activeClassName="selected"
+                        disabledClassName="disabled"
+                        breakLabel="..."
+                        nextLabel="Next"
+                        onPageChange={handlePageClick}
+                        pageRangeDisplayed={5}
+                        pageCount={pageCountToUse}
+                        previousLabel="Previous"
+                        forcePage={serverSide && currentPage ? currentPage - 1 : undefined}
+                        ariaLabelBuilder={(index) => `Page-${index}`}
+                        renderOnZeroPageCount={null}
+                    />
+                </div>
+            ) : null}
         </div>
     );
 };
