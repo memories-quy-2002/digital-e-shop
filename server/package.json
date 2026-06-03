@@ -2,22 +2,35 @@
     "name": "server",
     "version": "1.0.0",
     "description": "Backend server for the e-commerce system selling electronic components and devices",
-    "main": "dist/src/app.js",
+    "main": "dist/src/server.js",
     "scripts": {
-        "start": "node dist/src/app.js",
-        "dev": "tsx watch src/app.ts",
-        "serve:ts": "tsx src/app.ts",
+        "start": "node dist/src/server.js",
+        "dev": "node --watch --conditions=development --import tsx ./src/server.ts",
+        "serve:ts": "node --conditions=development --import tsx ./src/server.ts",
         "build": "tsc -p tsconfig.json",
         "typecheck": "tsc -p tsconfig.json --noEmit",
         "lint": "eslint src api --ext .js,.mjs,.cjs,.ts,.mts,.cts --format=stylish",
-        "seed:mock": "node scripts/seedMockOrdersReviews.js",
+        "prisma": "prisma",
+        "prisma:generate": "prisma generate",
+        "prisma:migrate": "prisma migrate dev",
+        "seed:mock": "node src/database/seeders/seedMockOrdersReviews.js",
         "perf:readonly": "k6 run test/performance-test.js",
         "perf:admin-readonly": "k6 run test/k6-admin-readonly.js",
         "perf:customer-readonly": "k6 run test/k6-customer-readonly.js"
     },
+    "imports": {
+        "#/*": {
+            "development": "./src/*.ts",
+            "default": "./dist/src/*.js"
+        }
+    },
+    "prisma": {
+        "schema": "src/database/prisma/schema.prisma"
+    },
     "author": "",
     "license": "ISC",
     "dependencies": {
+        "@prisma/client": "^6.9.0",
         "@vercel/blob": "^2.4.0",
         "axios": "^1.16.1",
         "bcryptjs": "^3.0.3",
@@ -37,6 +50,8 @@
         "mysql2": "^3.22.4",
         "p-limit": "^7.3.0",
         "path": "^0.12.7",
+        "passport": "^0.7.0",
+        "passport-google-oauth20": "^2.0.0",
         "sharp": "^0.34.5",
         "streamifier": "^0.1.1",
         "zod": "^4.4.3"
@@ -49,9 +64,12 @@
         "@types/jsonwebtoken": "^9.0.10",
         "@types/multer": "^2.1.0",
         "@types/node": "^25.9.1",
+        "@types/passport": "^1.0.17",
+        "@types/passport-google-oauth20": "^2.0.16",
         "eslint": "^10.4.1",
         "eslint-plugin-react": "^7.37.5",
         "globals": "^17.6.0",
+        "prisma": "^6.9.0",
         "prettier": "^3.8.3",
         "tsx": "^4.22.4",
         "typescript": "^6.0.3",
