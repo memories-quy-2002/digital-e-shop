@@ -1,16 +1,17 @@
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { AxiosError } from "axios";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Form } from "react-bootstrap";
 import { Helmet } from "react-helmet";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import authImage from "../../../assets/images/background_form.jpg";
 import { useToast } from "../../../context/ToastContext";
 import http from "../../../lib/http";
-import { auth } from "../../../services/firebase";
-import "../../../styles/SignupPage.scss";
+import { createFirebaseUser, signInWithFirebaseEmail } from "../../../services/firebase";
+import "../../../styles/features/auth/_signup.scss";
 import { PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../../../utils/images";
 import { Role } from "../../../utils/interface";
+import SocialAuthButtons from "../components/SocialAuthButtons";
+import { getSocialAuthMessage } from "../utils/socialAuth";
 import { EyeIcon, EyeOffIcon, ShieldIcon } from "../../../components/common/Icons";
 
 interface User {
@@ -23,6 +24,7 @@ interface User {
 
 const SignupPage = () => {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { addToast } = useToast();
     const [user, setUser] = useState<User>({
         username: "",
@@ -61,6 +63,19 @@ const SignupPage = () => {
             !isSubmitting,
         [isSubmitting, user.confirm, user.email, user.password, user.username],
     );
+
+    useEffect(() => {
+        const message = getSocialAuthMessage(searchParams.get("socialAuth"));
+        if (!message) {
+            return;
+        }
+
+        setErrors([message]);
+        addToast("Social signup", message);
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete("socialAuth");
+        setSearchParams(nextParams, { replace: true });
+    }, [addToast, searchParams, setSearchParams]);
 
     const validateForm = (): string[] => {
         const errorsList: string[] = [];
@@ -119,12 +134,12 @@ const SignupPage = () => {
         try {
             let uid = "";
             try {
-                const userCredential = await createUserWithEmailAndPassword(auth, user.email, user.password);
+                const userCredential = await createFirebaseUser(user.email, user.password);
                 uid = userCredential.user.uid;
             } catch (err: unknown) {
                 const error = err as { code?: string };
                 if (error.code === "auth/email-already-in-use") {
-                    const userCredential = await signInWithEmailAndPassword(auth, user.email, user.password);
+                    const userCredential = await signInWithFirebaseEmail(user.email, user.password);
                     uid = userCredential.user.uid;
                 } else {
                     throw err;
@@ -198,6 +213,7 @@ const SignupPage = () => {
                     </div>
                     <h1 className="signup__form__title">Create new account</h1>
                     <p className="signup__form__subtitle">Save your cart, wishlist products, and track orders.</p>
+                    <SocialAuthButtons intent="signup" role={user.role} disabled={user.role === Role.Admin} />
                     <Form className="signup__form__container" onSubmit={handleSubmit} name="signup-form" aria-label="signup-form">
                         <Form.Group className="signup__form__container__group mb-3" controlId="formBasicUserName">
                             <Form.Label>Username</Form.Label>

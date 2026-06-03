@@ -11,6 +11,7 @@ type Filters = {
 
 interface AsideShopsProps {
     products: Product[];
+    filteredCount: number;
     categories: string[];
     brands: string[];
     filters: Filters;
@@ -21,6 +22,7 @@ interface AsideShopsProps {
 
 const AsideShops = ({
     products,
+    filteredCount,
     categories,
     brands,
     filters,
@@ -29,7 +31,7 @@ const AsideShops = ({
     onApplyFilters,
 }: AsideShopsProps) => {
     const [priceRange, setPriceRange] = useState<[number, number]>(filters.priceRange);
-    const visibleProductCount = products.length;
+    const visibleProductCount = filteredCount || products.length;
     const sliderMax = Math.max(filters.priceRange[1], 5000);
 
     useEffect(() => {
@@ -141,7 +143,7 @@ const AsideShops = ({
             </section>
             <button
                 type="button"
-                className="btn btn-info shops__filters-button"
+                className="shops__filters-button"
                 onClick={() => onApplyFilters()}
             >
                 Apply

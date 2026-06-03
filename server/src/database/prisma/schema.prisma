@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @db.VarChar(255)
+  username   String   @db.VarChar(16)
+  email      String   @db.VarChar(255)
+  password   String   @db.VarChar(255)
+  role       String   @db.VarChar(16)
+  token      String   @db.Text
+  firstName  String?  @map("first_name") @db.Text
+  lastName   String?  @map("last_name") @db.Text
+  status     String   @default("Active") @db.VarChar(20)
+  createdAt  DateTime @map("created_at") @default(now()) @db.DateTime(0)
+  lastLogin  DateTime @map("last_login") @default(now()) @db.DateTime(0)
+
+  orders  Order[]
+  carts   Cart[]
+  reviews Review[]
+
+  @@map("users")
+}
+
+model Product {
+  id             Int      @id @default(autoincrement())
+  name           String   @db.VarChar(255)
+  description    String   @default("No description available") @db.VarChar(255)
+  mainImage      String?  @map("main_image") @db.VarChar(255)
+  categoryId     Int      @map("category_id")
+  brandId        Int      @map("brand_id")
+  specifications String?  @db.Text
+  price          Decimal  @db.Decimal(10, 2)
+  salePrice      Decimal? @map("sale_price") @db.Decimal(10, 2)
+  stock          Int      @default(0)
+  createdAt      DateTime @map("created_at") @default(now()) @db.DateTime(0)
+  updatedAt      DateTime @map("updated_at") @default(now()) @db.DateTime(0)
+
+  reviews    Review[]
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@map("products")
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  userId     String   @map("user_id") @db.VarChar(255)
+  productId  Int      @map("product_id")
+  rating     Int
+  reviewText String?  @map("review_text") @db.Text
+  createdAt  DateTime @map("created_at") @default(now()) @db.Timestamp(0)
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("reviews")
+}
+
+model Cart {
+  id        Int      @id @default(autoincrement())
+  userId    String   @map("user_id") @db.VarChar(255)
+  createdAt DateTime @map("created_at") @default(now()) @db.DateTime(0)
+  done      Int      @default(0) @db.TinyInt
+
+  user  User       @relation(fields: [userId], references: [id])
+  items CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  cartId    Int      @map("cart_id")
+  productId Int      @map("product_id")
+  quantity  Int
+  createdAt DateTime @map("created_at") @default(now()) @db.DateTime(0)
+
+  cart    Cart    @relation(fields: [cartId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([cartId, productId], map: "uq_cart_items_carts_id_products_id")
+  @@map("cart_items")
+}
+
+model Discount {
+  id              Int       @id @default(autoincrement())
+  discountCode    String    @map("discount_code") @db.VarChar(50)
+  description     String?   @db.Text
+  discountPercent Decimal   @map("discount_percent") @db.Decimal(5, 2)
+  active          Boolean   @default(true) @db.TinyInt
+  minOrderValue   Decimal   @map("min_order_value") @default(0) @db.Decimal(10, 2)
+  startsAt        DateTime? @map("starts_at") @db.DateTime(0)
+  expiresAt       DateTime? @map("expires_at") @db.DateTime(0)
+  usageLimit      Int?      @map("usage_limit")
+
+  @@unique([discountCode], map: "uq_discounts_code")
+  @@map("discounts")
+}
+
+model Order {
+  id              Int      @id @default(autoincrement())
+  userId          String   @map("user_id") @db.VarChar(255)
+  totalPrice      Decimal  @map("total_price") @db.Decimal(11, 2)
+  discount        Decimal  @default(0) @db.Decimal(11, 2)
+  shippingAddress String   @map("shipping_address") @db.Text
+  paymentMethod   String   @map("payment_method") @default("cash") @db.VarChar(32)
+  dateAdded       DateTime @map("date_added") @default(now()) @db.DateTime(0)
+  status          Int      @default(0)
+
+  user  User        @relation(fields: [userId], references: [id])
+  items OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id         Int     @id @default(autoincrement())
+  orderId    Int     @map("order_id")
+  productId  Int     @map("product_id")
+  quantity   Int
+  totalPrice Decimal @map("total_price") @default(0) @db.Decimal(11, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([orderId, productId], map: "uq_order_items_order_id_product_id")
+  @@map("order_items")
+}

@@ -2,9 +2,11 @@ import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
+import { HouseIcon } from "../../../components/common/Icons";
+import EmptyState from "../../../components/common/EmptyState";
 import Layout from "../../../components/layout/Layout";
 import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
-import "../../../styles/AddressBookPage.scss";
+import "../../../styles/features/users/_address-book.scss";
 import CustomerAccountShell from "../components/CustomerAccountShell";
 import {
     CustomerAddress,
@@ -147,12 +149,28 @@ const AddressBookPage = () => {
                     description="Save delivery addresses and select a default address for faster checkout."
                 />
 
+                <section className="address-book__summary" aria-label="Address book summary">
+                    <article>
+                        <span>Saved addresses</span>
+                        <strong>{addresses.length}</strong>
+                    </article>
+                    <article>
+                        <span>Default address</span>
+                        <strong>{addresses.some((address) => address.is_default) ? "Configured" : "Not set"}</strong>
+                    </article>
+                    <article>
+                        <span>Checkout ready</span>
+                        <strong>{addresses.length > 0 ? "Yes" : "Add one"}</strong>
+                    </article>
+                </section>
+
                 <section className="address-book__layout">
                     <div className="address-book__form">
                         <div className="address-book__form-header">
                             <div>
                                 <span>{form.id ? "Editing address" : "New address"}</span>
                                 <h2>{form.id ? form.label || "Saved address" : "Add address"}</h2>
+                                <p>Keep recipient details and delivery locations ready for future checkout.</p>
                             </div>
                             {form.id ? (
                                 <button type="button" onClick={() => setForm(emptyForm)}>
@@ -235,7 +253,13 @@ const AddressBookPage = () => {
                                 </article>
                             ))
                         ) : (
-                            <div className="address-book__empty">No saved addresses yet.</div>
+                            <EmptyState
+                                className="address-book__empty"
+                                title="No saved addresses yet"
+                                description="Add your first delivery location to make checkout faster and keep shipping details consistent."
+                                icon={<HouseIcon size={20} />}
+                                compact
+                            />
                         )}
                     </div>
                 </section>

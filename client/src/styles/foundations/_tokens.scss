@@ -1,0 +1,64 @@
+:root {
+    color-scheme: light;
+
+    --de-font-family-sans: "Manrope", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    --de-font-family-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+    --de-color-bg: #f3eee4;
+    --de-color-bg-elevated: #fbf8f2;
+    --de-color-bg-muted: #f8f4ec;
+    --de-color-bg-strong: #152235;
+    --de-color-surface: rgba(251, 248, 242, 0.96);
+    --de-color-surface-strong: #fffdf8;
+    --de-color-border: rgba(99, 108, 122, 0.2);
+    --de-color-border-strong: rgba(78, 87, 102, 0.34);
+
+    --de-color-text: #172334;
+    --de-color-text-soft: #3f4c5f;
+    --de-color-text-muted: #6c7686;
+    --de-color-text-inverse: #f7f3eb;
+
+    --de-color-primary: #2d517d;
+    --de-color-primary-strong: #1f3b5e;
+    --de-color-primary-soft: #d9e3ef;
+    --de-color-primary-tint: #eaf0f6;
+    --de-color-success: #2d6b4a;
+    --de-color-success-soft: #ddeadd;
+    --de-color-danger: #b24a3f;
+    --de-color-danger-soft: #f2dfdb;
+    --de-color-warning: #b3822e;
+    --de-color-warning-soft: #f4e6c8;
+    --de-color-info: #2f5f68;
+    --de-color-info-soft: #dbe8ea;
+
+    --de-gradient-hero: linear-gradient(135deg, #203654 0%, #2d517d 62%, #4d6c96 100%);
+    --de-gradient-shell: radial-gradient(circle at top, rgba(45, 81, 125, 0.1), transparent 30%);
+
+    --de-shadow-xs: 0 1px 2px rgba(23, 35, 52, 0.05);
+    --de-shadow-sm: 0 8px 18px rgba(23, 35, 52, 0.07);
+    --de-shadow-md: 0 18px 36px rgba(23, 35, 52, 0.09);
+    --de-shadow-lg: 0 24px 48px rgba(23, 35, 52, 0.12);
+    --de-shadow-focus: 0 0 0 4px rgba(45, 81, 125, 0.16);
+
+    --de-radius-xs: 8px;
+    --de-radius-sm: 12px;
+    --de-radius-md: 16px;
+    --de-radius-lg: 22px;
+    --de-radius-pill: 999px;
+
+    --de-space-1: 0.25rem;
+    --de-space-2: 0.5rem;
+    --de-space-3: 0.75rem;
+    --de-space-4: 1rem;
+    --de-space-5: 1.25rem;
+    --de-space-6: 1.5rem;
+    --de-space-7: 2rem;
+    --de-space-8: 2.5rem;
+    --de-space-9: 3rem;
+
+    --de-transition-fast: 0.18s ease;
+    --de-transition-base: 0.24s ease;
+
+    --de-max-width-app: 1440px;
+    --de-max-width-content: 1280px;
+}

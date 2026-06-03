@@ -273,23 +273,26 @@ const AdminPromotionsPage = () => {
                 </section>
 
                 <section className="admin__card">
-                    <div className="admin__card__header">
+                    <div className="admin__card__header admin__card__header--stacked">
                         <div>
                             <h3>Promotion list</h3>
                             <span>{filteredPromotions.length} matching rules</span>
                         </div>
-                        <div className="admin__filters">
-                            <input
-                                value={searchTerm}
-                                onChange={(event) => setSearchTerm(event.target.value)}
-                                placeholder="Search promotion code"
-                            />
-                            <button type="button" className="admin__button admin__button--ghost" onClick={() => setSearchTerm("")}>
-                                Clear
-                            </button>
+                        <div className="admin__list-toolbar">
+                            <div className="admin__filters">
+                                <input
+                                    value={searchTerm}
+                                    onChange={(event) => setSearchTerm(event.target.value)}
+                                    placeholder="Search promotion code"
+                                />
+                                <button type="button" className="admin__button admin__button--ghost" onClick={() => setSearchTerm("")}>
+                                    Clear
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div className="admin__card__body">
+                    <div className="admin__card__body admin__list-shell">
+                        <div className="admin__table-wrap">
                         <Table responsive hover borderless className="admin__table">
                             <thead>
                                 <tr>
@@ -338,6 +341,7 @@ const AdminPromotionsPage = () => {
                                 ))}
                             </tbody>
                         </Table>
+                        </div>
                     </div>
                 </section>
                 <ConfirmActionModal

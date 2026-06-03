@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet";
 import axios from "../api/axios";
+import EmptyState from "../components/common/EmptyState";
 import WishlistItem from "../components/common/WishlistItem";
 import ConfirmActionModal from "../components/common/ConfirmActionModal";
 import Layout from "../components/layout/Layout";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import "../styles/WishlistPage.scss";
+import { HeartFillIcon } from "../components/common/Icons";
+import "../styles/pages/_wishlist.scss";
 import { Product } from "../utils/interface";
 
 interface Wishlist {
@@ -176,14 +178,36 @@ const WishlistPage = () => {
                     content="Save products you love and quickly add them to your cart when you're ready."
                 />
             </Helmet>
-            <main className="wishlist">
+            <main className="wishlist app-page">
                 <header className="wishlist__header">
                     <div>
                         <span>Saved products</span>
                         <h1>My Wishlist</h1>
                         <p>Watch sale prices, stock changes, and move ready-to-buy items into your cart.</p>
                     </div>
-                    {wishlist.length > 0 ? (
+                    <div className="wishlist__summary app-card">
+                        <article>
+                            <span>Saved</span>
+                            <strong>{wishlist.length}</strong>
+                        </article>
+                        <article>
+                            <span>Selected</span>
+                            <strong>{selectedIds.length}</strong>
+                        </article>
+                        <article>
+                            <span>Available</span>
+                            <strong>{wishlist.filter((item) => item.product.stock > 0).length}</strong>
+                        </article>
+                    </div>
+                </header>
+
+                {wishlist.length > 0 ? (
+                    <section className="wishlist__toolbar app-card" aria-label="Wishlist bulk actions">
+                        <div className="wishlist__toolbar__copy">
+                            <small>Bulk actions</small>
+                            <strong>Manage saved products faster</strong>
+                            <span>Select items to move available products to cart or remove them together.</span>
+                        </div>
                         <div className="wishlist__actions">
                             <button type="button" onClick={handleSelectAll}>
                                 {selectedIds.length === wishlist.length ? "Clear selection" : "Select all"}
@@ -200,11 +224,18 @@ const WishlistPage = () => {
                                 Remove selected
                             </button>
                         </div>
-                    ) : null}
-                </header>
+                    </section>
+                ) : null}
 
                 {wishlist.length === 0 ? (
-                    <div className="wishlist__empty">Your wishlist is empty.</div>
+                    <EmptyState
+                        className="wishlist__empty"
+                        icon={<HeartFillIcon size={20} />}
+                        title="Your wishlist is empty"
+                        description="Save products you want to revisit later, then move them into the cart when stock and pricing look right."
+                        actionLabel="Browse products"
+                        actionTo="/shops"
+                    />
                 ) : (
                     <section className="wishlist__main">
                         {wishlist.map((item) => (

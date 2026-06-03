@@ -1,0 +1,126 @@
+:root {
+    --bs-body-font-family: var(--de-font-family-sans);
+    --bs-body-color: var(--de-color-text);
+    --bs-body-bg: var(--de-color-bg);
+    --bs-primary: var(--de-color-primary);
+    --bs-primary-rgb: 45, 81, 125;
+    --bs-secondary-color: var(--de-color-text-muted);
+    --bs-border-color: var(--de-color-border);
+    --bs-border-radius: var(--de-radius-sm);
+    --bs-border-radius-lg: var(--de-radius-md);
+    --bs-border-radius-xl: var(--de-radius-lg);
+    --bs-link-color: var(--de-color-primary-strong);
+    --bs-link-hover-color: #172b45;
+    --bs-box-shadow-sm: var(--de-shadow-xs);
+    --bs-box-shadow: var(--de-shadow-md);
+    --bs-box-shadow-lg: var(--de-shadow-lg);
+    --bs-focus-ring-color: rgba(45, 81, 125, 0.2);
+}
+
+.btn,
+button.btn {
+    --bs-btn-border-radius: var(--de-radius-sm);
+    --bs-btn-padding-x: 1rem;
+    --bs-btn-padding-y: 0.72rem;
+    --bs-btn-font-weight: 800;
+    --bs-btn-box-shadow: var(--de-shadow-xs);
+    letter-spacing: 0.01em;
+}
+
+.btn-primary {
+    --bs-btn-bg: var(--de-color-primary);
+    --bs-btn-border-color: var(--de-color-primary);
+    --bs-btn-hover-bg: var(--de-color-primary-strong);
+    --bs-btn-hover-border-color: var(--de-color-primary-strong);
+    --bs-btn-active-bg: var(--de-color-primary-strong);
+    --bs-btn-active-border-color: var(--de-color-primary-strong);
+}
+
+.btn-outline-secondary {
+    --bs-btn-color: var(--de-color-text-soft);
+    --bs-btn-border-color: var(--de-color-border-strong);
+    --bs-btn-hover-bg: var(--de-color-bg-elevated);
+    --bs-btn-hover-color: var(--de-color-text);
+    --bs-btn-hover-border-color: rgba(45, 81, 125, 0.22);
+}
+
+.form-control,
+.form-select {
+    min-height: 46px;
+    border-color: var(--de-color-border);
+    border-radius: var(--de-radius-sm);
+    background: rgba(255, 253, 248, 0.92);
+    color: var(--de-color-text);
+    box-shadow: none;
+    transition:
+        border-color var(--de-transition-fast),
+        box-shadow var(--de-transition-fast),
+        background-color var(--de-transition-fast);
+
+    &:focus {
+        border-color: rgba(45, 81, 125, 0.34);
+        background: #fffdf8;
+        box-shadow: var(--de-shadow-focus);
+    }
+}
+
+.form-check-input {
+    border-color: rgba(148, 163, 184, 0.42);
+
+    &:checked {
+        background-color: var(--de-color-primary);
+        border-color: var(--de-color-primary);
+    }
+}
+
+.modal-content {
+    border: 1px solid var(--de-color-border);
+    border-radius: var(--de-radius-lg);
+    box-shadow: var(--de-shadow-lg);
+    overflow: hidden;
+}
+
+.modal-header,
+.modal-footer {
+    border-color: rgba(226, 232, 240, 0.9);
+}
+
+.table {
+    --bs-table-bg: transparent;
+    --bs-table-hover-bg: rgba(45, 81, 125, 0.045);
+    --bs-table-border-color: rgba(188, 179, 166, 0.7);
+    color: var(--de-color-text-soft);
+
+    th {
+        color: var(--de-color-text);
+        font-family: var(--de-font-family-mono);
+        font-size: 0.74rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    td {
+        vertical-align: middle;
+    }
+}
+
+.alert {
+    border-radius: var(--de-radius-sm);
+    border-color: transparent;
+}
+
+.alert-warning {
+    background: var(--de-color-warning-soft);
+    color: #8a611f;
+}
+
+.alert-danger {
+    background: var(--de-color-danger-soft);
+    color: #8f3b34;
+}
+
+.alert-success {
+    background: var(--de-color-success-soft);
+    color: #285f42;
+}

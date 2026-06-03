@@ -44,6 +44,7 @@ type AdminNotification = {
 };
 
 const LOW_STOCK_THRESHOLD = 5;
+const notificationWorkflowSteps = ["Review high-priority alerts", "Resolve the affected workflow", "Clear or defer the signal"];
 
 const formatCurrency = (value: number) =>
     new Intl.NumberFormat("en-US", {
@@ -203,6 +204,7 @@ const AdminNotificationsPage = () => {
             inventory: notifications.filter((item) => item.type === "inventory").length,
             payment: notifications.filter((item) => item.type === "payment").length,
             customer: notifications.filter((item) => item.type === "customer").length,
+            high: notifications.filter((item) => item.priority === "High").length,
         }),
         [notifications],
     );
@@ -253,6 +255,20 @@ const AdminNotificationsPage = () => {
                         <strong>{counts.order + counts.payment}</strong>
                         <p>Customer and payment flow</p>
                     </div>
+                    <div className="admin__summary-card">
+                        <span>Queue health</span>
+                        <strong>{counts.high}</strong>
+                        <p>{counts.all === 0 ? "Everything is clear" : "Prioritize high-impact issues first"}</p>
+                    </div>
+                </section>
+
+                <section className="admin__workflow" aria-label="Notifications workflow">
+                    {notificationWorkflowSteps.map((step, index) => (
+                        <div key={step} className="admin__workflow__step">
+                            <span>{index + 1}</span>
+                            <strong>{step}</strong>
+                        </div>
+                    ))}
                 </section>
 
                 <section className="admin__card">
@@ -285,7 +301,24 @@ const AdminNotificationsPage = () => {
                     </div>
                     <div className="admin__notifications-list">
                         {isLoading ? (
-                            <div className="admin__notifications-empty">Loading notifications...</div>
+                            Array.from({ length: 4 }, (_, index) => (
+                                <article key={`notification-skeleton-${index}`} className="admin__notification admin__notification--loading" aria-hidden="true">
+                                    <div className="admin__notification__icon admin__skeleton" />
+                                    <div className="admin__notification__content">
+                                        <div className="admin__notification__title-row">
+                                            <span className="admin__skeleton admin__notifications-skeleton admin__notifications-skeleton--title" />
+                                            <span className="admin__skeleton admin__notifications-skeleton admin__notifications-skeleton--pill" />
+                                        </div>
+                                        <span className="admin__skeleton admin__notifications-skeleton admin__notifications-skeleton--line" />
+                                        <span className="admin__skeleton admin__notifications-skeleton admin__notifications-skeleton--line admin__notifications-skeleton--line-short" />
+                                        <span className="admin__skeleton admin__notifications-skeleton admin__notifications-skeleton--meta" />
+                                    </div>
+                                    <div className="admin__notification__actions">
+                                        <span className="admin__skeleton admin__notifications-skeleton admin__notifications-skeleton--button" />
+                                        <span className="admin__skeleton admin__notifications-skeleton admin__notifications-skeleton--button" />
+                                    </div>
+                                </article>
+                            ))
                         ) : filteredNotifications.length > 0 ? (
                             filteredNotifications.map((notification) => (
                                 <article
@@ -327,7 +360,11 @@ const AdminNotificationsPage = () => {
                             <div className="admin__notifications-empty">
                                 <BellFillIcon size={34} />
                                 <strong>No matching notifications</strong>
-                                <span>The store is quiet for this filter.</span>
+                                <span>
+                                    {notifications.length === 0
+                                        ? "There are no active operational alerts right now."
+                                        : "Try another filter or clear the search to see more activity."}
+                                </span>
                             </div>
                         )}
                     </div>

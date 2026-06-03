@@ -1,19 +1,12 @@
 import React, { JSX, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import {
-    CartIcon,
-    BellIcon,
-    HeartIcon,
-    PersonIcon,
-    SearchIcon,
-} from "../common/Icons";
+import { CartIcon, BellIcon, HeartIcon, PersonIcon, SearchIcon } from "../common/Icons";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import "../../styles/Header.scss";
+import "../../styles/layout/_header.scss";
 import { useToast } from "../../context/ToastContext";
 import axios from "../../api/axios";
 import { fetchCustomerNotifications } from "../../features/users/api";
-import { signOut } from "firebase/auth";
-import { auth } from "../../services/firebase";
+import { signOutFirebaseUser } from "../../services/firebase";
 import { Product } from "../../utils/interface";
 
 const primaryLinks = [
@@ -22,6 +15,7 @@ const primaryLinks = [
     { label: "About", to: "/about-us" },
     { label: "News", to: "/news" },
     { label: "Support", to: "/support" },
+    { label: "Contact", to: "/contact-us" },
 ];
 
 export const Header = (): JSX.Element => {
@@ -71,7 +65,7 @@ export const Header = (): JSX.Element => {
         try {
             const response = await axios.post("/api/users/logout");
             if (response.status === 200) {
-                await signOut(auth);
+                await signOutFirebaseUser();
                 setUserData(null);
                 addToast("Logout successfully", response.data.msg);
                 navigate("/");
@@ -206,11 +200,7 @@ export const Header = (): JSX.Element => {
 
                     <nav className="header__nav" aria-label="Primary navigation">
                         {primaryLinks.map((link) => (
-                            <Link
-                                key={link.to}
-                                to={link.to}
-                                className={activePath === link.to ? "is-active" : ""}
-                            >
+                            <Link key={link.to} to={link.to} className={activePath === link.to ? "is-active" : ""}>
                                 {link.label}
                             </Link>
                         ))}
@@ -272,7 +262,9 @@ export const Header = (): JSX.Element => {
                                             }}
                                         >
                                             <strong>{product.name}</strong>
-                                            <span>{product.brand} - {product.category}</span>
+                                            <span>
+                                                {product.brand} - {product.category}
+                                            </span>
                                         </button>
                                     ))
                                 ) : (
@@ -301,7 +293,9 @@ export const Header = (): JSX.Element => {
                                 aria-expanded={isProfileMenuOpen}
                             >
                                 <PersonIcon size={20} />
-                                {userData && !loading ? <span className="header__profile__name">{accountDisplayName}</span> : null}
+                                {userData && !loading ? (
+                                    <span className="header__profile__name">{accountDisplayName}</span>
+                                ) : null}
                             </button>
 
                             {isProfileMenuOpen ? (

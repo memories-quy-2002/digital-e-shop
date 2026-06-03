@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import heroImage from "../assets/images/about_us.jpg";
 import Layout from "../components/layout/Layout";
 import { PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../utils/images";
-import "../styles/AboutUsPage.scss";
+import "../styles/pages/_about.scss";
 
 const AboutUsPage: React.FC = () => {
     const heroImageSource = getResponsiveImageSource(heroImage, {
@@ -56,17 +56,16 @@ const AboutUsPage: React.FC = () => {
                     content="Learn more about Digital-E, our mission, and how we build a trusted electronics shopping experience."
                 />
             </Helmet>
-            <main className="about">
+            <main className="about info-page">
                 <section className="about__hero">
                     <div className="about__hero__content">
-                        <span className="about__hero__badge">About Digital-E</span>
-                        <h1>We build a clearer way to shop for everyday technology.</h1>
+                        <span className="info-page__hero-badge">About Digital-E</span>
+                        <h1>Technology shopping should feel informed, calm, and dependable.</h1>
                         <p>
-                            Digital-E is an electronics store designed for people who want useful recommendations,
-                            honest product information, smooth checkout, and support that does not disappear after
-                            delivery.
+                            Digital-E brings together practical product selection, transparent pricing, reliable
+                            checkout, and support that stays useful long after your order is placed.
                         </p>
-                        <div className="about__hero__actions">
+                        <div className="about__hero__actions info-page__actions">
                             <Link to="/shops">Explore products</Link>
                             <Link to="/support" className="ghost">
                                 Get support
@@ -106,7 +105,7 @@ const AboutUsPage: React.FC = () => {
                 </section>
 
                 <section className="about__values">
-                    <div className="about__section-heading">
+                    <div className="about__section-heading info-page__section-heading">
                         <span>Principles</span>
                         <h2>What customers should feel every time they shop</h2>
                     </div>
@@ -146,7 +145,7 @@ const AboutUsPage: React.FC = () => {
                 </section>
 
                 <section className="about__team">
-                    <div className="about__section-heading">
+                    <div className="about__section-heading info-page__section-heading">
                         <span>Team</span>
                         <h2>The groups behind the shopping experience</h2>
                     </div>

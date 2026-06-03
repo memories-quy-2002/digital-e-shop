@@ -6,12 +6,13 @@ import carousel2 from "../assets/images/carousel_2.jpg";
 import carousel3 from "../assets/images/carousel_3.jpg";
 import carousel4 from "../assets/images/carousel_4.jpg";
 import ProductItem from "../components/common/ProductItem";
+import { FeaturedProductSkeletons, ProductGridSkeleton } from "../components/common/StorefrontSkeleton";
 import { ArrowLeftIcon, ArrowRightIcon } from "../components/common/Icons";
 import Layout from "../components/layout/Layout";
 import axios from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import "../styles/HomePage.scss";
+import "../styles/pages/_home.scss";
 import { Product } from "../utils/interface";
 import { HERO_IMAGE_WIDTHS, THUMBNAIL_IMAGE_WIDTHS, getResponsiveImageSource, normalizeProductImageName } from "../utils/images";
 import loadImage from "../utils/loadImage";
@@ -328,6 +329,8 @@ const HomePage = () => {
 
             <main className="home">
                 <section className="home__hero" aria-label="Digital-E featured slides">
+                    <div className="home__hero__inner">
+                    <div className="home__hero__shade" />
                     <div className="home__hero__media" aria-hidden="true">
                         <div
                             className="home__hero__media__track"
@@ -353,7 +356,6 @@ const HomePage = () => {
                             ))}
                         </div>
                     </div>
-                    <div className="home__hero__shade" />
                     <div className="home__hero__content">
                         <span className="home__hero__badge">{activeSlide.kicker}</span>
                         <h1>{activeSlide.title}</h1>
@@ -423,9 +425,10 @@ const HomePage = () => {
                             </button>
                         ))}
                     </div>
+                    </div>
                 </section>
 
-                <section className="home__product">
+                <section className="home__product app-page">
                     <header className="home__product__header">
                         <div>
                             <span className="home__product__eyebrow">All products</span>
@@ -465,23 +468,7 @@ const HomePage = () => {
 
                     <div className="home__product__featured">
                         {isLoadingProducts
-                            ? Array.from({ length: 3 }, (_, index) => (
-                                  <div
-                                      key={`featured-skeleton-${index}`}
-                                      className="home__product__featured__card home__product__featured__card--loading"
-                                      aria-hidden="true"
-                                  >
-                                      <div className="home__product__featured__card__info">
-                                          <span className="home__skeleton home__skeleton--line home__skeleton--xs" />
-                                          <div className="home__skeleton home__skeleton--line home__skeleton--lg" />
-                                          <div className="home__skeleton home__skeleton--line home__skeleton--sm" />
-                                          <div className="home__skeleton home__skeleton--pill" />
-                                      </div>
-                                      <div className="home__product__featured__card__img">
-                                          <div className="home__skeleton home__skeleton--image" />
-                                      </div>
-                                  </div>
-                              ))
+                            ? <FeaturedProductSkeletons count={3} />
                             : featuredProducts.map((product) => (
                                   <div key={`featured-${product.id}`} className="home__product__featured__card">
                                       <div className="home__product__featured__card__info">
@@ -511,25 +498,8 @@ const HomePage = () => {
                     </div>
 
                     {isLoadingProducts ? (
-                        <div className="home__product__grid home__product__grid--loading" aria-live="polite">
-                            {Array.from({ length: DISPLAYED_NUMBER }, (_, index) => (
-                                <div
-                                    key={`product-skeleton-${index}`}
-                                    className="home__product__menu__item home__product__menu__item--loading"
-                                    aria-hidden="true"
-                                >
-                                    <div className="home__product__menu__item__image">
-                                        <div className="home__skeleton home__skeleton--image" />
-                                    </div>
-                                    <div className="home__skeleton home__skeleton--line home__skeleton--xs" />
-                                    <div className="home__skeleton home__skeleton--line home__skeleton--md" />
-                                    <div className="home__skeleton home__skeleton--line home__skeleton--sm" />
-                                    <div className="home__product__menu__item__rating">
-                                        <div className="home__skeleton home__skeleton--line home__skeleton--sm" />
-                                        <div className="home__skeleton home__skeleton--pill" />
-                                    </div>
-                                </div>
-                            ))}
+                        <div aria-live="polite">
+                            <ProductGridSkeleton count={DISPLAYED_NUMBER} className="home__product__grid" />
                         </div>
                     ) : (
                         <div className="home__product__grid">

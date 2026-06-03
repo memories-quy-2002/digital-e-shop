@@ -10,26 +10,28 @@ type RecommendedProps = {
 
 const RecommendedProduct = ({ relevantProducts }: RecommendedProps) => {
     const navigate = useNavigate();
+    const visibleProducts = relevantProducts.slice(0, 9);
 
     return (
         <section className="product-page__recommendations">
-            <h2 className="product-page__recommendations-title">People who bought this product also buy</h2>
             <div className="product-page__recommendations-list">
-                {relevantProducts.length > 0 &&
-                    relevantProducts.slice(0, 9).map((product) => (
-                        <div className="product-page__recommendation-card" key={product.id}>
-                            <div
+                {visibleProducts.length > 0 ? (
+                    visibleProducts.map((product) => (
+                        <article className="product-page__recommendation-card" key={product.id}>
+                            <button
                                 className="product-page__recommendation-image"
+                                type="button"
                                 onClick={() => {
                                     navigate(`/product?id=${product.id}`);
-                                    window.location.reload();
+                                    window.scrollTo({ top: 0, behavior: "smooth" });
                                 }}
+                                aria-label={`Open ${product.name}`}
                             >
                                 {loadImage(
                                     product.main_image ? product.main_image.replace(".jpg", "") : null,
                                     product.name,
                                 )}
-                            </div>
+                            </button>
                             <p className="product-page__recommendation-category">{product.category}</p>
                             <p className="product-page__recommendation-name">{product.name}</p>
                             {product.sale_price ? (
@@ -48,18 +50,16 @@ const RecommendedProduct = ({ relevantProducts }: RecommendedProps) => {
                             )}
 
                             <div className="product-page__recommendation-rating">
-                                <div
-                                    style={{
-                                        width: "240px",
-                                        display: "flex",
-                                        gap: "5px",
-                                    }}
-                                >
-                                    {ratingStar(product.rating)}
-                                </div>
+                                <div className="product-page__recommendation-rating-stars">{ratingStar(product.rating)}</div>
+                                <span>{product.rating ? product.rating.toFixed(1) : "New"}</span>
                             </div>
-                        </div>
-                    ))}
+                        </article>
+                    ))
+                ) : (
+                    <div className="product-page__recommendations-empty">
+                        Similar products will appear here as soon as we find a strong match.
+                    </div>
+                )}
             </div>
         </section>
     );

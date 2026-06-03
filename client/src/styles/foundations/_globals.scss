@@ -1,0 +1,106 @@
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    margin: 0;
+    min-width: 320px;
+    font-family: var(--de-font-family-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background:
+        var(--de-gradient-shell),
+        linear-gradient(180deg, #f8f4ed 0%, var(--de-color-bg) 24%, #ede6d9 100%);
+    color: var(--de-color-text);
+}
+
+::selection {
+    background: rgba(45, 81, 125, 0.16);
+    color: var(--de-color-text);
+}
+
+img,
+svg,
+video,
+canvas {
+    display: block;
+    max-width: 100%;
+}
+
+button,
+input,
+textarea,
+select {
+    font: inherit;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    margin: 0;
+    color: var(--de-color-text);
+    font-weight: 800;
+    line-height: 1.08;
+}
+
+p {
+    margin: 0;
+    color: var(--de-color-text-soft);
+}
+
+a {
+    transition:
+        color var(--de-transition-fast),
+        opacity var(--de-transition-fast),
+        background-color var(--de-transition-fast),
+        border-color var(--de-transition-fast),
+        box-shadow var(--de-transition-fast),
+        transform var(--de-transition-fast);
+}
+
+button {
+    transition:
+        transform var(--de-transition-fast),
+        background-color var(--de-transition-fast),
+        border-color var(--de-transition-fast),
+        box-shadow var(--de-transition-fast),
+        color var(--de-transition-fast);
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #94a3b8;
+    opacity: 1;
+}
+
+:focus-visible {
+    outline: none;
+    box-shadow: var(--de-shadow-focus);
+}
+
+#root {
+    min-height: 100vh;
+}
+
+a:not([class]) {
+    color: var(--bs-link-color);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+a:not([class]):hover {
+    color: var(--bs-link-hover-color);
+}
+
+code {
+    font-family: var(--de-font-family-mono);
+}

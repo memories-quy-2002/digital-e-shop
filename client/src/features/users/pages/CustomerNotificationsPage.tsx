@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet";
 import { Link } from "react-router-dom";
+import { BellIcon } from "../../../components/common/Icons";
+import EmptyState from "../../../components/common/EmptyState";
 import Layout from "../../../components/layout/Layout";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
-import "../../../styles/CustomerNotificationsPage.scss";
+import "../../../styles/features/users/_customer-notifications.scss";
 import { formatUtcDateTime } from "../../../utils/dateTime";
 import { CustomerNotification, fetchCustomerNotifications, markAllCustomerNotificationsRead } from "../api";
 import CustomerAccountShell from "../components/CustomerAccountShell";
@@ -61,18 +63,45 @@ const CustomerNotificationsPage = () => {
                 />
 
                 <section className="customer-notifications__summary" aria-label="Notification summary">
-                    <div>
+                    <article>
+                        <strong>{notifications.length}</strong>
+                        <span>Total notifications</span>
+                    </article>
+                    <article>
                         <strong>{unreadCount}</strong>
-                        <span>Unread</span>
-                    </div>
-                    <p>
-                        {unreadCount > 0
-                            ? "Unread messages are highlighted first so important order updates are easier to scan."
-                            : "All notifications are currently read."}
-                    </p>
+                        <span>Unread messages</span>
+                    </article>
+                    <article>
+                        <strong>{notifications.length > 0 ? formatUtcDateTime(notifications[0].created_at) : "No activity"}</strong>
+                        <span>Latest update</span>
+                    </article>
                 </section>
 
-                <section className="customer-notifications__list">
+                <section className="customer-notifications__workflow" aria-label="Notification guidance">
+                    <div>
+                        <strong>Order tracking first</strong>
+                        <p>Unread items stay highlighted so shipping and status changes are easier to scan.</p>
+                    </div>
+                    <div>
+                        <strong>Account reminders</strong>
+                        <p>Checkout, profile, and saved-address updates stay in one place with your order activity.</p>
+                    </div>
+                </section>
+
+                <section className="customer-notifications__list-shell">
+                    <div className="customer-notifications__list-header">
+                        <div>
+                            <h2>Notification history</h2>
+                            <p>
+                                {unreadCount > 0
+                                    ? "Unread messages are highlighted first so important order updates are easier to scan."
+                                    : "All notifications are currently read."}
+                            </p>
+                        </div>
+                        <span>{notifications.length} item(s)</span>
+                    </div>
+
+                    <div className="customer-notifications__list">
                     {notifications.length > 0 ? (
                         notifications.map((notification) => (
                             <article key={notification.id} className={notification.is_read ? "" : "is-unread"}>
@@ -86,8 +115,16 @@ const CustomerNotificationsPage = () => {
                             </article>
                         ))
                     ) : (
-                        <div className="customer-notifications__empty">No notifications yet.</div>
+                        <EmptyState
+                            className="customer-notifications__empty"
+                            title="No notifications yet"
+                            description="Order updates, delivery changes, and account reminders will show up here as your activity grows."
+                            actionLabel="Browse products"
+                            actionTo="/shops"
+                            icon={<BellIcon size={20} />}
+                        />
                     )}
+                    </div>
                 </section>
             </main>
         </Layout>

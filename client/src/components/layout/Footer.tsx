@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import "../../styles/Footer.scss";
+import "../../styles/layout/_footer.scss";
 import {
     FacebookIcon,
     InstagramIcon,

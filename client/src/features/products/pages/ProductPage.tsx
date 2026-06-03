@@ -1,18 +1,26 @@
 import React, { Activity, useActionState, useEffect, useMemo, useOptimistic, useState } from "react";
 import { Helmet } from "react-helmet";
-import { useLocation } from "react-router-dom";
-import { StarFillIcon, StarIcon } from "../../../components/common/Icons";
+import { Link, useLocation } from "react-router-dom";
+import {
+    StarFillIcon,
+    StarIcon,
+} from "../../../components/common/Icons";
 import Layout from "../../../components/layout/Layout";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
 import productPlaceholder from "../../../assets/images/product_placeholder.jpg";
 import NoPage from "../../../pages/NotFoundPage";
 import axios from "../../../api/axios";
-import "../../../styles/ProductPage.scss";
+import "../../../styles/pages/_product.scss";
 import { formatUtcDate } from "../../../utils/dateTime";
 import { Product } from "../../../utils/interface";
 import LazyLoadImage from "../../../utils/LazyLoadingImage";
-import { PRODUCT_GALLERY_WIDTHS, getProductImageUrl, getResponsiveImageSource, normalizeProductImageName } from "../../../utils/images";
+import {
+    PRODUCT_GALLERY_WIDTHS,
+    getProductImageUrl,
+    getResponsiveImageSource,
+    normalizeProductImageName,
+} from "../../../utils/images";
 import { parseProductDetails } from "../../../utils/productDetails";
 import ratingStar from "../../../utils/ratingStar";
 import RecommendedProduct from "../components/RecommendedProduct";
@@ -46,9 +54,7 @@ type ReviewActionState = {
     product?: Product;
 };
 
-type WishlistMutation =
-    | { type: "add"; item: Wishlist }
-    | { type: "remove"; productId: number };
+type WishlistMutation = { type: "add"; item: Wishlist } | { type: "remove"; productId: number };
 
 const applyWishlistMutation = (wishlist: Wishlist[], mutation: WishlistMutation): Wishlist[] => {
     if (mutation.type === "remove") {
@@ -65,6 +71,8 @@ const applyWishlistMutation = (wishlist: Wishlist[], mutation: WishlistMutation)
 const initialReviewActionState: ReviewActionState = {
     status: "idle",
 };
+
+const formatCurrency = (value: number) => `$${Number(value || 0).toFixed(2)}`;
 
 const ProductPage = () => {
     const location = useLocation();
@@ -156,8 +164,11 @@ const ProductPage = () => {
                     title: "Submit review",
                     message: "Review has been submitted successfully.",
                     reviews:
-                        reviewsResponse.status === 200 ? normalizeReviews(reviewsResponse.data.reviews || []) : undefined,
-                    summary: reviewsResponse.status === 200 ? normalizeSummary(reviewsResponse.data.summary) : undefined,
+                        reviewsResponse.status === 200
+                            ? normalizeReviews(reviewsResponse.data.reviews || [])
+                            : undefined,
+                    summary:
+                        reviewsResponse.status === 200 ? normalizeSummary(reviewsResponse.data.summary) : undefined,
                     product: productResponse.status === 200 ? productResponse.data.product : undefined,
                 };
             } catch {
@@ -177,7 +188,10 @@ const ProductPage = () => {
         return Array.from(new Set(merged));
     }, [productDetail.main_image]);
 
-    const productDetails = useMemo(() => parseProductDetails(productDetail.specifications), [productDetail.specifications]);
+    const productDetails = useMemo(
+        () => parseProductDetails(productDetail.specifications),
+        [productDetail.specifications],
+    );
 
     const normalizeReviews = (items: any[] = []): Review[] =>
         items.map((review: any) => ({
@@ -215,7 +229,10 @@ const ProductPage = () => {
         fetchSingleProduct();
     }, [addToast, pid]);
 
-    const wishlistIdSet = useMemo(() => new Set(optimisticWishlist.map((item) => item.product.id)), [optimisticWishlist]);
+    const wishlistIdSet = useMemo(
+        () => new Set(optimisticWishlist.map((item) => item.product.id)),
+        [optimisticWishlist],
+    );
 
     useEffect(() => {
         const fetchWishlist = async () => {
@@ -431,6 +448,21 @@ const ProductPage = () => {
     const displayedRating = reviewSummary.total > 0 ? reviewSummary.average : productDetail.rating;
     const displayedReviewCount = reviewSummary.total > 0 ? reviewSummary.total : productDetail.reviews;
     const ratingDistribution = [5, 4, 3, 2, 1] as const;
+    const activePrice = productDetail.sale_price || productDetail.price;
+    const heroStats = [
+        {
+            label: "Rating",
+            value: `${displayedRating.toFixed(1)} / 5`,
+        },
+        {
+            label: "Price",
+            value: formatCurrency(activePrice),
+        },
+        {
+            label: "Stock",
+            value: productDetail.stock > 0 ? `${productDetail.stock} available` : "Out of stock",
+        },
+    ];
 
     return (
         <Layout>
@@ -438,13 +470,21 @@ const ProductPage = () => {
                 <title>{productDetail.name ? `${productDetail.name} | Digital-E` : "Product | Digital-E"}</title>
                 <meta
                     name="description"
-                    content={productDetail.description || "Explore product details, pricing, and availability on Digital-E."}
+                    content={
+                        productDetail.description || "Explore product details, pricing, and availability on Digital-E."
+                    }
                 />
-                {activeResponsiveImage ? <link rel="preload" as="image" href={activeResponsiveImage.src} fetchPriority="high" /> : null}
+                {activeResponsiveImage ? (
+                    <link rel="preload" as="image" href={activeResponsiveImage.src} fetchPriority="high" />
+                ) : null}
             </Helmet>
-            <div className="product-page">
+            <div className="product-page app-page">
                 <section className="product-page__hero">
                     <div className="product-page__gallery">
+                        <div className="product-page__gallery-meta">
+                            <span>Product view</span>
+                            <strong>{allImages.length > 1 ? `${allImages.length} gallery images` : "Single product image"}</strong>
+                        </div>
                         <div className="product-page__gallery-main">
                             {activeImageUrl ? (
                                 <LazyLoadImage
@@ -501,108 +541,95 @@ const ProductPage = () => {
                     </div>
 
                     <div className="product-page__summary">
-                        <div className="product-page__meta">
-                            <span>{productDetail.category}</span>
-                            <span className="product-page__meta-dot"></span>
-                            <span>{productDetail.brand}</span>
-                        </div>
-                        <h1 className="product-page__title">{productDetail.name}</h1>
-                        <div className="product-page__rating">
-                            <div className="product-page__rating-stars">{ratingStar(displayedRating, "#FFCC4A", 22)}</div>
-                            <span>
-                                {displayedRating.toFixed(1)} ({displayedReviewCount} reviews)
-                            </span>
-                        </div>
-                        <div className="product-page__price">
-                            {productDetail.sale_price ? (
-                                <>
-                                    <span className="product-page__price-active product-page__price-active--sale">
-                                        ${productDetail.sale_price}
+                        <div className="product-page__summary-main">
+                            <div className="product-page__summary-header">
+                                <div className="product-page__meta">
+                                    <span className="product-page__meta-chip">
+                                        {productDetail.category || "Catalog item"}
                                     </span>
-                                    <span className="product-page__price-original">${productDetail.price}</span>
-                                </>
-                            ) : (
-                                <span className="product-page__price-active">${productDetail.price}</span>
-                            )}
-                        </div>
-                        <div className="product-page__stock">
-                            {productDetail.stock > 0 ? (
-                                <span className="product-page__stock-badge product-page__stock-badge--in">In stock</span>
-                            ) : (
-                                <span className="product-page__stock-badge product-page__stock-badge--out">Out of stock</span>
-                            )}
+                                    <span className="product-page__meta-dot"></span>
+                                    <span>{productDetail.brand || "Digital-E"}</span>
+                                </div>
+                                <h1 id="product-hero-title" className="product-page__title">
+                                    {productDetail.name}
+                                </h1>
+                            </div>
+
+                            <div className="product-page__hero-stats" aria-label="Product highlights">
+                                {heroStats.map((item) => (
+                                    <article key={item.label}>
+                                        <span>{item.label}</span>
+                                        <strong>{item.value}</strong>
+                                    </article>
+                                ))}
+                            </div>
                         </div>
 
-                        <div className="product-page__actions">
-                            <div className="product-page__quantity">
-                                <button type="button" onClick={handleDecrease} disabled={productDetail.stock <= 0}>
-                                    -
-                                </button>
-                                <input
-                                    type="number"
-                                    name="quantity"
-                                    id="quantity"
-                                    min={1}
-                                    max={productDetail.stock}
-                                    value={quantity}
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                        setQuantity(() => {
-                                            const raw = Number(e.target.value);
-                                            const safe = Number.isFinite(raw) ? raw : 1;
-                                            const max = productDetail.stock > 0 ? productDetail.stock : 1;
-                                            return Math.max(1, Math.min(max, safe));
-                                        })
-                                    }
+                        <div className="product-page__purchase-card">
+                            <div className="product-page__actions">
+                                <label className="product-page__quantity-field" htmlFor="quantity">
+                                    <span>Quantity</span>
+                                    <div className="product-page__quantity">
+                                        <button type="button" onClick={handleDecrease} disabled={productDetail.stock <= 0}>
+                                            -
+                                        </button>
+                                        <input
+                                            type="number"
+                                            name="quantity"
+                                            id="quantity"
+                                            min={1}
+                                            max={productDetail.stock}
+                                            value={quantity}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                setQuantity(() => {
+                                                    const raw = Number(e.target.value);
+                                                    const safe = Number.isFinite(raw) ? raw : 1;
+                                                    const max = productDetail.stock > 0 ? productDetail.stock : 1;
+                                                    return Math.max(1, Math.min(max, safe));
+                                                })
+                                            }
+                                            disabled={productDetail.stock <= 0}
+                                        />
+                                        <button type="button" onClick={handleIncrease} disabled={productDetail.stock <= 0}>
+                                            +
+                                        </button>
+                                    </div>
+                                    <small>
+                                        {productDetail.stock > 0
+                                            ? `${productDetail.stock} available now`
+                                            : "This item is currently unavailable"}
+                                    </small>
+                                </label>
+                                <button
+                                    className="product-page__button product-page__button--primary"
+                                    type="button"
+                                    onClick={() => {
+                                        if (uid) {
+                                            handleAddingCart(uid, productDetail);
+                                        } else {
+                                            addToast("Login required", "You need to login to use this feature.");
+                                        }
+                                    }}
                                     disabled={productDetail.stock <= 0}
-                                />
-                                <button type="button" onClick={handleIncrease} disabled={productDetail.stock <= 0}>
-                                    +
+                                >
+                                    Add to cart
                                 </button>
-                            </div>
-                            <button
-                                className="product-page__button product-page__button--primary"
-                                type="button"
-                                onClick={() => {
-                                    if (uid) {
-                                        handleAddingCart(uid, productDetail);
-                                    } else {
-                                        addToast("Login required", "You need to login to use this feature.");
-                                    }
-                                }}
-                                disabled={productDetail.stock <= 0}
-                            >
-                                Add to cart
-                            </button>
-                            <button
-                                className={`product-page__button product-page__button--secondary${
-                                    isWishlisted ? " product-page__button--active" : ""
-                                }`}
-                                type="button"
-                                onClick={() => {
-                                    if (uid) {
-                                        toggleWishlist(uid, productDetail.id);
-                                    } else {
-                                        addToast("Login required", "You need to login to use this feature.");
-                                    }
-                                }}
-                                disabled={pendingWishlistIds.includes(productDetail.id)}
-                            >
-                                {isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
-                            </button>
-                        </div>
-
-                        <div className="product-page__highlights">
-                            <div>
-                                <strong>{productDetails.model || "Ready to ship"}</strong>
-                                <span>{productDetail.brand || "Digital-E catalog"}</span>
-                            </div>
-                            <div>
-                                <strong>Warranty</strong>
-                                <span>{productDetails.warranty || "12 months included"}</span>
-                            </div>
-                            <div>
-                                <strong>Stock</strong>
-                                <span>{productDetail.stock > 0 ? `${productDetail.stock} available` : "Restock required"}</span>
+                                <button
+                                    className={`product-page__button product-page__button--secondary${
+                                        isWishlisted ? " product-page__button--active" : ""
+                                    }`}
+                                    type="button"
+                                    onClick={() => {
+                                        if (uid) {
+                                            toggleWishlist(uid, productDetail.id);
+                                        } else {
+                                            addToast("Login required", "You need to login to use this feature.");
+                                        }
+                                    }}
+                                    disabled={pendingWishlistIds.includes(productDetail.id)}
+                                >
+                                    {isWishlisted ? "Saved to wishlist" : "Save to wishlist"}
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -656,22 +683,15 @@ const ProductPage = () => {
                                     </div>
                                 </div>
                                 {productDetails.datasheet ? (
-                                    <a className="product-page__datasheet" href={productDetails.datasheet} target="_blank" rel="noreferrer">
+                                    <a
+                                        className="product-page__datasheet"
+                                        href={productDetails.datasheet}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                    >
                                         View datasheet
                                     </a>
                                 ) : null}
-                            </div>
-                            <div className="product-page__description-card">
-                                <h2>Highlights</h2>
-                                {productDetails.highlights.length > 0 ? (
-                                    <ul className="product-page__feature-list">
-                                        {productDetails.highlights.map((item, index) => (
-                                            <li key={index}>{item}</li>
-                                        ))}
-                                    </ul>
-                                ) : (
-                                    <p>Reliable quality, checked stock, and support from Digital-E.</p>
-                                )}
                             </div>
                             <div className="product-page__description-card product-page__description-card--wide">
                                 <h2>Specifications</h2>
@@ -703,7 +723,8 @@ const ProductPage = () => {
                                     <div className="product-page__reviews-bars">
                                         {ratingDistribution.map((star) => {
                                             const count = reviewSummary.distribution[star] || 0;
-                                            const percent = reviewSummary.total > 0 ? (count / reviewSummary.total) * 100 : 0;
+                                            const percent =
+                                                reviewSummary.total > 0 ? (count / reviewSummary.total) * 100 : 0;
                                             return (
                                                 <div key={star}>
                                                     <span>{star} stars</span>
@@ -718,19 +739,22 @@ const ProductPage = () => {
                                 </section>
 
                                 {!uid ? (
-                                    <div className="product-page__reviews-state">Login to write a review and rate this product.</div>
+                                    <div className="product-page__reviews-state">
+                                        Login to write a review and rate this product.
+                                    </div>
                                 ) : (
                                     <form action={submitReviewAction} className="product-page__reviews-form">
-                                        <div>
-                                            <h2>Write a review</h2>
-                                            <p>Your latest review for this product will update your previous rating.</p>
-                                        </div>
+                                        <h2>Write a review</h2>
                                         <div className="product-page__reviews-stars">
                                             {[1, 2, 3, 4, 5].map((rating) => (
                                                 <button
                                                     key={rating}
                                                     type="button"
-                                                    className={rating <= ratingScore ? "product-page__reviews-star product-page__reviews-star--active" : "product-page__reviews-star"}
+                                                    className={
+                                                        rating <= ratingScore
+                                                            ? "product-page__reviews-star product-page__reviews-star--active"
+                                                            : "product-page__reviews-star"
+                                                    }
                                                     onClick={() => handleStarClick(rating)}
                                                     aria-label={`Rate ${rating} stars`}
                                                 >
@@ -751,7 +775,11 @@ const ProductPage = () => {
                                             rows={5}
                                             placeholder="Share what stood out, how you used it, and whether you recommend it."
                                         ></textarea>
-                                        {isSubmittingReview ? <span className="product-page__reviews-status">Submitting your review...</span> : null}
+                                        {isSubmittingReview ? (
+                                            <span className="product-page__reviews-status">
+                                                Submitting your review...
+                                            </span>
+                                        ) : null}
                                         <button type="submit" disabled={isSubmittingReview}>
                                             {isSubmittingReview ? "Submitting..." : "Submit review"}
                                         </button>
@@ -766,21 +794,30 @@ const ProductPage = () => {
                                     {reviews.length > 0 ? (
                                         <div className="product-page__reviews-items">
                                             {reviews.map((review, index) => (
-                                                <article key={review.id || index} className="product-page__reviews-item">
+                                                <article
+                                                    key={review.id || index}
+                                                    className="product-page__reviews-item"
+                                                >
                                                     <div className="product-page__reviews-item-header">
                                                         <div>
                                                             <strong>{review.username}</strong>
-                                                            {review.verified_purchase ? <span>Verified purchase</span> : null}
+                                                            {review.verified_purchase ? (
+                                                                <span>Verified purchase</span>
+                                                            ) : null}
                                                         </div>
                                                         <small>{formatUtcDate(review.created_at)}</small>
                                                     </div>
-                                                    <div className="product-page__reviews-item-stars">{ratingStar(review.rating, "#FFCC4A", 18)}</div>
+                                                    <div className="product-page__reviews-item-stars">
+                                                        {ratingStar(review.rating, "#FFCC4A", 18)}
+                                                    </div>
                                                     <p>{review.reviewText}</p>
                                                 </article>
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="product-page__reviews-state">No reviews yet. Be the first to rate this product.</div>
+                                        <div className="product-page__reviews-state">
+                                            No reviews yet. Be the first to rate this product.
+                                        </div>
                                     )}
                                 </section>
                             </div>
@@ -788,7 +825,15 @@ const ProductPage = () => {
                     </Activity>
                 </div>
 
-                <RecommendedProduct relevantProducts={relevantProducts} />
+                <section className="product-page__recommendations-shell">
+                    <div className="product-page__recommendations-head">
+                        <h2 className="product-page__recommendations-title">Recommended products</h2>
+                        <Link to="/shops" className="product-page__recommendations-link">
+                            Browse catalog
+                        </Link>
+                    </div>
+                    <RecommendedProduct relevantProducts={relevantProducts} />
+                </section>
             </div>
         </Layout>
     );

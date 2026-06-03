@@ -44,7 +44,7 @@ const ProtectedAdminPromotionsPage = withSessionCheck(AdminPromotionsPage);
 
 const AppRouter = () => {
     return (
-        <Suspense fallback={<LoadingScreen />}>
+        <Suspense fallback={<LoadingScreen variant="page" />}>
             <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/login" element={<LoginPage />} />

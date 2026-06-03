@@ -1,8 +1,5 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+import type { Auth, UserCredential } from "firebase/auth";
+
 const firebaseConfig = {
     apiKey: "AIzaSyCae88IRpKYJbHLxZIiArzIPYTkglQqgb0",
     authDomain: "graduation-project-5bbfb.firebaseapp.com",
@@ -13,6 +10,38 @@ const firebaseConfig = {
     measurementId: "G-NGN3CY83D3",
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+let authPromise: Promise<Auth> | null = null;
+
+const loadFirebaseAuth = async (): Promise<Auth> => {
+    const [{ initializeApp }, { getAuth }] = await Promise.all([
+        import("firebase/app"),
+        import("firebase/auth"),
+    ]);
+    const app = initializeApp(firebaseConfig);
+    return getAuth(app);
+};
+
+export const getFirebaseAuth = async (): Promise<Auth> => {
+    if (!authPromise) {
+        authPromise = loadFirebaseAuth();
+    }
+    return authPromise;
+};
+
+export const signInWithFirebaseEmail = async (email: string, password: string): Promise<UserCredential> => {
+    const auth = await getFirebaseAuth();
+    const { signInWithEmailAndPassword } = await import("firebase/auth");
+    return signInWithEmailAndPassword(auth, email, password);
+};
+
+export const createFirebaseUser = async (email: string, password: string): Promise<UserCredential> => {
+    const auth = await getFirebaseAuth();
+    const { createUserWithEmailAndPassword } = await import("firebase/auth");
+    return createUserWithEmailAndPassword(auth, email, password);
+};
+
+export const signOutFirebaseUser = async (): Promise<void> => {
+    const auth = await getFirebaseAuth();
+    const { signOut } = await import("firebase/auth");
+    await signOut(auth);
+};

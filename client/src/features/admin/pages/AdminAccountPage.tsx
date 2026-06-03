@@ -222,36 +222,39 @@ const AdminAccountPage = () => {
                 <AdminWorkflowSteps steps={accountWorkflowSteps} />
 
                 <section className="admin__card">
-                    <div className="admin__card__header">
+                    <div className="admin__card__header admin__card__header--stacked">
                         <div>
                             <h3>Account list</h3>
                             <span>{filteredAccounts.length} results</span>
                         </div>
-                        <div className="admin__filters">
-                            <input
-                                type="text"
-                                name="account-search"
-                                id="account-search"
-                                placeholder="Search all users by name, email, role, or status"
-                                value={searchTerm}
-                                onChange={(event) => {
-                                    setSearchTerm(event.target.value);
-                                    setCurrentPage(1);
-                                }}
-                            />
-                            <button
-                                type="button"
-                                className="admin__button admin__button--ghost"
-                                onClick={() => {
-                                    setSearchTerm("");
-                                    setCurrentPage(1);
-                                }}
-                            >
-                                Clear
-                            </button>
+                        <div className="admin__list-toolbar">
+                            <div className="admin__filters">
+                                <input
+                                    type="text"
+                                    name="account-search"
+                                    id="account-search"
+                                    placeholder="Search all users by name, email, role, or status"
+                                    value={searchTerm}
+                                    onChange={(event) => {
+                                        setSearchTerm(event.target.value);
+                                        setCurrentPage(1);
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    className="admin__button admin__button--ghost"
+                                    onClick={() => {
+                                        setSearchTerm("");
+                                        setCurrentPage(1);
+                                    }}
+                                >
+                                    Clear
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div className="admin__card__body">
+                    <div className="admin__card__body admin__list-shell">
+                        <div className="admin__table-wrap">
                         <Table responsive hover borderless className="admin__table">
                             <thead>
                                 <tr>
@@ -329,6 +332,7 @@ const AdminAccountPage = () => {
                                 ))}
                             </tbody>
                         </Table>
+                        </div>
                         <div className="admin__table__pagination">
                             <ReactPaginate
                                 className="shops__container__main__pagination__items"
@@ -352,7 +356,14 @@ const AdminAccountPage = () => {
                     </div>
                 </section>
 
-                <Modal show={showProfile} onHide={() => setShowProfile(false)} centered size="lg">
+                <Modal
+                    show={showProfile}
+                    onHide={() => setShowProfile(false)}
+                    centered
+                    size="lg"
+                    dialogClassName="admin__dialog"
+                    contentClassName="admin__dialog__content"
+                >
                     <Modal.Header closeButton>
                         <Modal.Title>Customer profile</Modal.Title>
                     </Modal.Header>
@@ -360,9 +371,10 @@ const AdminAccountPage = () => {
                         {selectedProfile ? (
                             <div className="admin__customer-profile">
                                 <section className="admin__customer-profile__hero">
-                                    <div>
+                                    <div className="admin__customer-profile__hero-copy">
                                         <span>Customer</span>
-                                        <strong>{selectedProfile.username}</strong>
+                                        <strong>{getDisplayName(selectedProfile)}</strong>
+                                        <small>@{selectedProfile.username}</small>
                                         <p>{selectedProfile.email}</p>
                                     </div>
                                     <span
@@ -375,6 +387,10 @@ const AdminAccountPage = () => {
                                         {selectedProfile.status || "Active"}
                                     </span>
                                 </section>
+                                <div className="admin__detail-section__header">
+                                    <h4>Account health</h4>
+                                    <p>Spending, wishlist activity, and current access status for this customer.</p>
+                                </div>
                                 <section className="admin__customer-profile__stats">
                                     <div>
                                         <span>Orders</span>
@@ -394,7 +410,10 @@ const AdminAccountPage = () => {
                                     </div>
                                 </section>
                                 <section className="admin__customer-profile__orders">
-                                    <h4>Recent orders</h4>
+                                    <div className="admin__detail-section__header">
+                                        <h4>Recent orders</h4>
+                                        <p>Latest purchase activity associated with this account.</p>
+                                    </div>
                                     {selectedProfile.recent_orders.length > 0 ? (
                                         selectedProfile.recent_orders.map((order) => (
                                             <div key={order.id}>
@@ -405,7 +424,7 @@ const AdminAccountPage = () => {
                                             </div>
                                         ))
                                     ) : (
-                                        <p>No orders yet.</p>
+                                        <p className="admin__customer-profile__empty">No orders yet.</p>
                                     )}
                                 </section>
                             </div>

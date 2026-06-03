@@ -1,41 +1,35 @@
 import React from "react";
+import "../../styles/components/_loading-screen.scss";
 
-const LoadingScreen = () => {
-    return (
-        <div
-            style={{
-                minHeight: "12px",
-                padding: "0 1rem",
-            }}
-            aria-hidden="true"
-        >
-            <div
-                style={{
-                    width: "100%",
-                    height: "3px",
-                    borderRadius: "999px",
-                    overflow: "hidden",
-                    background: "rgba(148, 163, 184, 0.16)",
-                }}
-            >
-                <div
-                    style={{
-                        width: "35%",
-                        height: "100%",
-                        borderRadius: "999px",
-                        background: "linear-gradient(90deg, #0b5fff 0%, #38bdf8 100%)",
-                        animation: "loading-screen-slide 1s ease-in-out infinite alternate",
-                    }}
-                />
+type LoadingScreenProps = {
+    variant?: "inline" | "page";
+};
+
+const LoadingScreen = ({ variant = "inline" }: LoadingScreenProps) => {
+    if (variant === "page") {
+        return (
+            <div className="loading-screen loading-screen--page" aria-hidden="true">
+                <div className="loading-screen__page">
+                    <div className="loading-screen__hero">
+                        <div className="loading-screen__hero-line loading-screen__hero-line--eyebrow" />
+                        <div className="loading-screen__hero-line loading-screen__hero-line--title" />
+                        <div className="loading-screen__hero-line loading-screen__hero-line--body" />
+                    </div>
+                    <div className="loading-screen__cards">
+                        {Array.from({ length: 3 }).map((_, index) => (
+                            <div key={index} className="loading-screen__card" />
+                        ))}
+                    </div>
+                </div>
             </div>
-            <style>
-                {`
-                    @keyframes loading-screen-slide {
-                        from { transform: translateX(0); }
-                        to { transform: translateX(180%); }
-                    }
-                `}
-            </style>
+        );
+    }
+
+    return (
+        <div className="loading-screen" aria-hidden="true">
+            <div className="loading-screen__track">
+                <div className="loading-screen__indicator" />
+            </div>
         </div>
     );
 };

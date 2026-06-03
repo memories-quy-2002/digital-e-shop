@@ -1,13 +1,7 @@
-require("dotenv").config();
-const app = require("./app");
-import type { AppRequest, AppResponse } from "./types/domain";
+import app from "#/app";
+import { env } from "#/config/env.config";
+import { logger } from "#/shared/utils/logger";
 
-const PORT = process.env.PORT || 4000;
-
-app.get("/", (req: AppRequest, res: AppResponse) => {
-    res.send("Hello World from Express");
-});
-
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+app.listen(env.port, () => {
+    logger.info(`Server running on port ${env.port}`);
 });
