@@ -4,10 +4,12 @@
     "description": "Backend server for the e-commerce system selling electronic components and devices",
     "main": "dist/src/server.js",
     "scripts": {
+        "postinstall": "prisma generate",
         "start": "node dist/src/server.js",
         "dev": "node --watch --conditions=development --import tsx ./src/server.ts",
         "serve:ts": "node --conditions=development --import tsx ./src/server.ts",
-        "build": "tsc -p tsconfig.json",
+        "build": "prisma generate && tsc -p tsconfig.json",
+        "vercel-build": "prisma generate && tsc -p tsconfig.json",
         "typecheck": "tsc -p tsconfig.json --noEmit",
         "lint": "eslint src api --ext .js,.mjs,.cjs,.ts,.mts,.cts --format=stylish",
         "prisma": "prisma",
