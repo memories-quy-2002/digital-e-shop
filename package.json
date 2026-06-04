@@ -4,10 +4,9 @@
   "private": true,
   "description": "A full-stack e-commerce system selling electronic components and devices",
   "scripts": {
-    "postinstall": "corepack pnpm --filter server prisma:generate",
     "start": "concurrently \"pnpm --filter server start\" \"pnpm --filter client start\"",
     "dev": "concurrently \"pnpm --filter server dev\" \"pnpm --filter client dev\"",
-    "vercel-build": "corepack pnpm --filter server build"
+    "vercel-build": "pnpm --filter server build"
   },
   "keywords": [],
   "author": "",
