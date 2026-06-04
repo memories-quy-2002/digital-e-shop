@@ -1,5 +1,6 @@
 const Order = require("./orders.repository");
 import pool from "#src/config/database.config";
+import { logger } from "#src/shared/utils/logger";
 const util = require("util");
 const cartService = require("#src/modules/cart/cart.service");
 const inventoryMovementService = require("#src/modules/inventory/inventory.service");
@@ -33,7 +34,7 @@ async function makePurchase(
     { totalPrice, cart, discount, shippingAddress, paymentMethod }: PurchasePayload,
 ) {
     const startedAt = Date.now();
-    console.log("[makePurchase] start", { uid, items: cart?.length, totalPrice, paymentMethod });
+    logger.info({ uid, items: cart?.length, totalPrice, paymentMethod }, "[makePurchase] start");
 
     if (!cart || cart.length === 0) {
         throw new Error("Cart is empty");
@@ -59,14 +60,14 @@ async function makePurchase(
         );
     }
     if (checkoutValidation.mismatches.length > 0) {
-        console.error("[makePurchase] checkout mismatches", {
+        logger.error({
             uid,
             submittedCart: cart,
             submittedTotalPrice: totalPrice,
             mismatches: checkoutValidation.mismatches,
             authoritativeCart: checkoutValidation.cartItems,
             authoritativeTotalPrice: checkoutValidation.authoritativeTotalPrice,
-        });
+        }, "[makePurchase] checkout mismatches");
         throw createCheckoutError(
             "Your cart changed before checkout. Refresh your cart and confirm the latest prices and quantities.",
             409,
@@ -94,7 +95,7 @@ async function makePurchase(
     const timeoutMs = 8000;
     const timeout = new Promise((_, reject) => {
         timeoutId = setTimeout(() => {
-            console.error("[makePurchase] timeout", { uid, ms: Date.now() - startedAt });
+            logger.error({ uid, ms: Date.now() - startedAt }, "[makePurchase] timeout");
             reject(new Error("Database timeout"));
         }, timeoutMs);
     });
@@ -102,14 +103,14 @@ async function makePurchase(
     const operation = (async () => {
         try {
             await begin();
-            console.log("[makePurchase] transaction started");
+            logger.debug("[makePurchase] transaction started");
 
             const orderResult = await q<InsertResult>(
                 "INSERT INTO orders (user_id, total_price, discount, shipping_address, payment_method, date_added) VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP())",
                 [uid, authoritativeTotalPrice, discount, shippingAddress, paymentMethod],
             );
             const orderId = orderResult.insertId;
-            console.log("[makePurchase] order inserted", { orderId });
+            logger.debug({ orderId }, "[makePurchase] order inserted");
 
             const orderItemsValues = authoritativeCart.map((product: CartItemRow) => [
                 orderId,
@@ -130,7 +131,7 @@ async function makePurchase(
 
             let inventoryMovements: InventoryMovementInput[] = [];
             if (orderItemsValues.length > 0) {
-                console.log("[makePurchase] insertOrderItems", { orderId, count: orderItemsValues.length });
+                logger.debug({ orderId, count: orderItemsValues.length }, "[makePurchase] insertOrderItems");
                 await q("INSERT INTO order_items (order_id, product_id, quantity, total_price) VALUES ?", [
                     orderItemsValues,
                 ]);
@@ -216,7 +217,7 @@ async function makePurchase(
 
                 // Use one CASE update for all products in the order to keep the
                 // transaction short and reduce lock time.
-                console.log("[makePurchase] updateProductStock", { count: productIds.length });
+                logger.debug({ count: productIds.length }, "[makePurchase] updateProductStock");
                 await q(
                     `UPDATE products
                     SET stock = stock - CASE id ${cases.join(" ")} END
@@ -226,7 +227,7 @@ async function makePurchase(
             }
 
             await q("UPDATE carts SET done = 1 WHERE user_id = ? AND done = 0", [uid]);
-            console.log("[makePurchase] cart updated");
+            logger.debug("[makePurchase] cart updated");
 
             await commit();
             // Audit-style side effects happen after commit. A logging failure
@@ -243,7 +244,7 @@ async function makePurchase(
                 Number(authoritativeTotalPrice) - Number(discount || 0),
             );
             inventoryMovementService.recordMovements(inventoryMovements);
-            console.log("[makePurchase] commit ok", { orderId, ms: Date.now() - startedAt });
+            logger.info({ orderId, ms: Date.now() - startedAt }, "[makePurchase] commit ok");
             const [order] = await q<Array<{ id: number; date_added: string }>>(
                 `SELECT id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
                 FROM orders
@@ -252,11 +253,11 @@ async function makePurchase(
             );
             return order || { id: orderId, date_added: new Date().toISOString() };
         } catch (err) {
-            console.error("[makePurchase] item processing error", err);
+            logger.error(err, "[makePurchase] item processing error");
             try {
                 await rollback();
             } catch (rollbackErr) {
-                console.error("[makePurchase] rollback failed", rollbackErr);
+                logger.error(rollbackErr, "[makePurchase] rollback failed");
             }
             throw err;
         } finally {

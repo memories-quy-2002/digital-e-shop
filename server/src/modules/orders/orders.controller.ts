@@ -1,5 +1,6 @@
 import type { AppRequest, AppResponse } from "#src/shared/interfaces/domain";
 import type { PurchasePayload } from "./orders.dto";
+import { logger } from "#src/shared/utils/logger";
 const orderService = require("./orders.service");
 const { applyDiscountSchema, orderStatusSchema, purchaseSchema } = require("./orders.validator");
 const {
@@ -35,7 +36,7 @@ async function getOrders(req: AppRequest, res: AppResponse) {
         const orders = await orderService.getOrders();
         return res.status(200).json({ orders, msg: "Orders retrieved successfully" });
     } catch (err) {
-        console.error(err);
+        logger.error(err);
         return res.status(500).json({ msg: err.message });
     }
 }
@@ -71,7 +72,7 @@ async function getOrderItems(req: AppRequest, res: AppResponse) {
             msg: "Products sales and revenue retrieved successfully",
         });
     } catch (err) {
-        console.error(err);
+        logger.error(err);
         return res.status(500).json({ msg: err.message });
     }
 }
@@ -83,7 +84,7 @@ async function getCustomerOrders(req: AppRequest, res: AppResponse) {
         const orders = await orderService.getOrdersByUserId(uid);
         return res.status(200).json({ orders, msg: "Customer orders retrieved successfully" });
     } catch (err) {
-        console.error(err);
+        logger.error(err);
         return res.status(500).json({ msg: err.message });
     }
 }
@@ -105,7 +106,7 @@ async function getOrderDetail(req: AppRequest, res: AppResponse) {
 
         return res.status(200).json({ order, msg: "Order detail retrieved successfully" });
     } catch (err) {
-        console.error(err);
+        logger.error(err);
         return res.status(500).json({ msg: err.message });
     }
 }
@@ -127,7 +128,7 @@ async function changeOrderStatus(req: AppRequest, res: AppResponse) {
         if (err?.name === "ZodError") {
             return res.status(400).json({ msg: getValidationMessage(err) });
         }
-        console.error(err);
+        logger.error(err);
         return res.status(500).json({ msg: err.message });
     }
 }
@@ -144,7 +145,7 @@ async function makePurchase(req: AppRequest, res: AppResponse) {
 
     const { totalPrice, cart, discount, shippingAddress, paymentMethod } = payload;
     const requestId = `purchase-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    console.log("[makePurchase] request", {
+    logger.info({
         requestId,
         uid,
         items: cart?.length,
@@ -152,7 +153,7 @@ async function makePurchase(req: AppRequest, res: AppResponse) {
         discount,
         paymentMethod,
         firstCartItem: cart?.[0],
-    });
+    }, "[makePurchase] request");
 
     if (!cart || cart.length === 0) {
         return res.status(400).json({ msg: "Cart cannot be empty" });
@@ -169,7 +170,7 @@ async function makePurchase(req: AppRequest, res: AppResponse) {
             shippingAddress,
             paymentMethod,
         });
-        console.log("[makePurchase] success", { requestId, orderId: order.id });
+        logger.info({ requestId, orderId: order.id }, "[makePurchase] success");
         res.status(201).json({
             orderId: order.id,
             order,
@@ -179,11 +180,11 @@ async function makePurchase(req: AppRequest, res: AppResponse) {
     } catch (err) {
         const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
         const statusCode = error.statusCode || 500;
-        console.error("[makePurchase] error", {
+        logger.error({
             requestId,
             err: error.message || err,
             details: statusCode === 500 ? undefined : error.details,
-        });
+        }, "[makePurchase] error");
         return res.status(statusCode).json({
             msg: statusCode === 500 ? "Unable to place order right now" : error.message,
             ...(statusCode === 500 ? {} : error.details || {}),
@@ -216,7 +217,7 @@ async function applyDiscount(req: AppRequest, res: AppResponse) {
         if (err?.name === "ZodError") {
             return res.status(400).json({ msg: getValidationMessage(err) });
         }
-        console.error(err);
+        logger.error(err);
         return res.status(500).json({ msg: "Internal server error", error: err.message });
     }
 }

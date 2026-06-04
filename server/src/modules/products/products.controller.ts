@@ -1,5 +1,6 @@
 import type { AppRequest, AppResponse, CountRow, DbError, UpdateResult } from "#src/shared/interfaces/domain";
 import type { ProductEditorRow } from "./products.types";
+import { logger } from "#src/shared/utils/logger";
 const productService = require("./products.service");
 const Product = require("./products.repository");
 const inventoryMovementService = require("#src/modules/inventory/inventory.service");
@@ -29,7 +30,7 @@ async function addSingleProduct(req: AppRequest, res: AppResponse) {
                 return res.status(400).json({ msg: getValidationMessage(error) });
             }
             const err = error as Error;
-            console.error(err.message);
+            logger.error(err);
             res.status(500).json({ msg: "Internal server error", error: err.message });
         }
     });
@@ -289,7 +290,7 @@ async function retrieveRelevantProducts(req: AppRequest, res: AppResponse) {
             });
         } catch (err) {
             const error = err as Error;
-            console.error("MySQL relevant products error: ", error.message);
+            logger.error({ err: error.message, pid }, "MySQL relevant products error");
             return res.status(500).json({ msg: "Error retrieving relevant products" });
         }
     }
@@ -320,7 +321,7 @@ async function retrieveRelevantProducts(req: AppRequest, res: AppResponse) {
             if (relevantIds.length > 0) {
                 return Product.getProductsByIdsOrdered(relevantIds, (mysqlErr: DbError | null, mysqlResults: ProductEditorRow[]) => {
                     if (mysqlErr) {
-                        console.error("Mongo id hydration error: ", mysqlErr.message);
+                        logger.error({ err: mysqlErr.message, pid, relevantIds }, "Mongo id hydration error");
                         return res.status(500).json({ msg: "Error retrieving relevant products" });
                     }
                     return res.status(200).json({
@@ -343,7 +344,7 @@ async function retrieveRelevantProducts(req: AppRequest, res: AppResponse) {
         });
     } catch (err) {
         const error = err as Error;
-        console.error("Mongo relevant products error: ", error.message);
+        logger.error({ err: error.message, pid }, "Mongo relevant products error");
         try {
             const fallbackResults = await fetchFromMysql();
             return res.status(200).json({
@@ -352,7 +353,7 @@ async function retrieveRelevantProducts(req: AppRequest, res: AppResponse) {
             });
         } catch (fallbackErr) {
             const error = fallbackErr as Error;
-            console.error("MySQL relevant products error: ", error.message);
+            logger.error({ err: error.message, pid }, "MySQL relevant products error");
             return res.status(500).json({ msg: "Error retrieving relevant products" });
         }
     }
@@ -364,7 +365,7 @@ function getRecommendations(req: AppRequest, res: AppResponse) {
 
     Product.getRecommendedProductsByUserId(uid, limit, (err: DbError | null, results: ProductEditorRow[]) => {
         if (err) {
-            console.error("Recommendation error: ", err.message);
+            logger.error({ err: err.message, uid, limit }, "Recommendation error");
             return res.status(500).json({ msg: "Unable to load recommendations" });
         }
         return res.status(200).json({

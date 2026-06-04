@@ -1,6 +1,7 @@
 const InventoryMovement = require("./inventory.repository");
 import type { DbError, LooseRecord } from "#src/shared/interfaces/domain";
 import type { InventoryMovementInput } from "./inventory.dto";
+import { logger } from "#src/shared/utils/logger";
 
 const normalizeMovement = (movement: LooseRecord = {}) => ({
     id: Number(movement.id),
@@ -31,7 +32,7 @@ function recordMovement(movement: InventoryMovementInput) {
     // product or checkout operation when logging fails.
     InventoryMovement.createMovement(movement, (err: DbError | null) => {
         if (err) {
-            console.error("Inventory movement log failed:", err.message);
+            logger.error({ err, movementType: movement.movementType, productId: movement.productId }, "Inventory movement log failed");
         }
     });
 }
@@ -41,7 +42,7 @@ function recordMovements(movements: InventoryMovementInput[]) {
     // single movement: preserve checkout success after the order commits.
     InventoryMovement.createMovements(movements, (err: DbError | null) => {
         if (err) {
-            console.error("Inventory movement bulk log failed:", err.message);
+            logger.error({ err, count: movements.length }, "Inventory movement bulk log failed");
         }
     });
 }

@@ -4,6 +4,7 @@ const multer = require("multer");
 const { blobHealthQuerySchema } = require("./blob.validator");
 const { getValidationMessage, parseBody } = require("#src/shared/validation/requestSchemas");
 import type { UploadRequestFile } from "./blob.types";
+import { logger } from "#src/shared/utils/logger";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -33,7 +34,7 @@ async function blobHealthCheck(req: AppRequest, res: AppResponse) {
                     await del(blob.url, { token });
                 } catch (err) {
                     const error = err as Error;
-                    console.warn("Failed to auto-delete blob health check:", error?.message || err);
+                    logger.warn({ err: error?.message || err, url: blob.url }, "Failed to auto-delete blob health check");
                 }
             }, cleanupDelayMs);
         }

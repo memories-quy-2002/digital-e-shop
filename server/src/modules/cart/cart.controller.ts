@@ -1,4 +1,5 @@
 import type { AppRequest, AppResponse } from "#src/shared/interfaces/domain";
+import { logger } from "#src/shared/utils/logger";
 const cartService = require("./cart.service");
 const { cartAddItemSchema, cartDeleteItemSchema, cartUpdateQuantitySchema } = require("./cart.validator");
 const {
@@ -17,7 +18,7 @@ async function addItemToCart(req: AppRequest, res: AppResponse) {
         if (err?.name === "ZodError") {
             return res.status(400).json({ msg: getValidationMessage(err) });
         }
-        console.error(err.message);
+        logger.error(err);
         res.status(500).json({
             msg: "Error adding item to cart",
             error: err.message,
@@ -34,7 +35,7 @@ async function getCartItems(req: AppRequest, res: AppResponse) {
             cartItems: results,
         });
     } catch (err) {
-        console.error(err.message);
+        logger.error(err);
         res.status(500).json({
             msg: "Error retrieving cart items",
             error: err.message,
@@ -53,7 +54,7 @@ async function deleteCartItem(req: AppRequest, res: AppResponse) {
         if (err?.name === "ZodError") {
             return res.status(400).json({ msg: getValidationMessage(err) });
         }
-        console.error(err.message);
+        logger.error(err);
         res.status(500).json({
             msg: "Error deleting cart item",
             error: err.message,
@@ -73,7 +74,7 @@ async function validateCartForCheckout(req: AppRequest, res: AppResponse) {
             ...result,
         });
     } catch (err) {
-        console.error(err.message);
+        logger.error(err);
         return res.status(500).json({
             msg: "Error validating cart items",
             error: err.message,
@@ -92,7 +93,7 @@ async function updateCartItemQuantity(req: AppRequest, res: AppResponse) {
         if (err?.name === "ZodError") {
             return res.status(400).json({ msg: getValidationMessage(err) });
         }
-        console.error(err.message);
+        logger.error(err);
         res.status(500).json({
             msg: "Error updating cart item",
             error: err.message,

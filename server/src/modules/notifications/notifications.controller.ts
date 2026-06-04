@@ -1,5 +1,6 @@
 import type { AppRequest, AppResponse } from "#src/shared/interfaces/domain";
 import type { CustomerNotificationRow } from "./notifications.types";
+import { logger } from "#src/shared/utils/logger";
 const notificationService = require("./notifications.service");
 const { notificationRouteParamsSchema, notificationsQuerySchema } = require("./notifications.validator");
 const { getValidationMessage, parseBody } = require("#src/shared/validation/requestSchemas");
@@ -15,7 +16,7 @@ async function getNotifications(req: AppRequest, res: AppResponse) {
         if (err?.name === "ZodError") {
             return res.status(400).json({ msg: getValidationMessage(err) });
         }
-        console.error(err);
+        logger.error(err);
         return res.status(500).json({ msg: "Unable to load notifications" });
     }
 }
@@ -29,7 +30,7 @@ async function markNotificationRead(req: AppRequest, res: AppResponse) {
         if (err?.name === "ZodError") {
             return res.status(400).json({ msg: getValidationMessage(err) });
         }
-        console.error(err);
+        logger.error(err);
         return res.status(500).json({ msg: "Unable to update notification" });
     }
 }
@@ -43,7 +44,7 @@ async function markAllNotificationsRead(req: AppRequest, res: AppResponse) {
         if (err?.name === "ZodError") {
             return res.status(400).json({ msg: getValidationMessage(err) });
         }
-        console.error(err);
+        logger.error(err);
         return res.status(500).json({ msg: "Unable to update notifications" });
     }
 }
