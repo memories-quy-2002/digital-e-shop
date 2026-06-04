@@ -26,7 +26,15 @@ import analyticsRoutes from "#src/modules/analytics/analytics.routes";
 
 const app = express();
 
-app.use((req, res, next) => {
+type ExpressRequest = Parameters<RequestHandler>[0];
+type ExpressResponse = Parameters<RequestHandler>[1];
+type ExpressNext = Parameters<RequestHandler>[2];
+type ExpressError = Parameters<ErrorRequestHandler>[0];
+type ExpressErrorRequest = Parameters<ErrorRequestHandler>[1];
+type ExpressErrorResponse = Parameters<ErrorRequestHandler>[2];
+type ExpressErrorNext = Parameters<ErrorRequestHandler>[3];
+
+app.use((req: ExpressRequest, res: ExpressResponse, next: ExpressNext) => {
     res.header("Access-Control-Allow-Origin", defaultClientOrigin);
     res.header("Access-Control-Allow-Credentials", "true");
     res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
@@ -56,7 +64,7 @@ app.use(
 
 const { doubleCsrfProtection, generateCsrfToken, invalidCsrfTokenError } = doubleCsrf({
     getSecret: () => env.csrfSecret,
-    getSessionIdentifier: (req) => String(req.cookies?.session || req.ip || "anonymous"),
+    getSessionIdentifier: (req: ExpressRequest) => String(req.cookies?.session || req.ip || "anonymous"),
     cookieName: "csrfToken",
     cookieOptions: {
         httpOnly: false,
@@ -66,8 +74,8 @@ const { doubleCsrfProtection, generateCsrfToken, invalidCsrfTokenError } = doubl
     },
     size: 64,
     ignoredMethods: ["GET", "HEAD", "OPTIONS"],
-    getCsrfTokenFromRequest: (req) => String(req.headers["x-csrf-token"] || ""),
-    skipCsrfProtection: (req) =>
+    getCsrfTokenFromRequest: (req: ExpressRequest) => String(req.headers["x-csrf-token"] || ""),
+    skipCsrfProtection: (req: ExpressRequest) =>
         req.path === "/api/users/login" ||
         req.path === "/api/users/register" ||
         req.path === "/api/users/refresh" ||
@@ -76,7 +84,7 @@ const { doubleCsrfProtection, generateCsrfToken, invalidCsrfTokenError } = doubl
         req.path === "/users/refresh",
 });
 
-const csrfProtection: RequestHandler = (req, res, next) => {
+const csrfProtection: RequestHandler = (req: ExpressRequest, res: ExpressResponse, next: ExpressNext) => {
     doubleCsrfProtection(req, res, next);
 };
 
@@ -94,10 +102,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(passport.initialize());
 
-app.get("/api/csrf", (req, res) => {
+app.get("/api/csrf", (req: ExpressRequest, res: ExpressResponse) => {
     res.status(200).json({ csrfToken: generateCsrfToken(req, res) });
 });
-app.get("/csrf", (req, res) => {
+app.get("/csrf", (req: ExpressRequest, res: ExpressResponse) => {
     res.status(200).json({ csrfToken: generateCsrfToken(req, res) });
 });
 
@@ -121,7 +129,7 @@ app.use("/api/blob", blobRoutes);
 app.use("/api/promotions", promotionsRoutes);
 app.use("/api/analytics", analyticsRoutes);
 
-app.get("/", (_req, res) => {
+app.get("/", (_req: ExpressRequest, res: ExpressResponse) => {
     res.status(200).json({
         status: "ok",
         service: "digital-e-server",
@@ -129,14 +137,19 @@ app.get("/", (_req, res) => {
     });
 });
 
-app.get("/api/health", (_req, res) => {
+app.get("/api/health", (_req: ExpressRequest, res: ExpressResponse) => {
     res.status(200).json({
         status: "ok",
         timestamp: new Date().toISOString(),
     });
 });
 
-const csrfErrorHandler: ErrorRequestHandler = (err, _req, res, next) => {
+const csrfErrorHandler: ErrorRequestHandler = (
+    err: ExpressError,
+    _req: ExpressErrorRequest,
+    res: ExpressErrorResponse,
+    next: ExpressErrorNext,
+) => {
     if (err === invalidCsrfTokenError) {
         return res.status(403).json({ error: "Invalid CSRF token" });
     }
