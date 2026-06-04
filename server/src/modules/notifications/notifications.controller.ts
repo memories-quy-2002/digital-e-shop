@@ -1,8 +1,8 @@
-import type { AppRequest, AppResponse } from "#/shared/interfaces/domain";
+import type { AppRequest, AppResponse } from "#src/shared/interfaces/domain";
 import type { CustomerNotificationRow } from "./notifications.types";
 const notificationService = require("./notifications.service");
 const { notificationRouteParamsSchema, notificationsQuerySchema } = require("./notifications.validator");
-const { getValidationMessage, parseBody } = require("#/shared/validation/requestSchemas");
+const { getValidationMessage, parseBody } = require("#src/shared/validation/requestSchemas");
 
 async function getNotifications(req: AppRequest, res: AppResponse) {
     try {
@@ -53,3 +53,4 @@ module.exports = {
     markNotificationRead,
     markAllNotificationsRead,
 };
+

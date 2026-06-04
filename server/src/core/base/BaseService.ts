@@ -1,4 +1,4 @@
-import { NotFoundError } from "#/core/errors/NotFoundError";
+import { NotFoundError } from "#src/core/errors/NotFoundError";
 
 export class BaseService {
     protected ensureFound<T>(value: T | null | undefined, message: string): T {
@@ -9,3 +9,4 @@ export class BaseService {
         return value;
     }
 }
+

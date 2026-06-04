@@ -1,14 +1,14 @@
-import pool from "#/config/database.config";
+import pool from "#src/config/database.config";
 import type {
     CountRow,
     InsertResult,
     QueryCallback,
     QueryParams,
     UpdateResult,
-} from "#/shared/interfaces/domain";
-const Promotion = require("#/modules/promotions/promotions.repository");
+} from "#src/shared/interfaces/domain";
+const Promotion = require("#src/modules/promotions/promotions.repository");
 import type { OrderDetailRow, OrderSummaryRow } from "./orders.types";
-import type { PromotionRow } from "#/modules/promotions/promotions.types";
+import type { PromotionRow } from "#src/modules/promotions/promotions.types";
 
 const QUERY_TIMEOUT = 8000;
 
@@ -221,3 +221,4 @@ module.exports = {
     getOrderItemsCount,
     applyDiscount,
 };
+

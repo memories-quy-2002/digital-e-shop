@@ -1,7 +1,7 @@
-import type { AppRequest, AppResponse } from "#/shared/interfaces/domain";
+import type { AppRequest, AppResponse } from "#src/shared/interfaces/domain";
 const inventoryMovementService = require("./inventory.service");
 const { inventoryMovementsQuerySchema } = require("./inventory.validator");
-const { getValidationMessage, parseBody } = require("#/shared/validation/requestSchemas");
+const { getValidationMessage, parseBody } = require("#src/shared/validation/requestSchemas");
 
 async function getInventoryMovements(req: AppRequest, res: AppResponse) {
     try {
@@ -20,3 +20,4 @@ async function getInventoryMovements(req: AppRequest, res: AppResponse) {
 module.exports = {
     getInventoryMovements,
 };
+

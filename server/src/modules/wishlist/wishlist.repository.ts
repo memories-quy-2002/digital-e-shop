@@ -1,5 +1,5 @@
-import pool from "#/config/database.config";
-import type { QueryCallback, UpdateResult } from "#/shared/interfaces/domain";
+import pool from "#src/config/database.config";
+import type { QueryCallback, UpdateResult } from "#src/shared/interfaces/domain";
 import type { WishlistRow } from "./wishlist.types";
 
 const addItemToWishlist = (uid: string, pid: number, callback: QueryCallback<UpdateResult>) => {
@@ -66,3 +66,4 @@ module.exports = {
     deleteWishlistItem,
     deleteWishlistItems
 };
+

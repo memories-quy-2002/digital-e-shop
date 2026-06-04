@@ -1,8 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
-import { BaseController } from "#/core/base/BaseController";
-import { asyncHandler } from "#/core/middlewares/asyncHandler";
-import { defaultClientOrigin } from "#/config/cors.config";
-import { env, isProduction } from "#/config/env.config";
+import { BaseController } from "#src/core/base/BaseController";
+import { asyncHandler } from "#src/core/middlewares/asyncHandler";
+import { defaultClientOrigin } from "#src/config/cors.config";
+import { env, isProduction } from "#src/config/env.config";
 import { authService } from "./auth.service";
 import type { AuthSessionPayload, SocialAuthProfile } from "./auth.types";
 
@@ -165,3 +165,4 @@ class AuthController extends BaseController {
 }
 
 export const authController = new AuthController();
+

@@ -1,4 +1,4 @@
-import { HTTP_STATUS } from "#/shared/constants/httpStatus";
+import { HTTP_STATUS } from "#src/shared/constants/httpStatus";
 import { AppError } from "./AppError";
 
 export class NotFoundError extends AppError {
@@ -6,3 +6,4 @@ export class NotFoundError extends AppError {
         super(message, HTTP_STATUS.NOT_FOUND, "NOT_FOUND", details);
     }
 }
+

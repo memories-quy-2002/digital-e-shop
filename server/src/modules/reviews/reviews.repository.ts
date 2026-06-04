@@ -1,6 +1,6 @@
-import pool from "#/config/database.config";
-const prisma = require("#/database/prisma/client");
-import type { CountRow, QueryCallback, UpdateResult } from "#/shared/interfaces/domain";
+import pool from "#src/config/database.config";
+const prisma = require("#src/database/prisma/client");
+import type { CountRow, QueryCallback, UpdateResult } from "#src/shared/interfaces/domain";
 import type { RatingSummaryRow, ReviewRow } from "./reviews.types";
 
 const getReviewByUserAndProduct = (uid: string, pid: number, callback: QueryCallback<ReviewRow[]>) => {
@@ -157,3 +157,4 @@ module.exports = {
     getReviewsCount,
     getRatingSummary,
 };
+

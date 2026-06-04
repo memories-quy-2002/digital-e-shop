@@ -1,9 +1,9 @@
 const Cart = require("./cart.repository");
-const Product = require("#/modules/products/products.repository");
+const Product = require("#src/modules/products/products.repository");
 import type {
     DbError,
     ServiceResultMessage,
-} from "#/shared/interfaces/domain";
+} from "#src/shared/interfaces/domain";
 import type {
     CartCheckoutItem,
     CartItemRow,
@@ -14,7 +14,7 @@ import type {
     CheckoutUnitPrice,
     CheckoutValidationResult,
 } from "./cart.types";
-import type { ProductEditorRow } from "#/modules/products/products.types";
+import type { ProductEditorRow } from "#src/modules/products/products.types";
 
 const normalizeOptionalSalePrice = (value: unknown): number | null => {
     if (value === null || value === undefined || value === "") {
@@ -333,3 +333,4 @@ module.exports = {
     updateCartItemQuantity,
     deleteCartItem
 }
+

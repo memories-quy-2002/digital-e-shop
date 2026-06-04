@@ -1,5 +1,5 @@
 const InventoryMovement = require("./inventory.repository");
-import type { DbError, LooseRecord } from "#/shared/interfaces/domain";
+import type { DbError, LooseRecord } from "#src/shared/interfaces/domain";
 import type { InventoryMovementInput } from "./inventory.dto";
 
 const normalizeMovement = (movement: LooseRecord = {}) => ({
@@ -51,3 +51,4 @@ module.exports = {
     recordMovement,
     recordMovements,
 };
+

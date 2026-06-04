@@ -1,6 +1,6 @@
-import type { AppRequest, AppResponse } from "#/shared/interfaces/domain";
+import type { AppRequest, AppResponse } from "#src/shared/interfaces/domain";
 const addressService = require("./addresses.service");
-const { getValidationMessage, parseBody } = require("#/shared/validation/requestSchemas");
+const { getValidationMessage, parseBody } = require("#src/shared/validation/requestSchemas");
 const { addressSchema } = require("./addresses.validator");
 
 async function getAddresses(req: AppRequest, res: AppResponse) {
@@ -57,3 +57,4 @@ module.exports = {
     updateAddress,
     deleteAddress,
 };
+

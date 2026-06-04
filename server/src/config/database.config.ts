@@ -1,6 +1,6 @@
 import mysql from "mysql";
-import { env } from "#/config/env.config";
-import { logger } from "#/shared/utils/logger";
+import { env } from "#src/config/env.config";
+import { logger } from "#src/shared/utils/logger";
 
 type QueryCallback = (err: Error | null, results?: unknown, fields?: unknown) => void;
 type QueryInput = string | { sql: string; timeout?: number };
@@ -95,3 +95,4 @@ pool.getConnection((err: Error | null, connection: DbConnection) => {
 });
 
 export default pool;
+

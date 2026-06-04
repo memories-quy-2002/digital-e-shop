@@ -1,13 +1,13 @@
-import type { AppRequest, AppResponse, CountRow, DbError, UpdateResult } from "#/shared/interfaces/domain";
+import type { AppRequest, AppResponse, CountRow, DbError, UpdateResult } from "#src/shared/interfaces/domain";
 import type { ProductEditorRow } from "./products.types";
 const productService = require("./products.service");
 const Product = require("./products.repository");
-const inventoryMovementService = require("#/modules/inventory/inventory.service");
+const inventoryMovementService = require("#src/modules/inventory/inventory.service");
 const { inventoryUpdateSchema, productCreateSchema, productUpdateSchema } = require("./products.validator");
 const {
     getValidationMessage,
     parseBody,
-} = require("#/shared/validation/requestSchemas");
+} = require("#src/shared/validation/requestSchemas");
 const multer = require("multer");
 const { MongoClient, ServerApiVersion } = require("mongodb");
 
@@ -387,3 +387,4 @@ module.exports = {
     retrieveRelevantProducts,
     getRecommendations,
 };
+

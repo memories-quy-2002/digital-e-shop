@@ -1,7 +1,7 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import { env } from "#/config/env.config";
-import { defaultServerOrigin } from "#/config/cors.config";
+import { env } from "#src/config/env.config";
+import { defaultServerOrigin } from "#src/config/cors.config";
 import type { SocialAuthProfile } from "./auth.types";
 
 type OAuthDone = (err: Error | null, user?: SocialAuthProfile) => void;
@@ -60,3 +60,4 @@ if (env.googleClientId && env.googleClientSecret) {
 }
 
 export default passport;
+

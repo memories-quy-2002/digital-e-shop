@@ -1,7 +1,7 @@
-import type { AppRequest, AppResponse } from "#/shared/interfaces/domain";
+import type { AppRequest, AppResponse } from "#src/shared/interfaces/domain";
 const reviewService = require("./reviews.service");
 const { createReviewSchema, reviewListQuerySchema } = require("./reviews.validator");
-const { getValidationMessage, parseBody } = require("#/shared/validation/requestSchemas");
+const { getValidationMessage, parseBody } = require("#src/shared/validation/requestSchemas");
 
 const addReview = async (req: AppRequest, res: AppResponse) => {
     let payload;
@@ -72,3 +72,4 @@ module.exports = {
     addReview,
     getReviews,
 };
+

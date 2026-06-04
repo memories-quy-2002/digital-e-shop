@@ -1,5 +1,5 @@
-import pool from "#/config/database.config";
-import type { CountRow, DbError, QueryCallback, UpdateResult } from "#/shared/interfaces/database";
+import pool from "#src/config/database.config";
+import type { CountRow, DbError, QueryCallback, UpdateResult } from "#src/shared/interfaces/database";
 import type { CustomerProfileRow, CustomerRecentOrderRow, UserRow } from "./users.types";
 
 let statusColumnReady = false;
@@ -302,3 +302,4 @@ class UsersRepository {
 }
 
 export const usersRepository = new UsersRepository();
+

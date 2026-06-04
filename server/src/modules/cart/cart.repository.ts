@@ -1,5 +1,5 @@
-import pool from "#/config/database.config";
-import type { QueryCallback, UpdateResult } from "#/shared/interfaces/domain";
+import pool from "#src/config/database.config";
+import type { QueryCallback, UpdateResult } from "#src/shared/interfaces/domain";
 import type { CartItemRow, CartRow } from "./cart.types";
 
 const addItemToCartByUserId = (uid: string, pid: number, quantity: number, callback: QueryCallback<UpdateResult>) => {
@@ -127,3 +127,4 @@ module.exports = {
     getCartItemStock,
     deleteCartItem
 }
+

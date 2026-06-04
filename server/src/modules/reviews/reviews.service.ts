@@ -1,5 +1,5 @@
 const Review = require("./reviews.repository");
-import type { CountRow, DbError } from "#/shared/interfaces/domain";
+import type { CountRow, DbError } from "#src/shared/interfaces/domain";
 import type { RatingSummaryRow, ReviewRow } from "./reviews.types";
 
 const normalizeSummary = (row: RatingSummaryRow = {}) => ({
@@ -87,3 +87,4 @@ module.exports = {
     getReviewsCount,
     getRatingSummary,
 };
+

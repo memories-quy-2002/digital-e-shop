@@ -1,8 +1,8 @@
-import type { AppRequest, AppResponse } from "#/shared/interfaces/domain";
+import type { AppRequest, AppResponse } from "#src/shared/interfaces/domain";
 const util = require("util");
-import pool from "#/config/database.config";
+import pool from "#src/config/database.config";
 const { analyticsSummaryQuerySchema } = require("./analytics.validator");
-const { parseBody } = require("#/shared/validation/requestSchemas");
+const { parseBody } = require("#src/shared/validation/requestSchemas");
 import type {
     AnalyticsRecord,
     CategoryPerformanceRow,
@@ -413,3 +413,4 @@ async function getAnalyticsSummary(req: AppRequest, res: AppResponse) {
 module.exports = {
     getAnalyticsSummary,
 };
+

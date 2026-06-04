@@ -1,5 +1,5 @@
-import pool from "#/config/database.config";
-import type { LooseRecord, QueryCallback } from "#/shared/interfaces/domain";
+import pool from "#src/config/database.config";
+import type { LooseRecord, QueryCallback } from "#src/shared/interfaces/domain";
 import type { PromotionPayload } from "./promotions.dto";
 
 const createDiscountsTableSql = `
@@ -193,3 +193,4 @@ module.exports = {
     deletePromotion,
     getActivePromotionByCode,
 };
+

@@ -1,10 +1,10 @@
-import type { AppRequest, AppResponse } from "#/shared/interfaces/domain";
+import type { AppRequest, AppResponse } from "#src/shared/interfaces/domain";
 const cartService = require("./cart.service");
 const { cartAddItemSchema, cartDeleteItemSchema, cartUpdateQuantitySchema } = require("./cart.validator");
 const {
     getValidationMessage,
     parseBody,
-} = require("#/shared/validation/requestSchemas");
+} = require("#src/shared/validation/requestSchemas");
 
 async function addItemToCart(req: AppRequest, res: AppResponse) {
     try {
@@ -107,3 +107,4 @@ module.exports = {
     updateCartItemQuantity,
     deleteCartItem,
 };
+

@@ -1,4 +1,4 @@
-import type { PaginationParams } from "#/shared/interfaces/Pagination";
+import type { PaginationParams } from "#src/shared/interfaces/Pagination";
 
 export class BaseRepository {
     protected normalizeLimit(limit?: number, max = 100, fallback = 20) {
@@ -21,3 +21,4 @@ export class BaseRepository {
         };
     }
 }
+

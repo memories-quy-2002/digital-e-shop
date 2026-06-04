@@ -1,4 +1,4 @@
-import { HTTP_STATUS } from "#/shared/constants/httpStatus";
+import { HTTP_STATUS } from "#src/shared/constants/httpStatus";
 import { AppError } from "./AppError";
 
 export class UnauthorizedError extends AppError {
@@ -6,3 +6,4 @@ export class UnauthorizedError extends AppError {
         super(message, statusCode, "UNAUTHORIZED", details);
     }
 }
+

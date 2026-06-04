@@ -1,5 +1,5 @@
-import { BaseService } from "#/core/base/BaseService";
-import { NotFoundError } from "#/core/errors/NotFoundError";
+import { BaseService } from "#src/core/base/BaseService";
+import { NotFoundError } from "#src/core/errors/NotFoundError";
 import { usersRepository } from "./users.repository";
 import type { UpdateUserAdminInput } from "./users.dto";
 
@@ -54,3 +54,4 @@ class UsersService extends BaseService {
 }
 
 export const usersService = new UsersService();
+

@@ -5,8 +5,8 @@ const {
     markNotificationRead,
     markAllNotificationsRead,
 } = require("./notifications.controller");
-const { requireAuth, requireOwnerOrAdmin } = require("#/modules/auth/auth.middleware");
-import { getRouteLimit } from "#/shared/utils/rateLimit";
+const { requireAuth, requireOwnerOrAdmin } = require("#src/modules/auth/auth.middleware");
+import { getRouteLimit } from "#src/shared/utils/rateLimit";
 
 const router = Router();
 
@@ -23,3 +23,4 @@ router.post("/:id/notifications/read-all", notificationsLimiter, requireAuth, re
 router.post("/:id/notifications/:notificationId/read", notificationsLimiter, requireAuth, requireOwnerOrAdmin("id"), markNotificationRead);
 
 export default router;
+

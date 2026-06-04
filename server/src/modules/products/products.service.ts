@@ -1,16 +1,16 @@
 const { put } = require("@vercel/blob");
 const util = require("util");
-import pool from "#/config/database.config";
-const inventoryMovementService = require("#/modules/inventory/inventory.service");
+import pool from "#src/config/database.config";
+const inventoryMovementService = require("#src/modules/inventory/inventory.service");
 const query = util.promisify(pool.query).bind(pool);
 import type {
     IdNameRow,
     InsertResult,
     UpdateResult,
-} from "#/shared/interfaces/domain";
+} from "#src/shared/interfaces/domain";
 import type { ProductCreateInput, ProductUpdateInput } from "./products.dto";
 import type { ProductEditorRow } from "./products.types";
-import type { UploadedFile } from "#/modules/blob/blob.types";
+import type { UploadedFile } from "#src/modules/blob/blob.types";
 
 const dbQuery = <T = unknown>(sql: string, values?: unknown[]): Promise<T> => query(sql, values) as Promise<T>;
 
@@ -191,3 +191,4 @@ async function updateProductDetailsService(pid: number, updates: ProductUpdateIn
 }
 
 module.exports = { addSingleProductService, updateProductDetailsService };
+

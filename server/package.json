@@ -19,7 +19,7 @@
         "perf:customer-readonly": "k6 run test/k6-customer-readonly.js"
     },
     "imports": {
-        "#/*": {
+        "#src/*": {
             "development": "./src/*.ts",
             "default": "./dist/src/*.js"
         }

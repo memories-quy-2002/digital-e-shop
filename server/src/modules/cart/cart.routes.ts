@@ -7,8 +7,8 @@ const {
     updateCartItemQuantity,
     deleteCartItem,
 } = require("./cart.controller");
-const { requireAuth, requireOwnerOrAdmin } = require("#/modules/auth/auth.middleware");
-import { getRouteLimit } from "#/shared/utils/rateLimit";
+const { requireAuth, requireOwnerOrAdmin } = require("#src/modules/auth/auth.middleware");
+import { getRouteLimit } from "#src/shared/utils/rateLimit";
 
 const router = Router();
 
@@ -27,3 +27,4 @@ router.put("/", cartLimiter, requireAuth, requireOwnerOrAdmin("uid"), updateCart
 router.delete("/", cartLimiter, requireAuth, deleteCartItem);
 
 export default router;
+

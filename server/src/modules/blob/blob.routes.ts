@@ -1,8 +1,8 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 const { blobHealthCheck, uploadImage } = require("./blob.controller");
-const { requireAdmin } = require("#/modules/auth/auth.middleware");
-import { getRouteLimit } from "#/shared/utils/rateLimit";
+const { requireAdmin } = require("#src/modules/auth/auth.middleware");
+import { getRouteLimit } from "#src/shared/utils/rateLimit";
 
 const router = Router();
 
@@ -18,3 +18,4 @@ router.get("/health", blobLimiter, blobHealthCheck);
 router.post("/upload", blobLimiter, requireAdmin, uploadImage);
 
 export default router;
+

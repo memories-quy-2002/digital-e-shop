@@ -1,4 +1,4 @@
-import type { CartCheckoutItem } from "#/modules/cart/cart.dto";
+import type { CartCheckoutItem } from "#src/modules/cart/cart.dto";
 
 export type PurchasePayload = {
     totalPrice: number;
@@ -7,3 +7,4 @@ export type PurchasePayload = {
     shippingAddress: string;
     paymentMethod: string;
 };
+

@@ -1,8 +1,8 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 const { addItemToWishlist, getWishlist, deleteWishlistItem, deleteWishlistItems } = require("./wishlist.controller");
-const { requireAuth, requireOwnerOrAdmin } = require("#/modules/auth/auth.middleware");
-import { getRouteLimit } from "#/shared/utils/rateLimit";
+const { requireAuth, requireOwnerOrAdmin } = require("#src/modules/auth/auth.middleware");
+import { getRouteLimit } from "#src/shared/utils/rateLimit";
 
 const router = Router();
 
@@ -20,3 +20,4 @@ router.delete("/", wishlistLimiter, requireAuth, requireOwnerOrAdmin("uid"), del
 router.delete("/:pid", wishlistLimiter, requireAuth, requireOwnerOrAdmin("uid"), deleteWishlistItem);
 
 export default router;
+

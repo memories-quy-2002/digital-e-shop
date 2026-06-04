@@ -1,5 +1,5 @@
-import pool from "#/config/database.config";
-import type { QueryCallback, QueryParams, UpdateResult } from "#/shared/interfaces/domain";
+import pool from "#src/config/database.config";
+import type { QueryCallback, QueryParams, UpdateResult } from "#src/shared/interfaces/domain";
 import type { CustomerAddressInput, CustomerAddressRow } from "./addresses.types";
 
 let tableReady = false;
@@ -146,3 +146,4 @@ module.exports = {
     updateAddress,
     deleteAddress,
 };
+

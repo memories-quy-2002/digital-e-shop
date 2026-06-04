@@ -1,5 +1,5 @@
-import pool from "#/config/database.config";
-import type { DbError, InsertResult, UpdateResult } from "#/shared/interfaces/database";
+import pool from "#src/config/database.config";
+import type { DbError, InsertResult, UpdateResult } from "#src/shared/interfaces/database";
 import type { SessionRow } from "./auth.types";
 
 class AuthRepository {
@@ -45,3 +45,4 @@ class AuthRepository {
 }
 
 export const authRepository = new AuthRepository();
+

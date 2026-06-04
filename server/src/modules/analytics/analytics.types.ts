@@ -1,4 +1,4 @@
-import type { LooseRecord } from "#/shared/interfaces/domain";
+import type { LooseRecord } from "#src/shared/interfaces/domain";
 
 export type OverviewRow = {
     total_orders?: number;
@@ -72,3 +72,4 @@ export type DiscountOrderRow = {
 };
 
 export type AnalyticsRecord = LooseRecord;
+

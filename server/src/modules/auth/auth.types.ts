@@ -1,4 +1,4 @@
-import type { UserRow } from "#/modules/users/users.types";
+import type { UserRow } from "#src/modules/users/users.types";
 
 export type SocialAuthProfile = {
     provider: "google";
@@ -28,3 +28,4 @@ export type AuthSessionPayload = {
     sessionId: number;
     refreshToken?: string | null;
 };
+

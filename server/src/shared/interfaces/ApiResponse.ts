@@ -1,4 +1,4 @@
-import type { PaginationMeta } from "#/shared/interfaces/Pagination";
+import type { PaginationMeta } from "#src/shared/interfaces/Pagination";
 
 export interface ApiResponse<T = unknown> {
     msg?: string;
@@ -11,3 +11,4 @@ export interface PaginatedApiResponse<T = unknown> {
     pagination: PaginationMeta;
     msg?: string;
 }
+

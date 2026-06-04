@@ -1,5 +1,5 @@
 const Wishlist = require("./wishlist.repository");
-import type { DbError, ServiceResultMessage } from "#/shared/interfaces/domain";
+import type { DbError, ServiceResultMessage } from "#src/shared/interfaces/domain";
 import type { WishlistRow } from "./wishlist.types";
 
 async function addItemToWishlist(uid: string, pid: number): Promise<ServiceResultMessage> {
@@ -60,3 +60,4 @@ module.exports = {
     deleteWishlistItem,
     deleteWishlistItems
 }
+

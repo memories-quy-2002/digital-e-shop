@@ -1,8 +1,8 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 const { getAddresses, createAddress, updateAddress, deleteAddress } = require("./addresses.controller");
-const { requireAuth, requireOwnerOrAdmin } = require("#/modules/auth/auth.middleware");
-import { getRouteLimit } from "#/shared/utils/rateLimit";
+const { requireAuth, requireOwnerOrAdmin } = require("#src/modules/auth/auth.middleware");
+import { getRouteLimit } from "#src/shared/utils/rateLimit";
 
 const router = Router();
 
@@ -20,3 +20,4 @@ router.put("/:id/addresses/:addressId", addressesLimiter, requireAuth, requireOw
 router.delete("/:id/addresses/:addressId", addressesLimiter, requireAuth, requireOwnerOrAdmin("id"), deleteAddress);
 
 export default router;
+

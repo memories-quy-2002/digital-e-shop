@@ -1,8 +1,8 @@
-import type { AppRequest, AppResponse } from "#/shared/interfaces/domain";
+import type { AppRequest, AppResponse } from "#src/shared/interfaces/domain";
 const { put, del } = require("@vercel/blob");
 const multer = require("multer");
 const { blobHealthQuerySchema } = require("./blob.validator");
-const { getValidationMessage, parseBody } = require("#/shared/validation/requestSchemas");
+const { getValidationMessage, parseBody } = require("#src/shared/validation/requestSchemas");
 import type { UploadRequestFile } from "./blob.types";
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -87,3 +87,4 @@ const uploadImage = (req: UploadRequest, res: AppResponse) => {
 };
 
 module.exports = { blobHealthCheck, uploadImage };
+

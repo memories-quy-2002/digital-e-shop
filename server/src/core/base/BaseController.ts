@@ -1,6 +1,6 @@
 import type { Response } from "express";
-import { HTTP_STATUS } from "#/shared/constants/httpStatus";
-import type { PaginationMeta } from "#/shared/interfaces/Pagination";
+import { HTTP_STATUS } from "#src/shared/constants/httpStatus";
+import type { PaginationMeta } from "#src/shared/interfaces/Pagination";
 
 const mergePayload = (data?: unknown, message?: string) => {
     if (data && typeof data === "object" && !Array.isArray(data)) {
@@ -35,3 +35,4 @@ export class BaseController {
         });
     }
 }
+

@@ -1,11 +1,11 @@
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import type { Request } from "express";
-import { BaseService } from "#/core/base/BaseService";
-import { UnauthorizedError } from "#/core/errors/UnauthorizedError";
-import { env } from "#/config/env.config";
-import { hashPassword } from "#/utils/hashPassword";
-import { usersRepository } from "#/modules/users/users.repository";
+import { BaseService } from "#src/core/base/BaseService";
+import { UnauthorizedError } from "#src/core/errors/UnauthorizedError";
+import { env } from "#src/config/env.config";
+import { hashPassword } from "#src/utils/hashPassword";
+import { usersRepository } from "#src/modules/users/users.repository";
 import type { RegisterUserInput } from "./auth.dto";
 import type { AuthSessionPayload, JwtPayload, SocialAuthProfile } from "./auth.types";
 import { authRepository } from "./auth.repository";
@@ -209,3 +209,4 @@ class AuthService extends BaseService {
 }
 
 export const authService = new AuthService();
+

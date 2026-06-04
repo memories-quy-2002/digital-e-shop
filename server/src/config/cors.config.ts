@@ -1,4 +1,4 @@
-import { env, isProduction } from "#/config/env.config";
+import { env, isProduction } from "#src/config/env.config";
 
 export const defaultClientOrigin =
     env.clientUrl || (isProduction ? "https://digital-e.vercel.app" : "http://localhost:5173");
@@ -15,3 +15,4 @@ export const allowedOrigins = Array.from(
         ].filter(Boolean),
     ),
 );
+

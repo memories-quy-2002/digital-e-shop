@@ -1,9 +1,9 @@
 import jwt from "jsonwebtoken";
 import type { NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
-import { env } from "#/config/env.config";
+import { env } from "#src/config/env.config";
 import { authService } from "./auth.service";
-import { usersRepository } from "#/modules/users/users.repository";
+import { usersRepository } from "#src/modules/users/users.repository";
 
 const authzLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -78,3 +78,4 @@ export const requireOwnerOrAdmin = (paramKey: string) => (req: Request, res: Res
 
     return res.status(403).json({ msg: "Forbidden" });
 };
+

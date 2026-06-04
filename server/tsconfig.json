@@ -5,7 +5,7 @@
         "moduleResolution": "Node16",
         "baseUrl": ".",
         "paths": {
-            "#/*": ["src/*"]
+            "#src/*": ["src/*"]
         },
         "rootDir": ".",
         "outDir": "dist",

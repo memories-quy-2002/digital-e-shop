@@ -1,8 +1,8 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 const { getAnalyticsSummary } = require("./analytics.controller");
-const { requireAdmin } = require("#/modules/auth/auth.middleware");
-import { getRouteLimit } from "#/shared/utils/rateLimit";
+const { requireAdmin } = require("#src/modules/auth/auth.middleware");
+import { getRouteLimit } from "#src/shared/utils/rateLimit";
 
 const router = Router();
 
@@ -17,3 +17,4 @@ const analyticsLimiter = rateLimit({
 router.get("/summary", analyticsLimiter, requireAdmin, getAnalyticsSummary);
 
 export default router;
+

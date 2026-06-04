@@ -9,8 +9,8 @@ const {
     getOrderItems,
     applyDiscount,
 } = require("./orders.controller");
-const { requireAdmin, requireAuth, requireOwnerOrAdmin, requireCustomerOrAdmin } = require("#/modules/auth/auth.middleware");
-import { getRouteLimit } from "#/shared/utils/rateLimit";
+const { requireAdmin, requireAuth, requireOwnerOrAdmin, requireCustomerOrAdmin } = require("#src/modules/auth/auth.middleware");
+import { getRouteLimit } from "#src/shared/utils/rateLimit";
 
 const router = Router();
 
@@ -31,3 +31,4 @@ router.post("/status/:oid", orderLimiter, requireAdmin, changeOrderStatus);
 router.post("/discount", orderLimiter, requireAuth, requireCustomerOrAdmin, applyDiscount);
 
 export default router;
+

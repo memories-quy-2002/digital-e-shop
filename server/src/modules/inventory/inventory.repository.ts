@@ -1,5 +1,5 @@
-import pool from "#/config/database.config";
-import type { QueryCallback, QueryParams, UpdateResult } from "#/shared/interfaces/domain";
+import pool from "#src/config/database.config";
+import type { QueryCallback, QueryParams, UpdateResult } from "#src/shared/interfaces/domain";
 import type { InventoryMovementInput } from "./inventory.dto";
 import type { InventoryMovementRow } from "./inventory.types";
 
@@ -113,3 +113,4 @@ module.exports = {
     createMovements,
     getMovements,
 };
+

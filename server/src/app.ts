@@ -3,26 +3,26 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import { doubleCsrf } from "csrf-csrf";
-import passport from "#/modules/auth/auth.passport";
-import { env, isProduction } from "#/config/env.config";
-import { allowedOrigins, defaultClientOrigin } from "#/config/cors.config";
-import { errorHandler } from "#/core/middlewares/errorHandler";
-import { requestLogger } from "#/core/middlewares/requestLogger";
-import { getRouteLimit } from "#/shared/utils/rateLimit";
+import passport from "#src/modules/auth/auth.passport";
+import { env, isProduction } from "#src/config/env.config";
+import { allowedOrigins, defaultClientOrigin } from "#src/config/cors.config";
+import { errorHandler } from "#src/core/middlewares/errorHandler";
+import { requestLogger } from "#src/core/middlewares/requestLogger";
+import { getRouteLimit } from "#src/shared/utils/rateLimit";
 
-import authRoutes from "#/modules/auth/auth.routes";
-import usersRoutes from "#/modules/users/users.routes";
-import addressesRoutes from "#/modules/addresses/addresses.routes";
-import notificationsRoutes from "#/modules/notifications/notifications.routes";
-import productsRoutes from "#/modules/products/products.routes";
-import inventoryRoutes from "#/modules/inventory/inventory.routes";
-import cartRoutes from "#/modules/cart/cart.routes";
-import ordersRoutes from "#/modules/orders/orders.routes";
-import reviewsRoutes from "#/modules/reviews/reviews.routes";
-import wishlistRoutes from "#/modules/wishlist/wishlist.routes";
-import blobRoutes from "#/modules/blob/blob.routes";
-import promotionsRoutes from "#/modules/promotions/promotions.routes";
-import analyticsRoutes from "#/modules/analytics/analytics.routes";
+import authRoutes from "#src/modules/auth/auth.routes";
+import usersRoutes from "#src/modules/users/users.routes";
+import addressesRoutes from "#src/modules/addresses/addresses.routes";
+import notificationsRoutes from "#src/modules/notifications/notifications.routes";
+import productsRoutes from "#src/modules/products/products.routes";
+import inventoryRoutes from "#src/modules/inventory/inventory.routes";
+import cartRoutes from "#src/modules/cart/cart.routes";
+import ordersRoutes from "#src/modules/orders/orders.routes";
+import reviewsRoutes from "#src/modules/reviews/reviews.routes";
+import wishlistRoutes from "#src/modules/wishlist/wishlist.routes";
+import blobRoutes from "#src/modules/blob/blob.routes";
+import promotionsRoutes from "#src/modules/promotions/promotions.routes";
+import analyticsRoutes from "#src/modules/analytics/analytics.routes";
 
 const app = express();
 
@@ -147,3 +147,4 @@ app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
 app.use(errorHandler);
 
 export default app;
+

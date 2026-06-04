@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
-import { BaseController } from "#/core/base/BaseController";
-import { asyncHandler } from "#/core/middlewares/asyncHandler";
-import { authService } from "#/modules/auth/auth.service";
+import { BaseController } from "#src/core/base/BaseController";
+import { asyncHandler } from "#src/core/middlewares/asyncHandler";
+import { authService } from "#src/modules/auth/auth.service";
 import { usersService } from "./users.service";
 
 class UsersController extends BaseController {
@@ -63,3 +63,4 @@ class UsersController extends BaseController {
 }
 
 export const usersController = new UsersController();
+

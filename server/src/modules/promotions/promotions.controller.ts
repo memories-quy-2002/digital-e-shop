@@ -1,6 +1,6 @@
-import type { AppRequest, AppResponse } from "#/shared/interfaces/domain";
+import type { AppRequest, AppResponse } from "#src/shared/interfaces/domain";
 const promotionService = require("./promotions.service");
-const { getValidationMessage, parseBody } = require("#/shared/validation/requestSchemas");
+const { getValidationMessage, parseBody } = require("#src/shared/validation/requestSchemas");
 const { promotionSchema } = require("./promotions.validator");
 
 async function getPromotions(req: AppRequest, res: AppResponse) {
@@ -57,3 +57,4 @@ module.exports = {
     updatePromotion,
     deletePromotion,
 };
+

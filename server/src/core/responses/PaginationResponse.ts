@@ -1,4 +1,4 @@
-import type { PaginationMeta } from "#/shared/interfaces/Pagination";
+import type { PaginationMeta } from "#src/shared/interfaces/Pagination";
 
 export class PaginationResponse<T = unknown> {
     constructor(
@@ -7,3 +7,4 @@ export class PaginationResponse<T = unknown> {
         public msg?: string,
     ) {}
 }
+

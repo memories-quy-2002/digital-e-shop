@@ -1,5 +1,5 @@
 const OrderTimeline = require("./orders.timeline.repository");
-import type { DbError } from "#/shared/interfaces/domain";
+import type { DbError } from "#src/shared/interfaces/domain";
 import type { OrderDetail, OrderTimelineInput, OrderTimelineRow } from "./orders.types";
 
 const statusLabel = (status: number) => {
@@ -68,3 +68,4 @@ module.exports = {
     recordTimelineEvent,
     getTimeline,
 };
+

@@ -1,11 +1,11 @@
-import type { AppRequest, AppResponse } from "#/shared/interfaces/domain";
+import type { AppRequest, AppResponse } from "#src/shared/interfaces/domain";
 import type { PurchasePayload } from "./orders.dto";
 const orderService = require("./orders.service");
 const { applyDiscountSchema, orderStatusSchema, purchaseSchema } = require("./orders.validator");
 const {
     getValidationMessage,
     parseBody,
-} = require("#/shared/validation/requestSchemas");
+} = require("#src/shared/validation/requestSchemas");
 
 async function getOrders(req: AppRequest, res: AppResponse) {
     try {
@@ -230,3 +230,4 @@ module.exports = {
     getOrderItems,
     applyDiscount,
 };
+

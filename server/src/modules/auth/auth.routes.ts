@@ -1,9 +1,9 @@
 import { Router } from "express";
-import passport from "#/modules/auth/auth.passport";
+import passport from "#src/modules/auth/auth.passport";
 import rateLimit from "express-rate-limit";
-import { getRouteLimit } from "#/shared/utils/rateLimit";
+import { getRouteLimit } from "#src/shared/utils/rateLimit";
 import { authController } from "./auth.controller";
-import { validateRequest } from "#/core/middlewares/validateRequest";
+import { validateRequest } from "#src/core/middlewares/validateRequest";
 import { registerUserSchema, userLoginSchema } from "./auth.validator";
 
 const router = Router();
@@ -39,3 +39,4 @@ router.post("/refresh", userLimiter, authController.userRefreshToken);
 router.post("/logout", userLimiter, authController.userLogout);
 
 export default router;
+

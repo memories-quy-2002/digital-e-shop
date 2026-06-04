@@ -1,8 +1,8 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import { requireAdmin, requireAuth, requireOwnerOrAdmin } from "#/modules/auth/auth.middleware";
-import { getRouteLimit } from "#/shared/utils/rateLimit";
-import { validateRequest } from "#/core/middlewares/validateRequest";
+import { requireAdmin, requireAuth, requireOwnerOrAdmin } from "#src/modules/auth/auth.middleware";
+import { getRouteLimit } from "#src/shared/utils/rateLimit";
+import { validateRequest } from "#src/core/middlewares/validateRequest";
 import { adminUserUpdateSchema } from "./users.validator";
 import { usersController } from "./users.controller";
 
@@ -23,3 +23,4 @@ router.get("/", userLimiter, requireAdmin, usersController.getAllUsers);
 router.put("/:id", userLimiter, requireAdmin, validateRequest(adminUserUpdateSchema), usersController.updateUserAdmin);
 
 export default router;
+

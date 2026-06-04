@@ -1,8 +1,8 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-const { getInventorySummary } = require("#/modules/products/products.controller");
+const { getInventorySummary } = require("#src/modules/products/products.controller");
 const { getInventoryMovements } = require("./inventory.controller");
-const { requireAdmin } = require("#/modules/auth/auth.middleware");
+const { requireAdmin } = require("#src/modules/auth/auth.middleware");
 
 const router = Router();
 
@@ -18,3 +18,4 @@ router.get("/inventory-summary", inventoryLimiter, requireAdmin, getInventorySum
 router.get("/inventory-movements", inventoryLimiter, requireAdmin, getInventoryMovements);
 
 export default router;
+

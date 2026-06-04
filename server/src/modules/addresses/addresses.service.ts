@@ -1,6 +1,6 @@
 const Address = require("./addresses.repository");
 
-import type { DbError, InsertResult, UpdateResult } from "#/shared/interfaces/domain";
+import type { DbError, InsertResult, UpdateResult } from "#src/shared/interfaces/domain";
 import type { CustomerAddressInput, CustomerAddressRow } from "./addresses.types";
 
 const createHttpError = (message: string, statusCode: number) => Object.assign(new Error(message), { statusCode });
@@ -88,3 +88,4 @@ module.exports = {
     updateAddress,
     deleteAddress,
 };
+

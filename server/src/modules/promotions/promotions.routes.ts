@@ -1,8 +1,8 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 const { getPromotions, createPromotion, updatePromotion, deletePromotion } = require("./promotions.controller");
-const { requireAdmin } = require("#/modules/auth/auth.middleware");
-import { getRouteLimit } from "#/shared/utils/rateLimit";
+const { requireAdmin } = require("#src/modules/auth/auth.middleware");
+import { getRouteLimit } from "#src/shared/utils/rateLimit";
 
 const router = Router();
 
@@ -20,3 +20,4 @@ router.put("/:id", promotionLimiter, requireAdmin, updatePromotion);
 router.delete("/:id", promotionLimiter, requireAdmin, deletePromotion);
 
 export default router;
+

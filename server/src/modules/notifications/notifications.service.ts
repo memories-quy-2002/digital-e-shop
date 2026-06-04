@@ -1,5 +1,5 @@
 const Notification = require("./notifications.repository");
-import type { DbError, UpdateResult } from "#/shared/interfaces/domain";
+import type { DbError, UpdateResult } from "#src/shared/interfaces/domain";
 import type { CustomerNotificationRow } from "./notifications.types";
 
 const normalizeNotification = (notification: CustomerNotificationRow) => ({
@@ -76,3 +76,4 @@ module.exports = {
     notifyOrderPlaced,
     notifyOrderStatus,
 };
+

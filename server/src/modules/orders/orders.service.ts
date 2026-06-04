@@ -1,17 +1,17 @@
 const Order = require("./orders.repository");
-import pool from "#/config/database.config";
+import pool from "#src/config/database.config";
 const util = require("util");
-const cartService = require("#/modules/cart/cart.service");
-const inventoryMovementService = require("#/modules/inventory/inventory.service");
+const cartService = require("#src/modules/cart/cart.service");
+const inventoryMovementService = require("#src/modules/inventory/inventory.service");
 const orderTimelineService = require("./orders.timeline.service");
-const notificationService = require("#/modules/notifications/notifications.service");
+const notificationService = require("#src/modules/notifications/notifications.service");
 import type {
     InsertResult,
-} from "#/shared/interfaces/domain";
-import type { CartItemRow, CartValidationIssue, CheckoutValidationResult } from "#/modules/cart/cart.types";
-import type { InventoryMovementInput } from "#/modules/inventory/inventory.dto";
+} from "#src/shared/interfaces/domain";
+import type { CartItemRow, CartValidationIssue, CheckoutValidationResult } from "#src/modules/cart/cart.types";
+import type { InventoryMovementInput } from "#src/modules/inventory/inventory.dto";
 import type { OrderDetail, OrderDetailRow, OrderSummaryRow, OrderTimelineRow, LockedProductRow } from "./orders.types";
-import type { PromotionRow } from "#/modules/promotions/promotions.types";
+import type { PromotionRow } from "#src/modules/promotions/promotions.types";
 import type { PurchasePayload } from "./orders.dto";
 
 const QUERY_TIMEOUT = 8000;
@@ -427,3 +427,4 @@ module.exports = {
     getOrderItemsCount,
     applyDiscount,
 };
+

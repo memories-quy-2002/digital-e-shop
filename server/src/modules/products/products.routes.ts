@@ -13,7 +13,7 @@ const {
     searchProducts,
     getProductFacets,
 } = require("./products.controller");
-const { requireAdmin } = require("#/modules/auth/auth.middleware");
+const { requireAdmin } = require("#src/modules/auth/auth.middleware");
 import path from "node:path";
 
 const router = Router();
@@ -49,3 +49,4 @@ router.put("/:id", productLimiter, requireAdmin, updateProduct);
 router.delete("/", productLimiter, requireAdmin, deleteProduct);
 
 export default router;
+

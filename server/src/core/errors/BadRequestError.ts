@@ -1,4 +1,4 @@
-import { HTTP_STATUS } from "#/shared/constants/httpStatus";
+import { HTTP_STATUS } from "#src/shared/constants/httpStatus";
 import { AppError } from "./AppError";
 
 export class BadRequestError extends AppError {
@@ -6,3 +6,4 @@ export class BadRequestError extends AppError {
         super(message, HTTP_STATUS.BAD_REQUEST, "BAD_REQUEST", details);
     }
 }
+

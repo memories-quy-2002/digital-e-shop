@@ -1,6 +1,6 @@
-import pool from "#/config/database.config";
-import prisma = require("#/database/prisma/client");
-import type { CountRow, IdNameRow, QueryCallback, UpdateResult } from "#/shared/interfaces/domain";
+import pool from "#src/config/database.config";
+import prisma = require("#src/database/prisma/client");
+import type { CountRow, IdNameRow, QueryCallback, UpdateResult } from "#src/shared/interfaces/domain";
 import type { ProductEditorRow, ProductFacetValueRow, ProductPriceBoundsRow } from "./products.types";
 
 type ProductInsertRecord = {
@@ -560,3 +560,4 @@ module.exports = {
     getRecommendedProductsByUserId,
     getProductsByIdsOrdered,
 };
+

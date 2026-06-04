@@ -1,7 +1,7 @@
-import type { AppRequest, AppResponse } from "#/shared/interfaces/domain";
+import type { AppRequest, AppResponse } from "#src/shared/interfaces/domain";
 const wishlistService = require("./wishlist.service");
 const { wishlistAddSchema, wishlistBulkDeleteSchema, wishlistDeleteSchema } = require("./wishlist.validator");
-const { getValidationMessage, parseBody } = require("#/shared/validation/requestSchemas");
+const { getValidationMessage, parseBody } = require("#src/shared/validation/requestSchemas");
 
 async function addItemToWishlist(req: AppRequest, res: AppResponse) {
     let payload;
@@ -88,3 +88,4 @@ module.exports = {
     deleteWishlistItem,
     deleteWishlistItems,
 };
+

@@ -1,6 +1,6 @@
 const Promotion = require("./promotions.repository");
 type LooseRecord = Record<string, unknown>;
-import type { DbError, InsertResult, UpdateResult } from "#/shared/interfaces/domain";
+import type { DbError, InsertResult, UpdateResult } from "#src/shared/interfaces/domain";
 import type { PromotionInput, PromotionPayload } from "./promotions.dto";
 import type { PromotionRow } from "./promotions.types";
 
@@ -145,3 +145,4 @@ module.exports = {
     updatePromotion,
     deletePromotion,
 };
+
