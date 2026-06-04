@@ -132,8 +132,8 @@ const WishlistPage = () => {
                 quantity: 1,
             });
             if (response.status === 200) {
-                await handleRemoveWishlist(product.id);
-                addToast("Wishlist", "Product moved to cart.");
+                setSelectedIds((currentIds) => currentIds.filter((id) => id !== product.id));
+                addToast("Wishlist", "Product added to cart.");
             }
         } catch {
             addToast("Wishlist", "Unable to move product to cart.");
@@ -158,12 +158,8 @@ const WishlistPage = () => {
                 ),
             );
             const movedIds = availableSelected.map((item) => item.product.id);
-            await axios.delete("/api/wishlist/", {
-                data: { uid, productIds: movedIds },
-            });
-            setWishlist((currentWishlist) => currentWishlist.filter((item) => !movedIds.includes(item.product.id)));
-            setSelectedIds([]);
-            addToast("Wishlist", "Available selected products moved to cart.");
+            setSelectedIds((currentIds) => currentIds.filter((id) => !movedIds.includes(id)));
+            addToast("Wishlist", "Available selected products added to cart.");
         } catch {
             addToast("Wishlist", "Unable to move selected products to cart.");
         }
