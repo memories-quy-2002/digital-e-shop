@@ -1,4 +1,5 @@
 const bcrypt = require("bcryptjs");
+import { logger } from "#src/shared/utils/logger";
 
 const saltRounds = 10;
 export const hashPassword = async (password: string): Promise<string> => {
@@ -7,7 +8,7 @@ export const hashPassword = async (password: string): Promise<string> => {
 		const hash = await bcrypt.hash(password, salt);
 		return hash;
 	} catch (err) {
-		console.error(err);
+		logger.error(err);
 		return " ";
 	}
 };
@@ -17,7 +18,7 @@ export const checkPassword = async (password: string, hashedPassword: string): P
 		const match = await bcrypt.compare(password, hashedPassword);
 		return match;
 	} catch (err) {
-		console.error(err);
+		logger.error(err);
 	}
 };
 

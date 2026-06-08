@@ -1,6 +1,7 @@
 const { put } = require("@vercel/blob");
 const util = require("util");
 import pool from "#src/config/database.config";
+import { logger } from "#src/shared/utils/logger";
 const inventoryMovementService = require("#src/modules/inventory/inventory.service");
 const query = util.promisify(pool.query).bind(pool);
 import type {
@@ -24,7 +25,7 @@ async function addSingleProductService(data: ProductCreateInput, file?: Uploaded
 
     // Upload image to Vercel Blob
     const imageName = name.toLowerCase().replace(/ /g, "_").replace(/-/g, "_");
-    console.log(imageName)
+    logger.debug({ imageName }, "Preparing product image name");
     const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (!token) throw new Error("BLOB_READ_WRITE_TOKEN is not set");
 

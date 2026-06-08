@@ -122,3 +122,19 @@
     color: #64748b;
 }
 
+@media (max-width: 720px) {
+    .admin__order-detail__summary {
+        grid-template-columns: 1fr;
+    }
+
+    .admin__order-detail__items__header,
+    .admin__order-detail__item-row {
+        flex-direction: column;
+    }
+
+    .admin__order-detail__item-row__pricing {
+        text-align: left;
+        justify-items: start;
+    }
+}
+

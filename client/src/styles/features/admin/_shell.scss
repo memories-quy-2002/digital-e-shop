@@ -13,7 +13,7 @@
     display: flex;
     flex-direction: column;
     gap: 1.75rem;
-    padding: 2.5rem 3rem;
+    padding: clamp(1.25rem, 2vw, 2.5rem) clamp(1rem, 3vw, 3rem);
     color: #111827;
 }
 
@@ -22,7 +22,9 @@
     display: flex;
     flex-direction: column;
     gap: 1.75rem;
-    padding: 2.5rem 3rem;
+    width: 100%;
+    min-width: 0;
+    padding: clamp(1.25rem, 2vw, 2.5rem) clamp(1rem, 3vw, 3rem);
 }
 
 .admin__page__header {
@@ -59,6 +61,7 @@
 
 .admin__page__actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.75rem;
 }
 
@@ -95,7 +98,7 @@
 
 .admin__workflow {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 0.75rem;
 }
 
@@ -133,14 +136,16 @@
 .admin__filters {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 0.75rem;
 }
 
 .admin__filters input {
+    flex: 1 1 240px;
     border: 1px solid #e5e7eb;
     border-radius: 10px;
     padding: 0.5rem 0.75rem;
-    min-width: 240px;
+    min-width: 0;
 }
 
 .admin__button {
@@ -185,6 +190,54 @@
 
 .admin__table {
     width: 100%;
+    min-width: 720px;
+}
+
+.admin__table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+}
+
+.admin__list-toolbar {
+    width: 100%;
+}
+
+.admin__dialog {
+    margin: 1rem auto;
+}
+
+.admin__dialog__content {
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 18px;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+}
+
+.admin__detail-section,
+.admin__form-section {
+    display: grid;
+    gap: 1rem;
+}
+
+.admin__detail-section__header,
+.admin__form-section__header {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.admin__detail-section__header h4,
+.admin__form-section__header h4 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.admin__detail-section__header p,
+.admin__form-section__header p,
+.admin__customer-profile__empty {
+    margin: 0;
+    color: #64748b;
+    line-height: 1.5;
 }
 
 .admin__table__pagination {
@@ -600,6 +653,8 @@
 .admin__form-actions {
     display: flex;
     justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.75rem;
     margin-top: 1.5rem;
 }
 
@@ -641,7 +696,7 @@
     border: solid 1px black;
     border-radius: 8px;
     padding: 0.25rem 0.75rem;
-    width: 300px;
+    width: min(100%, 300px);
 }
 
 .admin__product__list__search div input:focus,
@@ -663,7 +718,8 @@
 .admin__product__list__table,
 .admin__order__list__table,
 .admin__account__list__table {
-    height: 750px;
+    min-height: 750px;
+    height: auto;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -706,42 +762,8 @@
 }
 
 @media (max-width: 900px) {
-    .admin__layout {
-        flex-direction: column;
-    }
-
-    .admin__layout__sidebar {
-        width: 100%;
-        box-shadow: none;
-    }
-
-    .admin__layout__main {
-        width: 100%;
-    }
-
     .admin__page {
         padding: 2rem 1.5rem;
-    }
-
-    .admin__layout__main__header {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .admin__layout__main__header__left,
-    .admin__layout__main__header__right {
-        width: 100%;
-        flex-wrap: wrap;
-        justify-content: space-between;
-    }
-
-    .admin__layout__main__header__search {
-        width: 100%;
-    }
-
-    .admin__layout__main__header__notifications__panel {
-        right: auto;
-        left: 0;
     }
 
     .admin__filters {
@@ -780,6 +802,21 @@
         width: 100%;
     }
 
+    .admin__page__actions,
+    .admin__form-actions {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .admin__page__actions > *,
+    .admin__form-actions > * {
+        flex: 1 1 220px;
+    }
+
+    .admin__table {
+        min-width: 640px;
+    }
+
     .admin__dashboard__realtime {
         grid-template-columns: 1fr;
     }
@@ -795,6 +832,20 @@
 }
 
 @media (max-width: 640px) {
+    .admin__page {
+        padding: 1.25rem 0.85rem 1.5rem;
+        gap: 1.25rem;
+    }
+
+    .admin__page__title {
+        font-size: 1.65rem;
+    }
+
+    .admin__page__actions > *,
+    .admin__form-actions > * {
+        flex: 1 1 100%;
+    }
+
     .admin__table__pagination {
         justify-content: flex-start;
         overflow-x: auto;
@@ -819,6 +870,10 @@
 
     .admin__table__pagination .shops__container__main__pagination__items a {
         padding: 0 0.5rem;
+    }
+
+    .admin__table {
+        min-width: 560px;
     }
 
     .admin__dashboard__insights {

@@ -66,8 +66,7 @@ pool.query = (sql: QueryInput, values?: QueryParams | QueryCallback, callback?: 
                     return;
                 }
 
-                logger.info(`[db] EXPLAIN ${compactSql}`);
-                console.table(rows);
+                logger.info({ sql: compactSql, rows }, "[db] EXPLAIN");
             });
         }
     };

@@ -1,4 +1,5 @@
 import type { AppRequest, AppResponse } from "#src/shared/interfaces/domain";
+import { logger } from "#src/shared/utils/logger";
 const wishlistService = require("./wishlist.service");
 const { wishlistAddSchema, wishlistBulkDeleteSchema, wishlistDeleteSchema } = require("./wishlist.validator");
 const { getValidationMessage, parseBody } = require("#src/shared/validation/requestSchemas");
@@ -17,7 +18,7 @@ async function addItemToWishlist(req: AppRequest, res: AppResponse) {
             msg: msg,
         });
     } catch (err) {
-        console.error(err);
+        logger.error(err);
         return res.status(500).json({ msg: 'Internal server error', error: err.message });
     }
 };
@@ -31,7 +32,7 @@ async function getWishlist(req: AppRequest, res: AppResponse) {
             wishlist: results,
         });
     } catch (err) {
-        console.error(err.message);
+        logger.error(err);
         return res.status(500).json({
             msg: "Error retrieving wishlist",
             error: err.message,
@@ -52,7 +53,7 @@ async function deleteWishlistItem(req: AppRequest, res: AppResponse) {
             msg: msg,
         });
     } catch (err) {
-        console.error(err.message);
+        logger.error(err);
         return res.status(500).json({
             msg: "Error deleting wishlist item",
             error: err.message,
@@ -74,7 +75,7 @@ async function deleteWishlistItems(req: AppRequest, res: AppResponse) {
             msg: msg,
         });
     } catch (err) {
-        console.error(err.message);
+        logger.error(err);
         return res.status(500).json({
             msg: "Error deleting wishlist items",
             error: err.message,

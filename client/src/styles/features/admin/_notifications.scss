@@ -147,3 +147,28 @@
 .admin__notifications-empty strong {
     color: #111827;
 }
+
+@media (max-width: 720px) {
+    .admin__notification {
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: flex-start;
+    }
+
+    .admin__notification__actions {
+        grid-column: 1 / -1;
+        width: 100%;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 560px) {
+    .admin__notification {
+        gap: 0.85rem;
+        padding: 0.9rem;
+    }
+
+    .admin__notification__actions > * {
+        flex: 1 1 100%;
+    }
+}

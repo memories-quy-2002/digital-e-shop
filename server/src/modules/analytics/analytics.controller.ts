@@ -1,6 +1,7 @@
 import type { AppRequest, AppResponse } from "#src/shared/interfaces/domain";
 const util = require("util");
 import pool from "#src/config/database.config";
+import { logger } from "#src/shared/utils/logger";
 const { analyticsSummaryQuerySchema } = require("./analytics.validator");
 const { parseBody } = require("#src/shared/validation/requestSchemas");
 import type {
@@ -67,7 +68,7 @@ const safeQuery = async <T extends AnalyticsRecord = AnalyticsRecord>(sql: strin
         return await query(sql, params) as T[];
     } catch (err) {
         const error = err as Error;
-        console.error("[analytics] query failed:", error.message);
+        logger.error({ err: error.message, sql }, "[analytics] query failed");
         return fallback;
     }
 };
@@ -405,7 +406,7 @@ async function getAnalyticsSummary(req: AppRequest, res: AppResponse) {
             msg: "Analytics summary retrieved successfully",
         });
     } catch (err) {
-        console.error(err);
+        logger.error(err);
         return res.status(500).json({ msg: "Unable to load analytics summary" });
     }
 }

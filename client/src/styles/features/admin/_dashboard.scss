@@ -401,3 +401,39 @@
     font-weight: 500;
 }
 
+@media (max-width: 900px) {
+    .admin__dashboard__analysis {
+        grid-template-columns: 1fr;
+    }
+
+    .admin__dashboard__highlights {
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .admin__dashboard__hero {
+        padding: 1.25rem;
+        border-radius: 16px;
+    }
+
+    .admin__dashboard__hero__actions,
+    .admin__metric-card__footer {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .admin__dashboard__hero__action {
+        width: 100%;
+    }
+
+    .admin__dashboard__activity__item {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .admin__dashboard__activity__item span {
+        grid-column: 2;
+        text-align: left;
+    }
+}
+

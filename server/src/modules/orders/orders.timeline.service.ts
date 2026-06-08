@@ -1,6 +1,7 @@
 const OrderTimeline = require("./orders.timeline.repository");
 import type { DbError } from "#src/shared/interfaces/domain";
 import type { OrderDetail, OrderTimelineInput, OrderTimelineRow } from "./orders.types";
+import { logger } from "#src/shared/utils/logger";
 
 const statusLabel = (status: number) => {
     if (Number(status) === 1) return "Completed";
@@ -31,7 +32,7 @@ function recordTimelineEvent({ orderId, status, note, actorId }: OrderTimelineIn
         },
         (err: DbError | null) => {
             if (err) {
-                console.error("Order timeline log failed:", err.message);
+                logger.error({ err, orderId, status }, "Order timeline log failed");
             }
         }
     );

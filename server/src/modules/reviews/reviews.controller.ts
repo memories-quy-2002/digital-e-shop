@@ -1,4 +1,5 @@
 import type { AppRequest, AppResponse } from "#src/shared/interfaces/domain";
+import { logger } from "#src/shared/utils/logger";
 const reviewService = require("./reviews.service");
 const { createReviewSchema, reviewListQuerySchema } = require("./reviews.validator");
 const { getValidationMessage, parseBody } = require("#src/shared/validation/requestSchemas");
@@ -20,7 +21,7 @@ const addReview = async (req: AppRequest, res: AppResponse) => {
         return res.status(201).json(result);
     } catch (err) {
         const error = err as Error;
-        console.error(err);
+        logger.error(err);
         return res.status(500).json({ msg: "Internal server error", error: error.message });
     }
 };
@@ -63,7 +64,7 @@ async function getReviews(req: AppRequest, res: AppResponse) {
             return res.status(400).json({ msg: getValidationMessage(err) });
         }
         const error = err as Error;
-        console.error(err);
+        logger.error(err);
         return res.status(500).json({ msg: "Internal server error", error: error.message });
     }
 }

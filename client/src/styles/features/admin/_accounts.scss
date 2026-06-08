@@ -67,12 +67,16 @@
 }
 
 @media (max-width: 720px) {
-    .admin__order-detail__summary,
     .admin__customer-profile__hero,
     .admin__customer-profile__stats,
     .admin__customer-profile__orders > div,
     .admin__order-detail__item-row {
+        display: grid;
         grid-template-columns: 1fr;
+    }
+
+    .admin__customer-profile__hero {
+        align-items: flex-start;
     }
 
     .admin__order-detail__item-row,

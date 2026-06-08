@@ -127,6 +127,15 @@ const CheckoutPaymentPage = ({
     }, [uid]);
 
     useEffect(() => {
+        if (!userData?.email || formCheckout.email) return;
+
+        setFormCheckout((current) => ({
+            ...current,
+            email: userData.email,
+        }));
+    }, [formCheckout.email, userData?.email]);
+
+    useEffect(() => {
         if (!defaultAddress || formCheckout.address) return;
         setFormCheckout((current) => ({
             ...current,
@@ -391,6 +400,7 @@ const CheckoutPaymentPage = ({
                                     name="email"
                                     placeholder="name@email.com"
                                     required
+                                    value={formCheckout.email}
                                     onChange={handleInputChange}
                                 />
                             </Form.Group>

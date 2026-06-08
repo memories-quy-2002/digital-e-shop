@@ -1,4 +1,5 @@
 import type { AppRequest, AppResponse } from "#src/shared/interfaces/domain";
+import { logger } from "#src/shared/utils/logger";
 const inventoryMovementService = require("./inventory.service");
 const { inventoryMovementsQuerySchema } = require("./inventory.validator");
 const { getValidationMessage, parseBody } = require("#src/shared/validation/requestSchemas");
@@ -12,7 +13,7 @@ async function getInventoryMovements(req: AppRequest, res: AppResponse) {
         if (err?.name === "ZodError") {
             return res.status(400).json({ msg: getValidationMessage(err) });
         }
-        console.error(err);
+        logger.error(err);
         return res.status(500).json({ msg: "Unable to load inventory movements" });
     }
 }
