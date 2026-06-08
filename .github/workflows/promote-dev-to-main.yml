@@ -1,0 +1,73 @@
+name: Promote dev to main
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    branches:
+      - dev
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: promote-dev-to-main
+  cancel-in-progress: false
+
+jobs:
+  open-promotion-pr:
+    name: Open dev to main PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Check promotion diff
+        id: diff
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ahead_by=$(gh api "repos/${GH_REPO}/compare/main...dev" --jq '.ahead_by')
+          echo "ahead_by=${ahead_by}" >> "$GITHUB_OUTPUT"
+
+          if [ "$ahead_by" = "0" ]; then
+            echo "No dev changes to promote."
+          fi
+
+      - name: Create or update promotion PR
+        if: steps.diff.outputs.ahead_by != '0'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          title="chore(release): promote dev to main"
+          body_file="$(mktemp)"
+          cat > "$body_file" <<'EOF'
+          ## Summary
+
+          Automated promotion PR from `dev` to `main` after CI passed on `dev`.
+
+          ## Verification
+
+          - Source workflow: CI
+          - Source branch: dev
+          - Target branch: main
+
+          ## Merge Policy
+
+          This PR is not auto-merged. Review and merge it manually after release validation.
+          EOF
+
+          existing_pr="$(gh pr list --base main --head dev --state open --json number --jq '.[0].number // empty')"
+
+          if [ -n "$existing_pr" ]; then
+            gh pr edit "$existing_pr" --title "$title" --body-file "$body_file"
+            echo "Updated existing PR #${existing_pr}."
+          else
+            gh pr create --base main --head dev --title "$title" --body-file "$body_file"
+          fi
