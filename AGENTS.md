@@ -423,20 +423,61 @@ Safe schema-change rules:
 
 ## Git and PR workflow
 
-- Default branch is currently `master`.
-- Keep changes small and reviewable.
-- Prefer lightweight Conventional Commit messages such as:
-  - `feat(client): ...`
-  - `fix(server): ...`
-  - `refactor(admin): ...`
-  - `docs: ...`
-- Before opening a PR, run the relevant checks for the changed surface.
-- PR summaries should include:
-  - files changed
-  - behavior changed
-  - verification run
-  - assumptions or remaining risks
-- Include screenshots for substantial UI changes when possible.
+Long-lived branch structure:
+
+- `production`: live code served to end users. Never commit directly.
+- `main`: release-ready code. Always deployable. Source of truth before each release.
+- `dev`: integration branch. All feature work lands here first.
+
+Branch naming:
+
+- `feature/<short-description>` for new functionality, branched from `dev`.
+- `bugfix/<short-description>` for non-urgent bug fixes, branched from `dev`.
+- `hotfix/<short-description>` for urgent production fixes, branched from `production`.
+- `release/<version>` for release prep when needed, branched from `dev`.
+
+Standard flow:
+
+1. Branch from `dev`.
+2. Develop and commit on the feature or bugfix branch.
+3. Open a PR into `dev`; reviews and CI must pass before merge.
+4. Validate `dev` for QA/staging.
+5. Open a PR from `dev` into `main`.
+6. Tag releases on `main`, then promote/deploy to `production`.
+
+Hotfix flow:
+
+1. Branch from `production` using `hotfix/<name>`.
+2. Fix, commit, and open a PR into `production`.
+3. After merge, immediately back-merge the hotfix into both `main` and `dev`.
+
+Rules:
+
+- Never push directly to `production` or `main`.
+- Never merge `main` into `dev`; flow is one-directional: `dev` to `main` to `production`.
+- Every change should go through a pull request with at least one review.
+- Delete feature and bugfix branches after merge.
+- Hotfix branches must be back-merged to both `main` and `dev` before deletion.
+- Always confirm the current branch before suggesting or performing a merge.
+- Ask for explicit confirmation before any task touches `main` or `production`.
+- Flag any action that would violate this flow and explain why.
+
+Commit messages should use Conventional Commit style:
+
+```text
+<type>(<scope>): <short summary>
+```
+
+Allowed common types:
+
+- `feat`
+- `fix`
+- `refactor`
+- `test`
+- `chore`
+- `docs`
+
+Before opening a PR, run the relevant checks for the changed surface. PR summaries should include changed files, behavior changes, verification, assumptions, and remaining risks. Include screenshots for substantial UI changes when possible.
 
 ## Codex working rules
 
