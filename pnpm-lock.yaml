@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      claude:
+        specifier: ^0.1.2
+        version: 0.1.2
     devDependencies:
       concurrently:
         specifier: ^10.0.3
@@ -2964,6 +2968,10 @@ packages:
 
   classnames@2.5.1:
     resolution: {integrity: sha512-saHYOzhIQs6wy2sVxTM6bUDsQO4F50V9RQ22qBpEdCW+I+/Wmke2HOl6lS6dTpdxVhb88/I6+Hs+438c3lfUow==}
+
+  claude@0.1.2:
+    resolution: {integrity: sha512-Qjrrs+G1pwovbIgGh5R1Ni4Al79AfpbkvfonpHH0yj86cfOq3AoAzNbEeD9TQ980hrog8TM0vh1CNn+7uf/zYA==}
+    deprecated: The official Claude Code package is available at @anthropic-ai/claude-code
 
   cliui@8.0.1:
     resolution: {integrity: sha512-BSeNnyus75C4//NQ9gQt1/csTXyo/8Sb+afLAkzAptFuMsod9HFokGNudZpi/oQV73hnVK+sR+5PVRMd+Dr7YQ==}
@@ -8820,6 +8828,8 @@ snapshots:
   cjs-module-lexer@2.2.0: {}
 
   classnames@2.5.1: {}
+
+  claude@0.1.2: {}
 
   cliui@8.0.1:
     dependencies:

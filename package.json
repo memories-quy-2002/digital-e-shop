@@ -11,8 +11,11 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@11.3.0",
+  "packageManager": "pnpm@11.5.3",
   "devDependencies": {
     "concurrently": "^10.0.3"
+  },
+  "dependencies": {
+    "claude": "^0.1.2"
   }
 }

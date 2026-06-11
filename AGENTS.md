@@ -479,6 +479,78 @@ Allowed common types:
 
 Before opening a PR, run the relevant checks for the changed surface. PR summaries should include changed files, behavior changes, verification, assumptions, and remaining risks. Include screenshots for substantial UI changes when possible.
 
+## Superpowers execution workflow
+
+Use this structured workflow for any non-trivial AI coding task. It keeps changes small, reviewable, and safe.
+
+1. **Inspect** — Read the relevant files first. Use CodeGraph/Grep to map the touched surface before editing. Read `AGENTS.md` and `Wiki/index.md`.
+2. **Clarify assumptions** — State assumptions explicitly. If a requirement is ambiguous and the choice changes behavior, ask once; otherwise pick the obvious default and note it.
+3. **Plan** — Write a short step list (use the todo list for multi-step work). Identify the files to change and the verification commands you will run.
+4. **Implement** — Make the smallest safe change. Match surrounding style. Preserve API contracts, auth/CSRF/CORS, and route aliases.
+5. **Test** — Run the relevant verification commands for the touched surface (see "Verification commands" below). Add targeted tests where practical.
+6. **Review** — Re-read the diff for correctness, security, and accidental scope creep. Confirm no secrets, no broadened CSRF exceptions, no bypassed role checks.
+7. **Summarize** — Report changed files, behavior changes, verification results, assumptions, and remaining risks. Note any command you could not run and why.
+
+Scale the ceremony to the task. A one-line fix does not need a written plan; a multi-file feature does.
+
+## Verification commands
+
+Run the checks relevant to the surface you changed. Doc-only changes need no build.
+
+```powershell
+# Frontend
+client\node_modules\.bin\tsc.cmd -p client\tsconfig.json --noEmit
+pnpm --filter client build
+pnpm --filter client lint
+pnpm --filter client test    # Vitest configured; no test files committed yet
+
+# Backend
+pnpm --filter server typecheck
+pnpm --filter server build
+pnpm --filter server lint
+```
+
+Always state which commands you ran and their result in the final summary.
+
+## LLM Wiki maintenance rules
+
+`Wiki/` is the long-term project knowledge base, written for both humans (readable in Obsidian) and future AI agents. It complements `AGENTS.md` (rules for agents) and `docs/` (human guides); the wiki captures *understanding* — why things are the way they are.
+
+- **Read first:** Read `Wiki/index.md` before any major change. Follow links into `Wiki/architecture.md`, entities, and decisions relevant to your task.
+- **Update after meaningful change:** When you change architecture, an API contract, the database schema, or core business logic, update the affected wiki page in the same task.
+- **Use Obsidian wikilinks:** Link pages with `[[page-name]]` (no `.md`). Keep a working backlink graph.
+- **Structure:**
+  - `index.md` — catalog of important pages + short project summary + last-updated date.
+  - `overview.md` — purpose, stack, modules, commands, assumptions.
+  - `architecture.md` — folder structure, backend/frontend/db boundaries, observations, risks.
+  - `log.md` — append-only log of wiki/AI-maintenance operations (date, agent, what changed).
+  - `sources/` — notes distilled from specific source files or docs.
+  - `entities/` — domain entities (Product, Order, Cart, User, Discount…).
+  - `concepts/` — cross-cutting concepts (auth/CSRF, validation, inventory movement…).
+  - `decisions/` — lightweight ADRs (one decision per file).
+  - `synthesis/` — higher-level summaries that tie several pages together.
+- **Keep it concise:** Prefer short, factual Markdown over long prose. Always bump the "Last updated" date in `index.md` and append a one-line entry to `log.md` when you edit the wiki.
+- **Don't duplicate code:** Capture intent, contracts, and relationships — not copies of source that will drift.
+
+## BMAD lightweight workflow
+
+A minimal product-and-engineering process for non-trivial work. Keep it lightweight — a solo dev or small team should never drown in process documents. Roles are *hats one person wears*, not separate people.
+
+Roles:
+
+- **Analyst** — clarifies the problem, constraints, and success criteria.
+- **PM** — turns the problem into a short PRD: scope, user value, acceptance criteria.
+- **Architect** — decides where it lives in the existing structure; records non-obvious choices as a decision in `Wiki/decisions/`.
+- **Scrum Master** — slices the PRD into small stories using `docs/bmad/story-template.md`.
+- **Developer** — implements via the Superpowers workflow above.
+- **QA** — runs `docs/bmad/qa-checklist.md` and the verification commands.
+
+When to use BMAD: multi-file features, schema/contract changes, anything touching checkout, auth, inventory, or admin authorization, or work spanning more than ~a day.
+
+When NOT to use BMAD: typo fixes, copy tweaks, single-function bug fixes, dependency bumps, doc edits. Just do those via the Superpowers steps.
+
+Templates live in `docs/bmad/`. Produce only the artifacts the task actually needs.
+
 ## Codex working rules
 
 - Read this `AGENTS.md` before starting repo work and re-read it after resume/compaction.
