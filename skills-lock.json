@@ -1,0 +1,30 @@
+{
+    "version": 1,
+    "note": "Curated skills for the Movie Theater workspace (backend + frontend). Lives at the Team/ root, outside the project repos. See AI-TOOLING.md.",
+    "skills": {
+        "ui-ux-pro-max": {
+            "source": "https://ui-ux-pro-max-skill.nextlevelbuilder.io/",
+            "sourceType": "url",
+            "purpose": "Design intelligence for Claude Code — high-quality UI/UX output (frontend).",
+            "install": "Follow the instructions on the site (skill/plugin)."
+        },
+        "design-taste-frontend": {
+            "source": "Leonxlnx/taste-skill",
+            "sourceType": "github",
+            "skillPath": "skills/taste-skill/SKILL.md",
+            "purpose": "Anti-slop frontend taste (landing pages, polish, redesigns)."
+        },
+        "high-end-visual-design": {
+            "source": "Leonxlnx/taste-skill",
+            "sourceType": "github",
+            "skillPath": "skills/soft-skill/SKILL.md",
+            "purpose": "Agency-tier visual design (depth, motion, hierarchy)."
+        },
+        "superpowers": {
+            "source": "obra/superpowers-marketplace",
+            "sourceType": "claude-plugin-marketplace",
+            "purpose": "Plan-first / test-first engineering workflow + 20+ skills (both projects).",
+            "install": "/plugin marketplace add obra/superpowers-marketplace then /plugin install superpowers@superpowers-marketplace"
+        }
+    }
+}
