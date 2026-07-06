@@ -42,7 +42,6 @@ const CheckoutPaymentPage = ({
     cart,
     totalPrice,
     discount,
-    subtotal,
     validationIssues,
     onValidationRefresh,
 }: CheckoutPaymentProps) => {
