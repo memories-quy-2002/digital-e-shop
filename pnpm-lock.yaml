@@ -182,7 +182,7 @@ importers:
   server:
     dependencies:
       '@prisma/client':
-        specifier: 6.9.0
+        specifier: ^6.9.0
         version: 6.9.0(prisma@6.9.0(typescript@6.0.3))(typescript@6.0.3)
       '@vercel/blob':
         specifier: ^2.5.0
@@ -306,7 +306,7 @@ importers:
         specifier: ^3.9.4
         version: 3.9.4
       prisma:
-        specifier: 6.9.0
+        specifier: ^6.9.0
         version: 6.9.0(typescript@6.0.3)
       tsx:
         specifier: ^4.23.0
