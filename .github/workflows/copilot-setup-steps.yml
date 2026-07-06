@@ -1,4 +1,5 @@
 name: "Copilot Setup Steps"
+
 on:
   workflow_dispatch:
   push:
@@ -9,15 +10,35 @@ on:
       - .github/workflows/copilot-setup-steps.yml
 
 jobs:
-  copilot-setup-steps:   # must be named exactly this
+  copilot-setup-steps:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
+
       - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --ignore-scripts
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create client env file
+        run: |
+          echo "VITE_API_URL=http://localhost:3000" > client/.env
+
+      - name: Create server env file
+        run: |
+          echo "DATABASE_URL=\${{ secrets.COPILOT_MCP_MYSQL_URL }}" > server/.env
+          echo "JWT_SECRET=test-secret-for-agent-sandbox" >> server/.env
+          echo "JWT_REFRESH_SECRET=test-refresh-secret-for-agent-sandbox" >> server/.env
+
+      - name: Typecheck client
+        run: pnpm --filter client exec tsc --noEmit
+        continue-on-error: true
