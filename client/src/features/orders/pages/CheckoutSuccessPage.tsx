@@ -97,7 +97,6 @@ const CheckoutSuccessPage = () => {
         if (sessionId && !routeData && !orderData) {
             pollForOrder(sessionId);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sessionId]);
 
     const combinedData = routeData || orderData || polledOrder;

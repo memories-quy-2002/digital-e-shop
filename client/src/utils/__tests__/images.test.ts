@@ -46,11 +46,11 @@ describe("getProductImageUrl", () => {
 
 describe("getResponsiveImageSource", () => {
     it("returns an empty src when input is empty", () => {
-        expect(getResponsiveImageSource("", { sizes: "100vw" })).toEqual({ src: "" });
+        expect(getResponsiveImageSource("", { sizes: "100vw", widths: [320] })).toEqual({ src: "" });
     });
 
     it("preserves src and sizes in returned object", () => {
-        const result = getResponsiveImageSource("/img.jpg", { sizes: "50vw" });
+        const result = getResponsiveImageSource("/img.jpg", { sizes: "50vw", widths: [320] });
         expect(result.src).toBe("/img.jpg");
         expect(result.sizes).toBe("50vw");
     });

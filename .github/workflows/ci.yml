@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      DATABASE_URL: "placeholder"
     steps:
       - uses: actions/checkout@v7
 
