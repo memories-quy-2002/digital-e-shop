@@ -51,5 +51,7 @@ module.exports = {
     getMovements,
     recordMovement,
     recordMovements,
+    // Exported for unit testing of the pure normalization logic.
+    normalizeMovement,
 };
 

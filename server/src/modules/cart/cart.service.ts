@@ -331,6 +331,10 @@ module.exports = {
     validateCartForCheckout,
     validateCheckoutSubmission,
     updateCartItemQuantity,
-    deleteCartItem
+    deleteCartItem,
+    // Exported for unit testing of the pure validation/comparison logic.
+    buildCartValidationIssue,
+    buildCartValidationResult,
+    compareSubmittedCart,
 }
 

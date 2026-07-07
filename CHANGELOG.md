@@ -18,6 +18,9 @@ This project follows Conventional Commit-style change grouping. Dates use
 - Continuous integration workflow (`ci.yml`) running typecheck, lint, test,
   and build for the client and server on every push and pull request to
   `main`, enforced by branch protection.
+- Server unit test suite (Vitest) covering cart validation, overselling
+  detection, cart-tampering/price-drift detection, and inventory movement
+  mapping, wired into the `server` CI job so failing tests block merges.
 
 ### Changed
 

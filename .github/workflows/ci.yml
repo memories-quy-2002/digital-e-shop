@@ -67,5 +67,8 @@ jobs:
       - name: Lint
         run: pnpm --filter server lint
 
+      - name: Test
+        run: pnpm --filter server test -- --run
+
       - name: Build
         run: pnpm --filter server build

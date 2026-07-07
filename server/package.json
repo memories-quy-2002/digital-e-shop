@@ -11,6 +11,7 @@
         "build": "prisma generate --schema=src/database/prisma/schema.prisma && tsc -p tsconfig.json",
         "vercel-build": "prisma generate --schema=src/database/prisma/schema.prisma && tsc -p tsconfig.json",
         "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "vitest",
         "lint": "eslint src api --ext .js,.mjs,.cjs,.ts,.mts,.cts --format=stylish",
         "prisma": "prisma",
         "prisma:generate": "prisma generate --schema=src/database/prisma/schema.prisma",
@@ -84,6 +85,7 @@
         "prisma": "^6.19.3",
         "tsx": "^4.23.0",
         "typescript": "^6.0.3",
-        "typescript-eslint": "^8.62.1"
+        "typescript-eslint": "^8.62.1",
+        "vitest": "^4.1.9"
     }
 }
