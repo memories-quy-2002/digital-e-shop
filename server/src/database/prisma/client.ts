@@ -1,5 +1,6 @@
 import { PrismaClient } from "#src/generated/prisma/client";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import { requireDatabaseUrl } from "./requireDatabaseUrl";
 
 declare global {
     var __prisma: PrismaClient | undefined;
@@ -8,7 +9,7 @@ declare global {
 // Prisma 7 no longer reads the connection URL from schema.prisma; the runtime
 // client connects through a driver adapter. PrismaMariaDb speaks the MySQL
 // protocol, so it serves this MySQL database.
-const adapter = new PrismaMariaDb(process.env.DATABASE_URL ?? "");
+const adapter = new PrismaMariaDb(requireDatabaseUrl());
 
 const prisma: PrismaClient =
     global.__prisma ??

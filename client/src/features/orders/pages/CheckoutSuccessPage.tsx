@@ -14,22 +14,7 @@ import Layout from "../../../components/layout/Layout";
 import "../../../styles/features/orders/_checkout-success.scss";
 import { formatUtcDateTime } from "../../../utils/dateTime";
 import http from "../../../lib/http";
-
-type CheckoutSuccessData = {
-    orderId: string;
-    totalPrice: number;
-    discount: number;
-    subtotal: number;
-    itemsCount: number;
-    placedAt: string;
-    paymentMethod?: "bank_transfer" | "cash" | "card";
-    email?: string;
-    name?: string;
-    address?: string;
-    city?: string;
-    country?: string;
-    phone?: string;
-};
+import { readCheckoutSuccess, readPendingCheckout, type CheckoutSuccessData } from "./checkoutSuccessStorage";
 
 const CheckoutSuccessPage = () => {
     const { userData, loading } = useAuth();
@@ -38,14 +23,7 @@ const CheckoutSuccessPage = () => {
     const sessionId = searchParams.get("session_id");
     const routeData = (location.state as { checkoutSuccess?: CheckoutSuccessData } | null)?.checkoutSuccess || null;
 
-    const orderData = useMemo(() => {
-        try {
-            const stored = sessionStorage.getItem("checkoutSuccess");
-            return stored ? (JSON.parse(stored) as CheckoutSuccessData) : null;
-        } catch {
-            return null;
-        }
-    }, []);
+    const orderData = useMemo(() => readCheckoutSuccess(), []);
 
     useEffect(() => {
         if (orderData) {
@@ -57,10 +35,7 @@ const CheckoutSuccessPage = () => {
     const [pollingTimedOut, setPollingTimedOut] = useState(false);
 
     const pollForOrder = useCallback(async (id: string) => {
-        const pendingRaw = sessionStorage.getItem("checkoutPending");
-        const pending = pendingRaw
-            ? (JSON.parse(pendingRaw) as Omit<CheckoutSuccessData, "orderId" | "placedAt" | "paymentMethod">)
-            : null;
+        const pending = readPendingCheckout();
 
         for (let attempt = 0; attempt < 7; attempt += 1) {
             try {
@@ -97,7 +72,7 @@ const CheckoutSuccessPage = () => {
         if (sessionId && !routeData && !orderData) {
             pollForOrder(sessionId);
         }
-    }, [sessionId]);
+    }, [orderData, pollForOrder, routeData, sessionId]);
 
     const combinedData = routeData || orderData || polledOrder;
     const paymentLabel =

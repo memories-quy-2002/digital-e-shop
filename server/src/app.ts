@@ -8,9 +8,9 @@ import { env, isProduction } from "#src/config/env.config";
 import { allowedOrigins, defaultClientOrigin } from "#src/config/cors.config";
 import { errorHandler } from "#src/core/middlewares/errorHandler";
 import { requestLogger } from "#src/core/middlewares/requestLogger";
-import { logger } from "#src/shared/utils/logger";
 import { getRouteLimit } from "#src/shared/utils/rateLimit";
 import { handleStripeWebhook } from "#src/modules/orders/orders.stripeWebhook.controller";
+import { registerScalarDocs } from "#src/config/scalarDocs";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -154,39 +154,7 @@ app.get("/api/openapi.json", (_req: Request, res: Response) => {
     res.status(200).json(openapiSpec);
 });
 
-(async () => {
-    const { apiReference } = await import("@scalar/express-api-reference");
-app.use(
-    "/docs",
-    apiReference({
-            spec: { content: openapiSpec },
-            theme: "default",
-            layout: "modern",
-            showSidebar: true,
-            hideDownloadButton: false,
-            hideModels: false,
-            hideClientButton: true,
-            authentication: {
-                preferredSecurityScheme: "cookieAuth",
-                securitySchemes: {
-                    cookieAuth: {
-                        type: "apiKey",
-                        in: "cookie",
-                        name: "accessToken",
-                    },
-                },
-            },
-            servers: [
-                { url: "http://localhost:4000", description: "Local development" },
-                { url: "https://e-commerce-express-server-app.vercel.app", description: "Production" },
-            ],
-            tagsSorter: "alpha",
-            operationsSorter: "alpha",
-        }),
-    );
-})().catch((err) => {
-    logger.error({ err: (err as Error).message }, "Failed to mount Scalar API reference UI");
-});
+registerScalarDocs(app, openapiSpec);
 
 const csrfErrorHandler: ErrorRequestHandler = (
     err: Error,
@@ -206,4 +174,3 @@ app.use(csrfErrorHandler);
 app.use(errorHandler);
 
 export default app;
-

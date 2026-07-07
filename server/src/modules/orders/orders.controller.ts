@@ -210,7 +210,7 @@ async function createCheckoutSession(req: AppRequest, res: AppResponse) {
         const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
         const statusCode = error.statusCode || 500;
         logger.error({ err: error.message || err, details: statusCode === 500 ? undefined : error.details }, "[createCheckoutSession] error");
-        const message = statusCode === 500 ? error.message || "Unable to start checkout right now" : error.message;
+        const message = statusCode === 500 ? "Unable to start checkout right now" : error.message;
         return res.status(statusCode).json({
             msg: message,
             ...(statusCode === 500 ? {} : error.details || {}),
@@ -266,7 +266,7 @@ async function getOrderBySessionId(req: AppRequest, res: AppResponse) {
         return res.status(200).json({ order, msg: "Order retrieved successfully" });
     } catch (err) {
         logger.error(err);
-        return res.status(500).json({ msg: err.message });
+        return res.status(500).json({ msg: "Unable to retrieve order right now" });
     }
 }
 
@@ -281,4 +281,3 @@ module.exports = {
     getOrderItems,
     applyDiscount,
 };
-

@@ -43,6 +43,9 @@ This project follows Conventional Commit-style change grouping. Dates use
   Aiven, while local and Docker connections stay plaintext.
 - Server build now copies non-TypeScript runtime assets (`openapi.json`, the
   database CA) into `dist/` so `pnpm start` and Vercel builds resolve them.
+- Product and inventory read endpoints no longer use the removed Redis response
+  cache layer; the related invalidation helpers and Redis benchmark references
+  were dropped in the same change.
 
 ### Planned
 
