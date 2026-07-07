@@ -37,7 +37,6 @@ export const env = {
     googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     googleCallbackUrl: process.env.GOOGLE_CALLBACK_URL || "",
     blobReadWriteToken: process.env.BLOB_READ_WRITE_TOKEN || "",
-    mongoUri: process.env.MONGO_URI || "",
     dbQueryLog: process.env.DB_QUERY_LOG === "true",
     dbQueryLogThresholdMs: Number(process.env.DB_QUERY_LOG_THRESHOLD_MS || 200),
     dbExplainSlow: process.env.DB_EXPLAIN_SLOW === "true",

@@ -46,7 +46,6 @@
         "fs": "0.0.1-security",
         "jsonwebtoken": "^9.0.3",
         "lusca": "^1.7.0",
-        "mongodb": "^7.4.0",
         "multer": "2.2.0",
         "mysql": "^2.18.1",
         "mysql2": "^3.22.5",

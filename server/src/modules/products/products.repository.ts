@@ -371,7 +371,6 @@ const updateProductDetails = (pid: number, product: ProductUpdateRecord, callbac
     );
 };
 
-// Get relevant products by product id (same category or brand)
 const getRelevantProductsByProductId = (pid: number, limit: number, callback: QueryCallback<ProductEditorRow[]>) => {
     const sql = `
         SELECT
@@ -403,12 +402,20 @@ const getRelevantProductsByProductId = (pid: number, limit: number, callback: Qu
             WHERE o.status <> 2
             GROUP BY oi.product_id
         ) sales_summary ON sales_summary.product_id = p.id
+        LEFT JOIN (
+            SELECT oi2.product_id, COUNT(DISTINCT oi.order_id) AS copurchase_count
+            FROM order_items oi
+            JOIN order_items oi2 ON oi2.order_id = oi.order_id AND oi2.product_id <> oi.product_id
+            JOIN orders o ON o.id = oi.order_id
+            WHERE oi.product_id = ? AND o.status <> 2
+            GROUP BY oi2.product_id
+        ) copurchase ON copurchase.product_id = p.id
         WHERE p.id <> base.id
-            AND p.stock >= 0
-            AND (p.category_id = base.category_id OR p.brand_id = base.brand_id)
+            AND p.stock > 0
         ORDER BY
             (
-                CASE WHEN p.category_id = base.category_id THEN 9 ELSE 0 END
+                COALESCE(copurchase.copurchase_count, 0) * 15
+                + CASE WHEN p.category_id = base.category_id THEN 9 ELSE 0 END
                 + CASE WHEN p.brand_id = base.brand_id THEN 5 ELSE 0 END
                 + COALESCE(review_summary.rating, 0) * 3
                 + LEAST(COALESCE(review_summary.reviews, 0), 40) * 0.15
@@ -418,7 +425,7 @@ const getRelevantProductsByProductId = (pid: number, limit: number, callback: Qu
             p.id DESC
         LIMIT ?
     `;
-    pool.query(sql, [pid, limit], callback);
+    pool.query(sql, [pid, pid, limit], callback);
 };
 
 const getRecommendedProductsByUserId = (uid: string, limit: number, callback: QueryCallback<ProductEditorRow[]>) => {
@@ -517,27 +524,6 @@ const getRecommendedProductsByUserId = (uid: string, limit: number, callback: Qu
     pool.query(sql, [uid, uid, uid, uid, uid, uid, limit], callback);
 };
 
-const getProductsByIdsOrdered = (productIds: number[], callback: QueryCallback<ProductEditorRow[]>) => {
-    if (productIds.length === 0) {
-        callback(null, []);
-        return;
-    }
-
-    const placeholders = productIds.map(() => "?").join(", ");
-    const orderByIds = productIds.map(() => "?").join(", ");
-
-    pool.query(
-        `SELECT products.id, products.name, description, categories.name AS category,
-            brands.name AS brand, price, sale_price, stock, main_image,
-            specifications, ${productRatingSelect}
-        ${productBaseFrom}
-        WHERE products.stock >= 0 AND products.id IN (${placeholders})
-        ORDER BY FIELD(products.id, ${orderByIds})`,
-        [...productIds, ...productIds],
-        callback,
-    );
-};
-
 module.exports = {
     insertProduct,
     findCategoryByName,
@@ -558,6 +544,5 @@ module.exports = {
     updateProductStock,
     getRelevantProductsByProductId,
     getRecommendedProductsByUserId,
-    getProductsByIdsOrdered,
 };
 
