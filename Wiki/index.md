@@ -4,7 +4,7 @@ The long-term knowledge base for the Digital-E e-commerce system. Readable in Ob
 
 **Project summary:** Digital-E is a full-stack e-commerce platform for electronic components and devices, built as a pnpm workspace with a React 19 + Vite storefront/admin (`client/`) and an Express 5 + TypeScript API (`server/`) backed primarily by MySQL with a partial Prisma layer.
 
-**Last updated:** 2026-06-11
+**Last updated:** 2026-07-07
 
 ## Core pages
 

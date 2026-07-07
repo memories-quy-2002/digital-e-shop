@@ -4,7 +4,9 @@ Back to [[index]]. Status: **Accepted** (documenting existing state). Date: 2026
 
 ## Context
 
-The server has both raw MySQL access (`mysql`/`mysql2`) via feature repositories and a Prisma 6 setup (`@prisma/client`, schema at `server/src/database/prisma/schema.prisma`).
+The server has both raw MySQL access (`mysql`/`mysql2`) via feature repositories and a Prisma setup (`@prisma/client`, schema at `server/src/database/prisma/schema.prisma`).
+
+_Updated 2026-07-07:_ Prisma was upgraded 6 → 7. This changes _how_ the partial Prisma layer is wired (rust-free `prisma-client` generator, generated client under `server/src/generated/prisma`, connection via `@prisma/adapter-mariadb`, URL in `prisma.config.ts`) but **not** this decision — MySQL remains primary and Prisma remains partial. See [[architecture]] → Database.
 
 ## Decision
 
