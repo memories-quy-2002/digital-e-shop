@@ -4,6 +4,9 @@ updates:
   # Keep Dependabot at the workspace root so dependency PRs update package.json
   # files and the shared lockfile together. Separate /client and /server jobs can
   # leave pnpm-lock.yaml stale, which breaks Vercel's frozen-lockfile install.
+  #
+  # Single npm update entry, single group, open-pull-requests-limit 1: every
+  # outdated package (client + server + root) is bundled into one weekly PR.
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
@@ -11,7 +14,7 @@ updates:
       day: "monday"
       time: "03:00"
       timezone: "Asia/Ho_Chi_Minh"
-    open-pull-requests-limit: 6
+    open-pull-requests-limit: 1
     versioning-strategy: "increase"
     commit-message:
       prefix: "chore(deps)"
@@ -42,8 +45,10 @@ updates:
       - dependency-name: "vite"
         update-types: ["version-update:semver-major"]
 
-  # Keep Action pins current for security fixes/deprecations (e.g. Node
-  # version bumps on setup-node); these are independent of the app lockfile.
+  # Separate ecosystem (Dependabot can't group across ecosystems into one
+  # PR), but capped at 1 open PR — GitHub Action versions change far less
+  # often than npm deps, so in practice this rarely opens alongside the npm
+  # PR in the same week.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -51,7 +56,7 @@ updates:
       day: "monday"
       time: "03:00"
       timezone: "Asia/Ho_Chi_Minh"
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 1
     commit-message:
       prefix: "chore(ci)"
       include: "scope"

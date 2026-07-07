@@ -51,7 +51,6 @@ For broad tasks that benefit from delegation, also read `docs/CODEX_ORCHESTRATIO
 - `multer`
 - Sharp
 - `@vercel/blob`
-- MongoDB client is present for one product-related integration path
 
 ### Tooling and deployment
 
@@ -203,7 +202,6 @@ GOOGLE_CLIENT_SECRET=<google-oauth-client-secret>
 GOOGLE_CALLBACK_URL=http://localhost:4000/api/users/auth/google/callback
 
 BLOB_READ_WRITE_TOKEN=<vercel-blob-token>
-MONGO_URI=<mongodb-uri>
 
 DB_QUERY_LOG=false
 DB_QUERY_LOG_THRESHOLD_MS=200
@@ -217,16 +215,13 @@ MOCK_REVIEW_COUNT=<seed-review-count>
 
 ### Client
 
-Currently observed client environment usage:
-
-```env
-VITE_CLOUDINARY_CLOUD_NAME=<cloudinary-cloud-name>
-```
+The client currently has no environment variables in use.
 
 Notes:
 
 - API base URL is currently hard-coded in `client/src/lib/env.ts`, not environment-driven.
 - Firebase web config is currently embedded in source, not sourced from env.
+- Images are served from Vercel Blob (`PRODUCT_IMAGE_BASE_URL` in `client/src/utils/images.ts`), not Cloudinary — an unused Cloudinary image-transform path was removed from that file.
 
 ## Coding conventions
 

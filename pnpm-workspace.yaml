@@ -1,6 +1,7 @@
 packages:
   - "client"
   - "server"
+minimumReleaseAge: 1440
 allowBuilds:
   "@firebase/util": false
   "@parcel/watcher": true
