@@ -16,6 +16,11 @@
         "prisma:generate": "prisma generate --schema=src/database/prisma/schema.prisma",
         "prisma:migrate": "prisma migrate dev",
         "seed:mock": "node src/database/seeders/seedMockOrdersReviews.js",
+        "docker:up": "docker compose up -d",
+        "docker:down": "docker compose down",
+        "docker:import": "powershell -ExecutionPolicy Bypass -File docker/import-dump.ps1",
+        "docker:seed": "powershell -ExecutionPolicy Bypass -File docker/seed-db.ps1",
+        "docker:setup": "pnpm docker:up ; pnpm docker:import ; pnpm docker:seed",
         "perf:readonly": "k6 run test/performance-test.js",
         "perf:admin-readonly": "k6 run test/k6-admin-readonly.js",
         "perf:customer-readonly": "k6 run test/k6-customer-readonly.js"
