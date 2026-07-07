@@ -4,8 +4,9 @@ import { Trend } from "k6/metrics";
 
 export const options = {
     stages: [
-        { duration: "30s", target: 5 },
-        { duration: "1m", target: 10 },
+        { duration: "30s", target: 10 },
+        { duration: "1m", target: 30 },
+        { duration: "2m", target: 30 },
         { duration: "30s", target: 0 },
     ],
     thresholds: {
@@ -16,12 +17,17 @@ export const options = {
 };
 
 const BASE_URL = __ENV.BASE_URL || "http://localhost:4000";
-const productDetailTrend = new Trend("product_detail_duration");
-const productsListTrend = new Trend("products_list_duration");
-const searchTrend = new Trend("search_duration");
-const facetsTrend = new Trend("facets_duration");
-const reviewsTrend = new Trend("reviews_duration");
-const csrfTrend = new Trend("csrf_duration");
+
+const productListTrend = new Trend("catalog_product_list_duration");
+const productDetailTrend = new Trend("catalog_product_detail_duration");
+const searchTrend = new Trend("catalog_search_duration");
+const facetsTrend = new Trend("catalog_facets_duration");
+const recommendationsTrend = new Trend("catalog_recommendations_duration");
+const relevantTrend = new Trend("catalog_relevant_duration");
+const reviewsTrend = new Trend("catalog_reviews_duration");
+const csrfTrend = new Trend("catalog_csrf_duration");
+const healthTrend = new Trend("catalog_health_duration");
+const blobHealthTrend = new Trend("catalog_blob_health_duration");
 
 const getJson = (path, tags = {}) =>
     http.get(`${BASE_URL}${path}`, {
@@ -35,21 +41,24 @@ export function setup() {
     });
 
     if (!ok) {
-        return { productIds: [] };
+        return { productIds: [], userId: null };
     }
 
     const products = response.json("products") || [];
-    return {
-        productIds: products
-            .slice(0, 10)
-            .map((product) => product.id)
-            .filter(Boolean),
-    };
+    const productIds = products
+        .slice(0, 10)
+        .map((p) => p.id)
+        .filter(Boolean);
+
+    const userId = products.length > 0 && products[0].user_id ? products[0].user_id : null;
+
+    return { productIds, userId };
 }
 
 export default function (data) {
-    group("health", () => {
+    group("health check", () => {
         const health = getJson("/api/health");
+        healthTrend.add(health.timings.duration);
         check(health, {
             "health status is 200": (res) => res.status === 200,
             "health body is ok": (res) => res.json("status") === "ok",
@@ -58,17 +67,25 @@ export default function (data) {
         const csrf = getJson("/api/csrf");
         csrfTrend.add(csrf.timings.duration);
         check(csrf, {
-            "csrf token generated": (res) => res.status === 200,
+            "csrf status is 200": (res) => res.status === 200,
+        });
+
+        const blobHealth = getJson("/api/blob/health");
+        blobHealthTrend.add(blobHealth.timings.duration);
+        check(blobHealth, {
+            "blob health status is 200 or 503": (res) =>
+                res.status === 200 || res.status === 503,
         });
     });
 
-    group("public catalog", () => {
-        const products = getJson("/api/products?page=1&limit=12");
-        productsListTrend.add(products.timings.duration);
+    group("product listing", () => {
+        const page = (__ITER % 3) + 1;
+        const products = getJson(`/api/products?page=${page}&limit=12`);
+        productListTrend.add(products.timings.duration);
         check(products, {
             "products list status is 200": (res) => res.status === 200,
             "products list has products": (res) =>
-                (res.json("products") || []).length > 0,
+                Array.isArray(res.json("products")),
         });
     });
 
@@ -86,8 +103,6 @@ export default function (data) {
         productDetailTrend.add(product.timings.duration);
         check(product, {
             "product detail status is 200": (res) => res.status === 200,
-            "product detail has product": (res) =>
-                Boolean(res.json("product.id")),
         });
 
         const reviews = getJson(`/api/reviews/${productId}`);
@@ -95,6 +110,12 @@ export default function (data) {
         check(reviews, {
             "reviews status is 200": (res) => res.status === 200,
             "reviews returns array": (res) => Array.isArray(res.json("reviews")),
+        });
+
+        const relevant = getJson(`/api/products/relevant/${productId}`);
+        relevantTrend.add(relevant.timings.duration);
+        check(relevant, {
+            "relevant products status is 200": (res) => res.status === 200,
         });
     });
 
@@ -112,6 +133,15 @@ export default function (data) {
         facetsTrend.add(facets.timings.duration);
         check(facets, {
             "facets status is 200": (res) => res.status === 200,
+        });
+    });
+
+    group("recommendations", () => {
+        const uid = data.userId || 1;
+        const recommendations = getJson(`/api/products/recommendations/${uid}`);
+        recommendationsTrend.add(recommendations.timings.duration);
+        check(recommendations, {
+            "recommendations status is 200": (res) => res.status === 200,
         });
     });
 

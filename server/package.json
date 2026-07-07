@@ -22,8 +22,10 @@
         "docker:seed": "powershell -ExecutionPolicy Bypass -File docker/seed-db.ps1",
         "docker:setup": "pnpm docker:up ; pnpm docker:import ; pnpm docker:seed",
         "perf:readonly": "k6 run test/performance-test.js",
+        "perf:catalog": "k6 run test/k6-catalog-test.js",
         "perf:admin-readonly": "k6 run test/k6-admin-readonly.js",
-        "perf:customer-readonly": "k6 run test/k6-customer-readonly.js"
+        "perf:customer-readonly": "k6 run test/k6-customer-readonly.js",
+        "perf:auth-readonly": "k6 run test/k6-auth-readonly.js"
     },
     "imports": {
         "#src/*": {
