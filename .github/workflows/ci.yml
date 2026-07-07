@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  client:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter client exec tsc --noEmit
+
+      - name: Lint
+        run: pnpm --filter client lint
+
+      - name: Test
+        run: pnpm --filter client test -- --run
+
+      - name: Build
+        run: pnpm --filter client build
+
+  server:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      DATABASE_URL: "mysql://user:password@localhost:3306/digital_e_shop_ci"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter server typecheck
+
+      - name: Lint
+        run: pnpm --filter server lint
+
+      - name: Build
+        run: pnpm --filter server build

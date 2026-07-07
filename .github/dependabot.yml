@@ -23,3 +23,43 @@ updates:
       client-and-server-dependencies:
         patterns:
           - "*"
+    # Framework majors need manual migration review (breaking API/behavior
+    # changes); let Dependabot keep them on patch/minor per AGENTS.md guidance
+    # to minimize lockfile churn and avoid unreviewed major bumps.
+    ignore:
+      - dependency-name: "express"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-router-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@prisma/client"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "prisma"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+
+  # Keep Action pins current for security fixes/deprecations (e.g. Node
+  # version bumps on setup-node); these are independent of the app lockfile.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "Asia/Ho_Chi_Minh"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(ci)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "dependabot"
+    groups:
+      github-actions:
+        patterns:
+          - "*"

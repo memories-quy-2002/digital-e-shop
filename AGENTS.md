@@ -423,44 +423,34 @@ Safe schema-change rules:
 
 ## Git and PR workflow
 
-Long-lived branch structure:
+Current branch structure on the GitHub remote:
 
-- `production`: live code served to end users. Never commit directly.
-- `main`: release-ready code. Always deployable. Source of truth before each release.
-- `dev`: integration branch. All feature work lands here first.
+- `main`: the only long-lived branch. It is deployed and serves as both the release and production branch.
 
-Branch naming:
+The repo previously ran a `dev` → `main` → `production` flow (see git history for the merged/deleted `dev`, `production`, and `feature/github-actions-cicd` branches), but those branches no longer exist on the remote. Do not assume `dev` or `production` exist, branch from them, or target PRs at them unless the user has explicitly recreated that structure — verify with `git ls-remote --heads origin` if unsure, since stale local remote-tracking refs can otherwise look like live branches.
 
-- `feature/<short-description>` for new functionality, branched from `dev`.
-- `bugfix/<short-description>` for non-urgent bug fixes, branched from `dev`.
-- `hotfix/<short-description>` for urgent production fixes, branched from `production`.
-- `release/<version>` for release prep when needed, branched from `dev`.
+Branch naming (for new work branched from `main`):
+
+- `feature/<short-description>` for new functionality.
+- `bugfix/<short-description>` for non-urgent bug fixes.
+- `hotfix/<short-description>` for urgent production fixes.
 
 Standard flow:
 
-1. Branch from `dev`.
-2. Develop and commit on the feature or bugfix branch.
-3. Open a PR into `dev`; reviews and CI must pass before merge.
-4. Validate `dev` for QA/staging.
-5. Open a PR from `dev` into `main`.
-6. Tag releases on `main`, then promote/deploy to `production`.
-
-Hotfix flow:
-
-1. Branch from `production` using `hotfix/<name>`.
-2. Fix, commit, and open a PR into `production`.
-3. After merge, immediately back-merge the hotfix into both `main` and `dev`.
+1. Branch from `main`.
+2. Develop and commit on the feature/bugfix/hotfix branch.
+3. Open a PR into `main`; reviews and CI must pass before merge.
+4. Delete the branch after merge.
 
 Rules:
 
-- Never push directly to `production` or `main`.
-- Never merge `main` into `dev`; flow is one-directional: `dev` to `main` to `production`.
+- Never push directly to `main`.
 - Every change should go through a pull request with at least one review.
-- Delete feature and bugfix branches after merge.
-- Hotfix branches must be back-merged to both `main` and `dev` before deletion.
+- Delete feature, bugfix, and hotfix branches after merge.
 - Always confirm the current branch before suggesting or performing a merge.
-- Ask for explicit confirmation before any task touches `main` or `production`.
+- Ask for explicit confirmation before any task touches `main`.
 - Flag any action that would violate this flow and explain why.
+- If the user reintroduces a multi-branch flow (e.g. adds back `dev`/`production`), update this section to match rather than leaving stale instructions.
 
 Commit messages should use Conventional Commit style:
 
