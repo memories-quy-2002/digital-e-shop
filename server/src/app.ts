@@ -8,8 +8,15 @@ import { env, isProduction } from "#src/config/env.config";
 import { allowedOrigins, defaultClientOrigin } from "#src/config/cors.config";
 import { errorHandler } from "#src/core/middlewares/errorHandler";
 import { requestLogger } from "#src/core/middlewares/requestLogger";
+import { logger } from "#src/shared/utils/logger";
 import { getRouteLimit } from "#src/shared/utils/rateLimit";
-import { invalidateByPattern } from "#src/core/cacheResponse";
+import { handleStripeWebhook } from "#src/modules/orders/orders.stripeWebhook.controller";
+import fs from "node:fs";
+import path from "node:path";
+
+const openapiSpec = JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, "docs", "openapi.json"), "utf8"),
+);
 
 import authRoutes from "#src/modules/auth/auth.routes";
 import usersRoutes from "#src/modules/users/users.routes";
@@ -90,6 +97,12 @@ const authLimiter = rateLimit({
 });
 
 app.options(/.*/, cors());
+
+// Registered before express.json()/CSRF: Stripe signature verification needs
+// the raw request body, and this handler always sends its own response, so
+// the request never reaches the JSON parser or CSRF middleware below.
+app.post("/api/orders/webhooks/stripe", express.raw({ type: "application/json" }), handleStripeWebhook);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -137,11 +150,42 @@ app.get("/api/health", (_req: Request, res: Response) => {
     });
 });
 
-app.post("/api/cache/invalidate", (req: Request, res: Response) => {
-    const pattern = typeof req.query.pattern === "string" ? req.query.pattern : "*";
-    invalidateByPattern(pattern)
-        .then(() => res.status(200).json({ msg: `Cache invalidated for pattern: ${pattern}` }))
-        .catch(() => res.status(200).json({ msg: "Cache invalidation attempted" }));
+app.get("/api/openapi.json", (_req: Request, res: Response) => {
+    res.status(200).json(openapiSpec);
+});
+
+(async () => {
+    const { apiReference } = await import("@scalar/express-api-reference");
+app.use(
+    "/docs",
+    apiReference({
+            spec: { content: openapiSpec },
+            theme: "default",
+            layout: "modern",
+            showSidebar: true,
+            hideDownloadButton: false,
+            hideModels: false,
+            hideClientButton: true,
+            authentication: {
+                preferredSecurityScheme: "cookieAuth",
+                securitySchemes: {
+                    cookieAuth: {
+                        type: "apiKey",
+                        in: "cookie",
+                        name: "accessToken",
+                    },
+                },
+            },
+            servers: [
+                { url: "http://localhost:4000", description: "Local development" },
+                { url: "https://e-commerce-express-server-app.vercel.app", description: "Production" },
+            ],
+            tagsSorter: "alpha",
+            operationsSorter: "alpha",
+        }),
+    );
+})().catch((err) => {
+    logger.error({ err: (err as Error).message }, "Failed to mount Scalar API reference UI");
 });
 
 const csrfErrorHandler: ErrorRequestHandler = (

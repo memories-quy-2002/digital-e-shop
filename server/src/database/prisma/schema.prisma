@@ -8,21 +8,22 @@ datasource db {
 }
 
 model User {
-  id         String   @id @db.VarChar(255)
-  username   String   @db.VarChar(16)
-  email      String   @db.VarChar(255)
-  password   String   @db.VarChar(255)
-  role       String   @db.VarChar(16)
-  token      String   @db.Text
-  firstName  String?  @map("first_name") @db.Text
-  lastName   String?  @map("last_name") @db.Text
-  status     String   @default("Active") @db.VarChar(20)
-  createdAt  DateTime @map("created_at") @default(now()) @db.DateTime(0)
-  lastLogin  DateTime @map("last_login") @default(now()) @db.DateTime(0)
+  id        String   @id @db.VarChar(255)
+  username  String   @db.VarChar(16)
+  email     String   @db.VarChar(255)
+  password  String   @db.VarChar(255)
+  role      String   @db.VarChar(16)
+  token     String   @db.Text
+  firstName String?  @map("first_name") @db.Text
+  lastName  String?  @map("last_name") @db.Text
+  status    String   @default("Active") @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  lastLogin DateTime @default(now()) @map("last_login") @db.DateTime(0)
 
-  orders  Order[]
-  carts   Cart[]
-  reviews Review[]
+  orders           Order[]
+  carts            Cart[]
+  reviews          Review[]
+  pendingCheckouts PendingCheckout[]
 
   @@map("users")
 }
@@ -38,8 +39,8 @@ model Product {
   price          Decimal  @db.Decimal(10, 2)
   salePrice      Decimal? @map("sale_price") @db.Decimal(10, 2)
   stock          Int      @default(0)
-  createdAt      DateTime @map("created_at") @default(now()) @db.DateTime(0)
-  updatedAt      DateTime @map("updated_at") @default(now()) @db.DateTime(0)
+  createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt      DateTime @default(now()) @map("updated_at") @db.DateTime(0)
 
   reviews    Review[]
   cartItems  CartItem[]
@@ -54,7 +55,7 @@ model Review {
   productId  Int      @map("product_id")
   rating     Int
   reviewText String?  @map("review_text") @db.Text
-  createdAt  DateTime @map("created_at") @default(now()) @db.Timestamp(0)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(0)
 
   user    User    @relation(fields: [userId], references: [id])
   product Product @relation(fields: [productId], references: [id])
@@ -65,7 +66,7 @@ model Review {
 model Cart {
   id        Int      @id @default(autoincrement())
   userId    String   @map("user_id") @db.VarChar(255)
-  createdAt DateTime @map("created_at") @default(now()) @db.DateTime(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(0)
   done      Int      @default(0) @db.TinyInt
 
   user  User       @relation(fields: [userId], references: [id])
@@ -79,7 +80,7 @@ model CartItem {
   cartId    Int      @map("cart_id")
   productId Int      @map("product_id")
   quantity  Int
-  createdAt DateTime @map("created_at") @default(now()) @db.DateTime(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(0)
 
   cart    Cart    @relation(fields: [cartId], references: [id])
   product Product @relation(fields: [productId], references: [id])
@@ -94,7 +95,7 @@ model Discount {
   description     String?   @db.Text
   discountPercent Decimal   @map("discount_percent") @db.Decimal(5, 2)
   active          Boolean   @default(true) @db.TinyInt
-  minOrderValue   Decimal   @map("min_order_value") @default(0) @db.Decimal(10, 2)
+  minOrderValue   Decimal   @default(0) @map("min_order_value") @db.Decimal(10, 2)
   startsAt        DateTime? @map("starts_at") @db.DateTime(0)
   expiresAt       DateTime? @map("expires_at") @db.DateTime(0)
   usageLimit      Int?      @map("usage_limit")
@@ -104,14 +105,16 @@ model Discount {
 }
 
 model Order {
-  id              Int      @id @default(autoincrement())
-  userId          String   @map("user_id") @db.VarChar(255)
-  totalPrice      Decimal  @map("total_price") @db.Decimal(11, 2)
-  discount        Decimal  @default(0) @db.Decimal(11, 2)
-  shippingAddress String   @map("shipping_address") @db.Text
-  paymentMethod   String   @map("payment_method") @default("cash") @db.VarChar(32)
-  dateAdded       DateTime @map("date_added") @default(now()) @db.DateTime(0)
-  status          Int      @default(0)
+  id                      Int      @id @default(autoincrement())
+  userId                  String   @map("user_id") @db.VarChar(255)
+  totalPrice              Decimal  @map("total_price") @db.Decimal(11, 2)
+  discount                Decimal  @default(0) @db.Decimal(11, 2)
+  shippingAddress         String   @map("shipping_address") @db.Text
+  paymentMethod           String   @default("cash") @map("payment_method") @db.VarChar(32)
+  stripeCheckoutSessionId String?  @map("stripe_checkout_session_id") @db.VarChar(255)
+  stripePaymentIntentId   String?  @map("stripe_payment_intent_id") @db.VarChar(255)
+  dateAdded               DateTime @default(now()) @map("date_added") @db.DateTime(0)
+  status                  Int      @default(0)
 
   user  User        @relation(fields: [userId], references: [id])
   items OrderItem[]
@@ -119,12 +122,28 @@ model Order {
   @@map("orders")
 }
 
+model PendingCheckout {
+  id              Int       @id @default(autoincrement())
+  stripeSessionId String    @unique(map: "uq_pending_checkouts_session") @map("stripe_session_id") @db.VarChar(255)
+  userId          String    @map("user_id") @db.VarChar(255)
+  cartJson        String    @map("cart_json") @db.Text
+  totalPrice      Decimal   @map("total_price") @db.Decimal(11, 2)
+  discount        Decimal   @default(0) @db.Decimal(11, 2)
+  shippingAddress String    @map("shipping_address") @db.Text
+  createdAt       DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  consumedAt      DateTime? @map("consumed_at") @db.DateTime(0)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("pending_checkouts")
+}
+
 model OrderItem {
   id         Int     @id @default(autoincrement())
   orderId    Int     @map("order_id")
   productId  Int     @map("product_id")
   quantity   Int
-  totalPrice Decimal @map("total_price") @default(0) @db.Decimal(11, 2)
+  totalPrice Decimal @default(0) @map("total_price") @db.Decimal(11, 2)
 
   order   Order   @relation(fields: [orderId], references: [id])
   product Product @relation(fields: [productId], references: [id])

@@ -23,6 +23,20 @@ export const purchaseSchema = z.object({
     paymentMethod: z.enum(["bank_transfer", "cash"], { error: "Unsupported payment method" }),
 });
 
+export const checkoutSessionSchema = z.object({
+    totalPrice: nonNegativeNumber("Total price"),
+    cart: z.array(
+        z.object({
+            productId: positiveInt("Product id"),
+            quantity: positiveInt("Quantity"),
+            price: nonNegativeNumber("Price"),
+            sale_price: z.union([nonNegativeNumber("Sale price"), z.null(), z.undefined()]).optional(),
+        }),
+    ).min(1, "Cart cannot be empty"),
+    discount: nonNegativeNumber("Discount").default(0),
+    shippingAddress: requiredText("Shipping address"),
+});
+
 export const applyDiscountSchema = z.object({
     discountCode: requiredText("Discount code"),
     price: nonNegativeNumber("Price"),

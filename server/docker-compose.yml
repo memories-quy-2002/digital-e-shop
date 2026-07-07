@@ -6,33 +6,22 @@ services:
         environment:
             MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-digital_e_root}
             MYSQL_DATABASE: ${DB_NAME:-defaultdb}
+            MYSQL_ROOT_HOST: "%"
         ports:
             - "${DB_PORT:-3307}:3306"
         volumes:
             - mysql_data:/var/lib/mysql
-            - ./docker/mysql.cnf:/etc/mysql/conf.d/custom.cnf:ro
         healthcheck:
             test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-digital_e_root}"]
             interval: 10s
             timeout: 5s
             retries: 5
             start_period: 30s
-
-    redis:
-        image: redis:7-alpine
-        container_name: digitale-redis
-        restart: unless-stopped
-        ports:
-            - "${REDIS_PORT:-6379}:6379"
-        volumes:
-            - redis_data:/data
-        healthcheck:
-            test: ["CMD", "redis-cli", "ping"]
-            interval: 10s
-            timeout: 5s
-            retries: 5
-        command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+        command: >
+            --character-set-server=utf8mb4
+            --collation-server=utf8mb4_general_ci
+            --default-authentication-plugin=mysql_native_password
+            --default-time-zone=+00:00
 
 volumes:
     mysql_data:
-    redis_data:

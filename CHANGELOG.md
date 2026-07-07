@@ -21,9 +21,6 @@ This project follows Conventional Commit-style change grouping. Dates use
 - Server unit test suite (Vitest) covering cart validation, overselling
   detection, cart-tampering/price-drift detection, and inventory movement
   mapping, wired into the `server` CI job so failing tests block merges.
-- Redis response caching (`ioredis`) for read-heavy product and inventory
-  endpoints, with pattern-based invalidation on writes, a Redis service in
-  the local Docker environment, and k6 cold/warm benchmark scripts.
 
 ### Changed
 

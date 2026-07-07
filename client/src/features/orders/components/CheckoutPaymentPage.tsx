@@ -23,7 +23,7 @@ interface CheckoutForm {
     city: string;
     country: string | null;
     phone_number: string | null;
-    payment_method: "bank_transfer" | "cash";
+    payment_method: "bank_transfer" | "cash" | "card";
 }
 
 type CheckoutPaymentProps = {
@@ -102,6 +102,14 @@ const CheckoutPaymentPage = ({
             description: "Pay when the delivery partner hands over your package.",
             meta: "Phone verification may apply",
             icon: <CashStackIcon size={22} />,
+        },
+        {
+            value: "card" as const,
+            title: "Card",
+            eyebrow: "Instant confirmation",
+            description: "Pay securely by card via Stripe. You'll be redirected to complete payment.",
+            meta: "Visa, Mastercard, and more",
+            icon: <ShieldIcon size={22} />,
         },
     ];
 
@@ -256,6 +264,35 @@ const CheckoutPaymentPage = ({
                 (sum, item) => sum + (item.sale_price ?? item.price) * item.quantity,
                 0,
             );
+
+            if (formCheckout.payment_method === "card") {
+                sessionStorage.setItem(
+                    "checkoutPending",
+                    JSON.stringify({
+                        totalPrice: latestTotalPrice,
+                        discount,
+                        subtotal: latestTotalPrice - discount,
+                        itemsCount: latestCart.reduce((sum, item) => sum + item.quantity, 0),
+                        email: formCheckout.email,
+                        name: `${formCheckout.first_name} ${formCheckout.last_name}`.trim(),
+                        address: formCheckout.address,
+                        city: formCheckout.city,
+                        country: formCheckout.country || "",
+                        phone: formCheckout.phone_number || "",
+                    }),
+                );
+                const sessionResponse = await http.post(`/api/orders/checkout-session/${uid}`, {
+                    cart: latestCart,
+                    totalPrice: latestTotalPrice,
+                    discount,
+                    shippingAddress: formCheckout.address,
+                });
+                if (sessionResponse.data?.url) {
+                    window.location.href = sessionResponse.data.url;
+                }
+                return;
+            }
+
             const response = await http.post(`/api/orders/purchase/${uid}`, {
                 cart: latestCart,
                 totalPrice: latestTotalPrice,

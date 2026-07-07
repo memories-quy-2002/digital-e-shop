@@ -15,7 +15,6 @@ const {
 } = require("./products.controller");
 const { requireAdmin } = require("#src/modules/auth/auth.middleware");
 import path from "node:path";
-import { cacheResponse, invalidateByPattern } from "#src/core/cacheResponse";
 
 const router = Router();
 const uploadsDir = path.resolve(__dirname, "..", "..", "..", "..", "src", "uploads");
@@ -28,12 +27,10 @@ const productLimiter = rateLimit({
     message: "Too many requests, please try again later.",
 });
 
-const cache = cacheResponse(300);
-
-router.get("/facets", productLimiter, cache, getProductFacets);
-router.get("/search", productLimiter, cache, searchProducts);
-router.get("/recommendations/:uid", productLimiter, cache, getRecommendations);
-router.get("/relevant/:pid", productLimiter, cache, retrieveRelevantProducts);
+router.get("/facets", productLimiter, getProductFacets);
+router.get("/search", productLimiter, searchProducts);
+router.get("/recommendations/:uid", productLimiter, getRecommendations);
+router.get("/relevant/:pid", productLimiter, retrieveRelevantProducts);
 router.get("/images/:filename", productLimiter, async (req: Request, res: Response) => {
     const requestedFilename = `${req.params.filename}.jpg`;
     const imagePath = path.resolve(uploadsDir, requestedFilename);
@@ -44,18 +41,12 @@ router.get("/images/:filename", productLimiter, async (req: Request, res: Respon
 
     return res.sendFile(imagePath);
 });
-router.get("/:id", productLimiter, cache, getSingleProduct);
-router.get("/", productLimiter, cache, getListProduct);
+router.get("/:id", productLimiter, getSingleProduct);
+router.get("/", productLimiter, getListProduct);
 
-router.post("/add", productLimiter, requireAdmin, addSingleProduct, invalidateProductCache);
-router.put("/:id/inventory", productLimiter, requireAdmin, updateInventory, invalidateProductCache);
-router.put("/:id", productLimiter, requireAdmin, updateProduct, invalidateProductCache);
-router.delete("/", productLimiter, requireAdmin, deleteProduct, invalidateProductCache);
-
-function invalidateProductCache(_req: Request, _res: Response, next: () => void) {
-    invalidateByPattern("/api/products*").catch(() => {});
-    invalidateByPattern("/api/reviews*").catch(() => {});
-    next();
-}
+router.post("/add", productLimiter, requireAdmin, addSingleProduct);
+router.put("/:id/inventory", productLimiter, requireAdmin, updateInventory);
+router.put("/:id", productLimiter, requireAdmin, updateProduct);
+router.delete("/", productLimiter, requireAdmin, deleteProduct);
 
 export default router;
