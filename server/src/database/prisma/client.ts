@@ -1,12 +1,19 @@
-const { PrismaClient } = require("@prisma/client");
+import { PrismaClient } from "#src/generated/prisma/client";
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 
 declare global {
-    var __prisma: InstanceType<typeof PrismaClient> | undefined;
+    var __prisma: PrismaClient | undefined;
 }
 
-const prisma: InstanceType<typeof PrismaClient> =
+// Prisma 7 no longer reads the connection URL from schema.prisma; the runtime
+// client connects through a driver adapter. PrismaMariaDb speaks the MySQL
+// protocol, so it serves this MySQL database.
+const adapter = new PrismaMariaDb(process.env.DATABASE_URL ?? "");
+
+const prisma: PrismaClient =
     global.__prisma ??
     new PrismaClient({
+        adapter,
         log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
     });
 
