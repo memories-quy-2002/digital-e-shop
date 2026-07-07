@@ -4,7 +4,7 @@ updates:
   # Keep Dependabot at the workspace root so dependency PRs update package.json
   # files and the shared lockfile together. Separate /client and /server jobs can
   # leave pnpm-lock.yaml stale, which breaks Vercel's frozen-lockfile install.
-  - package-ecosystem: "pnpm"
+  - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
