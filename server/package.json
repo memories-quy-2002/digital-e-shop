@@ -17,8 +17,8 @@
         "prisma:generate": "prisma generate --schema=src/database/prisma/schema.prisma",
         "prisma:migrate": "prisma migrate dev",
         "seed:mock": "node src/database/seeders/seedMockOrdersReviews.js",
-        "docker:up": "docker compose up -d",
-        "docker:down": "docker compose down",
+        "docker:up": "wsl -d Ubuntu -- bash -c \"cd /mnt/e/Code/digital-e-shop/server && docker compose up -d\"",
+        "docker:down": "wsl -d Ubuntu -- bash -c \"cd /mnt/e/Code/digital-e-shop/server && docker compose down\"",
         "docker:import": "powershell -ExecutionPolicy Bypass -File docker/import-dump.ps1",
         "docker:seed": "powershell -ExecutionPolicy Bypass -File docker/seed-db.ps1",
         "docker:setup": "pnpm docker:up ; pnpm docker:import ; pnpm docker:seed",
@@ -26,7 +26,9 @@
         "perf:catalog": "k6 run test/k6-catalog-test.js",
         "perf:admin-readonly": "k6 run test/k6-admin-readonly.js",
         "perf:customer-readonly": "k6 run test/k6-customer-readonly.js",
-        "perf:auth-readonly": "k6 run test/k6-auth-readonly.js"
+        "perf:auth-readonly": "k6 run test/k6-auth-readonly.js",
+        "perf:redis-cold": "k6 run -e COLD_START=true test/k6-redis-benchmark.js",
+        "perf:redis-warm": "k6 run test/k6-redis-benchmark.js"
     },
     "imports": {
         "#src/*": {
@@ -52,6 +54,7 @@
         "express": "^5.2.1",
         "express-rate-limit": "^8.5.2",
         "fs": "0.0.1-security",
+        "ioredis": "^5.5.0",
         "jsonwebtoken": "^9.0.3",
         "lusca": "^1.7.0",
         "multer": "2.2.0",

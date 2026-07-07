@@ -9,6 +9,7 @@ import { allowedOrigins, defaultClientOrigin } from "#src/config/cors.config";
 import { errorHandler } from "#src/core/middlewares/errorHandler";
 import { requestLogger } from "#src/core/middlewares/requestLogger";
 import { getRouteLimit } from "#src/shared/utils/rateLimit";
+import { invalidateByPattern } from "#src/core/cacheResponse";
 
 import authRoutes from "#src/modules/auth/auth.routes";
 import usersRoutes from "#src/modules/users/users.routes";
@@ -134,6 +135,13 @@ app.get("/api/health", (_req: Request, res: Response) => {
         status: "ok",
         timestamp: new Date().toISOString(),
     });
+});
+
+app.post("/api/cache/invalidate", (req: Request, res: Response) => {
+    const pattern = typeof req.query.pattern === "string" ? req.query.pattern : "*";
+    invalidateByPattern(pattern)
+        .then(() => res.status(200).json({ msg: `Cache invalidated for pattern: ${pattern}` }))
+        .catch(() => res.status(200).json({ msg: "Cache invalidation attempted" }));
 });
 
 const csrfErrorHandler: ErrorRequestHandler = (
