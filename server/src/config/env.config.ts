@@ -27,6 +27,8 @@ export const env = {
     dbPassword: process.env.DB_PASSWORD || "",
     dbName: process.env.DB_NAME || "",
     dbPort: process.env.DB_PORT ? Number(process.env.DB_PORT) : undefined,
+    dbSsl: process.env.DB_SSL === "true",
+    dbSslCaPath: process.env.DB_SSL_CA_PATH || "",
     databaseUrl: process.env.DATABASE_URL || "",
     jwtSecret: process.env.JWT_SECRET_KEY || "",
     jwtRefreshSecret: process.env.JWT_REFRESH_SECRET_KEY || "",

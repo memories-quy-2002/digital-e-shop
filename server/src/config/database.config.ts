@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import mysql from "mysql";
 import { env } from "#src/config/env.config";
 import { logger } from "#src/shared/utils/logger";
@@ -16,12 +18,32 @@ if (!env.dbHost || !env.dbUser || !env.dbName) {
     logger.warn("Database environment variables are missing. Check your .env file.");
 }
 
+// Aiven (and most managed MySQL) require TLS. When DB_SSL=true, load the CA
+// certificate and verify the server. Defaults to the bundled Aiven CA at
+// src/database/ca.pem; override with DB_SSL_CA_PATH. Local/Docker leaves
+// DB_SSL unset and connects in plaintext.
+const resolveSslConfig = () => {
+    if (!env.dbSsl) {
+        return undefined;
+    }
+
+    const caPath = env.dbSslCaPath || path.resolve(__dirname, "..", "database", "ca.pem");
+
+    try {
+        return { ca: fs.readFileSync(caPath, "utf8") };
+    } catch (error) {
+        logger.error(`Failed to read DB SSL CA certificate at ${caPath}:`, error);
+        throw error;
+    }
+};
+
 const pool = mysql.createPool({
     host: env.dbHost,
     user: env.dbUser,
     password: env.dbPassword,
     database: env.dbName,
     port: env.dbPort,
+    ssl: resolveSslConfig(),
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
