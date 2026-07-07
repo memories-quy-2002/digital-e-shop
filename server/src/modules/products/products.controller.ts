@@ -10,12 +10,9 @@ const {
     parseBody,
 } = require("#src/shared/validation/requestSchemas");
 const multer = require("multer");
-const { MongoClient, ServerApiVersion } = require("mongodb");
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
-
-const DB_URI = process.env.MONGO_URI;
 
 async function addSingleProduct(req: AppRequest, res: AppResponse) {
     upload.single("image")(req, res, async (err: Error | null) => {
@@ -267,96 +264,22 @@ async function updateProduct(req: AppRequest, res: AppResponse) {
     }
 }
 
-async function retrieveRelevantProducts(req: AppRequest, res: AppResponse) {
+function retrieveRelevantProducts(req: AppRequest, res: AppResponse) {
     const pid = parseInt(String(req.params.pid), 10);
     if (!pid) {
         return res.status(400).json({ msg: "Invalid product id" });
     }
 
-    const fetchFromMysql = () =>
-        new Promise((resolve, reject) => {
-            Product.getRelevantProductsByProductId(pid, 8, (err: DbError | null, results: ProductEditorRow[]) => {
-                if (err) return reject(err);
-                resolve(results || []);
-            });
-        });
-
-    if (!DB_URI) {
-        try {
-            const fallbackResults = await fetchFromMysql();
-            return res.status(200).json({
-                relevantProducts: fallbackResults,
-                msg: "Retrieved relevant products successfully (mysql)",
-            });
-        } catch (err) {
-            const error = err as Error;
-            logger.error({ err: error.message, pid }, "MySQL relevant products error");
+    Product.getRelevantProductsByProductId(pid, 8, (err: DbError | null, results: ProductEditorRow[]) => {
+        if (err) {
+            logger.error({ err: err.message, pid }, "Relevant products error");
             return res.status(500).json({ msg: "Error retrieving relevant products" });
         }
-    }
-
-    try {
-        const client = new MongoClient(DB_URI, { serverApi: ServerApiVersion.v1 });
-        await client.connect();
-        const db = client.db("e_commerce");
-        const collection = db.collection("relevant_product");
-        const documents = await collection.find({ product_id: pid }).toArray();
-        await client.close();
-
-        if (documents.length > 0) {
-            const mongoRelevantProducts = Array.isArray(documents[0].relevant_products)
-                ? documents[0].relevant_products
-                : [];
-            const relevantIds = mongoRelevantProducts
-                .map((item: unknown) => {
-                    if (typeof item === "number") return item;
-                    if (typeof item === "string") return Number(item);
-                    if (item && typeof item === "object" && "product_id" in item) {
-                        return Number((item as { product_id?: unknown }).product_id);
-                    }
-                    return 0;
-                })
-                .filter((item: number) => Number.isInteger(item) && item > 0);
-
-            if (relevantIds.length > 0) {
-                return Product.getProductsByIdsOrdered(relevantIds, (mysqlErr: DbError | null, mysqlResults: ProductEditorRow[]) => {
-                    if (mysqlErr) {
-                        logger.error({ err: mysqlErr.message, pid, relevantIds }, "Mongo id hydration error");
-                        return res.status(500).json({ msg: "Error retrieving relevant products" });
-                    }
-                    return res.status(200).json({
-                        relevantProducts: mysqlResults || [],
-                        msg: "Retrieved relevant products successfully",
-                    });
-                });
-            }
-
-            return res.status(200).json({
-                relevantProducts: [],
-                msg: "Retrieved relevant products successfully",
-            });
-        }
-
-        const fallbackResults = await fetchFromMysql();
         return res.status(200).json({
-            relevantProducts: fallbackResults,
-            msg: "Retrieved relevant products successfully (mysql fallback)",
+            relevantProducts: results || [],
+            msg: "Retrieved relevant products successfully",
         });
-    } catch (err) {
-        const error = err as Error;
-        logger.error({ err: error.message, pid }, "Mongo relevant products error");
-        try {
-            const fallbackResults = await fetchFromMysql();
-            return res.status(200).json({
-                relevantProducts: fallbackResults,
-                msg: "Retrieved relevant products successfully (mysql fallback)",
-            });
-        } catch (fallbackErr) {
-            const error = fallbackErr as Error;
-            logger.error({ err: error.message, pid }, "MySQL relevant products error");
-            return res.status(500).json({ msg: "Error retrieving relevant products" });
-        }
-    }
+    });
 }
 
 function getRecommendations(req: AppRequest, res: AppResponse) {
