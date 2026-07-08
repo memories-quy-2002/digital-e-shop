@@ -53,6 +53,16 @@ Decision gate:
 
 No fixed numeric threshold was set in advance; report raw cold/warm numbers and flag if they look concerning relative to the current baseline, then get explicit sign-off before proceeding past Step 0.
 
+### Step 0 Results (measured 2026-07-08)
+
+Full data: [spike/nestjs-coldstart/RESULTS.md](../../../spike/nestjs-coldstart/RESULTS.md).
+
+- Nest cold-proxy: 0.755s vs. Express baseline cold-proxy 0.702s (delta: +0.053s) — **both samples contaminated by prior verification requests in the same task run; not a genuine idle-then-cold measurement.**
+- Nest warm request: 0.588s avg vs. Express baseline warm 0.398s avg (delta: +0.191s) — the more trustworthy signal from this run, though still a single small-sample comparison with network RTT variance included and no confidence interval.
+- Bundle size: Nest spike `dist/` 13K vs. Express server `dist/` 721K — scope-mismatched (one-route spike vs. full production app), not a valid framework-overhead comparison.
+
+**Recommendation:** Inconclusive — do not treat this run as a green light for serverless, nor as a reason to abandon it. The one real signal (a ~191ms warm-request penalty for a nearly-empty Nest app) is a legitimate yellow flag worth taking seriously, since it reflects Nest's DI/module resolution overhead even on warm requests, not just cold boot. But no genuine cold-start number was captured — the single-subagent, single-session methodology couldn't produce a true 10+ minute idle gap, and both "cold" samples were pre-warmed by earlier verification requests within the same run. Before deciding the hosting model, re-run Task 3's measurement across a real idle gap (e.g., trigger both requests at the start of a session after the previous one has been idle 15+ minutes, or scheduled via two separate wake-ups) to get an honest cold number. Until then, treat the hosting decision as open and do not proceed to the full module-by-module migration (Sections "Target architecture" / "Migration order" below), since that work assumes a resolved hosting model.
+
 ## Target architecture
 
 ### Module structure mapping
