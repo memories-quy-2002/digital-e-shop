@@ -61,7 +61,13 @@ Full data: [spike/nestjs-coldstart/RESULTS.md](../../../spike/nestjs-coldstart/R
 - Nest warm request: 0.588s avg vs. Express baseline warm 0.398s avg (delta: +0.191s) — the more trustworthy signal from this run, though still a single small-sample comparison with network RTT variance included and no confidence interval.
 - Bundle size: Nest spike `dist/` 13K vs. Express server `dist/` 721K — scope-mismatched (one-route spike vs. full production app), not a valid framework-overhead comparison.
 
-**Recommendation:** Inconclusive — do not treat this run as a green light for serverless, nor as a reason to abandon it. The one real signal (a ~191ms warm-request penalty for a nearly-empty Nest app) is a legitimate yellow flag worth taking seriously, since it reflects Nest's DI/module resolution overhead even on warm requests, not just cold boot. But no genuine cold-start number was captured — the single-subagent, single-session methodology couldn't produce a true 10+ minute idle gap, and both "cold" samples were pre-warmed by earlier verification requests within the same run. Before deciding the hosting model, re-run Task 3's measurement across a real idle gap (e.g., trigger both requests at the start of a session after the previous one has been idle 15+ minutes, or scheduled via two separate wake-ups) to get an honest cold number. Until then, treat the hosting decision as open and do not proceed to the full module-by-module migration (Sections "Target architecture" / "Migration order" below), since that work assumes a resolved hosting model.
+**Recommendation:** Inconclusive from the data alone — the spike did not capture a genuine cold-start number (both "cold" samples were pre-warmed within the same task run), only a warm-request delta (~191ms slower for Nest). See full discussion above.
+
+### Decision (2026-07-08)
+
+User reviewed the inconclusive data and explicitly chose to proceed without re-measuring: accept the ~191ms warm-request penalty as a known, tolerable cost, and keep the current Vercel serverless deployment model (`@vercel/node` + cached Nest instance across invocations) for the full migration. A true idle-then-cold measurement was **not** performed — the actual cold-start cost remains unverified. This is a conscious risk acceptance, not a resolved unknown: if production cold-start latency turns out worse than the warm-request signal suggested, revisit the hosting model at that point rather than assuming the spike ruled it out.
+
+This closes the Step 0 gate. The rest of this spec (Target architecture, Migration order) may now proceed on the assumption that serverless + cached Nest instance is the deployment target.
 
 ## Target architecture
 
