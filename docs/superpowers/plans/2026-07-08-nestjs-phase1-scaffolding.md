@@ -45,6 +45,14 @@ Add to the `dependencies` section (alphabetically, matching existing style):
 
 Read the current `server/package.json` first to place these correctly in the existing alphabetized dependency list (currently `@prisma/adapter-mariadb` through `zod`).
 
+Also add to the `devDependencies` section (alphabetically):
+
+```json
+"@nestjs/testing": "^11.0.0",
+```
+
+This is required starting in Task 2 — every Nest-related test in this plan uses `@nestjs/testing`'s `Test.createTestingModule` to build an isolated DI container for the unit under test. It is a test-only package (like `vitest` or the existing `@types/*` entries), so it belongs in `devDependencies`, not `dependencies`.
+
 - [ ] **Step 2: Install dependencies**
 
 Run:
