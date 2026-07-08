@@ -17,8 +17,7 @@
         "resolveJsonModule": true,
         "ignoreDeprecations": "6.0",
         "skipLibCheck": true,
-        "forceConsistentCasingInFileNames": true,
-        "types": ["node", "express"]
+        "forceConsistentCasingInFileNames": true
     },
     "include": ["api/**/*", "src/**/*"],
     "exclude": ["dist", "node_modules", "test", "scripts", "src/**/*.test.ts", "src/**/__tests__/**"]

@@ -76,4 +76,23 @@ export type OrderTimelineInput = {
     actorId?: string | number | null;
 };
 
+export type PendingCheckoutRow = {
+    id: number;
+    stripe_session_id: string;
+    user_id: string;
+    cart_json: string;
+    total_price: string;
+    discount: string;
+    shipping_address: string;
+    created_at: string;
+    consumed_at: string | null;
+};
+
+export type OrderBySessionRow = {
+    id: number;
+    user_id: string;
+    date_added: string;
+    payment_method: string;
+};
+
 export type { PurchasePayload };

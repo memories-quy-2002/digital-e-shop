@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import {
     ArrowRightIcon,
@@ -13,36 +13,17 @@ import {
 import Layout from "../../../components/layout/Layout";
 import "../../../styles/features/orders/_checkout-success.scss";
 import { formatUtcDateTime } from "../../../utils/dateTime";
-
-type CheckoutSuccessData = {
-    orderId: string;
-    totalPrice: number;
-    discount: number;
-    subtotal: number;
-    itemsCount: number;
-    placedAt: string;
-    paymentMethod?: "bank_transfer" | "cash";
-    email?: string;
-    name?: string;
-    address?: string;
-    city?: string;
-    country?: string;
-    phone?: string;
-};
+import http from "../../../lib/http";
+import { readCheckoutSuccess, readPendingCheckout, type CheckoutSuccessData } from "./checkoutSuccessStorage";
 
 const CheckoutSuccessPage = () => {
     const { userData, loading } = useAuth();
     const location = useLocation();
+    const [searchParams] = useSearchParams();
+    const sessionId = searchParams.get("session_id");
     const routeData = (location.state as { checkoutSuccess?: CheckoutSuccessData } | null)?.checkoutSuccess || null;
 
-    const orderData = useMemo(() => {
-        try {
-            const stored = sessionStorage.getItem("checkoutSuccess");
-            return stored ? (JSON.parse(stored) as CheckoutSuccessData) : null;
-        } catch {
-            return null;
-        }
-    }, []);
+    const orderData = useMemo(() => readCheckoutSuccess(), []);
 
     useEffect(() => {
         if (orderData) {
@@ -50,13 +31,58 @@ const CheckoutSuccessPage = () => {
         }
     }, [orderData]);
 
-    const combinedData = routeData || orderData;
+    const [polledOrder, setPolledOrder] = useState<CheckoutSuccessData | null>(null);
+    const [pollingTimedOut, setPollingTimedOut] = useState(false);
+
+    const pollForOrder = useCallback(async (id: string) => {
+        const pending = readPendingCheckout();
+
+        for (let attempt = 0; attempt < 7; attempt += 1) {
+            try {
+                const response = await http.get(`/api/orders/by-session/${id}`);
+                const order = response.data?.order;
+                if (order?.id) {
+                    setPolledOrder({
+                        orderId: String(order.id),
+                        totalPrice: pending?.totalPrice ?? 0,
+                        discount: pending?.discount ?? 0,
+                        subtotal: pending?.subtotal ?? pending?.totalPrice ?? 0,
+                        itemsCount: pending?.itemsCount ?? 0,
+                        placedAt: order.date_added,
+                        paymentMethod: "card",
+                        email: pending?.email,
+                        name: pending?.name,
+                        address: pending?.address,
+                        city: pending?.city,
+                        country: pending?.country,
+                        phone: pending?.phone,
+                    });
+                    sessionStorage.removeItem("checkoutPending");
+                    return;
+                }
+            } catch {
+                // 404 while the webhook hasn't landed yet — keep polling.
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+        }
+        setPollingTimedOut(true);
+    }, []);
+
+    useEffect(() => {
+        if (sessionId && !routeData && !orderData) {
+            pollForOrder(sessionId);
+        }
+    }, [orderData, pollForOrder, routeData, sessionId]);
+
+    const combinedData = routeData || orderData || polledOrder;
     const paymentLabel =
         combinedData?.paymentMethod === "bank_transfer"
             ? "Bank transfer"
             : combinedData?.paymentMethod === "cash"
               ? "Cash on delivery"
-              : "Payment method pending";
+              : combinedData?.paymentMethod === "card"
+                ? "Card"
+                : "Payment method pending";
     const summaryCards = [
         { label: "Order ID", value: combinedData?.orderId || "Pending" },
         { label: "Order total", value: `$${(combinedData?.totalPrice ?? 0).toFixed(2)}` },
@@ -74,6 +100,15 @@ const CheckoutSuccessPage = () => {
                 />
             </Helmet>
             <main className="success app-page">
+                {sessionId && !combinedData && !pollingTimedOut ? (
+                    <div className="checkout__note">Confirming your payment...</div>
+                ) : null}
+                {sessionId && !combinedData && pollingTimedOut ? (
+                    <div className="checkout__alert">
+                        Payment received — we&apos;re finalizing your order. Check{" "}
+                        <Link to="/orders">My Orders</Link> shortly if it doesn&apos;t appear here.
+                    </div>
+                ) : null}
                 <article className="success__hero">
                     <div className="success__hero__content">
                         <span className="success__hero__eyebrow">Order confirmed</span>

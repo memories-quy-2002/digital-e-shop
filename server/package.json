@@ -3,13 +3,18 @@
     "version": "1.0.0",
     "description": "Backend server for the e-commerce system selling electronic components and devices",
     "main": "dist/src/server.js",
+    "packageManager": "pnpm@11.5.3",
+    "engines": {
+        "node": "24.x"
+    },
     "scripts": {
         "postinstall": "prisma generate --schema=src/database/prisma/schema.prisma",
         "start": "node dist/src/server.js",
         "dev": "node --watch --conditions=development --import tsx ./src/server.ts",
         "serve:ts": "node --conditions=development --import tsx ./src/server.ts",
-        "build": "prisma generate --schema=src/database/prisma/schema.prisma && tsc -p tsconfig.json",
-        "vercel-build": "prisma generate --schema=src/database/prisma/schema.prisma && tsc -p tsconfig.json",
+        "build": "prisma generate --schema=src/database/prisma/schema.prisma && tsc -p tsconfig.json && pnpm copy:assets",
+        "vercel-build": "prisma generate --schema=src/database/prisma/schema.prisma && tsc -p tsconfig.json && pnpm copy:assets",
+        "copy:assets": "node scripts/copy-assets.mjs",
         "typecheck": "tsc -p tsconfig.json --noEmit",
         "test": "vitest",
         "lint": "eslint src api --ext .js,.mjs,.cjs,.ts,.mts,.cts --format=stylish",
@@ -17,18 +22,17 @@
         "prisma:generate": "prisma generate --schema=src/database/prisma/schema.prisma",
         "prisma:migrate": "prisma migrate dev",
         "seed:mock": "node src/database/seeders/seedMockOrdersReviews.js",
-        "docker:up": "wsl -d Ubuntu -- bash -c \"cd /mnt/e/Code/digital-e-shop/server && docker compose up -d\"",
-        "docker:down": "wsl -d Ubuntu -- bash -c \"cd /mnt/e/Code/digital-e-shop/server && docker compose down\"",
-        "docker:import": "powershell -ExecutionPolicy Bypass -File docker/import-dump.ps1",
-        "docker:seed": "powershell -ExecutionPolicy Bypass -File docker/seed-db.ps1",
+        "docker:up": "wsl -d Ubuntu -- bash -c \"cd /mnt/e/Code/digital-e-shop/server && docker compose --env-file .env.docker up -d\"",
+        "docker:down": "wsl -d Ubuntu -- bash -c \"cd /mnt/e/Code/digital-e-shop/server && docker compose --env-file .env.docker down\"",
+        "docker:import": "wsl -d Ubuntu -- bash -c \"cd /mnt/e/Code/digital-e-shop/server && grep -v GTID_PURGED src/database/migrations/defaultdb_2026-06-01_142319.sql | docker exec -i digitale-mysql mysql -uroot -pdigital_e_root defaultdb\"",
+        "docker:seed": "wsl -d Ubuntu -- bash -c \"cd /mnt/e/Code/digital-e-shop/server && DB_HOST=localhost DB_PORT=3307 DB_USER=root DB_PASSWORD=digital_e_root DB_NAME=defaultdb DATABASE_URL=mysql://root:digital_e_root@localhost:3307/defaultdb MOCK_ORDER_COUNT=50 MOCK_REVIEW_COUNT=50 node src/database/seeders/seedMockOrdersReviews.js\"",
         "docker:setup": "pnpm docker:up ; pnpm docker:import ; pnpm docker:seed",
+        "docs:open": "echo Open http://localhost:4000/docs in your browser",
         "perf:readonly": "k6 run test/performance-test.js",
         "perf:catalog": "k6 run test/k6-catalog-test.js",
         "perf:admin-readonly": "k6 run test/k6-admin-readonly.js",
         "perf:customer-readonly": "k6 run test/k6-customer-readonly.js",
-        "perf:auth-readonly": "k6 run test/k6-auth-readonly.js",
-        "perf:redis-cold": "k6 run -e COLD_START=true test/k6-redis-benchmark.js",
-        "perf:redis-warm": "k6 run test/k6-redis-benchmark.js"
+        "perf:auth-readonly": "k6 run test/k6-auth-readonly.js"
     },
     "imports": {
         "#src/*": {
@@ -36,13 +40,12 @@
             "default": "./dist/src/*.js"
         }
     },
-    "prisma": {
-        "schema": "src/database/prisma/schema.prisma"
-    },
     "author": "",
     "license": "ISC",
     "dependencies": {
-        "@prisma/client": "^6.19.3",
+        "@prisma/adapter-mariadb": "^7.8.0",
+        "@prisma/client": "^7.8.0",
+        "@scalar/express-api-reference": "^0.10.8",
         "@vercel/blob": "^2.5.0",
         "axios": "^1.18.1",
         "bcryptjs": "^3.0.3",
@@ -68,6 +71,7 @@
         "sharp": "^0.35.3",
         "socks": "^2.8.9",
         "streamifier": "^0.1.1",
+        "stripe": "^22.3.0",
         "zod": "^4.4.3"
     },
     "devDependencies": {
@@ -85,7 +89,7 @@
         "globals": "^17.7.0",
         "pino-pretty": "^13.1.3",
         "prettier": "^3.9.4",
-        "prisma": "^6.19.3",
+        "prisma": "^7.8.0",
         "tsx": "^4.23.0",
         "typescript": "^6.0.3",
         "typescript-eslint": "^8.62.1",

@@ -12,7 +12,9 @@ $env:DATABASE_URL = "mysql://root:digital_e_root@localhost:3307/defaultdb"
 $env:MOCK_ORDER_COUNT = $OrderCount
 $env:MOCK_REVIEW_COUNT = $ReviewCount
 
-$seedScript = Join-Path $PSScriptRoot ".." "src/database/seeders/seedMockOrdersReviews.js"
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$serverDir = Split-Path -Parent $scriptDir
+$seedScript = Join-Path $serverDir "src/database/seeders/seedMockOrdersReviews.js"
 
 Write-Host "Seeding $OrderCount orders and $ReviewCount reviews..."
 

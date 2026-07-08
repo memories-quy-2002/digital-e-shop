@@ -99,7 +99,6 @@ The default test expects the API at `http://localhost:4000`.
 | `k6-admin-readonly.js` | `pnpm perf:admin-readonly` | Admin read-only: orders, order items, users, user profiles, analytics, inventory summary, inventory movements, promotions |
 | `k6-customer-readonly.js` | `pnpm perf:customer-readonly` | Customer read-only: order history, addresses, notifications |
 | `k6-auth-readonly.js` | `pnpm perf:auth-readonly` | Authenticated user read-only: profile, orders, cart, cart validation, wishlist, addresses, notifications |
-| `k6-redis-benchmark.js` | `pnpm perf:redis-cold` / `pnpm perf:redis-warm` | Redis cache before/after: measures cold vs warm cache performance on product listing, detail, search, facets |
 
 ### 4a. Public read-only (light load)
 
@@ -162,24 +161,6 @@ $env:COOKIE="session=...; accessToken=..."
 k6 run test/k6-auth-readonly.js
 ```
 
-### 4f. Redis cache benchmark (before/after)
-
-Compares cold-cache vs warm-cache performance on product endpoints. The caching middleware uses Redis (5-minute TTL, auto-invalidates on product writes).
-
-**Prerequisites:** Redis must be running (Docker: `pnpm docker:up`), and `REDIS_URL=redis://localhost:6379` must be set in `.env`.
-
-```powershell
-# Step 1 — Cold-start benchmark (clears cache, measures DB-only performance)
-pnpm perf:redis-cold
-
-# Step 2 — Warm-cache benchmark (runs against populated cache)
-pnpm perf:redis-warm
-```
-
-Compare the `redis_products_list`, `redis_product_detail`, `redis_search`, and `redis_facets` trends between the two runs — especially `p(95)` and `avg`.
-
-The warm-cache run typically shows 5-30x improvement on listing/facet/search endpoints since the entire response is served from Redis without hitting MySQL.
-
 ## 5. Read the result
 
 Important metrics:
@@ -199,7 +180,6 @@ Thresholds by script:
 | `k6-admin-readonly.js` | 1500ms | 5% | 95% |
 | `k6-customer-readonly.js` | 1500ms | 5% | 95% |
 | `k6-auth-readonly.js` | 1500ms | 5% | 95% |
-| `k6-redis-benchmark.js` | none | 5% | 95% |
 
 ## 6. Keep it database-safe
 

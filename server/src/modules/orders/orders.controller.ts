@@ -1,8 +1,14 @@
 import type { AppRequest, AppResponse } from "#src/shared/interfaces/domain";
 import type { PurchasePayload } from "./orders.dto";
 import { logger } from "#src/shared/utils/logger";
-const orderService = require("./orders.service");
-const { applyDiscountSchema, orderStatusSchema, purchaseSchema } = require("./orders.validator");
+// Imported via ESM namespace import (not CJS require()) so that vi.mock()
+// in tests can intercept these calls — see orders.stripe.service.ts for
+// the full rationale.
+import * as orderServiceModule from "./orders.service";
+import * as orderStripeServiceModule from "./orders.stripe.service";
+const orderService = orderServiceModule as any;
+const orderStripeService = orderStripeServiceModule as any;
+const { applyDiscountSchema, checkoutSessionSchema, orderStatusSchema, purchaseSchema } = require("./orders.validator");
 const {
     getValidationMessage,
     parseBody,
@@ -192,6 +198,31 @@ async function makePurchase(req: AppRequest, res: AppResponse) {
     }
 }
 
+async function createCheckoutSession(req: AppRequest, res: AppResponse) {
+    const uid = req.params.uid;
+    let payload;
+
+    try {
+        payload = parseBody(checkoutSessionSchema, req.body);
+    } catch (err) {
+        return res.status(400).json({ msg: getValidationMessage(err) });
+    }
+
+    try {
+        const result = await orderStripeService.createCheckoutSession(uid, payload);
+        return res.status(200).json({ url: result.url, msg: "Checkout session created" });
+    } catch (err) {
+        const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
+        const statusCode = error.statusCode || 500;
+        logger.error({ err: error.message || err, details: statusCode === 500 ? undefined : error.details }, "[createCheckoutSession] error");
+        const message = statusCode === 500 ? "Unable to start checkout right now" : error.message;
+        return res.status(statusCode).json({
+            msg: message,
+            ...(statusCode === 500 ? {} : error.details || {}),
+        });
+    }
+}
+
 async function applyDiscount(req: AppRequest, res: AppResponse) {
     try {
         const { discountCode, price } = parseBody(applyDiscountSchema, req.body);
@@ -222,13 +253,36 @@ async function applyDiscount(req: AppRequest, res: AppResponse) {
     }
 }
 
+async function getOrderBySessionId(req: AppRequest, res: AppResponse) {
+    const { sessionId } = req.params;
+
+    try {
+        const order = await orderService.getOrderByStripeSessionId(sessionId);
+        if (!order) {
+            return res.status(404).json({ msg: "Order not ready yet" });
+        }
+
+        const isOwner = req.user?.id === order.user_id;
+        const isAdmin = String(req.user?.role || "").toLowerCase() === "admin";
+        if (!isOwner && !isAdmin) {
+            return res.status(403).json({ msg: "Forbidden" });
+        }
+
+        return res.status(200).json({ order, msg: "Order retrieved successfully" });
+    } catch (err) {
+        logger.error(err);
+        return res.status(500).json({ msg: "Unable to retrieve order right now" });
+    }
+}
+
 module.exports = {
     makePurchase,
+    createCheckoutSession,
     getOrders,
     getCustomerOrders,
     getOrderDetail,
+    getOrderBySessionId,
     changeOrderStatus,
     getOrderItems,
     applyDiscount,
 };
-

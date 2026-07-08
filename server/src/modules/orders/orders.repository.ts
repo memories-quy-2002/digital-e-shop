@@ -7,7 +7,7 @@ import type {
     UpdateResult,
 } from "#src/shared/interfaces/domain";
 const Promotion = require("#src/modules/promotions/promotions.repository");
-import type { OrderDetailRow, OrderSummaryRow } from "./orders.types";
+import type { OrderBySessionRow, OrderDetailRow, OrderSummaryRow, PendingCheckoutRow } from "./orders.types";
 import type { PromotionRow } from "#src/modules/promotions/promotions.types";
 
 const QUERY_TIMEOUT = 8000;
@@ -201,6 +201,52 @@ const applyDiscount = (discountCode: string, callback: QueryCallback<PromotionRo
     Promotion.getActivePromotionByCode(discountCode, callback);
 };
 
+const insertPendingCheckout = (
+    input: {
+        stripeSessionId: string;
+        userId: string;
+        cartJson: string;
+        totalPrice: number;
+        discount: number;
+        shippingAddress: string;
+    },
+    callback: QueryCallback<InsertResult>,
+) => {
+    query(
+        "INSERT INTO pending_checkouts (stripe_session_id, user_id, cart_json, total_price, discount, shipping_address) VALUES (?, ?, ?, ?, ?, ?)",
+        [input.stripeSessionId, input.userId, input.cartJson, input.totalPrice, input.discount, input.shippingAddress],
+        callback,
+    );
+};
+
+const getPendingCheckoutBySessionId = (
+    stripeSessionId: string,
+    callback: QueryCallback<PendingCheckoutRow[]>,
+) => {
+    query(
+        `SELECT id, stripe_session_id, user_id, cart_json, total_price, discount, shipping_address, created_at, consumed_at
+        FROM pending_checkouts WHERE stripe_session_id = ? LIMIT 1`,
+        [stripeSessionId],
+        callback,
+    );
+};
+
+const markPendingCheckoutConsumed = (stripeSessionId: string, callback: QueryCallback<UpdateResult>) => {
+    query("UPDATE pending_checkouts SET consumed_at = UTC_TIMESTAMP() WHERE stripe_session_id = ?", [stripeSessionId], callback);
+};
+
+const getOrderByStripeSessionId = (
+    stripeSessionId: string,
+    callback: QueryCallback<OrderBySessionRow[]>,
+) => {
+    query(
+        `SELECT id, user_id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added, payment_method
+        FROM orders WHERE stripe_checkout_session_id = ? LIMIT 1`,
+        [stripeSessionId],
+        callback,
+    );
+};
+
 module.exports = {
     startTransaction,
     commit,
@@ -220,5 +266,9 @@ module.exports = {
     getOrderItemsPaginated,
     getOrderItemsCount,
     applyDiscount,
+    insertPendingCheckout,
+    getPendingCheckoutBySessionId,
+    markPendingCheckoutConsumed,
+    getOrderByStripeSessionId,
 };
 

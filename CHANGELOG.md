@@ -21,9 +21,6 @@ This project follows Conventional Commit-style change grouping. Dates use
 - Server unit test suite (Vitest) covering cart validation, overselling
   detection, cart-tampering/price-drift detection, and inventory movement
   mapping, wired into the `server` CI job so failing tests block merges.
-- Redis response caching (`ioredis`) for read-heavy product and inventory
-  endpoints, with pattern-based invalidation on writes, a Redis service in
-  the local Docker environment, and k6 cold/warm benchmark scripts.
 
 ### Changed
 
@@ -37,6 +34,18 @@ This project follows Conventional Commit-style change grouping. Dates use
   frozen-lockfile installs pass deterministically in CI.
 - Client image handling now serves images directly from Vercel Blob; the
   unused Cloudinary transform path and its environment variable were removed.
+- Upgraded Prisma from 6 to 7. The partial Prisma layer now uses the rust-free
+  `prisma-client` generator with a MySQL-compatible driver adapter, and the
+  database connection URL moved from the schema to a new `prisma.config.ts`.
+  MySQL remains the primary persistence layer.
+- The MySQL pool now supports TLS: set `DB_SSL=true` (with the bundled CA, or
+  `DB_SSL_CA_PATH`) to connect over verified SSL to managed providers such as
+  Aiven, while local and Docker connections stay plaintext.
+- Server build now copies non-TypeScript runtime assets (`openapi.json`, the
+  database CA) into `dist/` so `pnpm start` and Vercel builds resolve them.
+- Product and inventory read endpoints no longer use the removed Redis response
+  cache layer; the related invalidation helpers and Redis benchmark references
+  were dropped in the same change.
 
 ### Planned
 
