@@ -16,6 +16,14 @@ export type CheckoutSuccessData = {
 
 export type PendingCheckoutData = Omit<CheckoutSuccessData, "orderId" | "placedAt" | "paymentMethod">;
 
+export function maskPhoneNumber(phone: string): string {
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length <= 4) {
+        return "*".repeat(digits.length);
+    }
+    return `${"*".repeat(digits.length - 4)}${digits.slice(-4)}`;
+}
+
 function readStoredJson<T>(key: string, { clearOnError = false }: { clearOnError?: boolean } = {}) {
     const rawValue = sessionStorage.getItem(key);
 

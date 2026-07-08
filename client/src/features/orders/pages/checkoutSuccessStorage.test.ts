@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { readPendingCheckout } from "./checkoutSuccessStorage";
+import { maskPhoneNumber, readPendingCheckout } from "./checkoutSuccessStorage";
 
 describe("readPendingCheckout", () => {
     beforeEach(() => {
@@ -18,5 +18,16 @@ describe("readPendingCheckout", () => {
 
         expect(readPendingCheckout()).toBeNull();
         expect(sessionStorage.getItem("checkoutPending")).toBeNull();
+    });
+});
+
+describe("maskPhoneNumber", () => {
+    it("keeps only the last 4 digits visible", () => {
+        expect(maskPhoneNumber("+1 (555) 123-4567")).toBe("*******4567");
+    });
+
+    it("masks all digits when the number is 4 digits or shorter", () => {
+        expect(maskPhoneNumber("123")).toBe("***");
+        expect(maskPhoneNumber("1234")).toBe("****");
     });
 });

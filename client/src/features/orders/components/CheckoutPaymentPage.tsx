@@ -14,6 +14,7 @@ import {
     getCartValidationMessage,
     normalizeCheckoutCartItems,
 } from "../types";
+import { maskPhoneNumber } from "../pages/checkoutSuccessStorage";
 
 interface CheckoutForm {
     email: string;
@@ -278,7 +279,7 @@ const CheckoutPaymentPage = ({
                         address: formCheckout.address,
                         city: formCheckout.city,
                         country: formCheckout.country || "",
-                        phone: formCheckout.phone_number || "",
+                        phone: formCheckout.phone_number ? maskPhoneNumber(formCheckout.phone_number) : "",
                     }),
                 );
                 const sessionResponse = await http.post(`/api/orders/checkout-session/${uid}`, {
@@ -323,7 +324,7 @@ const CheckoutPaymentPage = ({
                     address: formCheckout.address,
                     city: formCheckout.city,
                     country: formCheckout.country || "",
-                    phone: formCheckout.phone_number || "",
+                    phone: formCheckout.phone_number ? maskPhoneNumber(formCheckout.phone_number) : "",
                 };
                 sessionStorage.setItem("checkoutSuccess", JSON.stringify(payload));
                 navigate("/checkout-success", { state: { checkoutSuccess: payloadSensitive } });

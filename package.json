@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "A full-stack e-commerce system selling electronic components and devices",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "start": "concurrently \"pnpm --filter server start\" \"pnpm --filter client start\"",
     "dev": "concurrently \"pnpm --filter server dev\" \"pnpm --filter client dev\"",

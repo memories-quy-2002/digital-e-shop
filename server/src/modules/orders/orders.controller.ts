@@ -1,8 +1,13 @@
 import type { AppRequest, AppResponse } from "#src/shared/interfaces/domain";
 import type { PurchasePayload } from "./orders.dto";
 import { logger } from "#src/shared/utils/logger";
-const orderService = require("./orders.service");
-const orderStripeService = require("./orders.stripe.service");
+// Imported via ESM namespace import (not CJS require()) so that vi.mock()
+// in tests can intercept these calls — see orders.stripe.service.ts for
+// the full rationale.
+import * as orderServiceModule from "./orders.service";
+import * as orderStripeServiceModule from "./orders.stripe.service";
+const orderService = orderServiceModule as any;
+const orderStripeService = orderStripeServiceModule as any;
 const { applyDiscountSchema, checkoutSessionSchema, orderStatusSchema, purchaseSchema } = require("./orders.validator");
 const {
     getValidationMessage,

@@ -3,6 +3,10 @@
     "version": "1.0.0",
     "description": "Backend server for the e-commerce system selling electronic components and devices",
     "main": "dist/src/server.js",
+    "packageManager": "pnpm@11.5.3",
+    "engines": {
+        "node": "24.x"
+    },
     "scripts": {
         "postinstall": "prisma generate --schema=src/database/prisma/schema.prisma",
         "start": "node dist/src/server.js",
