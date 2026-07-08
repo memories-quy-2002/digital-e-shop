@@ -28,16 +28,22 @@ describe("AuthGuard", () => {
         vi.clearAllMocks();
     });
 
-    it("throws UnauthorizedException when the session token is invalid", async () => {
+    it("throws UnauthorizedException with the existing { msg } shape when the session token is invalid", async () => {
         vi.mocked(authService.verifySessionToken).mockResolvedValue({ valid: false, message: "Missing session or access token" });
         const config = { get: vi.fn().mockReturnValue("secret") } as unknown as NestConfigService;
         const guard = new AuthGuard(config);
         const context = buildContext({ cookies: {} });
 
-        await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
+        try {
+            await guard.canActivate(context);
+            expect.unreachable("expected canActivate to throw");
+        } catch (err) {
+            expect(err).toBeInstanceOf(UnauthorizedException);
+            expect((err as UnauthorizedException).getResponse()).toEqual({ msg: "Missing session or access token" });
+        }
     });
 
-    it("throws ForbiddenException when the JWT fails to verify", async () => {
+    it("throws ForbiddenException with the existing { msg } shape when the JWT fails to verify", async () => {
         vi.mocked(authService.verifySessionToken).mockResolvedValue({ valid: true });
         vi.mocked(jwt.verify).mockImplementation(() => {
             throw new Error("invalid signature");
@@ -46,7 +52,13 @@ describe("AuthGuard", () => {
         const guard = new AuthGuard(config);
         const context = buildContext({ cookies: { accessToken: "bad-token" } });
 
-        await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+        try {
+            await guard.canActivate(context);
+            expect.unreachable("expected canActivate to throw");
+        } catch (err) {
+            expect(err).toBeInstanceOf(ForbiddenException);
+            expect((err as ForbiddenException).getResponse()).toEqual({ msg: "Invalid or expired token" });
+        }
     });
 
     it("attaches req.user and returns true on a valid session + token", async () => {

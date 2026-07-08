@@ -43,11 +43,17 @@ describe("RolesGuard", () => {
         expect(guard.canActivate(context)).toBe(true);
     });
 
-    it("rejects a customer from an admin-only route", () => {
+    it("rejects a customer from an admin-only route with the existing { msg: \"Forbidden\" } shape", () => {
         const guard = new RolesGuard(new Reflector());
         const context = buildContext({ user: { role: "customer" } }, { [ROLES_KEY]: ["admin"] });
 
-        expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
+        try {
+            guard.canActivate(context);
+            expect.unreachable("expected canActivate to throw");
+        } catch (err) {
+            expect(err).toBeInstanceOf(ForbiddenException);
+            expect((err as ForbiddenException).getResponse()).toEqual({ msg: "Forbidden" });
+        }
     });
 
     it("allows an admin through an owner-or-admin route regardless of the target id", () => {
@@ -70,13 +76,19 @@ describe("RolesGuard", () => {
         expect(guard.canActivate(context)).toBe(true);
     });
 
-    it("rejects a customer from an owner-or-admin route when they do not own the target id", () => {
+    it("rejects a customer from an owner-or-admin route when they do not own the target id, with the existing { msg: \"Forbidden\" } shape", () => {
         const guard = new RolesGuard(new Reflector());
         const context = buildContext(
             { user: { id: "42", role: "customer" }, params: { userId: "999" } },
             { [OWNER_PARAM_KEY]: "userId" },
         );
 
-        expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
+        try {
+            guard.canActivate(context);
+            expect.unreachable("expected canActivate to throw");
+        } catch (err) {
+            expect(err).toBeInstanceOf(ForbiddenException);
+            expect((err as ForbiddenException).getResponse()).toEqual({ msg: "Forbidden" });
+        }
     });
 });

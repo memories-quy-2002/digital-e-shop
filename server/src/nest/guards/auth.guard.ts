@@ -15,7 +15,10 @@ export class AuthGuard implements CanActivate {
 
         const { valid, message } = await authService.verifySessionToken(req);
         if (!valid) {
-            throw new UnauthorizedException(message || "Not authenticated");
+            // Explicit body so the response matches the existing requireAuth
+            // middleware's { msg: ... } shape, not Nest's default
+            // { statusCode, message, error } UnauthorizedException body.
+            throw new UnauthorizedException({ msg: message || "Not authenticated" });
         }
 
         const accessToken = req.cookies?.accessToken;
@@ -36,7 +39,7 @@ export class AuthGuard implements CanActivate {
             req.user = payload;
             return true;
         } catch {
-            throw new ForbiddenException("Invalid or expired token");
+            throw new ForbiddenException({ msg: "Invalid or expired token" });
         }
     }
 }

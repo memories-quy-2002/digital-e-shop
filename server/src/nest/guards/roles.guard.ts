@@ -45,13 +45,15 @@ export class RolesGuard implements CanActivate {
                 return true;
             }
 
-            throw new ForbiddenException("Forbidden");
+            // Explicit body so the response matches the existing
+            // requireOwnerOrAdmin middleware's { msg: "Forbidden" } shape.
+            throw new ForbiddenException({ msg: "Forbidden" });
         }
 
         if (roles && roles.map(normalizeRole).includes(actual)) {
             return true;
         }
 
-        throw new ForbiddenException("Forbidden");
+        throw new ForbiddenException({ msg: "Forbidden" });
     }
 }
