@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { NotFoundException } from "@nestjs/common";
 import type { ArgumentsHost } from "@nestjs/common";
 import { AllExceptionsFilter } from "../all-exceptions.filter";
 import { AppError } from "#src/core/errors/AppError";
@@ -46,5 +47,16 @@ describe("AllExceptionsFilter", () => {
 
         expect(status).toHaveBeenCalledWith(500);
         expect(json).toHaveBeenCalledWith({ error: MESSAGES.internalServerError });
+    });
+
+    it("respects a NestJS HttpException's own status and response instead of falling to 500", () => {
+        const filter = new AllExceptionsFilter();
+        const { host, json, status } = buildHost();
+        const err = new NotFoundException("Cannot GET /does-not-exist");
+
+        filter.catch(err, host);
+
+        expect(status).toHaveBeenCalledWith(404);
+        expect(json).toHaveBeenCalledWith(err.getResponse());
     });
 });
