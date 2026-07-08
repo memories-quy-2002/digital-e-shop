@@ -11,6 +11,7 @@
         "postinstall": "prisma generate --schema=src/database/prisma/schema.prisma",
         "start": "node dist/src/server.js",
         "dev": "node --watch --conditions=development --import tsx ./src/server.ts",
+        "dev:nest-scaffold": "node --watch --conditions=development --import tsx ./src/nest/main.ts",
         "serve:ts": "node --conditions=development --import tsx ./src/server.ts",
         "build": "prisma generate --schema=src/database/prisma/schema.prisma && tsc -p tsconfig.json && pnpm copy:assets",
         "vercel-build": "prisma generate --schema=src/database/prisma/schema.prisma && tsc -p tsconfig.json && pnpm copy:assets",
