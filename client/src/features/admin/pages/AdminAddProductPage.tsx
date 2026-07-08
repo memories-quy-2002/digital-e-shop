@@ -2,10 +2,10 @@ import React, { useState } from "react";
 import { Form } from "react-bootstrap";
 import { Helmet } from "react-helmet";
 import { useNavigate } from "react-router-dom";
-import axios from "../../../api/axios";
 import AdminLayout from "../../../components/layout/AdminLayout";
 import { useToast } from "../../../context/ToastContext";
 import { highlightsFromText, rowsFromText, serializeProductDetails } from "../../../utils/productDetails";
+import { uploadBlob, addProduct } from "../api";
 
 interface ProductData {
     [key: string]: string | number | File | null;
@@ -62,16 +62,9 @@ const AdminAddProductPage = () => {
         }
         setUploading(true);
         try {
-            const formData = new FormData();
-            formData.append("file", productData.image);
-            const response = await axios.post("/api/blob/upload", formData, {
-                headers: { "Content-Type": "multipart/form-data" },
-            });
-            if (response.status === 200) {
-                const url = response.data?.url || "";
-                setProductData((prevData) => ({ ...prevData, imageUrl: url }));
-                addToast("Upload image", "Image uploaded to Blob successfully.");
-            }
+            const url = await uploadBlob(productData.image);
+            setProductData((prevData) => ({ ...prevData, imageUrl: url }));
+            addToast("Upload image", "Image uploaded to Blob successfully.");
         } catch {
             addToast("Upload image", "Unable to upload image.");
         } finally {
@@ -112,16 +105,10 @@ const AdminAddProductPage = () => {
                     }
                 }
             });
-            const response = await axios.post("/api/products/add", formData, {
-                headers: {
-                    "Content-Type": "multipart/form-data",
-                },
-            });
-            if (response.status === 200) {
-                setError(null);
-                addToast("Adding product", "Product has been added successfully");
-                navigate("/admin/products");
-            }
+            await addProduct(formData);
+            setError(null);
+            addToast("Adding product", "Product has been added successfully");
+            navigate("/admin/products");
         } catch (error) {
             setError(error instanceof Error ? error.message : "An unknown error occurred");
             addToast("Adding product", "Unable to add product.");

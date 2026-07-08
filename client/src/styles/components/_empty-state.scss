@@ -17,7 +17,7 @@
         border-radius: 14px;
         background: var(--de-color-primary-tint);
         color: var(--de-color-primary-strong);
-        box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.08);
+        box-shadow: inset 0 0 0 1px var(--de-color-primary-soft);
     }
 
     &__action {
@@ -28,7 +28,7 @@
         padding: 0.65rem 1rem;
         border-radius: var(--de-radius-pill);
         background: var(--de-color-bg-strong);
-        color: #fff;
+        color: var(--de-color-on-strong);
         font-weight: 800;
         text-decoration: none;
         box-shadow: var(--de-shadow-xs);

@@ -8,9 +8,11 @@ The server has both raw MySQL access (`mysql`/`mysql2`) via feature repositories
 
 _Updated 2026-07-07:_ Prisma was upgraded 6 → 7. This changes _how_ the partial Prisma layer is wired (rust-free `prisma-client` generator, generated client under `server/src/generated/prisma`, connection via `@prisma/adapter-mariadb`, URL in `prisma.config.ts`) but **not** this decision — MySQL remains primary and Prisma remains partial. See [[architecture]] → Database.
 
+_Updated 2026-07-08:_ The server migrated from Express to NestJS (see [[0002-nestjs-migration]]). Repository file locations moved from `server/src/modules/*/*.repository.ts` to `server/src/<feature>/<feature>.repository.ts`, and repositories are now `@Injectable()` Nest providers instead of plain exported objects — but this decision itself is unaffected: MySQL remains primary, Prisma remains partial, and the migration was explicitly scoped to leave persistence as-is.
+
 ## Decision
 
-MySQL through `server/src/modules/*/*.repository.ts` remains the dominant runtime persistence abstraction. Prisma is used only for a limited subset of repository reads. There is **no** committed Prisma migration history and **no** planned full migration.
+MySQL through `server/src/<feature>/<feature>.repository.ts` remains the dominant runtime persistence abstraction. Prisma is used only for a limited subset of repository reads. There is **no** committed Prisma migration history and **no** planned full migration.
 
 ## Consequences
 

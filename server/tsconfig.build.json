@@ -6,7 +6,6 @@
         "test",
         "scripts",
         "src/**/*.test.ts",
-        "src/**/__tests__/**",
-        "src/nest/**"
+        "src/**/__tests__/**"
     ]
 }

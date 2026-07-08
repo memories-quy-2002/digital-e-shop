@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet";
 import { useSearchParams } from "react-router-dom";
 import { CartIcon } from "../../../components/common/Icons";
 import EmptyState from "../../../components/common/EmptyState";
+import LoadingScreen from "../../../components/common/LoadingScreen";
 import Layout from "../../../components/layout/Layout";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
@@ -33,6 +34,7 @@ const OrderHistoryPage = () => {
     const uid = userData?.id || "";
     const { addToast } = useToast();
     const [orders, setOrders] = useState<CustomerOrder[]>([]);
+    const [isLoadingOrders, setIsLoadingOrders] = useState(true);
     const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
     const [orderDetail, setOrderDetail] = useState<CustomerOrderDetail | null>(null);
     const [loadingDetail, setLoadingDetail] = useState(false);
@@ -40,12 +42,18 @@ const OrderHistoryPage = () => {
 
     useEffect(() => {
         const fetchOrders = async () => {
-            if (!uid) return;
+            if (!uid) {
+                setIsLoadingOrders(false);
+                return;
+            }
 
             try {
+                setIsLoadingOrders(true);
                 setOrders(await fetchCustomerOrders(uid));
             } catch {
                 addToast("Orders", "Unable to load order history.");
+            } finally {
+                setIsLoadingOrders(false);
             }
         };
 
@@ -134,6 +142,14 @@ const OrderHistoryPage = () => {
         }
     };
 
+    if (isLoadingOrders) {
+        return (
+            <Layout>
+                <LoadingScreen variant="page" />
+            </Layout>
+        );
+    }
+
     return (
         <Layout>
             <Helmet>
@@ -142,9 +158,7 @@ const OrderHistoryPage = () => {
             </Helmet>
             <main className="order-history">
                 <CustomerAccountShell
-                    eyebrow="Orders"
                     title="Order history"
-                    description="Track previous purchases, check payment details, and reorder available products."
                 />
 
                 <section className="order-history__summary" aria-label="Order history summary">

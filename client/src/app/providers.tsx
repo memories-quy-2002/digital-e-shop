@@ -2,6 +2,8 @@ import React, { ReactNode, useEffect, useState } from "react";
 import { BrowserRouter } from "react-router-dom";
 import ToastProvider from "../context/ToastContext";
 import { AuthProvider } from "../context/AuthContext";
+import { CartProvider } from "../context/CartContext";
+import { LocaleProvider } from "../context/LocaleContext";
 
 type AppProvidersProps = {
     children: ReactNode;
@@ -67,12 +69,16 @@ const Observability = () => {
 const AppProviders = ({ children }: AppProvidersProps) => {
     return (
         <AuthProvider>
-            <ToastProvider>
-                <BrowserRouter>
-                    {children}
-                    <Observability />
-                </BrowserRouter>
-            </ToastProvider>
+            <LocaleProvider>
+                <ToastProvider>
+                    <CartProvider>
+                        <BrowserRouter>
+                            {children}
+                            <Observability />
+                        </BrowserRouter>
+                    </CartProvider>
+                </ToastProvider>
+            </LocaleProvider>
         </AuthProvider>
     );
 };

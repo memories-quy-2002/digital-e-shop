@@ -1,292 +1,174 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Button, Container, Modal } from "react-bootstrap";
 import { Helmet } from "react-helmet";
 import { useNavigate } from "react-router-dom";
 import AsideCart from "../../../components/common/AsideCart";
 import CartItem from "../../../components/common/CartItem";
 import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
-import { ArrowLeftIcon, ArrowRightIcon } from "../../../components/common/Icons";
+import { ArrowLeftIcon, ArrowRightIcon, CartIcon } from "../../../components/common/Icons";
+import EmptyState from "../../../components/common/EmptyState";
+import LoadingScreen from "../../../components/common/LoadingScreen";
 import Layout from "../../../components/layout/Layout";
-import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
-import {
-    CartValidationIssue,
-    CheckoutCartItem,
-    getCartValidationMessage,
-    normalizeCheckoutCartItems,
-} from "../types";
-import http from "../../../lib/http";
+import { useCart } from "../../../context/CartContext";
+import type { CartValidationIssue, CheckoutCartItem } from "../types";
+import { getCartValidationMessage } from "../types";
 import "../../../styles/features/orders/_cart.scss";
 import CheckoutPaymentPage from "../components/CheckoutPaymentPage";
-
-type DiscountActionResult = {
-    status: "idle" | "success" | "error";
-    title?: string;
-    message?: string;
-};
+import { useT } from "../../../hooks/useT";
 
 const CartPage = () => {
     const navigate = useNavigate();
-    const { userData } = useAuth();
-    const uid = userData?.id || null;
     const { addToast } = useToast();
-    const [cart, setCart] = useState<CheckoutCartItem[]>([]);
-    const [totalPrice, setTotalPrice] = useState<number>(0);
-    const [discount, setDiscount] = useState<number>(0);
-    const [subtotal, setSubtotal] = useState<number>(0);
+    const t = useT();
+    const {
+        items: cart,
+        totalPrice,
+        discount,
+        subtotal,
+        validationIssues,
+        isLoading: isCartLoading,
+        isRemovingItem,
+        pendingRemoveItem,
+        updateQuantity: contextUpdateQuantity,
+        removeItem,
+        confirmRemoveItem,
+        cancelRemoveItem,
+        applyDiscount,
+        validateBeforeCheckout,
+        onValidationRefresh,
+    } = useCart();
     const [show, setShow] = useState<boolean>(false);
     const [isPayment, setIsPayment] = useState<boolean>(false);
-    const [pendingRemoveItem, setPendingRemoveItem] = useState<CheckoutCartItem | null>(null);
-    const [isRemovingItem, setIsRemovingItem] = useState(false);
     const [isValidatingCheckout, setIsValidatingCheckout] = useState(false);
-    const [validationIssues, setValidationIssues] = useState<CartValidationIssue[]>([]);
 
     const handleClose = useCallback(() => setShow(false), []);
     const togglePayment = useCallback(() => setIsPayment((prev) => !prev), []);
 
-    const updateQuantity = (itemId: number, newQuantity: number) => {
-        setCart((prevCart: CheckoutCartItem[]) =>
-            prevCart.map((item) => (item.cartItemId === itemId ? { ...item, quantity: newQuantity } : item)),
-        );
-    };
-
     const handleQuantityChange = async (itemId: number, event: React.ChangeEvent<HTMLInputElement>) => {
         const item = cart.find((cartItem) => cartItem.cartItemId === itemId);
-        if (!item || !uid) {
-            return;
-        }
+        if (!item) return;
 
         const requestedQuantity = Math.max(1, parseInt(event.target.value, 10) || 1);
         const newQuantity = Math.min(requestedQuantity, item.stock);
         if (requestedQuantity > item.stock) {
-            addToast("Quantity adjusted", `Only ${item.stock} item(s) available for ${item.productName}.`);
+            addToast(
+                t("cart.outOfStock"),
+                `${t("cart.insufficientStock", item.stock).replace(/[.!]?$/, "")} (${item.productName}).`,
+            );
         }
 
-        updateQuantity(itemId, newQuantity);
-
-        try {
-            await http.put("/api/cart/", {
-                uid,
-                cartItemId: itemId,
-                quantity: newQuantity,
-            });
-        } catch {
-            addToast("Cart", "Unable to save the quantity change.");
-        }
+        await contextUpdateQuantity(itemId, newQuantity);
     };
 
-    const localValidationIssues: CartValidationIssue[] = cart.flatMap((item): CartValidationIssue[] => {
-        if (item.stock <= 0) {
-            return [
-                {
-                    cartItemId: item.cartItemId,
-                    productId: item.productId,
-                    productName: item.productName,
-                    requestedQuantity: item.quantity,
-                    availableStock: item.stock,
-                    reason: "out_of_stock" as const,
-                },
-            ];
-        }
-
-        if (item.quantity > item.stock) {
-            return [
-                {
-                    cartItemId: item.cartItemId,
-                    productId: item.productId,
-                    productName: item.productName,
-                    requestedQuantity: item.quantity,
-                    availableStock: item.stock,
-                    reason: "insufficient_stock" as const,
-                },
-            ];
-        }
-
-        return [];
-    });
-    const activeValidationIssues = validationIssues.length > 0 ? validationIssues : localValidationIssues;
-    const issueByCartItemId = new Map<number, CartValidationIssue>(
-        activeValidationIssues
-            .filter((issue): issue is CartValidationIssue & { cartItemId: number } => typeof issue.cartItemId === "number")
-            .map((issue) => [issue.cartItemId, issue]),
+    const localValidationIssues: CartValidationIssue[] = useMemo(
+        () =>
+            cart.flatMap((item): CartValidationIssue[] => {
+                if (item.stock <= 0) {
+                    return [
+                        {
+                            cartItemId: item.cartItemId,
+                            productId: item.productId,
+                            productName: item.productName,
+                            requestedQuantity: item.quantity,
+                            availableStock: item.stock,
+                            reason: "out_of_stock",
+                        },
+                    ];
+                }
+                if (item.quantity > item.stock) {
+                    return [
+                        {
+                            cartItemId: item.cartItemId,
+                            productId: item.productId,
+                            productName: item.productName,
+                            requestedQuantity: item.quantity,
+                            availableStock: item.stock,
+                            reason: "insufficient_stock",
+                        },
+                    ];
+                }
+                return [];
+            }),
+        [cart],
     );
 
-    const refreshCartFromValidation = (cartItems?: any[]) => {
-        if (Array.isArray(cartItems)) {
-            setCart(normalizeCheckoutCartItems(cartItems));
-        }
-    };
+    const activeValidationIssues = validationIssues.length > 0 ? validationIssues : localValidationIssues;
+    const issueByCartItemId = useMemo(
+        () =>
+            new Map<number, CartValidationIssue>(
+                activeValidationIssues
+                    .filter(
+                        (issue): issue is CartValidationIssue & { cartItemId: number } =>
+                            typeof issue.cartItemId === "number",
+                    )
+                    .map((issue) => [issue.cartItemId, issue]),
+            ),
+        [activeValidationIssues],
+    );
 
-    const validateCartBeforeCheckout = useCallback(async () => {
-        if (!uid) {
-            addToast("Checkout blocked", "Please login before checkout.");
-            return false;
-        }
-
-        try {
-            setIsValidatingCheckout(true);
-            const response = await http.get(`/api/cart/${uid}/validation`);
-            refreshCartFromValidation(response.data.cartItems);
-            setValidationIssues([]);
-            return response.status === 200 && response.data.valid === true;
-        } catch (err: unknown) {
-            if (err && typeof err === "object" && "response" in err) {
-                const response = (err as {
-                    response?: { data?: { msg?: string; issues?: CartValidationIssue[]; cartItems?: any[] } };
-                }).response;
-                refreshCartFromValidation(response?.data?.cartItems);
-                const issues: CartValidationIssue[] = response?.data?.issues || [];
-                setValidationIssues(issues);
-                addToast("Checkout blocked", getCartValidationMessage(issues));
-            } else {
-                setValidationIssues([]);
-                addToast("Checkout blocked", "Unable to validate cart stock right now.");
-            }
-            return false;
-        } finally {
-            setIsValidatingCheckout(false);
-        }
-    }, [addToast, uid]);
+    const cartStockMessage = useCallback(
+        (issue: CartValidationIssue): string => {
+            if (issue.reason === "unavailable") return t("cart.unavailable");
+            if (issue.reason === "out_of_stock") return t("cart.outOfStock");
+            if (issue.reason === "insufficient_stock") return t("cart.insufficientStock", issue.availableStock);
+            return issue.productName;
+        },
+        [t],
+    );
 
     const handleShow = useCallback(async () => {
         if (localValidationIssues.length > 0) {
-            setValidationIssues(localValidationIssues);
-            addToast("Checkout blocked", getCartValidationMessage(localValidationIssues));
+            addToast(t("cart.checkoutNeedsUpdates"), getCartValidationMessage(localValidationIssues));
             return;
         }
 
-        if (await validateCartBeforeCheckout()) {
+        setIsValidatingCheckout(true);
+        const valid = await validateBeforeCheckout();
+        setIsValidatingCheckout(false);
+
+        if (valid) {
             setShow(true);
         }
-    }, [addToast, localValidationIssues, validateCartBeforeCheckout]);
+    }, [addToast, localValidationIssues, t, validateBeforeCheckout]);
 
     const handleClickPayment = useCallback(() => {
         if (activeValidationIssues.length > 0) {
-            addToast("Checkout blocked", getCartValidationMessage(activeValidationIssues));
+            addToast(t("cart.checkoutNeedsUpdates"), getCartValidationMessage(activeValidationIssues));
             setShow(false);
             return;
         }
         togglePayment();
         setShow(false);
-    }, [activeValidationIssues, addToast, togglePayment]);
-
-    const handleConfirmRemoveCartItem = useCallback(
-        async () => {
-            if (!pendingRemoveItem) {
-                return;
-            }
-            try {
-                setIsRemovingItem(true);
-                const response = await http.delete("/api/cart/", {
-                    data: { cartItemId: pendingRemoveItem.cartItemId },
-                });
-                if (response.status === 200) {
-                    setCart((currentCart) =>
-                        currentCart.filter((item) => item.cartItemId !== pendingRemoveItem.cartItemId),
-                    );
-                    addToast("Remove Cart item", "Item removed from cart successfully");
-                    setPendingRemoveItem(null);
-                }
-            } catch {
-                addToast("Remove Cart item", "Unable to remove item from cart.");
-            } finally {
-                setIsRemovingItem(false);
-            }
-        },
-        [addToast, pendingRemoveItem],
-    );
+    }, [activeValidationIssues, addToast, t, togglePayment]);
 
     const handleRemoveCartItem = useCallback(
         (cartItemId: number) => {
-            const item = cart.find((cartItem) => cartItem.cartItemId === cartItemId) || null;
-            setPendingRemoveItem(item);
+            const item = cart.find((cartItem) => cartItem.cartItemId === cartItemId);
+            if (item) removeItem(item);
         },
-        [cart],
+        [cart, removeItem],
     );
 
-    const handleValidationRefresh = useCallback((nextCart: CheckoutCartItem[], issues: CartValidationIssue[]) => {
-        setCart(nextCart);
-        setValidationIssues(issues);
-    }, []);
+    const handleValidationRefresh = useCallback(
+        (nextCart: CheckoutCartItem[], issues: CartValidationIssue[]) => {
+            onValidationRefresh(nextCart, issues);
+        },
+        [onValidationRefresh],
+    );
 
-    const applyDiscount = async (discountCode: string, price: number): Promise<DiscountActionResult> => {
-        try {
-            const response = await http.post("/api/orders/discount", {
-                discountCode,
-                price,
-            });
-            if (response.status === 200) {
-                const newPrice = response.data.newPrice;
-                setDiscount(price - newPrice);
-                setSubtotal(newPrice);
-                return {
-                    status: "success",
-                    title: "Applying Coupon",
-                    message: "Coupon has been applied successfully",
-                };
-            }
-
-            return {
-                status: "error",
-                title: "Applying Coupon",
-                message: "Unable to apply coupon right now.",
-            };
-        } catch (err: unknown) {
-            if (err && typeof err === "object" && "response" in err) {
-                const errorResponse = (err as { response: { status: number } }).response;
-                if (errorResponse.status === 404) {
-                    return { status: "error", title: "Applying Coupon", message: "Discount code not found" };
-                }
-                if (errorResponse.status === 500) {
-                    return {
-                        status: "error",
-                        title: "Applying Coupon",
-                        message: "Internal server error, please try again later",
-                    };
-                }
-            }
-
-            return {
-                status: "error",
-                title: "Applying Coupon",
-                message: "Unable to apply coupon right now.",
-            };
-        }
-    };
-
-    useEffect(() => {
-        const fetchCartItems = async () => {
-            try {
-                const response = await http.get(`/api/cart/${uid}`);
-                if (response.status === 200) {
-                    setCart(normalizeCheckoutCartItems(response.data.cartItems));
-                }
-            } catch {
-                addToast("Cart", "Unable to load cart items.");
-            }
-        };
-
-        if (uid) {
-            fetchCartItems();
-        }
-    }, [addToast, uid]);
-
-    useEffect(() => {
-        if (localValidationIssues.length === 0 && validationIssues.length > 0) {
-            setValidationIssues([]);
-        }
-    }, [localValidationIssues.length, validationIssues.length]);
-
-    useEffect(() => {
-        const newTotalPrice = cart.reduce((acc, item) => acc + (item.sale_price || item.price) * item.quantity, 0);
-        setTotalPrice(newTotalPrice);
-        setSubtotal(newTotalPrice - discount);
-    }, [cart, discount]);
+    if (isCartLoading && cart.length === 0) {
+        return (
+            <Layout>
+                <LoadingScreen variant="page" />
+            </Layout>
+        );
+    }
 
     return (
         <Layout>
             <Helmet>
-                <title>Your Cart | Digital-E</title>
+                <title>{`${t("cart.title")} | Digital-E`}</title>
                 <meta name="description" content="Review your items, update quantities, and proceed to checkout." />
             </Helmet>
             <Container fluid className="cart app-page">
@@ -304,18 +186,16 @@ const CartPage = () => {
                     <>
                         <header className="cart__header">
                             <div>
-                                <span className="cart__header__eyebrow">Your cart</span>
-                                <h2>Review your items before checkout</h2>
-                                <p>Update quantities, apply a coupon, and get ready to place your order.</p>
+                                <h2>{t("cart.title")}</h2>
                             </div>
                             <div className="cart__header__summary">
                                 <div>
                                     <strong>{cart.length}</strong>
-                                    <span>Items</span>
+                                    <span>{t("cart.itemsLabel")}</span>
                                 </div>
                                 <div>
                                     <strong>${subtotal.toFixed(2)}</strong>
-                                    <span>Estimated total</span>
+                                    <span>{t("cart.estimatedTotal")}</span>
                                 </div>
                             </div>
                         </header>
@@ -324,21 +204,17 @@ const CartPage = () => {
                             <section className="cart__main">
                                 <div className="cart__list-card">
                                     <div className="cart__list-header">
-                                        <div>
-                                            <h3>Cart items</h3>
-                                            <p>Keep quantities accurate before moving into checkout.</p>
-                                        </div>
-                                        <span>{cart.length} item(s)</span>
+                                        <h3>{t("cart.itemsCount", cart.length)}</h3>
                                     </div>
                                     <div className="cart__list">
                                         {cart.length === 0 ? (
-                                            <div className="cart__empty">
-                                                <h3>Your cart is empty</h3>
-                                                <p>Browse our collection and add items to your cart.</p>
-                                                <button type="button" onClick={() => navigate("/shops")}>
-                                                    Shop now
-                                                </button>
-                                            </div>
+                                            <EmptyState
+                                                className="cart__empty"
+                                                icon={<CartIcon size={24} />}
+                                                title={t("cart.empty")}
+                                                actionLabel={t("common.shopNow")}
+                                                actionTo="/shops"
+                                            />
                                         ) : (
                                             cart.map((item) => (
                                                 <CartItem
@@ -347,6 +223,7 @@ const CartPage = () => {
                                                     validationIssue={issueByCartItemId.get(item.cartItemId)}
                                                     handleQuantityChange={handleQuantityChange}
                                                     handleRemoveCartItem={handleRemoveCartItem}
+                                                    translate={cartStockMessage}
                                                 />
                                             ))
                                         )}
@@ -355,29 +232,27 @@ const CartPage = () => {
 
                                 <div className="cart__actions">
                                     <button className="cart__action cart__action--ghost" onClick={() => navigate("/")}>
-                                        <ArrowLeftIcon /> Continue shopping
+                                        <ArrowLeftIcon /> {t("cart.continueShopping")}
                                     </button>
                                     <button
                                         className="cart__action cart__action--primary"
                                         onClick={handleShow}
                                         disabled={cart.length === 0 || isValidatingCheckout}
                                     >
-                                        {isValidatingCheckout ? "Checking stock..." : "Proceed to checkout"} <ArrowRightIcon />
+                                        {isValidatingCheckout ? t("cart.checkingStock") : t("cart.proceed")} <ArrowRightIcon />
                                     </button>
                                 </div>
                                 <div className="cart__support">
                                     {activeValidationIssues.length > 0 ? (
                                         <div className="cart__warning">
-                                            <strong>Checkout needs updates.</strong>
+                                            <strong>{t("cart.checkoutNeedsUpdates")}</strong>
                                             <span>{getCartValidationMessage(activeValidationIssues)}</span>
                                             {activeValidationIssues.length > 1 ? (
-                                                <small>{activeValidationIssues.length} cart items need attention.</small>
+                                                <small>{t("cart.itemsNeedAttention", activeValidationIssues.length)}</small>
                                             ) : null}
                                         </div>
                                     ) : null}
-                                    <div className="cart__note">
-                                        Free delivery in 1-2 business days for orders over $50.
-                                    </div>
+                                    <div className="cart__note">{t("cart.freeDeliveryNote")}</div>
                                 </div>
                             </section>
 
@@ -393,28 +268,70 @@ const CartPage = () => {
                     </>
                 )}
 
-                <Modal show={show} onHide={handleClose} animation={false}>
+                <Modal show={show} onHide={handleClose} animation={false} size="lg" dialogClassName="cart__confirm-modal">
                     <Modal.Header closeButton>
-                        <Modal.Title>Purchase Confirmation</Modal.Title>
+                        <Modal.Title>{t("cart.reviewOrder")}</Modal.Title>
                     </Modal.Header>
-                    <Modal.Body>Are you sure to make purchase?</Modal.Body>
+                    <Modal.Body>
+                        <div className="cart__confirm">
+                            <div className="cart__confirm__summary">
+                                <div className="cart__confirm__summary-header">
+                                    <span className="cart__confirm__summary-label">{t("cart.orderSummary")}</span>
+                                    <span className="cart__confirm__summary-count">{t("cart.itemsCount", cart.length)}</span>
+                                </div>
+                                <div className="cart__confirm__rows">
+                                    <div className="cart__confirm__row">
+                                        <span>{t("cart.merchandise")}</span>
+                                        <strong>${totalPrice.toFixed(2)}</strong>
+                                    </div>
+                                    {discount > 0 ? (
+                                        <div className="cart__confirm__row cart__confirm__row--discount">
+                                            <span>{t("cart.discount")}</span>
+                                            <strong>−${discount.toFixed(2)}</strong>
+                                        </div>
+                                    ) : null}
+                                    <div className="cart__confirm__divider" />
+                                    <div className="cart__confirm__row cart__confirm__row--total">
+                                        <span>{t("cart.amountDue")}</span>
+                                        <strong>${subtotal.toFixed(2)}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="cart__confirm__items">
+                                <span className="cart__confirm__items-label">{t("cart.itemsInOrder")}</span>
+                                <div className="cart__confirm__items-list">
+                                    {cart.map((item) => (
+                                        <div key={item.cartItemId} className="cart__confirm__item">
+                                            <div className="cart__confirm__item-info">
+                                                <strong className="cart__confirm__item-name">{item.productName}</strong>
+                                                <span className="cart__confirm__item-meta">{item.brand} &middot; {item.category}</span>
+                                            </div>
+                                            <div className="cart__confirm__item-qty">&times;{item.quantity}</div>
+                                            <div className="cart__confirm__item-price">${((item.sale_price || item.price) * item.quantity).toFixed(2)}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <p className="cart__confirm__footnote">{t("cart.footnote")}</p>
+                        </div>
+                    </Modal.Body>
                     <Modal.Footer>
-                        <Button variant="secondary" onClick={handleClose}>
-                            Close
+                        <Button variant="outline-secondary" onClick={handleClose}>
+                            {t("cart.cancelOrder")}
                         </Button>
-                        <Button variant="primary" onClick={handleClickPayment}>
-                            Confirm
+                        <Button variant="primary" size="lg" onClick={handleClickPayment}>
+                            {t("cart.placeOrder", subtotal.toFixed(2))}
                         </Button>
                     </Modal.Footer>
                 </Modal>
                 <ConfirmActionModal
                     show={pendingRemoveItem !== null}
-                    title="Remove cart item"
-                    message={`Remove "${pendingRemoveItem?.productName || "this item"}" from your cart?`}
-                    confirmLabel="Remove"
+                    title={t("cart.remove")}
+                    message={t("cart.removeConfirm", pendingRemoveItem?.productName || t("cart.empty").toLowerCase())}
+                    confirmLabel={t("cart.remove")}
                     isConfirming={isRemovingItem}
-                    onCancel={() => setPendingRemoveItem(null)}
-                    onConfirm={handleConfirmRemoveCartItem}
+                    onCancel={cancelRemoveItem}
+                    onConfirm={confirmRemoveItem}
                 />
             </Container>
         </Layout>

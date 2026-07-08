@@ -94,12 +94,8 @@ const SupportPage: React.FC = () => {
                         fetchPriority="high"
                         decoding="async"
                     />
-                    <span className="info-page__hero-badge">Support Center</span>
-                    <h1>Clear help before, during, and after every order.</h1>
-                    <p>
-                        Get fast answers, practical guidance, and direct support for orders, payments, warranties, and
-                        account questions.
-                    </p>
+                    <h1>Support Center</h1>
+                    <p>Help before, during, and after every order.</p>
                     <div className="support__hero__actions info-page__actions">
                         <Link to="/orders">View order history</Link>
                         <Link to="/contact-us" className="ghost">

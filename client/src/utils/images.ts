@@ -30,10 +30,33 @@ export const getProductImageUrl = (imageName?: string | null) => {
     return normalized ? `${PRODUCT_IMAGE_BASE_URL}/${normalized}.jpg` : "";
 };
 
-export const getResponsiveImageSource = (src: string, { sizes }: ResponsiveImageOptions): ResponsiveImageSource => {
+const appendWidthQuery = (src: string, width: number): string => {
+    if (!src) {
+        return src;
+    }
+    if (/^data:/i.test(src) || src.startsWith("blob:")) {
+        return src;
+    }
+    const separator = src.includes("?") ? "&" : "?";
+    return `${src}${separator}w=${width}`;
+};
+
+const isRemoteBlobUrl = (src: string): boolean => src.startsWith(PRODUCT_IMAGE_BASE_URL);
+
+export const getResponsiveImageSource = (
+    src: string,
+    { sizes, widths }: ResponsiveImageOptions,
+): ResponsiveImageSource => {
     if (!src) {
         return { src: "" };
     }
 
-    return { src, sizes };
+    if (!widths || widths.length === 0 || !isRemoteBlobUrl(src)) {
+        return { src, sizes };
+    }
+
+    const sortedWidths = Array.from(new Set(widths)).sort((a, b) => a - b);
+    const srcSet = sortedWidths.map((width) => `${appendWidthQuery(src, width)} ${width}w`).join(", ");
+
+    return { src, srcSet, sizes };
 };

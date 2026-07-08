@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet";
 import axios from "../api/axios";
 import EmptyState from "../components/common/EmptyState";
+import LoadingScreen from "../components/common/LoadingScreen";
 import WishlistItem from "../components/common/WishlistItem";
 import ConfirmActionModal from "../components/common/ConfirmActionModal";
 import Layout from "../components/layout/Layout";
@@ -18,6 +19,7 @@ interface Wishlist {
 
 const WishlistPage = () => {
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
+    const [isLoadingWishlist, setIsLoadingWishlist] = useState(true);
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [pendingRemoveProductId, setPendingRemoveProductId] = useState<number | null>(null);
     const [showBulkRemoveConfirm, setShowBulkRemoveConfirm] = useState(false);
@@ -28,9 +30,13 @@ const WishlistPage = () => {
 
     useEffect(() => {
         const fetchWishlist = async () => {
-            if (!uid) return;
+            if (!uid) {
+                setIsLoadingWishlist(false);
+                return;
+            }
 
             try {
+                setIsLoadingWishlist(true);
                 const response = await axios.get(`/api/wishlist/${uid}`);
                 if (response.status === 200) {
                     const newWishlist: Wishlist[] = response.data.wishlist.map((item: any) => {
@@ -52,6 +58,8 @@ const WishlistPage = () => {
                 }
             } catch {
                 addToast("Wishlist", "Unable to load wishlist.");
+            } finally {
+                setIsLoadingWishlist(false);
             }
         };
         fetchWishlist();
@@ -165,6 +173,14 @@ const WishlistPage = () => {
         }
     };
 
+    if (isLoadingWishlist) {
+        return (
+            <Layout>
+                <LoadingScreen variant="page" />
+            </Layout>
+        );
+    }
+
     return (
         <Layout>
             <Helmet>
@@ -177,9 +193,7 @@ const WishlistPage = () => {
             <main className="wishlist app-page">
                 <header className="wishlist__header">
                     <div>
-                        <span>Saved products</span>
-                        <h1>My Wishlist</h1>
-                        <p>Watch sale prices, stock changes, and move ready-to-buy items into your cart.</p>
+                        <h1>Wishlist</h1>
                     </div>
                     <div className="wishlist__summary app-card">
                         <article>
@@ -200,9 +214,7 @@ const WishlistPage = () => {
                 {wishlist.length > 0 ? (
                     <section className="wishlist__toolbar app-card" aria-label="Wishlist bulk actions">
                         <div className="wishlist__toolbar__copy">
-                            <small>Bulk actions</small>
-                            <strong>Manage saved products faster</strong>
-                            <span>Select items to move available products to cart or remove them together.</span>
+                            <strong>{wishlist.length} saved</strong>
                         </div>
                         <div className="wishlist__actions">
                             <button type="button" onClick={handleSelectAll}>
@@ -228,7 +240,6 @@ const WishlistPage = () => {
                         className="wishlist__empty"
                         icon={<HeartFillIcon size={20} />}
                         title="Your wishlist is empty"
-                        description="Save products you want to revisit later, then move them into the cart when stock and pricing look right."
                         actionLabel="Browse products"
                         actionTo="/shops"
                     />

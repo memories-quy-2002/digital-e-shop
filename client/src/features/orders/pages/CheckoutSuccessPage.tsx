@@ -111,22 +111,17 @@ const CheckoutSuccessPage = () => {
                 ) : null}
                 <article className="success__hero">
                     <div className="success__hero__content">
-                        <span className="success__hero__eyebrow">Order confirmed</span>
                         <div className="success__hero__title-row">
                             <span className="success__hero__icon">
                                 <CheckCircleIcon size={34} />
                             </span>
                             <div>
+                                <h1>Order confirmed</h1>
                                 <p className="success__hero__greeting">
                                     Thank you {userData && !loading ? userData.username : "there"}.
                                 </p>
-                                <h1>Your order is confirmed</h1>
                             </div>
                         </div>
-                        <p className="success__hero__subtitle">
-                            We&apos;re preparing your items now. Shipping updates and order activity will appear in your
-                            account shortly.
-                        </p>
                     </div>
 
                     <div className="success__hero__meta">

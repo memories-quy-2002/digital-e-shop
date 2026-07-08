@@ -1,23 +1,40 @@
 .app-toast {
     position: fixed !important;
     right: var(--de-space-4);
-    bottom: var(--de-space-4);
     z-index: 1200;
     width: min(360px, calc(100vw - 2rem));
 
     @media screen and (max-width: 640px) {
         right: 0.75rem;
         left: 0.75rem;
-        bottom: 0.75rem;
         width: auto;
+    }
+
+    &--errors {
+        top: 5rem;
+        bottom: auto;
+        z-index: 1210;
+
+        @media screen and (max-width: 640px) {
+            top: 4.5rem;
+            bottom: auto;
+        }
+    }
+
+    &:not(&--errors) {
+        bottom: var(--de-space-4);
+
+        @media screen and (max-width: 640px) {
+            bottom: 0.75rem;
+        }
     }
 
     &__item {
         overflow: hidden;
         border: 1px solid var(--de-color-border);
         border-radius: var(--de-radius-md);
-        box-shadow: 0 18px 40px rgba(23, 35, 52, 0.14);
-        background: rgba(255, 253, 248, 0.99);
+        box-shadow: var(--de-shadow-md);
+        background: var(--de-color-surface-strong);
         color: var(--de-color-text);
 
         &::before {
@@ -30,15 +47,15 @@
     }
 
     &__item--success::before {
-        background: linear-gradient(90deg, #2d6b4a, #5b8d6f);
+        background: var(--de-gradient-success);
     }
 
     &__item--error::before {
-        background: linear-gradient(90deg, #b24a3f, #d08377);
+        background: var(--de-gradient-danger);
     }
 
     &__item--info::before {
-        background: linear-gradient(90deg, #2d517d, #5d7fa7);
+        background: var(--de-gradient-info);
     }
 
     &__header {

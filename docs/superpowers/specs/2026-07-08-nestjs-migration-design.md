@@ -1,7 +1,7 @@
 # NestJS Migration — Design
 
 Date: 2026-07-08
-Status: Approved (spec), pending Step 0 spike data before implementation begins
+Status: Phases 1–7 complete, plus a Phase 8 structural collapse. All 13 feature modules migrated to NestJS, Express app removed, Vercel serverless entry point swapped to Nest bootstrap, and all business logic (services/repositories/DTOs/validators/types) physically moved out of the old `modules/*` tree into `server/src/*` directly — `server/src/nest/` and `server/src/modules/` no longer exist; Nest *is* the server source tree now, not a subfolder wrapping it.
 
 ## Purpose
 
@@ -92,11 +92,12 @@ This closes the Step 0 gate. The rest of this spec (Target architecture, Migrati
 
 1. **Scaffolding**: `AppModule`, `ConfigModule` wrapping existing `env.config`, global pipes/filters/guards shell, health check route. This is where Step 0's validated bootstrap becomes real.
 2. **Auth foundation**: Passport strategies, JWT guards, CSRF middleware, rate-limit middleware. Everything else depends on this being correct first.
-3. **Low-interdependency modules** (structural template for the rest): `wishlist`, `addresses`, `notifications`, `reviews`.
-4. **Core commerce modules**: `products`, `inventory`, `promotions` (inventory/promotions interact with products).
-5. **Highest-risk modules, most scrutiny**: `cart`, `orders` (checkout, Stripe webhook, order timeline, multi-table coordination), `users` (auth-adjacent, ownership checks).
-6. **`analytics`, `blob`** — lower risk, scheduled wherever convenient.
-7. **Cutover**: swap `server/api/index.ts` to the Nest bootstrap; remove old Express `app.ts` and route files.
+3. **Low-interdependency modules** (structural template for the rest): `wishlist`, `addresses`, `notifications`, `reviews`. — **Done** (2026-07-08): all four migrated under `server/src/nest/`, wired into `AppModule`, Vitest coverage added per module (38 passing tests total). Route aliases (`/api/users` + `/api/user`) implemented via Nest array-path `@Controller([...])`; not yet mounted in `app.ts`/served — cutover happens at Step 7.
+4. **Core commerce modules**: `products`, `inventory`, `promotions` (inventory/promotions interact with products). — **Done** (2026-07-08): all three migrated under `server/src/nest/`, wired into `AppModule`. Products (11 routes, multer file upload via `FileInterceptor`, `StreamableFile` for static serve, admin guards), Inventory (1 route exposed, summary route remains in products), Promotions (4 endpoints, admin-only).
+5. **Highest-risk modules, most scrutiny**: `cart`, `orders` (checkout, Stripe webhook, order timeline, multi-table coordination), `users` (auth-adjacent, ownership checks). — **Done** (2026-07-08): Cart (5 endpoints, `OwnerParam` auth, rate limit 100), Orders (9 endpoints, Stripe webhook via dedicated `StripeWebhookModule` with `express.raw()`, rate limit 100; `orders.stripeWebhook.controller.ts` NOT migrated to Nest due to `express.raw()` incompatibility — remains in Express), Users (5 endpoints, dual path `@Controller(['users', 'user'])`, rate limit 100).
+6. **`analytics`, `blob`** — lower risk, scheduled wherever convenient. — **Done** (2026-07-08): Analytics (1 admin endpoint, rate limit 100), Blob (2 endpoints, multer via `FileInterceptor`, rate limit 50).
+7. **Cutover**: swap `server/api/index.ts` to the Nest bootstrap; remove old Express `app.ts` and route files. — **Done** (2026-07-08): `api/index.ts` now exports Nest bootstrap with `rawBody: true` for Stripe webhook support. `server/src/server.ts` updated to use Nest bootstrap for local dev. `server/src/app.ts` and all 12 Express `*.routes.ts` files deleted. Stripe webhook migrated as Nest `StripeWebhookController` with `express.raw()` route-level middleware (`StripeWebhookModule`). CSRF middleware ported as Nest middleware (`csrf.middleware.ts`) with same exclusions. Google OAuth routes (`/auth/google`, `/auth/google/callback`) **not migrated** — `@nestjs/passport` is not installed; this is a known gap requiring a follow-up Nest Passport integration task if Google OAuth is needed. All other routes handled by Nest controllers. OpenAPI JSON and Scalar docs registered on the Express adapter in `main.ts`.
+8. **Structural collapse** (not in the original plan; done at explicit user request after Step 7): the Nest wrapper classes built in Steps 3–7 still `require()`d their real logic from the old `server/src/modules/<feature>/*.service.ts` / `*.repository.ts` files — the Express layer was gone, but the business logic and raw MySQL queries had never actually moved. This step physically moved all of it: every `<feature>.service.ts`, `.repository.ts`, `.dto.ts`, `.validator.ts`, `.types.ts` now lives in `server/src/<feature>/`, and every Nest service/repository owns real constructor-injected logic instead of delegating to a `require()`'d singleton. `AuthGuard`/`RolesGuard` now depend on real DI-provided `NestAuthService`/`UsersRepository` (exposed globally via `@Global()` on `AuthModule`/`UsersModule`, mirroring the existing `NestConfigModule` pattern) instead of module-level singleton imports. Once `modules/` was empty, `server/src/nest/*` was flattened up to be `server/src/*` directly (`server/src/nest/app.module.ts` → `server/src/app.module.ts`, `server/src/nest/wishlist/` → `server/src/wishlist/`, etc.), and `server/api/index.ts`/`server/src/server.ts` repointed from `#src/nest/main` to `#src/main`. `server/src/nest/` and `server/src/modules/` no longer exist. Verified clean after the move: `typecheck`, `build`, `lint`, and the full Vitest suite (71/71 passing across 17 files).
 
 ### Testing / parity verification
 
@@ -115,3 +116,8 @@ This closes the Step 0 gate. The rest of this spec (Target architecture, Migrati
 ## Rollout
 
 Single long-lived branch (e.g. `feature/nestjs-migration`), big-bang migration of the whole server, merged into `main` via PR once parity is verified end-to-end. Not a strangler-fig/incremental-proxy approach — the team wants a coherent final DI structure rather than a transitional hybrid state.
+
+## Known gaps (post-migration)
+
+- **Google OAuth** — Passport Google OAuth routes (`GET /auth/google`, `GET /auth/google/callback`) are not served by any Nest controller. `@nestjs/passport` is not installed. To restore Google OAuth login, install `@nestjs/passport` and `@nestjs/passport-google-oauth20`, then create a `PassportModule` with the Google strategy ported from `auth.passport.ts`.
+- **Local dev** — `server/src/server.ts` now uses Nest bootstrap. Run `pnpm --filter server dev` (uses `server/src/main.ts`).

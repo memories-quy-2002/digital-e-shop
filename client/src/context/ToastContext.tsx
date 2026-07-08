@@ -87,14 +87,40 @@ const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         removeToast,
     }), [addToast, removeToast, toasts]);
 
+    const errorToasts = toasts.filter((t) => t.tone === "error");
+    const otherToasts = toasts.filter((t) => t.tone !== "error");
+
     return (
         <ToastContext.Provider value={contextValue}>
             {children}
             <ToastContainer
+                className="app-toast app-toast--errors"
+                position="top-end"
+            >
+                {errorToasts.map((toast) => (
+                    <Toast
+                        key={toast.id}
+                        onClose={() => removeToast(toast.id)}
+                        delay={4000}
+                        autohide
+                        animation
+                        className={`app-toast__item app-toast__item--${toast.tone}`}
+                    >
+                        <Toast.Header className="app-toast__header" closeButton>
+                            <span className="app-toast__badge" aria-hidden="true">
+                                {toast.title.slice(0, 1).toUpperCase()}
+                            </span>
+                            <strong className="me-auto">{toast.title}</strong>
+                        </Toast.Header>
+                        <Toast.Body className="app-toast__body">{toast.body}</Toast.Body>
+                    </Toast>
+                ))}
+            </ToastContainer>
+            <ToastContainer
                 className="app-toast"
                 position="bottom-end"
             >
-                {toasts.map((toast) => (
+                {otherToasts.map((toast) => (
                     <Toast
                         key={toast.id}
                         onClose={() => removeToast(toast.id)}

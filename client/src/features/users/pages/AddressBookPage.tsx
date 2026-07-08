@@ -143,11 +143,7 @@ const AddressBookPage = () => {
                 <meta name="description" content="Manage saved shipping addresses." />
             </Helmet>
             <main className="address-book">
-                <CustomerAccountShell
-                    eyebrow="Account"
-                    title="Address book"
-                    description="Save delivery addresses and select a default address for faster checkout."
-                />
+                <CustomerAccountShell title="Address book" />
 
                 <section className="address-book__summary" aria-label="Address book summary">
                     <article>

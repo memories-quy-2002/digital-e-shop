@@ -10,8 +10,7 @@
     "scripts": {
         "postinstall": "prisma generate --schema=src/database/prisma/schema.prisma",
         "start": "node dist/src/server.js",
-        "dev": "node --watch --conditions=development --import tsx ./src/server.ts",
-        "dev:nest-scaffold": "node --watch --conditions=development --import tsx ./src/nest/main.ts",
+        "dev": "tsc -p tsconfig.build.json && pnpm copy:assets && concurrently -k -n tsc,node \"tsc -p tsconfig.build.json --watch --preserveWatchOutput\" \"node --watch --watch-path=dist dist/src/server.js\"",
         "serve:ts": "node --conditions=development --import tsx ./src/server.ts",
         "build": "prisma generate --schema=src/database/prisma/schema.prisma && tsc -p tsconfig.build.json && pnpm copy:assets",
         "vercel-build": "prisma generate --schema=src/database/prisma/schema.prisma && tsc -p tsconfig.build.json && pnpm copy:assets",

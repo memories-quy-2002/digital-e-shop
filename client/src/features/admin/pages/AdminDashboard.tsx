@@ -7,12 +7,19 @@ import {
     CashStackIcon,
     PersonIcon,
 } from "../../../components/common/Icons";
-import axios from "../../../api/axios";
-import { Product, Role } from "../../../utils/interface";
+import type { Product } from "../../../types/product";
+import type { AdminOrder as Order, AdminOrderItem as OrderItem } from "../../../types/order";
 import { formatUtcDateTime } from "../../../utils/dateTime";
 import AdminLayout from "../../../components/layout/AdminLayout";
 import { Helmet } from "react-helmet";
 import { useToast } from "../../../context/ToastContext";
+import {
+    fetchAnalyticsSummary,
+    fetchAdminProducts,
+    fetchAdminOrders,
+    fetchAdminUsers,
+    fetchOrderItems,
+} from "../api";
 
 interface CardProps {
     title: string;
@@ -22,37 +29,6 @@ interface CardProps {
     percentage?: number;
     icon: React.ReactNode;
 }
-
-type Order = {
-    id: number;
-    date_added: Date;
-    user_id: string;
-    status: number;
-    total_price: number;
-    discount: number;
-    payment_method?: "bank_transfer" | "cash";
-    shipping_address?: string;
-};
-
-type OrderItem = {
-    id: number;
-    name: string;
-    price: number;
-    order_id: number;
-    sales: number;
-    revenue: number;
-};
-
-type User = {
-    id: string;
-    email: string;
-    password: string;
-    username: string;
-    first_name: string | null;
-    last_name: string | null;
-    role: Role;
-    created_at: Date;
-};
 
 type TrendPoint = {
     name: string;
@@ -68,113 +44,9 @@ type ChartDatum = {
     stock?: number;
 };
 
-type AnalyticsSummary = {
-    generatedAt?: string;
-    currency?: string;
-    windows?: {
-        trendDays?: number;
-        comparisonDays?: number;
-    };
-    kpis?: {
-        orders?: {
-            total?: number;
-            completed?: number;
-            pending?: number;
-            cancelled?: number;
-            nonCancelled?: number;
-            completionRate?: number;
-            comparison?: {
-                current?: number;
-                previous?: number;
-                deltaPercent?: number;
-            };
-        };
-        revenue?: {
-            gross?: number;
-            net?: number;
-            discounts?: number;
-            averageOrderValue?: number;
-            comparison?: {
-                current?: number;
-                previous?: number;
-                deltaPercent?: number;
-            };
-        };
-        customers?: {
-            total?: number;
-            active?: number;
-            inactive?: number;
-            activeRate?: number;
-        };
-        inventory?: {
-            totalProducts?: number;
-            outOfStock?: number;
-            lowStock?: number;
-            lowStockThreshold?: number;
-        };
-    };
-    charts?: {
-        revenueTrend?: Array<{
-            date: string;
-            orders: number;
-            completedOrders: number;
-            grossRevenue: number;
-            netRevenue: number;
-            discounts: number;
-        }>;
-        orderStatusBreakdown?: ChartDatum[];
-        categoryPerformance?: Array<{ name: string; revenue: number; units: number; orders: number; share: number }>;
-        customerSegments?: ChartDatum[];
-        paymentMethods?: Array<{ name: string; value: number; revenue: number }>;
-    };
-    operations?: {
-        inventoryRisk?: Array<{ id: number; name: string; stock: number; category: string; brand: string }>;
-        promotions?: {
-            discountedOrders?: number;
-            totalDiscountGiven?: number;
-            discountedRevenue?: number;
-            attachedCodesTracked?: boolean;
-            configured?: Array<{
-                id: number;
-                code: string;
-                discountPercent: number;
-                active: boolean;
-                startsAt: string | null;
-                expiresAt: string | null;
-                usageLimit: number | null;
-            }>;
-        };
-    };
-    overview: {
-        orders: number;
-        revenue: number;
-        average_order_value: number;
-        customers: number;
-        out_of_stock: number;
-        low_stock: number;
-    };
-    revenueTrend: Array<{ date: string; orders: number; revenue: number }>;
-    categoryRevenue: Array<{ name: string; revenue: number; units: number }>;
-    customerSegments: ChartDatum[];
-    inventoryRisk: Array<{ id: number; name: string; stock: number; category: string; brand: string }>;
-    promotionPerformance: Array<{
-        name: string;
-        discount_percent: number;
-        discount_given: number;
-        estimated_orders: number;
-    }>;
-};
+type AnalyticsSummary = Record<string, any>;
 
 const AdminDashboardCharts = React.lazy(() => import("../components/AdminDashboardCharts"));
-
-const normalizeAnalyticsSummary = (payload: any): AnalyticsSummary | null => {
-    if (!payload || typeof payload !== "object") {
-        return null;
-    }
-
-    const raw = payload.summary && typeof payload.summary === "object" ? payload.summary : payload;
-    return raw as AnalyticsSummary;
-};
 
 const formatCurrency = (value: number) =>
     new Intl.NumberFormat("en-US", {
@@ -217,7 +89,7 @@ const normalizeOrderItem = (orderItem: any): OrderItem => ({
     price: Number(orderItem.price) || 0,
 });
 
-const normalizeUser = (user: any): User => ({
+const normalizeUser = (user: any): { id: string; email: string; username: string; first_name: string | null; last_name: string | null; role: string; created_at: Date } => ({
     ...user,
     created_at: new Date(user.created_at),
 });
@@ -437,7 +309,7 @@ const DashboardChartsFallback = () => (
 const AdminDashboard = () => {
     const [products, setProducts] = useState<Product[]>([]);
     const [orders, setOrders] = useState<Order[]>([]);
-    const [users, setUsers] = useState<User[]>([]);
+    const [users, setUsers] = useState<Array<{ id: string; email: string; username: string; first_name: string | null; last_name: string | null; role: string; created_at: Date }>>([]);
     const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
     const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary | null>(null);
     const [loading, setLoading] = useState(true);
@@ -448,44 +320,45 @@ const AdminDashboard = () => {
         try {
             setLoading(true);
 
-            const [analyticsResponse, productResponse, orderResponse, userResponse, orderItemResponse] = await Promise.allSettled([
-                axios.get("/api/analytics/summary"),
-                axios.get("/api/products?page=1&limit=60"),
-                axios.get("/api/orders?page=1&limit=80"),
-                axios.get("/api/users?page=1&limit=80"),
-                axios.get("/api/orders/item?page=1&limit=120"),
+            const [analyticsResult, productResult, orderResult, userResult, orderItemResult] = await Promise.allSettled([
+                fetchAnalyticsSummary(),
+                fetchAdminProducts(1, 60),
+                fetchAdminOrders(1, 80),
+                fetchAdminUsers(1, 80),
+                fetchOrderItems(1, 120),
             ]);
 
             let loadedSections = 0;
             let analyticsLoaded = false;
 
-            if (analyticsResponse.status === "fulfilled") {
-                const nextAnalyticsSummary = normalizeAnalyticsSummary(analyticsResponse.value.data);
-                setAnalyticsSummary(nextAnalyticsSummary);
-                analyticsLoaded = !!nextAnalyticsSummary;
-                loadedSections += nextAnalyticsSummary ? 1 : 0;
+            if (analyticsResult.status === "fulfilled") {
+                const raw = analyticsResult.value?.summary && typeof analyticsResult.value.summary === "object"
+                    ? analyticsResult.value.summary
+                    : analyticsResult.value;
+                setAnalyticsSummary(raw);
+                analyticsLoaded = !!raw;
+                loadedSections += raw ? 1 : 0;
             } else {
                 setAnalyticsSummary(null);
             }
 
-            if (productResponse.status === "fulfilled") {
-                setProducts(productResponse.value.data.products || []);
+            if (productResult.status === "fulfilled") {
+                setProducts(productResult.value || []);
                 loadedSections += 1;
             }
 
-            if (orderResponse.status === "fulfilled") {
-                setOrders((orderResponse.value.data.orders || []).map(normalizeOrder));
+            if (orderResult.status === "fulfilled") {
+                setOrders((orderResult.value || []).map(normalizeOrder));
                 loadedSections += 1;
             }
 
-            if (userResponse.status === "fulfilled") {
-                setUsers((userResponse.value.data.accounts || []).map(normalizeUser));
+            if (userResult.status === "fulfilled") {
+                setUsers((userResult.value || []).map(normalizeUser));
                 loadedSections += 1;
             }
 
-            if (orderItemResponse.status === "fulfilled") {
-                const orderItemsData = orderItemResponse.value.data.orderItems ?? orderItemResponse.value.data.order_items ?? [];
-                setOrderItems(orderItemsData.map(normalizeOrderItem));
+            if (orderItemResult.status === "fulfilled") {
+                setOrderItems((orderItemResult.value || []).map(normalizeOrderItem));
                 loadedSections += 1;
             }
 
@@ -590,8 +463,8 @@ const AdminDashboard = () => {
         const pendingOrders = Number(analyticsSummary?.kpis?.orders?.pending) || orders.filter((order) => order.status === 0).length;
         const completedOrders = Number(analyticsSummary?.kpis?.orders?.completed) || orders.filter((order) => order.status === 1).length;
         const cancelledOrders = Number(analyticsSummary?.kpis?.orders?.cancelled) || orders.filter((order) => order.status === 2).length;
-        const bankTransferOrders = analyticsPaymentMix.find((item) => item.name === "Bank transfer")?.value || orders.filter((order) => order.payment_method === "bank_transfer").length;
-        const cashOrders = analyticsPaymentMix.find((item) => item.name === "Cash")?.value || orders.filter((order) => order.payment_method === "cash").length;
+        const bankTransferOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Bank transfer")?.value || orders.filter((order) => order.payment_method === "bank_transfer").length;
+        const cashOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Cash")?.value || orders.filter((order) => order.payment_method === "cash").length;
         const totalRevenue = Number(analyticsSummary?.kpis?.revenue?.net) || orders.reduce((sum, order) => sum + getNetRevenue(order), 0);
         const lowStockProducts = (analyticsSummary?.operations?.inventoryRisk || [])
             .filter((product: any) => Number(product.stock) <= 5)
@@ -654,7 +527,7 @@ const AdminDashboard = () => {
             "LOW STOCK WATCHLIST",
             ...(dashboardStats.lowStockProducts.length > 0
                 ? dashboardStats.lowStockProducts.map(
-                      (product, index) => `${index + 1}. ${product.name} | Remaining stock: ${product.stock}`,
+                      (product: any, index: number) => `${index + 1}. ${product.name} | Remaining stock: ${product.stock}`,
                   )
                 : ["- No products are currently below the low-stock threshold."]),
             "",

@@ -2,9 +2,9 @@
 
 The long-term knowledge base for the Digital-E e-commerce system. Readable in Obsidian; maintained by humans and AI agents. For agent rules, see [AGENTS.md](../AGENTS.md). For human guides, see [docs/](../docs/).
 
-**Project summary:** Digital-E is a full-stack e-commerce platform for electronic components and devices, built as a pnpm workspace with a React 19 + Vite storefront/admin (`client/`) and an Express 5 + TypeScript API (`server/`) backed primarily by MySQL with a partial Prisma layer.
+**Project summary:** Digital-E is a full-stack e-commerce platform for electronic components and devices, built as a pnpm workspace with a React 19 + Vite storefront/admin (`client/`) and a NestJS + TypeScript API (`server/`, migrated from Express 5 — see [[0002-nestjs-migration]]) backed primarily by MySQL with a partial Prisma layer.
 
-**Last updated:** 2026-07-07
+**Last updated:** 2026-07-08
 
 ## Core pages
 
@@ -21,7 +21,7 @@ Domain objects and their relationships. Add a page per entity as it is documente
 Cross-cutting concepts (e.g. `auth-and-csrf`, `validation`, `inventory-movement`, `api-response-shapes`).
 
 ### Decisions (`decisions/`)
-Lightweight ADRs — one decision per file. See [[0001-mysql-primary-prisma-partial]].
+Lightweight ADRs — one decision per file. See [[0001-mysql-primary-prisma-partial]], [[0002-nestjs-migration]].
 
 ### Sources (`sources/`)
 Notes distilled from specific source files or external docs.

@@ -4,53 +4,37 @@ import { Link } from "react-router-dom";
 import heroImage from "../assets/images/about_us.jpg";
 import Layout from "../components/layout/Layout";
 import { PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../utils/images";
+import { useT } from "../hooks/useT";
 import "../styles/pages/_about.scss";
 
 const AboutUsPage: React.FC = () => {
+    const t = useT();
     const heroImageSource = getResponsiveImageSource(heroImage, {
         widths: PAGE_IMAGE_WIDTHS,
         sizes: "(min-width: 1024px) 42vw, 92vw",
         fit: "fill",
     });
 
-    const values = [
-        {
-            title: "Curated, not crowded",
-            desc: "We keep the catalog focused on products that meet practical standards for performance, support, and value.",
-        },
-        {
-            title: "Operational honesty",
-            desc: "Stock, pricing, payment methods, and order status are designed to be clear before customers commit.",
-        },
-        {
-            title: "Support after checkout",
-            desc: "Our team helps with setup questions, warranty guidance, returns, and delivery updates after the sale.",
-        },
-    ];
+    const values = (t("about.values") as unknown as Array<{ title: string; desc: string }>).map(
+        (value) => ({
+            title: value.title,
+            desc: value.desc,
+        }),
+    );
 
-    const milestones = [
-        { year: "2023", text: "Digital-E launched with a curated catalog for laptops and workspace accessories." },
-        { year: "2024", text: "The store expanded into audio, smart home, phones, and gaming essentials." },
-        {
-            year: "2025",
-            text: "Personalized search, wishlist signals, and smarter recommendations became part of the experience.",
-        },
-        {
-            year: "2026",
-            text: "Admin analytics, inventory alerts, and customer profiles turned operations into a stronger system.",
-        },
-    ];
+    const milestones = t("about.milestones") as unknown as Array<{ year: string; text: string }>;
 
-    const teams = [
-        { name: "Product desk", detail: "Compares specifications, warranty coverage, and real-world use cases." },
-        { name: "Operations", detail: "Keeps orders, stock, promotions, and fulfillment moving cleanly." },
-        { name: "Customer care", detail: "Supports shoppers before purchase and keeps post-order help human." },
-    ];
+    const teams = (t("about.team") as unknown as Array<{ name: string; detail: string }>).map(
+        (team) => ({
+            name: team.name,
+            detail: team.detail,
+        }),
+    );
 
     return (
         <Layout>
             <Helmet>
-                <title>About Us | Digital-E</title>
+                <title>{`${t("about.title")} | Digital-E`}</title>
                 <meta
                     name="description"
                     content="Learn more about Digital-E, our mission, and how we build a trusted electronics shopping experience."
@@ -59,16 +43,12 @@ const AboutUsPage: React.FC = () => {
             <main className="about info-page">
                 <section className="about__hero">
                     <div className="about__hero__content">
-                        <span className="info-page__hero-badge">About Digital-E</span>
-                        <h1>Technology shopping should feel informed, calm, and dependable.</h1>
-                        <p>
-                            Digital-E brings together practical product selection, transparent pricing, reliable
-                            checkout, and support that stays useful long after your order is placed.
-                        </p>
+                        <h1>{t("about.title")}</h1>
+                        <p>{t("about.subtitle")}</p>
                         <div className="about__hero__actions info-page__actions">
-                            <Link to="/shops">Explore products</Link>
+                            <Link to="/shops">{t("about.explore")}</Link>
                             <Link to="/support" className="ghost">
-                                Get support
+                                {t("about.getSupport")}
                             </Link>
                         </div>
                     </div>
@@ -88,26 +68,25 @@ const AboutUsPage: React.FC = () => {
                 <section className="about__stats" aria-label="Digital-E operating snapshot">
                     <div>
                         <strong>5K+</strong>
-                        <span>Products curated</span>
+                        <span>{t("about.stats.products")}</span>
                     </div>
                     <div>
                         <strong>120+</strong>
-                        <span>Brand partners</span>
+                        <span>{t("about.stats.brands")}</span>
                     </div>
                     <div>
                         <strong>24/7</strong>
-                        <span>Order support</span>
+                        <span>{t("about.stats.support")}</span>
                     </div>
                     <div>
                         <strong>UTC</strong>
-                        <span>Consistent order time</span>
+                        <span>{t("about.stats.orderTime")}</span>
                     </div>
                 </section>
 
                 <section className="about__values">
                     <div className="about__section-heading info-page__section-heading">
-                        <span>Principles</span>
-                        <h2>What customers should feel every time they shop</h2>
+                        <h2>{t("about.principlesHeading")}</h2>
                     </div>
                     <div className="about__values__grid">
                         {values.map((value, index) => (
@@ -122,17 +101,8 @@ const AboutUsPage: React.FC = () => {
 
                 <section className="about__story">
                     <div className="about__story__content">
-                        <span>Our mission</span>
-                        <h2>Make technology decisions less noisy.</h2>
-                        <p>
-                            Electronics shopping can become a maze of model numbers, unclear discounts, and uncertain
-                            stock. Digital-E turns that into a calmer flow: compare what matters, see what is available,
-                            choose a payment method, and track the order with confidence.
-                        </p>
-                        <p>
-                            Behind the storefront, our admin tools focus on inventory risk, customer history, order
-                            status, promotions, and analytics so the store can react before customers feel friction.
-                        </p>
+                        <h2>{t("about.missionHeading")}</h2>
+                        <p>{t("about.missionText")}</p>
                     </div>
                     <div className="about__story__milestones">
                         {milestones.map((milestone) => (
@@ -146,8 +116,8 @@ const AboutUsPage: React.FC = () => {
 
                 <section className="about__team">
                     <div className="about__section-heading info-page__section-heading">
-                        <span>Team</span>
-                        <h2>The groups behind the shopping experience</h2>
+                        <span>{t("about.teamHeading")}</span>
+                        <h2>{t("about.teamSubtitle")}</h2>
                     </div>
                     <div className="about__team__grid">
                         {teams.map((team) => (

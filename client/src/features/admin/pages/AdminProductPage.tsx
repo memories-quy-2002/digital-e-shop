@@ -2,14 +2,20 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Button, Form, Modal, Table } from "react-bootstrap";
 import ReactPaginate from "react-paginate";
 import { useNavigate } from "react-router-dom";
-import axios from "../../../api/axios";
-import { Product } from "../../../utils/interface";
+import type { Product } from "../../../types/product";
 import AdminLayout from "../../../components/layout/AdminLayout";
 import AdminWorkflowSteps from "../../../components/common/admin/AdminWorkflowSteps";
 import AdminProductItem from "../../../components/common/admin/AdminProductItem";
 import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
 import { Helmet } from "react-helmet";
 import { useToast } from "../../../context/ToastContext";
+import {
+    fetchAllProducts,
+    updateProduct,
+    deleteProduct,
+    updateProductInventory,
+    fetchInventoryMovements,
+} from "../api";
 import {
     highlightsFromText,
     highlightsToText,
@@ -86,29 +92,27 @@ const AdminProductPage = () => {
     const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>([]);
     const { addToast } = useToast();
 
-    const fetchInventoryMovements = async () => {
-        try {
-            const response = await axios.get("/api/products/admin/inventory-movements?limit=12");
-            setInventoryMovements(response.data.movements || []);
-        } catch {
-            setInventoryMovements([]);
-        }
-    };
-
     useEffect(() => {
-        const fetchProducts = async () => {
+        const loadProducts = async () => {
             try {
-                const response = await axios.get("/api/products");
-                if (response.status === 200) {
-                    setProducts((response.data.products || []).map(normalizeProduct).sort((a: Product, b: Product) => a.id - b.id));
-                }
+                const products = await fetchAllProducts();
+                setProducts(products.map(normalizeProduct).sort((a: Product, b: Product) => a.id - b.id));
             } catch {
                 addToast("Products", "Unable to load products.");
             }
         };
 
-        fetchProducts();
-        fetchInventoryMovements();
+        const loadMovements = async () => {
+            try {
+                const movements = await fetchInventoryMovements(12);
+                setInventoryMovements(movements);
+            } catch {
+                setInventoryMovements([]);
+            }
+        };
+
+        loadProducts();
+        loadMovements();
     }, [addToast]);
 
     const filteredProducts = useMemo(() => {
@@ -205,7 +209,7 @@ const AdminProductPage = () => {
 
         try {
             setIsSaving(true);
-            const response = await axios.put(`/api/products/${selectedProduct.id}`, {
+            const updated = await updateProduct(selectedProduct.id, {
                 name: editForm.name.trim(),
                 description: editForm.description.trim(),
                 category: editForm.category.trim(),
@@ -222,15 +226,13 @@ const AdminProductPage = () => {
                 }),
             });
 
-            if (response.status === 200) {
-                const updatedProduct = normalizeProduct(response.data.product);
-                setProducts((currentProducts) =>
-                    currentProducts.map((product) => (product.id === updatedProduct.id ? updatedProduct : product)),
-                );
-                fetchInventoryMovements();
-                addToast("Update product", `${updatedProduct.name} has been updated.`);
-                handleClose();
-            }
+            const updatedProduct = normalizeProduct(updated);
+            setProducts((currentProducts) =>
+                currentProducts.map((product) => (product.id === updatedProduct.id ? updatedProduct : product)),
+            );
+            setInventoryMovements(await fetchInventoryMovements(12));
+            addToast("Update product", `${updatedProduct.name} has been updated.`);
+            handleClose();
         } catch {
             addToast("Update product", "Unable to update product.");
         } finally {
@@ -245,15 +247,11 @@ const AdminProductPage = () => {
 
         try {
             setIsDeleting(true);
-            const response = await axios.delete("/api/products/", {
-                data: { pid: selectedProduct.id },
-            });
-            if (response.status === 200) {
-                setProducts((currentProducts) => currentProducts.filter((product) => product.id !== selectedProduct.id));
-                addToast("Hide product", `${selectedProduct.name} has been hidden from the catalog.`);
-                setShowDeleteConfirm(false);
-                handleClose();
-            }
+            await deleteProduct(selectedProduct.id);
+            setProducts((currentProducts) => currentProducts.filter((product) => product.id !== selectedProduct.id));
+            addToast("Hide product", `${selectedProduct.name} has been hidden from the catalog.`);
+            setShowDeleteConfirm(false);
+            handleClose();
         } catch {
             addToast("Hide product", "Unable to hide product.");
         } finally {
@@ -273,16 +271,14 @@ const AdminProductPage = () => {
         }
 
         try {
-            const response = await axios.put(`/api/products/${product.id}/inventory`, { stock });
-            if (response.status === 200) {
-                const updatedProduct = normalizeProduct(response.data.product);
-                setProducts((currentProducts) =>
-                    currentProducts.map((item) => (item.id === updatedProduct.id ? updatedProduct : item)),
-                );
-                setRestockValues((current) => ({ ...current, [product.id]: "" }));
-                fetchInventoryMovements();
-                addToast("Inventory", `${updatedProduct.name} stock updated.`);
-            }
+            const updated = await updateProductInventory(product.id, stock);
+            const updatedProduct = normalizeProduct(updated);
+            setProducts((currentProducts) =>
+                currentProducts.map((item) => (item.id === updatedProduct.id ? updatedProduct : item)),
+            );
+            setRestockValues((current) => ({ ...current, [product.id]: "" }));
+            setInventoryMovements(await fetchInventoryMovements(12));
+            addToast("Inventory", `${updatedProduct.name} stock updated.`);
         } catch {
             addToast("Inventory", "Unable to update stock.");
         }

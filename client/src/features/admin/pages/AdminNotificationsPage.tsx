@@ -1,12 +1,12 @@
 import React, { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet";
 import { useNavigate } from "react-router-dom";
-import axios from "../../../api/axios";
 import { useToast } from "../../../context/ToastContext";
-import { Product } from "../../../utils/interface";
+import type { Product } from "../../../types/product";
 import { formatUtcDateTime } from "../../../utils/dateTime";
 import { BellFillIcon, BoxSeamIcon, CartIcon, CashStackIcon, PersonIcon } from "../../../components/common/Icons";
 import AdminLayout from "../../../components/layout/AdminLayout";
+import { fetchAllOrders, fetchAllProducts, fetchAllUsers } from "../api";
 
 type NotificationType = "order" | "inventory" | "payment" | "customer";
 
@@ -158,17 +158,17 @@ const AdminNotificationsPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const deferredSearchTerm = useDeferredValue(searchTerm);
 
-    const fetchNotifications = async () => {
+    const loadNotifications = async () => {
         try {
             setIsLoading(true);
-            const [orderResponse, productResponse, accountResponse] = await Promise.all([
-                axios.get("/api/orders"),
-                axios.get("/api/products"),
-                axios.get("/api/users"),
+            const [orderData, productData, accountData] = await Promise.all([
+                fetchAllOrders(),
+                fetchAllProducts(),
+                fetchAllUsers(),
             ]);
-            setOrders(orderResponse.data?.orders || []);
-            setProducts(productResponse.data?.products || []);
-            setAccounts(accountResponse.data?.accounts || []);
+            setOrders(orderData || []);
+            setProducts(productData || []);
+            setAccounts(accountData || []);
         } catch {
             addToast("Notifications", "Unable to load admin notifications.");
         } finally {
@@ -177,7 +177,7 @@ const AdminNotificationsPage = () => {
     };
 
     useEffect(() => {
-        fetchNotifications();
+        loadNotifications();
     }, []);
 
     const notifications = useMemo(
@@ -225,7 +225,7 @@ const AdminNotificationsPage = () => {
                         </p>
                     </div>
                     <div className="admin__page__actions">
-                        <button type="button" className="admin__button admin__button--ghost" onClick={fetchNotifications}>
+                        <button type="button" className="admin__button admin__button--ghost" onClick={loadNotifications}>
                             Refresh
                         </button>
                         <button

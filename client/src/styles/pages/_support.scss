@@ -5,8 +5,8 @@
         position: relative;
         overflow: hidden;
         border-radius: 28px;
-        background: #0f172a;
-        color: #fff;
+        background: var(--de-color-bg-strong);
+        color: var(--de-color-on-accent);
         padding: 2rem;
         min-height: 470px;
         display: grid;
@@ -42,7 +42,7 @@
             margin: 1rem 0 0;
             font-size: clamp(2.3rem, 5vw, 4.6rem);
             line-height: 1.03;
-            color: #fff;
+            color: var(--de-color-on-accent);
         }
 
         p {
@@ -85,9 +85,9 @@
     &__resources__card {
         border: 1px solid var(--info-line);
         border-radius: 18px;
-        background: #fff;
+        background: var(--de-color-surface-strong);
         padding: 1.35rem;
-        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.06);
+        box-shadow: var(--de-shadow-sm);
 
         h3 {
             margin: 0;
@@ -96,7 +96,7 @@
 
         p {
             margin: 0.65rem 0;
-            color: #475569;
+            color: var(--info-muted);
             line-height: 1.65;
         }
     }
@@ -107,7 +107,7 @@
 
         span {
             margin-top: auto;
-            color: #2563eb;
+            color: var(--de-color-primary-emphasis);
             font-weight: 800;
         }
 
@@ -117,7 +117,7 @@
             border: none;
             border-radius: 999px;
             background: var(--info-ink);
-            color: #fff;
+            color: var(--de-color-on-accent);
             padding: 0.72rem 1rem;
             font-weight: 900;
             cursor: pointer;
@@ -132,7 +132,7 @@
     &__faq__item {
         border: 1px solid var(--info-line);
         border-radius: 18px;
-        background: #fff;
+        background: var(--de-color-surface-strong);
         padding: 1rem 1.15rem;
         text-align: left;
         cursor: pointer;
@@ -155,21 +155,21 @@
                 align-items: center;
                 justify-content: center;
                 border-radius: 999px;
-                background: #eff6ff;
-                color: #1d4ed8;
+                background: var(--de-color-primary-emphasis-soft);
+                color: var(--de-color-primary-emphasis);
                 font-size: 1.2rem;
             }
         }
 
         &__a {
             margin-top: 0.75rem;
-            color: #475569;
+            color: var(--info-muted);
             line-height: 1.7;
         }
 
         &.active {
-            border-color: #93c5fd;
-            box-shadow: 0 16px 32px rgba(37, 99, 235, 0.1);
+            border-color: var(--de-color-primary-emphasis);
+            box-shadow: var(--de-shadow-info-soft);
         }
     }
 }

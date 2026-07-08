@@ -6,7 +6,7 @@
 .storefront-skeleton {
     position: relative;
     overflow: hidden;
-    background: #e2e8f0;
+    background: var(--de-color-surface-hover);
     border-radius: var(--de-radius-sm);
 
     &::after {
@@ -14,8 +14,9 @@
         position: absolute;
         inset: 0;
         transform: translateX(-100%);
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+        background: linear-gradient(90deg, transparent, var(--de-color-on-accent), transparent);
         animation: storefront-skeleton 1.35s ease-in-out infinite;
+        opacity: 0.7;
     }
 
     &--line {
@@ -71,8 +72,8 @@
     gap: 0.9rem;
     padding: 1rem;
     border-radius: var(--de-radius-md);
-    border: 1px solid rgba(226, 232, 240, 0.9);
-    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid var(--de-color-border);
+    background: var(--de-color-surface-strong);
     box-shadow: var(--de-shadow-sm);
 
     &__image {
@@ -102,10 +103,10 @@
         min-height: 260px;
         padding: var(--de-space-5);
         border-radius: var(--de-radius-lg);
-        border: 1px solid rgba(191, 219, 254, 0.58);
+        border: 1px solid var(--de-color-primary-soft);
         background:
-            radial-gradient(circle at top right, rgba(191, 219, 254, 0.75), transparent 44%),
-            linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(239, 246, 255, 0.92) 100%);
+            radial-gradient(circle at top right, var(--de-color-primary-tint), transparent 44%),
+            linear-gradient(180deg, var(--de-color-surface-strong) 0%, var(--de-color-primary-tint) 100%);
         box-shadow: var(--de-shadow-md);
 
         @media (min-width: 768px) {

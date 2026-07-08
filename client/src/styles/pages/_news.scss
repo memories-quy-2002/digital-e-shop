@@ -8,7 +8,7 @@
         align-items: end;
         overflow: hidden;
         border-radius: 28px;
-        background: var(--info-ink);
+        background: #152235;
         color: #fff;
 
         > img {
@@ -49,13 +49,18 @@
         p {
             max-width: 620px;
             margin: 1rem 0 0;
-            color: rgba(248, 250, 252, 0.86);
+            color: rgba(255, 255, 255, 0.86);
             font-size: 1.08rem;
             line-height: 1.75;
         }
 
         &__actions {
             margin-top: 1.6rem;
+
+            .ghost {
+                color: #fff;
+                border-color: rgba(255, 255, 255, 0.35);
+            }
         }
 
         &__ticker {
@@ -71,7 +76,7 @@
                 background: rgba(255, 255, 255, 0.12);
                 border: 1px solid rgba(255, 255, 255, 0.16);
                 padding: 0.75rem 0.85rem;
-                color: #e2e8f0;
+                color: #fff;
                 font-weight: 800;
             }
 
@@ -88,8 +93,8 @@
         overflow: hidden;
         border: 1px solid var(--info-line);
         border-radius: 24px;
-        background: #fff;
-        box-shadow: 0 22px 45px rgba(15, 23, 42, 0.08);
+        background: var(--de-color-surface-strong);
+        box-shadow: var(--de-shadow-md);
 
         @media (min-width: 960px) {
             grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
@@ -119,8 +124,8 @@
         &__tag {
             width: fit-content;
             border-radius: 999px;
-            background: #e0f2fe;
-            color: #0369a1;
+            background: var(--de-color-sky-soft);
+            color: var(--de-color-info-strong);
             padding: 0.36rem 0.78rem;
             font-size: 0.78rem;
             font-weight: 900;
@@ -136,7 +141,7 @@
 
         p {
             margin: 0;
-            color: #475569;
+            color: var(--info-muted);
             line-height: 1.75;
         }
 
@@ -147,8 +152,8 @@
 
             span {
                 border-radius: 999px;
-                background: #f1f5f9;
-                color: #475569;
+                background: var(--de-color-surface-hover);
+                color: var(--info-muted);
                 padding: 0.36rem 0.72rem;
                 font-size: 0.85rem;
                 font-weight: 800;
@@ -174,9 +179,9 @@
         gap: 0.9rem;
         border: 1px solid var(--info-line);
         border-radius: 18px;
-        background: #fff;
+        background: var(--de-color-surface-strong);
         padding: 1.35rem;
-        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.06);
+        box-shadow: var(--de-shadow-sm);
 
         &__top,
         &__meta {
@@ -189,7 +194,7 @@
         }
 
         &__top span {
-            color: #1d4ed8;
+            color: var(--de-color-primary-emphasis);
             font-weight: 900;
             text-transform: uppercase;
         }
@@ -203,13 +208,13 @@
 
         p {
             margin: 0;
-            color: #475569;
+            color: var(--info-muted);
             line-height: 1.65;
         }
 
         &__meta {
             margin-top: auto;
-            border-top: 1px solid #eef2f7;
+            border-top: 1px solid var(--info-line);
             padding-top: 0.9rem;
         }
     }
