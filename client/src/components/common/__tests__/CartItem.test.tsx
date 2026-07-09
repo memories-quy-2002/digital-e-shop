@@ -3,12 +3,16 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import React from "react";
 import CartItem from "../CartItem";
 import { CartValidationIssue } from "../../../features/orders/types";
+import { LocaleProvider } from "../../../context/LocaleContext";
 
 vi.mock("../../../utils/loadImage", () => ({
     default: (imageUrl: string | null, alt: string) => (
         <img src={imageUrl ?? "placeholder"} alt={alt} data-testid="load-image" />
     ),
 }));
+
+const renderWithLocale = (ui: React.ReactElement) =>
+    render(<LocaleProvider>{ui}</LocaleProvider>);
 
 const baseItem = {
     cartItemId: 42,
@@ -25,7 +29,7 @@ const baseItem = {
 
 describe("CartItem", () => {
     it("renders brand, product name and category", () => {
-        render(
+        renderWithLocale(
             <CartItem
                 item={baseItem}
                 handleQuantityChange={vi.fn()}
@@ -39,7 +43,7 @@ describe("CartItem", () => {
     });
 
     it("uses sale_price when present for the line total", () => {
-        render(
+        renderWithLocale(
             <CartItem
                 item={baseItem}
                 handleQuantityChange={vi.fn()}
@@ -52,7 +56,7 @@ describe("CartItem", () => {
     });
 
     it("falls back to price when sale_price is null", () => {
-        render(
+        renderWithLocale(
             <CartItem
                 item={{ ...baseItem, sale_price: null }}
                 handleQuantityChange={vi.fn()}
@@ -65,7 +69,7 @@ describe("CartItem", () => {
     });
 
     it("strips .jpg from main_image when building image URL", () => {
-        render(
+        renderWithLocale(
             <CartItem
                 item={baseItem}
                 handleQuantityChange={vi.fn()}
@@ -78,7 +82,7 @@ describe("CartItem", () => {
     });
 
     it("uses placeholder when main_image is empty", () => {
-        render(
+        renderWithLocale(
             <CartItem
                 item={{ ...baseItem, main_image: "" }}
                 handleQuantityChange={vi.fn()}
@@ -91,7 +95,7 @@ describe("CartItem", () => {
     });
 
     it("applies is-invalid class when a validation issue is present", () => {
-        const { container } = render(
+        const { container } = renderWithLocale(
             <CartItem
                 item={baseItem}
                 validationIssue={{ reason: "out_of_stock", availableStock: 0 } as CartValidationIssue}
@@ -105,7 +109,7 @@ describe("CartItem", () => {
     });
 
     it("renders the unavailable message when reason is unavailable", () => {
-        render(
+        renderWithLocale(
             <CartItem
                 item={baseItem}
                 validationIssue={{ reason: "unavailable" } as CartValidationIssue}
@@ -118,7 +122,7 @@ describe("CartItem", () => {
     });
 
     it("renders the insufficient stock message with available count", () => {
-        render(
+        renderWithLocale(
             <CartItem
                 item={baseItem}
                 validationIssue={{ reason: "insufficient_stock", availableStock: 3 } as CartValidationIssue}
@@ -131,7 +135,7 @@ describe("CartItem", () => {
     });
 
     it("shows low stock hint when stock is between 1 and 5", () => {
-        render(
+        renderWithLocale(
             <CartItem
                 item={{ ...baseItem, stock: 3 }}
                 handleQuantityChange={vi.fn()}
@@ -143,7 +147,7 @@ describe("CartItem", () => {
     });
 
     it("does not show low stock hint when stock is above 5", () => {
-        render(
+        renderWithLocale(
             <CartItem
                 item={baseItem}
                 handleQuantityChange={vi.fn()}
@@ -156,7 +160,7 @@ describe("CartItem", () => {
 
     it("calls handleQuantityChange with the cartItemId and the event", () => {
         const onQuantityChange = vi.fn();
-        render(
+        renderWithLocale(
             <CartItem
                 item={baseItem}
                 handleQuantityChange={onQuantityChange}
@@ -176,7 +180,7 @@ describe("CartItem", () => {
 
     it("calls handleRemoveCartItem when the remove button is clicked", () => {
         const onRemove = vi.fn();
-        render(
+        renderWithLocale(
             <CartItem
                 item={baseItem}
                 handleQuantityChange={vi.fn()}
@@ -189,7 +193,7 @@ describe("CartItem", () => {
     });
 
     it("clamps the max attribute to at least 1 even when stock is 0", () => {
-        render(
+        renderWithLocale(
             <CartItem
                 item={{ ...baseItem, stock: 0 }}
                 handleQuantityChange={vi.fn()}
