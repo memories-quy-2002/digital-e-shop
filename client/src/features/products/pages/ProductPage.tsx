@@ -1,19 +1,19 @@
-import React, { Activity, useActionState, useEffect, useMemo, useOptimistic, useState } from "react";
+import React, { Activity, useActionState, useEffect, useEffectEvent, useMemo, useOptimistic, useState } from "react";
 import { Helmet } from "react-helmet";
 import { Link, useLocation } from "react-router-dom";
 import {
     StarFillIcon,
     StarIcon,
 } from "../../../components/common/Icons";
+import ImageLightbox from "../../../components/common/ImageLightbox";
 import Layout from "../../../components/layout/Layout";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
 import productPlaceholder from "../../../assets/images/product_placeholder.jpg";
 import NoPage from "../../../pages/NotFoundPage";
-import axios from "../../../api/axios";
 import "../../../styles/pages/_product.scss";
 import { formatUtcDate } from "../../../utils/dateTime";
-import { Product } from "../../../utils/interface";
+import type { Product, Review, ReviewSummary, Wishlist } from "../../../types/product";
 import LazyLoadImage from "../../../utils/LazyLoadingImage";
 import {
     PRODUCT_GALLERY_WIDTHS,
@@ -24,26 +24,18 @@ import {
 import { parseProductDetails } from "../../../utils/productDetails";
 import ratingStar from "../../../utils/ratingStar";
 import RecommendedProduct from "../components/RecommendedProduct";
-
-type Wishlist = {
-    id: number;
-    product: Product;
-};
-
-type Review = {
-    id?: number;
-    username: string;
-    rating: number;
-    reviewText: string;
-    created_at: string;
-    verified_purchase?: boolean;
-};
-
-type ReviewSummary = {
-    total: number;
-    average: number;
-    distribution: Record<1 | 2 | 3 | 4 | 5, number>;
-};
+import {
+    fetchProduct,
+    fetchRelevantProducts,
+    fetchWishlist,
+    fetchReviews,
+    submitReview,
+    addToCart,
+    addToWishlist,
+    removeFromWishlist,
+} from "../api";
+import { useRecentlyViewed } from "../../../hooks/useRecentlyViewed";
+import { useT } from "../../../hooks/useT";
 
 type ReviewActionState = {
     status: "idle" | "success" | "error";
@@ -114,6 +106,16 @@ const ProductPage = () => {
         wishlist,
         (currentWishlist: Wishlist[], mutation: WishlistMutation) => applyWishlistMutation(currentWishlist, mutation),
     );
+    const [optimisticReviews, applyOptimisticReview] = useOptimistic(
+        reviews,
+        (currentReviews: Review[], newReview: Review) => [newReview, ...currentReviews],
+    );
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const recentlyViewed = useRecentlyViewed();
+    const trackRecentlyViewed = useEffectEvent((product: Product) => {
+        recentlyViewed.track(product);
+    });
+    const t = useT();
     const [reviewActionState, submitReviewAction, isSubmittingReview] = useActionState(
         async (_previousState: ReviewActionState, formData: FormData): Promise<ReviewActionState> => {
             if (!uid) {
@@ -142,34 +144,29 @@ const ProductPage = () => {
             }
 
             try {
-                const response = await axios.post("/api/reviews/", {
-                    uid,
-                    pid: productDetail.id,
+                const optimisticReview: Review = {
+                    id: undefined,
+                    username: userData?.username || userData?.email?.split("@")[0] || "You",
                     rating: ratingScore,
                     reviewText: nextReviewText,
-                    comment: nextReviewText,
-                });
+                    created_at: new Date().toISOString(),
+                    verified_purchase: false,
+                };
+                applyOptimisticReview(optimisticReview);
 
-                if (response.status !== 200 && response.status !== 201) {
-                    throw new Error("Unexpected review response");
-                }
-
-                const [reviewsResponse, productResponse] = await Promise.all([
-                    axios.get(`/api/reviews/${productDetail.id}`),
-                    axios.get(`/api/products/${productDetail.id}`),
+                await submitReview(uid, productDetail.id, ratingScore, nextReviewText);
+                const [updatedReviews, updatedProduct] = await Promise.all([
+                    fetchReviews(productDetail.id),
+                    fetchProduct(productDetail.id),
                 ]);
 
                 return {
                     status: "success",
                     title: "Submit review",
                     message: "Review has been submitted successfully.",
-                    reviews:
-                        reviewsResponse.status === 200
-                            ? normalizeReviews(reviewsResponse.data.reviews || [])
-                            : undefined,
-                    summary:
-                        reviewsResponse.status === 200 ? normalizeSummary(reviewsResponse.data.summary) : undefined,
-                    product: productResponse.status === 200 ? productResponse.data.product : undefined,
+                    reviews: updatedReviews.reviews,
+                    summary: updatedReviews.summary,
+                    product: updatedProduct || undefined,
                 };
             } catch {
                 return {
@@ -193,106 +190,63 @@ const ProductPage = () => {
         [productDetail.specifications],
     );
 
-    const normalizeReviews = (items: any[] = []): Review[] =>
-        items.map((review: any) => ({
-            id: review.id,
-            username: review.username,
-            rating: Number(review.rating) || 0,
-            reviewText: review.review_text || review.reviewText || "",
-            created_at: review.created_at,
-            verified_purchase: Boolean(review.verified_purchase),
-        }));
-
-    const normalizeSummary = (summary?: any): ReviewSummary => ({
-        total: Number(summary?.total) || 0,
-        average: Number(summary?.average) || 0,
-        distribution: {
-            5: Number(summary?.distribution?.[5]) || 0,
-            4: Number(summary?.distribution?.[4]) || 0,
-            3: Number(summary?.distribution?.[3]) || 0,
-            2: Number(summary?.distribution?.[2]) || 0,
-            1: Number(summary?.distribution?.[1]) || 0,
-        },
-    });
-
-    useEffect(() => {
-        const fetchSingleProduct = async () => {
-            try {
-                const response = await axios.get(`/api/products/${pid}`);
-                if (response.status === 200) {
-                    setProductDetail(response.data.product);
-                }
-            } catch {
-                addToast("Product", "Unable to load product details.");
-            }
-        };
-        fetchSingleProduct();
-    }, [addToast, pid]);
-
     const wishlistIdSet = useMemo(
         () => new Set(optimisticWishlist.map((item) => item.product.id)),
         [optimisticWishlist],
     );
 
     useEffect(() => {
-        const fetchWishlist = async () => {
+        const loadProduct = async () => {
             try {
-                const response = await axios.get(`/api/wishlist/${uid}`);
-
-                if (response.status === 200) {
-                    const newWishlist: Wishlist[] = response.data.wishlist.map((item: any) => {
-                        const { id, product_id, ...productProps } = item;
-
-                        return {
-                            id,
-                            product: {
-                                id: product_id,
-                                ...productProps,
-                            },
-                        };
-                    });
-
-                    setWishlist(newWishlist);
+                const product = await fetchProduct(pid);
+                if (product) {
+                    setProductDetail(product);
+                    trackRecentlyViewed(product);
                 }
             } catch {
-                if (uid) {
-                    addToast("Wishlist", "Unable to load wishlist.");
-                }
+                addToast("Product", "Unable to load product details.");
             }
         };
-        fetchWishlist();
+        loadProduct();
+    }, [addToast, pid, trackRecentlyViewed]);
+
+    useEffect(() => {
+        const loadWishlist = async () => {
+            if (!uid) return;
+            try {
+                const items = await fetchWishlist(uid);
+                setWishlist(items);
+            } catch {
+                addToast("Wishlist", "Unable to load wishlist.");
+            }
+        };
+        loadWishlist();
     }, [addToast, uid]);
 
     useEffect(() => {
-        const fetchRelevantProducts = async () => {
+        const loadRelevantProducts = async () => {
             try {
-                const response = await axios.get(`/api/products/relevant/${pid}`);
-                if (response.status === 200) {
-                    setRelevantProducts(response.data.relevantProducts || []);
-                }
+                const products = await fetchRelevantProducts(pid);
+                setRelevantProducts(products);
             } catch {
                 addToast("Recommendations", "Unable to load relevant products.");
             }
         };
-        fetchRelevantProducts();
+        loadRelevantProducts();
     }, [addToast, pid]);
 
     useEffect(() => {
-        const fetchReviews = async () => {
+        const loadReviews = async () => {
             if (!productDetail.id) return;
-
             try {
-                const response = await axios.get(`/api/reviews/${productDetail.id}`);
-
-                if (response.status === 200) {
-                    setReviews(normalizeReviews(response.data.reviews || []));
-                    setReviewSummary(normalizeSummary(response.data.summary));
-                }
+                const result = await fetchReviews(productDetail.id);
+                setReviews(result.reviews);
+                setReviewSummary(result.summary);
             } catch {
                 addToast("Reviews", "Unable to load reviews.");
             }
         };
-        fetchReviews();
+        loadReviews();
     }, [addToast, productDetail.id]);
 
     useEffect(() => {
@@ -351,16 +305,8 @@ const ProductPage = () => {
             }
         }
         try {
-            const response = await axios.post("/api/cart/", {
-                uid: user_id,
-                pid: product.id,
-                quantity: quantity,
-            });
-            if (response.status === 200) {
-                addToast("Add cart item", "Product added to cart successfully.");
-            } else if (response.status === 204) {
-                addToast("Invalid action", "The product is already in your cart.");
-            }
+            await addToCart(user_id, product.id, quantity);
+            addToast("Add cart item", "Product added to cart successfully.");
         } catch {
             addToast("Add cart item", "Unable to add item to cart.");
         }
@@ -397,25 +343,12 @@ const ProductPage = () => {
 
         try {
             if (exists) {
-                const response = await axios.delete(`/api/wishlist/${product_id}`, {
-                    data: {
-                        uid: user_id,
-                    },
-                });
-                if (response.status !== 200) {
-                    throw new Error("Wishlist delete failed");
-                }
+                await removeFromWishlist(product_id);
                 if (mutation) {
                     setWishlist((list) => applyWishlistMutation(list, mutation));
                 }
             } else {
-                const response = await axios.post("/api/wishlist/", {
-                    uid: user_id,
-                    pid: product_id,
-                });
-                if (response.status !== 200) {
-                    throw new Error("Wishlist add failed");
-                }
+                await addToWishlist(user_id, product_id);
                 if (mutation) {
                     setWishlist((list) => applyWishlistMutation(list, mutation));
                 }
@@ -451,16 +384,19 @@ const ProductPage = () => {
     const activePrice = productDetail.sale_price || productDetail.price;
     const heroStats = [
         {
-            label: "Rating",
+            label: t("product.ratingLabel"),
             value: `${displayedRating.toFixed(1)} / 5`,
         },
         {
-            label: "Price",
+            label: t("product.priceLabel"),
             value: formatCurrency(activePrice),
         },
         {
-            label: "Stock",
-            value: productDetail.stock > 0 ? `${productDetail.stock} available` : "Out of stock",
+            label: t("product.stockLabel"),
+            value:
+                productDetail.stock > 0
+                    ? t("product.stockValueIn", productDetail.stock)
+                    : t("product.stockValueOut"),
         },
     ];
 
@@ -482,22 +418,36 @@ const ProductPage = () => {
                 <section className="product-page__hero">
                     <div className="product-page__gallery">
                         <div className="product-page__gallery-meta">
-                            <span>Product view</span>
-                            <strong>{allImages.length > 1 ? `${allImages.length} gallery images` : "Single product image"}</strong>
+                            <span>{t("product.view")}</span>
+                            <strong>
+                                {allImages.length > 1
+                                    ? t("product.galleryImages", allImages.length)
+                                    : t("product.singleImage")}
+                            </strong>
                         </div>
                         <div className="product-page__gallery-main">
                             {activeImageUrl ? (
-                                <LazyLoadImage
-                                    src={activeResponsiveImage?.src || activeImageUrl}
-                                    srcSet={activeResponsiveImage?.srcSet}
-                                    sizes={activeResponsiveImage?.sizes}
-                                    alt={productDetail.name}
-                                    eager
-                                    fetchPriority="high"
-                                    onError={(e) => {
-                                        e.currentTarget.src = placeholderImageSource.src;
-                                    }}
-                                />
+                                <button
+                                    type="button"
+                                    className="product-page__gallery-main__zoom"
+                                    onClick={() => setIsLightboxOpen(true)}
+                                    aria-label={`Open ${productDetail.name} image in full size`}
+                                >
+                                    <LazyLoadImage
+                                        src={activeResponsiveImage?.src || activeImageUrl}
+                                        srcSet={activeResponsiveImage?.srcSet}
+                                        sizes={activeResponsiveImage?.sizes}
+                                        alt={productDetail.name}
+                                        eager
+                                        fetchPriority="high"
+                                        onError={(e) => {
+                                            e.currentTarget.src = placeholderImageSource.src;
+                                        }}
+                                    />
+                                    <span className="product-page__gallery-main__zoom-hint">
+                                        {t("product.zoomHint")}
+                                    </span>
+                                </button>
                             ) : (
                                 <img
                                     src={placeholderImageSource.src}
@@ -545,10 +495,10 @@ const ProductPage = () => {
                             <div className="product-page__summary-header">
                                 <div className="product-page__meta">
                                     <span className="product-page__meta-chip">
-                                        {productDetail.category || "Catalog item"}
+                                        {productDetail.category || t("product.categoryFallback")}
                                     </span>
                                     <span className="product-page__meta-dot"></span>
-                                    <span>{productDetail.brand || "Digital-E"}</span>
+                                    <span>{productDetail.brand || t("product.brandFallback")}</span>
                                 </div>
                                 <h1 id="product-hero-title" className="product-page__title">
                                     {productDetail.name}
@@ -568,7 +518,7 @@ const ProductPage = () => {
                         <div className="product-page__purchase-card">
                             <div className="product-page__actions">
                                 <label className="product-page__quantity-field" htmlFor="quantity">
-                                    <span>Quantity</span>
+                                    <span>{t("product.quantity")}</span>
                                     <div className="product-page__quantity">
                                         <button type="button" onClick={handleDecrease} disabled={productDetail.stock <= 0}>
                                             -
@@ -596,8 +546,8 @@ const ProductPage = () => {
                                     </div>
                                     <small>
                                         {productDetail.stock > 0
-                                            ? `${productDetail.stock} available now`
-                                            : "This item is currently unavailable"}
+                                            ? t("product.stockIn", productDetail.stock)
+                                            : t("product.stockOut")}
                                     </small>
                                 </label>
                                 <button
@@ -612,7 +562,7 @@ const ProductPage = () => {
                                     }}
                                     disabled={productDetail.stock <= 0}
                                 >
-                                    Add to cart
+                                    {t("product.addToCart")}
                                 </button>
                                 <button
                                     className={`product-page__button product-page__button--secondary${
@@ -628,7 +578,7 @@ const ProductPage = () => {
                                     }}
                                     disabled={pendingWishlistIds.includes(productDetail.id)}
                                 >
-                                    {isWishlisted ? "Saved to wishlist" : "Save to wishlist"}
+                                    {isWishlisted ? t("product.savedToWishlist") : t("product.saveToWishlist")}
                                 </button>
                             </div>
                         </div>
@@ -642,14 +592,14 @@ const ProductPage = () => {
                             className={`product-page__tab${!toggle ? " product-page__tab--active" : ""}`}
                             onClick={() => setToggle(false)}
                         >
-                            Description
+                            {t("product.tabsDescription")}
                         </button>
                         <button
                             type="button"
                             className={`product-page__tab${toggle ? " product-page__tab--active" : ""}`}
                             onClick={() => setToggle(true)}
                         >
-                            Reviews ({reviews.length})
+                            {t("product.tabsReviews", optimisticReviews.length)}
                         </button>
                         <div className="product-page__tabs-line"></div>
                     </div>
@@ -659,27 +609,27 @@ const ProductPage = () => {
                     <Activity mode={toggle ? "hidden" : "visible"}>
                         <div className="product-page__description">
                             <div className="product-page__description-card">
-                                <h2>Description</h2>
+                                <h2>{t("product.description")}</h2>
                                 <p>{productDetail.description}</p>
                             </div>
                             <div className="product-page__description-card">
-                                <h2>Key details</h2>
+                                <h2>{t("product.keyDetails")}</h2>
                                 <div className="product-page__details-grid">
                                     <div>
-                                        <span>Brand</span>
-                                        <strong>{productDetail.brand || "Not specified"}</strong>
+                                        <span>{t("product.brandLabel")}</span>
+                                        <strong>{productDetail.brand || t("product.notSpecified")}</strong>
                                     </div>
                                     <div>
-                                        <span>Category</span>
-                                        <strong>{productDetail.category || "Not specified"}</strong>
+                                        <span>{t("product.categoryLabel")}</span>
+                                        <strong>{productDetail.category || t("product.notSpecified")}</strong>
                                     </div>
                                     <div>
-                                        <span>Model</span>
-                                        <strong>{productDetails.model || "Not specified"}</strong>
+                                        <span>{t("product.modelLabel")}</span>
+                                        <strong>{productDetails.model || t("product.notSpecified")}</strong>
                                     </div>
                                     <div>
-                                        <span>Warranty</span>
-                                        <strong>{productDetails.warranty || "12 months"}</strong>
+                                        <span>{t("product.warrantyLabel")}</span>
+                                        <strong>{productDetails.warranty || t("product.warrantyFallback")}</strong>
                                     </div>
                                 </div>
                                 {productDetails.datasheet ? (
@@ -689,12 +639,12 @@ const ProductPage = () => {
                                         target="_blank"
                                         rel="noreferrer"
                                     >
-                                        View datasheet
+                                        {t("product.datasheet")}
                                     </a>
                                 ) : null}
                             </div>
                             <div className="product-page__description-card product-page__description-card--wide">
-                                <h2>Specifications</h2>
+                                <h2>{t("product.specifications")}</h2>
                                 {productDetails.specifications.length > 0 ? (
                                     <div className="product-page__spec-table">
                                         {productDetails.specifications.map((item, index) => (
@@ -705,7 +655,7 @@ const ProductPage = () => {
                                         ))}
                                     </div>
                                 ) : (
-                                    <p>No specifications provided yet.</p>
+                                    <p>{t("product.noSpecifications")}</p>
                                 )}
                             </div>
                         </div>
@@ -718,7 +668,7 @@ const ProductPage = () => {
                                     <div className="product-page__reviews-score">
                                         <strong>{displayedRating.toFixed(1)}</strong>
                                         <span>{ratingStar(displayedRating, "#FFCC4A", 20)}</span>
-                                        <p>{displayedReviewCount} customer reviews</p>
+                                        <p>{t("product.reviewsCount", displayedReviewCount)}</p>
                                     </div>
                                     <div className="product-page__reviews-bars">
                                         {ratingDistribution.map((star) => {
@@ -740,11 +690,11 @@ const ProductPage = () => {
 
                                 {!uid ? (
                                     <div className="product-page__reviews-state">
-                                        Login to write a review and rate this product.
+                                        {t("product.loginToReview")}
                                     </div>
                                 ) : (
                                     <form action={submitReviewAction} className="product-page__reviews-form">
-                                        <h2>Write a review</h2>
+                                        <h2>{t("product.writeReview")}</h2>
                                         <div className="product-page__reviews-stars">
                                             {[1, 2, 3, 4, 5].map((rating) => (
                                                 <button
@@ -756,7 +706,7 @@ const ProductPage = () => {
                                                             : "product-page__reviews-star"
                                                     }
                                                     onClick={() => handleStarClick(rating)}
-                                                    aria-label={`Rate ${rating} stars`}
+                                                    aria-label={t("product.rateStars", rating)}
                                                 >
                                                     {rating <= ratingScore ? (
                                                         <StarFillIcon size={22} color="#FFCC4A" />
@@ -765,7 +715,9 @@ const ProductPage = () => {
                                                     )}
                                                 </button>
                                             ))}
-                                            <span>{ratingScore > 0 ? `${ratingScore}/5` : "Select rating"}</span>
+                                            <span>
+                                                {ratingScore > 0 ? `${ratingScore}/5` : t("product.selectRating")}
+                                            </span>
                                         </div>
                                         <textarea
                                             name="review"
@@ -773,27 +725,27 @@ const ProductPage = () => {
                                             value={reviewText}
                                             onChange={(event) => setReviewText(event.target.value)}
                                             rows={5}
-                                            placeholder="Share what stood out, how you used it, and whether you recommend it."
+                                            placeholder={t("product.reviewPlaceholder")}
                                         ></textarea>
                                         {isSubmittingReview ? (
                                             <span className="product-page__reviews-status">
-                                                Submitting your review...
+                                                {t("product.submittingReview")}
                                             </span>
                                         ) : null}
                                         <button type="submit" disabled={isSubmittingReview}>
-                                            {isSubmittingReview ? "Submitting..." : "Submit review"}
+                                            {isSubmittingReview ? t("common.submitting") : t("product.submitReview")}
                                         </button>
                                     </form>
                                 )}
 
                                 <section className="product-page__reviews-list">
                                     <div className="product-page__reviews-list-header">
-                                        <h2>Customer reviews</h2>
-                                        <span>{reviews.length} visible</span>
+                                        <h2>{t("product.reviewsTitle")}</h2>
+                                        <span>{t("product.reviewsVisible", optimisticReviews.length)}</span>
                                     </div>
-                                    {reviews.length > 0 ? (
+                                    {optimisticReviews.length > 0 ? (
                                         <div className="product-page__reviews-items">
-                                            {reviews.map((review, index) => (
+                                            {optimisticReviews.map((review, index) => (
                                                 <article
                                                     key={review.id || index}
                                                     className="product-page__reviews-item"
@@ -802,7 +754,7 @@ const ProductPage = () => {
                                                         <div>
                                                             <strong>{review.username}</strong>
                                                             {review.verified_purchase ? (
-                                                                <span>Verified purchase</span>
+                                                                <span>{t("product.verifiedPurchase")}</span>
                                                             ) : null}
                                                         </div>
                                                         <small>{formatUtcDate(review.created_at)}</small>
@@ -816,7 +768,7 @@ const ProductPage = () => {
                                         </div>
                                     ) : (
                                         <div className="product-page__reviews-state">
-                                            No reviews yet. Be the first to rate this product.
+                                            {t("product.noReviews")}
                                         </div>
                                     )}
                                 </section>
@@ -827,13 +779,24 @@ const ProductPage = () => {
 
                 <section className="product-page__recommendations-shell">
                     <div className="product-page__recommendations-head">
-                        <h2 className="product-page__recommendations-title">Recommended products</h2>
+                        <h2 className="product-page__recommendations-title">
+                            {t("product.recommendationsTitle")}
+                        </h2>
                         <Link to="/shops" className="product-page__recommendations-link">
-                            Browse catalog
+                            {t("product.browseCatalog")}
                         </Link>
                     </div>
                     <RecommendedProduct relevantProducts={relevantProducts} />
                 </section>
+
+                <ImageLightbox
+                    show={isLightboxOpen}
+                    onHide={() => setIsLightboxOpen(false)}
+                    src={activeResponsiveImage?.src || activeImageUrl}
+                    srcSet={activeResponsiveImage?.srcSet}
+                    sizes={activeResponsiveImage?.sizes}
+                    alt={productDetail.name}
+                />
             </div>
         </Layout>
     );

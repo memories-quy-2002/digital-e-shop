@@ -51,11 +51,7 @@ const CustomerNotificationsPage = () => {
                 <meta name="description" content="Review customer account and order notifications." />
             </Helmet>
             <main className="customer-notifications">
-                <CustomerAccountShell
-                    eyebrow="Account"
-                    title="Notifications"
-                    description="Order updates, checkout messages, and important account events."
-                    actions={
+                <CustomerAccountShell title="Notifications" actions={
                         <button type="button" onClick={markAllRead} disabled={unreadCount === 0}>
                             Mark all read
                         </button>

@@ -1,38 +1,13 @@
 import React, { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Button, Modal, Table } from "react-bootstrap";
 import ReactPaginate from "react-paginate";
-import axios from "../../../api/axios";
-import { Role } from "../../../utils/interface";
+import { Role } from "../../../types/user";
+import type { AdminAccount as Account, AdminCustomerProfile as CustomerProfile } from "../../../types/order";
 import AdminLayout from "../../../components/layout/AdminLayout";
 import AdminWorkflowSteps from "../../../components/common/admin/AdminWorkflowSteps";
 import { Helmet } from "react-helmet";
 import { useToast } from "../../../context/ToastContext";
-
-interface Account {
-    id: string;
-    email: string;
-    username: string;
-    first_name: string | null;
-    last_name: string | null;
-    role: Role;
-    status?: "Active" | "Suspended";
-    order_count?: number;
-    created_at: Date;
-}
-
-type CustomerProfile = Account & {
-    total_spent: number;
-    wishlist_count: number;
-    last_order_at: string | null;
-    recent_orders: Array<{
-        id: number;
-        date_added: string;
-        status: number;
-        total_price: number;
-        discount: number;
-        payment_method?: string;
-    }>;
-};
+import { fetchAllUsers, updateAccount, fetchCustomerProfile } from "../api";
 
 const ITEMS_PER_PAGE = 8;
 
@@ -64,28 +39,26 @@ const AdminAccountPage = () => {
     const deferredSearchTerm = useDeferredValue(searchTerm);
 
     useEffect(() => {
-        const fetchUsers = async () => {
+        const loadUsers = async () => {
             try {
-                const response = await axios.get("/api/users");
-                if (response.status === 200) {
-                    const newAccounts: Account[] = response.data.accounts.map((account: Account) => ({
-                        ...account,
-                        status: account.status || "Active",
-                        order_count: Number(account.order_count) || 0,
-                        created_at: new Date(account.created_at),
-                    }));
-                    setAccounts(
-                        newAccounts.sort(
-                            (a: Account, b: Account) =>
-                                new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-                        ),
-                    );
-                }
+                const users = await fetchAllUsers();
+                const newAccounts: Account[] = (users || []).map((account: any) => ({
+                    ...account,
+                    status: account.status || "Active",
+                    order_count: Number(account.order_count) || 0,
+                    created_at: new Date(account.created_at),
+                }));
+                setAccounts(
+                    newAccounts.sort(
+                        (a: Account, b: Account) =>
+                            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+                    ),
+                );
             } catch {
                 addToast("Accounts", "Unable to load accounts.");
             }
         };
-        fetchUsers();
+        loadUsers();
     }, [addToast]);
 
     const filteredAccounts = useMemo(() => {
@@ -115,24 +88,19 @@ const AdminAccountPage = () => {
         }
     }, [currentPage, pageCount]);
 
-    const handleUpdateAccount = async (account: Account, role: Role, status: "Active" | "Suspended") => {
+    const handleUpdateAccount = async (account: Account, role: string, status: "Active" | "Suspended") => {
         try {
-            const response = await axios.put(`/api/users/${account.id}`, {
-                role,
-                status,
-            });
-            if (response.status === 200) {
-                const updatedAccount = {
-                    ...account,
-                    ...response.data.account,
-                    status: response.data.account.status || status,
-                    order_count: account.order_count || 0,
-                };
-                setAccounts((currentAccounts) =>
-                    currentAccounts.map((item) => (item.id === account.id ? updatedAccount : item)),
-                );
-                addToast("Accounts", "Account updated successfully.");
-            }
+            const result = await updateAccount(account.id, { role, status });
+            const updatedAccount = {
+                ...account,
+                ...result.account,
+                status: result.account?.status || status,
+                order_count: account.order_count || 0,
+            };
+            setAccounts((currentAccounts) =>
+                currentAccounts.map((item) => (item.id === account.id ? updatedAccount : item)),
+            );
+            addToast("Accounts", "Account updated successfully.");
         } catch {
             addToast("Accounts", "Unable to update account.");
         }
@@ -162,15 +130,15 @@ const AdminAccountPage = () => {
 
     const handleOpenProfile = async (account: Account) => {
         try {
-            const response = await axios.get(`/api/users/${account.id}/profile`);
-            if (response.status === 200) {
+            const profile = await fetchCustomerProfile(account.id);
+            if (profile) {
                 setSelectedProfile({
-                    ...response.data.profile,
-                    created_at: new Date(response.data.profile.created_at),
-                    order_count: Number(response.data.profile.order_count) || 0,
-                    total_spent: Number(response.data.profile.total_spent) || 0,
-                    wishlist_count: Number(response.data.profile.wishlist_count) || 0,
-                    recent_orders: response.data.profile.recent_orders || [],
+                    ...profile,
+                    created_at: new Date(profile.created_at),
+                    order_count: Number(profile.order_count) || 0,
+                    total_spent: Number(profile.total_spent) || 0,
+                    wishlist_count: Number(profile.wishlist_count) || 0,
+                    recent_orders: profile.recent_orders || [],
                 });
                 setShowProfile(true);
             }

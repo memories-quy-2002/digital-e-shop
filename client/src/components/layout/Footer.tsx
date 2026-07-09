@@ -9,6 +9,7 @@ import {
 } from "../common/Icons";
 import { useToast } from "../../context/ToastContext";
 import React, { useState } from "react";
+import { useT } from "../../hooks/useT";
 
 const socialLinks = [
     {
@@ -36,15 +37,16 @@ const socialLinks = [
 const Footer = () => {
     const [email, setEmail] = useState<string>("");
     const { addToast } = useToast();
+    const t = useT();
     const newsletterInputId = "footer-newsletter-email";
 
     const handleSubscribe = () => {
         const emailPattern = /^([A-Za-z0-9_\-.])+@([A-Za-z0-9_\-.])+\.([A-Za-z]{2,4})$/;
         if (email.match(emailPattern)) {
-            addToast("Subscribe to newsletter", "Subscribe to newsletter successfully");
+            addToast(t("footer.subscribe"), t("footer.subscribeSuccess"));
             setEmail("");
         } else {
-            addToast("Invalid email format", "Invalid email format");
+            addToast(t("footer.invalidEmail"), t("footer.invalidEmail"));
         }
     };
 
@@ -56,9 +58,7 @@ const Footer = () => {
                         <Link to="/" className="footer__brand__logo">
                             DIGITAL-E
                         </Link>
-                        <p className="footer__brand__text">
-                            Dependable electronics, clear checkout, order tracking, and practical support in one place.
-                        </p>
+                        <p className="footer__brand__text">{t("footer.brandTagline")}</p>
 
                         <div className="footer__contact">
                             <a href="tel:+841234567890">
@@ -85,23 +85,23 @@ const Footer = () => {
 
                     <section className="footer__newsletter" aria-label="Newsletter signup">
                         <div>
-                            <h2>Stay in the loop</h2>
-                            <p>Product highlights, guides, and limited promotions.</p>
+                            <h2>{t("footer.newsletterTitle")}</h2>
+                            <p>{t("footer.newsletterSubtitle")}</p>
                         </div>
                         <div className="footer__newsletter__form">
                             <label className="footer__sr-only" htmlFor={newsletterInputId}>
-                                Email address for newsletter subscription
+                                {t("footer.newsletterEmailLabel")}
                             </label>
                             <input
                                 type="email"
                                 name="email_subs"
                                 id={newsletterInputId}
-                                placeholder="Enter your email"
+                                placeholder={t("footer.newsletterPlaceholder")}
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />
                             <button type="button" onClick={handleSubscribe}>
-                                Subscribe
+                                {t("footer.subscribe")}
                             </button>
                         </div>
                     </section>
@@ -110,44 +110,44 @@ const Footer = () => {
                 <section className="footer__main" aria-label="Footer navigation">
                     <div className="footer__grid">
                         <div className="footer__col">
-                            <h2 className="footer__col__heading">Shop</h2>
-                            <Link to="/shops">All products</Link>
+                            <h2 className="footer__col__heading">{t("footer.shop")}</h2>
+                            <Link to="/shops">{t("footer.shopAll")}</Link>
                             <Link to="/shops?categories=Graphics+Card&brands=&minPrice=0&maxPrice=5000&term=">
-                                Components
+                                {t("footer.shopComponents")}
                             </Link>
-                            <Link to="/wishlist">Wishlist</Link>
+                            <Link to="/wishlist">{t("common.wishlist")}</Link>
                         </div>
 
                         <div className="footer__col">
-                            <h2 className="footer__col__heading">Customer care</h2>
-                            <Link to="/support">Help center</Link>
-                            <Link to="/contact-us">Contact us</Link>
-                            <Link to="/orders">Order tracking</Link>
+                            <h2 className="footer__col__heading">{t("footer.customerCare")}</h2>
+                            <Link to="/support">{t("footer.helpCenter")}</Link>
+                            <Link to="/contact-us">{t("footer.contactUs")}</Link>
+                            <Link to="/orders">{t("footer.orderTracking")}</Link>
                         </div>
 
                         <div className="footer__col">
-                            <h2 className="footer__col__heading">Discover</h2>
-                            <Link to="/about-us">About Digital-E</Link>
-                            <Link to="/news">Latest news</Link>
-                            <Link to="/support">Buying guides</Link>
+                            <h2 className="footer__col__heading">{t("footer.discover")}</h2>
+                            <Link to="/about-us">{t("footer.about")}</Link>
+                            <Link to="/news">{t("footer.latestNews")}</Link>
+                            <Link to="/support">{t("footer.buyingGuides")}</Link>
                         </div>
 
                         <div className="footer__col">
-                            <h2 className="footer__col__heading">Payments</h2>
-                            <div className="footer__payments" aria-label="Supported payment methods">
-                                <span>Bank transfer</span>
-                                <span>Cash on delivery</span>
+                            <h2 className="footer__col__heading">{t("footer.payments")}</h2>
+                            <div className="footer__payments" aria-label={t("footer.payments")}>
+                                <span>{t("footer.bankTransfer")}</span>
+                                <span>{t("footer.cashOnDelivery")}</span>
                             </div>
                         </div>
                     </div>
                 </section>
 
                 <div className="footer__bottom">
-                    <span>&copy; 2026 Digital-E. Built for everyday tech shopping.</span>
+                    <span>{t("footer.copyright")}</span>
                     <nav className="footer__bottom__links" aria-label="Legal and policies">
-                        <Link to="/support">Terms of service</Link>
-                        <Link to="/support">Privacy policy</Link>
-                        <Link to="/support">Cookie policy</Link>
+                        <Link to="/support">{t("footer.terms")}</Link>
+                        <Link to="/support">{t("footer.privacy")}</Link>
+                        <Link to="/support">{t("footer.cookies")}</Link>
                     </nav>
                 </div>
             </div>

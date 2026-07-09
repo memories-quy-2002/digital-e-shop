@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["AGENTS.md"],
+  "skills": {
+    "paths": [
+      ".claude/skills",
+      "C:\\Users\\quy\\.agents\\skills",
+      "C:\\Users\\quy\\.claude\\skills"
+    ]
+  },
+  "mcp": {
+    "context7": {
+      "enabled": true
+    }
+  }
+}

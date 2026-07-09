@@ -10,6 +10,8 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import "../styles/pages/_shops.scss";
 import { Product } from "../utils/interface";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import { useT } from "../hooks/useT";
 
 const MAX_PRICE_RANGE: number = 5000;
 const ITEMS_PER_PAGE = 6;
@@ -70,6 +72,8 @@ const ShopsPage = () => {
     const resultsHeadingId = "shops-results-heading";
     const loadingCardCount = ITEMS_PER_PAGE;
     const [isUpdatingFilters, startFilterTransition] = useTransition();
+    const debouncedTerm = useDebouncedValue(filters.term, 280);
+    const t = useT();
 
     const updateURL = useCallback(
         (newFilters: Filters, nextPage = 1) => {
@@ -186,8 +190,9 @@ const ShopsPage = () => {
             sortBy: filters.sortBy,
         });
 
-        if (filters.term.trim()) {
-            requestParams.set("term", filters.term.trim());
+        const normalizedTerm = debouncedTerm.trim();
+        if (normalizedTerm) {
+            requestParams.set("term", normalizedTerm);
         }
         if (filters.categories.length > 0) {
             requestParams.set("categories", filters.categories.join(","));
@@ -222,7 +227,7 @@ const ShopsPage = () => {
         };
 
         fetchProducts();
-    }, [addToast, filters, location.search]);
+    }, [addToast, debouncedTerm, filters.categories, filters.brands, filters.priceRange, filters.sortBy, location.search]);
 
     useEffect(() => {
         const fetchWishlist = async () => {
@@ -256,7 +261,7 @@ const ShopsPage = () => {
     return (
         <Layout>
             <Helmet>
-                <title>Shop Products | Digital-E</title>
+                <title>{`${t("shops.title")} | Digital-E`}</title>
                 <meta
                     name="description"
                     content="Browse the full catalog of electronics, filter by brand, category, and price, and find your next upgrade."
@@ -265,32 +270,16 @@ const ShopsPage = () => {
             <main className="shops app-page">
                 <header className="shops__header">
                     <div className="shops__hero-copy">
-                        <span className="shops__header__eyebrow">Shop Digital-E</span>
-                        <h1>Browse curated electronics for every workspace</h1>
-                        <p>Find your next upgrade with focused filters, trusted brands, and clear pricing.</p>
-                        <div className="shops__hero-features">
-                            <article className="shops__hero-feature">
-                                <strong>Curated selection</strong>
-                                <span>Professionals-grade devices that are easy to compare.</span>
-                            </article>
-                            <article className="shops__hero-feature">
-                                <strong>Clear filters</strong>
-                                <span>Sort by price, rating, brand, and availability in one place.</span>
-                            </article>
-                            <article className="shops__hero-feature">
-                                <strong>Fast discovery</strong>
-                                <span>See what is in stock and ready to ship today.</span>
-                            </article>
-                        </div>
+                        <h1>{t("shops.title")}</h1>
                     </div>
                     <div className="shops__header__summary">
                         <div>
                             <strong>{isLoading ? "..." : pagination.total}</strong>
-                            <span>Results</span>
+                            <span>{t("home.results")}</span>
                         </div>
                         <div>
                             <strong>{isLoading ? "..." : facets.totalProducts}</strong>
-                            <span>Total products</span>
+                            <span>{t("home.totalProducts")}</span>
                         </div>
                     </div>
                 </header>
@@ -298,12 +287,12 @@ const ShopsPage = () => {
                 <div className="shops__toolbar" aria-label="Shop filters and search controls">
                     <div className="shops__toolbar__search" role="search">
                         <label className="shops__sr-only" htmlFor={searchInputId}>
-                            Search products, brands, or categories
+                            {t("shops.searchPlaceholder")}
                         </label>
                         <input
                             type="text"
                             id={searchInputId}
-                            placeholder="Search products, brands, categories..."
+                            placeholder={t("shops.searchPlaceholder")}
                             value={filters.term}
                             onChange={handleTermChange}
                             onKeyDown={(event) => {
@@ -313,12 +302,17 @@ const ShopsPage = () => {
                             }}
                         />
                         <button type="button" onClick={applyFilters}>
-                            Search
+                            {t("common.search")}
                         </button>
+                        {filters.term.trim() !== debouncedTerm.trim() ? (
+                            <span className="shops__toolbar__searching" aria-live="polite">
+                                {t("shops.searching")}
+                            </span>
+                        ) : null}
                     </div>
                     <div className="shops__toolbar__controls">
                         <label className="shops__sr-only" htmlFor={sortSelectId}>
-                            Sort product results
+                            {t("shops.sortRelevance")}
                         </label>
                         <select
                             id={sortSelectId}
@@ -326,13 +320,13 @@ const ShopsPage = () => {
                             onChange={handleSortChange}
                             aria-label="Sort product results"
                         >
-                            <option value="relevance">Sort: Relevance</option>
-                            <option value="price-asc">Price: Low to High</option>
-                            <option value="price-desc">Price: High to Low</option>
-                            <option value="rating-desc">Rating: High to Low</option>
+                            <option value="relevance">{t("shops.sortRelevance")}</option>
+                            <option value="price-asc">{t("shops.sortPriceAsc")}</option>
+                            <option value="price-desc">{t("shops.sortPriceDesc")}</option>
+                            <option value="rating-desc">{t("shops.sortRatingDesc")}</option>
                         </select>
                         <button type="button" className="primary" onClick={applyFilters} disabled={isUpdatingFilters}>
-                            {isUpdatingFilters ? "Applying..." : "Apply filters"}
+                            {isUpdatingFilters ? `${t("shops.applyFilters")}…` : t("shops.applyFilters")}
                         </button>
                         <button
                             type="button"
@@ -340,7 +334,7 @@ const ShopsPage = () => {
                             onClick={handleResetFilters}
                             disabled={isUpdatingFilters}
                         >
-                            Reset
+                            {t("shops.resetFilters")}
                         </button>
                     </div>
                 </div>
@@ -364,13 +358,13 @@ const ShopsPage = () => {
                         aria-labelledby={resultsHeadingId}
                     >
                         <h2 id={resultsHeadingId} className="shops__sr-only">
-                            Product results
+                            {t("shops.resultsHeading")}
                         </h2>
                         <div className="shops__content__header app-card">
                             <div>
-                                <small>Catalog results</small>
+                                <small>{t("shops.catalogResults")}</small>
                                 <strong>
-                                    {isLoading ? "Loading products..." : `${pagination.total} matching products`}
+                                    {isLoading ? t("shops.loading") : t("shops.resultsCount", pagination.total)}
                                 </strong>
                             </div>
                             <span>

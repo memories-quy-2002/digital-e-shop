@@ -91,25 +91,16 @@ const CheckoutPaymentPage = ({
         {
             value: "bank_transfer" as const,
             title: "Bank transfer",
-            eyebrow: "Best for receipts",
-            description: "Send payment before shipment. Use the order ID as your transfer reference.",
-            meta: "Manual confirmation",
             icon: <BankIcon size={22} />,
         },
         {
             value: "cash" as const,
             title: "Cash on delivery",
-            eyebrow: "Pay at your door",
-            description: "Pay when the delivery partner hands over your package.",
-            meta: "Phone verification may apply",
             icon: <CashStackIcon size={22} />,
         },
         {
             value: "card" as const,
             title: "Card",
-            eyebrow: "Instant confirmation",
-            description: "Pay securely by card via Stripe. You'll be redirected to complete payment.",
-            meta: "Visa, Mastercard, and more",
             icon: <ShieldIcon size={22} />,
         },
     ];
@@ -379,12 +370,7 @@ const CheckoutPaymentPage = ({
                     Back to cart
                 </button>
                 <div className="checkout__hero__content">
-                    <p className="checkout__hero__eyebrow">Secure checkout</p>
-                    <h1>Review, confirm, and pay</h1>
-                    <p>
-                        Your order is almost ready. Add your contact details, confirm shipping, and complete your
-                        purchase in one step.
-                    </p>
+                    <h1>Checkout</h1>
                 </div>
                 <div className="checkout__hero__meta">
                     <div>
@@ -427,7 +413,6 @@ const CheckoutPaymentPage = ({
                     <div className="checkout__card">
                         <div className="checkout__card__header">
                             <h2>Contact</h2>
-                            <p>We will send order updates to this email.</p>
                         </div>
                         <Form>
                             <Form.Group className="mb-3" controlId="formBasicEmail">
@@ -450,7 +435,6 @@ const CheckoutPaymentPage = ({
                     <div className="checkout__card">
                         <div className="checkout__card__header">
                             <h2>Shipping</h2>
-                            <p>Tell us where to deliver your items.</p>
                         </div>
                         {savedAddresses.length > 0 ? (
                             <div className="checkout__saved-addresses">
@@ -547,13 +531,8 @@ const CheckoutPaymentPage = ({
                     <div className="checkout__card">
                         <div className="checkout__card__header">
                             <h2>Payment</h2>
-                            <p>Choose how you want to complete this order.</p>
                         </div>
                         <Form className="checkout__payment">
-                            <div className="checkout__payment__secure">
-                                <ShieldIcon size={18} />
-                                <span>No card details are stored by Digital-E. Orders are timestamped in UTC.</span>
-                            </div>
                             <div className="checkout__payment__methods" role="radiogroup" aria-label="Payment method">
                                 {paymentOptions.map((option) => (
                                     <label
@@ -578,19 +557,14 @@ const CheckoutPaymentPage = ({
                                         </span>
                                         <span className="checkout__payment__method__icon">{option.icon}</span>
                                         <span className="checkout__payment__method__content">
-                                            <small>{option.eyebrow}</small>
                                             <strong>{option.title}</strong>
-                                            <span>{option.description}</span>
-                                            <em>{option.meta}</em>
                                         </span>
                                     </label>
                                 ))}
                             </div>
 
                             <div className="checkout__payment__selected">
-                                <span>Selected payment</span>
                                 <strong>{selectedPayment.title}</strong>
-                                <p>{selectedPayment.description}</p>
                             </div>
 
                             {formCheckout.payment_method === "bank_transfer" ? (

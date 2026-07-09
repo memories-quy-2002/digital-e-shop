@@ -1,48 +1,20 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Button, Modal, Table } from "react-bootstrap";
 import ReactPaginate from "react-paginate";
-import axios from "../../../api/axios";
+import type { AdminOrder as Order, AdminOrderDetail as OrderDetail } from "../../../types/order";
 import AdminLayout from "../../../components/layout/AdminLayout";
 import AdminWorkflowSteps from "../../../components/common/admin/AdminWorkflowSteps";
+import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
 import { useToast } from "../../../context/ToastContext";
 import { CheckCircleIcon, XCircleIcon } from "../../../components/common/Icons";
 import { Helmet } from "react-helmet";
 import { formatUtcDate, formatUtcDateTime, toUtcIsoString } from "../../../utils/dateTime";
-
-interface Order {
-    id: number;
-    date_added: Date;
-    user_id: string;
-    customer_name?: string;
-    customer_email?: string;
-    status: number;
-    total_price: number;
-    discount: number;
-    shipping_address: string;
-    payment_method?: "bank_transfer" | "cash";
-}
-
-type OrderDetail = Order & {
-    items: Array<{
-        productId: number;
-        productName: string;
-        brand: string;
-        category: string;
-        price: number;
-        sale_price: number | null;
-        quantity: number;
-        totalPrice: number;
-    }>;
-    timeline?: Array<{
-        id: number;
-        label: string;
-        note: string | null;
-        created_at: string | null;
-        status: number;
-    }>;
-};
+import { fetchAllOrders, fetchOrderDetail, updateOrderStatus, bulkUpdateOrderStatus } from "../api";
 
 const ITEMS_PER_PAGE = 8;
+
+type StatusFilter = "all" | "pending" | "done" | "canceled";
+type PaymentFilter = "all" | "bank_transfer" | "cash" | "none";
 
 const orderWorkflowSteps = ["Review pending orders", "Open detail before changing status", "Mark done or cancel"];
 
@@ -79,34 +51,51 @@ const getItemSubtotal = (price: number, quantity: number) => price * quantity;
 const AdminOrderPage = () => {
     const [orders, setOrders] = useState<Order[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+    const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all");
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null);
     const [showDetail, setShowDetail] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [showBulkConfirm, setShowBulkConfirm] = useState(false);
+    const [bulkTarget, setBulkTarget] = useState<1 | 2 | null>(null);
+    const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
     const { addToast } = useToast();
 
     useEffect(() => {
-        const fetchOrders = async () => {
+        const loadOrders = async () => {
             try {
-                const response = await axios.get("/api/orders");
-                if (response.status === 200) {
-                    setOrders((response.data.orders || []).map(normalizeOrder));
-                }
+                const orders = await fetchAllOrders();
+                setOrders((orders || []).map(normalizeOrder));
             } catch {
                 addToast("Orders", "Unable to load orders.");
             }
         };
 
-        fetchOrders();
+        loadOrders();
     }, [addToast]);
 
     const filteredOrders = useMemo(() => {
         const lowerSearchTerm = searchTerm.trim().toLowerCase();
 
-        if (!lowerSearchTerm) {
-            return orders;
-        }
-
         return orders.filter((order) => {
+            if (statusFilter !== "all") {
+                const expected = statusFilter === "pending" ? 0 : statusFilter === "done" ? 1 : 2;
+                if (order.status !== expected) {
+                    return false;
+                }
+            }
+            if (paymentFilter !== "all") {
+                if (paymentFilter === "none" && order.payment_method) {
+                    return false;
+                }
+                if (paymentFilter !== "none" && order.payment_method !== paymentFilter) {
+                    return false;
+                }
+            }
+            if (!lowerSearchTerm) {
+                return true;
+            }
             return (
                 order.id.toString().includes(lowerSearchTerm) ||
                 (order.shipping_address || "").toLowerCase().includes(lowerSearchTerm) ||
@@ -117,7 +106,7 @@ const AdminOrderPage = () => {
                 getStatusLabel(order.status).toLowerCase().includes(lowerSearchTerm)
             );
         });
-    }, [orders, searchTerm]);
+    }, [orders, searchTerm, statusFilter, paymentFilter]);
 
     const pageCount = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
     const currentOrders = useMemo(() => {
@@ -149,22 +138,23 @@ const AdminOrderPage = () => {
         }
     }, [currentPage, pageCount]);
 
+    useEffect(() => {
+        setCurrentPage(1);
+        setSelectedIds(new Set());
+    }, [statusFilter, paymentFilter, searchTerm]);
+
     const handlePageClick = (event: { selected: number }) => {
         setCurrentPage(event.selected + 1);
     };
 
     const handleChangeStatus = async (status: number, orderId: number) => {
         try {
-            const response = await axios.post(`/api/orders/status/${orderId}`, {
-                status,
-            });
-            if (response.status === 200) {
-                const updatedOrder = normalizeOrder(response.data.order);
-                setOrders((previousOrders) =>
-                    previousOrders.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)),
-                );
-                addToast("Update Order Status", "Order status updated successfully");
-            }
+            const updated = await updateOrderStatus(orderId, status);
+            const updatedOrder = normalizeOrder(updated);
+            setOrders((previousOrders) =>
+                previousOrders.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)),
+            );
+            addToast("Update Order Status", "Order status updated successfully");
         } catch (err) {
             if (err && typeof err === "object" && "response" in err) {
                 const errorResponse = (err as { response: { status: number; data: { msg: string } } }).response;
@@ -181,13 +171,97 @@ const AdminOrderPage = () => {
 
     const handleOpenDetail = async (orderId: number) => {
         try {
-            const response = await axios.get(`/api/orders/${orderId}`);
-            if (response.status === 200) {
-                setSelectedOrder(response.data.order);
+            const order = await fetchOrderDetail(orderId);
+            if (order) {
+                setSelectedOrder(order);
                 setShowDetail(true);
             }
         } catch {
             addToast("Orders", "Unable to load order detail.");
+        }
+    };
+
+    const toggleSelection = (orderId: number) => {
+        setSelectedIds((previous) => {
+            const next = new Set(previous);
+            if (next.has(orderId)) {
+                next.delete(orderId);
+            } else {
+                next.add(orderId);
+            }
+            return next;
+        });
+    };
+
+    const toggleSelectAllOnPage = () => {
+        setSelectedIds((previous) => {
+            const pageIds = currentOrders.map((order) => order.id);
+            const allSelected = pageIds.every((id) => previous.has(id));
+            const next = new Set(previous);
+            if (allSelected) {
+                pageIds.forEach((id) => next.delete(id));
+            } else {
+                pageIds.forEach((id) => next.add(id));
+            }
+            return next;
+        });
+    };
+
+    const selectedPendingIds = useMemo(
+        () => currentOrders.filter((o) => o.status === 0).map((o) => o.id),
+        [currentOrders],
+    );
+
+    const pageAllPendingSelected =
+        selectedPendingIds.length > 0 && selectedPendingIds.every((id) => selectedIds.has(id));
+
+    const requestBulk = (status: 1 | 2) => {
+        const ids = currentOrders
+            .filter((order) => selectedIds.has(order.id) && order.status === 0)
+            .map((order) => order.id);
+        if (ids.length === 0) {
+            addToast("Bulk update", "Select at least one pending order to update.");
+            return;
+        }
+        setBulkTarget(status);
+        setShowBulkConfirm(true);
+    };
+
+    const confirmBulk = async () => {
+        if (!bulkTarget) {
+            return;
+        }
+        const ids = currentOrders
+            .filter((order) => selectedIds.has(order.id) && order.status === 0)
+            .map((order) => order.id);
+        if (ids.length === 0) {
+            setShowBulkConfirm(false);
+            return;
+        }
+        setIsBulkSubmitting(true);
+        try {
+            const results = await bulkUpdateOrderStatus(ids, bulkTarget);
+            const fulfilled = results.filter((r) => r.status === "fulfilled");
+            const rejected = results.filter((r) => r.status === "rejected");
+            if (fulfilled.length > 0) {
+                setOrders((previous) =>
+                    previous.map((order) => {
+                        const result = fulfilled.find((r) => r.orderId === order.id);
+                        return result?.order ? normalizeOrder(result.order) : order;
+                    }),
+                );
+            }
+            addToast(
+                "Bulk update",
+                `${fulfilled.length} updated${rejected.length > 0 ? `, ${rejected.length} failed` : ""}.`,
+            );
+            setSelectedIds(new Set());
+        } catch {
+            addToast("Bulk update", "Bulk update failed. Try again.");
+        } finally {
+            setIsBulkSubmitting(false);
+            setShowBulkConfirm(false);
+            setBulkTarget(null);
         }
     };
 
@@ -293,7 +367,7 @@ const AdminOrderPage = () => {
                             <span>{filteredOrders.length} matching orders</span>
                         </div>
                         <div className="admin__list-toolbar">
-                            <div className="admin__filters">
+                            <div className="admin__order-toolbar">
                                 <input
                                     type="text"
                                     name="order-search"
@@ -302,15 +376,35 @@ const AdminOrderPage = () => {
                                     value={searchTerm}
                                     onChange={(event) => {
                                         setSearchTerm(event.target.value);
-                                        setCurrentPage(1);
                                     }}
                                 />
+                                <select
+                                    aria-label="Filter by status"
+                                    value={statusFilter}
+                                    onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+                                >
+                                    <option value="all">All statuses</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="done">Done</option>
+                                    <option value="canceled">Canceled</option>
+                                </select>
+                                <select
+                                    aria-label="Filter by payment method"
+                                    value={paymentFilter}
+                                    onChange={(event) => setPaymentFilter(event.target.value as PaymentFilter)}
+                                >
+                                    <option value="all">All payments</option>
+                                    <option value="bank_transfer">Bank transfer</option>
+                                    <option value="cash">Cash on delivery</option>
+                                    <option value="none">No payment</option>
+                                </select>
                                 <button
                                     type="button"
                                     className="admin__button admin__button--ghost"
                                     onClick={() => {
                                         setSearchTerm("");
-                                        setCurrentPage(1);
+                                        setStatusFilter("all");
+                                        setPaymentFilter("all");
                                     }}
                                 >
                                     Clear
@@ -318,11 +412,48 @@ const AdminOrderPage = () => {
                             </div>
                         </div>
                     </div>
+                    {selectedIds.size > 0 ? (
+                        <div className="admin__bulk-bar" role="region" aria-label="Bulk actions">
+                            <span className="admin__bulk-bar__count">{selectedIds.size}</span>
+                            <span>order(s) selected on this page</span>
+                            <button
+                                type="button"
+                                className="admin__button admin__button--success admin__button--compact"
+                                onClick={() => requestBulk(1)}
+                            >
+                                Mark selected done
+                            </button>
+                            <button
+                                type="button"
+                                className="admin__button admin__button--danger admin__button--compact"
+                                onClick={() => requestBulk(2)}
+                            >
+                                Cancel selected
+                            </button>
+                            <button
+                                type="button"
+                                className="admin__button admin__button--ghost admin__button--compact"
+                                onClick={() => setSelectedIds(new Set())}
+                            >
+                                Clear selection
+                            </button>
+                        </div>
+                    ) : null}
                     <div className="admin__card__body admin__list-shell">
                         <div className="admin__table-wrap">
                         <Table responsive hover borderless className="admin__table">
                             <thead>
                                 <tr>
+                                    <th style={{ width: "40px" }}>
+                                        <input
+                                            type="checkbox"
+                                            className="admin__order-checkbox"
+                                            aria-label="Select all pending orders on this page"
+                                            checked={pageAllPendingSelected}
+                                            disabled={selectedPendingIds.length === 0}
+                                            onChange={toggleSelectAllOnPage}
+                                        />
+                                    </th>
                                     <th>#</th>
                                     <th>Order</th>
                                     <th>Customer</th>
@@ -333,8 +464,23 @@ const AdminOrderPage = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {currentOrders.map((order, index) => (
-                                    <tr key={order.id} className="admin__order-row">
+                                {currentOrders.map((order, index) => {
+                                    const isSelected = selectedIds.has(order.id);
+                                    return (
+                                    <tr
+                                        key={order.id}
+                                        className={`admin__order-row${isSelected ? " is-selected" : ""}`}
+                                    >
+                                        <td>
+                                            <input
+                                                type="checkbox"
+                                                className="admin__order-checkbox"
+                                                aria-label={`Select order ${order.id}`}
+                                                checked={isSelected}
+                                                disabled={order.status !== 0}
+                                                onChange={() => toggleSelection(order.id)}
+                                            />
+                                        </td>
                                         <td width="50px">{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</td>
                                         <td width="190px">
                                             <div className="admin__table__stack">
@@ -423,7 +569,8 @@ const AdminOrderPage = () => {
                                             )}
                                         </td>
                                     </tr>
-                                ))}
+                                    );
+                                })}
                             </tbody>
                         </Table>
                         </div>
@@ -561,6 +708,25 @@ const AdminOrderPage = () => {
                         </Button>
                     </Modal.Footer>
                 </Modal>
+                <ConfirmActionModal
+                    show={showBulkConfirm}
+                    title={bulkTarget === 1 ? "Mark selected orders done" : "Cancel selected orders"}
+                    message={
+                        bulkTarget === 1
+                            ? "Mark all selected pending orders as done?"
+                            : "Cancel all selected pending orders? This cannot be undone from this view."
+                    }
+                    confirmLabel={bulkTarget === 1 ? "Mark done" : "Cancel orders"}
+                    confirmVariant={bulkTarget === 1 ? "success" : "danger"}
+                    isConfirming={isBulkSubmitting}
+                    onCancel={() => {
+                        if (!isBulkSubmitting) {
+                            setShowBulkConfirm(false);
+                            setBulkTarget(null);
+                        }
+                    }}
+                    onConfirm={confirmBulk}
+                />
             </main>
         </AdminLayout>
     );

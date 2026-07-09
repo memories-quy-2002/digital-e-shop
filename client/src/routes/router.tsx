@@ -41,6 +41,7 @@ const ProtectedAdminProductPage = withSessionCheck(AdminProductPage);
 const ProtectedAdminAccountPage = withSessionCheck(AdminAccountPage);
 const ProtectedAdminOrderPage = withSessionCheck(AdminOrderPage);
 const ProtectedAdminPromotionsPage = withSessionCheck(AdminPromotionsPage);
+const ProtectedAdminAddProductPage = withSessionCheck(AdminAddProductPage);
 
 const AppRouter = () => {
     return (
@@ -68,7 +69,7 @@ const AppRouter = () => {
                 <Route path="/admin/orders" element={<ProtectedAdminOrderPage />} />
                 <Route path="/admin/accounts" element={<ProtectedAdminAccountPage />} />
                 <Route path="/admin/promotions" element={<ProtectedAdminPromotionsPage />} />
-                <Route path="/admin/add" element={<AdminAddProductPage />} />
+                <Route path="/admin/add" element={<ProtectedAdminAddProductPage />} />
                 <Route path="*" element={<NotFoundPage />} />
             </Routes>
         </Suspense>

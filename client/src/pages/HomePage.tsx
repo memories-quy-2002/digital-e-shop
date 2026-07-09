@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useEffectEvent, useMemo, useOptimistic, useState } from "react";
 import { Helmet } from "react-helmet";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import carousel1 from "../assets/images/carousel_1.jpg";
 import carousel2 from "../assets/images/carousel_2.jpg";
 import carousel3 from "../assets/images/carousel_3.jpg";
 import carousel4 from "../assets/images/carousel_4.jpg";
 import ProductItem from "../components/common/ProductItem";
+import RecentlyViewedStrip from "../components/common/RecentlyViewedStrip";
 import { FeaturedProductSkeletons, ProductGridSkeleton } from "../components/common/StorefrontSkeleton";
 import { ArrowLeftIcon, ArrowRightIcon } from "../components/common/Icons";
 import Layout from "../components/layout/Layout";
@@ -16,39 +17,47 @@ import "../styles/pages/_home.scss";
 import { Product } from "../utils/interface";
 import { HERO_IMAGE_WIDTHS, THUMBNAIL_IMAGE_WIDTHS, getResponsiveImageSource, normalizeProductImageName } from "../utils/images";
 import loadImage from "../utils/loadImage";
+import { useRecentlyViewed } from "../hooks/useRecentlyViewed";
+import { useT } from "../hooks/useT";
 
 const DISPLAYED_NUMBER = 12;
 const HOME_PRODUCT_LIMIT = DISPLAYED_NUMBER * 2;
+
+type HomeTab = "recommended" | "popular" | "new";
+const HOME_TABS: HomeTab[] = ["recommended", "popular", "new"];
+
+const isHomeTab = (value: string | null): value is HomeTab =>
+    value === "recommended" || value === "popular" || value === "new";
+
 const heroSlides = [
     {
         image: carousel1,
-        kicker: "Workspace deals",
-        title: "Upgrade your workspace without the clutter.",
-        subtitle: "Premium laptops, monitors, keyboards, and accessories selected for smoother daily work.",
+        title: "Premium laptops & monitors",
         cta: "Shop Work Gear",
     },
     {
         image: carousel2,
-        kicker: "Audio picks",
-        title: "Sound that makes every setup feel alive.",
-        subtitle: "Immersive speakers, noise-cancelling headphones, and studio-grade gear for every listener.",
+        title: "Headphones & speakers",
         cta: "Explore Audio",
     },
     {
         image: carousel3,
-        kicker: "Mobile essentials",
-        title: "Phones and accessories ready for everyday speed.",
-        subtitle: "Discover smartphones, chargers, and cases with fast delivery and secure checkout.",
+        title: "Phones & accessories",
         cta: "Browse Phones",
     },
     {
         image: carousel4,
-        kicker: "Smart home",
-        title: "Build a smarter home one device at a time.",
-        subtitle: "Control, secure, and automate your space with dependable connected devices.",
+        title: "Smart home devices",
         cta: "Shop Smart Home",
     },
 ];
+
+const heroCtaKey: Record<string, "heroCta" | "heroCtaExplore" | "heroCtaBrowse" | "heroCtaSmartHome"> = {
+    "Shop Work Gear": "heroCta",
+    "Explore Audio": "heroCtaExplore",
+    "Browse Phones": "heroCtaBrowse",
+    "Shop Smart Home": "heroCtaSmartHome",
+};
 
 const heroImageSources = heroSlides.map((slide) =>
     getResponsiveImageSource(slide.image, {
@@ -89,16 +98,22 @@ const applyWishlistMutation = (wishlist: Wishlist[], mutation: WishlistMutation)
 
 const HomePage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
+    const t = useT();
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoadingProducts, setIsLoadingProducts] = useState(true);
     const [smartRecommendations, setSmartRecommendations] = useState<Product[]>([]);
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
     const [pendingWishlistIds, setPendingWishlistIds] = useState<number[]>([]);
-    const [activeFilter, setActiveFilter] = useState<"recommended" | "popular" | "new">("recommended");
+    const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+    const tabFromUrl = searchParams.get("tab");
+    const initialTab: HomeTab = isHomeTab(tabFromUrl) ? tabFromUrl : "recommended";
+    const [activeFilter, setActiveFilter] = useState<HomeTab>(initialTab);
     const [currentIndex, setCurrentIndex] = useState(0);
     const { userData, loading } = useAuth();
     const uid = userData?.id || null;
     const { addToast } = useToast();
+    const { items: recentlyViewed, track: trackRecentlyViewed } = useRecentlyViewed();
     const [optimisticWishlist, applyOptimisticWishlist] = useOptimistic(
         wishlist,
         (currentWishlist: Wishlist[], mutation: WishlistMutation) => applyWishlistMutation(currentWishlist, mutation),
@@ -116,6 +131,35 @@ const HomePage = () => {
     const handlePrev = useCallback(() => {
         setCurrentIndex((prevIndex) => (prevIndex - 1 + heroSlides.length) % heroSlides.length);
     }, []);
+
+    const handleTabChange = useCallback(
+        (tab: HomeTab) => {
+            setActiveFilter(tab);
+            const nextParams = new URLSearchParams(location.search);
+            if (tab === "recommended") {
+                nextParams.delete("tab");
+            } else {
+                nextParams.set("tab", tab);
+            }
+            const nextSearch = nextParams.toString();
+            navigate(nextSearch ? `${location.pathname}?${nextSearch}` : location.pathname, {
+                replace: true,
+            });
+        },
+        [location.pathname, location.search, navigate],
+    );
+
+    useEffect(() => {
+        if (!isHomeTab(tabFromUrl)) {
+            if (activeFilter !== "recommended") {
+                setActiveFilter("recommended");
+            }
+            return;
+        }
+        if (tabFromUrl !== activeFilter) {
+            setActiveFilter(tabFromUrl);
+        }
+    }, [tabFromUrl, activeFilter]);
 
     const toggleWishlist = useCallback(async (user_id: string, product_id: number) => {
         if (!uid) {
@@ -357,50 +401,48 @@ const HomePage = () => {
                         </div>
                     </div>
                     <div className="home__hero__content">
-                        <span className="home__hero__badge">{activeSlide.kicker}</span>
                         <h1>{activeSlide.title}</h1>
-                        <p>{activeSlide.subtitle}</p>
                         <div className="home__hero__actions">
                             <button type="button" onClick={() => navigate("/shops")}>
-                                {activeSlide.cta} <ArrowRightIcon />
+                                {t(`home.${heroCtaKey[activeSlide.cta] ?? "heroCta"}`)} <ArrowRightIcon />
                             </button>
                             <Link to="/news" className="ghost">
-                                What&apos;s New
+                                {t("home.newArrivals")}
                             </Link>
                         </div>
                         <div className="home__hero__stats">
                             <div>
                                 <strong>5K+</strong>
-                                <span>Products</span>
+                                <span>{t("home.statsProducts")}</span>
                             </div>
                             <div>
                                 <strong>24/7</strong>
-                                <span>Support</span>
+                                <span>{t("home.statsSupport")}</span>
                             </div>
                             <div>
                                 <strong>UTC</strong>
-                                <span>Order time</span>
+                                <span>{t("home.statsOrder")}</span>
                             </div>
                         </div>
-                    </div>
-                    <div className="home__hero__controls" aria-label="Hero slide controls">
-                        <button type="button" onClick={handlePrev} aria-label="Previous slide">
-                            <ArrowLeftIcon size={20} />
-                        </button>
-                        <div className="home__hero__dots">
-                            {heroSlides.map((_, index) => (
-                                <button
-                                    key={`dot-${index}`}
-                                    type="button"
-                                    className={currentIndex === index ? "active" : ""}
-                                    onClick={() => setCurrentIndex(index)}
-                                    aria-label={`Go to slide ${index + 1}`}
-                                />
-                            ))}
+                        <div className="home__hero__controls" aria-label="Hero slide controls">
+                            <button type="button" onClick={handlePrev} aria-label="Previous slide">
+                                <ArrowLeftIcon size={20} />
+                            </button>
+                            <div className="home__hero__dots">
+                                {heroSlides.map((_, index) => (
+                                    <button
+                                        key={`dot-${index}`}
+                                        type="button"
+                                        className={currentIndex === index ? "active" : ""}
+                                        onClick={() => setCurrentIndex(index)}
+                                        aria-label={`Go to slide ${index + 1}`}
+                                    />
+                                ))}
+                            </div>
+                            <button type="button" onClick={handleNext} aria-label="Next slide">
+                                <ArrowRightIcon size={20} />
+                            </button>
                         </div>
-                        <button type="button" onClick={handleNext} aria-label="Next slide">
-                            <ArrowRightIcon size={20} />
-                        </button>
                     </div>
                     <div className="home__hero__previews">
                         {heroSlides.map((slide, index) => (
@@ -418,10 +460,6 @@ const HomePage = () => {
                                     loading="lazy"
                                     decoding="async"
                                 />
-                                <span>
-                                    <small>{String(index + 1).padStart(2, "0")}</small>
-                                    <strong>{slide.kicker}</strong>
-                                </span>
                             </button>
                         ))}
                     </div>
@@ -431,39 +469,30 @@ const HomePage = () => {
                 <section className="home__product app-page">
                     <header className="home__product__header">
                         <div>
-                            <span className="home__product__eyebrow">All products</span>
-                            <h2 className="home__product__header__title">Curated picks for every setup</h2>
-                            <p className="home__product__header__subtitle">
-                                Shop what&apos;s trending right now or explore the newest drops.
-                            </p>
+                            <h2 className="home__product__header__title">{t("home.productsHeading")}</h2>
                         </div>
                         <Link to="/shops" className="home__product__cta">
-                            View all products <ArrowRightIcon />
+                            {t("home.viewAllProducts")} <ArrowRightIcon />
                         </Link>
                     </header>
 
-                    <div className="home__product__filters">
-                        <button
-                            type="button"
-                            className={activeFilter === "recommended" ? "active" : ""}
-                            onClick={() => setActiveFilter("recommended")}
-                        >
-                            Recommended
-                        </button>
-                        <button
-                            type="button"
-                            className={activeFilter === "popular" ? "active" : ""}
-                            onClick={() => setActiveFilter("popular")}
-                        >
-                            Popular
-                        </button>
-                        <button
-                            type="button"
-                            className={activeFilter === "new" ? "active" : ""}
-                            onClick={() => setActiveFilter("new")}
-                        >
-                            New arrivals
-                        </button>
+                    <div className="home__product__filters" role="tablist">
+                        {HOME_TABS.map((tab) => (
+                            <button
+                                key={tab}
+                                type="button"
+                                role="tab"
+                                aria-selected={activeFilter === tab}
+                                className={activeFilter === tab ? "active" : ""}
+                                onClick={() => handleTabChange(tab)}
+                            >
+                                {tab === "recommended"
+                                    ? t("home.tabRecommended")
+                                    : tab === "popular"
+                                      ? t("home.tabPopular")
+                                      : t("home.tabNew")}
+                            </button>
+                        ))}
                     </div>
 
                     <div className="home__product__featured">
@@ -517,6 +546,20 @@ const HomePage = () => {
                         </div>
                     )}
                 </section>
+
+                <RecentlyViewedStrip
+                    items={recentlyViewed}
+                    onSelect={(productId) => {
+                        const candidate =
+                            displayedProducts.find((p) => p.id === productId) ??
+                            products.find((p) => p.id === productId) ??
+                            recentlyViewed.find((p) => p.id === productId);
+                        if (candidate) {
+                            trackRecentlyViewed(candidate);
+                        }
+                        navigate(`/product?id=${productId}`);
+                    }}
+                />
             </main>
         </Layout>
     );

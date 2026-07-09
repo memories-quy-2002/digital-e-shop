@@ -9,8 +9,8 @@
         background:
             radial-gradient(circle at top right, rgba(191, 219, 254, 0.24), transparent 30%),
             linear-gradient(135deg, #0f172a, #1e293b 62%, #0f4cc9 120%);
-        color: #fff;
-        box-shadow: 0 22px 45px rgba(15, 23, 42, 0.18);
+        color: var(--de-color-on-accent);
+        box-shadow: var(--de-shadow-md);
 
         @media (min-width: 980px) {
             grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
@@ -18,7 +18,7 @@
             padding: 3rem;
         }
         h1 {
-            color: #fff;
+            color: var(--de-color-on-accent);
         }
     }
 
@@ -29,7 +29,7 @@
         h1 {
             max-width: 13ch;
             margin: 0;
-            color: #fff;
+            color: var(--de-color-on-accent);
             font-size: clamp(2.3rem, 5vw, 4.6rem);
             line-height: 1.03;
         }
@@ -66,7 +66,7 @@
         strong {
             display: block;
             margin-top: 0.35rem;
-            color: #fff;
+            color: var(--de-color-on-accent);
             line-height: 1.4;
         }
     }
@@ -118,9 +118,9 @@
         &__input,
         &__textarea {
             width: 100%;
-            border: 1px solid rgba(148, 163, 184, 0.28);
+            border: 1px solid var(--de-color-border);
             border-radius: 14px;
-            background: #fff;
+            background: var(--de-color-surface-strong);
             color: var(--info-ink);
             padding: 0.85rem 0.95rem;
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
@@ -131,7 +131,7 @@
 
             &:focus {
                 outline: none;
-                border-color: rgba(37, 99, 235, 0.4);
+                border-color: var(--de-color-primary-emphasis);
                 box-shadow: var(--de-shadow-focus);
             }
         }
@@ -157,11 +157,11 @@
         &__button {
             border: none;
             border-radius: 999px;
-            background: linear-gradient(135deg, #0b5fff, #2563eb);
-            color: #fff;
+            background: var(--de-gradient-accent);
+            color: var(--de-color-on-accent);
             padding: 0.8rem 1.2rem;
             font-weight: 900;
-            box-shadow: 0 14px 24px rgba(37, 99, 235, 0.24);
+            box-shadow: var(--de-shadow-primary-soft);
         }
     }
 
@@ -186,8 +186,8 @@
             align-items: start;
             padding: 0.95rem;
             border-radius: 16px;
-            background: #f8fafc;
-            border: 1px solid rgba(148, 163, 184, 0.14);
+            background: var(--de-color-surface-muted);
+            border: 1px solid var(--de-color-border);
             text-decoration: none;
         }
 
@@ -198,8 +198,8 @@
             align-items: center;
             justify-content: center;
             border-radius: 12px;
-            background: #eff6ff;
-            color: #2563eb;
+            background: var(--de-color-primary-emphasis-soft);
+            color: var(--de-color-primary-emphasis);
         }
 
         strong {

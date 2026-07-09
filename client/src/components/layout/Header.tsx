@@ -1,13 +1,24 @@
-import React, { JSX, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import React, { JSX, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { CartIcon, BellIcon, HeartIcon, PersonIcon, SearchIcon } from "../common/Icons";
+import ColorSchemeDropdown from "../common/ColorSchemeDropdown";
+import LanguageDropdown from "../common/LanguageDropdown";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useCart } from "../../context/CartContext";
 import "../../styles/layout/_header.scss";
 import { useToast } from "../../context/ToastContext";
 import axios from "../../api/axios";
 import { fetchCustomerNotifications } from "../../features/users/api";
 import { signOutFirebaseUser } from "../../services/firebase";
 import { Product } from "../../utils/interface";
+import { useKeyboardShortcut } from "../../hooks/useKeyboardShortcut";
+import { useLocalStorage } from "../../hooks/useLocalStorage";
+import { getProductImageUrl, normalizeProductImageName } from "../../utils/images";
+import { useLocale } from "../../context/LocaleContext";
+import { useT } from "../../hooks/useT";
+
+const RECENT_SEARCH_KEY = "digital-e:recent-searches:v1";
+const MAX_RECENT_SEARCHES = 5;
 
 const primaryLinks = [
     { label: "Home", to: "/" },
@@ -22,44 +33,68 @@ export const Header = (): JSX.Element => {
     const navigate = useNavigate();
     const location = useLocation();
     const { addToast } = useToast();
+    useLocale();
+    const t = useT();
     const [searchTerm, setSearchTerm] = useState<string>("");
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [searchResults, setSearchResults] = useState<Product[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
     const [unreadNotifications, setUnreadNotifications] = useState(0);
+    const { items: cartItems } = useCart();
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const { userData, loading, setUserData } = useAuth();
     const desktopSearchId = "header_search";
     const mobileSearchId = "header_mobile_search";
     const mobileMenuId = "header-mobile-menu";
-    // useDeferredValue keeps typing responsive while the filtered dropdown
-    // catches up shortly after input changes.
     const deferredSearchTerm = useDeferredValue(searchTerm);
     const searchRef = useRef<HTMLDivElement | null>(null);
     const profileMenuRef = useRef<HTMLDivElement | null>(null);
+    const searchInputRef = useRef<HTMLInputElement | null>(null);
+    const [recentSearches, setRecentSearches] = useLocalStorage<string[]>(RECENT_SEARCH_KEY, []);
 
     const activePath = useMemo(() => location.pathname, [location.pathname]);
     const normalizedDeferredSearchTerm = deferredSearchTerm.trim();
     const shouldShowSearchResults = isSearchOpen && normalizedDeferredSearchTerm.length > 1;
     const hasSearchResults = shouldShowSearchResults && searchResults.length > 0;
+    const shouldShowRecent = isSearchOpen && normalizedDeferredSearchTerm.length < 2 && recentSearches.length > 0;
     const accountDisplayName = useMemo(() => {
-        if (!userData) return "Account";
+        if (!userData) return t("common.account");
 
         const fullName = [userData.first_name, userData.last_name].filter(Boolean).join(" ").trim();
-        return fullName || userData.username || userData.email || "Account";
-    }, [userData]);
+        return fullName || userData.username || userData.email || t("common.account");
+    }, [userData, t]);
 
-    const handleSearch = () => {
-        if (!searchTerm.trim()) {
-            addToast("Search empty", "Type something to search.");
-            return;
-        }
+    const submitSearch = useCallback(
+        (term?: string) => {
+            const value = (term ?? searchTerm).trim();
+            if (!value) {
+                addToast(t("header.brand"), t("header.searchEmpty"));
+                return;
+            }
 
-        navigate(`/shops?term=${encodeURIComponent(searchTerm.trim())}`);
-        setSearchResults([]);
-        setIsSearchOpen(false);
-        setIsMenuOpen(false);
-    };
+            setRecentSearches((previous) => {
+                const filtered = previous.filter((entry) => entry.toLowerCase() !== value.toLowerCase());
+                return [value, ...filtered].slice(0, MAX_RECENT_SEARCHES);
+            });
+
+            navigate(`/shops?term=${encodeURIComponent(value)}`);
+            setSearchResults([]);
+            setIsSearchOpen(false);
+            setIsMenuOpen(false);
+        },
+        [addToast, navigate, searchTerm, setRecentSearches, t],
+    );
+
+    useKeyboardShortcut(
+        "/",
+        () => {
+            searchInputRef.current?.focus();
+            searchInputRef.current?.select();
+            setIsSearchOpen(true);
+        },
+        { ignoreInputs: true, preventDefault: true },
+    );
 
     const handleLogout = async () => {
         try {
@@ -67,11 +102,11 @@ export const Header = (): JSX.Element => {
             if (response.status === 200) {
                 await signOutFirebaseUser();
                 setUserData(null);
-                addToast("Logout successfully", response.data.msg);
+                addToast(t("common.logout"), response.data.msg);
                 navigate("/");
             }
         } catch {
-            addToast("Logout failed", "Please try again.");
+            addToast(t("common.logout"), "Please try again.");
             setUserData(null);
         }
     };
@@ -128,9 +163,11 @@ export const Header = (): JSX.Element => {
 
         if (normalizedTerm.length < 2) {
             setSearchResults([]);
+            setIsSearching(false);
             return;
         }
 
+        setIsSearching(true);
         const timer = window.setTimeout(() => {
             axios
                 .get(`/api/products/search?q=${encodeURIComponent(normalizedTerm)}&limit=6`)
@@ -143,7 +180,8 @@ export const Header = (): JSX.Element => {
                 })
                 .catch(() => {
                     setSearchResults([]);
-                });
+                })
+                .finally(() => setIsSearching(false));
         }, 220);
 
         return () => window.clearTimeout(timer);
@@ -192,8 +230,8 @@ export const Header = (): JSX.Element => {
                                 <span className="header__brand__mark-dot" />
                             </span>
                             <span className="header__brand__wordmark">
-                                <strong>Digital-E</strong>
-                                <small>electronics store</small>
+                                <strong>{t("header.brand")}</strong>
+                                <small>{t("header.tagline")}</small>
                             </span>
                         </Link>
                     </div>
@@ -201,36 +239,40 @@ export const Header = (): JSX.Element => {
                     <nav className="header__nav" aria-label="Primary navigation">
                         {primaryLinks.map((link) => (
                             <Link key={link.to} to={link.to} className={activePath === link.to ? "is-active" : ""}>
-                                {link.label}
+                                {t(`header.nav.${link.label.toLowerCase()}`)}
                             </Link>
                         ))}
                     </nav>
 
                     <div className="header__search" role="search" ref={searchRef}>
                         <label className="header__sr-only" htmlFor={desktopSearchId}>
-                            Search the shop
+                            {t("common.search")}
                         </label>
                         <SearchIcon size={18} className="header__search__icon" />
                         <input
+                            ref={searchInputRef}
                             type="text"
                             name="header_search"
                             id={desktopSearchId}
-                            placeholder="Search laptops, phones, speakers, and more"
+                            placeholder={t("header.searchPlaceholder")}
                             className="header__search__bar"
                             value={searchTerm}
                             onFocus={() => {
-                                if (searchTerm.trim().length > 1) {
+                                if (
+                                    searchTerm.trim().length > 1 ||
+                                    (recentSearches.length > 0 && searchTerm.trim().length === 0)
+                                ) {
                                     setIsSearchOpen(true);
                                 }
                             }}
                             onChange={(e) => {
                                 const nextValue = e.target.value;
                                 setSearchTerm(nextValue);
-                                setIsSearchOpen(nextValue.trim().length > 1);
+                                setIsSearchOpen(true);
                             }}
                             onKeyDown={(e) => {
                                 if (e.key === "Enter") {
-                                    handleSearch();
+                                    submitSearch();
                                 }
 
                                 if (e.key === "Escape") {
@@ -241,35 +283,92 @@ export const Header = (): JSX.Element => {
                         <button
                             type="button"
                             className="header__search__submit"
-                            onClick={handleSearch}
-                            aria-label="Search products"
+                            onClick={() => submitSearch()}
+                            aria-label={t("common.search")}
                         >
                             <SearchIcon size={18} />
                         </button>
                         {shouldShowSearchResults ? (
                             <div className="header__search__results">
                                 {hasSearchResults ? (
-                                    searchResults.map((product) => (
+                                    searchResults.map((product) => {
+                                        const hasSale =
+                                            product.sale_price !== null &&
+                                            product.sale_price !== undefined &&
+                                            product.sale_price < product.price;
+                                        const activePrice = hasSale ? product.sale_price : product.price;
+                                        return (
+                                            <button
+                                                key={product.id}
+                                                type="button"
+                                                className="header__search__result"
+                                                onMouseDown={(event) => event.preventDefault()}
+                                                onClick={() => {
+                                                    navigate(`/product?id=${product.id}`);
+                                                    setSearchResults([]);
+                                                    setIsSearchOpen(false);
+                                                }}
+                                            >
+                                                <span className="header__search__result__image">
+                                                    <img
+                                                        src={getProductImageUrl(
+                                                            normalizeProductImageName(product.main_image),
+                                                        )}
+                                                        alt=""
+                                                        loading="lazy"
+                                                    />
+                                                </span>
+                                                <span className="header__search__result__body">
+                                                    <span className="header__search__result__top">
+                                                        <strong>{product.name}</strong>
+                                                        {hasSale ? (
+                                                            <span className="header__search__result__badge">Sale</span>
+                                                        ) : null}
+                                                    </span>
+                                                    <span>
+                                                        {product.brand} - {product.category}
+                                                    </span>
+                                                </span>
+                                                <span className="header__search__result__price">
+                                                    ${Number(activePrice || 0).toFixed(2)}
+                                                </span>
+                                            </button>
+                                        );
+                                    })
+                                ) : isSearching ? (
+                                    <div className="header__search__empty">Searching…</div>
+                                ) : (
+                                    <div className="header__search__empty">{t("header.searchNoResults")}</div>
+                                )}
+                                <div className="header__search__shortcut">{t("header.searchShortcutHint")}</div>
+                            </div>
+                        ) : shouldShowRecent ? (
+                            <div className="header__search__results">
+                                <div className="header__search__history">
+                                    <span>Recent searches</span>
+                                    <button
+                                        type="button"
+                                        className="header__search__history-clear"
+                                        onClick={() => setRecentSearches([])}
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
+                                <div style={{ padding: "0.5rem 0.6rem" }}>
+                                    {recentSearches.map((entry) => (
                                         <button
-                                            key={product.id}
+                                            key={entry}
                                             type="button"
-                                            className="header__search__result"
-                                            onMouseDown={(event) => event.preventDefault()}
+                                            className="header__search__history-chip"
                                             onClick={() => {
-                                                navigate(`/product?id=${product.id}`);
-                                                setSearchResults([]);
-                                                setIsSearchOpen(false);
+                                                setSearchTerm(entry);
+                                                submitSearch(entry);
                                             }}
                                         >
-                                            <strong>{product.name}</strong>
-                                            <span>
-                                                {product.brand} - {product.category}
-                                            </span>
+                                            {entry}
                                         </button>
-                                    ))
-                                ) : (
-                                    <div className="header__search__empty">No matching products yet.</div>
-                                )}
+                                    ))}
+                                </div>
                             </div>
                         ) : null}
                     </div>
@@ -278,12 +377,23 @@ export const Header = (): JSX.Element => {
                         <button
                             type="button"
                             className="header__action header__action--badge"
+                            onClick={() => handleRequireLogin("/cart")}
+                            aria-label={t("common.cart")}
+                        >
+                            <CartIcon size={20} />
+                            {cartItems.length > 0 ? <span>{Math.min(cartItems.length, 99)}</span> : null}
+                        </button>
+                        <button
+                            type="button"
+                            className="header__action header__action--badge"
                             onClick={() => handleRequireLogin("/notifications")}
-                            aria-label="Open notifications"
+                            aria-label={t("common.notifications")}
                         >
                             <BellIcon size={20} />
                             {unreadNotifications > 0 ? <span>{Math.min(unreadNotifications, 9)}</span> : null}
                         </button>
+                        <LanguageDropdown />
+                        <ColorSchemeDropdown />
                         <div className="header__profile" ref={profileMenuRef}>
                             <button
                                 type="button"
@@ -309,7 +419,7 @@ export const Header = (): JSX.Element => {
                                         }}
                                     >
                                         <PersonIcon size={18} />
-                                        <span>{userData ? "My account" : "Login"}</span>
+                                        <span>{userData ? t("common.account") : t("common.login")}</span>
                                     </button>
                                     <button
                                         type="button"
@@ -320,7 +430,7 @@ export const Header = (): JSX.Element => {
                                         }}
                                     >
                                         <HeartIcon size={18} />
-                                        <span>Wishlist</span>
+                                        <span>{t("common.wishlist")}</span>
                                     </button>
                                     <button
                                         type="button"
@@ -331,7 +441,7 @@ export const Header = (): JSX.Element => {
                                         }}
                                     >
                                         <CartIcon size={18} />
-                                        <span>Cart</span>
+                                        <span>{t("common.cart")}</span>
                                     </button>
                                     {userData && !loading ? (
                                         <button
@@ -342,7 +452,7 @@ export const Header = (): JSX.Element => {
                                                 setIsProfileMenuOpen(false);
                                             }}
                                         >
-                                            <span>Logout</span>
+                                            <span>{t("common.logout")}</span>
                                         </button>
                                     ) : null}
                                 </div>
@@ -367,17 +477,17 @@ export const Header = (): JSX.Element => {
             <div className={`header__mobile ${isMenuOpen ? "is-open" : ""}`} id={mobileMenuId}>
                 <div className="header__mobile__search" role="search">
                     <label className="header__sr-only" htmlFor={mobileSearchId}>
-                        Search the shop from the mobile menu
+                        {t("common.search")}
                     </label>
                     <input
                         type="text"
                         id={mobileSearchId}
-                        placeholder="Search products"
+                        placeholder={t("header.searchMobilePlaceholder")}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         onKeyDown={(e) => {
                             if (e.key === "Enter") {
-                                handleSearch();
+                                submitSearch();
                                 closeMenu();
                             }
                         }}
@@ -385,18 +495,18 @@ export const Header = (): JSX.Element => {
                     <button
                         type="button"
                         onClick={() => {
-                            handleSearch();
+                            submitSearch();
                             closeMenu();
                         }}
                     >
-                        Search
+                        {t("common.search")}
                     </button>
                 </div>
 
                 <nav className="header__mobile__links" aria-label="Mobile navigation">
                     {primaryLinks.map((link) => (
                         <Link key={link.to} to={link.to} onClick={closeMenu}>
-                            {link.label}
+                            {t(`header.nav.${link.label.toLowerCase()}`)}
                         </Link>
                     ))}
                 </nav>
@@ -410,7 +520,7 @@ export const Header = (): JSX.Element => {
                         }}
                     >
                         <PersonIcon size={18} />
-                        {userData && !loading ? "My account" : "Login"}
+                        {userData && !loading ? t("common.account") : t("common.login")}
                     </button>
                     <button
                         type="button"
@@ -420,7 +530,7 @@ export const Header = (): JSX.Element => {
                         }}
                     >
                         <HeartIcon size={18} />
-                        Wishlist
+                        {t("common.wishlist")}
                     </button>
                     <button
                         type="button"
@@ -430,7 +540,7 @@ export const Header = (): JSX.Element => {
                         }}
                     >
                         <BellIcon size={18} />
-                        Notifications
+                        {t("common.notifications")}
                     </button>
                     <button
                         type="button"
@@ -440,8 +550,11 @@ export const Header = (): JSX.Element => {
                         }}
                     >
                         <CartIcon size={18} />
-                        Cart
+                        {t("common.cart")}
+                        {cartItems.length > 0 ? ` (${cartItems.length})` : ""}
                     </button>
+                    <LanguageDropdown />
+                    <ColorSchemeDropdown />
                     {userData && !loading ? (
                         <button
                             type="button"
@@ -450,7 +563,7 @@ export const Header = (): JSX.Element => {
                                 closeMenu();
                             }}
                         >
-                            Logout
+                            {t("common.logout")}
                         </button>
                     ) : (
                         <button
@@ -461,7 +574,7 @@ export const Header = (): JSX.Element => {
                             }}
                         >
                             <PersonIcon size={18} />
-                            Login
+                            {t("common.login")}
                         </button>
                     )}
                 </div>

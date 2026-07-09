@@ -10,7 +10,7 @@
     --bs-border-radius-lg: var(--de-radius-md);
     --bs-border-radius-xl: var(--de-radius-lg);
     --bs-link-color: var(--de-color-primary-strong);
-    --bs-link-hover-color: #172b45;
+    --bs-link-hover-color: var(--de-color-primary);
     --bs-box-shadow-sm: var(--de-shadow-xs);
     --bs-box-shadow: var(--de-shadow-md);
     --bs-box-shadow-lg: var(--de-shadow-lg);
@@ -41,7 +41,7 @@ button.btn {
     --bs-btn-border-color: var(--de-color-border-strong);
     --bs-btn-hover-bg: var(--de-color-bg-elevated);
     --bs-btn-hover-color: var(--de-color-text);
-    --bs-btn-hover-border-color: rgba(45, 81, 125, 0.22);
+    --bs-btn-hover-border-color: var(--de-color-border-strong);
 }
 
 .form-control,
@@ -49,7 +49,7 @@ button.btn {
     min-height: 46px;
     border-color: var(--de-color-border);
     border-radius: var(--de-radius-sm);
-    background: rgba(255, 253, 248, 0.92);
+    background: var(--de-color-surface);
     color: var(--de-color-text);
     box-shadow: none;
     transition:
@@ -58,14 +58,14 @@ button.btn {
         background-color var(--de-transition-fast);
 
     &:focus {
-        border-color: rgba(45, 81, 125, 0.34);
-        background: #fffdf8;
+        border-color: var(--de-color-primary);
+        background: var(--de-color-surface-strong);
         box-shadow: var(--de-shadow-focus);
     }
 }
 
 .form-check-input {
-    border-color: rgba(148, 163, 184, 0.42);
+    border-color: var(--de-color-border-strong);
 
     &:checked {
         background-color: var(--de-color-primary);
@@ -78,17 +78,19 @@ button.btn {
     border-radius: var(--de-radius-lg);
     box-shadow: var(--de-shadow-lg);
     overflow: hidden;
+    background: var(--de-color-surface-strong);
 }
 
 .modal-header,
 .modal-footer {
-    border-color: rgba(226, 232, 240, 0.9);
+    border-color: var(--de-color-border);
+    background: var(--de-color-surface-strong);
 }
 
 .table {
     --bs-table-bg: transparent;
-    --bs-table-hover-bg: rgba(45, 81, 125, 0.045);
-    --bs-table-border-color: rgba(188, 179, 166, 0.7);
+    --bs-table-hover-bg: var(--de-color-surface-hover);
+    --bs-table-border-color: var(--de-color-border);
     color: var(--de-color-text-soft);
 
     th {
@@ -112,15 +114,15 @@ button.btn {
 
 .alert-warning {
     background: var(--de-color-warning-soft);
-    color: #8a611f;
+    color: var(--de-color-warning-strong);
 }
 
 .alert-danger {
     background: var(--de-color-danger-soft);
-    color: #8f3b34;
+    color: var(--de-color-danger-strong);
 }
 
 .alert-success {
     background: var(--de-color-success-soft);
-    color: #285f42;
+    color: var(--de-color-success-strong);
 }

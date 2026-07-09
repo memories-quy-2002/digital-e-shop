@@ -19,17 +19,27 @@ digital-e-shop/
       routes/             Router and lazy route wiring
       services/           External integrations (e.g. Firebase)
       utils/              Formatting and helpers
-  server/                 Express 5 API
-    api/                  Serverless/Vercel entrypoint shim
+  server/                 NestJS API (migrated from Express 5, see [[0002-nestjs-migration]])
+    api/                  Serverless/Vercel entrypoint (exports the Nest bootstrap)
     src/
-      config/             Typed env, CORS, database config
-      core/               Base classes, app errors, middleware, response helpers
+      <feature>/          One folder per feature: addresses, analytics, auth, blob,
+                          cart, health, inventory, notifications, orders, products,
+                          promotions, reviews, stripe, users, wishlist — each holds
+                          its own controller/service/repository/dto/validator/types
+                          + __tests__/
+      guards/             AuthGuard, RolesGuard (@OwnerParam/@Roles)
+      pipes/              ZodValidationPipe
+      filters/            AllExceptionsFilter
+      interceptors/       RequestLoggerInterceptor
+      middleware/         csrf.middleware, rate-limit.middleware
+      config/             Typed env, CORS, database config, NestConfigModule/Service
+      core/               Base classes, app errors (legacy helpers, still referenced)
       database/           Prisma client/schema, migrations, seeders
-      modules/            Feature-owned routes/controllers/services/repositories/validators/dtos/types
       shared/             Shared constants, interfaces, validation helpers, utilities
       utils/              Narrow backend utilities
-      app.ts              Express composition root
-      server.ts           Local process bootstrap
+      app.module.ts        Nest root module — imports every feature module
+      main.ts              Nest bootstrap (cached app instance for serverless)
+      server.ts            Local process entrypoint, calls main.ts's bootstrap
     test/                 Read-only k6 scripts
   docs/                   Human guides + bmad/ + ai-prompts/
   Wiki/                   This knowledge base
@@ -43,13 +53,19 @@ digital-e-shop/
 - Functional components only; explicit loading/empty/error/success states; BEM-structured SCSS; responsive across storefront, account, and admin.
 
 ### Backend
-- Each feature module keeps explicit `routes → controller → service → repository` layers.
-- Controllers stay thin (parse/format). Services own cross-table orchestration (checkout, inventory, timeline, notifications). Repositories own SQL/persistence.
-- Validation via Zod in feature validators; shared request/domain types in `server/src/shared/interfaces`.
-- Routes mounted under `/api`, with fallback aliases without `/api` for serverless. Enforce `requireAuth`, `requireAdmin`, `requireOwnerOrAdmin`.
+- **NestJS end-state** (migrated from Express 5, see [docs/superpowers/specs/2026-07-08-nestjs-migration-design.md](../docs/superpowers/specs/2026-07-08-nestjs-migration-design.md) and [[0002-nestjs-migration]]): each feature is a Nest module (`@Module`) with a `@Controller`, one or more `@Injectable()` services, and `@Injectable()` repositories owning raw MySQL access — no more `require()`-wrapped Express layer. `server/src/app.module.ts` imports all 15 feature/infra modules; `server/src/main.ts` bootstraps a cached Nest instance (module-level singleton) for both local dev (`server.ts`) and the Vercel serverless entrypoint (`api/index.ts`). `bootstrap()` **must call `app.init()`** before returning — Nest only binds `@Controller` routes onto the underlying Express instance during its init lifecycle; skipping it (as the migration initially did) left every Nest route 404ing while manually-added Express routes kept working.
+- **Dev runtime must compile with real `tsc`, not `tsx`/esbuild.** `tsx` (esbuild) does not implement TypeScript's `emitDecoratorMetadata`, which NestJS's DI container reads (`Reflect.getMetadata('design:paramtypes', ...)`) to resolve constructor-injected providers. Running the app through `tsx` silently injects `undefined` for every constructor-injected service/repository/guard (verified via `Reflect.getMetadata` returning `undefined` under `tsx` vs. a populated array under `tsc`) — requests reach the controller/guard but crash with `TypeError: Cannot read properties of undefined`. `server/package.json`'s `dev` script now runs `tsc --watch` (via `tsconfig.build.json`) piped to `node --watch` over the compiled `dist/` output (same compiler `build`/`start` already use), rather than `tsx` directly on `.ts` sources.
+- Controllers stay thin (parse/format, throw `HttpException` with `{ msg }` bodies matching the old Express shapes). Services own cross-table orchestration (checkout, inventory, timeline, notifications). Repositories own SQL/persistence.
+- `AuthGuard`/`RolesGuard` (with `@OwnerParam`/`@Roles`) replace the old `requireAuth`/`requireAdmin`/`requireOwnerOrAdmin` Express middleware with equivalent semantics, applied via `@UseGuards(...)`. `AuthGuard` depends on `NestAuthService` and `UsersRepository`, both exported globally via `@Global()` on `AuthModule`/`UsersModule` (same pattern as `NestConfigModule`) so any feature module can use the guard without explicitly importing auth.
+- Validation via Zod in feature validators, applied through a custom `ZodValidationPipe`; shared request/domain types in `server/src/shared/interfaces`.
+- CSRF (`csrf-csrf` double-submit-cookie) is Nest middleware (`middleware/csrf.middleware.ts`) applied globally via `MiddlewareConsumer.forRoutes("*")` with the same login/register/refresh exclusions as before. Stripe webhook signature verification reads `req.rawBody` (populated by the `rawBody: true` bootstrap option), not `req.body` — Nest's global body parser always runs first and would otherwise have already parsed the payload to JSON.
+- Route aliases (`/api/user` + `/api/users`) implemented via Nest array-path controllers (`@Controller(['users', 'user'])`); note there is no *bare* (`/users` without `/api`) mount — the client only ever calls `/api/*`.
+- **Global `/api` prefix**: `main.ts` calls `app.setGlobalPrefix("api")` before `app.init()`. All feature controllers use bare paths (`@Controller("products")`, `@Controller("cart")`, etc.) and rely on the global prefix to become `/api/products`, `/api/cart`, etc. — matching every client call in `client/src/**/api.ts`. The 3 controllers that need a fixed external path independent of the prefix convention (`HealthController`, `NestAuthController`, `StripeWebhookController`) must NOT hardcode `api/` themselves, or the prefix doubles to `/api/api/...`; `CsrfExclude` paths in `AuthModule`'s `MiddlewareConsumer.exclude(...)` are matched *after* the global prefix is applied, so they're written without the `api/` segment too. **When migrating/adding a controller, never hardcode `api/` in `@Controller(...)` — the global prefix supplies it.** (Migration bug found 2026-07-08: only 3 of 15 controllers had gained the `api/` prefix during the Nest migration; the other 12 — including `products`, `cart`, `orders`, `wishlist` — had no `/api` mount at all, so every client request 404'd until `setGlobalPrefix` was added.)
+- **Known gap**: Google OAuth (`/auth/google`, `/auth/google/callback`) is not migrated — `@nestjs/passport` isn't installed. See the migration spec's "Known gaps" section.
+- **Known gap**: the admin inventory-movements client call (`GET /api/products/admin/inventory-movements`) does not match the actual mounted route (`GET /api/inventory-movements`, on `InventoryController`) — pre-existing mismatch surfaced while auditing routes for the `/api` prefix fix, not yet fixed.
 
 ### Database
-- Primary access through `server/src/modules/*/*.repository.ts` (MySQL). Prisma schema at `server/src/database/prisma/schema.prisma` is partially adopted. See [[0001-mysql-primary-prisma-partial]].
+- Primary access through `server/src/<feature>/<feature>.repository.ts` (MySQL, `@Injectable()` Nest providers). Prisma schema at `server/src/database/prisma/schema.prisma` is partially adopted. See [[0001-mysql-primary-prisma-partial]].
 - **Prisma 7**: uses the rust-free `prisma-client` generator (`moduleFormat = "cjs"`, `runtime = "nodejs"`) emitting to `server/src/generated/prisma` (gitignored, rebuilt on install/build). The datasource URL lives in `server/prisma.config.ts` — not the schema — and the runtime connects via the `@prisma/adapter-mariadb` driver adapter (MySQL-compatible) constructed in `server/src/database/prisma/client.ts`.
 - **DB connection is env-driven** (`DB_HOST/PORT/USER/PASSWORD/NAME` in `server/src/config/database.config.ts`). Managed MySQL (Aiven) requires TLS: set `DB_SSL=true` to load the CA at `server/src/database/ca.pem` (override via `DB_SSL_CA_PATH`) and connect over verified SSL; leave `DB_SSL` unset for plaintext local/Docker. Docker is test-only, driven by its own env and the `docker:*` scripts.
 - SQL baseline dump under `server/src/database/migrations/`. Some tables (inventory movement, notifications, address book, order timeline) are created defensively on first use.

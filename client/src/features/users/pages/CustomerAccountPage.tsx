@@ -87,11 +87,7 @@ const CustomerAccountPage = () => {
                 <meta name="description" content="Review your account, orders, saved addresses, and notifications." />
             </Helmet>
             <main className="customer-account-page">
-                <CustomerAccountShell
-                    eyebrow="Account"
-                    title="My account"
-                    description="Review your recent orders, saved addresses, and account activity from one place."
-                />
+                <CustomerAccountShell title="My account" />
 
                 {loading ? (
                     <>

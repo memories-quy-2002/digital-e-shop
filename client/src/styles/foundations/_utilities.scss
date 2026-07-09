@@ -1,10 +1,9 @@
 .app-page {
-    width: min(100%, var(--de-max-width-content));
-    margin: 0 auto;
-    padding: var(--de-space-6) var(--de-space-4) var(--de-space-8);
+    width: 100%;
+    padding: var(--de-space-6) var(--de-space-5) var(--de-space-8);
 
     @media (min-width: 992px) {
-        padding-inline: var(--de-space-6);
+        padding-inline: var(--de-space-7);
     }
 }
 

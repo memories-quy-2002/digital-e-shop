@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Table } from "react-bootstrap";
-import axios from "../../../api/axios";
 import AdminLayout from "../../../components/layout/AdminLayout";
 import AdminWorkflowSteps from "../../../components/common/admin/AdminWorkflowSteps";
 import { Helmet } from "react-helmet";
 import { useToast } from "../../../context/ToastContext";
 import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
+import { fetchPromotions, createPromotion, updatePromotion, deletePromotion } from "../api";
 
 type Promotion = {
     id: number;
@@ -66,19 +66,16 @@ const AdminPromotionsPage = () => {
     const [isDeactivating, setIsDeactivating] = useState(false);
     const { addToast } = useToast();
 
-    const fetchPromotions = async () => {
-        try {
-            const response = await axios.get("/api/promotions");
-            if (response.status === 200) {
-                setPromotions((response.data.promotions || []).map(normalizePromotion));
-            }
-        } catch {
-            addToast("Promotions", "Unable to load promotions.");
-        }
-    };
-
     useEffect(() => {
-        fetchPromotions();
+        const loadPromotions = async () => {
+            try {
+                const data = await fetchPromotions();
+                setPromotions((data || []).map(normalizePromotion));
+            } catch {
+                addToast("Promotions", "Unable to load promotions.");
+            }
+        };
+        loadPromotions();
     }, []);
 
     const filteredPromotions = useMemo(() => {
@@ -123,14 +120,15 @@ const AdminPromotionsPage = () => {
         try {
             setIsSaving(true);
             if (form.id) {
-                await axios.put(`/api/promotions/${form.id}`, payload);
+                await updatePromotion(form.id, payload);
                 addToast("Promotions", "Promotion updated successfully.");
             } else {
-                await axios.post("/api/promotions", payload);
+                await createPromotion(payload);
                 addToast("Promotions", "Promotion created successfully.");
             }
             setForm(emptyForm);
-            fetchPromotions();
+            const data = await fetchPromotions();
+            setPromotions((data || []).map(normalizePromotion));
         } catch (err: any) {
             addToast("Promotions", err?.response?.data?.msg || "Unable to save promotion.");
         } finally {
@@ -144,10 +142,11 @@ const AdminPromotionsPage = () => {
         }
         try {
             setIsDeactivating(true);
-            await axios.delete(`/api/promotions/${pendingDeactivatePromotion.id}`);
+            await deletePromotion(pendingDeactivatePromotion.id);
             addToast("Promotions", `${pendingDeactivatePromotion.discount_code} has been deactivated.`);
             setPendingDeactivatePromotion(null);
-            fetchPromotions();
+            const data = await fetchPromotions();
+            setPromotions((data || []).map(normalizePromotion));
         } catch {
             addToast("Promotions", "Unable to deactivate promotion.");
         } finally {

@@ -6,7 +6,7 @@
         grid-template-columns: 1fr;
         overflow: hidden;
         border-radius: 28px;
-        background: #101827;
+        background: var(--de-color-bg-strong);
         color: #fff;
         min-height: 520px;
 
@@ -30,18 +30,25 @@
             margin: 0;
             font-size: clamp(2.3rem, 5vw, 4.7rem);
             line-height: 1.03;
-            color: white;
+            color: #fff;
         }
 
         p {
             max-width: 640px;
             margin: 0;
-            color: rgba(226, 232, 240, 0.9);
+            color: rgba(255, 255, 255, 0.9);
             line-height: 1.75;
             font-size: 1.05rem;
         }
 
-        &__actions { margin-top: 0.5rem; }
+        &__actions {
+            margin-top: 0.5rem;
+
+            .ghost {
+                color: #fff;
+                border-color: rgba(255, 255, 255, 0.35);
+            }
+        }
 
         &__media {
             min-height: 280px;
@@ -74,9 +81,9 @@
         div {
             border: 1px solid var(--info-line);
             border-radius: 18px;
-            background: #fff;
+            background: var(--de-color-surface-strong);
             padding: 1.25rem;
-            box-shadow: 0 14px 30px rgba(15, 23, 42, 0.06);
+            box-shadow: var(--de-shadow-sm);
         }
 
         strong {
@@ -110,12 +117,12 @@
     &__team__card {
         border: 1px solid var(--info-line);
         border-radius: 18px;
-        background: #fff;
+        background: var(--de-color-surface-strong);
         padding: 1.35rem;
-        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.06);
+        box-shadow: var(--de-shadow-sm);
 
         small {
-            color: #2563eb;
+            color: var(--de-color-primary-emphasis);
             font-weight: 900;
         }
 
@@ -126,7 +133,7 @@
 
         p {
             margin: 0;
-            color: #475569;
+            color: var(--info-muted);
             line-height: 1.65;
         }
     }
@@ -143,12 +150,12 @@
 
         &__content {
             border-radius: 24px;
-            background: #fff;
+            background: var(--de-color-surface-strong);
             border: 1px solid var(--info-line);
             padding: 2rem;
 
             span {
-                color: #2563eb;
+                color: var(--de-color-primary-emphasis);
                 font-size: 0.8rem;
                 font-weight: 900;
                 letter-spacing: 0.08em;
@@ -162,7 +169,7 @@
             }
 
             p {
-                color: #475569;
+                color: var(--info-muted);
                 line-height: 1.75;
             }
         }
@@ -177,7 +184,7 @@
                 gap: 1rem;
                 align-items: center;
                 border-radius: 18px;
-                background: var(--info-ink);
+                background: #152235;
                 color: #fff;
                 padding: 1rem;
             }
@@ -188,7 +195,7 @@
 
             p {
                 margin: 0;
-                color: rgba(226, 232, 240, 0.86);
+                color: rgba(255, 255, 255, 0.86);
                 line-height: 1.5;
             }
         }

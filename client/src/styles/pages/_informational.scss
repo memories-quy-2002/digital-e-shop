@@ -1,13 +1,13 @@
 .info-page {
-    --info-ink: #0f172a;
-    --info-muted: #64748b;
-    --info-line: rgba(148, 163, 184, 0.22);
+    --info-ink: var(--de-color-text);
+    --info-muted: var(--de-color-text-muted);
+    --info-line: var(--de-color-border);
 
     display: flex;
     flex-direction: column;
     gap: 3rem;
     padding: 2rem 1.25rem 4rem;
-    background: #f8fafc;
+    background: var(--de-color-bg-muted);
 
     @media (min-width: 1024px) {
         padding: 3rem 4rem 4.5rem;
@@ -17,7 +17,7 @@
         max-width: 760px;
 
         span {
-            color: #2563eb;
+            color: var(--de-color-primary-emphasis);
             font-size: 0.8rem;
             font-weight: 900;
             letter-spacing: 0.08em;
@@ -68,14 +68,14 @@
 
         a,
         button:not(.ghost) {
-            background: #fff;
+            background: var(--de-color-on-accent);
             color: var(--info-ink);
             border: none;
         }
 
         .ghost {
             background: rgba(255, 255, 255, 0.1);
-            color: #fff;
+            color: var(--de-color-on-accent);
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
     }
@@ -84,8 +84,8 @@
     &__panel {
         border: 1px solid var(--info-line);
         border-radius: 18px;
-        background: #fff;
-        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.06);
+        background: var(--de-color-surface-strong);
+        box-shadow: var(--de-shadow-sm);
     }
 
     &__panel {
@@ -102,7 +102,7 @@
         gap: 0.2rem;
 
         small {
-            color: #2563eb;
+            color: var(--de-color-primary-emphasis);
             font-size: 0.76rem;
             font-weight: 900;
             letter-spacing: 0.08em;

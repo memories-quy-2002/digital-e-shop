@@ -1,19 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import axios from "../api/axios";
-import { Role } from "../utils/interface";
-
-type UserData = {
-    id: string;
-    email: string;
-    password: string;
-    username: string;
-    first_name: string | null;
-    last_name: string | null;
-    role: Role.Admin | Role.Customer;
-    token: string;
-    created_at: Date;
-    last_login: Date;
-} | null;
+import type { UserData } from "../types/user";
 
 interface AuthContextProps {
     userData: UserData;

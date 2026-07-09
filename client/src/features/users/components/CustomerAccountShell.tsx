@@ -4,9 +4,9 @@ import { BellIcon, CartIcon, HouseIcon, PersonIcon } from "../../../components/c
 import "../../../styles/features/users/_customer-account-shell.scss";
 
 type CustomerAccountShellProps = {
-    eyebrow: string;
+    eyebrow?: string;
     title: string;
-    description: string;
+    description?: string;
     actions?: React.ReactNode;
 };
 
@@ -24,9 +24,9 @@ const CustomerAccountShell = ({ eyebrow, title, description, actions }: Customer
         <section className="customer-account-shell">
             <div className="customer-account-shell__header">
                 <div>
-                    <span>{eyebrow}</span>
+                    {eyebrow ? <span>{eyebrow}</span> : null}
                     <h1>{title}</h1>
-                    <p>{description}</p>
+                    {description ? <p>{description}</p> : null}
                 </div>
                 {actions ? <div className="customer-account-shell__actions">{actions}</div> : null}
             </div>

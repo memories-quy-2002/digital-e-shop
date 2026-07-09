@@ -5,27 +5,23 @@ import { SearchIcon } from "../components/common/Icons";
 import EmptyState from "../components/common/EmptyState";
 import Layout from "../components/layout/Layout";
 import "../styles/pages/_not-found.scss";
+import { useT } from "../hooks/useT";
 
 const NotFoundPage = () => {
+    const t = useT();
     return (
         <Layout>
             <Helmet>
-                <title>Page Not Found | Digital-E</title>
+                <title>{`${t("notFound.title")} | Digital-E`}</title>
                 <meta name="description" content="The page you are looking for does not exist." />
             </Helmet>
             <main className="not-found">
                 <section className="not-found__hero">
-                    <span className="not-found__eyebrow">Error 404</span>
-                    <h1>That page is not available.</h1>
-                    <p>
-                        The link may be outdated, the address may be incorrect, or the page may have moved somewhere
-                        else in the store.
-                    </p>
+                    <h1>{t("notFound.title")}</h1>
+                    <p>{t("notFound.description")}</p>
                     <div className="not-found__actions">
-                        <Link to="/">Go to home</Link>
-                        <Link to="/shops" className="ghost">
-                            Browse products
-                        </Link>
+                        <Link to="/">{t("notFound.backHome")}</Link>
+                        <Link to="/shops" className="ghost">{t("home.viewAllProducts")}</Link>
                     </div>
                 </section>
 
@@ -33,9 +29,8 @@ const NotFoundPage = () => {
                     <EmptyState
                         compact
                         icon={<SearchIcon size={20} />}
-                        title="Try a different route"
-                        description="Return to the storefront, search for a product, or head back to your account to continue where you left off."
-                        actionLabel="Open account"
+                        title={t("common.search")}
+                        actionLabel={t("common.account")}
                         actionTo="/account"
                     />
                 </section>

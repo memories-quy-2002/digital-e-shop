@@ -16,7 +16,7 @@ body {
     -moz-osx-font-smoothing: grayscale;
     background:
         var(--de-gradient-shell),
-        linear-gradient(180deg, #f8f4ed 0%, var(--de-color-bg) 24%, #ede6d9 100%);
+        linear-gradient(180deg, var(--de-color-bg-elevated) 0%, var(--de-color-bg) 24%, var(--de-color-bg-muted) 100%);
     color: var(--de-color-text);
 }
 
@@ -78,7 +78,7 @@ button {
 
 input::placeholder,
 textarea::placeholder {
-    color: #94a3b8;
+    color: var(--de-color-text-faint);
     opacity: 1;
 }
 

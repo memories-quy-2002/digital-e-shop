@@ -5,14 +5,14 @@ import { Helmet } from "react-helmet";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import authImage from "../../../assets/images/background_form.jpg";
 import { useToast } from "../../../context/ToastContext";
-import http from "../../../lib/http";
 import { createFirebaseUser, signInWithFirebaseEmail } from "../../../services/firebase";
 import "../../../styles/features/auth/_signup.scss";
 import { PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../../../utils/images";
-import { Role } from "../../../utils/interface";
+import { Role } from "../../../types/user";
 import SocialAuthButtons from "../components/SocialAuthButtons";
 import { getSocialAuthMessage } from "../utils/socialAuth";
-import { EyeIcon, EyeOffIcon, ShieldIcon } from "../../../components/common/Icons";
+import { EyeIcon, EyeOffIcon } from "../../../components/common/Icons";
+import { registerUser } from "../api";
 
 interface User {
     username: string;
@@ -35,6 +35,18 @@ const SignupPage = () => {
     });
     const [errors, setErrors] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const fieldErrors = useMemo(() => {
+        const map: Record<string, string> = {};
+        for (const err of errors) {
+            const lower = err.toLowerCase();
+            if (lower.includes("username")) map.username = err;
+            else if (lower.includes("email")) map.email = err;
+            else if (lower.includes("password") && lower.includes("confirm")) map.confirm = err;
+            else if (lower.includes("password")) map.password = err;
+            else map.general = err;
+        }
+        return map;
+    }, [errors]);
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const authImageSource = getResponsiveImageSource(authImage, {
@@ -146,14 +158,9 @@ const SignupPage = () => {
                 }
             }
 
-            const response = await http.post("/api/users/register", {
-                user,
-                uid,
-            });
-            if (response.status === 200) {
-                addToast("Signup", "Account created successfully.");
-                navigate(user.role === Role.Customer ? "/" : "/admin");
-            }
+            await registerUser(user, uid);
+            addToast("Signup", "Account created successfully.");
+            navigate(user.role === Role.Customer ? "/" : "/admin");
         } catch (err: unknown) {
             if (err instanceof AxiosError) {
                 const status = err.response?.status;
@@ -199,20 +206,10 @@ const SignupPage = () => {
                     <div className="signup__image__content">
                         <strong className="signup__image__content__name">DIGITAL-E</strong>
                         <p className="signup__image__content__desc">Create an account for faster checkout.</p>
-                        <div className="signup__image__content__trust">
-                            <span>Wishlist sync</span>
-                            <span>Checkout history</span>
-                            <span>Customer support</span>
-                        </div>
                     </div>
                 </aside>
                 <main className="signup__form">
-                    <div className="signup__form__badge">
-                        <ShieldIcon size={18} />
-                        Secure account creation
-                    </div>
-                    <h1 className="signup__form__title">Create new account</h1>
-                    <p className="signup__form__subtitle">Save your cart, wishlist products, and track orders.</p>
+                    <h1 className="signup__form__title">Create account</h1>
                     <SocialAuthButtons intent="signup" role={user.role} disabled={user.role === Role.Admin} />
                     <Form className="signup__form__container" onSubmit={handleSubmit} name="signup-form" aria-label="signup-form">
                         <Form.Group className="signup__form__container__group mb-3" controlId="formBasicUserName">
@@ -221,12 +218,13 @@ const SignupPage = () => {
                                 type="text"
                                 name="username"
                                 placeholder="Username"
-                                className="signup__form__container__group__input"
+                                className={`signup__form__container__group__input${fieldErrors.username ? " is-invalid" : ""}`}
                                 required
                                 autoComplete="username"
                                 value={user.username}
                                 onChange={handleChangeInput}
                             />
+                            {fieldErrors.username ? <Form.Text className="signup__field-error">{fieldErrors.username}</Form.Text> : null}
                         </Form.Group>
                         <Form.Group className="signup__form__container__group mb-3" controlId="formBasicEmail">
                             <Form.Label>Email address</Form.Label>
@@ -234,12 +232,13 @@ const SignupPage = () => {
                                 type="email"
                                 name="email"
                                 placeholder="Email"
-                                className="signup__form__container__group__input"
+                                className={`signup__form__container__group__input${fieldErrors.email ? " is-invalid" : ""}`}
                                 required
                                 autoComplete="email"
                                 value={user.email}
                                 onChange={handleChangeInput}
                             />
+                            {fieldErrors.email ? <Form.Text className="signup__field-error">{fieldErrors.email}</Form.Text> : null}
                         </Form.Group>
                         <Form.Group className="signup__form__container__group mb-3" controlId="formBasicPassword">
                             <Form.Label>Password</Form.Label>
@@ -248,7 +247,7 @@ const SignupPage = () => {
                                     type={showPassword ? "text" : "password"}
                                     name="password"
                                     placeholder="Password"
-                                    className="signup__form__container__group__input"
+                                    className={`signup__form__container__group__input${fieldErrors.password ? " is-invalid" : ""}`}
                                     required
                                     autoComplete="new-password"
                                     value={user.password}
@@ -267,6 +266,7 @@ const SignupPage = () => {
                                     <span key={level} className={passwordStrength >= level ? "active" : ""}></span>
                                 ))}
                             </div>
+                            {fieldErrors.password ? <Form.Text className="signup__field-error">{fieldErrors.password}</Form.Text> : null}
                         </Form.Group>
                         <Form.Group className="signup__form__container__group mb-3" controlId="formBasicConfirmPassword">
                             <Form.Label>Confirm Password</Form.Label>
@@ -275,7 +275,7 @@ const SignupPage = () => {
                                     type={showConfirm ? "text" : "password"}
                                     name="confirm"
                                     placeholder="Confirm Password"
-                                    className="signup__form__container__group__input"
+                                    className={`signup__form__container__group__input${fieldErrors.confirm ? " is-invalid" : ""}`}
                                     required
                                     autoComplete="new-password"
                                     value={user.confirm}
@@ -289,6 +289,7 @@ const SignupPage = () => {
                                     {showConfirm ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
                                 </button>
                             </div>
+                            {fieldErrors.confirm ? <Form.Text className="signup__field-error">{fieldErrors.confirm}</Form.Text> : null}
                         </Form.Group>
                         <Form.Group className="signup__form__container__group signup__role">
                             <Form.Label>Signup as</Form.Label>
@@ -308,11 +309,11 @@ const SignupPage = () => {
                             </div>
                         </Form.Group>
 
-                        <div className="signup__form__errors" aria-live="polite">
-                            {errors.map((error, id) => (
-                                <div key={id}>{error}</div>
-                            ))}
-                        </div>
+                        {fieldErrors.general ? (
+                            <div className="signup__form__errors" aria-live="polite">
+                                <div>{fieldErrors.general}</div>
+                            </div>
+                        ) : null}
                         <button className="signup__form__submit" type="submit" disabled={!canSubmit}>
                             {isSubmitting ? "Creating account..." : "Sign up"}
                         </button>

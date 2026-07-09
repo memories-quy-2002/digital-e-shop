@@ -5,14 +5,14 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import authImage from "../../../assets/images/background_form.jpg";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
-import http from "../../../lib/http";
 import { signInWithFirebaseEmail } from "../../../services/firebase";
 import "../../../styles/features/auth/_login.scss";
 import { PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../../../utils/images";
-import { Role } from "../../../utils/interface";
+import { Role } from "../../../types/user";
 import SocialAuthButtons from "../components/SocialAuthButtons";
 import { getSocialAuthMessage } from "../utils/socialAuth";
-import { EyeIcon, EyeOffIcon, ShieldIcon } from "../../../components/common/Icons";
+import { EyeIcon, EyeOffIcon } from "../../../components/common/Icons";
+import { loginUser } from "../api";
 
 interface User {
     email: string;
@@ -32,6 +32,16 @@ const LoginPage = () => {
     const { setUserData } = useAuth();
     const [rememberMe, setRememberMe] = useState<boolean>(false);
     const [errors, setErrors] = useState<string[]>([]);
+    const fieldErrors = useMemo(() => {
+        const map: Record<string, string> = {};
+        for (const err of errors) {
+            const lower = err.toLowerCase();
+            if (lower.includes("email")) map.email = err;
+            else if (lower.includes("password")) map.password = err;
+            else map.general = err;
+        }
+        return map;
+    }, [errors]);
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const [showPassword, setShowPassword] = useState<boolean>(false);
     const authImageSource = getResponsiveImageSource(authImage, {
@@ -102,17 +112,10 @@ const LoginPage = () => {
         try {
             const userCredential = await signInWithFirebaseEmail(user.email, user.password);
             const uid = userCredential.user.uid;
-            const response = await http.post("/api/users/login", {
-                uid,
-                role: user.role,
-                rememberMe,
-            });
-
-            if (response.status === 200) {
-                setUserData(response.data.userData);
-                addToast("Login", "You have been logon successfully");
-                navigate(user.role === Role.Admin ? "/admin" : "/");
-            }
+            const userDataResult = await loginUser(uid, user.role, rememberMe);
+            setUserData(userDataResult);
+            addToast("Login", "You have been logon successfully");
+            navigate(user.role === Role.Admin ? "/admin" : "/");
         } catch (err: unknown) {
             if (err && typeof err === "object" && "response" in err) {
                 const axiosError = err as { response: { status: number; data: { msg: string } } };
@@ -153,21 +156,11 @@ const LoginPage = () => {
                     />
                     <div className="login__image__content">
                         <strong className="login__image__content__name">DIGITAL-E</strong>
-                        <p className="login__image__content__desc">Fast checkout, saved carts, and order tracking.</p>
-                        <div className="login__image__content__trust">
-                            <span>Secure sessions</span>
-                            <span>Saved carts</span>
-                            <span>Order history</span>
-                        </div>
+                        <p className="login__image__content__desc">Sign in to manage your orders and wishlist.</p>
                     </div>
                 </aside>
                 <main className="login__form">
-                    <div className="login__form__badge">
-                        <ShieldIcon size={18} />
-                        Protected account access
-                    </div>
                     <h1 className="login__form__title">Welcome back</h1>
-                    <p className="login__form__subtitle">Sign in to continue shopping with your saved preferences.</p>
                     <SocialAuthButtons intent="login" role={user.role} disabled={user.role === Role.Admin} />
                     <Form className="login__form__container" onSubmit={handleSubmit} name="login-form" aria-label="login-form">
                         <Form.Group className="login__form__container__group mb-3" controlId="formBasicUserName">
@@ -176,12 +169,13 @@ const LoginPage = () => {
                                 type="email"
                                 name="email"
                                 placeholder="Email"
-                                className="login__form__container__group__input"
+                                className={`login__form__container__group__input${fieldErrors.email ? " is-invalid" : ""}`}
                                 required
                                 autoComplete="email"
                                 value={user.email}
                                 onChange={handleChangeInput}
                             />
+                            {fieldErrors.email ? <Form.Text className="login__field-error">{fieldErrors.email}</Form.Text> : null}
                         </Form.Group>
 
                         <Form.Group className="login__form__container__group mb-3" controlId="formBasicPassword">
@@ -191,7 +185,7 @@ const LoginPage = () => {
                                     type={showPassword ? "text" : "password"}
                                     name="password"
                                     placeholder="Password"
-                                    className="login__form__container__group__input"
+                                    className={`login__form__container__group__input${fieldErrors.password ? " is-invalid" : ""}`}
                                     required
                                     autoComplete="current-password"
                                     value={user.password}
@@ -205,6 +199,7 @@ const LoginPage = () => {
                                     {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
                                 </button>
                             </div>
+                            {fieldErrors.password ? <Form.Text className="login__field-error">{fieldErrors.password}</Form.Text> : null}
                         </Form.Group>
 
                         <Form.Group className="login__form__container__group login__role">
@@ -234,11 +229,11 @@ const LoginPage = () => {
                                 label="Remember me"
                             />
                         </Form.Group>
-                        <div className="login__form__errors" aria-live="polite">
-                            {errors.map((error, id) => (
-                                <div key={id}>{error}</div>
-                            ))}
-                        </div>
+                        {fieldErrors.general ? (
+                            <div className="login__form__errors" aria-live="polite">
+                                <div>{fieldErrors.general}</div>
+                            </div>
+                        ) : null}
                         <button className="login__form__submit" name="login" type="submit" disabled={!canSubmit}>
                             {isSubmitting ? "Signing in..." : "Login"}
                         </button>
