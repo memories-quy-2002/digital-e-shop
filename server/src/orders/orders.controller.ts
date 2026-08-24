@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, HttpException, Param, Post, Query, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "../guards/auth.guard";
-import { OwnerParam, RolesGuard } from "../guards/roles.guard";
+import { OwnerParam, Roles, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestOrdersService } from "./orders.service";
 import { NestOrdersStripeService } from "./orders.stripe.service";
@@ -21,6 +21,7 @@ export class OrdersController {
 
     @Get()
     @UseGuards(AuthGuard, RolesGuard)
+    @Roles("Admin")
     async getOrders(@Query() query: Record<string, unknown>) {
         try {
             const page = Number(query.page);
@@ -55,6 +56,7 @@ export class OrdersController {
 
     @Get("/item")
     @UseGuards(AuthGuard, RolesGuard)
+    @Roles("Admin")
     async getOrderItems(@Query() query: Record<string, unknown>) {
         try {
             const page = Number(query.page);
@@ -135,6 +137,7 @@ export class OrdersController {
     @Post("/status/:oid")
     @HttpCode(200)
     @UseGuards(AuthGuard, RolesGuard)
+    @Roles("Admin")
     async changeOrderStatus(
         @Param("oid") oid: string,
         @Body(new ZodValidationPipe(orderStatusSchema)) body: { status: number },
@@ -235,7 +238,8 @@ export class OrdersController {
 
     @Post("/discount")
     @HttpCode(200)
-    @UseGuards(AuthGuard)
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles("Customer", "Admin")
     async applyDiscount(@Body(new ZodValidationPipe(applyDiscountSchema)) body: { discountCode: string; price: number }) {
         try {
             const discount = await this.ordersService.applyDiscount(body.discountCode);
