@@ -18,7 +18,8 @@ function buildService() {
         createOrderFromValidatedCart: vi.fn(),
         markPendingCheckoutConsumed: vi.fn(),
         insertPendingCheckout: vi.fn(),
-        calculateDiscount: vi.fn(),
+        applyDiscount: vi.fn(),
+        getOrderByStripeSessionId: vi.fn(),
     } as unknown as NestOrdersService;
     return { service: new NestOrdersStripeService(cartService, ordersService), cartService, ordersService };
 }
@@ -36,7 +37,13 @@ describe("createCheckoutSession", () => {
             issues: [],
             mismatches: [],
         } as never);
-        vi.mocked(ordersService.calculateDiscount).mockResolvedValue(10);
+        vi.mocked(ordersService.applyDiscount).mockResolvedValue({
+            id: 1,
+            discount_code: "SAVE10",
+            discount_percent: 10,
+            active: 1,
+            min_order_value: 0,
+        });
         vi.mocked(stripeClient.checkout.sessions.create).mockResolvedValue({
             id: "cs_secure_discount",
             url: "https://checkout.stripe.test/session",
@@ -50,7 +57,7 @@ describe("createCheckoutSession", () => {
             shippingAddress: "123 Main St",
         } as never);
 
-        expect(ordersService.calculateDiscount).toHaveBeenCalledWith("SAVE10", 100);
+        expect(ordersService.applyDiscount).toHaveBeenCalledWith("SAVE10");
         expect(stripeClient.checkout.sessions.create).toHaveBeenCalledWith(
             expect.objectContaining({
                 line_items: [
@@ -124,6 +131,36 @@ describe("handleCheckoutSessionCompleted", () => {
         expect(ordersService.markPendingCheckoutConsumed).toHaveBeenCalledWith("cs_test_456");
     });
 
+    it("treats a duplicate Stripe session order as already processed", async () => {
+        const { service, ordersService } = buildService();
+        vi.mocked(ordersService.getPendingCheckoutBySessionId).mockResolvedValue({
+            id: 4,
+            stripe_session_id: "cs_duplicate",
+            user_id: "user-4",
+            cart_json: "[]",
+            total_price: "10.00",
+            discount: "0.00",
+            shipping_address: "123 Main St",
+            created_at: "2026-07-07T00:00:00.000Z",
+            consumed_at: null,
+        } as never);
+        vi.mocked(ordersService.createOrderFromValidatedCart).mockRejectedValue(
+            Object.assign(new Error("Duplicate entry"), { code: "ER_DUP_ENTRY" }),
+        );
+        vi.mocked(ordersService.getOrderByStripeSessionId).mockResolvedValue({
+            id: 99,
+            user_id: "user-4",
+            date_added: "2026-07-07T00:00:00.000Z",
+            payment_method: "card",
+        } as never);
+
+        await expect(
+            service.handleCheckoutSessionCompleted({ id: "cs_duplicate", payment_intent: "pi_duplicate" }),
+        ).resolves.toBeUndefined();
+
+        expect(ordersService.markPendingCheckoutConsumed).toHaveBeenCalledWith("cs_duplicate");
+    });
+
     it("does not mark the session consumed if order creation fails", async () => {
         const { service, ordersService } = buildService();
         vi.mocked(ordersService.getPendingCheckoutBySessionId).mockResolvedValue({
@@ -138,6 +175,7 @@ describe("handleCheckoutSessionCompleted", () => {
             consumed_at: null,
         } as never);
         vi.mocked(ordersService.createOrderFromValidatedCart).mockRejectedValue(new Error("db error"));
+        vi.mocked(ordersService.getOrderByStripeSessionId).mockResolvedValue(null);
 
         await expect(
             service.handleCheckoutSessionCompleted({ id: "cs_test_789", payment_intent: "pi_789" }),
