@@ -5,6 +5,7 @@ import { logger } from "#src/shared/utils/logger";
 import type { CartCheckoutItem } from "../cart/cart.dto";
 import { NestCartService } from "../cart/cart.service";
 import { NestOrdersService, createCheckoutError } from "./orders.service";
+import { calculatePromotionDiscount } from "./orders.pricing";
 
 @Injectable()
 export class NestOrdersStripeService {
@@ -15,7 +16,18 @@ export class NestOrdersStripeService {
 
     async createCheckoutSession(
         uid: string,
-        { totalPrice, cart, discount, shippingAddress }: { totalPrice: number; cart: CartCheckoutItem[]; discount: number; shippingAddress: string },
+        {
+            totalPrice,
+            cart,
+            discountCode,
+            shippingAddress,
+        }: {
+            totalPrice: number;
+            cart: CartCheckoutItem[];
+            discount?: number;
+            discountCode?: string;
+            shippingAddress: string;
+        },
     ): Promise<{ url: string }> {
         const checkoutValidation = await this.cartService.validateCheckoutSubmission(uid, cart, totalPrice);
 
@@ -39,7 +51,12 @@ export class NestOrdersStripeService {
 
         const authoritativeCart = checkoutValidation.cartItems;
         const authoritativeTotalPrice = checkoutValidation.authoritativeTotalPrice;
-        const payableTotal = Math.max(authoritativeTotalPrice - Number(discount || 0), 0);
+        const promotion = discountCode ? await this.ordersService.applyDiscount(discountCode) : null;
+        if (discountCode && !promotion) {
+            throw createCheckoutError("Discount code is no longer valid.", 400);
+        }
+        const authoritativeDiscount = calculatePromotionDiscount(promotion, authoritativeTotalPrice);
+        const payableTotal = Math.max(authoritativeTotalPrice - authoritativeDiscount, 0);
         const itemCount = authoritativeCart.reduce((sum: number, item) => sum + (Number(item.quantity) || 0), 0);
 
         if (payableTotal <= 0) {
@@ -92,13 +109,10 @@ export class NestOrdersStripeService {
                 userId: uid,
                 cartJson: JSON.stringify(authoritativeCart),
                 totalPrice: authoritativeTotalPrice,
-                discount: Number(discount || 0),
+                discount: authoritativeDiscount,
                 shippingAddress,
             });
         } catch (err) {
-            // Stripe already issued a session but we couldn't persist the local
-            // intent row — expire the Stripe session so the user isn't charged
-            // for a checkout we have no record of, then surface the real error.
             try {
                 await stripeClient.checkout.sessions.expire(session.id);
             } catch (expireErr) {
@@ -142,6 +156,16 @@ export class NestOrdersStripeService {
 
             await this.ordersService.markPendingCheckoutConsumed(session.id);
         } catch (err) {
+            const existingOrder = await this.ordersService.getOrderByStripeSessionId(session.id).catch(() => null);
+            if (existingOrder) {
+                logger.info(
+                    { sessionId: session.id, orderId: existingOrder.id },
+                    "[handleCheckoutSessionCompleted] session already created an order, marking consumed",
+                );
+                await this.ordersService.markPendingCheckoutConsumed(session.id);
+                return;
+            }
+
             logger.error({ err, sessionId: session.id }, "[handleCheckoutSessionCompleted] failed to create order from confirmed payment");
             throw err;
         }
