@@ -32,6 +32,7 @@ type CheckoutPaymentProps = {
     cart: CheckoutCartItem[];
     totalPrice: number;
     discount: number;
+    discountCode: string | null;
     subtotal: number;
     validationIssues: CartValidationIssue[];
     onValidationRefresh: (nextCart: CheckoutCartItem[], issues: CartValidationIssue[]) => void;
@@ -43,6 +44,7 @@ const CheckoutPaymentPage = ({
     cart,
     totalPrice,
     discount,
+    discountCode,
     validationIssues,
     onValidationRefresh,
 }: CheckoutPaymentProps) => {
@@ -68,9 +70,7 @@ const CheckoutPaymentPage = ({
 
     const applyValidationPayload = useCallback(
         (data?: { issues?: CartValidationIssue[]; cartItems?: unknown[] }) => {
-            if (!data) {
-                return;
-            }
+            if (!data) return;
 
             const issues = data.issues || [];
             if (Array.isArray(data.cartItems)) {
@@ -80,29 +80,15 @@ const CheckoutPaymentPage = ({
                 return;
             }
 
-            if (issues.length > 0) {
-                onValidationRefresh(cartRef.current, issues);
-            }
+            if (issues.length > 0) onValidationRefresh(cartRef.current, issues);
         },
         [onValidationRefresh],
     );
 
     const paymentOptions = [
-        {
-            value: "bank_transfer" as const,
-            title: "Bank transfer",
-            icon: <BankIcon size={22} />,
-        },
-        {
-            value: "cash" as const,
-            title: "Cash on delivery",
-            icon: <CashStackIcon size={22} />,
-        },
-        {
-            value: "card" as const,
-            title: "Card",
-            icon: <ShieldIcon size={22} />,
-        },
+        { value: "bank_transfer" as const, title: "Bank transfer", icon: <BankIcon size={22} /> },
+        { value: "cash" as const, title: "Cash on delivery", icon: <CashStackIcon size={22} /> },
+        { value: "card" as const, title: "Card", icon: <ShieldIcon size={22} /> },
     ];
 
     const selectedPayment = paymentOptions.find((option) => option.value === formCheckout.payment_method) || paymentOptions[0];
@@ -121,17 +107,12 @@ const CheckoutPaymentPage = ({
                 setSavedAddresses([]);
             }
         };
-
         loadAddresses();
     }, [uid]);
 
     useEffect(() => {
         if (!userData?.email || formCheckout.email) return;
-
-        setFormCheckout((current) => ({
-            ...current,
-            email: userData.email,
-        }));
+        setFormCheckout((current) => ({ ...current, email: userData.email }));
     }, [formCheckout.email, userData?.email]);
 
     useEffect(() => {
@@ -150,26 +131,13 @@ const CheckoutPaymentPage = ({
     const validateForm = (): string[] => {
         const errorsList: string[] = [];
         const emailPattern = /^([A-Za-z0-9_\-.])+@([A-Za-z0-9_\-.])+\.([A-Za-z]{2,4})$/;
-        if (!formCheckout.email) {
-            errorsList.push("Email is required");
-        } else if (!formCheckout.email.match(emailPattern)) {
-            errorsList.push("Invalid email format");
-        }
-        if (!formCheckout.first_name.trim()) {
-            errorsList.push("First name is required");
-        }
-        if (!formCheckout.last_name.trim()) {
-            errorsList.push("Last name is required");
-        }
-        if (!formCheckout.address.trim()) {
-            errorsList.push("Shipping address is required");
-        }
-        if (!formCheckout.city.trim()) {
-            errorsList.push("City is required");
-        }
-        if (!formCheckout.payment_method) {
-            errorsList.push("Please select a payment method");
-        }
+        if (!formCheckout.email) errorsList.push("Email is required");
+        else if (!formCheckout.email.match(emailPattern)) errorsList.push("Invalid email format");
+        if (!formCheckout.first_name.trim()) errorsList.push("First name is required");
+        if (!formCheckout.last_name.trim()) errorsList.push("Last name is required");
+        if (!formCheckout.address.trim()) errorsList.push("Shipping address is required");
+        if (!formCheckout.city.trim()) errorsList.push("City is required");
+        if (!formCheckout.payment_method) errorsList.push("Please select a payment method");
         return errorsList;
     };
 
@@ -192,10 +160,7 @@ const CheckoutPaymentPage = ({
     };
 
     const validateCartStock = useCallback(async (): Promise<CheckoutCartItem[] | null> => {
-        if (!uid) {
-            return null;
-        }
-
+        if (!uid) return null;
         try {
             setIsValidatingCart(true);
             const response = await http.get(`/api/cart/${uid}/validation`);
@@ -203,16 +168,12 @@ const CheckoutPaymentPage = ({
                 const nextCart = normalizeCheckoutCartItems(response.data.cartItems);
                 cartRef.current = nextCart;
                 onValidationRefresh(nextCart, []);
-                if (response.status === 200 && response.data.valid === true) {
-                    return nextCart;
-                }
+                if (response.status === 200 && response.data.valid === true) return nextCart;
             }
             return response.status === 200 && response.data.valid === true ? cartRef.current : null;
         } catch (err: unknown) {
             if (err && typeof err === "object" && "response" in err) {
-                const response = (err as {
-                    response?: { data?: { issues?: CartValidationIssue[]; msg?: string; cartItems?: any[] } };
-                }).response;
+                const response = (err as { response?: { data?: { issues?: CartValidationIssue[]; msg?: string; cartItems?: any[] } } }).response;
                 const issues = response?.data?.issues || [];
                 applyValidationPayload(response?.data);
                 const message = getCartValidationMessage(issues);
@@ -226,7 +187,7 @@ const CheckoutPaymentPage = ({
         } finally {
             setIsValidatingCart(false);
         }
-    }, [addToast, onValidationRefresh, uid]);
+    }, [addToast, applyValidationPayload, onValidationRefresh, uid]);
 
     const handlePurchase = async () => {
         setErrors([]);
@@ -246,10 +207,10 @@ const CheckoutPaymentPage = ({
             addToast("Checkout", "Please update cart quantities before placing the order.");
             return;
         }
+
         const latestCart = await validateCartStock();
-        if (!latestCart) {
-            return;
-        }
+        if (!latestCart) return;
+
         try {
             setIsSubmitting(true);
             const latestTotalPrice = latestCart.reduce(
@@ -277,11 +238,10 @@ const CheckoutPaymentPage = ({
                     cart: latestCart,
                     totalPrice: latestTotalPrice,
                     discount,
+                    discountCode: discountCode || undefined,
                     shippingAddress: formCheckout.address,
                 });
-                if (sessionResponse.data?.url) {
-                    window.location.href = sessionResponse.data.url;
-                }
+                if (sessionResponse.data?.url) window.location.href = sessionResponse.data.url;
                 return;
             }
 
@@ -289,15 +249,12 @@ const CheckoutPaymentPage = ({
                 cart: latestCart,
                 totalPrice: latestTotalPrice,
                 discount,
+                discountCode: discountCode || undefined,
                 shippingAddress: formCheckout.address,
                 paymentMethod: formCheckout.payment_method,
             });
             if (response.status === 201) {
-                const orderId =
-                    response.data?.order?.id ||
-                    response.data?.orderId ||
-                    response.data?.id ||
-                    `ORD-${Date.now()}`;
+                const orderId = response.data?.order?.id || response.data?.orderId || response.data?.id || `ORD-${Date.now()}`;
                 const placedAt = response.data?.order?.date_added || response.data?.placedAt || toUtcIsoString();
                 const payload = {
                     orderId,
@@ -323,14 +280,7 @@ const CheckoutPaymentPage = ({
         } catch (err: unknown) {
             if (err && typeof err === "object" && "response" in err) {
                 const axiosError = err as {
-                    response: {
-                        data: {
-                            msg?: string;
-                            issues?: CartValidationIssue[];
-                            authoritativeCart?: unknown[];
-                            cartItems?: unknown[];
-                        };
-                    };
+                    response: { data: { msg?: string; issues?: CartValidationIssue[]; authoritativeCart?: unknown[]; cartItems?: unknown[] } };
                 };
                 applyValidationPayload({
                     issues: axiosError.response.data.issues,
@@ -352,10 +302,7 @@ const CheckoutPaymentPage = ({
     const hasValidationIssues = validationIssues.length > 0;
 
     useEffect(() => {
-        if (!uid || cart.length === 0) {
-            return;
-        }
-
+        if (!uid || cart.length === 0) return;
         validateCartStock();
     }, [cart.length, uid, validateCartStock]);
 
@@ -366,21 +313,11 @@ const CheckoutPaymentPage = ({
                 <meta name="description" content="Complete your purchase securely and confirm shipping details." />
             </Helmet>
             <div className="checkout__hero">
-                <button className="checkout__back" onClick={() => setIsPayment(false)}>
-                    Back to cart
-                </button>
-                <div className="checkout__hero__content">
-                    <h1>Checkout</h1>
-                </div>
+                <button className="checkout__back" onClick={() => setIsPayment(false)}>Back to cart</button>
+                <div className="checkout__hero__content"><h1>Checkout</h1></div>
                 <div className="checkout__hero__meta">
-                    <div>
-                        <strong>{itemsCount}</strong>
-                        <span>Items</span>
-                    </div>
-                    <div>
-                        <strong>${(totalPrice - discount).toFixed(2)}</strong>
-                        <span>Total due</span>
-                    </div>
+                    <div><strong>{itemsCount}</strong><span>Items</span></div>
+                    <div><strong>${(totalPrice - discount).toFixed(2)}</strong><span>Total due</span></div>
                 </div>
             </div>
 
@@ -388,13 +325,7 @@ const CheckoutPaymentPage = ({
                 <section className="checkout__form">
                     {loading ? <div className="checkout__note">Checking session...</div> : null}
                     {isValidatingCart ? <div className="checkout__note">Checking latest stock before payment...</div> : null}
-                    {errors.length > 0 ? (
-                        <div className="checkout__alert">
-                            {errors.map((error, id) => (
-                                <span key={id}>{error}</span>
-                            ))}
-                        </div>
-                    ) : null}
+                    {errors.length > 0 ? <div className="checkout__alert">{errors.map((error, id) => <span key={id}>{error}</span>)}</div> : null}
                     {hasValidationIssues ? (
                         <div className="checkout__alert checkout__alert--warning">
                             <strong>Review your cart before placing the order.</strong>
@@ -403,28 +334,19 @@ const CheckoutPaymentPage = ({
                                     {issue.reason === "unavailable"
                                         ? `${issue.productName} is no longer available.`
                                         : issue.reason === "out_of_stock"
-                                        ? `${issue.productName} is out of stock.`
-                                        : `${issue.productName} has ${issue.availableStock} item(s) available, but your cart has ${issue.requestedQuantity}.`}
+                                          ? `${issue.productName} is out of stock.`
+                                          : `${issue.productName} has ${issue.availableStock} item(s) available, but your cart has ${issue.requestedQuantity}.`}
                                 </span>
                             ))}
                         </div>
                     ) : null}
 
                     <div className="checkout__card">
-                        <div className="checkout__card__header">
-                            <h2>Contact</h2>
-                        </div>
+                        <div className="checkout__card__header"><h2>Contact</h2></div>
                         <Form>
                             <Form.Group className="mb-3" controlId="formBasicEmail">
                                 <Form.Label>Email address</Form.Label>
-                                <Form.Control
-                                    type="email"
-                                    name="email"
-                                    placeholder="name@email.com"
-                                    required
-                                    value={formCheckout.email}
-                                    onChange={handleInputChange}
-                                />
+                                <Form.Control type="email" name="email" placeholder="name@email.com" required value={formCheckout.email} onChange={handleInputChange} />
                             </Form.Group>
                             <Form.Group className="mb-3" controlId="formBasicCheckbox">
                                 <Form.Check type="checkbox" label="Keep me up to date with new products and sales" />
@@ -433,16 +355,12 @@ const CheckoutPaymentPage = ({
                     </div>
 
                     <div className="checkout__card">
-                        <div className="checkout__card__header">
-                            <h2>Shipping</h2>
-                        </div>
+                        <div className="checkout__card__header"><h2>Shipping</h2></div>
                         {savedAddresses.length > 0 ? (
                             <div className="checkout__saved-addresses">
                                 {savedAddresses.map((address) => (
                                     <button key={address.id} type="button" onClick={() => applySavedAddress(address)}>
-                                        <strong>{address.label}</strong>
-                                        <span>{address.address_line}</span>
-                                        {address.is_default ? <em>Default</em> : null}
+                                        <strong>{address.label}</strong><span>{address.address_line}</span>{address.is_default ? <em>Default</em> : null}
                                     </button>
                                 ))}
                             </div>
@@ -452,154 +370,70 @@ const CheckoutPaymentPage = ({
                                 <div className="checkout__field">
                                     <Form.Group className="mb-3" controlId="formFirstName">
                                         <Form.Label>First name</Form.Label>
-                                        <Form.Control
-                                            type="text"
-                                            name="first_name"
-                                            placeholder="First name"
-                                            required
-                                            value={formCheckout.first_name}
-                                            onChange={handleInputChange}
-                                        />
+                                        <Form.Control type="text" name="first_name" placeholder="First name" required value={formCheckout.first_name} onChange={handleInputChange} />
                                     </Form.Group>
                                 </div>
                                 <div className="checkout__field">
                                     <Form.Group className="mb-3" controlId="formLastName">
                                         <Form.Label>Last name</Form.Label>
-                                        <Form.Control
-                                            type="text"
-                                            name="last_name"
-                                            placeholder="Last name"
-                                            required
-                                            value={formCheckout.last_name}
-                                            onChange={handleInputChange}
-                                        />
+                                        <Form.Control type="text" name="last_name" placeholder="Last name" required value={formCheckout.last_name} onChange={handleInputChange} />
                                     </Form.Group>
                                 </div>
                             </div>
-
                             <Form.Group className="mb-3" controlId="formShippingAddress">
                                 <Form.Label>Shipping address</Form.Label>
-                                <Form.Control
-                                    type="text"
-                                    name="address"
-                                    placeholder="Street address"
-                                    required
-                                    value={formCheckout.address}
-                                    onChange={handleInputChange}
-                                />
+                                <Form.Control type="text" name="address" placeholder="Street address" required value={formCheckout.address} onChange={handleInputChange} />
                             </Form.Group>
                             <div className="checkout__field-grid">
                                 <div className="checkout__field">
                                     <Form.Group className="mb-3" controlId="formCity">
                                         <Form.Label>City</Form.Label>
-                                        <Form.Control
-                                            type="text"
-                                            name="city"
-                                            placeholder="City"
-                                            required
-                                            value={formCheckout.city}
-                                            onChange={handleInputChange}
-                                        />
+                                        <Form.Control type="text" name="city" placeholder="City" required value={formCheckout.city} onChange={handleInputChange} />
                                     </Form.Group>
                                 </div>
                                 <div className="checkout__field">
                                     <Form.Group className="mb-3" controlId="formCountry">
                                         <Form.Label>Country</Form.Label>
-                                        <Form.Control
-                                            type="text"
-                                            name="country"
-                                            placeholder="Country"
-                                            value={formCheckout.country || ""}
-                                            onChange={handleInputChange}
-                                        />
+                                        <Form.Control type="text" name="country" placeholder="Country" value={formCheckout.country || ""} onChange={handleInputChange} />
                                     </Form.Group>
                                 </div>
                             </div>
                             <Form.Group className="mb-3" controlId="formPhoneNumber">
                                 <Form.Label>Phone number</Form.Label>
-                                <Form.Control
-                                    type="tel"
-                                    name="phone_number"
-                                    placeholder="Phone number"
-                                    value={formCheckout.phone_number || ""}
-                                    onChange={handleInputChange}
-                                />
+                                <Form.Control type="tel" name="phone_number" placeholder="Phone number" value={formCheckout.phone_number || ""} onChange={handleInputChange} />
                             </Form.Group>
                         </Form>
                     </div>
 
                     <div className="checkout__card">
-                        <div className="checkout__card__header">
-                            <h2>Payment</h2>
-                        </div>
+                        <div className="checkout__card__header"><h2>Payment</h2></div>
                         <Form className="checkout__payment">
                             <div className="checkout__payment__methods" role="radiogroup" aria-label="Payment method">
                                 {paymentOptions.map((option) => (
-                                    <label
-                                        key={option.value}
-                                        className={
-                                            formCheckout.payment_method === option.value
-                                                ? `checkout__payment__method checkout__payment__method--${option.value} is-active`
-                                                : `checkout__payment__method checkout__payment__method--${option.value}`
-                                        }
-                                        htmlFor={`payment-${option.value}`}
-                                    >
-                                        <input
-                                            type="radio"
-                                            id={`payment-${option.value}`}
-                                            name="payment_method"
-                                            value={option.value}
-                                            checked={formCheckout.payment_method === option.value}
-                                            onChange={handleInputChange}
-                                        />
-                                        <span className="checkout__payment__method__check">
-                                            <CheckCircleIcon size={18} />
-                                        </span>
+                                    <label key={option.value} className={formCheckout.payment_method === option.value ? `checkout__payment__method checkout__payment__method--${option.value} is-active` : `checkout__payment__method checkout__payment__method--${option.value}`} htmlFor={`payment-${option.value}`}>
+                                        <input type="radio" id={`payment-${option.value}`} name="payment_method" value={option.value} checked={formCheckout.payment_method === option.value} onChange={handleInputChange} />
+                                        <span className="checkout__payment__method__check"><CheckCircleIcon size={18} /></span>
                                         <span className="checkout__payment__method__icon">{option.icon}</span>
-                                        <span className="checkout__payment__method__content">
-                                            <strong>{option.title}</strong>
-                                        </span>
+                                        <span className="checkout__payment__method__content"><strong>{option.title}</strong></span>
                                     </label>
                                 ))}
                             </div>
-
-                            <div className="checkout__payment__selected">
-                                <strong>{selectedPayment.title}</strong>
-                            </div>
-
+                            <div className="checkout__payment__selected"><strong>{selectedPayment.title}</strong></div>
                             {formCheckout.payment_method === "bank_transfer" ? (
                                 <div className="checkout__payment__details">
                                     <h3>Bank transfer instructions</h3>
                                     <div className="checkout__payment__details__grid">
-                                        <div>
-                                            <span>Bank</span>
-                                            <strong>Vietcombank</strong>
-                                        </div>
-                                        <div>
-                                            <span>Account name</span>
-                                            <strong>Digital-E Store</strong>
-                                        </div>
-                                        <div>
-                                            <span>Account number</span>
-                                            <strong>1029384756</strong>
-                                        </div>
-                                        <div>
-                                            <span>Reference</span>
-                                            <strong>Use your order ID after checkout</strong>
-                                        </div>
+                                        <div><span>Bank</span><strong>Vietcombank</strong></div>
+                                        <div><span>Account name</span><strong>Digital-E Store</strong></div>
+                                        <div><span>Account number</span><strong>1029384756</strong></div>
+                                        <div><span>Reference</span><strong>Use your order ID after checkout</strong></div>
                                     </div>
-                                    <p>
-                                        We&apos;ll confirm the transfer and start processing your order as soon as the
-                                        payment arrives.
-                                    </p>
+                                    <p>We&apos;ll confirm the transfer and start processing your order as soon as the payment arrives.</p>
                                 </div>
                             ) : (
                                 <div className="checkout__payment__details">
                                     <h3>Cash on delivery notes</h3>
-                                    <p>
-                                        Please prepare the exact amount if possible. Our delivery partner will collect
-                                        the payment when handing over the package.
-                                    </p>
+                                    <p>Please prepare the exact amount if possible. Our delivery partner will collect the payment when handing over the package.</p>
                                     <p>Orders paid by cash are confirmed before dispatch and may be verified by phone.</p>
                                 </div>
                             )}
@@ -610,50 +444,26 @@ const CheckoutPaymentPage = ({
                 <aside className="checkout__summary">
                     <div className="checkout__summary__card">
                         <h2>Order summary</h2>
-                        <div className="checkout__summary__badge">
-                            <ShieldIcon size={16} />
-                            <span>Stock and pricing are rechecked before the order is placed.</span>
-                        </div>
+                        <div className="checkout__summary__badge"><ShieldIcon size={16} /><span>Stock and pricing are rechecked before the order is placed.</span></div>
                         <div className="checkout__summary__list">
                             {cart.slice(0, 3).map((item) => (
                                 <div key={item.cartItemId} className="checkout__summary__item">
-                                    <div>
-                                        <strong>{item.productName}</strong>
-                                        <span>
-                                            {item.quantity} x ${item.sale_price ?? item.price}
-                                        </span>
-                                    </div>
+                                    <div><strong>{item.productName}</strong><span>{item.quantity} x ${item.sale_price ?? item.price}</span></div>
                                     <span>${(item.quantity * (item.sale_price ?? item.price)).toFixed(2)}</span>
                                 </div>
                             ))}
-                            {cart.length > 3 ? (
-                                <div className="checkout__summary__more">+ {cart.length - 3} more items</div>
-                            ) : null}
+                            {cart.length > 3 ? <div className="checkout__summary__more">+ {cart.length - 3} more items</div> : null}
                         </div>
                         <div className="checkout__summary__rows">
-                            <div>
-                                <span>Subtotal</span>
-                                <strong>${totalPrice.toFixed(2)}</strong>
-                            </div>
-                            <div>
-                                <span>Shipping</span>
-                                <strong className="free">Free</strong>
-                            </div>
-                            <div>
-                                <span>Discount</span>
-                                <strong className="muted">-${discount.toFixed(2)}</strong>
-                            </div>
+                            <div><span>Subtotal</span><strong>${totalPrice.toFixed(2)}</strong></div>
+                            <div><span>Shipping</span><strong className="free">Free</strong></div>
+                            <div><span>Discount</span><strong className="muted">-${discount.toFixed(2)}</strong></div>
                         </div>
-                        <div className="checkout__summary__total">
-                            <span>Total</span>
-                            <strong>${(totalPrice - discount).toFixed(2)}</strong>
-                        </div>
+                        <div className="checkout__summary__total"><span>Total</span><strong>${(totalPrice - discount).toFixed(2)}</strong></div>
                         <button type="button" onClick={handlePurchase} disabled={isSubmitting || isValidatingCart || hasValidationIssues}>
                             {isSubmitting ? "Placing order..." : isValidatingCart ? "Checking stock..." : "Place order"}
                         </button>
-                        <p className="checkout__summary__footnote">
-                            By placing your order, you agree to our store policies.
-                        </p>
+                        <p className="checkout__summary__footnote">By placing your order, you agree to our store policies.</p>
                     </div>
                 </aside>
             </div>
