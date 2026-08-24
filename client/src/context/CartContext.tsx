@@ -34,6 +34,7 @@ interface CartContextValue {
     items: CheckoutCartItem[];
     totalPrice: number;
     discount: number;
+    discountCode: string | null;
     subtotal: number;
     validationIssues: CartValidationIssue[];
     isLoading: boolean;
@@ -59,6 +60,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [items, setItems] = useState<CheckoutCartItem[]>([]);
     const [totalPrice, setTotalPrice] = useState<number>(0);
     const [discount, setDiscount] = useState<number>(0);
+    const [discountCode, setDiscountCode] = useState<string | null>(null);
     const [validationIssues, setValidationIssues] = useState<CartValidationIssue[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isRemovingItem, setIsRemovingItem] = useState(false);
@@ -126,12 +128,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [addToast, addOptimisticMutation, pendingRemoveItem]);
 
-    const applyDiscount = useCallback(async (discountCode: string, price: number): Promise<DiscountResult> => {
+    const applyDiscount = useCallback(async (code: string, price: number): Promise<DiscountResult> => {
+        const normalizedCode = code.trim();
         try {
-            const response = await http.post("/api/orders/discount", { discountCode, price });
+            const response = await http.post("/api/orders/discount", { discountCode: normalizedCode, price });
             if (response.status === 200) {
                 const newPrice = response.data.newPrice;
                 setDiscount(price - newPrice);
+                setDiscountCode(normalizedCode);
                 return {
                     status: "success",
                     title: "Applying Coupon",
@@ -140,6 +144,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             return { status: "error", title: "Applying Coupon", message: "Unable to apply coupon right now." };
         } catch (err: unknown) {
+            setDiscount(0);
+            setDiscountCode(null);
             if (err && typeof err === "object" && "response" in err) {
                 const errorResponse = (err as { response: { status: number } }).response;
                 if (errorResponse.status === 404) {
@@ -195,6 +201,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         if (uid) {
             fetchCart();
+        } else {
+            setDiscount(0);
+            setDiscountCode(null);
         }
     }, [fetchCart, uid]);
 
@@ -212,6 +221,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 items: optimisticItems,
                 totalPrice,
                 discount,
+                discountCode,
                 subtotal,
                 validationIssues,
                 isLoading,
