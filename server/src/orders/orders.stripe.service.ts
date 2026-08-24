@@ -156,7 +156,9 @@ export class NestOrdersStripeService {
 
             await this.ordersService.markPendingCheckoutConsumed(session.id);
         } catch (err) {
-            const existingOrder = await this.ordersService.getOrderByStripeSessionId(session.id).catch(() => null);
+            const existingOrder = await this.ordersService
+                .getOrderByStripeSessionId(session.id)
+                .catch((): null => null);
             if (existingOrder) {
                 logger.info(
                     { sessionId: session.id, orderId: existingOrder.id },
