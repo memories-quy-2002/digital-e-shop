@@ -6,6 +6,11 @@ import type { CartCheckoutItem } from "../cart/cart.dto";
 import { NestCartService } from "../cart/cart.service";
 import { NestOrdersService, createCheckoutError } from "./orders.service";
 
+const isStripeSessionDuplicate = (err: unknown) => {
+    const error = err as { code?: string; message?: string };
+    return error?.code === "ER_DUP_ENTRY" && String(error.message || "").includes("uq_orders_stripe_checkout_session");
+};
+
 @Injectable()
 export class NestOrdersStripeService {
     constructor(
@@ -15,7 +20,20 @@ export class NestOrdersStripeService {
 
     async createCheckoutSession(
         uid: string,
-        { totalPrice, cart, discount, shippingAddress }: { totalPrice: number; cart: CartCheckoutItem[]; discount: number; shippingAddress: string },
+        {
+            totalPrice,
+            cart,
+            discountCode,
+            shippingAddress,
+        }: {
+            totalPrice: number;
+            cart: CartCheckoutItem[];
+            discountCode?: string | null;
+            // Kept only at the service boundary so older callers cannot influence
+            // the amount while they roll forward to discountCode.
+            discount?: number;
+            shippingAddress: string;
+        },
     ): Promise<{ url: string }> {
         const checkoutValidation = await this.cartService.validateCheckoutSubmission(uid, cart, totalPrice);
 
@@ -39,7 +57,8 @@ export class NestOrdersStripeService {
 
         const authoritativeCart = checkoutValidation.cartItems;
         const authoritativeTotalPrice = checkoutValidation.authoritativeTotalPrice;
-        const payableTotal = Math.max(authoritativeTotalPrice - Number(discount || 0), 0);
+        const discount = await this.ordersService.calculateDiscount(discountCode, authoritativeTotalPrice);
+        const payableTotal = Math.max(authoritativeTotalPrice - discount, 0);
         const itemCount = authoritativeCart.reduce((sum: number, item) => sum + (Number(item.quantity) || 0), 0);
 
         if (payableTotal <= 0) {
@@ -92,7 +111,7 @@ export class NestOrdersStripeService {
                 userId: uid,
                 cartJson: JSON.stringify(authoritativeCart),
                 totalPrice: authoritativeTotalPrice,
-                discount: Number(discount || 0),
+                discount,
                 shippingAddress,
             });
         } catch (err) {
@@ -125,6 +144,13 @@ export class NestOrdersStripeService {
             return;
         }
 
+        const existingOrder = await this.ordersService.getAnyOrderByStripeSessionId(session.id);
+        if (existingOrder) {
+            await this.ordersService.markPendingCheckoutConsumed(session.id);
+            logger.info({ sessionId: session.id, orderId: existingOrder.id }, "[handleCheckoutSessionCompleted] order already exists, marking checkout consumed");
+            return;
+        }
+
         const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id || null;
 
         try {
@@ -142,6 +168,12 @@ export class NestOrdersStripeService {
 
             await this.ordersService.markPendingCheckoutConsumed(session.id);
         } catch (err) {
+            if (isStripeSessionDuplicate(err)) {
+                await this.ordersService.markPendingCheckoutConsumed(session.id);
+                logger.info({ sessionId: session.id }, "[handleCheckoutSessionCompleted] duplicate delivery lost the insert race; treating as consumed");
+                return;
+            }
+
             logger.error({ err, sessionId: session.id }, "[handleCheckoutSessionCompleted] failed to create order from confirmed payment");
             throw err;
         }
