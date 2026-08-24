@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { stripeClient } from "#src/config/stripe.config";
 import { NestOrdersStripeService } from "../orders.stripe.service";
 import type { NestCartService } from "../../cart/cart.service";
 import type { NestOrdersService } from "../orders.service";
 
 vi.mock("#src/config/stripe.config", () => ({
-    stripeClient: { checkout: { sessions: { create: vi.fn() } } },
+    stripeClient: { checkout: { sessions: { create: vi.fn(), expire: vi.fn() } } },
 }));
 vi.mock("#src/shared/utils/logger", () => ({
     logger: { info: vi.fn(), error: vi.fn(), debug: vi.fn(), warn: vi.fn() },
@@ -17,9 +18,56 @@ function buildService() {
         createOrderFromValidatedCart: vi.fn(),
         markPendingCheckoutConsumed: vi.fn(),
         insertPendingCheckout: vi.fn(),
+        calculateDiscount: vi.fn(),
     } as unknown as NestOrdersService;
     return { service: new NestOrdersStripeService(cartService, ordersService), cartService, ordersService };
 }
+
+describe("createCheckoutSession", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it("uses a server-calculated coupon discount instead of a client-supplied amount", async () => {
+        const { service, cartService, ordersService } = buildService();
+        vi.mocked(cartService.validateCheckoutSubmission).mockResolvedValue({
+            cartItems: [{ product_id: 1, quantity: 1, price: 100, product_name: "Widget" }],
+            authoritativeTotalPrice: 100,
+            issues: [],
+            mismatches: [],
+        } as never);
+        vi.mocked(ordersService.calculateDiscount).mockResolvedValue(10);
+        vi.mocked(stripeClient.checkout.sessions.create).mockResolvedValue({
+            id: "cs_secure_discount",
+            url: "https://checkout.stripe.test/session",
+        } as never);
+
+        await service.createCheckoutSession("user-1", {
+            totalPrice: 100,
+            cart: [{ productId: 1, quantity: 1, price: 100 }],
+            discount: 99,
+            discountCode: "SAVE10",
+            shippingAddress: "123 Main St",
+        } as never);
+
+        expect(ordersService.calculateDiscount).toHaveBeenCalledWith("SAVE10", 100);
+        expect(stripeClient.checkout.sessions.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+                line_items: [
+                    expect.objectContaining({
+                        price_data: expect.objectContaining({ unit_amount: 9000 }),
+                    }),
+                ],
+            }),
+        );
+        expect(ordersService.insertPendingCheckout).toHaveBeenCalledWith(
+            expect.objectContaining({
+                totalPrice: 100,
+                discount: 10,
+            }),
+        );
+    });
+});
 
 describe("handleCheckoutSessionCompleted", () => {
     beforeEach(() => {
