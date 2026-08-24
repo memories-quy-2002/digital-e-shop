@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, HttpException, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, HttpException, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
+import type { Request } from "express";
 import { AuthGuard } from "../guards/auth.guard";
 import { OwnerParam, Roles, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
@@ -106,9 +107,13 @@ export class OrdersController {
 
     @Get("/by-session/:sessionId")
     @UseGuards(AuthGuard)
-    async getOrderBySessionId(@Param("sessionId") sessionId: string) {
+    async getOrderBySessionId(@Param("sessionId") sessionId: string, @Req() req?: Request) {
         try {
-            const order = await this.ordersService.getOrderByStripeSessionId(sessionId);
+            const order = await this.ordersService.getOrderByStripeSessionId(
+                sessionId,
+                String(req?.user?.id || ""),
+                String(req?.user?.role || ""),
+            );
             if (!order) {
                 throw new HttpException({ msg: "Order not ready yet" }, 404);
             }
@@ -121,9 +126,13 @@ export class OrdersController {
 
     @Get("/:oid")
     @UseGuards(AuthGuard)
-    async getOrderDetail(@Param("oid") oid: string) {
+    async getOrderDetail(@Param("oid") oid: string, @Req() req?: Request) {
         try {
-            const order = await this.ordersService.getOrderDetail(Number(oid));
+            const order = await this.ordersService.getOrderDetail(
+                Number(oid),
+                String(req?.user?.id || ""),
+                String(req?.user?.role || ""),
+            );
             if (!order) {
                 throw new HttpException({ msg: "Order not found" }, 404);
             }
@@ -166,12 +175,13 @@ export class OrdersController {
         @Body(new ZodValidationPipe(purchaseSchema)) body: {
             totalPrice: number;
             cart: Array<{ productId: number; quantity: number; price: number; sale_price?: number | null }>;
-            discount: number;
+            discountCode?: string | null;
+            discount?: number;
             shippingAddress: string;
             paymentMethod: string;
         },
     ) {
-        const { totalPrice, cart, discount, shippingAddress, paymentMethod } = body;
+        const { totalPrice, cart, discountCode, shippingAddress, paymentMethod } = body;
 
         if (!cart || cart.length === 0) {
             throw new HttpException({ msg: "Cart cannot be empty" }, 400);
@@ -184,7 +194,7 @@ export class OrdersController {
             const order = await this.ordersService.makePurchase(uid, {
                 totalPrice,
                 cart,
-                discount,
+                discountCode,
                 shippingAddress,
                 paymentMethod,
             });
@@ -216,7 +226,8 @@ export class OrdersController {
         @Body(new ZodValidationPipe(checkoutSessionSchema)) body: {
             totalPrice: number;
             cart: Array<{ productId: number; quantity: number; price: number; sale_price?: number | null }>;
-            discount: number;
+            discountCode?: string | null;
+            discount?: number;
             shippingAddress: string;
         },
     ) {
@@ -255,7 +266,7 @@ export class OrdersController {
                 );
             }
 
-            const discountPercent = discount.discount_percent;
+            const discountPercent = Number(discount.discount_percent);
             const newPrice = (body.price * (100 - discountPercent)) / 100;
             return {
                 newPrice,
