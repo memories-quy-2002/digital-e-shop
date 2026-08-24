@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException } from "@nestjs/common";
+import { ForbiddenException, Injectable, SetMetadata } from "@nestjs/common";
 import type { CanActivate, ExecutionContext } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import type { Request } from "express";
@@ -6,10 +6,10 @@ import type { Request } from "express";
 const normalizeRole = (role?: string | null) => (role ? String(role).toLowerCase() : "");
 
 export const ROLES_KEY = "roles";
-export const Roles = (...roles: string[]) => Reflect.metadata(ROLES_KEY, roles);
+export const Roles = (...roles: string[]) => SetMetadata(ROLES_KEY, roles);
 
 export const OWNER_PARAM_KEY = "ownerParamKey";
-export const OwnerParam = (paramKey: string) => Reflect.metadata(OWNER_PARAM_KEY, paramKey);
+export const OwnerParam = (paramKey: string) => SetMetadata(OWNER_PARAM_KEY, paramKey);
 
 @Injectable()
 export class RolesGuard implements CanActivate {
