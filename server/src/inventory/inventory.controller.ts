@@ -1,12 +1,13 @@
 import { Controller, Get, HttpException, Query, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "../guards/auth.guard";
-import { RolesGuard } from "../guards/roles.guard";
+import { Roles, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestInventoryService } from "./inventory.service";
 import { inventoryMovementsQuerySchema } from "./inventory.validator";
 
-@Controller("inventory-movements")
+@Controller("products/admin/inventory-movements")
 @UseGuards(AuthGuard, RolesGuard)
+@Roles("admin")
 export class InventoryController {
     constructor(private readonly inventoryService: NestInventoryService) {}
 
