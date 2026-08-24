@@ -77,158 +77,163 @@ export class NestOrdersService {
         const q = <T = unknown>(sql: string, values?: unknown[]) =>
             cxQuery({ sql, timeout: QUERY_TIMEOUT }, values) as Promise<T>;
 
-        let timeoutId;
-        const timeoutMs = 8000;
-        const timeout = new Promise<never>((_, reject) => {
-            timeoutId = setTimeout(() => {
-                logger.error({ uid, ms: Date.now() - startedAt }, "[createOrderFromValidatedCart] timeout");
-                reject(new Error("Database timeout"));
-            }, timeoutMs);
-        });
+        let committed = false;
+        try {
+            await begin();
+            logger.debug("[createOrderFromValidatedCart] transaction started");
 
-        const operation = (async () => {
-            try {
-                await begin();
-                logger.debug("[createOrderFromValidatedCart] transaction started");
+            const orderResult = await q<InsertResult>(
+                "INSERT INTO orders (user_id, total_price, discount, shipping_address, payment_method, stripe_checkout_session_id, stripe_payment_intent_id, date_added) VALUES (?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())",
+                [uid, authoritativeTotalPrice, discount, shippingAddress, paymentMethod, stripeCheckoutSessionId, stripePaymentIntentId],
+            );
+            const orderId = orderResult.insertId;
+            logger.debug({ orderId }, "[createOrderFromValidatedCart] order inserted");
 
-                const orderResult = await q<InsertResult>(
-                    "INSERT INTO orders (user_id, total_price, discount, shipping_address, payment_method, stripe_checkout_session_id, stripe_payment_intent_id, date_added) VALUES (?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())",
-                    [uid, authoritativeTotalPrice, discount, shippingAddress, paymentMethod, stripeCheckoutSessionId, stripePaymentIntentId],
-                );
-                const orderId = orderResult.insertId;
-                logger.debug({ orderId }, "[createOrderFromValidatedCart] order inserted");
+            const orderItemsValues = authoritativeCart.map((product: CartItemRow) => [
+                orderId,
+                Number(product.product_id || 0),
+                Number(product.quantity) || 0,
+                ((product.sale_price !== null && product.sale_price !== undefined
+                    ? Number(product.sale_price)
+                    : Number(product.price) || 0) || 0) * (Number(product.quantity) || 0),
+            ]);
 
-                const orderItemsValues = authoritativeCart.map((product: CartItemRow) => [
-                    orderId,
-                    Number(product.product_id || 0),
-                    Number(product.quantity) || 0,
-                    ((product.sale_price !== null && product.sale_price !== undefined
-                        ? Number(product.sale_price)
-                        : Number(product.price) || 0) || 0) * (Number(product.quantity) || 0),
+            const productQuantities = authoritativeCart.reduce((acc: Map<number, number>, product: CartItemRow) => {
+                const productId = Number(product.product_id || 0);
+                const quantity = Number(product.quantity) || 0;
+                const currentQuantity = acc.get(productId) || 0;
+                acc.set(productId, currentQuantity + quantity);
+                return acc;
+            }, new Map<number, number>());
+
+            let inventoryMovements: InventoryMovementInput[] = [];
+            if (orderItemsValues.length > 0) {
+                logger.debug({ orderId, count: orderItemsValues.length }, "[createOrderFromValidatedCart] insertOrderItems");
+                await q("INSERT INTO order_items (order_id, product_id, quantity, total_price) VALUES ?", [
+                    orderItemsValues,
                 ]);
 
-                const productQuantities = authoritativeCart.reduce((acc: Map<number, number>, product: CartItemRow) => {
-                    const productId = Number(product.product_id || 0);
-                    const quantity = Number(product.quantity) || 0;
-                    const currentQuantity = acc.get(productId) || 0;
-                    acc.set(productId, currentQuantity + quantity);
-                    return acc;
-                }, new Map<number, number>());
+                const productIds = [...productQuantities.keys()];
+                const placeholderList = productIds.map(() => "?").join(", ");
+                const authoritativeItemsById = new Map(
+                    authoritativeCart.map((item: CartItemRow) => [Number(item.product_id || 0), item] as const),
+                );
 
-                let inventoryMovements: InventoryMovementInput[] = [];
-                if (orderItemsValues.length > 0) {
-                    logger.debug({ orderId, count: orderItemsValues.length }, "[createOrderFromValidatedCart] insertOrderItems");
-                    await q("INSERT INTO order_items (order_id, product_id, quantity, total_price) VALUES ?", [
-                        orderItemsValues,
-                    ]);
+                const lockedProducts = await q<LockedProductRow[]>(
+                    `SELECT id, name, stock FROM products WHERE id IN (${placeholderList}) AND stock >= 0 FOR UPDATE`,
+                    productIds,
+                );
 
-                    const productIds = [...productQuantities.keys()];
-                    const placeholderList = productIds.map(() => "?").join(", ");
-                    const authoritativeItemsById = new Map(
-                        authoritativeCart.map((item: CartItemRow) => [Number(item.product_id || 0), item] as const),
-                    );
-
-                    const lockedProducts = await q<LockedProductRow[]>(
-                        `SELECT id, name, stock FROM products WHERE id IN (${placeholderList}) AND stock >= 0 FOR UPDATE`,
-                        productIds,
-                    );
-
-                    // Lock product rows before checking stock and decrementing it so
-                    // concurrent checkouts cannot oversell the same product.
-                    const stockById = new Map(lockedProducts.map((row) => [row.id, row.stock]));
-                    for (const [productId, quantity] of productQuantities.entries()) {
-                        const authoritativeItem = authoritativeItemsById.get(productId);
-                        const productName = String(authoritativeItem?.product_name || `Product #${productId}`);
-                        const stock = stockById.get(productId);
-                        if (stock == null) {
-                            if (!allowOversell) {
-                                const issues: CartValidationIssue[] = [
-                                    {
-                                        cartItemId: Number(authoritativeItem?.cart_item_id || 0),
-                                        productId,
-                                        productName,
-                                        requestedQuantity: quantity,
-                                        availableStock: 0,
-                                        reason: "unavailable",
-                                    },
-                                ];
-                                throw createCheckoutError(
-                                    `${productName} is no longer available. Remove it from your cart and try again.`,
-                                    409,
-                                    { issues, authoritativeCart, authoritativeTotalPrice },
-                                );
-                            }
-                            logger.error({ uid, productId, orderId }, "[createOrderFromValidatedCart] product unavailable during paid checkout — proceeding, needs manual review");
-                            continue;
+                // Lock product rows before checking stock and decrementing it so
+                // concurrent checkouts cannot oversell the same product.
+                const stockById = new Map(lockedProducts.map((row) => [row.id, row.stock]));
+                for (const [productId, quantity] of productQuantities.entries()) {
+                    const authoritativeItem = authoritativeItemsById.get(productId);
+                    const productName = String(authoritativeItem?.product_name || `Product #${productId}`);
+                    const stock = stockById.get(productId);
+                    if (stock == null) {
+                        if (!allowOversell) {
+                            const issues: CartValidationIssue[] = [
+                                {
+                                    cartItemId: Number(authoritativeItem?.cart_item_id || 0),
+                                    productId,
+                                    productName,
+                                    requestedQuantity: quantity,
+                                    availableStock: 0,
+                                    reason: "unavailable",
+                                },
+                            ];
+                            throw createCheckoutError(
+                                `${productName} is no longer available. Remove it from your cart and try again.`,
+                                409,
+                                { issues, authoritativeCart, authoritativeTotalPrice },
+                            );
                         }
-                        if (stock < quantity) {
-                            if (!allowOversell) {
-                                const issues: CartValidationIssue[] = [
-                                    {
-                                        cartItemId: Number(authoritativeItem?.cart_item_id || 0),
-                                        productId,
-                                        productName,
-                                        requestedQuantity: quantity,
-                                        availableStock: Number(stock) || 0,
-                                        reason: stock <= 0 ? "out_of_stock" : "insufficient_stock",
-                                    },
-                                ];
-                                throw createCheckoutError(
-                                    `${productName} only has ${stock} item(s) left. Update your cart and try again.`,
-                                    409,
-                                    { issues, authoritativeCart, authoritativeTotalPrice },
-                                );
-                            }
-                            logger.error({ uid, productId, orderId, stock, quantity }, "[createOrderFromValidatedCart] insufficient stock during paid checkout — proceeding, needs manual review");
-                        }
+                        logger.error({ uid, productId, orderId }, "[createOrderFromValidatedCart] product unavailable during paid checkout — proceeding, needs manual review");
+                        continue;
                     }
-
-                    inventoryMovements = [...productQuantities.entries()].reduce(
-                        (movements: InventoryMovementInput[], [productId, quantity]) => {
-                            if (!stockById.has(productId)) {
-                                logger.warn(
-                                    { uid, productId, orderId },
-                                    "[createOrderFromValidatedCart] skipping inventory movement — no locked stock row for product",
-                                );
-                                return movements;
-                            }
-                            const stockBefore = Number(stockById.get(productId)) || 0;
-                            movements.push({
-                                productId,
-                                orderId,
-                                movementType: "sale",
-                                quantityChange: -quantity,
-                                stockBefore,
-                                stockAfter: Math.max(stockBefore - quantity, 0),
-                                note: `Stock deducted for order #${orderId}`,
-                                actorId: uid,
-                            });
-                            return movements;
-                        },
-                        [],
-                    );
-
-                    const cases = productIds.map(() => "WHEN ? THEN ?");
-                    const caseValues = productIds.flatMap((productId) => [productId, productQuantities.get(productId)]);
-
-                    // Use one CASE update for all products in the order to keep the
-                    // transaction short and reduce lock time. GREATEST(..., 0) guards
-                    // against a negative stock value in the rare allowOversell case.
-                    logger.debug({ count: productIds.length }, "[createOrderFromValidatedCart] updateProductStock");
-                    await q(
-                        `UPDATE products
-                        SET stock = GREATEST(stock - CASE id ${cases.join(" ")} END, 0)
-                        WHERE id IN (${placeholderList})`,
-                        [...caseValues, ...productIds],
-                    );
+                    if (stock < quantity) {
+                        if (!allowOversell) {
+                            const issues: CartValidationIssue[] = [
+                                {
+                                    cartItemId: Number(authoritativeItem?.cart_item_id || 0),
+                                    productId,
+                                    productName,
+                                    requestedQuantity: quantity,
+                                    availableStock: Number(stock) || 0,
+                                    reason: stock <= 0 ? "out_of_stock" : "insufficient_stock",
+                                },
+                            ];
+                            throw createCheckoutError(
+                                `${productName} only has ${stock} item(s) left. Update your cart and try again.`,
+                                409,
+                                { issues, authoritativeCart, authoritativeTotalPrice },
+                            );
+                        }
+                        logger.error({ uid, productId, orderId, stock, quantity }, "[createOrderFromValidatedCart] insufficient stock during paid checkout — proceeding, needs manual review");
+                    }
                 }
 
-                await q("UPDATE carts SET done = 1 WHERE user_id = ? AND done = 0", [uid]);
-                logger.debug("[createOrderFromValidatedCart] cart updated");
+                inventoryMovements = [...productQuantities.entries()].reduce(
+                    (movements: InventoryMovementInput[], [productId, quantity]) => {
+                        if (!stockById.has(productId)) {
+                            logger.warn(
+                                { uid, productId, orderId },
+                                "[createOrderFromValidatedCart] skipping inventory movement — no locked stock row for product",
+                            );
+                            return movements;
+                        }
+                        const stockBefore = Number(stockById.get(productId)) || 0;
+                        movements.push({
+                            productId,
+                            orderId,
+                            movementType: "sale",
+                            quantityChange: -quantity,
+                            stockBefore,
+                            stockAfter: Math.max(stockBefore - quantity, 0),
+                            note: `Stock deducted for order #${orderId}`,
+                            actorId: uid,
+                        });
+                        return movements;
+                    },
+                    [],
+                );
 
-                await commit();
-                // Audit-style side effects happen after commit. A logging failure
-                // should not roll back a successfully placed order.
+                const cases = productIds.map(() => "WHEN ? THEN ?");
+                const caseValues = productIds.flatMap((productId) => [productId, productQuantities.get(productId)]);
+
+                // Use one CASE update for all products in the order to keep the
+                // transaction short and reduce lock time. GREATEST(..., 0) guards
+                // against a negative stock value in the rare allowOversell case.
+                logger.debug({ count: productIds.length }, "[createOrderFromValidatedCart] updateProductStock");
+                await q(
+                    `UPDATE products
+                    SET stock = GREATEST(stock - CASE id ${cases.join(" ")} END, 0)
+                    WHERE id IN (${placeholderList})`,
+                    [...caseValues, ...productIds],
+                );
+            }
+
+            await q("UPDATE carts SET done = 1 WHERE user_id = ? AND done = 0", [uid]);
+            logger.debug("[createOrderFromValidatedCart] cart updated");
+
+            // Read the generated timestamp before commit. If this query fails, the
+            // transaction can still be rolled back rather than returning an error
+            // after the order has already committed.
+            const [order] = await q<Array<{ id: number; date_added: string }>>(
+                `SELECT id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
+                FROM orders
+                WHERE id = ?`,
+                [orderId],
+            );
+
+            await commit();
+            committed = true;
+            logger.info({ orderId, ms: Date.now() - startedAt }, "[createOrderFromValidatedCart] commit ok");
+
+            // Audit-style side effects happen after commit. A logging/notification
+            // failure must never turn a committed order into an API failure.
+            try {
                 this.orderTimelineService.recordTimelineEvent({
                     orderId,
                     status: 0,
@@ -241,37 +246,29 @@ export class NestOrdersService {
                     Number(authoritativeTotalPrice) - Number(discount || 0),
                 );
                 this.inventoryService.recordMovements(inventoryMovements);
-                logger.info({ orderId, ms: Date.now() - startedAt }, "[createOrderFromValidatedCart] commit ok");
-                const [order] = await q<Array<{ id: number; date_added: string }>>(
-                    `SELECT id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
-                    FROM orders
-                    WHERE id = ?`,
-                    [orderId],
-                );
-                return order || { id: orderId, date_added: new Date().toISOString() };
-            } catch (err) {
-                logger.error(err, "[createOrderFromValidatedCart] item processing error");
+            } catch (sideEffectErr) {
+                logger.error(sideEffectErr, "[createOrderFromValidatedCart] post-commit side effect failed");
+            }
+
+            return order || { id: orderId, date_added: new Date().toISOString() };
+        } catch (err) {
+            logger.error(err, "[createOrderFromValidatedCart] item processing error");
+            if (!committed) {
                 try {
                     await rollback();
                 } catch (rollbackErr) {
                     logger.error(rollbackErr, "[createOrderFromValidatedCart] rollback failed");
                 }
-                throw err;
-            } finally {
-                connection.release();
             }
-        })();
-
-        try {
-            return await Promise.race([operation, timeout]);
+            throw err;
         } finally {
-            clearTimeout(timeoutId);
+            connection.release();
         }
     }
 
     async makePurchase(
         uid: string,
-        { totalPrice, cart, discount, shippingAddress, paymentMethod }: PurchasePayload,
+        { totalPrice, cart, discountCode, shippingAddress, paymentMethod }: PurchasePayload,
     ) {
         logger.info({ uid, items: cart?.length, totalPrice, paymentMethod }, "[makePurchase] start");
 
@@ -313,6 +310,8 @@ export class NestOrdersService {
                 },
             );
         }
+
+        const discount = await this.calculateDiscount(discountCode, checkoutValidation.authoritativeTotalPrice);
 
         return this.createOrderFromValidatedCart({
             uid,
@@ -360,9 +359,15 @@ export class NestOrdersService {
         });
     }
 
-    getOrderDetail(orderId: number): Promise<(OrderDetail & { timeline?: unknown }) | null> {
+    getOrderDetail(
+        orderId: number,
+        requesterId = "",
+        requesterRole = "",
+    ): Promise<(OrderDetail & { timeline?: unknown }) | null> {
+        const ownerId = requesterRole.toLowerCase() === "admin" ? null : String(requesterId || "");
+
         return new Promise((resolve, reject) => {
-            this.ordersRepository.getOrderDetail(orderId, (err: Error | null, results: OrderDetailRow[]) => {
+            this.ordersRepository.getOrderDetail(orderId, ownerId, (err: Error | null, results: OrderDetailRow[]) => {
                 if (err) return reject(err);
                 if (results.length === 0) return resolve(null);
 
@@ -468,6 +473,31 @@ export class NestOrdersService {
         });
     }
 
+    async calculateDiscount(discountCode: string | null | undefined, authoritativeTotalPrice: number): Promise<number> {
+        const code = String(discountCode || "").trim();
+        if (!code) return 0;
+
+        const promotion = await this.applyDiscount(code);
+        if (!promotion) {
+            throw createCheckoutError("Discount code not found", 404);
+        }
+
+        const minimumOrderValue = Number(promotion.min_order_value) || 0;
+        if (authoritativeTotalPrice < minimumOrderValue) {
+            throw createCheckoutError(
+                `This promotion requires a minimum order of $${minimumOrderValue.toFixed(2)}`,
+                400,
+            );
+        }
+
+        const discountPercent = Number(promotion.discount_percent);
+        if (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100) {
+            throw createCheckoutError("Discount code is invalid", 400);
+        }
+
+        return Math.round(((authoritativeTotalPrice * discountPercent) / 100) * 100) / 100;
+    }
+
     insertPendingCheckout(input: {
         stripeSessionId: string;
         userId: string;
@@ -502,9 +532,22 @@ export class NestOrdersService {
         });
     }
 
-    getOrderByStripeSessionId(stripeSessionId: string): Promise<OrderBySessionRow | null> {
+    getOrderByStripeSessionId(
+        stripeSessionId: string,
+        requesterId = "",
+        requesterRole = "",
+    ): Promise<OrderBySessionRow | null> {
+        const ownerId = requesterRole.toLowerCase() === "admin" ? null : String(requesterId || "");
+        return this.getOrderByStripeSessionIdScoped(stripeSessionId, ownerId);
+    }
+
+    getAnyOrderByStripeSessionId(stripeSessionId: string): Promise<OrderBySessionRow | null> {
+        return this.getOrderByStripeSessionIdScoped(stripeSessionId, null);
+    }
+
+    private getOrderByStripeSessionIdScoped(stripeSessionId: string, ownerId: string | null): Promise<OrderBySessionRow | null> {
         return new Promise((resolve, reject) => {
-            this.ordersRepository.getOrderByStripeSessionId(stripeSessionId, (err: Error | null, results: OrderBySessionRow[]) => {
+            this.ordersRepository.getOrderByStripeSessionId(stripeSessionId, ownerId, (err: Error | null, results: OrderBySessionRow[]) => {
                 if (err) return reject(err);
                 resolve(results[0] || null);
             });
