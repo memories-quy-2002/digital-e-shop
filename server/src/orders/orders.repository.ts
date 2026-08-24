@@ -109,7 +109,10 @@ export class OrdersRepository {
         this.query(`SELECT ${this.orderSelect} ${this.orderUserJoin} WHERE o.user_id = ? ORDER BY o.date_added DESC`, [uid], callback);
     }
 
-    getOrderDetail(orderId: number, callback: QueryCallback<OrderDetailRow[]>) {
+    getOrderDetail(orderId: number, ownerId: string | null, callback: QueryCallback<OrderDetailRow[]>) {
+        const ownerClause = ownerId === null ? "" : " AND o.user_id = ?";
+        const params = ownerId === null ? [orderId] : [orderId, ownerId];
+
         this.query(
             `SELECT
                 o.*,
@@ -133,8 +136,8 @@ export class OrdersRepository {
             LEFT JOIN products p ON p.id = oi.product_id
             LEFT JOIN categories c ON c.id = p.category_id
             LEFT JOIN brands b ON b.id = p.brand_id
-            WHERE o.id = ?`,
-            [orderId],
+            WHERE o.id = ?${ownerClause}`,
+            params,
             callback,
         );
     }
@@ -237,11 +240,14 @@ export class OrdersRepository {
         this.query("UPDATE pending_checkouts SET consumed_at = UTC_TIMESTAMP() WHERE stripe_session_id = ?", [stripeSessionId], callback);
     }
 
-    getOrderByStripeSessionId(stripeSessionId: string, callback: QueryCallback<OrderBySessionRow[]>) {
+    getOrderByStripeSessionId(stripeSessionId: string, ownerId: string | null, callback: QueryCallback<OrderBySessionRow[]>) {
+        const ownerClause = ownerId === null ? "" : " AND user_id = ?";
+        const params = ownerId === null ? [stripeSessionId] : [stripeSessionId, ownerId];
+
         this.query(
             `SELECT id, user_id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added, payment_method
-            FROM orders WHERE stripe_checkout_session_id = ? LIMIT 1`,
-            [stripeSessionId],
+            FROM orders WHERE stripe_checkout_session_id = ?${ownerClause} LIMIT 1`,
+            params,
             callback,
         );
     }
