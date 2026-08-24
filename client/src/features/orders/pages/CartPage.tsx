@@ -25,6 +25,7 @@ const CartPage = () => {
         items: cart,
         totalPrice,
         discount,
+        discountCode,
         subtotal,
         validationIssues,
         isLoading: isCartLoading,
@@ -178,6 +179,7 @@ const CartPage = () => {
                         cart={cart}
                         totalPrice={totalPrice}
                         discount={discount}
+                        discountCode={discountCode}
                         subtotal={subtotal}
                         validationIssues={activeValidationIssues}
                         onValidationRefresh={handleValidationRefresh}

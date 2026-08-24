@@ -4,7 +4,7 @@ import cors from "cors";
 import express from "express";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
-import { defaultClientOrigin, allowedOrigins } from "#src/config/cors.config";
+import { allowedOrigins } from "#src/config/cors.config";
 import { registerScalarDocs } from "#src/config/scalarDocs";
 import fs from "node:fs";
 import path from "node:path";
@@ -27,20 +27,6 @@ async function bootstrap() {
     const expressApp = app.getHttpAdapter().getInstance();
 
     expressApp.use(cookieParser());
-
-    expressApp.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
-        res.header("Access-Control-Allow-Origin", defaultClientOrigin);
-        res.header("Access-Control-Allow-Credentials", "true");
-        res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-        res.header("Access-Control-Allow-Headers", "Content-Type,Authorization,X-CSRF-Token");
-
-        if (req.method === "OPTIONS") {
-            return res.sendStatus(200);
-        }
-
-        return next();
-    });
-
     expressApp.use(cors({
         origin: (origin, callback) => {
             if (!origin || allowedOrigins.includes(origin)) {

@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpException, Param, Post, Put, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "../guards/auth.guard";
-import { RolesGuard } from "../guards/roles.guard";
+import { Roles, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestPromotionsService } from "./promotions.service";
 
@@ -14,6 +14,7 @@ function toHttpException(err: { statusCode?: number; message?: string }, fallbac
 
 @Controller("promotions")
 @UseGuards(AuthGuard, RolesGuard)
+@Roles("admin")
 export class PromotionsController {
     constructor(private readonly promotionsService: NestPromotionsService) {}
 

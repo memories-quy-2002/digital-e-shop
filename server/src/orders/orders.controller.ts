@@ -1,15 +1,25 @@
-import { Body, Controller, Get, HttpCode, HttpException, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, HttpException, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
+import type { Request } from "express";
 import { AuthGuard } from "../guards/auth.guard";
-import { OwnerParam, RolesGuard } from "../guards/roles.guard";
+import { OwnerParam, Roles, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestOrdersService } from "./orders.service";
 import { NestOrdersStripeService } from "./orders.stripe.service";
+import { calculatePromotionDiscount } from "./orders.pricing";
 import { orderStatusSchema, purchaseSchema, checkoutSessionSchema, applyDiscountSchema } from "./orders.validator";
+
+type AuthenticatedRequest = Request & {
+    user?: { id?: string | number; role?: string };
+};
 
 function toHttpException(err: { statusCode?: number; message?: string }, fallbackMessage: string): HttpException {
     const statusCode = err.statusCode || 500;
     const msg = err.statusCode ? err.message : fallbackMessage;
     return new HttpException({ msg }, statusCode);
+}
+
+function canAccessOrder(req: AuthenticatedRequest, ownerId: string | number): boolean {
+    return String(req.user?.role || "").toLowerCase() === "admin" || String(req.user?.id) === String(ownerId);
 }
 
 @Controller("orders")
@@ -21,6 +31,7 @@ export class OrdersController {
 
     @Get()
     @UseGuards(AuthGuard, RolesGuard)
+    @Roles("admin")
     async getOrders(@Query() query: Record<string, unknown>) {
         try {
             const page = Number(query.page);
@@ -55,6 +66,7 @@ export class OrdersController {
 
     @Get("/item")
     @UseGuards(AuthGuard, RolesGuard)
+    @Roles("admin")
     async getOrderItems(@Query() query: Record<string, unknown>) {
         try {
             const page = Number(query.page);
@@ -104,10 +116,10 @@ export class OrdersController {
 
     @Get("/by-session/:sessionId")
     @UseGuards(AuthGuard)
-    async getOrderBySessionId(@Param("sessionId") sessionId: string) {
+    async getOrderBySessionId(@Param("sessionId") sessionId: string, @Req() req: AuthenticatedRequest) {
         try {
             const order = await this.ordersService.getOrderByStripeSessionId(sessionId);
-            if (!order) {
+            if (!order || !canAccessOrder(req, order.user_id)) {
                 throw new HttpException({ msg: "Order not ready yet" }, 404);
             }
             return { order, msg: "Order retrieved successfully" };
@@ -119,10 +131,10 @@ export class OrdersController {
 
     @Get("/:oid")
     @UseGuards(AuthGuard)
-    async getOrderDetail(@Param("oid") oid: string) {
+    async getOrderDetail(@Param("oid") oid: string, @Req() req: AuthenticatedRequest) {
         try {
             const order = await this.ordersService.getOrderDetail(Number(oid));
-            if (!order) {
+            if (!order || !canAccessOrder(req, order.user_id)) {
                 throw new HttpException({ msg: "Order not found" }, 404);
             }
             return { order, msg: "Order detail retrieved successfully" };
@@ -135,6 +147,7 @@ export class OrdersController {
     @Post("/status/:oid")
     @HttpCode(200)
     @UseGuards(AuthGuard, RolesGuard)
+    @Roles("admin")
     async changeOrderStatus(
         @Param("oid") oid: string,
         @Body(new ZodValidationPipe(orderStatusSchema)) body: { status: number },
@@ -164,11 +177,12 @@ export class OrdersController {
             totalPrice: number;
             cart: Array<{ productId: number; quantity: number; price: number; sale_price?: number | null }>;
             discount: number;
+            discountCode?: string;
             shippingAddress: string;
             paymentMethod: string;
         },
     ) {
-        const { totalPrice, cart, discount, shippingAddress, paymentMethod } = body;
+        const { totalPrice, cart, discountCode, shippingAddress, paymentMethod } = body;
 
         if (!cart || cart.length === 0) {
             throw new HttpException({ msg: "Cart cannot be empty" }, 400);
@@ -178,6 +192,11 @@ export class OrdersController {
         }
 
         try {
+            const promotion = discountCode ? await this.ordersService.applyDiscount(discountCode) : null;
+            if (discountCode && !promotion) {
+                throw new HttpException({ msg: "Discount code is no longer valid." }, 400);
+            }
+            const discount = calculatePromotionDiscount(promotion, totalPrice);
             const order = await this.ordersService.makePurchase(uid, {
                 totalPrice,
                 cart,
@@ -192,6 +211,7 @@ export class OrdersController {
                 msg: `Order has been created successfully with id = ${order.id}`,
             };
         } catch (err) {
+            if (err instanceof HttpException) throw err;
             const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
             const statusCode = error.statusCode || 500;
             throw new HttpException(
@@ -214,6 +234,7 @@ export class OrdersController {
             totalPrice: number;
             cart: Array<{ productId: number; quantity: number; price: number; sale_price?: number | null }>;
             discount: number;
+            discountCode?: string;
             shippingAddress: string;
         },
     ) {
@@ -235,31 +256,27 @@ export class OrdersController {
 
     @Post("/discount")
     @HttpCode(200)
-    @UseGuards(AuthGuard)
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles("customer", "admin")
     async applyDiscount(@Body(new ZodValidationPipe(applyDiscountSchema)) body: { discountCode: string; price: number }) {
         try {
-            const discount = await this.ordersService.applyDiscount(body.discountCode);
-            if (!discount) {
+            const promotion = await this.ordersService.applyDiscount(body.discountCode);
+            if (!promotion) {
                 throw new HttpException({ msg: "Discount code not found" }, 404);
             }
 
-            const minOrderValue = Number(discount.min_order_value) || 0;
-            if (Number(body.price) < minOrderValue) {
-                throw new HttpException(
-                    { msg: `This promotion requires a minimum order of $${minOrderValue.toFixed(2)}` },
-                    400,
-                );
-            }
-
-            const discountPercent = discount.discount_percent;
-            const newPrice = (body.price * (100 - discountPercent)) / 100;
+            const discount = calculatePromotionDiscount(promotion, Number(body.price));
             return {
-                newPrice,
+                newPrice: Math.max(Number(body.price) - discount, 0),
                 msg: "Discount code has been applied successfully",
             };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            throw toHttpException(err as Error, "Internal server error");
+            const error = err as Error & { statusCode?: number };
+            if (error.statusCode) {
+                throw new HttpException({ msg: error.message }, error.statusCode);
+            }
+            throw toHttpException(error, "Internal server error");
         }
     }
 }
