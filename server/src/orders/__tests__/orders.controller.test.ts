@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { HttpException } from "@nestjs/common";
+import { ROLES_KEY } from "../../guards/roles.guard";
 import { OrdersController } from "../orders.controller";
 import type { NestOrdersService } from "../orders.service";
 import type { NestOrdersStripeService } from "../orders.stripe.service";
@@ -21,6 +22,12 @@ function buildController() {
 describe("OrdersController", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+    });
+
+    it("marks migrated admin order endpoints as Admin-only", () => {
+        expect(Reflect.getMetadata(ROLES_KEY, OrdersController.prototype.getOrders)).toEqual(["Admin"]);
+        expect(Reflect.getMetadata(ROLES_KEY, OrdersController.prototype.getOrderItems)).toEqual(["Admin"]);
+        expect(Reflect.getMetadata(ROLES_KEY, OrdersController.prototype.changeOrderStatus)).toEqual(["Admin"]);
     });
 
     it("hides internal errors when checkout session creation fails with a 500", async () => {
