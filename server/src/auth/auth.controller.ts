@@ -5,6 +5,7 @@ import { NestAuthService } from "./auth.service";
 import { registerUserSchema, userLoginSchema } from "./auth.validator";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import type { AuthSessionPayload } from "./auth.types";
+import { buildErrorResponse, buildSuccessResponse, requestIdFrom } from "#src/shared/http/api-response";
 
 const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
 
@@ -49,17 +50,25 @@ export class NestAuthController {
     @Get("session/check")
     @HttpCode(HttpStatus.OK)
     async checkSession(@Req() req: Request, @Res() res: Response) {
+        const requestId = requestIdFrom(req);
         const { valid, message } = await this.authService.verifySessionToken(req);
         if (!valid) {
-            return res.status(401).json({ sessionActive: false, msg: message });
+            return res.status(401).json(buildErrorResponse({
+                statusCode: 401,
+                code: "UNAUTHORIZED",
+                message: message || "Not authenticated",
+                details: { sessionActive: false },
+                requestId,
+            }));
         }
-        return res.status(200).json({ sessionActive: true, msg: "Session is valid" });
+        return res.status(200).json(buildSuccessResponse({ sessionActive: true, msg: "Session is valid" }, requestId));
     }
 
     @Post("register")
     @HttpCode(HttpStatus.OK)
     async registerUser(
         @Body(new ZodValidationPipe(registerUserSchema)) body: { uid: string; user: { username: string; email: string; password: string; role: string } },
+        @Req() req: Request,
         @Res() res: Response,
     ) {
         const { uid, user } = body;
@@ -69,24 +78,28 @@ export class NestAuthController {
         res.cookie("userInfo", JSON.stringify({ uid: newUid, token }), withMaxAge(THIRTY_DAYS));
         res.cookie("accessToken", token, withMaxAge(THIRTY_DAYS));
 
-        return res.status(200).json({ uid: newUid, token, msg: "User created successfully" });
+        return res.status(200).json(buildSuccessResponse(
+            { uid: newUid, token, msg: "User created successfully" },
+            requestIdFrom(req),
+        ));
     }
 
     @Post("login")
     @HttpCode(HttpStatus.OK)
     async userLogin(
         @Body(new ZodValidationPipe(userLoginSchema)) body: { uid: string; role?: string; rememberMe?: boolean },
+        @Req() req: Request,
         @Res() res: Response,
     ) {
         const { uid, role, rememberMe } = body;
         const { user, token: accessToken, sessionId, refreshToken } = await this.authService.loginUser(uid, role, rememberMe);
         setAuthCookies(res, { user, token: accessToken, sessionId, refreshToken }, Boolean(rememberMe));
 
-        return res.status(200).json({
+        return res.status(200).json(buildSuccessResponse({
             userData: user,
             token: accessToken,
             msg: "Login successfully",
-        });
+        }, requestIdFrom(req)));
     }
 
     @Post("refresh")
@@ -94,17 +107,27 @@ export class NestAuthController {
     async userRefreshToken(@Req() req: Request, @Res() res: Response) {
         const refreshTokenCookie = req.cookies.refreshToken;
         if (!refreshTokenCookie) {
-            return res.status(401).json({ msg: "No refresh token" });
+            return res.status(401).json(buildErrorResponse({
+                statusCode: 401,
+                code: "UNAUTHORIZED",
+                message: "No refresh token",
+                requestId: requestIdFrom(req),
+            }));
         }
 
         try {
             const newAccessToken = await this.authService.refreshToken(refreshTokenCookie);
-            return res.status(200).json({
+            return res.status(200).json(buildSuccessResponse({
                 token: newAccessToken,
                 msg: "Token refreshed successfully",
-            });
+            }, requestIdFrom(req)));
         } catch {
-            return res.status(403).json({ msg: "Invalid refresh token" });
+            return res.status(403).json(buildErrorResponse({
+                statusCode: 403,
+                code: "INVALID_REFRESH_TOKEN",
+                message: "Invalid refresh token",
+                requestId: requestIdFrom(req),
+            }));
         }
     }
 
@@ -115,17 +138,26 @@ export class NestAuthController {
 
         if (!sessionId || sessionId === "undefined") {
             clearAuthCookies(res);
-            return res.status(200).json({ msg: "You have been logout successfully (no session)" });
+            return res.status(200).json(buildSuccessResponse(
+                { msg: "You have been logout successfully (no session)" },
+                requestIdFrom(req),
+            ));
         }
 
         const session = await this.authService.endSession(sessionId);
         clearAuthCookies(res);
 
         if (!session) {
-            return res.status(200).json({ msg: "You have been logout successfully (session not found)" });
+            return res.status(200).json(buildSuccessResponse(
+                { msg: "You have been logout successfully (session not found)" },
+                requestIdFrom(req),
+            ));
         }
 
-        return res.status(200).json({ msg: "You have been logout successfully" });
+        return res.status(200).json(buildSuccessResponse(
+            { msg: "You have been logout successfully" },
+            requestIdFrom(req),
+        ));
     }
 
     @Get("csrf")
@@ -133,6 +165,6 @@ export class NestAuthController {
     async getCsrfToken(@Req() req: Request, @Res() res: Response) {
         const { generateCsrfToken } = await import("#src/middleware/csrf.middleware");
         const token = generateCsrfToken(req as Request, res as Response);
-        return res.status(HttpStatus.OK).json({ csrfToken: token });
+        return res.status(HttpStatus.OK).json(buildSuccessResponse({ csrfToken: token }, requestIdFrom(req)));
     }
 }

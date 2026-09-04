@@ -71,9 +71,8 @@ export const parseProductDetails = (raw?: string | null): ProductDetails => {
                 specifications,
             };
         }
-    } catch (err) {
+    } catch {
         // Existing products may still store comma-separated specs.
-        console.error(err);
     }
 
     const fallbackRows = raw

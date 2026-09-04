@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
     emptyProductDetails,
     parseProductDetails,
@@ -102,6 +102,17 @@ describe("parseProductDetails", () => {
             { label: "CPU", value: "i7" },
             { label: "RAM", value: "16GB" },
         ]);
+    });
+
+    it("treats legacy comma-separated specifications as valid input without logging", () => {
+        const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+        expect(parseProductDetails("Core Ultra 7, integrated graphics, desktop socket").specifications).toEqual([
+            { label: "Specification", value: "Core Ultra 7" },
+            { label: "Specification", value: "integrated graphics" },
+            { label: "Specification", value: "desktop socket" },
+        ]);
+        expect(errorSpy).not.toHaveBeenCalled();
+        errorSpy.mockRestore();
     });
 
     it("uses Specification as fallback label for bare values in legacy format", () => {

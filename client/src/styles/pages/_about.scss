@@ -6,8 +6,8 @@
         grid-template-columns: 1fr;
         overflow: hidden;
         border-radius: 28px;
-        background: var(--de-color-bg-strong);
-        color: #fff;
+        background: var(--info-hero);
+        color: var(--info-hero-text);
         min-height: 520px;
 
         @media (min-width: 980px) {
@@ -30,13 +30,13 @@
             margin: 0;
             font-size: clamp(2.3rem, 5vw, 4.7rem);
             line-height: 1.03;
-            color: #fff;
+            color: var(--info-hero-text);
         }
 
         p {
             max-width: 640px;
             margin: 0;
-            color: rgba(255, 255, 255, 0.9);
+            color: color-mix(in srgb, var(--info-hero-text) 90%, transparent);
             line-height: 1.75;
             font-size: 1.05rem;
         }
@@ -45,8 +45,8 @@
             margin-top: 0.5rem;
 
             .ghost {
-                color: #fff;
-                border-color: rgba(255, 255, 255, 0.35);
+                color: var(--info-hero-text);
+                border-color: var(--info-hero-border);
             }
         }
 
@@ -64,7 +64,7 @@
                 content: "";
                 position: absolute;
                 inset: 0;
-                background: linear-gradient(90deg, rgba(16, 24, 39, 0.45), transparent);
+                background: color-mix(in srgb, var(--info-hero) 48%, transparent);
             }
         }
     }
@@ -184,8 +184,8 @@
                 gap: 1rem;
                 align-items: center;
                 border-radius: 18px;
-                background: #152235;
-                color: #fff;
+                background: var(--info-hero);
+                color: var(--info-hero-text);
                 padding: 1rem;
             }
 
@@ -195,7 +195,7 @@
 
             p {
                 margin: 0;
-                color: rgba(255, 255, 255, 0.86);
+                color: color-mix(in srgb, var(--info-hero-text) 86%, transparent);
                 line-height: 1.5;
             }
         }

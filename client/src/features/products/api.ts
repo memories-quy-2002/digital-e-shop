@@ -1,5 +1,6 @@
 import http from "../../lib/http";
 import type { Product, Review, ReviewSummary, Wishlist } from "../../types/product";
+import { normalizeProduct, normalizeProducts } from "../../utils/product";
 
 type RawWishlistItem = {
     id: number;
@@ -41,12 +42,12 @@ const normalizeSummary = (summary?: any): ReviewSummary => ({
 
 export async function fetchProduct(productId: number): Promise<Product | null> {
     const response = await http.get(`/api/products/${productId}`);
-    return response.data.product || null;
+    return response.data.product ? normalizeProduct(response.data.product) : null;
 }
 
 export async function fetchRelevantProducts(productId: number): Promise<Product[]> {
     const response = await http.get(`/api/products/relevant/${productId}`);
-    return response.data.relevantProducts || [];
+    return normalizeProducts(response.data.relevantProducts);
 }
 
 export async function fetchWishlist(uid: string): Promise<Wishlist[]> {
@@ -55,7 +56,7 @@ export async function fetchWishlist(uid: string): Promise<Wishlist[]> {
         const { id, product_id, ...productProps } = item;
         return {
             id,
-            product: { id: product_id, ...productProps },
+            product: normalizeProduct({ id: product_id, ...productProps }),
         };
     });
 }

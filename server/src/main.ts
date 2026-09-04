@@ -4,8 +4,10 @@ import cors from "cors";
 import express from "express";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
-import { allowedOrigins } from "#src/config/cors.config";
+import { isAllowedOrigin } from "#src/config/cors.config";
 import { registerScalarDocs } from "#src/config/scalarDocs";
+import { requestIdMiddleware } from "#src/middleware/request-id.middleware";
+import { buildSuccessResponse, requestIdFrom } from "#src/shared/http/api-response";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -26,10 +28,11 @@ async function bootstrap() {
 
     const expressApp = app.getHttpAdapter().getInstance();
 
+    expressApp.use(requestIdMiddleware);
     expressApp.use(cookieParser());
     expressApp.use(cors({
         origin: (origin, callback) => {
-            if (!origin || allowedOrigins.includes(origin)) {
+            if (isAllowedOrigin(origin)) {
                 callback(null, true);
             } else {
                 callback(new Error("Not allowed by CORS"));
@@ -38,6 +41,7 @@ async function bootstrap() {
         credentials: true,
         methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
+        exposedHeaders: ["X-Request-Id"],
     }));
 
     expressApp.get("/api/openapi.json", (_req: express.Request, res: express.Response) => {
@@ -46,12 +50,12 @@ async function bootstrap() {
 
     registerScalarDocs(expressApp, openapiSpec);
 
-    expressApp.get("/", (_req: express.Request, res: express.Response) => {
-        res.status(200).json({
+    expressApp.get("/", (req: express.Request, res: express.Response) => {
+        res.status(200).json(buildSuccessResponse({
             status: "ok",
             service: "digital-e-server",
             timestamp: new Date().toISOString(),
-        });
+        }, requestIdFrom(req)));
     });
 
     app.setGlobalPrefix("api");

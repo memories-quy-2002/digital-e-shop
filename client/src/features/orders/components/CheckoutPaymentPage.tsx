@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Form } from "react-bootstrap";
+import { Form } from "../../../components/ui/legacy";
 import { Helmet } from "react-helmet";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";

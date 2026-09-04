@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Modal } from "react-bootstrap";
+import { Button, Modal } from "../ui/legacy";
 import { BellIcon, BoxArrowRightIcon, HouseIcon, SearchIcon } from "../common/Icons";
 import Cookies from "universal-cookie";
 import axios from "../../api/axios";

@@ -4,11 +4,25 @@ import process from "node:process";
 import dotenv from "dotenv";
 import { assertSafeDatabaseTarget } from "./database-target.js";
 
+export const resolveServerRoot = (moduleDirectory: string) => {
+    const nearbyRoot = path.resolve(moduleDirectory, "../..");
+    return fs.existsSync(path.join(nearbyRoot, "package.json"))
+        ? nearbyRoot
+        : path.resolve(moduleDirectory, "../../..");
+};
+
+const serverRoot = resolveServerRoot(__dirname);
+const mode = process.env.NODE_ENV || "development";
+const configuredEnvFile = process.env.DIGITAL_E_ENV_FILE?.trim();
+const resolveConfiguredEnvPath = (value: string) => (path.isAbsolute(value) ? value : path.resolve(serverRoot, value));
 const envCandidates = [
-    path.resolve(__dirname, "../../.env"),
-    path.resolve(__dirname, "../../../.env"),
+    configuredEnvFile ? resolveConfiguredEnvPath(configuredEnvFile) : "",
+    path.resolve(serverRoot, `.env.${mode}.local`),
+    path.resolve(serverRoot, ".env.local"),
+    path.resolve(serverRoot, `.env.${mode}`),
+    path.resolve(serverRoot, ".env"),
     path.resolve(process.cwd(), ".env"),
-];
+].filter((candidate, index, candidates) => Boolean(candidate) && candidates.indexOf(candidate) === index);
 
 const envPath = envCandidates.find((candidate) => fs.existsSync(candidate));
 

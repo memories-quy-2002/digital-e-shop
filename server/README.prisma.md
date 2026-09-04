@@ -144,3 +144,44 @@ pnpm prisma:migrate:deploy
 Do not add new pending migration files to `src/database/migrations/`; that directory is retained for legacy dump/bootstrap history.
 
 Until the Prisma schema models the complete database, do not treat `prisma migrate dev` drift output as authority for dropping legacy tables. Expanding Prisma ownership of the full schema should be a separate reviewed change.
+
+## Local demo seed
+
+The demo seed uses the legacy MySQL table shape because the Prisma schema
+intentionally models only part of this database. It is transactional and
+idempotent for rows owned by the deterministic demo accounts/products; it does
+not reset or truncate the database.
+
+Run it from `server/` against the local Docker database:
+
+```powershell
+pnpm docker:setup
+```
+
+`docker:setup` runs the seed and its Docker-environment verification. To
+verify again later, run:
+
+```powershell
+pnpm docker:verify
+```
+
+All four demo accounts use the password `DemoPass123!`:
+
+- `demo.admin@digital-e.local` (`Admin`)
+- `demo.alice@digital-e.local` (`Customer`)
+- `demo.bob@digital-e.local` (`Customer`)
+- `demo.carol@digital-e.local` (`Customer`)
+
+The graph links users to addresses, carts, orders, order items, reviews,
+wishlists, notifications, sessions, and inventory movements. Products resolve
+through their category and brand parents, every order has distinct product
+items with matching totals, and every seeded catalog product has a real image
+slug already understood by the storefront's Vercel Blob image helper. The
+expanded catalog contains 28 products across 8 categories and 16 brands, and
+each product is represented in demo order, review, and wishlist relationships.
+`demo:verify` fails on count, image, or orphan-link mismatches.
+
+The seed and verifier reject non-local `DB_HOST`/`DATABASE_URL` targets. Do
+not bypass that guard for the configured Aiven database; any remote demo
+operation needs a separately reviewed, explicitly confirmed production
+workflow with a recoverable backup.

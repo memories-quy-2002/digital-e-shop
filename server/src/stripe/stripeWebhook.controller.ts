@@ -4,6 +4,7 @@ import type Stripe from "stripe";
 import { stripeClient } from "#src/config/stripe.config";
 import { env } from "#src/config/env.config";
 import { logger } from "#src/shared/utils/logger";
+import { buildErrorResponse, buildSuccessResponse, requestIdFrom } from "#src/shared/http/api-response";
 import { NestOrdersStripeService } from "../orders/orders.stripe.service";
 
 @Controller("orders/webhooks/stripe")
@@ -15,9 +16,15 @@ export class StripeWebhookController {
         @Req() req: Request,
         @Res() res: Response,
     ) {
+        const requestId = requestIdFrom(req);
         const signature = req.headers["stripe-signature"];
         if (!signature || typeof signature !== "string") {
-            return res.status(HttpStatus.BAD_REQUEST).send("Missing Stripe signature");
+            return res.status(HttpStatus.BAD_REQUEST).json(buildErrorResponse({
+                statusCode: HttpStatus.BAD_REQUEST,
+                code: "STRIPE_SIGNATURE_MISSING",
+                message: "Missing Stripe signature",
+                requestId,
+            }));
         }
 
         // Nest's global body parser (registered before any module middleware,
@@ -27,25 +34,41 @@ export class StripeWebhookController {
         // by the `rawBody: true` NestFactory option), not req.body.
         const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
         if (!rawBody) {
-            logger.error("[stripeWebhook] req.rawBody missing — check rawBody: true bootstrap option");
-            return res.status(HttpStatus.BAD_REQUEST).send("Missing raw body");
+            logger.error({ requestId }, "[stripeWebhook] req.rawBody missing — check rawBody: true bootstrap option");
+            return res.status(HttpStatus.BAD_REQUEST).json(buildErrorResponse({
+                statusCode: HttpStatus.BAD_REQUEST,
+                code: "STRIPE_RAW_BODY_MISSING",
+                message: "Missing raw body",
+                requestId,
+            }));
         }
         let event: Stripe.Event;
         try {
             event = stripeClient.webhooks.constructEvent(rawBody, signature, env.stripeWebhookSecret);
         } catch (err) {
-            logger.error(err, "[stripeWebhook] signature verification failed");
-            return res.status(HttpStatus.BAD_REQUEST).send("Invalid signature");
+            logger.error({ err, requestId }, "[stripeWebhook] signature verification failed");
+            return res.status(HttpStatus.BAD_REQUEST).json(buildErrorResponse({
+                statusCode: HttpStatus.BAD_REQUEST,
+                code: "STRIPE_SIGNATURE_INVALID",
+                message: "Invalid signature",
+                requestId,
+            }));
         }
 
         try {
             if (event.type === "checkout.session.completed") {
                 await this.ordersStripeService.handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session);
             }
-            return res.status(HttpStatus.OK).json({ received: true });
+            return res.status(HttpStatus.OK).json(buildSuccessResponse({ received: true }, requestId));
         } catch (err) {
-            logger.error(err, "[stripeWebhook] handler error");
-            return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ received: false });
+            logger.error({ err, requestId }, "[stripeWebhook] handler error");
+            return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(buildErrorResponse({
+                statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+                code: "STRIPE_WEBHOOK_FAILED",
+                message: "Unable to process Stripe webhook",
+                details: { received: false },
+                requestId,
+            }));
         }
     }
 }

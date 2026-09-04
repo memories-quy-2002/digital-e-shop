@@ -16,3 +16,8 @@ export const allowedOrigins = Array.from(
     ),
 );
 
+const localOriginPattern = /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/;
+
+export const isAllowedOrigin = (origin?: string) =>
+    !origin || allowedOrigins.includes(origin) || (!isProduction && localOriginPattern.test(origin));
+

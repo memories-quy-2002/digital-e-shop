@@ -1,5 +1,5 @@
 import React from "react";
-import "../../styles/components/_loading-screen.scss";
+import { Skeleton } from "../ui/skeleton";
 
 type LoadingScreenProps = {
     variant?: "inline" | "page";
@@ -8,16 +8,21 @@ type LoadingScreenProps = {
 const LoadingScreen = ({ variant = "inline" }: LoadingScreenProps) => {
     if (variant === "page") {
         return (
-            <div className="loading-screen loading-screen--page" aria-hidden="true">
-                <div className="loading-screen__page">
-                    <div className="loading-screen__hero">
-                        <div className="loading-screen__hero-line loading-screen__hero-line--eyebrow" />
-                        <div className="loading-screen__hero-line loading-screen__hero-line--title" />
-                        <div className="loading-screen__hero-line loading-screen__hero-line--body" />
+            <div
+                className="min-h-screen bg-background px-4 pb-8 pt-24 sm:px-6 lg:px-8"
+                role="status"
+                aria-label="Loading page"
+                aria-busy="true"
+            >
+                <div className="mx-auto grid w-full max-w-[1240px] gap-5">
+                    <div className="grid gap-5 rounded-panel border border-border bg-card p-6 shadow-sm">
+                        <Skeleton className="h-3 w-24" />
+                        <Skeleton className="h-10 w-full max-w-xl" />
+                        <Skeleton className="h-4 w-full max-w-2xl" />
                     </div>
-                    <div className="loading-screen__cards">
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
                         {Array.from({ length: 3 }).map((_, index) => (
-                            <div key={index} className="loading-screen__card" />
+                            <Skeleton key={index} className="min-h-56 rounded-panel" />
                         ))}
                     </div>
                 </div>
@@ -26,10 +31,10 @@ const LoadingScreen = ({ variant = "inline" }: LoadingScreenProps) => {
     }
 
     return (
-        <div className="loading-screen" aria-hidden="true">
-            <div className="loading-screen__track">
-                <div className="loading-screen__indicator" />
-            </div>
+        <div className="w-full px-4" role="status" aria-label="Loading" aria-busy="true">
+            <Skeleton className="h-1.5 w-full rounded-full">
+                <span className="sr-only">Loading</span>
+            </Skeleton>
         </div>
     );
 };

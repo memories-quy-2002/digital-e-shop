@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Button, Container, Modal } from "react-bootstrap";
+import { Button, Container, Modal } from "../../../components/ui/legacy";
 import { Helmet } from "react-helmet";
 import { useNavigate } from "react-router-dom";
 import AsideCart from "../../../components/common/AsideCart";

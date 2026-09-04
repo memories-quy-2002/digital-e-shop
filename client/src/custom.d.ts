@@ -1,4 +1,9 @@
 /// <reference types="vite/client" />
 
-// The client has no custom VITE_* env vars; Vite's own types (referenced
-// above) provide ImportMetaEnv/ImportMeta, including import.meta.env.PROD.
+interface ImportMetaEnv {
+    readonly VITE_API_BASE_URL?: string;
+}
+
+interface ImportMeta {
+    readonly env: ImportMetaEnv;
+}

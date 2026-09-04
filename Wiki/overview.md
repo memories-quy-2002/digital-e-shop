@@ -40,6 +40,8 @@ pnpm --filter server lint
 # Database / Prisma
 pnpm --filter server prisma:generate
 pnpm --filter server prisma:migrate
+pnpm --filter server prisma:seed
+pnpm --filter server demo:verify
 pnpm --filter server seed:mock
 ```
 
@@ -56,6 +58,15 @@ environment templates, run `pnpm --filter server docker:setup`, and use the
 `digital_e_shop_local` MySQL database on `127.0.0.1:3307`. Runtime and Prisma
 guards reject remote database targets outside production; CI uses its separate
 `digital_e_shop_ci` database.
+
+The local demo seed is a transactional, idempotent MySQL seed for deterministic
+admin/customer accounts, realistic catalog products with populated storefront
+image slugs, carts, orders, reviews, wishlists, addresses, notifications,
+sessions, discounts, and inventory movements. `demo:verify` checks exact
+demo-owned counts, image presence, order/review/wishlist coverage, order totals,
+and relationship orphan counts. The catalog currently covers 28 products across
+8 categories and 16 brands.
+It intentionally refuses the configured remote Aiven target.
 
 ## Current assumptions
 

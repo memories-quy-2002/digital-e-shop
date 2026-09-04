@@ -1,4 +1,4 @@
-import { Button, Modal } from "react-bootstrap";
+import { Button, Modal } from "../ui/legacy";
 
 type ConfirmActionModalProps = {
     show: boolean;

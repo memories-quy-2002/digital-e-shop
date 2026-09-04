@@ -10,6 +10,7 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import "../styles/pages/_shops.scss";
 import { Product } from "../utils/interface";
+import { normalizeProduct, normalizeProducts } from "../utils/product";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { useT } from "../hooks/useT";
 
@@ -37,9 +38,26 @@ type ProductFacets = {
     totalProducts: number;
 };
 
+export const parseShopPriceRange = (
+    minPrice: string | null,
+    maxPrice: string | null,
+    fallback: [number, number],
+): [number, number] => {
+    const parsePrice = (value: string | null, fallbackValue: number) => {
+        if (value === null || value.trim() === "") {
+            return fallbackValue;
+        }
+
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : fallbackValue;
+    };
+
+    return [parsePrice(minPrice, fallback[0]), parsePrice(maxPrice, fallback[1])];
+};
+
 const ShopsPage = () => {
     const [products, setProducts] = useState<Product[]>([]);
-    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [isLoading, setIsLoading] = useState<boolean>(true);
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
     const [facets, setFacets] = useState<ProductFacets>({
         categories: [],
@@ -133,8 +151,10 @@ const ShopsPage = () => {
 
     useEffect(() => {
         const queryParams = new URLSearchParams(location.search);
-        const nextMinPrice = Number(queryParams.get("minPrice"));
-        const nextMaxPrice = Number(queryParams.get("maxPrice"));
+        const priceRange = parseShopPriceRange(queryParams.get("minPrice"), queryParams.get("maxPrice"), [
+            0,
+            MAX_PRICE_RANGE,
+        ]);
         const newFilters: Filters = {
             term: queryParams.get("term") ?? "",
             categories:
@@ -147,10 +167,7 @@ const ShopsPage = () => {
                     .get("brands")
                     ?.split(",")
                     .filter((brand) => brand !== "") ?? [],
-            priceRange: [
-                Number.isFinite(nextMinPrice) ? nextMinPrice : 0,
-                Number.isFinite(nextMaxPrice) ? nextMaxPrice : MAX_PRICE_RANGE,
-            ],
+            priceRange,
             sortBy: (queryParams.get("sortBy") as Filters["sortBy"]) ?? "relevance",
         };
         setFilters(newFilters);
@@ -208,7 +225,7 @@ const ShopsPage = () => {
             try {
                 const response = await axios.get(`/api/products?${requestParams.toString()}`);
                 if (response.status === 200) {
-                    setProducts(response.data.products || []);
+                    setProducts(normalizeProducts(response.data.products));
                     setPagination(
                         response.data.pagination || {
                             page: activePage,
@@ -239,10 +256,7 @@ const ShopsPage = () => {
                             const { id, product_id, ...productProps } = item;
                             return {
                                 id,
-                                product: {
-                                    id: product_id,
-                                    ...productProps,
-                                },
+                                product: normalizeProduct({ id: product_id, ...productProps }),
                             };
                         });
 

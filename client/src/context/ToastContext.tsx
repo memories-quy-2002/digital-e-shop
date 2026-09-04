@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useMemo, useReducer, ReactNode } from "react";
-import { Toast, ToastContainer } from "react-bootstrap";
+import { Toast, ToastContainer } from "../components/ui/legacy";
 import "../styles/components/_toast.scss";
 
 interface ToastMessage {

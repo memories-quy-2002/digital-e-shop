@@ -10,8 +10,8 @@ function buildHost(): { host: ArgumentsHost; json: ReturnType<typeof vi.fn>; sta
     const status = vi.fn().mockReturnValue({ json });
     const host = {
         switchToHttp: () => ({
-            getResponse: () => ({ status }),
-            getRequest: () => ({}),
+            getResponse: () => ({ status, setHeader: vi.fn() }),
+            getRequest: () => ({ requestId: "filter-test" }),
         }),
     } as unknown as ArgumentsHost;
     return { host, json, status };
@@ -25,7 +25,13 @@ describe("AllExceptionsFilter", () => {
         filter.catch({ code: "EBADCSRFTOKEN" } as never, host);
 
         expect(status).toHaveBeenCalledWith(403);
-        expect(json).toHaveBeenCalledWith({ error: MESSAGES.invalidCsrf });
+        expect(json).toHaveBeenCalledWith({
+            success: false,
+            error: MESSAGES.invalidCsrf,
+            msg: MESSAGES.invalidCsrf,
+            code: "INVALID_CSRF_TOKEN",
+            requestId: "filter-test",
+        });
     });
 
     it("returns AppError statusCode with msg + details shape", () => {
@@ -36,7 +42,15 @@ describe("AllExceptionsFilter", () => {
         filter.catch(err, host);
 
         expect(status).toHaveBeenCalledWith(404);
-        expect(json).toHaveBeenCalledWith({ msg: "Not found", resource: "product" });
+        expect(json).toHaveBeenCalledWith({
+            success: false,
+            error: "Not found",
+            msg: "Not found",
+            code: "NOT_FOUND",
+            requestId: "filter-test",
+            details: { resource: "product" },
+            resource: "product",
+        });
     });
 
     it("returns 500 with internalServerError shape for unknown errors", () => {
@@ -46,7 +60,13 @@ describe("AllExceptionsFilter", () => {
         filter.catch(new Error("boom"), host);
 
         expect(status).toHaveBeenCalledWith(500);
-        expect(json).toHaveBeenCalledWith({ error: MESSAGES.internalServerError });
+        expect(json).toHaveBeenCalledWith({
+            success: false,
+            error: MESSAGES.internalServerError,
+            msg: MESSAGES.internalServerError,
+            code: "INTERNAL_SERVER_ERROR",
+            requestId: "filter-test",
+        });
     });
 
     it("respects a NestJS HttpException's own status and response instead of falling to 500", () => {
@@ -57,6 +77,12 @@ describe("AllExceptionsFilter", () => {
         filter.catch(err, host);
 
         expect(status).toHaveBeenCalledWith(404);
-        expect(json).toHaveBeenCalledWith(err.getResponse());
+        expect(json).toHaveBeenCalledWith({
+            success: false,
+            error: "Cannot GET /does-not-exist",
+            msg: "Cannot GET /does-not-exist",
+            code: "NOT_FOUND",
+            requestId: "filter-test",
+        });
     });
 });

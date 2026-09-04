@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Modal } from "react-bootstrap";
+import { Modal } from "../ui/legacy";
 import { useT } from "../../hooks/useT";
 
 type ImageLightboxProps = {

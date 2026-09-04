@@ -11,6 +11,7 @@ import axios from "../../api/axios";
 import { fetchCustomerNotifications } from "../../features/users/api";
 import { signOutFirebaseUser } from "../../services/firebase";
 import { Product } from "../../utils/interface";
+import { Sheet, SheetContent } from "../ui/sheet";
 import { useKeyboardShortcut } from "../../hooks/useKeyboardShortcut";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { getProductImageUrl, normalizeProductImageName } from "../../utils/images";
@@ -474,7 +475,8 @@ export const Header = (): JSX.Element => {
                 </div>
             </div>
 
-            <div className={`header__mobile ${isMenuOpen ? "is-open" : ""}`} id={mobileMenuId}>
+            <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+                <SheetContent side="right" className="header__mobile is-open" id={mobileMenuId}>
                 <div className="header__mobile__search" role="search">
                     <label className="header__sr-only" htmlFor={mobileSearchId}>
                         {t("common.search")}
@@ -565,20 +567,10 @@ export const Header = (): JSX.Element => {
                         >
                             {t("common.logout")}
                         </button>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                navigate("/login");
-                                closeMenu();
-                            }}
-                        >
-                            <PersonIcon size={18} />
-                            {t("common.login")}
-                        </button>
-                    )}
+                    ) : null}
                 </div>
-            </div>
+                </SheetContent>
+            </Sheet>
         </header>
     );
 };

@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Product } from "../../../utils/interface";
 import loadImage from "../../../utils/loadImage";
+import { formatProductRating, normalizeProduct } from "../../../utils/product";
 import ratingStar from "../../../utils/ratingStar";
 
 type RecommendedProps = {
@@ -16,45 +17,53 @@ const RecommendedProduct = ({ relevantProducts }: RecommendedProps) => {
         <section className="product-page__recommendations">
             <div className="product-page__recommendations-list">
                 {visibleProducts.length > 0 ? (
-                    visibleProducts.map((product) => (
-                        <article className="product-page__recommendation-card" key={product.id}>
+                    visibleProducts.map((product) => {
+                        const normalizedProduct = normalizeProduct(product);
+                        const hasSale =
+                            normalizedProduct.sale_price !== null &&
+                            normalizedProduct.sale_price > 0 &&
+                            normalizedProduct.sale_price < normalizedProduct.price;
+
+                        return (
+                            <article className="product-page__recommendation-card" key={normalizedProduct.id}>
                             <button
                                 className="product-page__recommendation-image"
                                 type="button"
                                 onClick={() => {
-                                    navigate(`/product?id=${product.id}`);
+                                    navigate(`/product?id=${normalizedProduct.id}`);
                                     window.scrollTo({ top: 0, behavior: "smooth" });
                                 }}
-                                aria-label={`Open ${product.name}`}
+                                aria-label={`Open ${normalizedProduct.name}`}
                             >
                                 {loadImage(
-                                    product.main_image ? product.main_image.replace(".jpg", "") : null,
-                                    product.name,
+                                    normalizedProduct.main_image ? normalizedProduct.main_image.replace(".jpg", "") : null,
+                                    normalizedProduct.name,
                                 )}
                             </button>
-                            <p className="product-page__recommendation-category">{product.category}</p>
-                            <p className="product-page__recommendation-name">{product.name}</p>
-                            {product.sale_price ? (
+                            <p className="product-page__recommendation-category">{normalizedProduct.category}</p>
+                            <p className="product-page__recommendation-name">{normalizedProduct.name}</p>
+                            {hasSale ? (
                                 <div className="product-page__recommendation-price product-page__recommendation-price--sale">
-                                    <p className="product-page__recommendation-price-sale">
-                                        ${product.sale_price}
-                                    </p>
+                                    <p className="product-page__recommendation-price-sale">${normalizedProduct.sale_price}</p>
                                     <p className="product-page__recommendation-price-original">
-                                        ${product.price}
+                                        ${normalizedProduct.price}
                                     </p>
                                 </div>
                             ) : (
                                 <div className="product-page__recommendation-price">
-                                    <p>${product.price}</p>
+                                    <p>${normalizedProduct.price}</p>
                                 </div>
                             )}
 
                             <div className="product-page__recommendation-rating">
-                                <div className="product-page__recommendation-rating-stars">{ratingStar(product.rating)}</div>
-                                <span>{product.rating ? product.rating.toFixed(1) : "New"}</span>
+                                <div className="product-page__recommendation-rating-stars" aria-label={`${formatProductRating(normalizedProduct.rating)} star rating`}>
+                                    {ratingStar(normalizedProduct.rating)}
+                                </div>
+                                <span>{normalizedProduct.rating ? formatProductRating(normalizedProduct.rating) : "New"}</span>
                             </div>
-                        </article>
-                    ))
+                            </article>
+                        );
+                    })
                 ) : (
                     <div className="product-page__recommendations-empty">
                         Similar products will appear here as soon as we find a strong match.

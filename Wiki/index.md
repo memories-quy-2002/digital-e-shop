@@ -6,6 +6,9 @@ The long-term knowledge base for the Digital-E e-commerce system. Readable in Ob
 
 **Last updated:** 2026-09-04
 
+The local MySQL demo seed creates and verifies a linked multi-table graph
+without truncating the database.
+
 ## Core pages
 
 - [CI/CD guide](../docs/ci-cd.md) — validation workflows, migration gates, deployment checks, and rollback.

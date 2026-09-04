@@ -22,6 +22,7 @@ import {
     normalizeProductImageName,
 } from "../../../utils/images";
 import { parseProductDetails } from "../../../utils/productDetails";
+import { formatProductRating } from "../../../utils/product";
 import ratingStar from "../../../utils/ratingStar";
 import RecommendedProduct from "../components/RecommendedProduct";
 import {
@@ -88,6 +89,8 @@ const ProductPage = () => {
         description: "",
         specifications: "",
     });
+    const [isLoadingProduct, setIsLoadingProduct] = useState(true);
+    const [productLoadError, setProductLoadError] = useState(false);
     const [relevantProducts, setRelevantProducts] = useState<Product[]>([]);
     const [ratingScore, setRatingScore] = useState<number>(0);
     const [reviewText, setReviewText] = useState<string>("");
@@ -196,19 +199,42 @@ const ProductPage = () => {
     );
 
     useEffect(() => {
+        let isActive = true;
+
         const loadProduct = async () => {
+            if (pid <= 0) {
+                setIsLoadingProduct(false);
+                return;
+            }
+
+            setIsLoadingProduct(true);
+            setProductLoadError(false);
             try {
                 const product = await fetchProduct(pid);
-                if (product) {
+                if (product && isActive) {
                     setProductDetail(product);
                     trackRecentlyViewed(product);
+                } else if (isActive) {
+                    setProductLoadError(true);
                 }
             } catch {
-                addToast("Product", "Unable to load product details.");
+                if (isActive) {
+                    setProductLoadError(true);
+                    addToast("Product", "Unable to load product details.");
+                }
+            } finally {
+                if (isActive) {
+                    setIsLoadingProduct(false);
+                }
             }
+
         };
         loadProduct();
-    }, [addToast, pid, trackRecentlyViewed]);
+
+        return () => {
+            isActive = false;
+        };
+    }, [addToast, pid]);
 
     useEffect(() => {
         const loadWishlist = async () => {
@@ -364,6 +390,32 @@ const ProductPage = () => {
         return <NoPage />;
     }
 
+    if (isLoadingProduct) {
+        return (
+            <Layout>
+                <main className="product-page app-page">
+                    <div className="product-page__state" role="status" aria-live="polite">
+                        Loading product details...
+                    </div>
+                </main>
+            </Layout>
+        );
+    }
+
+    if (productLoadError || productDetail.id !== pid) {
+        return (
+            <Layout>
+                <main className="product-page app-page">
+                    <div className="product-page__state" role="alert">
+                        <strong>We could not find this product.</strong>
+                        <p>It may have been removed or is temporarily unavailable.</p>
+                        <Link to="/shops">Back to all products</Link>
+                    </div>
+                </main>
+            </Layout>
+        );
+    }
+
     const isWishlisted = wishlistIdSet.has(pid);
     const activeImageUrl = activeImage ? getProductImageUrl(activeImage) : "";
     const activeResponsiveImage = activeImageUrl
@@ -378,14 +430,19 @@ const ProductPage = () => {
         sizes: "(min-width: 1180px) 38vw, (min-width: 860px) 45vw, 92vw",
         fit: "fill",
     });
-    const displayedRating = reviewSummary.total > 0 ? reviewSummary.average : productDetail.rating;
-    const displayedReviewCount = reviewSummary.total > 0 ? reviewSummary.total : productDetail.reviews;
+    const displayedRating = Number(reviewSummary.total > 0 ? reviewSummary.average : productDetail.rating) || 0;
+    const displayedReviewCount = Number(reviewSummary.total > 0 ? reviewSummary.total : productDetail.reviews) || 0;
     const ratingDistribution = [5, 4, 3, 2, 1] as const;
-    const activePrice = productDetail.sale_price || productDetail.price;
+    const activePrice =
+        productDetail.sale_price !== null &&
+        productDetail.sale_price > 0 &&
+        productDetail.sale_price < productDetail.price
+            ? productDetail.sale_price
+            : productDetail.price;
     const heroStats = [
         {
             label: t("product.ratingLabel"),
-            value: `${displayedRating.toFixed(1)} / 5`,
+            value: `${formatProductRating(displayedRating)} / 5`,
         },
         {
             label: t("product.priceLabel"),
@@ -666,7 +723,7 @@ const ProductPage = () => {
                             <div className="product-page__reviews-card">
                                 <section className="product-page__reviews-summary">
                                     <div className="product-page__reviews-score">
-                                        <strong>{displayedRating.toFixed(1)}</strong>
+                                        <strong>{formatProductRating(displayedRating)}</strong>
                                         <span>{ratingStar(displayedRating, "#FFCC4A", 20)}</span>
                                         <p>{t("product.reviewsCount", displayedReviewCount)}</p>
                                     </div>

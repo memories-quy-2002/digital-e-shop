@@ -1,5 +1,5 @@
 import React, { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { Button, Modal, Table } from "react-bootstrap";
+import { Button, Modal, Table } from "../../../components/ui/legacy";
 import ReactPaginate from "react-paginate";
 import { Role } from "../../../types/user";
 import type { AdminAccount as Account, AdminCustomerProfile as CustomerProfile } from "../../../types/order";

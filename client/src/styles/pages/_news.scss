@@ -8,8 +8,8 @@
         align-items: end;
         overflow: hidden;
         border-radius: 28px;
-        background: #152235;
-        color: #fff;
+        background: var(--info-hero);
+        color: var(--info-hero-text);
 
         > img {
             position: absolute;
@@ -24,7 +24,7 @@
             content: "";
             position: absolute;
             inset: 0;
-            background: linear-gradient(90deg, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.38));
+            background: color-mix(in srgb, var(--info-hero) 78%, transparent);
         }
 
         &__content {
@@ -43,13 +43,13 @@
             margin: 0;
             font-size: clamp(2.2rem, 5vw, 4.8rem);
             line-height: 1.02;
-            color: #fff;
+            color: var(--info-hero-text);
         }
 
         p {
             max-width: 620px;
             margin: 1rem 0 0;
-            color: rgba(255, 255, 255, 0.86);
+            color: color-mix(in srgb, var(--info-hero-text) 86%, transparent);
             font-size: 1.08rem;
             line-height: 1.75;
         }
@@ -58,8 +58,8 @@
             margin-top: 1.6rem;
 
             .ghost {
-                color: #fff;
-                border-color: rgba(255, 255, 255, 0.35);
+                color: var(--info-hero-text);
+                border-color: var(--info-hero-border);
             }
         }
 
@@ -73,10 +73,10 @@
 
             span {
                 border-radius: 14px;
-                background: rgba(255, 255, 255, 0.12);
-                border: 1px solid rgba(255, 255, 255, 0.16);
+                background: color-mix(in srgb, var(--info-hero-text) 12%, transparent);
+                border: 1px solid var(--info-hero-border);
                 padding: 0.75rem 0.85rem;
-                color: #fff;
+                color: var(--info-hero-text);
                 font-weight: 800;
             }
 

@@ -15,7 +15,12 @@
         "jsx": "react-jsx",
         "noEmit": true,
         "resolveJsonModule": true,
-        "types": ["vitest", "node"]
+        "types": ["vitest", "node"],
+        "baseUrl": ".",
+        "ignoreDeprecations": "6.0",
+        "paths": {
+            "@/*": ["src/*"]
+        }
     },
     "include": [
         "src",

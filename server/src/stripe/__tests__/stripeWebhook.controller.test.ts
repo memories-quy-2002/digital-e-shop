@@ -37,7 +37,13 @@ describe("StripeWebhookController", () => {
         await controller.handleStripeWebhook(req, res as never);
 
         expect(res.status).toHaveBeenCalledWith(400);
-        expect(res.send).toHaveBeenCalledWith("Missing Stripe signature");
+        expect(res.json).toHaveBeenCalledWith({
+            success: false,
+            error: "Missing Stripe signature",
+            msg: "Missing Stripe signature",
+            code: "STRIPE_SIGNATURE_MISSING",
+            requestId: "unknown",
+        });
     });
 
     it("rejects when req.rawBody is missing, without ever calling constructEvent on the parsed JSON body", async () => {
@@ -51,7 +57,13 @@ describe("StripeWebhookController", () => {
 
         expect(stripeClient.webhooks.constructEvent).not.toHaveBeenCalled();
         expect(res.status).toHaveBeenCalledWith(400);
-        expect(res.send).toHaveBeenCalledWith("Missing raw body");
+        expect(res.json).toHaveBeenCalledWith({
+            success: false,
+            error: "Missing raw body",
+            msg: "Missing raw body",
+            code: "STRIPE_RAW_BODY_MISSING",
+            requestId: "unknown",
+        });
     });
 
     it("verifies the signature against req.rawBody (the raw buffer), not req.body", async () => {
@@ -72,7 +84,7 @@ describe("StripeWebhookController", () => {
         expect(stripeClient.webhooks.constructEvent).toHaveBeenCalledWith(rawBuffer, "sig", expect.any(String));
         expect(ordersStripeService.handleCheckoutSessionCompleted).toHaveBeenCalledWith({ id: "sess_1" });
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith({ received: true });
+        expect(res.json).toHaveBeenCalledWith({ received: true, success: true, requestId: "unknown" });
     });
 
     it("returns 400 when signature verification throws", async () => {
@@ -88,6 +100,12 @@ describe("StripeWebhookController", () => {
         await controller.handleStripeWebhook(req, res as never);
 
         expect(res.status).toHaveBeenCalledWith(400);
-        expect(res.send).toHaveBeenCalledWith("Invalid signature");
+        expect(res.json).toHaveBeenCalledWith({
+            success: false,
+            error: "Invalid signature",
+            msg: "Invalid signature",
+            code: "STRIPE_SIGNATURE_INVALID",
+            requestId: "unknown",
+        });
     });
 });

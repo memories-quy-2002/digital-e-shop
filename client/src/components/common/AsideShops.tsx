@@ -127,15 +127,21 @@ const AsideShops = ({
                         max={sliderMax}
                         pearling
                         minDistance={150}
-                        renderThumb={(props, state) => (
+                        renderThumb={(props, state) => {
+                            // react-slider includes an internal key in its props object; pass it explicitly.
+                            // eslint-disable-next-line react/prop-types
+                            const { key, ...thumbProps } = props;
+                            return (
                             <div
-                                {...props}
+                                key={key}
+                                {...thumbProps}
                                 aria-label={state.index === 0 ? "Minimum price" : "Maximum price"}
                                 aria-valuetext={`$${state.valueNow}`}
                             >
                                 <span>${state.valueNow}</span>
                             </div>
-                        )}
+                            );
+                        }}
                         onChange={(newValue) => setPriceRange(newValue as [number, number])}
                         onAfterChange={(newValue) => onPriceRangeChange(newValue as [number, number])}
                     />

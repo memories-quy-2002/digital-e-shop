@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Button, Modal, Table } from "react-bootstrap";
+import { Button, Modal, Table } from "../../../components/ui/legacy";
 import ReactPaginate from "react-paginate";
 import type { AdminOrder as Order, AdminOrderDetail as OrderDetail } from "../../../types/order";
 import AdminLayout from "../../../components/layout/AdminLayout";

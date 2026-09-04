@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Table } from "react-bootstrap";
+import { Table } from "../../../components/ui/legacy";
 import AdminLayout from "../../../components/layout/AdminLayout";
 import AdminWorkflowSteps from "../../../components/common/admin/AdminWorkflowSteps";
 import { Helmet } from "react-helmet";
