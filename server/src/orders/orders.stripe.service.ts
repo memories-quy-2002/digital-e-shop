@@ -1,9 +1,9 @@
 import { Injectable } from "@nestjs/common";
-import { stripeClient } from "#src/config/stripe.config";
 import { env } from "#src/config/env.config";
 import { logger } from "#src/shared/utils/logger";
 import type { CartCheckoutItem } from "../cart/cart.dto";
 import { NestCartService } from "../cart/cart.service";
+import { StripeService } from "../stripe/stripe.service";
 import { NestOrdersService, createCheckoutError } from "./orders.service";
 import { calculatePromotionDiscount } from "./orders.pricing";
 
@@ -12,6 +12,7 @@ export class NestOrdersStripeService {
     constructor(
         private readonly cartService: NestCartService,
         private readonly ordersService: NestOrdersService,
+        private readonly stripeService: StripeService,
     ) {}
 
     async createCheckoutSession(
@@ -65,7 +66,7 @@ export class NestOrdersStripeService {
 
         let session;
         try {
-            session = await stripeClient.checkout.sessions.create({
+            session = await this.stripeService.createCheckoutSession({
                 mode: "payment",
                 payment_method_types: ["card"],
                 line_items: [
@@ -114,7 +115,7 @@ export class NestOrdersStripeService {
             });
         } catch (err) {
             try {
-                await stripeClient.checkout.sessions.expire(session.id);
+                await this.stripeService.expireCheckoutSession(session.id);
             } catch (expireErr) {
                 logger.error({ err: expireErr, sessionId: session.id }, "[createCheckoutSession] failed to expire orphaned stripe session");
             }
