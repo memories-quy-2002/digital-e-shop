@@ -47,6 +47,13 @@ cannot provide that gate, add a narrowly scoped deployment workflow with the
 Vercel project IDs and production token stored in GitHub Environment secrets;
 do not put those values in source control.
 
+The repository root `vercel.json` pins Vercel's dependency install to
+`corepack pnpm@11.5.3 install --frozen-lockfile`. This keeps Vercel aligned with
+the workspace lockfile and preserves the root `pnpm-workspace.yaml` overrides.
+Without this override, older Vercel projects can infer pnpm 9 from lockfile
+version `9.0`, which rejects the current override configuration before the
+application build starts.
+
 Vercel `READY` is not an application-health check. After every production
 deployment, run both smoke checks:
 

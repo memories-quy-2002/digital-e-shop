@@ -14,3 +14,4 @@ Format: `YYYY-MM-DD — <agent/author> — <what changed>`
 - 2026-09-04 — Codex — Isolated local MySQL from production targets with a local-only Docker database/volume, fail-fast runtime and Prisma guards, protected mock seeding, and explicit local/CI/production environment documentation.
 - 2026-09-04 — Codex — Updated CI security workflow to rely on GitHub CodeQL default setup and retain dependency review without conflicting advanced uploads.
 - 2026-09-04 — Codex — Fixed CI and local migration ordering by recording the metadata-only Prisma legacy baseline before applying pending migrations.
+- 2026-09-04 — Codex — Pinned the Vercel install step to the repository's Corepack-managed pnpm version so the digital-e-server deployment accepts the workspace lockfile overrides.
