@@ -1,0 +1,78 @@
+# Overview
+
+Back to [[index]].
+
+## Purpose
+
+Digital-E is a full-stack e-commerce system for selling electronic components and devices. It provides a customer storefront (catalog, cart, checkout, wishlist, order history, account/address book, notifications) and an admin dashboard (products, orders, accounts, promotions, inventory, analytics, notifications).
+
+## Detected stack
+
+| Area | Tools |
+| --- | --- |
+| Workspace | pnpm workspace (`pnpm@11.3.0`) — **pnpm only**, no npm/yarn |
+| Frontend (`client/`) | React 19.2, React Router DOM 7, Vite 8, TypeScript (`strict: true`), SCSS/Sass, React Bootstrap, Axios, Firebase client auth, Recharts, Vitest (configured, no tests yet) |
+| Backend (`server/`) | Node.js, Express 5.2, TypeScript (`strict: false`), MySQL (`mysql`/`mysql2`), Prisma 6 (partial), Zod, Passport + Google OAuth, `csrf-csrf`, `jsonwebtoken`, `express-rate-limit`, `multer`, Sharp, `@vercel/blob`, Pino logging |
+| Deployment | Vercel (`client/vercel.json`, `server/vercel.json`), k6 read-only perf scripts |
+
+## High-level modules
+
+- **Frontend** — feature-scoped UI under `client/src/features/<domain>/` (admin, auth, orders, products, users); generic pages in `client/src/pages/`; shared infra in `client/src/lib`, `client/src/context`, `client/src/components`.
+- **Backend** — feature-based API under `server/src/modules/<feature>/` following `routes → controller → service → repository`, plus shared `core`, `config`, `database`, `shared` layers.
+- **Data** — primary runtime access is MySQL via feature repositories; Prisma is partially adopted for a limited subset of reads.
+
+## Important commands
+
+```powershell
+pnpm install
+pnpm dev                              # run both apps (root)
+pnpm --filter server dev              # backend only
+pnpm --filter client start            # frontend only (Vite)
+
+# Verification
+client\node_modules\.bin\tsc.cmd -p client\tsconfig.json --noEmit
+pnpm --filter client build
+pnpm --filter client lint
+pnpm --filter server typecheck
+pnpm --filter server build
+pnpm --filter server lint
+
+# Database / Prisma
+pnpm --filter server prisma:generate
+pnpm --filter server prisma:migrate
+pnpm --filter server prisma:seed
+pnpm --filter server demo:verify
+pnpm --filter server seed:mock
+```
+
+Local defaults: client `http://localhost:5173`, server `http://localhost:4000`, health `http://localhost:4000/api/health`.
+
+CI/CD is documented in [docs/ci-cd.md](../docs/ci-cd.md). GitHub Actions use
+Node.js 24, fixed Ubuntu 24.04 runners, immutable action pins, disposable
+MySQL 8.4, Prisma migration status checks, and a separate MySQL-backed
+integration suite. Production Vercel deployment and `main` branch protection
+remain repository settings that must be configured and verified externally.
+
+Local database setup is isolated from production: copy the tracked server
+environment templates, run `pnpm --filter server docker:setup`, and use the
+`digital_e_shop_local` MySQL database on `127.0.0.1:3307`. Runtime and Prisma
+guards reject remote database targets outside production; CI uses its separate
+`digital_e_shop_ci` database.
+
+The local demo seed is a transactional, idempotent MySQL seed for deterministic
+admin/customer accounts, realistic catalog products with populated storefront
+image slugs, carts, orders, reviews, wishlists, addresses, notifications,
+sessions, discounts, and inventory movements. `demo:verify` checks exact
+demo-owned counts, image presence, order/review/wishlist coverage, order totals,
+and relationship orphan counts. The catalog currently covers 28 products across
+8 categories and 16 brands.
+It intentionally refuses the configured remote Aiven target.
+
+## Current assumptions
+
+- MySQL remains the dominant persistence layer; Prisma is **not** fully migrated to.
+- Backend API response shapes are route-specific and inconsistent (`msg` vs `error` plus route data keys) — preserve per-route contracts.
+- No committed `.env.example`; env vars are inferred (see [AGENTS.md](../AGENTS.md) → Environment variables).
+- Client has Vitest configured but no discovered frontend test files; server has
+  unit tests plus an opt-in MySQL-backed integration suite (and k6 read-only scripts).
+- `client/src/lib/env.ts` currently hard-codes the API base URL rather than reading from env.

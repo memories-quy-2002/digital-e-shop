@@ -1,0 +1,11 @@
+-- Digital-E Shop Prisma Migrate baseline marker.
+--
+-- This project has an existing legacy MySQL database whose full schema is not
+-- represented by src/database/prisma/schema.prisma. This migration is therefore
+-- intentionally metadata-only: on an existing data-bearing database, record it
+-- with `prisma migrate resolve --applied 0_init` after backup and inspection.
+--
+-- Do not execute this file as a schema bootstrap and do not use
+-- `prisma migrate reset` against the existing database.
+--
+-- Intentionally no SQL statements.

@@ -1,23 +1,7 @@
-import { onAuthStateChanged } from "firebase/auth";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import axios from "../api/axios";
-import { auth } from "../services/firebase";
-import { Role } from "../utils/interface";
+import type { UserData } from "../types/user";
 
-type UserData = {
-    id: string;
-    email: string;
-    password: string;
-    username: string;
-    first_name: string | null;
-    last_name: string | null;
-    role: Role.Admin | Role.Customer;
-    token: string;
-    created_at: Date;
-    last_login: Date;
-} | null;
-
-// Tạo context cho user
 interface AuthContextProps {
     userData: UserData;
     loading: boolean;
@@ -31,21 +15,30 @@ const AuthContext = createContext<AuthContextProps>({
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [userData, setUserData] = useState<UserData | null>(null);
+    const [userData, setUserData] = useState<UserData | null>(() => {
+        try {
+            // Session storage gives the UI an immediate value while the server
+            // confirms whether the cookie-backed session is still valid.
+            const stored = sessionStorage.getItem("userData");
+            return stored ? (JSON.parse(stored) as UserData) : null;
+        } catch {
+            return null;
+        }
+    });
     const [loading, setLoading] = useState<boolean>(true);
 
-    // Khi app load, gọi backend check session
     useEffect(() => {
         const fetchUser = async () => {
             try {
+                // The server remains the source of truth for auth. Cached data is
+                // replaced or cleared after this request completes.
                 const response = await axios.get(`/api/users/me`, { withCredentials: true });
                 if (response.status === 200) {
                     setUserData(response.data.userData);
                 } else {
                     setUserData(null);
                 }
-            } catch (err) {
-                console.error("Error fetching user data", err);
+            } catch {
                 setUserData(null);
             } finally {
                 setLoading(false);
@@ -55,10 +48,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchUser();
     }, []);
 
+    useEffect(() => {
+        try {
+            if (userData) {
+                sessionStorage.setItem("userData", JSON.stringify(userData));
+            } else {
+                sessionStorage.removeItem("userData");
+            }
+        } catch {
+            sessionStorage.removeItem("userData");
+        }
+    }, [userData]);
+
     return <AuthContext.Provider value={{ userData, loading, setUserData }}>{children}</AuthContext.Provider>;
 };
 
-// Custom hook để sử dụng AuthContext trong các component khác
 export const useAuth = (): AuthContextProps => {
     const context = useContext(AuthContext);
     if (!context) {

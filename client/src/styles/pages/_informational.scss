@@ -1,0 +1,23 @@
+.info-page {
+    --info-ink: var(--de-color-text);
+    --info-muted: var(--de-color-text-muted);
+    --info-line: var(--de-color-border);
+    --info-hero: var(--de-color-surface-inverse);
+    --info-hero-text: var(--de-color-on-inverse);
+    --info-hero-border: var(--de-color-inverse-border);
+    display: flex;
+    width: min(100%, var(--de-max-width-content));
+    margin: 0 auto;
+    flex-direction: column;
+    gap: clamp(2rem, 5vw, 4rem);
+    padding-block: clamp(1.5rem, 4vw, 3.5rem) 4rem;
+    background: transparent;
+
+    &__section-heading { max-width: 760px; span { color: var(--de-color-signal); font-family: var(--de-font-family-mono); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; } h2 { margin-top: 0.45rem; font-size: clamp(1.7rem, 3vw, 2.6rem); } p { margin-top: 0.6rem; color: var(--info-muted); line-height: 1.7; } }
+    &__hero-badge { width: fit-content; padding: 0.35rem 0.5rem; border: 1px solid var(--de-color-border-strong); border-radius: 3px; color: var(--de-color-circuit); font-family: var(--de-font-family-mono); font-size: 0.64rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+    &__actions { display: flex; flex-wrap: wrap; gap: 0.6rem; a, button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 0.7rem 0.95rem; border-radius: 4px; font-weight: 800; text-decoration: none; } a, button:not(.ghost) { border: 1px solid var(--de-color-signal); background: var(--de-color-signal); color: var(--de-color-on-accent); } .ghost { border: 1px solid var(--de-color-border-strong); background: transparent; color: var(--de-color-text); } }
+    &__surface, &__panel { border: 1px solid var(--info-line); border-radius: var(--de-radius-sm); background: var(--de-color-surface); box-shadow: none; }
+    &__panel { padding: 1.2rem; }
+    &__meta-list { display: grid; gap: 0.8rem; }
+    &__meta-item { display: grid; gap: 0.25rem; small { color: var(--de-color-signal); font-family: var(--de-font-family-mono); font-size: 0.63rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; } strong { color: var(--info-ink); font-size: 0.95rem; } span, p { color: var(--info-muted); line-height: 1.6; } }
+}

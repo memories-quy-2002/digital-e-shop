@@ -1,0 +1,114 @@
+.app-toast {
+    position: fixed !important;
+    right: var(--de-space-4);
+    z-index: 1200;
+    width: min(360px, calc(100vw - 2rem));
+
+    @media screen and (max-width: 640px) {
+        right: 0.75rem;
+        left: 0.75rem;
+        width: auto;
+    }
+
+    &--errors {
+        top: 5rem;
+        bottom: auto;
+        z-index: 1210;
+
+        @media screen and (max-width: 640px) {
+            top: 4.5rem;
+            bottom: auto;
+        }
+    }
+
+    &:not(&--errors) {
+        bottom: var(--de-space-4);
+
+        @media screen and (max-width: 640px) {
+            bottom: 0.75rem;
+        }
+    }
+
+    &__item {
+        overflow: hidden;
+        border: 1px solid var(--de-color-border);
+        border-radius: var(--de-radius-md);
+        box-shadow: var(--de-shadow-md);
+        background: var(--de-color-surface-strong);
+        color: var(--de-color-text);
+
+        &::before {
+            content: "";
+            display: block;
+            height: 3px;
+            width: 100%;
+            background: var(--de-gradient-hero);
+        }
+    }
+
+    &__item--success::before {
+        background: var(--de-gradient-success);
+    }
+
+    &__item--error::before {
+        background: var(--de-gradient-danger);
+    }
+
+    &__item--info::before {
+        background: var(--de-gradient-info);
+    }
+
+    &__header {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 0.7rem;
+        padding: 0.85rem 1rem 0.45rem;
+        background: transparent;
+        border-bottom: none;
+
+        strong {
+            color: var(--de-color-text);
+            font-weight: 800;
+            font-size: 0.92rem;
+            line-height: 1.2;
+        }
+
+        .btn-close {
+            grid-column: 3;
+            margin: 0;
+            align-self: start;
+        }
+    }
+
+    &__badge {
+        width: 30px;
+        height: 30px;
+        border-radius: var(--de-radius-pill);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--de-color-primary-tint);
+        color: var(--de-color-primary-strong);
+        font-size: 0.82rem;
+        font-weight: 900;
+        flex-shrink: 0;
+    }
+
+    &__item--success &__badge {
+        background: var(--de-color-success-soft);
+        color: var(--de-color-success);
+    }
+
+    &__item--error &__badge {
+        background: var(--de-color-danger-soft);
+        color: var(--de-color-danger);
+    }
+
+    &__body {
+        padding: 0 1rem 1rem;
+        color: var(--de-color-text-soft);
+        line-height: 1.5;
+        font-size: 0.93rem;
+    }
+}

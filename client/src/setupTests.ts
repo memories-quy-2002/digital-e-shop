@@ -1,3 +1,4 @@
+import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 
 class ResizeObserver {
@@ -7,7 +8,10 @@ class ResizeObserver {
 }
 
 class IntersectionObserver {
-    constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {}
+    constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+        void callback;
+        void options;
+    }
     observe() {}
     unobserve() {}
     disconnect() {}

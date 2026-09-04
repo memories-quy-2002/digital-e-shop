@@ -1,9 +1,12 @@
 {
+    "$schema": "https://openapi.vercel.sh/vercel.json",
     "version": 2,
+    "installCommand": "corepack pnpm@11.5.3 install --frozen-lockfile",
+    "outputDirectory": "dist",
     "rewrites": [
         {
             "source": "/(.*)",
-            "destination": "/api/index.js"
+            "destination": "/api/index.ts"
         }
     ]
 }

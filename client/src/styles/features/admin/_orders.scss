@@ -1,0 +1,211 @@
+// Orders page styles
+.admin__order-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.admin__order-detail__summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.admin__order-detail__summary div,
+.admin__order-detail__address {
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 0.9rem;
+}
+
+.admin__order-detail__summary span,
+.admin__order-detail__address span,
+.admin__order-detail__items__header span {
+    display: block;
+    color: #64748b;
+    font-size: 0.78rem;
+    font-weight: 800;
+    margin-bottom: 0.3rem;
+    text-transform: uppercase;
+}
+
+.admin__order-detail__summary strong,
+.admin__order-detail__address strong,
+.admin__order-detail__items__header strong {
+    color: #111827;
+}
+
+.admin__order-detail__summary small {
+    display: block;
+    margin-top: 0.35rem;
+    color: #64748b;
+    font-size: 0.78rem;
+}
+
+.admin__order-detail__timeline {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.5rem;
+}
+
+.admin__order-detail__timeline span {
+    background: #e5e7eb;
+    color: #64748b;
+    border-radius: 14px;
+    padding: 0.75rem;
+    font-weight: 800;
+    display: grid;
+    gap: 0.25rem;
+}
+
+.admin__order-detail__timeline .is-done {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.admin__order-detail__timeline small,
+.admin__order-detail__timeline em {
+    color: inherit;
+    font-size: 0.75rem;
+    font-style: normal;
+    opacity: 0.8;
+}
+
+.admin__order-detail__items {
+    display: grid;
+    gap: 0.7rem;
+}
+
+.admin__order-detail__items__header,
+.admin__order-detail__item-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: flex-start;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 0.95rem 1rem;
+}
+
+.admin__order-detail__items__header {
+    background: #f8fafc;
+}
+
+.admin__order-detail__item-row {
+    flex-wrap: wrap;
+}
+
+.admin__order-detail__item-row__info,
+.admin__order-detail__item-row__pricing {
+    display: grid;
+    gap: 0.25rem;
+}
+
+.admin__order-detail__item-row__pricing {
+    text-align: right;
+    justify-items: end;
+}
+
+.admin__order-detail__item-row__info small {
+    color: #94a3b8;
+    font-size: 0.76rem;
+}
+
+.admin__order-detail__items strong {
+    display: block;
+    color: #111827;
+}
+
+.admin__order-detail__items span {
+    color: #64748b;
+}
+
+@media (max-width: 720px) {
+    .admin__order-detail__summary {
+        grid-template-columns: 1fr;
+    }
+
+    .admin__order-detail__items__header,
+    .admin__order-detail__item-row {
+        flex-direction: column;
+    }
+
+    .admin__order-detail__item-row__pricing {
+        text-align: left;
+        justify-items: start;
+    }
+}
+
+.admin__order-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    width: 100%;
+}
+
+.admin__order-toolbar select,
+.admin__order-toolbar input {
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid var(--de-color-border);
+    background: var(--de-color-surface-strong);
+    color: var(--de-color-text);
+    padding: 0 0.75rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    outline: none;
+
+    &:focus {
+        border-color: var(--de-color-primary);
+        box-shadow: 0 0 0 3px rgba(45, 81, 125, 0.18);
+    }
+}
+
+.admin__order-toolbar select {
+    min-width: 160px;
+}
+
+.admin__order-toolbar input[type="text"] {
+    flex: 1;
+    min-width: 180px;
+}
+
+.admin__bulk-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    padding: 0.65rem 0.85rem;
+    border-radius: 12px;
+    background: rgba(45, 81, 125, 0.08);
+    color: var(--de-color-primary-strong);
+    font-weight: 700;
+    font-size: 0.88rem;
+    margin-bottom: 0.75rem;
+}
+
+.admin__bulk-bar__count {
+    background: var(--de-color-bg-strong);
+    color: var(--de-color-text-inverse);
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 900;
+}
+
+.admin__order-row {
+    &.is-selected {
+        background: rgba(45, 81, 125, 0.08);
+    }
+}
+
+.admin__order-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--de-color-primary);
+}
+

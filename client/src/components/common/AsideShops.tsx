@@ -1,8 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { memo, useEffect, useState } from "react";
 import ReactSlider from "react-slider";
 import { Product } from "../../utils/interface";
-
-const MAX_PRICE_RANGE: number = 5000;
 
 type Filters = {
     term: string;
@@ -13,109 +11,145 @@ type Filters = {
 
 interface AsideShopsProps {
     products: Product[];
+    filteredCount: number;
+    categories: string[];
+    brands: string[];
     filters: Filters;
     onCheckboxChange: (type: "categories" | "brands", value: string) => void;
     onPriceRangeChange: (newValue: [number, number]) => void;
     onApplyFilters: () => void;
-    onTermChange: (e: React.ChangeEvent<HTMLInputElement>) => void; // Add this prop
 }
 
 const AsideShops = ({
     products,
+    filteredCount,
+    categories,
+    brands,
     filters,
     onCheckboxChange,
     onPriceRangeChange,
     onApplyFilters,
-    onTermChange,
 }: AsideShopsProps) => {
-    const [categories, setCategories] = useState<string[]>([]);
-    const [brands, setBrands] = useState<string[]>([]);
+    const [priceRange, setPriceRange] = useState<[number, number]>(filters.priceRange);
+    const visibleProductCount = filteredCount || products.length;
+    const sliderMax = Math.max(filters.priceRange[1], 5000);
 
     useEffect(() => {
-        setCategories([...new Set(products.map((product) => product.category))]);
-        setBrands([...new Set(products.map((product) => product.brand))]);
-    }, [products]);
-    console.log("Filter: ", filters);
+        setPriceRange(filters.priceRange);
+    }, [filters.priceRange]);
 
     return (
-        <aside className="shops__container__aside">
-            <section className="shops__container__aside__search">
-                <input
-                    type="text"
-                    placeholder="Search product..."
-                    value={filters.term}
-                    onChange={onTermChange}
-                    onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                            onApplyFilters();
-                        }
-                    }}
-                />
-            </section>
-            <section className="shops__container__aside__categories">
+        <aside className="shops__filters">
+            <div className="shops__filters-header">
                 <div>
-                    <h4>Categories</h4>
-                    {categories.map((category, index) => {
+                    <span>Catalog filters</span>
+                    <h2>Refine products</h2>
+                </div>
+                <strong>{visibleProductCount}</strong>
+            </div>
+
+            <section className="shops__filter-section shops__filter-section--categories" aria-labelledby="shops-filter-categories">
+                <div className="shops__filter-section-header">
+                    <h2 id="shops-filter-categories">Categories</h2>
+                    <span>{categories.length}</span>
+                </div>
+                <div className="shops__filter-options">
+                    {categories.map((category) => {
+                        const checkboxId = `shops-category-${category.replace(/\s+/g, "-").toLowerCase()}`;
                         return (
-                            <div key={index}>
-                                <label className="container">
-                                    {category}
+                            <div key={category}>
+                                <label className="shops__filter-option" htmlFor={checkboxId}>
                                     <input
                                         type="checkbox"
-                                        id={category}
+                                        id={checkboxId}
                                         checked={filters.categories.includes(category)}
                                         onChange={() => onCheckboxChange("categories", category)}
                                     />
-                                    <span className="checkmark"></span>
+                                    <span className="shops__filter-checkmark"></span>
+                                    <span className="shops__filter-label">{category}</span>
                                 </label>
                             </div>
                         );
                     })}
                 </div>
             </section>
-            <section className="shops__container__aside__brands" data-testid="shops__aside__brand">
-                <div>
-                    <h4>Brands</h4>
-                    {brands.map((brand, index) => {
+            <section
+                className="shops__filter-section shops__filter-section--brands"
+                data-testid="shops__aside__brand"
+                aria-labelledby="shops-filter-brands"
+            >
+                <div className="shops__filter-section-header">
+                    <h2 id="shops-filter-brands">Brands</h2>
+                    <span>{brands.length}</span>
+                </div>
+                <div className="shops__filter-options">
+                    {brands.map((brand) => {
+                        const checkboxId = `shops-brand-${brand.replace(/\s+/g, "-").toLowerCase()}`;
                         return (
-                            <div key={index}>
-                                <label className="container">
-                                    {brand}
+                            <div key={brand}>
+                                <label className="shops__filter-option" htmlFor={checkboxId}>
                                     <input
                                         type="checkbox"
-                                        id={brand}
+                                        id={checkboxId}
                                         checked={filters.brands.includes(brand)}
                                         onChange={() => onCheckboxChange("brands", brand)}
                                     />
-                                    <span className="checkmark"></span>
+                                    <span className="shops__filter-checkmark"></span>
+                                    <span className="shops__filter-label">{brand}</span>
                                 </label>
                             </div>
                         );
                     })}
                 </div>
             </section>
-            <section className="shops__container__aside__price">
-                <h4>Price range</h4>
-                <div className="shops__container__aside__price__slider">
+            <section className="shops__filter-section shops__filter-section--price" aria-labelledby="shops-filter-price">
+                <div className="shops__price-header">
+                    <h2 id="shops-filter-price">Price range</h2>
+                    <p>Choose the budget window that fits what you want to browse.</p>
+                </div>
+                <div className="shops__price-summary" aria-live="polite">
+                    <div>
+                        <span>Min</span>
+                        <strong>${priceRange[0]}</strong>
+                    </div>
+                    <div>
+                        <span>Max</span>
+                        <strong>${priceRange[1]}</strong>
+                    </div>
+                </div>
+                <div className="shops__price-slider">
                     <ReactSlider
                         className="horizontal-slider"
                         thumbClassName="example-thumb"
                         trackClassName="example-track"
-                        defaultValue={[0, MAX_PRICE_RANGE]}
+                        value={priceRange}
                         min={0}
-                        max={MAX_PRICE_RANGE}
-                        minDistance={100}
-                        onAfterChange={(newValue: [number, number]) => onPriceRangeChange(newValue)}
+                        max={sliderMax}
+                        pearling
+                        minDistance={150}
+                        renderThumb={(props, state) => {
+                            // react-slider includes an internal key in its props object; pass it explicitly.
+                            // eslint-disable-next-line react/prop-types
+                            const { key, ...thumbProps } = props;
+                            return (
+                            <div
+                                key={key}
+                                {...thumbProps}
+                                aria-label={state.index === 0 ? "Minimum price" : "Maximum price"}
+                                aria-valuetext={`$${state.valueNow}`}
+                            >
+                                <span>${state.valueNow}</span>
+                            </div>
+                            );
+                        }}
+                        onChange={(newValue) => setPriceRange(newValue as [number, number])}
+                        onAfterChange={(newValue) => onPriceRangeChange(newValue as [number, number])}
                     />
-                    <div className="shops__container__aside__price__slider__num">
-                        <span>{filters.priceRange[0]}</span>
-                        <span>{filters.priceRange[1]}</span>
-                    </div>
                 </div>
             </section>
             <button
                 type="button"
-                className="btn btn-info shops__container__aside__button"
+                className="shops__filters-button"
                 onClick={() => onApplyFilters()}
             >
                 Apply
@@ -124,4 +158,4 @@ const AsideShops = ({
     );
 };
 
-export default AsideShops;
+export default memo(AsideShops);

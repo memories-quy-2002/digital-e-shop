@@ -1,87 +1,138 @@
-import { BsBank } from "react-icons/bs";
-import { FaBitcoin, FaCcVisa } from "react-icons/fa";
-import React, { useState } from "react";
+import React, { useActionState, useEffect, useState } from "react";
+import { BankIcon, CashStackIcon, ShieldIcon } from "../common/Icons";
+import { useToast } from "../../context/ToastContext";
+
 type AsideCartProps = {
     totalPrice: number;
     discount: number;
     subtotal: number;
-    error: string;
-    applyDiscount: (discountCode: string, totalPrice: number) => void;
+    applyDiscount: (
+        discountCode: string,
+        totalPrice: number,
+    ) => Promise<{
+        status: "idle" | "success" | "error";
+        title?: string;
+        message?: string;
+    }>;
 };
 
-const paymentIcon: any = [<BsBank size={36} />, <FaCcVisa size={36} />, <FaBitcoin size={36} />];
+type CouponActionState = {
+    status: "idle" | "success" | "error";
+    title?: string;
+    message?: string;
+};
 
-const AsideCart = ({ totalPrice, discount, subtotal, error, applyDiscount }: AsideCartProps) => {
+const initialCouponState: CouponActionState = {
+    status: "idle",
+};
+
+const paymentMethods = [
+    {
+        label: "Bank transfer",
+        note: "Receipt friendly",
+        icon: <BankIcon size={24} aria-hidden />,
+    },
+    {
+        label: "Cash on delivery",
+        note: "Pay at delivery",
+        icon: <CashStackIcon size={24} aria-hidden />,
+    },
+    {
+        label: "Secure checkout",
+        note: "UTC order time",
+        icon: <ShieldIcon size={24} aria-hidden />,
+    },
+];
+
+const AsideCart = ({ totalPrice, discount, subtotal, applyDiscount }: AsideCartProps) => {
     const [discountCode, setDiscountCode] = useState<string>("");
+    const { addToast } = useToast();
+    const [couponState, submitCouponAction, isApplyingCoupon] = useActionState(
+        async (_previousState: CouponActionState, formData: FormData): Promise<CouponActionState> => {
+            const nextDiscountCode = String(formData.get("couponInput") ?? "").trim();
+
+            if (!nextDiscountCode) {
+                return {
+                    status: "error",
+                    title: "Applying Coupon",
+                    message: "Please enter a coupon code before applying it.",
+                };
+            }
+
+            return applyDiscount(nextDiscountCode, totalPrice);
+        },
+        initialCouponState,
+    );
+
     const onChangeDiscountCode = (event: React.ChangeEvent<HTMLInputElement>) => {
         const { value } = event.target;
         setDiscountCode(value);
     };
+
+    useEffect(() => {
+        if (couponState.status === "idle") {
+            return;
+        }
+
+        addToast(couponState.title || "Coupon", couponState.message || "Coupon request finished.");
+    }, [addToast, couponState]);
+
     return (
-        <aside className="cart__container__box__aside">
-            <div className="cart__container__box__aside__box">
-                <div className="cart__container__box__aside__box__coupon">
-                    <h4 className="cart__container__box__aside__box__coupon__title">Have coupon?</h4>
-                    <div className="cart__container__box__aside__box__coupon__input">
+        <aside className="cart-summary">
+            <div className="cart-summary__card">
+                <form action={submitCouponAction} className="cart-summary__coupon">
+                    <h3 className="cart-summary__coupon-title">Have coupon?</h3>
+                    <p className="cart-summary__coupon-hint">
+                        Enter your code and apply to see instant savings.
+                    </p>
+                    <div className="cart-summary__coupon-input">
                         <input
                             type="text"
-                            aria-label="couponInput"
+                            aria-label="Discount or coupon code"
                             name="couponInput"
                             id="couponInput"
                             data-testid="coupon"
+                            value={discountCode}
                             onChange={onChangeDiscountCode}
                             style={{
                                 textTransform: "uppercase",
                             }}
                         />
-                        <button type="button" onClick={() => applyDiscount(discountCode, totalPrice)}>
-                            Apply
+                        <button type="submit" disabled={isApplyingCoupon}>
+                            {isApplyingCoupon ? "Applying..." : "Apply"}
                         </button>
                     </div>
-                    <p className="text-danger mb-2">{error}</p>
-                </div>
+                </form>
                 <hr />
-                <div className="cart__container__box__aside__box__price">
-                    <ul className="cart__container__box__aside__box__price__list">
-                        <li>
-                            <p>Total price: </p>
-                            <p>${totalPrice.toFixed(2)}</p>
-                        </li>
-                        <li>
-                            <p>Discount: </p>
-                            <p>${discount.toFixed(2)}</p>
-                        </li>
-                        <li
-                            style={{
-                                fontWeight: "bold",
-                                fontSize: "18px",
-                            }}
-                        >
-                            <p>Subtotal: </p>
-                            <p>${subtotal.toFixed(2)}</p>
-                        </li>
-                    </ul>
-                </div>
-                <hr />
-                <div className="cart__container__box__aside__box__payment">
-                    <h4>Payment method</h4>
-                    <div>
-                        <ul
-                            style={{
-                                listStyleType: "none",
-                                display: "flex",
-                                flexDirection: "row",
-                                justifyContent: "space-around",
-                                padding: "0",
-                            }}
-                        >
-                            {paymentIcon.map((icon, index) => (
-                                <li style={{ cursor: "pointer" }} key={index}>
-                                    {icon}
-                                </li>
-                            ))}
-                        </ul>
+                <div className="cart-summary__pricing">
+                    <div className="cart-summary__pricing-row">
+                        <span>Total price</span>
+                        <strong>${totalPrice.toFixed(2)}</strong>
                     </div>
+                    <div className="cart-summary__pricing-row">
+                        <span>Discount</span>
+                        <strong className="muted">-${discount.toFixed(2)}</strong>
+                    </div>
+                    <div className="cart-summary__pricing-row cart-summary__pricing-row--total">
+                        <span>Subtotal</span>
+                        <strong>${subtotal.toFixed(2)}</strong>
+                    </div>
+                </div>
+                <hr />
+                <div className="cart-summary__payment">
+                    <h3>Payment method</h3>
+                    <p>Choose your payment option in the next checkout step.</p>
+                    <ul className="cart-summary__payment-list">
+                        {paymentMethods.map((method) => (
+                            <li key={method.label} className="cart-summary__payment-item">
+                                <span className="cart-summary__payment-icon">{method.icon}</span>
+                                <div>
+                                    <strong>{method.label}</strong>
+                                    <small>{method.note}</small>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
                 </div>
             </div>
         </aside>

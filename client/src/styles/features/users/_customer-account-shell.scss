@@ -1,0 +1,166 @@
+.customer-account-shell {
+    max-width: 1180px;
+    margin: 0 auto 1.25rem;
+    padding: 1.25rem;
+    border: 1px solid rgba(99, 108, 122, 0.18);
+    border-radius: var(--de-radius-lg);
+    background:
+        linear-gradient(180deg, rgba(255, 253, 248, 0.98) 0%, rgba(248, 244, 236, 0.98) 100%),
+        #fffdf8;
+    box-shadow: 0 12px 28px rgba(23, 35, 52, 0.08);
+
+    &__header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1rem;
+
+        span {
+            color: var(--de-color-primary-strong);
+            font-family: var(--de-font-family-mono);
+            font-size: 0.74rem;
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 0.35rem 0 0.4rem;
+            color: #0f172a;
+            font-size: clamp(1.65rem, 2.5vw, 2.15rem);
+            line-height: 1.12;
+        }
+
+        p {
+            margin: 0;
+            color: var(--de-color-text-muted);
+            max-width: 44rem;
+            line-height: 1.65;
+        }
+    }
+
+    &__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+
+        button,
+        a {
+            border: none;
+            border-radius: 12px;
+            background: var(--de-color-primary);
+            color: var(--de-color-text-inverse);
+            padding: 0.75rem 1rem;
+            font-weight: 900;
+            text-decoration: none;
+        }
+
+        button:disabled,
+        a[aria-disabled="true"] {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+    }
+
+    &__nav {
+        display: flex;
+        gap: 0.75rem;
+        overflow-x: auto;
+        padding: 0.15rem 0 0.2rem;
+        scrollbar-width: thin;
+
+        &-link {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            min-width: 10rem;
+            border: 1px solid rgba(99, 108, 122, 0.18);
+            border-radius: var(--de-radius-sm);
+            background: #fffdf8;
+            color: var(--de-color-text-soft);
+            padding: 0.72rem 0.85rem;
+            text-decoration: none;
+            transition:
+                background-color 0.2s ease,
+                border-color 0.2s ease,
+                color 0.2s ease,
+                box-shadow 0.2s ease;
+
+            &.is-active {
+                background: var(--de-color-primary-tint);
+                border-color: var(--de-color-primary);
+                color: var(--de-color-primary-strong);
+                box-shadow: inset 0 0 0 1px rgba(45, 81, 125, 0.12);
+            }
+        }
+
+        &-index {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 1.65rem;
+            width: 1.65rem;
+            height: 1.65rem;
+            border-radius: 999px;
+            background: #e5ddd0;
+            color: var(--de-color-text-soft);
+            font-size: 0.78rem;
+            font-weight: 900;
+        }
+
+        &-link.is-active &-index {
+            background: var(--de-color-primary);
+            color: var(--de-color-text-inverse);
+        }
+
+        &-icon {
+            display: inline-flex;
+            color: currentColor;
+        }
+
+        &-copy {
+            display: grid;
+            gap: 0.1rem;
+            min-width: 0;
+
+            strong {
+                color: inherit;
+                font-size: 0.9rem;
+                line-height: 1.1;
+            }
+
+            small {
+                color: var(--de-color-text-muted);
+                font-size: 0.74rem;
+                font-weight: 800;
+                line-height: 1.1;
+            }
+        }
+    }
+
+    @media (max-width: 860px) {
+        &__header {
+            flex-direction: column;
+        }
+    }
+
+    @media (max-width: 520px) {
+        margin-bottom: 1rem;
+        padding: 1rem;
+
+        &__header h1 {
+            font-size: 1.75rem;
+        }
+
+        &__nav {
+            gap: 0.55rem;
+
+            &-link {
+                min-width: 9.25rem;
+                padding: 0.65rem 0.75rem;
+            }
+        }
+    }
+}

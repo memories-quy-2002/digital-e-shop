@@ -1,0 +1,829 @@
+{
+  "info": {
+    "_postman_id": "8b8f94af-18cc-4f72-bf9b-f95a0ef52d24",
+    "name": "Digital E Shop API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Import this Postman v2.1 collection into Thunder Client. It mirrors the active server routes in server/src/app.ts and server/src/modules/*/*.routes.ts."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000" },
+    { "key": "csrfToken", "value": "" },
+    { "key": "userId", "value": "customer-demo" },
+    { "key": "adminUserId", "value": "admin-demo" },
+    { "key": "productId", "value": "1" },
+    { "key": "orderId", "value": "1" },
+    { "key": "addressId", "value": "1" },
+    { "key": "notificationId", "value": "1" },
+    { "key": "cartItemId", "value": "1" },
+    { "key": "wishlistProductId", "value": "1" },
+    { "key": "promotionId", "value": "1" },
+    { "key": "productImageFilename", "value": "product_placeholder.jpg" }
+  ],
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Root",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/"
+          }
+        },
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/health"
+          }
+        },
+        {
+          "name": "Get CSRF Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/csrf",
+            "description": "Run this before protected write requests. Copy csrfToken from the response into the collection variable if Thunder Client does not auto-chain it."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Google Auth Start",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/auth/google"
+          }
+        },
+        {
+          "name": "Google Auth Callback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/auth/google/callback"
+          }
+        },
+        {
+          "name": "Session Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/session/check"
+          }
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uid\": \"customer-demo\",\n  \"user\": {\n    \"username\": \"customer-demo\",\n    \"email\": \"customer@example.com\",\n    \"password\": \"Password123\",\n    \"role\": \"Customer\"\n  }\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/users/register"
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uid\": \"{{userId}}\",\n  \"role\": \"Customer\",\n  \"rememberMe\": true\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/users/login"
+          }
+        },
+        {
+          "name": "Refresh",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/refresh"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/users/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Current User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/me"
+          }
+        },
+        {
+          "name": "Get User By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/{{userId}}"
+          }
+        },
+        {
+          "name": "Get Customer Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/{{userId}}/profile"
+          }
+        },
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users"
+          }
+        },
+        {
+          "name": "Update User Role Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"Customer\",\n  \"status\": \"Active\"\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/users/{{userId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Addresses",
+      "item": [
+        {
+          "name": "Get Addresses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/{{userId}}/addresses"
+          }
+        },
+        {
+          "name": "Create Address",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Home\",\n  \"recipientName\": \"Customer Demo\",\n  \"phoneNumber\": \"+84-123-456-789\",\n  \"addressLine\": \"123 Nguyen Hue\",\n  \"city\": \"Ho Chi Minh City\",\n  \"country\": \"Vietnam\",\n  \"isDefault\": true\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/users/{{userId}}/addresses"
+          }
+        },
+        {
+          "name": "Update Address",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Office\",\n  \"recipientName\": \"Customer Demo\",\n  \"phoneNumber\": \"+84-123-456-789\",\n  \"addressLine\": \"456 Le Loi\",\n  \"city\": \"Ho Chi Minh City\",\n  \"country\": \"Vietnam\",\n  \"isDefault\": false\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/users/{{userId}}/addresses/{{addressId}}"
+          }
+        },
+        {
+          "name": "Delete Address",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/users/{{userId}}/addresses/{{addressId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Get Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/{{userId}}/notifications"
+          }
+        },
+        {
+          "name": "Mark All Read",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/users/{{userId}}/notifications/read-all"
+          }
+        },
+        {
+          "name": "Mark Notification Read",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/users/{{userId}}/notifications/{{notificationId}}/read"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "List Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products?page=1&limit=12&term=&categories=&brands=&minPrice=&maxPrice=&sortBy=relevance",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "12" },
+                { "key": "term", "value": "" },
+                { "key": "categories", "value": "" },
+                { "key": "brands", "value": "" },
+                { "key": "minPrice", "value": "" },
+                { "key": "maxPrice", "value": "" },
+                { "key": "sortBy", "value": "relevance" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Product",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/products/{{productId}}"
+          }
+        },
+        {
+          "name": "Search Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/search?q=headphone&limit=6",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products", "search"],
+              "query": [
+                { "key": "q", "value": "headphone" },
+                { "key": "limit", "value": "6" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Product Facets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/products/facets"
+          }
+        },
+        {
+          "name": "Get Recommendations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/products/recommendations/{{userId}}?limit=12"
+          }
+        },
+        {
+          "name": "Get Relevant Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/products/relevant/{{productId}}"
+          }
+        },
+        {
+          "name": "Get Product Image",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/products/images/{{productImageFilename}}"
+          }
+        },
+        {
+          "name": "Add Product",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "Noise Cancelling Headphones", "type": "text" },
+                { "key": "description", "value": "Premium wireless headphones", "type": "text" },
+                { "key": "category", "value": "Headphone", "type": "text" },
+                { "key": "brand", "value": "Bose", "type": "text" },
+                { "key": "specifications", "value": "Bluetooth 5.3, ANC, USB-C", "type": "text" },
+                { "key": "price", "value": "179.99", "type": "text" },
+                { "key": "inventory", "value": "19", "type": "text" },
+                { "key": "imageUrl", "value": "", "type": "text" },
+                { "key": "image", "type": "file", "src": "" }
+              ]
+            },
+            "url": "{{baseUrl}}/api/products/add"
+          }
+        },
+        {
+          "name": "Update Product",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Noise Cancelling Headphones\",\n  \"description\": \"Updated product description\",\n  \"category\": \"Headphone\",\n  \"brand\": \"Bose\",\n  \"specifications\": \"Bluetooth 5.3, ANC, USB-C\",\n  \"price\": 179.99,\n  \"salePrice\": 159.99,\n  \"stock\": 19\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/products/{{productId}}"
+          }
+        },
+        {
+          "name": "Update Inventory",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stock\": 25\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/products/{{productId}}/inventory"
+          }
+        },
+        {
+          "name": "Delete Product",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pid\": {{productId}}\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/products"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inventory Admin",
+      "item": [
+        {
+          "name": "Inventory Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/products/admin/inventory-summary"
+          }
+        },
+        {
+          "name": "Inventory Movements",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/products/admin/inventory-movements"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "item": [
+        {
+          "name": "Get Cart",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/cart/{{userId}}"
+          }
+        },
+        {
+          "name": "Validate Cart For Checkout",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/cart/{{userId}}/validation"
+          }
+        },
+        {
+          "name": "Add Cart Item",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pid\": {{productId}},\n  \"uid\": \"{{userId}}\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/cart"
+          }
+        },
+        {
+          "name": "Update Cart Quantity",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cartItemId\": {{cartItemId}},\n  \"quantity\": 2\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/cart"
+          }
+        },
+        {
+          "name": "Delete Cart Item",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cartItemId\": {{cartItemId}}\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/cart"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Get All Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/orders?page=1&limit=20"
+          }
+        },
+        {
+          "name": "Get Order Items",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/orders/item?page=1&limit=20"
+          }
+        },
+        {
+          "name": "Get Customer Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/orders/user/{{userId}}"
+          }
+        },
+        {
+          "name": "Get Order Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/orders/{{orderId}}"
+          }
+        },
+        {
+          "name": "Make Purchase",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"totalPrice\": 179.99,\n  \"cart\": [\n    {\n      \"productId\": {{productId}},\n      \"quantity\": 1,\n      \"price\": 179.99,\n      \"sale_price\": 159.99\n    }\n  ],\n  \"discount\": 0,\n  \"shippingAddress\": \"123 Nguyen Hue, Ho Chi Minh City, Vietnam\",\n  \"paymentMethod\": \"cash\"\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/orders/purchase/{{userId}}"
+          }
+        },
+        {
+          "name": "Change Order Status",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": 1\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/orders/status/{{orderId}}"
+          }
+        },
+        {
+          "name": "Apply Discount",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"discountCode\": \"WELCOME10\",\n  \"price\": 179.99\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/orders/discount"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "item": [
+        {
+          "name": "Get Reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reviews/{{productId}}?page=1&limit=10"
+          }
+        },
+        {
+          "name": "Add Review",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uid\": \"{{userId}}\",\n  \"pid\": {{productId}},\n  \"rating\": 5,\n  \"comment\": \"Great product and fast delivery\"\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/reviews"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wishlist",
+      "item": [
+        {
+          "name": "Get Wishlist",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/wishlist/{{userId}}"
+          }
+        },
+        {
+          "name": "Add Wishlist Item",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uid\": \"{{userId}}\",\n  \"pid\": {{wishlistProductId}}\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/wishlist"
+          }
+        },
+        {
+          "name": "Delete Single Wishlist Item",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uid\": \"{{userId}}\"\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/wishlist/{{wishlistProductId}}"
+          }
+        },
+        {
+          "name": "Bulk Delete Wishlist Items",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uid\": \"{{userId}}\",\n  \"productIds\": [{{wishlistProductId}}]\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/wishlist"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Blob",
+      "item": [
+        {
+          "name": "Blob Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/blob/health?cleanup=true"
+          }
+        },
+        {
+          "name": "Upload Image",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "" }
+              ]
+            },
+            "url": "{{baseUrl}}/api/blob/upload"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Promotions",
+      "item": [
+        {
+          "name": "Get Promotions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/promotions"
+          }
+        },
+        {
+          "name": "Create Promotion",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"discountCode\": \"WELCOME10\",\n  \"discountPercent\": 10,\n  \"minOrderValue\": 100,\n  \"usageLimit\": 100,\n  \"startsAt\": \"2026-06-04T00:00:00.000Z\",\n  \"expiresAt\": \"2026-12-31T23:59:59.000Z\",\n  \"active\": true\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/promotions"
+          }
+        },
+        {
+          "name": "Update Promotion",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"discountCode\": \"WELCOME10\",\n  \"discountPercent\": 15,\n  \"minOrderValue\": 100,\n  \"usageLimit\": 200,\n  \"startsAt\": \"2026-06-04T00:00:00.000Z\",\n  \"expiresAt\": \"2026-12-31T23:59:59.000Z\",\n  \"active\": true\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": "{{baseUrl}}/api/promotions/{{promotionId}}"
+          }
+        },
+        {
+          "name": "Delete Promotion",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "X-CSRF-Token", "value": "{{csrfToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/promotions/{{promotionId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Analytics Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/analytics/summary"
+          }
+        }
+      ]
+    }
+  ]
+}

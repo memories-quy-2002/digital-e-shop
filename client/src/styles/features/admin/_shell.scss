@@ -1,0 +1,42 @@
+@use "../../layout/admin-shell";
+@use "./dashboard";
+@use "./orders";
+@use "./products";
+@use "./promotions";
+@use "./notifications";
+@use "./accounts";
+
+.admin__shell { min-height: 100vh; background: var(--de-color-bg); color: var(--de-color-text); }
+.admin__layout { background: transparent; }
+.admin__layout__sidebar { background: #0d1012 !important; border-right: 1px solid var(--de-color-border-strong) !important; box-shadow: 14px 0 30px rgba(0, 0, 0, 0.18) !important; }
+.admin__layout__sidebar__title, .admin__layout__sidebar__title__brand { color: var(--de-color-text) !important; font-family: var(--de-font-family-display); }
+.admin__layout__sidebar__title__tag, .admin__layout__sidebar__navigation__caption { color: var(--de-color-text-muted) !important; }
+.admin__layout__sidebar__information { border-color: var(--de-color-border) !important; background: var(--de-color-surface) !important; }
+.admin__layout__sidebar__information__user strong, .admin__layout__sidebar__information__user span { color: var(--de-color-text-soft) !important; }
+.admin__layout__sidebar__information__avatar { border-radius: 4px !important; background: var(--de-color-signal) !important; color: #fff !important; }
+.admin__layout__sidebar__navigation button { border-radius: 4px !important; color: var(--de-color-text-muted) !important; }
+.admin__layout__sidebar__navigation button:hover, .admin__layout__sidebar__navigation .active { background: var(--de-color-surface) !important; color: var(--de-color-circuit) !important; box-shadow: inset 3px 0 0 var(--de-color-signal) !important; }
+.admin__layout__main__header { border-bottom: 1px solid var(--de-color-border) !important; background: rgba(28, 36, 41, 0.92) !important; }
+.admin__layout__main__header__home, .admin__layout__main__header__logout, .admin__layout__main__header__profile, .admin__layout__main__header__search, .admin__layout__main__header__notifications__trigger { border-color: var(--de-color-border) !important; border-radius: 4px !important; background: var(--de-color-surface) !important; color: var(--de-color-text-soft) !important; box-shadow: none !important; }
+.admin__layout__main__header__profile-copy strong { color: var(--de-color-text) !important; }
+.admin__layout__main__header__profile-copy span, .admin__layout__main__header__search input::placeholder { color: var(--de-color-text-muted) !important; }
+.admin__layout__main__header__search input { color: var(--de-color-text) !important; }
+.admin__layout__main__header__search button[type="submit"] { border-radius: 3px !important; background: var(--de-color-signal) !important; }
+.admin__layout__main__header__notifications__panel { border: 1px solid var(--de-color-border-strong); border-radius: 4px; background: var(--de-color-surface-strong); box-shadow: var(--de-shadow-md); }
+.admin__layout__main__body { background: transparent; }
+.admin__page, .admin__dashboard, .admin__product, .admin__order, .admin__account { color: var(--de-color-text); }
+.admin__page__eyebrow, .admin__dashboard__hero__eyebrow { color: var(--de-color-signal) !important; font-family: var(--de-font-family-mono); }
+.admin__page__title, .admin__dashboard__hero__title { font-family: var(--de-font-family-display); letter-spacing: -0.04em; }
+.admin__page__subtitle, .admin__summary-card span, .admin__summary-card p { color: var(--de-color-text-muted) !important; }
+.admin__summary-card, .admin__card, .admin__workflow__step, .admin__dashboard__summary div, .admin__dashboard__insight { border: 1px solid var(--de-color-border) !important; border-radius: var(--de-radius-sm) !important; background: var(--de-color-surface) !important; color: var(--de-color-text) !important; box-shadow: none !important; }
+.admin__summary-card strong, .admin__dashboard__summary strong, .admin__dashboard__insight strong { color: var(--de-color-text) !important; }
+.admin__dashboard__hero { border-radius: var(--de-radius-sm) !important; border-left: 3px solid var(--de-color-signal); background: #0d1012 !important; box-shadow: none !important; }
+.admin__dashboard__hero__subtitle { color: var(--de-color-text-muted) !important; }
+.admin__dashboard__hero__action, .admin__button--primary { border-radius: 4px !important; background: var(--de-color-signal) !important; box-shadow: none !important; }
+.admin__dashboard__hero__action--secondary, .admin__button--ghost { border: 1px solid var(--de-color-border-strong) !important; background: transparent !important; color: var(--de-color-text-soft) !important; }
+.admin__card__header, .admin__card__body, .admin__list-shell, .admin__list-toolbar, .admin__filters { border-color: var(--de-color-border) !important; background: var(--de-color-surface) !important; color: var(--de-color-text) !important; }
+.admin__table { color: var(--de-color-text) !important; } .admin__table th { border-bottom-color: var(--de-color-border-strong) !important; color: var(--de-color-text-muted) !important; font-family: var(--de-font-family-mono); font-size: 0.67rem; text-transform: uppercase; } .admin__table td { border-bottom-color: var(--de-color-border) !important; color: var(--de-color-text-soft) !important; } .admin__table tbody tr:hover { background: var(--de-color-surface-hover) !important; }
+.admin__pill--success { background: var(--de-color-success-soft) !important; color: var(--de-color-success-strong) !important; } .admin__pill--danger { background: var(--de-color-danger-soft) !important; color: var(--de-color-danger-strong) !important; } .admin__pill--warning { background: var(--de-color-warning-soft) !important; color: var(--de-color-warning-strong) !important; } .admin__pill--info { background: var(--de-color-info-soft) !important; color: var(--de-color-info-strong) !important; }
+.admin input, .admin textarea, .admin select { border-color: var(--de-color-border-strong) !important; border-radius: 4px !important; background: var(--de-color-bg-muted) !important; color: var(--de-color-text) !important; }
+
+@media (max-width: 880px) { .admin__layout { flex-direction: column; } .admin__layout__sidebar { position: relative; width: 100%; min-height: auto; flex-basis: auto; } .admin__layout__sidebar__navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .admin__layout__sidebar__navigation__caption { grid-column: 1 / -1; } }

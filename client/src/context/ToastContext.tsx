@@ -1,11 +1,12 @@
-// ToastContext.tsx
-import React, { createContext, useContext, useReducer, ReactNode } from "react";
-import { Toast, ToastContainer } from "react-bootstrap";
+import React, { createContext, useCallback, useContext, useMemo, useReducer, ReactNode } from "react";
+import { Toast, ToastContainer } from "../components/ui/legacy";
+import "../styles/components/_toast.scss";
 
 interface ToastMessage {
     id: number;
     title: string;
     body: string;
+    tone: "success" | "error" | "info";
 }
 
 type Action =
@@ -36,48 +37,105 @@ const toastReducer = (
 
 let toastId = 1;
 
+const inferToastTone = (title: string, body: string): ToastMessage["tone"] => {
+    const content = `${title} ${body}`.toLowerCase();
+
+    if (
+        content.includes("failed") ||
+        content.includes("error") ||
+        content.includes("invalid") ||
+        content.includes("unable") ||
+        content.includes("expired") ||
+        content.includes("not found")
+    ) {
+        return "error";
+    }
+
+    if (
+        content.includes("success") ||
+        content.includes("successfully") ||
+        content.includes("added") ||
+        content.includes("created") ||
+        content.includes("updated")
+    ) {
+        return "success";
+    }
+
+    return "info";
+};
+
 const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [toasts, dispatch] = useReducer(toastReducer, []);
 
-    const addToast = (title: string, body: string) => {
+    const addToast = useCallback((title: string, body: string) => {
         const newToast = {
             id: toastId++,
             title,
             body,
+            tone: inferToastTone(title, body),
         };
         dispatch({ type: "ADD_TOAST", toast: newToast });
-    };
+    }, []);
 
-    const removeToast = (id: number) => {
+    const removeToast = useCallback((id: number) => {
         dispatch({ type: "REMOVE_TOAST", id });
-    };
+    }, []);
+
+    const contextValue = useMemo(() => ({
+        toasts,
+        addToast,
+        removeToast,
+    }), [addToast, removeToast, toasts]);
+
+    const errorToasts = toasts.filter((t) => t.tone === "error");
+    const otherToasts = toasts.filter((t) => t.tone !== "error");
 
     return (
-        <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
+        <ToastContext.Provider value={contextValue}>
             {children}
             <ToastContainer
-                className="p-3"
-                position="bottom-end"
-                style={{
-                    zIndex: 1,
-                    position: "fixed",
-                    bottom: 0,
-                    right: 0,
-                }}
+                className="app-toast app-toast--errors"
+                position="top-end"
             >
-                {toasts.map((toast) => (
+                {errorToasts.map((toast) => (
+                    <Toast
+                        key={toast.id}
+                        onClose={() => removeToast(toast.id)}
+                        delay={4000}
+                        autohide
+                        animation
+                        className={`app-toast__item app-toast__item--${toast.tone}`}
+                    >
+                        <Toast.Header className="app-toast__header" closeButton>
+                            <span className="app-toast__badge" aria-hidden="true">
+                                {toast.title.slice(0, 1).toUpperCase()}
+                            </span>
+                            <strong className="me-auto">{toast.title}</strong>
+                        </Toast.Header>
+                        <Toast.Body className="app-toast__body">{toast.body}</Toast.Body>
+                    </Toast>
+                ))}
+            </ToastContainer>
+            <ToastContainer
+                className="app-toast"
+                position="bottom-end"
+            >
+                {otherToasts.map((toast) => (
                     <Toast
                         key={toast.id}
                         onClose={() => removeToast(toast.id)}
                         delay={3000}
                         autohide
                         animation
+                        className={`app-toast__item app-toast__item--${toast.tone}`}
                     >
-                        <Toast.Header>
+                        <Toast.Header className="app-toast__header" closeButton>
+                            <span className="app-toast__badge" aria-hidden="true">
+                                {toast.title.slice(0, 1).toUpperCase()}
+                            </span>
                             <strong className="me-auto">{toast.title}</strong>
-                            <small>just now</small>
                         </Toast.Header>
-                        <Toast.Body>{toast.body}</Toast.Body>
+                        <Toast.Body className="app-toast__body">{toast.body}</Toast.Body>
                     </Toast>
                 ))}
             </ToastContainer>
