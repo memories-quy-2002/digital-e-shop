@@ -45,10 +45,23 @@ pnpm --filter server seed:mock
 
 Local defaults: client `http://localhost:5173`, server `http://localhost:4000`, health `http://localhost:4000/api/health`.
 
+CI/CD is documented in [docs/ci-cd.md](../docs/ci-cd.md). GitHub Actions use
+Node.js 24, fixed Ubuntu 24.04 runners, immutable action pins, disposable
+MySQL 8.4, Prisma migration status checks, and a separate MySQL-backed
+integration suite. Production Vercel deployment and `main` branch protection
+remain repository settings that must be configured and verified externally.
+
+Local database setup is isolated from production: copy the tracked server
+environment templates, run `pnpm --filter server docker:setup`, and use the
+`digital_e_shop_local` MySQL database on `127.0.0.1:3307`. Runtime and Prisma
+guards reject remote database targets outside production; CI uses its separate
+`digital_e_shop_ci` database.
+
 ## Current assumptions
 
 - MySQL remains the dominant persistence layer; Prisma is **not** fully migrated to.
 - Backend API response shapes are route-specific and inconsistent (`msg` vs `error` plus route data keys) — preserve per-route contracts.
 - No committed `.env.example`; env vars are inferred (see [AGENTS.md](../AGENTS.md) → Environment variables).
-- Client has Vitest configured but no committed test files; server has no unit/integration suite (only k6 read-only scripts).
+- Client has Vitest configured but no discovered frontend test files; server has
+  unit tests plus an opt-in MySQL-backed integration suite (and k6 read-only scripts).
 - `client/src/lib/env.ts` currently hard-codes the API base URL rather than reading from env.

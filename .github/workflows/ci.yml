@@ -14,17 +14,15 @@ concurrency:
 
 jobs:
   client:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
-    env:
-      DATABASE_URL: "placeholder"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: 'pnpm'
@@ -45,23 +43,116 @@ jobs:
         run: pnpm --filter client build
 
   server:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: digital_e_shop_ci
+          MYSQL_USER: ci_user
+          MYSQL_PASSWORD: ci_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uci_user -pci_password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
     env:
-      DATABASE_URL: "mysql://user:password@localhost:3306/digital_e_shop_ci"
+      DATABASE_URL: "mysql://ci_user:ci_password@127.0.0.1:3306/digital_e_shop_ci"
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USER: ci_user
+      DB_PASSWORD: ci_password
+      DB_NAME: digital_e_shop_ci
+      JWT_SECRET_KEY: ci-access-secret
+      JWT_REFRESH_SECRET_KEY: ci-refresh-secret
+      CSRF_SECRET: ci-csrf-secret
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Verify MySQL connectivity
+        working-directory: server
+        run: |
+          node -e '
+            const mysql = require("mysql2/promise");
+            mysql.createConnection(process.env.DATABASE_URL)
+              .then(async connection => {
+                await connection.query("SELECT 1");
+                await connection.end();
+                console.log("MySQL connection OK");
+              })
+              .catch(error => {
+                console.error(error);
+                process.exit(1);
+              });
+          '
+
+      # The Prisma baseline is intentionally metadata-only because raw MySQL
+      # repositories still own the legacy schema. Recreate that checked-in
+      # baseline, record the metadata-only migration, then apply the tracked
+      # Prisma migrations.
+      - name: Load legacy MySQL baseline
+        working-directory: server
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const mysql = require("mysql2/promise");
+
+          const files = [
+            "src/database/migrations/defaultdb_2026-06-01_142319.sql",
+            "src/database/migrations/2026-07-07-add-stripe-payment-support.sql",
+          ];
+
+          const stripGlobalGtidStatement = (sql) =>
+            sql.replace(/SET @@GLOBAL\.GTID_PURGED=.*?;\s*/s, "");
+
+          (async () => {
+            const connection = await mysql.createConnection({
+              host: "127.0.0.1",
+              port: 3306,
+              user: "root",
+              password: "root",
+              database: process.env.DB_NAME,
+              multipleStatements: true,
+            });
+
+            try {
+              for (const file of files) {
+                const sql = stripGlobalGtidStatement(fs.readFileSync(file, "utf8"));
+                await connection.query(sql);
+              }
+              console.log("Legacy MySQL baseline and pre-Prisma Stripe schema loaded");
+            } finally {
+              await connection.end();
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+
+      - name: Record Prisma legacy baseline
+        run: pnpm --filter server prisma:migrate:resolve --applied 0_init
+
+      - name: Apply Prisma migrations
+        run: pnpm --filter server prisma:migrate:deploy
+
+      - name: Verify Prisma migration status
+        run: pnpm --filter server prisma:migrate:status
 
       - name: Typecheck
         run: pnpm --filter server typecheck
@@ -71,6 +162,9 @@ jobs:
 
       - name: Test
         run: pnpm --filter server test -- --run
+
+      - name: Integration tests
+        run: pnpm --filter server test:integration
 
       - name: Build
         run: pnpm --filter server build

@@ -72,6 +72,39 @@ digital-e-shop/
 - Keep table/column names aligned with the existing dump/schema. Prefer additive, reviewable changes; update all affected layers (repository, service, validator, types, Prisma) together.
 - **Build assets**: non-`.ts` runtime files (`docs/openapi.json`, `database/ca.pem`) are not emitted by `tsc`; `server/scripts/copy-assets.mjs` (wired into `build`/`vercel-build`) copies them into `dist/` so `pnpm start` resolves them.
 
+### CI/CD
+
+- `.github/workflows/ci.yml` keeps client and server checks separate. The
+  server job starts disposable MySQL 8.4, loads the checked-in legacy dump and
+  pre-Prisma Stripe SQL, records the metadata-only `0_init` baseline, runs
+  `prisma migrate deploy` and `status`, then runs the database integration
+  suite before building.
+- GitHub repository default setup owns CodeQL JavaScript/TypeScript analysis.
+  `.github/workflows/security.yml` separately runs pinned pull-request
+  dependency review; duplicating an advanced CodeQL upload would conflict with
+  the repository-level default setup. All workflow actions are pinned to
+  reviewed commit SHAs; Dependabot remains responsible for refreshes.
+- Local development uses the isolated Docker MySQL database
+  `digital_e_shop_local` on `127.0.0.1:3307` and the dedicated
+  `digital_e_shop_local_mysql_data` volume. Runtime, Prisma, and mock-seed
+  entrypoints reject remote targets outside production; production credentials
+  are injected by the deployment environment.
+- The server project's `server/vercel.json` pins Vercel's install step to the workspace
+  package manager with `corepack pnpm@11.5.3 install --frozen-lockfile`. This is
+  required because the older `digital-e-server` project otherwise infers pnpm 9
+  from lockfile version `9.0` and rejects the workspace override configuration.
+- The root `package.json` also mirrors the security overrides in its legacy
+  `pnpm` field for Vercel's native serverless API builder, which may perform a
+  second pnpm 9 install. pnpm 11 ignores that field; `pnpm-workspace.yaml` is
+  still canonical, and both phases resolve the same pinned versions.
+- Prisma's schema-only `generate` command is allowed during dependency
+  installation because it does not connect to a database; migration and other
+  database-connecting commands remain subject to the target guard.
+- Production Vercel deployment and branch protection are external controls.
+  They must require the CI/security checks for `main`, and production releases
+  must run frontend and backend smoke checks after deployment. See
+  [docs/ci-cd.md](../docs/ci-cd.md).
+
 ## Important observations
 
 - Auth is cookie-based JWT (access + refresh) with CSRF protection on unsafe requests; login/register/refresh are intentionally excluded from CSRF — do not broaden.
@@ -82,8 +115,11 @@ digital-e-shop/
 
 - Response payload inconsistency across routes — callers must preserve route-local contracts.
 - Root lockfile coexists with nested `client/`/`server/` lockfiles, which can drift.
-- No Prisma migration history committed despite the schema existing.
+- Prisma migration history is now committed, but it intentionally starts with
+  a metadata-only `0_init` marker because the schema is still partial. The
+  reproducible CI database therefore combines the legacy dump, the historical
+  Stripe SQL change, and the tracked Prisma migrations.
 - No committed `.env.example`; environment contract is inferred.
 - Performance-sensitive paths to treat carefully: product listing/search/facets, cart validation/checkout, admin analytics, order history and notification reads.
 
-> Update this page (and [[log]] + the date in [[index]]) whenever you change architecture, boundaries, or the data model.
+> Update this page (and [[log]] + the date in [[index]]) whenever you change architecture, boundaries, the data model, or the CI/CD contract.

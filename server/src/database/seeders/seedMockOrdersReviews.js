@@ -1,7 +1,14 @@
 const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
+require("dotenv").config({ path: path.join(__dirname, "..", "..", "..", ".env") });
 
-const mysql = require("mysql");
+const { assertLocalDatabaseTarget } = require("../../config/database-target");
+
+assertLocalDatabaseTarget({
+    dbHost: process.env.DB_HOST,
+    databaseUrl: process.env.DATABASE_URL,
+});
+
+const mysql = require("mysql2");
 
 const ORDER_COUNT = Number(process.env.MOCK_ORDER_COUNT || process.argv[2]) || 20;
 const REVIEW_COUNT = Number(process.env.MOCK_REVIEW_COUNT || process.argv[3]) || 20;

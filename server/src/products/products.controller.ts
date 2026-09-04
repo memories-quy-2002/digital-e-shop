@@ -17,7 +17,7 @@ import {
 } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { createReadStream } from "node:fs";
-import { join } from "node:path";
+import { basename, isAbsolute, relative, resolve } from "node:path";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { AuthGuard } from "../guards/auth.guard";
 import { Roles, RolesGuard } from "../guards/roles.guard";
@@ -28,7 +28,35 @@ import { getValidationMessage } from "#src/shared/validation/requestSchemas";
 import type { ProductCreateInput } from "./products.dto";
 import { productCreateSchema, productUpdateSchema, inventoryUpdateSchema } from "./products.validator";
 
-const uploadsDir = join(process.cwd(), "src", "uploads");
+const uploadsDir = resolve(process.cwd(), "src", "uploads");
+
+export function resolveProductImagePath(
+    filename: string,
+    baseDirectory: string = uploadsDir,
+): { requestedFilename: string; imagePath: string } | null {
+    if (typeof filename !== "string" || filename.length === 0) {
+        return null;
+    }
+
+    if (/[\\/]/.test(filename)) {
+        return null;
+    }
+
+    const requestedFilename = `${filename}.jpg`;
+    if (basename(requestedFilename) !== requestedFilename) {
+        return null;
+    }
+
+    const safeBaseDirectory = resolve(baseDirectory);
+    const imagePath = resolve(safeBaseDirectory, requestedFilename);
+    const relativeImagePath = relative(safeBaseDirectory, imagePath);
+
+    if (relativeImagePath.startsWith("..") || isAbsolute(relativeImagePath)) {
+        return null;
+    }
+
+    return { requestedFilename, imagePath };
+}
 
 @Controller("products")
 export class ProductsController {
@@ -79,20 +107,22 @@ export class ProductsController {
 
     @Get("images/:filename")
     async getImage(@Param("filename") filename: string, @Res({ passthrough: true }) res: Response) {
-        const requestedFilename = `${filename}.jpg`;
-        const imagePath = join(uploadsDir, requestedFilename);
+        const resolvedImage = resolveProductImagePath(filename);
+        if (!resolvedImage) {
+            throw new HttpException({ msg: "Image not found" }, 404);
+        }
 
         const fs = await import("node:fs");
-        if (!fs.existsSync(imagePath)) {
+        if (!fs.existsSync(resolvedImage.imagePath)) {
             throw new HttpException({ msg: "Image not found" }, 404);
         }
 
         res.set({
             "Content-Type": "image/jpeg",
-            "Content-Disposition": `inline; filename="${requestedFilename}"`,
+            "Content-Disposition": `inline; filename="${encodeURIComponent(resolvedImage.requestedFilename)}"`,
         });
 
-        const stream = createReadStream(imagePath);
+        const stream = createReadStream(resolvedImage.imagePath);
         return new StreamableFile(stream);
     }
 
