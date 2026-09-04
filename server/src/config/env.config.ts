@@ -2,10 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import dotenv from "dotenv";
+import { assertSafeDatabaseTarget } from "./database-target.js";
 
 const envCandidates = [
-    path.resolve(__dirname, "../../../.env"),
     path.resolve(__dirname, "../../.env"),
+    path.resolve(__dirname, "../../../.env"),
     path.resolve(process.cwd(), ".env"),
 ];
 
@@ -46,5 +47,11 @@ export const env = {
     stripeSecretKey: process.env.STRIPE_SECRET_KEY || "",
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
 };
+
+assertSafeDatabaseTarget({
+    nodeEnv: env.nodeEnv,
+    dbHost: env.dbHost,
+    databaseUrl: env.databaseUrl,
+});
 
 export const isProduction = env.nodeEnv === "production";

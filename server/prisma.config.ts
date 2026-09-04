@@ -1,5 +1,14 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
+import { assertSafeDatabaseTarget } from "./src/config/database-target.js";
+
+if (process.env.DATABASE_URL) {
+    assertSafeDatabaseTarget({
+        nodeEnv: process.env.NODE_ENV || "development",
+        dbHost: process.env.DB_HOST,
+        databaseUrl: process.env.DATABASE_URL,
+    });
+}
 
 // Prisma 7 configuration. Connection URLs and CLI settings live here now
 // (they were removed from schema.prisma and the deprecated package.json#prisma

@@ -1,5 +1,12 @@
 const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
+require("dotenv").config({ path: path.join(__dirname, "..", "..", "..", ".env") });
+
+const { assertLocalDatabaseTarget } = require("../../config/database-target");
+
+assertLocalDatabaseTarget({
+    dbHost: process.env.DB_HOST,
+    databaseUrl: process.env.DATABASE_URL,
+});
 
 const mysql = require("mysql");
 
