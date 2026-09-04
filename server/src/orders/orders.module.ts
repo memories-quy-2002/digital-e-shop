@@ -12,6 +12,7 @@ import { CartModule } from "../cart/cart.module";
 import { InventoryModule } from "../inventory/inventory.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { PromotionsModule } from "../promotions/promotions.module";
+import { StripeService } from "../stripe/stripe.service";
 
 @Module({
     imports: [NestConfigModule, CartModule, InventoryModule, NotificationsModule, PromotionsModule],
@@ -19,11 +20,12 @@ import { PromotionsModule } from "../promotions/promotions.module";
     providers: [
         NestOrdersService,
         NestOrdersStripeService,
+        StripeService,
         OrdersRepository,
         NestOrderTimelineService,
         OrderTimelineRepository,
     ],
-    exports: [NestOrdersService, NestOrdersStripeService],
+    exports: [NestOrdersService, NestOrdersStripeService, StripeService],
 })
 export class OrdersModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {
