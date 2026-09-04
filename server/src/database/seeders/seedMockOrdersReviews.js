@@ -8,7 +8,7 @@ assertLocalDatabaseTarget({
     databaseUrl: process.env.DATABASE_URL,
 });
 
-const mysql = require("mysql");
+const mysql = require("mysql2");
 
 const ORDER_COUNT = Number(process.env.MOCK_ORDER_COUNT || process.argv[2]) || 20;
 const REVIEW_COUNT = Number(process.env.MOCK_REVIEW_COUNT || process.argv[3]) || 20;

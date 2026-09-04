@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import mysql from "mysql";
+import mysql from "mysql2";
 import { env } from "#src/config/env.config";
 import { logger } from "#src/shared/utils/logger";
 
@@ -48,7 +48,6 @@ const pool = mysql.createPool({
     connectionLimit: 10,
     queueLimit: 0,
     connectTimeout: 10000,
-    acquireTimeout: 10000,
 }) as DbPool;
 
 const originalQuery = pool.query.bind(pool);
