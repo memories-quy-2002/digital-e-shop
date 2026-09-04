@@ -2,9 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
     assertLocalDatabaseTarget,
     assertSafeDatabaseTarget,
+    isPrismaGenerateCommand,
 } from "./database-target";
 
 describe("database target guards", () => {
+    it("identifies the Prisma generate command", () => {
+        expect(isPrismaGenerateCommand(["node", "prisma", "generate"])).toBe(true);
+        expect(isPrismaGenerateCommand(["node", "prisma", "migrate", "deploy"])).toBe(false);
+    });
+
     it("allows a local development database", () => {
         expect(() => assertSafeDatabaseTarget({
             nodeEnv: "development",

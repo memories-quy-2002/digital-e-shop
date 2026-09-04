@@ -31,6 +31,16 @@ const nonLocalTargetError = () =>
     );
 
 /**
+ * Prisma generate only reads the schema and does not connect to a database.
+ * Keep it usable during dependency installation on Vercel, where the runtime
+ * database target must not be exposed to a build process.
+ * @param {string[]} [argv]
+ */
+function isPrismaGenerateCommand(argv = process.argv) {
+    return argv.includes("generate");
+}
+
+/**
  * @typedef {object} DatabaseTargetOptions
  * @property {string} [nodeEnv]
  * @property {string} [dbHost]
@@ -77,4 +87,5 @@ function assertLocalDatabaseTarget({ dbHost, databaseUrl } = {}) {
 module.exports = {
     assertLocalDatabaseTarget,
     assertSafeDatabaseTarget,
+    isPrismaGenerateCommand,
 };

@@ -89,10 +89,13 @@ digital-e-shop/
   `digital_e_shop_local_mysql_data` volume. Runtime, Prisma, and mock-seed
   entrypoints reject remote targets outside production; production credentials
   are injected by the deployment environment.
-- The repository-root `vercel.json` pins Vercel's install step to the workspace
+- The server project's `server/vercel.json` pins Vercel's install step to the workspace
   package manager with `corepack pnpm@11.5.3 install --frozen-lockfile`. This is
   required because the older `digital-e-server` project otherwise infers pnpm 9
   from lockfile version `9.0` and rejects the workspace override configuration.
+- Prisma's schema-only `generate` command is allowed during dependency
+  installation because it does not connect to a database; migration and other
+  database-connecting commands remain subject to the target guard.
 - Production Vercel deployment and branch protection are external controls.
   They must require the CI/security checks for `main`, and production releases
   must run frontend and backend smoke checks after deployment. See

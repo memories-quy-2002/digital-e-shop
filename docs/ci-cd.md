@@ -47,7 +47,7 @@ cannot provide that gate, add a narrowly scoped deployment workflow with the
 Vercel project IDs and production token stored in GitHub Environment secrets;
 do not put those values in source control.
 
-The repository root `vercel.json` pins Vercel's dependency install to
+The server project's `server/vercel.json` pins Vercel's dependency install to
 `corepack pnpm@11.5.3 install --frozen-lockfile`. This keeps Vercel aligned with
 the workspace lockfile and preserves the root `pnpm-workspace.yaml` overrides.
 Without this override, older Vercel projects can infer pnpm 9 from lockfile
@@ -103,7 +103,9 @@ replace its database variables with the local values before starting the
 server. The application runtime, Prisma CLI configuration, Prisma runtime
 URL helper, and mock seed command reject remote database targets outside
 production. The mock seed is local-only even when `NODE_ENV=production` is
-set accidentally.
+set accidentally. Prisma's schema-only `generate` command is exempt because
+it does not connect to a database and runs during dependency installation;
+database-connecting Prisma commands remain guarded.
 
 The local setup imports the checked-in legacy dump and historical Stripe SQL,
 records the metadata-only `0_init` migration as applied, then runs

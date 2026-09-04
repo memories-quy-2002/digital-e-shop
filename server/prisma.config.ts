@@ -1,8 +1,11 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
-import { assertSafeDatabaseTarget } from "./src/config/database-target.js";
+import {
+    assertSafeDatabaseTarget,
+    isPrismaGenerateCommand,
+} from "./src/config/database-target.js";
 
-if (process.env.DATABASE_URL) {
+if (process.env.DATABASE_URL && !isPrismaGenerateCommand()) {
     assertSafeDatabaseTarget({
         nodeEnv: process.env.NODE_ENV || "development",
         dbHost: process.env.DB_HOST,
