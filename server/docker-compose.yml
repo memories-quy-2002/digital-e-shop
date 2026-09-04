@@ -5,12 +5,12 @@ services:
         restart: unless-stopped
         environment:
             MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-digital_e_root}
-            MYSQL_DATABASE: ${DB_NAME:-defaultdb}
+            MYSQL_DATABASE: ${DB_NAME:-digital_e_shop_local}
             MYSQL_ROOT_HOST: "%"
         ports:
             - "${DB_PORT:-3307}:3306"
         volumes:
-            - mysql_data:/var/lib/mysql
+            - digital_e_shop_local_mysql_data:/var/lib/mysql
         healthcheck:
             test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-digital_e_root}"]
             interval: 10s
@@ -24,4 +24,5 @@ services:
             --default-time-zone=+00:00
 
 volumes:
-    mysql_data:
+    digital_e_shop_local_mysql_data:
+        name: digital_e_shop_local_mysql_data
