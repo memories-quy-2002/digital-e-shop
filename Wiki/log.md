@@ -16,3 +16,4 @@ Format: `YYYY-MM-DD — <agent/author> — <what changed>`
 - 2026-09-04 — Codex — Fixed CI and local migration ordering by recording the metadata-only Prisma legacy baseline before applying pending migrations.
 - 2026-09-04 — Codex — Pinned the Vercel install step to the repository's Corepack-managed pnpm version so the digital-e-server deployment accepts the workspace lockfile overrides.
 - 2026-09-04 — Codex — Allowed schema-only Prisma generation during Vercel installation while retaining database-target protection for migration and runtime connections.
+- 2026-09-04 — Codex — Mirrored pnpm security overrides in root package metadata so Vercel's native serverless install phase remains compatible with pnpm 9 without changing the canonical pnpm 11 workspace configuration.

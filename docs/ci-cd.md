@@ -54,6 +54,12 @@ Without this override, older Vercel projects can infer pnpm 9 from lockfile
 version `9.0`, which rejects the current override configuration before the
 application build starts.
 
+The root `package.json` mirrors those same overrides under its `pnpm` field as
+a compatibility bridge for Vercel's native serverless API builder, which may
+still run its own pnpm 9 install after the configured install command. pnpm 11
+ignores that legacy field; `pnpm-workspace.yaml` remains the canonical override
+configuration, so both install phases resolve the same security-pinned versions.
+
 Vercel `READY` is not an application-health check. After every production
 deployment, run both smoke checks:
 

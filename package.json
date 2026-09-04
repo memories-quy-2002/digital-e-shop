@@ -20,5 +20,12 @@
   },
   "dependencies": {
     "claude": "^0.1.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "@prisma/adapter-mariadb>mariadb": "3.4.7",
+      "prisma>mysql2": "3.24.3",
+      "@prisma/config>deepmerge-ts": "8.0.0"
+    }
   }
 }

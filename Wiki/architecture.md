@@ -93,6 +93,10 @@ digital-e-shop/
   package manager with `corepack pnpm@11.5.3 install --frozen-lockfile`. This is
   required because the older `digital-e-server` project otherwise infers pnpm 9
   from lockfile version `9.0` and rejects the workspace override configuration.
+- The root `package.json` also mirrors the security overrides in its legacy
+  `pnpm` field for Vercel's native serverless API builder, which may perform a
+  second pnpm 9 install. pnpm 11 ignores that field; `pnpm-workspace.yaml` is
+  still canonical, and both phases resolve the same pinned versions.
 - Prisma's schema-only `generate` command is allowed during dependency
   installation because it does not connect to a database; migration and other
   database-connecting commands remain subject to the target guard.
