@@ -28,10 +28,11 @@ complete schema on an empty database.
 
 ### `.github/workflows/security.yml`
 
-- CodeQL scans JavaScript and TypeScript on pull requests, pushes to `main`,
-  and the weekly schedule.
 - Dependency review runs on pull requests and blocks high-severity dependency
   changes.
+- CodeQL JavaScript/TypeScript scanning is enabled through GitHub repository
+  default setup. It is intentionally not duplicated in this workflow because
+  GitHub rejects advanced CodeQL uploads while default setup is enabled.
 - Actions are pinned to reviewed immutable commit SHAs. Dependabot continues
   to update the GitHub Actions ecosystem.
 
@@ -155,7 +156,8 @@ Configure these rules in the GitHub repository settings for `main`:
 
 - require a pull request before merging; zero approvals is acceptable for the
   solo-maintainer workflow;
-- require `CI / client`, `CI / server`, and `Security / codeql`;
+- require `CI / client`, `CI / server`, and the CodeQL check exposed by
+  repository default setup;
 - require `Security / dependency-review` if GitHub exposes the skipped-on-push
   dependency job as a stable pull-request check;
 - require the branch to be up to date when compatible with the merge workflow;

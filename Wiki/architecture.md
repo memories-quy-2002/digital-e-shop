@@ -78,9 +78,11 @@ digital-e-shop/
   server job starts disposable MySQL 8.4, loads the checked-in legacy dump and
   pre-Prisma Stripe SQL, runs `prisma migrate deploy` and `status`, then runs
   the database integration suite before building.
-- `.github/workflows/security.yml` runs pinned CodeQL JavaScript/TypeScript
-  analysis and pull-request dependency review. All shared actions are pinned
-  to reviewed commit SHAs; Dependabot remains responsible for refreshes.
+- GitHub repository default setup owns CodeQL JavaScript/TypeScript analysis.
+  `.github/workflows/security.yml` separately runs pinned pull-request
+  dependency review; duplicating an advanced CodeQL upload would conflict with
+  the repository-level default setup. All workflow actions are pinned to
+  reviewed commit SHAs; Dependabot remains responsible for refreshes.
 - Local development uses the isolated Docker MySQL database
   `digital_e_shop_local` on `127.0.0.1:3307` and the dedicated
   `digital_e_shop_local_mysql_data` volume. Runtime, Prisma, and mock-seed
