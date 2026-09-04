@@ -22,9 +22,11 @@ baseline because raw MySQL repositories still own legacy tables. Consequently,
 CI loads the checked-in
 `server/src/database/migrations/defaultdb_2026-06-01_142319.sql` dump and
 `2026-07-07-add-stripe-payment-support.sql` before applying the committed
-Prisma migrations. This is the reproducible CI equivalent of the documented
-legacy production baseline; it is not a claim that `0_init` can create the
-complete schema on an empty database.
+Prisma migrations. CI records the metadata-only `0_init` migration as applied
+after loading that legacy baseline, then applies the pending Prisma migration.
+This is the reproducible CI equivalent of the documented legacy production
+baseline; it is not a claim that `0_init` can create the complete schema on an
+empty database.
 
 ### `.github/workflows/security.yml`
 
@@ -97,10 +99,10 @@ production. The mock seed is local-only even when `NODE_ENV=production` is
 set accidentally.
 
 The local setup imports the checked-in legacy dump and historical Stripe SQL,
-then runs `prisma migrate deploy` and the local mock seed. It does not use or
-modify the production database. Production migrations use externally injected
-deployment credentials only after backup, target verification, and release
-approval.
+records the metadata-only `0_init` migration as applied, then runs
+`prisma migrate deploy` and the local mock seed. It does not use or modify the
+production database. Production migrations use externally injected deployment
+credentials only after backup, target verification, and release approval.
 
 ## Local parity
 
@@ -121,6 +123,7 @@ pnpm --filter client build
 pnpm --filter server typecheck
 pnpm --filter server lint
 pnpm --filter server test -- --run
+pnpm --filter server prisma:migrate:resolve --applied 0_init
 pnpm --filter server prisma:migrate:deploy
 pnpm --filter server prisma:migrate:status
 pnpm --filter server test:integration

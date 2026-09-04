@@ -76,8 +76,9 @@ digital-e-shop/
 
 - `.github/workflows/ci.yml` keeps client and server checks separate. The
   server job starts disposable MySQL 8.4, loads the checked-in legacy dump and
-  pre-Prisma Stripe SQL, runs `prisma migrate deploy` and `status`, then runs
-  the database integration suite before building.
+  pre-Prisma Stripe SQL, records the metadata-only `0_init` baseline, runs
+  `prisma migrate deploy` and `status`, then runs the database integration
+  suite before building.
 - GitHub repository default setup owns CodeQL JavaScript/TypeScript analysis.
   `.github/workflows/security.yml` separately runs pinned pull-request
   dependency review; duplicating an advanced CodeQL upload would conflict with

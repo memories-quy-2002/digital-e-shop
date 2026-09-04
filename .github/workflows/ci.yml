@@ -103,7 +103,8 @@ jobs:
 
       # The Prisma baseline is intentionally metadata-only because raw MySQL
       # repositories still own the legacy schema. Recreate that checked-in
-      # baseline before applying the tracked Prisma migrations.
+      # baseline, record the metadata-only migration, then apply the tracked
+      # Prisma migrations.
       - name: Load legacy MySQL baseline
         working-directory: server
         run: |
@@ -143,6 +144,9 @@ jobs:
             process.exit(1);
           });
           NODE
+
+      - name: Record Prisma legacy baseline
+        run: pnpm --filter server prisma:migrate:resolve --applied 0_init
 
       - name: Apply Prisma migrations
         run: pnpm --filter server prisma:migrate:deploy

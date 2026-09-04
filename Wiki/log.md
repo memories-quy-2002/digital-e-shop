@@ -13,3 +13,4 @@ Format: `YYYY-MM-DD — <agent/author> — <what changed>`
 - 2026-09-04 — Codex — Hardened CI/CD with disposable MySQL 8.4, legacy-plus-Prisma migration validation, database integration tests, immutable GitHub Action pins, CodeQL/dependency review, Copilot secret removal, and documented external Vercel/branch-protection gates in [[architecture]] and [[overview]].
 - 2026-09-04 — Codex — Isolated local MySQL from production targets with a local-only Docker database/volume, fail-fast runtime and Prisma guards, protected mock seeding, and explicit local/CI/production environment documentation.
 - 2026-09-04 — Codex — Updated CI security workflow to rely on GitHub CodeQL default setup and retain dependency review without conflicting advanced uploads.
+- 2026-09-04 — Codex — Fixed CI and local migration ordering by recording the metadata-only Prisma legacy baseline before applying pending migrations.
