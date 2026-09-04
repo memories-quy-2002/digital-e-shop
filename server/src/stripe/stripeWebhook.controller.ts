@@ -1,15 +1,17 @@
 import { Controller, Post, Req, Res, HttpStatus } from "@nestjs/common";
 import type { Request, Response } from "express";
 import type Stripe from "stripe";
-import { stripeClient } from "#src/config/stripe.config";
-import { env } from "#src/config/env.config";
 import { logger } from "#src/shared/utils/logger";
 import { buildErrorResponse, buildSuccessResponse, requestIdFrom } from "#src/shared/http/api-response";
 import { NestOrdersStripeService } from "../orders/orders.stripe.service";
+import { StripeService } from "./stripe.service";
 
 @Controller("orders/webhooks/stripe")
 export class StripeWebhookController {
-    constructor(private readonly ordersStripeService: NestOrdersStripeService) {}
+    constructor(
+        private readonly ordersStripeService: NestOrdersStripeService,
+        private readonly stripeService: StripeService,
+    ) {}
 
     @Post()
     async handleStripeWebhook(
@@ -27,11 +29,6 @@ export class StripeWebhookController {
             }));
         }
 
-        // Nest's global body parser (registered before any module middleware,
-        // including this module's own express.raw()) already consumes the
-        // stream and parses req.body as JSON; the raw buffer needed for HMAC
-        // signature verification is only available via req.rawBody (populated
-        // by the `rawBody: true` NestFactory option), not req.body.
         const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
         if (!rawBody) {
             logger.error({ requestId }, "[stripeWebhook] req.rawBody missing — check rawBody: true bootstrap option");
@@ -42,9 +39,10 @@ export class StripeWebhookController {
                 requestId,
             }));
         }
+
         let event: Stripe.Event;
         try {
-            event = stripeClient.webhooks.constructEvent(rawBody, signature, env.stripeWebhookSecret);
+            event = this.stripeService.constructWebhookEvent(rawBody, signature);
         } catch (err) {
             logger.error({ err, requestId }, "[stripeWebhook] signature verification failed");
             return res.status(HttpStatus.BAD_REQUEST).json(buildErrorResponse({
