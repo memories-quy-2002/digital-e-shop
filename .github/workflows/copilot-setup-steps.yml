@@ -11,17 +11,17 @@ on:
 
 jobs:
   copilot-setup-steps:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: 24
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -32,13 +32,10 @@ jobs:
           echo "VITE_API_URL=http://localhost:3000" > client/.env
 
       - name: Create server env file
-        env:
-          DATABASE_URL: ${{ secrets.COPILOT_MCP_MYSQL_URL }}
         run: |
-          echo "DATABASE_URL=${DATABASE_URL}" > server/.env
+          echo "DATABASE_URL=mysql://placeholder:placeholder@127.0.0.1:3306/placeholder" > server/.env
           echo "JWT_SECRET_KEY=test-secret-for-agent-sandbox" >> server/.env
           echo "JWT_REFRESH_SECRET_KEY=test-refresh-secret-for-agent-sandbox" >> server/.env
 
       - name: Typecheck client
         run: pnpm --filter client exec tsc --noEmit
-        continue-on-error: true
