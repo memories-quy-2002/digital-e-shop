@@ -1,12 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { stripeClient } from "#src/config/stripe.config";
 import { NestOrdersStripeService } from "../orders.stripe.service";
 import type { NestCartService } from "../../cart/cart.service";
 import type { NestOrdersService } from "../orders.service";
+import type { StripeService } from "../../stripe/stripe.service";
 
-vi.mock("#src/config/stripe.config", () => ({
-    stripeClient: { checkout: { sessions: { create: vi.fn(), expire: vi.fn() } } },
-}));
 vi.mock("#src/shared/utils/logger", () => ({
     logger: { info: vi.fn(), error: vi.fn(), debug: vi.fn(), warn: vi.fn() },
 }));
@@ -21,7 +18,18 @@ function buildService() {
         applyDiscount: vi.fn(),
         getOrderByStripeSessionId: vi.fn(),
     } as unknown as NestOrdersService;
-    return { service: new NestOrdersStripeService(cartService, ordersService), cartService, ordersService };
+    const stripeService = {
+        createCheckoutSession: vi.fn(),
+        expireCheckoutSession: vi.fn(),
+        constructWebhookEvent: vi.fn(),
+    } as unknown as StripeService;
+
+    return {
+        service: new NestOrdersStripeService(cartService, ordersService, stripeService),
+        cartService,
+        ordersService,
+        stripeService,
+    };
 }
 
 describe("createCheckoutSession", () => {
@@ -30,7 +38,7 @@ describe("createCheckoutSession", () => {
     });
 
     it("uses a server-calculated coupon discount instead of a client-supplied amount", async () => {
-        const { service, cartService, ordersService } = buildService();
+        const { service, cartService, ordersService, stripeService } = buildService();
         vi.mocked(cartService.validateCheckoutSubmission).mockResolvedValue({
             cartItems: [{ product_id: 1, quantity: 1, price: 100, product_name: "Widget" }],
             authoritativeTotalPrice: 100,
@@ -44,7 +52,7 @@ describe("createCheckoutSession", () => {
             active: 1,
             min_order_value: 0,
         });
-        vi.mocked(stripeClient.checkout.sessions.create).mockResolvedValue({
+        vi.mocked(stripeService.createCheckoutSession).mockResolvedValue({
             id: "cs_secure_discount",
             url: "https://checkout.stripe.test/session",
         } as never);
@@ -58,7 +66,7 @@ describe("createCheckoutSession", () => {
         } as never);
 
         expect(ordersService.applyDiscount).toHaveBeenCalledWith("SAVE10");
-        expect(stripeClient.checkout.sessions.create).toHaveBeenCalledWith(
+        expect(stripeService.createCheckoutSession).toHaveBeenCalledWith(
             expect.objectContaining({
                 line_items: [
                     expect.objectContaining({
