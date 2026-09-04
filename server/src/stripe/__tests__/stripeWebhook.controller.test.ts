@@ -1,12 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { StripeWebhookController } from "../stripeWebhook.controller";
 import type { NestOrdersStripeService } from "../../orders/orders.stripe.service";
-
-vi.mock("#src/config/stripe.config", () => ({
-    stripeClient: { webhooks: { constructEvent: vi.fn() } },
-}));
-
-import { stripeClient } from "#src/config/stripe.config";
+import type { StripeService } from "../stripe.service";
 
 function mockRes() {
     const res: { status: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn>; json: ReturnType<typeof vi.fn> } = {
@@ -23,10 +18,15 @@ function mockRes() {
 describe("StripeWebhookController", () => {
     let controller: StripeWebhookController;
     let ordersStripeService: { handleCheckoutSessionCompleted: ReturnType<typeof vi.fn> };
+    let stripeService: { constructWebhookEvent: ReturnType<typeof vi.fn> };
 
     beforeEach(() => {
         ordersStripeService = { handleCheckoutSessionCompleted: vi.fn() };
-        controller = new StripeWebhookController(ordersStripeService as unknown as NestOrdersStripeService);
+        stripeService = { constructWebhookEvent: vi.fn() };
+        controller = new StripeWebhookController(
+            ordersStripeService as unknown as NestOrdersStripeService,
+            stripeService as unknown as StripeService,
+        );
         vi.clearAllMocks();
     });
 
@@ -46,7 +46,7 @@ describe("StripeWebhookController", () => {
         });
     });
 
-    it("rejects when req.rawBody is missing, without ever calling constructEvent on the parsed JSON body", async () => {
+    it("rejects when req.rawBody is missing, without verifying the parsed JSON body", async () => {
         const req = {
             headers: { "stripe-signature": "sig" },
             body: { type: "checkout.session.completed" },
@@ -55,7 +55,7 @@ describe("StripeWebhookController", () => {
 
         await controller.handleStripeWebhook(req, res as never);
 
-        expect(stripeClient.webhooks.constructEvent).not.toHaveBeenCalled();
+        expect(stripeService.constructWebhookEvent).not.toHaveBeenCalled();
         expect(res.status).toHaveBeenCalledWith(400);
         expect(res.json).toHaveBeenCalledWith({
             success: false,
@@ -74,14 +74,14 @@ describe("StripeWebhookController", () => {
             rawBody: rawBuffer,
         } as never;
         const res = mockRes();
-        vi.mocked(stripeClient.webhooks.constructEvent).mockReturnValue({
+        stripeService.constructWebhookEvent.mockReturnValue({
             type: "checkout.session.completed",
             data: { object: { id: "sess_1" } },
-        } as never);
+        });
 
         await controller.handleStripeWebhook(req, res as never);
 
-        expect(stripeClient.webhooks.constructEvent).toHaveBeenCalledWith(rawBuffer, "sig", expect.any(String));
+        expect(stripeService.constructWebhookEvent).toHaveBeenCalledWith(rawBuffer, "sig");
         expect(ordersStripeService.handleCheckoutSessionCompleted).toHaveBeenCalledWith({ id: "sess_1" });
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith({ received: true, success: true, requestId: "unknown" });
@@ -93,7 +93,7 @@ describe("StripeWebhookController", () => {
             rawBody: Buffer.from("payload"),
         } as never;
         const res = mockRes();
-        vi.mocked(stripeClient.webhooks.constructEvent).mockImplementation(() => {
+        stripeService.constructWebhookEvent.mockImplementation(() => {
             throw new Error("invalid signature");
         });
 
