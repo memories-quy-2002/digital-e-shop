@@ -38,6 +38,10 @@ export function resolveProductImagePath(
         return null;
     }
 
+    if (/[\\/]/.test(filename)) {
+        return null;
+    }
+
     const requestedFilename = `${filename}.jpg`;
     if (basename(requestedFilename) !== requestedFilename) {
         return null;
