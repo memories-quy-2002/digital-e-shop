@@ -10,6 +10,7 @@ export default defineConfig({
         environment: "node",
         globals: true,
         include: ["src/**/*.test.ts"],
+        exclude: ["src/**/*.integration.test.ts"],
         // Register tsx's CJS hook (see vitest.setup.ts) so the CommonJS
         // `require("./x")` calls inside server modules resolve sibling .ts
         // files the same way they do at runtime.

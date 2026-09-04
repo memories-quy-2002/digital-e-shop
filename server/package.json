@@ -17,6 +17,7 @@
         "copy:assets": "node scripts/copy-assets.mjs",
         "typecheck": "tsc -p tsconfig.json --noEmit",
         "test": "vitest",
+        "test:integration": "vitest run --config vitest.integration.config.ts --testNamePattern=integration",
         "lint": "eslint src api --ext .js,.mjs,.cjs,.ts,.mts,.cts --format=stylish",
         "prisma": "prisma",
         "prisma:generate": "prisma generate --schema=src/database/prisma/schema.prisma",
