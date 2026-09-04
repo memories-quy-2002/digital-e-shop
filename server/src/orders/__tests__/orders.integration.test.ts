@@ -2,10 +2,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { HttpException } from "@nestjs/common";
 import type { RowDataPacket } from "mysql2/promise";
 
-vi.mock("#src/config/stripe.config", () => ({
-    stripeClient: { checkout: { sessions: { create: vi.fn(), expire: vi.fn() } } },
-}));
-
 import prisma = require("#src/database/prisma/client");
 import { OrdersController } from "../orders.controller";
 import { OrdersRepository } from "../orders.repository";
@@ -80,7 +76,7 @@ describe("orders database integration", () => {
 
     it("integration handles a repeated checkout event without creating a second order", async () => {
         const { ordersService } = buildOrdersService();
-        const stripeService = new NestOrdersStripeService({} as never, ordersService);
+        const stripeService = new NestOrdersStripeService({} as never, ordersService, {} as never);
         const sessionId = `${integrationPrefix}-checkout`;
         const cart = [{ product_id: productId, product_name: "Integration product", price: 10, quantity: 1 }];
 
