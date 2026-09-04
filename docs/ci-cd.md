@@ -69,6 +69,38 @@ CI uses disposable values only:
 Production credentials belong only in Vercel/GitHub environment secret stores.
 Never commit `.env` files, database URLs, access tokens, or signing secrets.
 
+## Database target isolation
+
+Local development must use the Docker MySQL service at `127.0.0.1:3307` with
+the database name `digital_e_shop_local`. The tracked templates are:
+
+- `server/.env.example` for ordinary local server commands;
+- `server/.env.docker.example` copied to `server/.env.docker` for the Docker
+  setup commands; and
+- `digital_e_shop_local_mysql_data`, a dedicated local Docker volume.
+
+From a fresh local checkout, copy the templates and initialize the local
+schema with:
+
+```powershell
+Copy-Item server/.env.example server/.env
+Copy-Item server/.env.docker.example server/.env.docker
+pnpm --filter server docker:setup
+```
+
+If `server/.env` currently contains a remote Aiven or production target,
+replace its database variables with the local values before starting the
+server. The application runtime, Prisma CLI configuration, Prisma runtime
+URL helper, and mock seed command reject remote database targets outside
+production. The mock seed is local-only even when `NODE_ENV=production` is
+set accidentally.
+
+The local setup imports the checked-in legacy dump and historical Stripe SQL,
+then runs `prisma migrate deploy` and the local mock seed. It does not use or
+modify the production database. Production migrations use externally injected
+deployment credentials only after backup, target verification, and release
+approval.
+
 ## Local parity
 
 Install from the workspace root with the committed lockfile:
@@ -98,7 +130,8 @@ pnpm --filter server build
 connection variables (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`,
 `DB_NAME`, and `DATABASE_URL`). It is excluded from the normal unit-test
 configuration so local unit tests and ordinary CI do not silently depend on a
-database.
+database. Run it only against `digital_e_shop_local` or another disposable
+local/CI database, never against a production or shared remote target.
 
 ## Production migration safety
 

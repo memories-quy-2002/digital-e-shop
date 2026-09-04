@@ -81,6 +81,11 @@ digital-e-shop/
 - `.github/workflows/security.yml` runs pinned CodeQL JavaScript/TypeScript
   analysis and pull-request dependency review. All shared actions are pinned
   to reviewed commit SHAs; Dependabot remains responsible for refreshes.
+- Local development uses the isolated Docker MySQL database
+  `digital_e_shop_local` on `127.0.0.1:3307` and the dedicated
+  `digital_e_shop_local_mysql_data` volume. Runtime, Prisma, and mock-seed
+  entrypoints reject remote targets outside production; production credentials
+  are injected by the deployment environment.
 - Production Vercel deployment and branch protection are external controls.
   They must require the CI/security checks for `main`, and production releases
   must run frontend and backend smoke checks after deployment. See

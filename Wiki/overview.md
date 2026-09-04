@@ -51,6 +51,12 @@ MySQL 8.4, Prisma migration status checks, and a separate MySQL-backed
 integration suite. Production Vercel deployment and `main` branch protection
 remain repository settings that must be configured and verified externally.
 
+Local database setup is isolated from production: copy the tracked server
+environment templates, run `pnpm --filter server docker:setup`, and use the
+`digital_e_shop_local` MySQL database on `127.0.0.1:3307`. Runtime and Prisma
+guards reject remote database targets outside production; CI uses its separate
+`digital_e_shop_ci` database.
+
 ## Current assumptions
 
 - MySQL remains the dominant persistence layer; Prisma is **not** fully migrated to.
