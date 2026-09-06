@@ -59,7 +59,7 @@ export class NestAuthService {
     private async issueLoginSession(user: UserRow, rememberMe?: boolean): Promise<AuthSessionPayload> {
         const payload = { id: user.id, email: user.email, role: user.role } as JwtPayload;
         const accessToken = jwt.sign(payload, env.jwtSecret, {
-            expiresIn: rememberMe ? "30d" : "15m",
+            expiresIn: "15m",
         });
 
         await this.usersRepository.updateUserToken(user.id, accessToken);
@@ -110,6 +110,9 @@ export class NestAuthService {
     async registerUser(idToken: string, input: RegisterUserInput): Promise<AuthSessionPayload> {
         const identity = await this.firebaseAdminAuthService.verifyIdToken(idToken);
         const existing = await this.usersRepository.findById(identity.uid);
+        if (existing?.status === "Suspended") {
+            throw new UnauthorizedException({ msg: "Account is suspended" });
+        }
         if (existing) return this.issueLoginSession(existing, false);
 
         const placeholderPassword = await hashPassword(crypto.randomBytes(32).toString("hex"));

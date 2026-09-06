@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UnauthorizedException } from "@nestjs/common";
+import jwt from "jsonwebtoken";
+import { env } from "#src/config/env.config";
 import { NestAuthController } from "./auth.controller";
 import { registerUserSchema, userLoginSchema } from "./auth.validator";
 import { NestAuthService } from "./auth.service";
@@ -17,7 +19,7 @@ function mockResponse() {
     return response;
 }
 
-function buildAuthService() {
+function buildAuthService(options: { stubIssueLoginSession?: boolean } = {}) {
     const authRepository = {
         startSession: vi.fn().mockResolvedValue(42),
     };
@@ -35,7 +37,9 @@ function buildAuthService() {
         firebaseAdminAuthService as never,
     );
     const issueLoginSession = vi.fn();
-    (service as unknown as { issueLoginSession: typeof issueLoginSession }).issueLoginSession = issueLoginSession;
+    if (options.stubIssueLoginSession !== false) {
+        (service as unknown as { issueLoginSession: typeof issueLoginSession }).issueLoginSession = issueLoginSession;
+    }
 
     return { service, usersRepository, firebaseAdminAuthService, issueLoginSession };
 }
@@ -191,6 +195,58 @@ describe("Firebase identity boundary", () => {
             "Customer",
         );
         expect(issueLoginSession).toHaveBeenCalledWith(createdUser, false);
+    });
+
+    it("rejects a suspended existing account through registration", async () => {
+        const { service, usersRepository, firebaseAdminAuthService, issueLoginSession } = buildAuthService();
+        const suspendedUser = {
+            id: "firebase-uid",
+            email: "customer@example.com",
+            role: "Customer",
+            status: "Suspended",
+        };
+        firebaseAdminAuthService.verifyIdToken.mockResolvedValue({
+            uid: "firebase-uid",
+            email: "customer@example.com",
+        });
+        usersRepository.findById.mockResolvedValue(suspendedUser);
+
+        await expect(service.registerUser("firebase-id-token", { username: "existing-user" }))
+            .rejects.toBeInstanceOf(UnauthorizedException);
+
+        expect(issueLoginSession).not.toHaveBeenCalled();
+    });
+
+    it("keeps the access JWT at 15 minutes when remember-me is enabled", async () => {
+        const { service, usersRepository, firebaseAdminAuthService } = buildAuthService({
+            stubIssueLoginSession: false,
+        });
+        const user = {
+            id: "firebase-uid",
+            email: "customer@example.com",
+            role: "Customer",
+        };
+        const originalJwtSecret = env.jwtSecret;
+        const originalJwtRefreshSecret = env.jwtRefreshSecret;
+        env.jwtSecret = "test-access-secret";
+        env.jwtRefreshSecret = "test-refresh-secret";
+        firebaseAdminAuthService.verifyIdToken.mockResolvedValue({
+            uid: "firebase-uid",
+            email: "customer@example.com",
+        });
+        usersRepository.findById.mockResolvedValue(user);
+
+        try {
+            const session = await service.loginUser("firebase-id-token", true);
+            const accessPayload = jwt.decode(session.token) as jwt.JwtPayload;
+            const refreshPayload = jwt.decode(session.refreshToken as string) as jwt.JwtPayload;
+
+            expect(accessPayload.exp! - accessPayload.iat!).toBe(15 * 60);
+            expect(refreshPayload.exp! - refreshPayload.iat!).toBe(30 * 24 * 60 * 60);
+        } finally {
+            env.jwtSecret = originalJwtSecret;
+            env.jwtRefreshSecret = originalJwtRefreshSecret;
+        }
     });
 });
 
