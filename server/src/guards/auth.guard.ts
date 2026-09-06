@@ -5,6 +5,7 @@ import type { Request } from "express";
 import { NestConfigService } from "../config/nest-config.service";
 import { NestAuthService } from "../auth/auth.service";
 import { UsersRepository } from "../users/users.repository";
+import { AuthRepository } from "../auth/auth.repository";
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -12,6 +13,7 @@ export class AuthGuard implements CanActivate {
         private readonly config: NestConfigService,
         private readonly authService: NestAuthService,
         private readonly usersRepository: UsersRepository,
+        private readonly authRepository: AuthRepository,
     ) {}
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -30,19 +32,32 @@ export class AuthGuard implements CanActivate {
             const payload = jwt.verify(accessToken, this.config.get("jwtSecret")) as {
                 id?: string;
                 role?: string;
+                sid?: number;
                 [key: string]: unknown;
             };
 
-            if (!payload.role && payload.id) {
-                const user = await this.usersRepository.findById(payload.id);
-                if (user?.role) {
-                    payload.role = user.role;
-                }
+            if (!payload.sid || String(payload.sid) !== String(req.cookies?.session)) {
+                throw new UnauthorizedException({ msg: "Session mismatch" });
             }
 
+            const session = await this.authRepository.getActiveSessionById(payload.sid);
+            if (!session || String(session.user_id) !== String(payload.id)) {
+                throw new UnauthorizedException({ msg: "Session invalid or expired" });
+            }
+
+            const user = payload.id ? await this.usersRepository.findById(payload.id) : null;
+            if (!user) {
+                throw new UnauthorizedException({ msg: "User not found" });
+            }
+            if (user.status && user.status !== "Active") {
+                throw new UnauthorizedException({ msg: "Account is suspended" });
+            }
+
+            payload.role = user.role;
             req.user = payload;
             return true;
-        } catch {
+        } catch (error) {
+            if (error instanceof UnauthorizedException) throw error;
             throw new ForbiddenException({ msg: "Invalid or expired token" });
         }
     }

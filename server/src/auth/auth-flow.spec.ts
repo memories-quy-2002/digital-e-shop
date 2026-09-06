@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UnauthorizedException } from "@nestjs/common";
 import jwt from "jsonwebtoken";
+import crypto from "node:crypto";
 import { env } from "#src/config/env.config";
 import { NestAuthController } from "./auth.controller";
 import { registerUserSchema, userLoginSchema } from "./auth.validator";
 import { NestAuthService } from "./auth.service";
+import { AuthSessionService } from "./auth-session.service";
 import { FirebaseAdminAuthService } from "./firebase-admin.service";
 
 function mockResponse() {
@@ -31,17 +33,22 @@ function buildAuthService(options: { stubIssueLoginSession?: boolean } = {}) {
     const firebaseAdminAuthService = {
         verifyIdToken: vi.fn(),
     };
+    const authSessionService = {
+        issue: vi.fn(),
+        rotate: vi.fn(),
+    };
     const service = new NestAuthService(
         authRepository as never,
         usersRepository as never,
         firebaseAdminAuthService as never,
+        authSessionService as never,
     );
     const issueLoginSession = vi.fn();
     if (options.stubIssueLoginSession !== false) {
         (service as unknown as { issueLoginSession: typeof issueLoginSession }).issueLoginSession = issueLoginSession;
     }
 
-    return { service, usersRepository, firebaseAdminAuthService, issueLoginSession };
+    return { service, usersRepository, firebaseAdminAuthService, authSessionService, issueLoginSession };
 }
 
 describe("authentication flow response contract", () => {
@@ -128,7 +135,7 @@ describe("authentication flow response contract", () => {
         expect(authService.registerUser).toHaveBeenCalledWith("firebase-id-token", { username: "attacker" });
     });
 
-    it("clears a remembered refresh cookie before setting a non-remembered login", async () => {
+    it("sets a session-scoped refresh cookie for a non-remembered login", async () => {
         authService.loginUser
             .mockResolvedValueOnce({
                 user: { id: "firebase-uid", email: "customer@example.com", role: "Customer" },
@@ -140,7 +147,7 @@ describe("authentication flow response contract", () => {
                 user: { id: "firebase-uid", email: "customer@example.com", role: "Customer" },
                 token: "session-access-token",
                 sessionId: 43,
-                refreshToken: null,
+                refreshToken: "session-refresh-token",
             });
         const response = mockResponse();
 
@@ -155,10 +162,9 @@ describe("authentication flow response contract", () => {
             response as never,
         );
 
-        expect(response.clearCookie).toHaveBeenCalledWith(
-            "refreshToken",
-            expect.objectContaining({ httpOnly: true, secure: false, sameSite: "lax" }),
-        );
+        const refreshCookies = response.cookie.mock.calls.filter(([name]) => name === "refreshToken");
+        expect(refreshCookies).toHaveLength(2);
+        expect(refreshCookies.at(-1)?.[2]).not.toHaveProperty("maxAge");
         const lastResponse = response.json.mock.calls.at(-1)?.[0];
         expect(lastResponse).not.toHaveProperty("refreshToken");
     });
@@ -186,13 +192,19 @@ describe("authentication flow response contract", () => {
     });
 
     it("sets a session access cookie when refreshing an access token", async () => {
-        authService.refreshToken.mockResolvedValue("refreshed-access-token");
+        authService.refreshToken.mockResolvedValue({
+            accessToken: "refreshed-access-token",
+            refreshToken: "rotated-refresh-token",
+            rememberMe: false,
+        });
         const response = mockResponse();
 
         await controller.userRefreshToken(
-            { requestId: "auth-refresh-cookie-1", cookies: { refreshToken: "refresh-token" } } as never,
+            { requestId: "auth-refresh-cookie-1", cookies: { session: "42", refreshToken: "refresh-token" } } as never,
             response as never,
         );
+
+        expect(authService.refreshToken).toHaveBeenCalledWith("42", "refresh-token");
 
         expect(response.cookie).toHaveBeenCalledWith(
             "accessToken",
@@ -203,9 +215,13 @@ describe("authentication flow response contract", () => {
                 sameSite: "lax",
             }),
         );
-        expect(response.cookie.mock.calls[0][2]).not.toHaveProperty("maxAge");
+        expect(response.cookie).toHaveBeenCalledWith(
+            "refreshToken",
+            "rotated-refresh-token",
+            expect.objectContaining({ httpOnly: true, secure: false, sameSite: "lax" }),
+        );
+        expect(response.cookie.mock.calls[1][2]).not.toHaveProperty("maxAge");
         expect(response.json).toHaveBeenCalledWith({
-            token: "refreshed-access-token",
             msg: "Token refreshed successfully",
             success: true,
             requestId: "auth-refresh-cookie-1",
@@ -217,7 +233,7 @@ describe("authentication flow response contract", () => {
         const response = mockResponse();
 
         await controller.userRefreshToken(
-            { requestId: "auth-refresh-failure-1", cookies: { refreshToken: "invalid-refresh-token" } } as never,
+            { requestId: "auth-refresh-failure-1", cookies: { session: "42", refreshToken: "invalid-refresh-token" } } as never,
             response as never,
         );
 
@@ -228,12 +244,12 @@ describe("authentication flow response contract", () => {
         expect(response.status).toHaveBeenCalledWith(403);
     });
 
-    it("keeps registration cookies session-scoped and does not set a refresh cookie", async () => {
+    it("keeps registration cookies session-scoped and sets a session refresh cookie", async () => {
         authService.registerUser.mockResolvedValue({
             user: { id: "firebase-uid", email: "customer@example.com", role: "Customer" },
             token: "access-token",
             sessionId: 42,
-            refreshToken: null,
+            refreshToken: "refresh-token",
         });
         const response = mockResponse();
 
@@ -243,7 +259,7 @@ describe("authentication flow response contract", () => {
             response as never,
         );
 
-        expect(response.cookie).toHaveBeenCalledTimes(3);
+        expect(response.cookie).toHaveBeenCalledTimes(4);
         for (const [, , options] of response.cookie.mock.calls) {
             expect(options).toEqual(expect.objectContaining({
                 httpOnly: true,
@@ -252,7 +268,7 @@ describe("authentication flow response contract", () => {
             }));
             expect(options).not.toHaveProperty("maxAge");
         }
-        expect(response.cookie).not.toHaveBeenCalledWith("refreshToken", expect.anything(), expect.anything());
+        expect(response.cookie).toHaveBeenCalledWith("refreshToken", "refresh-token", expect.anything());
     });
 
     it("returns canonical success metadata when the customer session is valid", async () => {
@@ -376,110 +392,89 @@ describe("Firebase identity boundary", () => {
         expect(issueLoginSession).not.toHaveBeenCalled();
     });
 
-    it("keeps the access JWT at 15 minutes when remember-me is enabled", async () => {
-        const { service, usersRepository, firebaseAdminAuthService } = buildAuthService({
-            stubIssueLoginSession: false,
-        });
+    it("issues a 15-minute access JWT bound to a numeric session id and stores only a refresh hash", async () => {
+        const authRepository = {
+            startSession: vi.fn().mockResolvedValue(42),
+        };
+        const authSessionService = new AuthSessionService(authRepository as never, {} as never);
         const user = {
             id: "firebase-uid",
             email: "customer@example.com",
             role: "Customer",
         };
         const originalJwtSecret = env.jwtSecret;
-        const originalJwtRefreshSecret = env.jwtRefreshSecret;
         env.jwtSecret = "test-access-secret";
-        env.jwtRefreshSecret = "test-refresh-secret";
-        firebaseAdminAuthService.verifyIdToken.mockResolvedValue({
-            uid: "firebase-uid",
-            email: "customer@example.com",
-        });
-        usersRepository.findById.mockResolvedValue(user);
+        const signSpy = vi.spyOn(jwt, "sign");
 
         try {
-            const session = await service.loginUser("firebase-id-token", true);
-            const accessPayload = jwt.decode(session.token) as jwt.JwtPayload;
-            const refreshPayload = jwt.decode(session.refreshToken as string) as jwt.JwtPayload;
+            const session = await authSessionService.issue(user, true);
 
-            expect(accessPayload.exp! - accessPayload.iat!).toBe(15 * 60);
-            expect(refreshPayload.exp! - refreshPayload.iat!).toBe(30 * 24 * 60 * 60);
-        } finally {
-            env.jwtSecret = originalJwtSecret;
-            env.jwtRefreshSecret = originalJwtRefreshSecret;
-        }
-    });
-
-    it("reloads current database identity before issuing an access token on refresh", async () => {
-        const { service, usersRepository } = buildAuthService();
-        const currentUser = {
-            id: "firebase-uid",
-            email: "current@example.com",
-            role: "Customer",
-            status: "Active",
-        };
-        usersRepository.findById.mockResolvedValue(currentUser);
-        const originalJwtSecret = env.jwtSecret;
-        const originalJwtRefreshSecret = env.jwtRefreshSecret;
-        env.jwtSecret = "test-access-secret";
-        env.jwtRefreshSecret = "test-refresh-secret";
-
-        try {
-            const refreshToken = jwt.sign(
-                { id: "firebase-uid", email: "stale@example.com", role: "Admin" },
-                env.jwtRefreshSecret,
-                { expiresIn: "30d" },
+            expect(signSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ sid: expect.any(Number) }),
+                expect.any(String),
+                expect.objectContaining({ expiresIn: "15m" }),
             );
-            const accessToken = await service.refreshToken(refreshToken);
-            const accessPayload = jwt.verify(accessToken, env.jwtSecret) as jwt.JwtPayload;
-
-            expect(usersRepository.findById).toHaveBeenCalledWith("firebase-uid");
-            expect(accessPayload).toMatchObject({
-                id: currentUser.id,
-                email: currentUser.email,
-                role: currentUser.role,
-            });
+            expect(session.refreshToken).toMatch(/^[A-Za-z0-9_-]{64}$/);
+            expect(authRepository.startSession).toHaveBeenCalledWith(
+                user.id,
+                expect.stringMatching(/^[a-f0-9]{64}$/),
+                expect.any(Date),
+            );
+            expect(authRepository.startSession.mock.calls[0][1]).not.toBe(session.refreshToken);
         } finally {
             env.jwtSecret = originalJwtSecret;
-            env.jwtRefreshSecret = originalJwtRefreshSecret;
+            signSpy.mockRestore();
         }
     });
 
-    it("rejects refresh for a missing database user", async () => {
-        const { service, usersRepository } = buildAuthService();
-        usersRepository.findById.mockResolvedValue(null);
+    it("rejects the previous refresh token after a successful conditional rotation", async () => {
+        const oldRefresh = "old-refresh-token";
+        const oldHash = crypto.createHash("sha256").update(oldRefresh).digest("hex");
+        const authRepository = {
+            getActiveSessionById: vi.fn().mockResolvedValue({
+                id: 42,
+                user_id: "firebase-uid",
+                refresh_token_hash: oldHash,
+                refresh_expires_at: new Date(Date.now() + 60_000),
+                revoked_at: null,
+                session_end: null,
+            }),
+            rotateRefreshToken: vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false),
+            revokeSession: vi.fn().mockResolvedValue(undefined),
+        };
+        const usersRepository = {
+            findById: vi.fn().mockResolvedValue({
+                id: "firebase-uid",
+                email: "current@example.com",
+                role: "Customer",
+                status: "Active",
+            }),
+        };
+        const authSessionService = new AuthSessionService(authRepository as never, usersRepository as never);
         const originalJwtSecret = env.jwtSecret;
-        const originalJwtRefreshSecret = env.jwtRefreshSecret;
         env.jwtSecret = "test-access-secret";
-        env.jwtRefreshSecret = "test-refresh-secret";
 
         try {
-            const refreshToken = jwt.sign({ id: "missing-user" }, env.jwtRefreshSecret, { expiresIn: "30d" });
-            await expect(service.refreshToken(refreshToken)).rejects.toBeInstanceOf(UnauthorizedException);
+            await authSessionService.rotate(42, oldRefresh);
+            await expect(authSessionService.rotate(42, oldRefresh)).rejects.toMatchObject({ status: 401 });
+            expect(authRepository.rotateRefreshToken).toHaveBeenCalledWith(
+                42,
+                oldHash,
+                expect.stringMatching(/^[a-f0-9]{64}$/),
+                expect.any(Date),
+            );
         } finally {
             env.jwtSecret = originalJwtSecret;
-            env.jwtRefreshSecret = originalJwtRefreshSecret;
         }
     });
 
-    it("rejects refresh for a suspended database user", async () => {
-        const { service, usersRepository } = buildAuthService();
-        usersRepository.findById.mockResolvedValue({
-            id: "suspended-user",
-            email: "suspended@example.com",
-            role: "Customer",
-            status: "Suspended",
-        });
-        const originalJwtSecret = env.jwtSecret;
-        const originalJwtRefreshSecret = env.jwtRefreshSecret;
-        env.jwtSecret = "test-access-secret";
-        env.jwtRefreshSecret = "test-refresh-secret";
+    it("passes the session id and raw cookie to refresh rotation", async () => {
+        const { service, authSessionService } = buildAuthService();
+        const rotated = { accessToken: "access", refreshToken: "refresh", rememberMe: false };
+        authSessionService.rotate.mockResolvedValue(rotated);
 
-        try {
-            const refreshToken = jwt.sign({ id: "suspended-user" }, env.jwtRefreshSecret, { expiresIn: "30d" });
-            await expect(service.refreshToken(refreshToken)).rejects.toBeInstanceOf(UnauthorizedException);
-        } finally {
-            env.jwtSecret = originalJwtSecret;
-            env.jwtRefreshSecret = originalJwtRefreshSecret;
-        }
+        await expect(service.refreshToken("42", "raw-refresh-token")).resolves.toBe(rotated);
+        expect(authSessionService.rotate).toHaveBeenCalledWith("42", "raw-refresh-token");
     });
 });
 

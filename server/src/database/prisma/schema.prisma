@@ -30,6 +30,20 @@ model User {
   @@map("users")
 }
 
+model AuthSession {
+  id               Int       @id @default(autoincrement())
+  userId           String    @map("user_id") @db.VarChar(255)
+  sessionStart     DateTime  @default(now()) @map("session_start") @db.DateTime(0)
+  sessionEnd       DateTime? @map("session_end") @db.DateTime(0)
+  refreshTokenHash String?   @map("refresh_token_hash") @db.Char(64)
+  refreshExpiresAt DateTime? @map("refresh_expires_at") @db.DateTime(0)
+  revokedAt        DateTime? @map("revoked_at") @db.DateTime(0)
+  lastUsedAt       DateTime? @map("last_used_at") @db.DateTime(0)
+
+  @@index([userId, revokedAt, refreshExpiresAt], map: "customer_sessions_user_active_idx")
+  @@map("customer_sessions")
+}
+
 model Product {
   id             Int      @id @default(autoincrement())
   name           String   @db.VarChar(255)

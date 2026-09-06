@@ -9,6 +9,7 @@ import type { UserRow } from "../users/users.types";
 import type { RegisterUserInput } from "./auth.dto";
 import type { AuthSessionPayload, JwtPayload, SocialAuthProfile } from "./auth.types";
 import { AuthRepository } from "./auth.repository";
+import { AuthSessionService } from "./auth-session.service";
 import { FirebaseAdminAuthService } from "./firebase-admin.service";
 
 @Injectable()
@@ -17,6 +18,7 @@ export class NestAuthService {
         private readonly authRepository: AuthRepository,
         private readonly usersRepository: UsersRepository,
         private readonly firebaseAdminAuthService: FirebaseAdminAuthService,
+        private readonly authSessionService: AuthSessionService,
     ) {}
 
     async startSession(userId: string) {
@@ -32,10 +34,13 @@ export class NestAuthService {
         }
 
         try {
-            jwt.verify(accessToken, env.jwtSecret);
-            const session = await this.authRepository.getSessionById(sessionId);
+            const payload = jwt.verify(accessToken, env.jwtSecret) as Partial<JwtPayload>;
+            if (!payload.sid || String(payload.sid) !== String(sessionId)) {
+                return { valid: false, message: "Session mismatch" };
+            }
+            const session = await this.authRepository.getActiveSessionById(sessionId);
 
-            if (!session) {
+            if (!session || String(session.user_id) !== String(payload.id)) {
                 return { valid: false, message: "Session not found" };
             }
 
@@ -56,23 +61,8 @@ export class NestAuthService {
         return { sessionEnd };
     }
 
-    private async issueLoginSession(user: UserRow, rememberMe?: boolean): Promise<AuthSessionPayload> {
-        const payload = { id: user.id, email: user.email, role: user.role } as JwtPayload;
-        const accessToken = jwt.sign(payload, env.jwtSecret, {
-            expiresIn: "15m",
-        });
-
-        await this.usersRepository.updateUserToken(user.id, accessToken);
-
-        let refreshToken = null;
-        if (rememberMe) {
-            refreshToken = jwt.sign(payload, env.jwtRefreshSecret, {
-                expiresIn: "30d",
-            });
-        }
-
-        const sessionId = await this.startSession(user.id);
-        return { user, token: accessToken, sessionId, refreshToken };
+    private async issueLoginSession(user: UserRow, rememberMe = false): Promise<AuthSessionPayload> {
+        return this.authSessionService.issue(user, rememberMe);
     }
 
     private buildSocialUsername(profile: SocialAuthProfile) {
@@ -172,27 +162,8 @@ export class NestAuthService {
         return this.issueLoginSession(await this.createSocialUser(profile), false);
     }
 
-    async refreshToken(oldRefreshToken: string): Promise<string> {
-        let parsedPayload: JwtPayload;
-        try {
-            parsedPayload = jwt.verify(oldRefreshToken, env.jwtRefreshSecret) as JwtPayload;
-        } catch {
-            throw new UnauthorizedException({ msg: "Invalid refresh token" });
-        }
-
-        const user = await this.usersRepository.findById(parsedPayload.id);
-        if (!user) {
-            throw new UnauthorizedException({ msg: "Account is not registered" });
-        }
-        if (user.status && user.status !== "Active") {
-            throw new UnauthorizedException({ msg: "Account is suspended" });
-        }
-
-        return jwt.sign(
-            { id: user.id, email: user.email, role: user.role },
-            env.jwtSecret,
-            { expiresIn: "15m" },
-        );
+    async refreshToken(sessionId: number | string, rawRefreshToken: string) {
+        return this.authSessionService.rotate(sessionId, rawRefreshToken);
     }
 
     async getCurrentUser(accessToken?: string, sessionId?: string) {

@@ -29,9 +29,9 @@ const setAuthCookies = (res: Response, payload: AuthSessionPayload, rememberMe: 
     );
     res.cookie("accessToken", payload.token, baseCookieOptions);
 
-    if (rememberMe && payload.refreshToken) {
-        res.cookie("refreshToken", payload.refreshToken, withMaxAge(THIRTY_DAYS));
-    } else if (!rememberMe) {
+    if (payload.refreshToken) {
+        res.cookie("refreshToken", payload.refreshToken, rememberMe ? withMaxAge(THIRTY_DAYS) : baseCookieOptions);
+    } else {
         res.clearCookie("refreshToken", baseCookieOptions);
     }
 };
@@ -104,20 +104,25 @@ export class NestAuthController {
     @HttpCode(HttpStatus.OK)
     async userRefreshToken(@Req() req: Request, @Res() res: Response) {
         const refreshTokenCookie = req.cookies.refreshToken;
-        if (!refreshTokenCookie) {
+        const sessionId = req.cookies.session;
+        if (!refreshTokenCookie || !sessionId) {
             return res.status(401).json(buildErrorResponse({
                 statusCode: 401,
                 code: "UNAUTHORIZED",
-                message: "No refresh token",
+                message: !refreshTokenCookie ? "No refresh token" : "No session",
                 requestId: requestIdFrom(req),
             }));
         }
 
         try {
-            const newAccessToken = await this.authService.refreshToken(refreshTokenCookie);
-            res.cookie("accessToken", newAccessToken, baseCookieOptions);
+            const rotated = await this.authService.refreshToken(sessionId, refreshTokenCookie);
+            res.cookie("accessToken", rotated.accessToken, baseCookieOptions);
+            res.cookie(
+                "refreshToken",
+                rotated.refreshToken,
+                rotated.rememberMe ? withMaxAge(THIRTY_DAYS) : baseCookieOptions,
+            );
             return res.status(200).json(buildSuccessResponse({
-                token: newAccessToken,
                 msg: "Token refreshed successfully",
             }, requestIdFrom(req)));
         } catch {
