@@ -58,9 +58,10 @@ model Product {
   createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(0)
   updatedAt      DateTime @default(now()) @map("updated_at") @db.DateTime(0)
 
-  reviews    Review[]
-  cartItems  CartItem[]
-  orderItems OrderItem[]
+  reviews               Review[]
+  cartItems             CartItem[]
+  orderItems            OrderItem[]
+  inventoryReservations InventoryReservation[]
 
   @@map("products")
 }
@@ -139,19 +140,40 @@ model Order {
 }
 
 model PendingCheckout {
-  id              Int       @id @default(autoincrement())
-  stripeSessionId String    @unique(map: "uq_pending_checkouts_session") @map("stripe_session_id") @db.VarChar(255)
-  userId          String    @map("user_id") @db.VarChar(255)
-  cartJson        String    @map("cart_json") @db.Text
-  totalPrice      Decimal   @map("total_price") @db.Decimal(11, 2)
-  discount        Decimal   @default(0) @db.Decimal(11, 2)
-  shippingAddress String    @map("shipping_address") @db.Text
-  createdAt       DateTime  @default(now()) @map("created_at") @db.DateTime(0)
-  consumedAt      DateTime? @map("consumed_at") @db.DateTime(0)
+  id               Int       @id @default(autoincrement())
+  stripeSessionId  String?   @unique(map: "uq_pending_checkouts_session") @map("stripe_session_id") @db.VarChar(255)
+  reservationToken String    @unique(map: "uq_pending_checkouts_reservation_token") @map("reservation_token") @db.Char(36)
+  userId           String    @map("user_id") @db.VarChar(255)
+  cartJson         String    @map("cart_json") @db.Text
+  totalPrice       Decimal   @map("total_price") @db.Decimal(11, 2)
+  discount         Decimal   @default(0) @db.Decimal(11, 2)
+  shippingAddress  String    @map("shipping_address") @db.Text
+  status           String    @default("PENDING") @db.VarChar(20)
+  expiresAt        DateTime? @map("expires_at") @db.DateTime(0)
+  discountId       Int?      @map("discount_id")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  consumedAt       DateTime? @map("consumed_at") @db.DateTime(0)
 
-  user User @relation(fields: [userId], references: [id])
+  user                  User                   @relation(fields: [userId], references: [id])
+  inventoryReservations InventoryReservation[]
 
+  @@index([status, expiresAt], map: "pending_checkouts_status_expiry_idx")
   @@map("pending_checkouts")
+}
+
+model InventoryReservation {
+  id                Int      @id @default(autoincrement())
+  pendingCheckoutId Int      @map("pending_checkout_id")
+  productId         Int      @map("product_id")
+  quantity          Int
+  createdAt         DateTime @default(now()) @map("created_at") @db.DateTime(0)
+
+  pendingCheckout PendingCheckout @relation(fields: [pendingCheckoutId], references: [id])
+  product         Product         @relation(fields: [productId], references: [id])
+
+  @@unique([pendingCheckoutId, productId], map: "uq_inventory_reservation_checkout_product")
+  @@index([productId], map: "inventory_reservations_product_idx")
+  @@map("inventory_reservations")
 }
 
 model OrderItem {

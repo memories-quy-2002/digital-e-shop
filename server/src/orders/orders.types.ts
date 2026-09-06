@@ -1,4 +1,5 @@
 import type { PurchasePayload } from "./orders.dto";
+import type { CartItemRow } from "../cart/cart.types";
 
 export type OrderSummaryRow = {
     id: number;
@@ -86,6 +87,48 @@ export type PendingCheckoutRow = {
     shipping_address: string;
     created_at: string;
     consumed_at: string | null;
+};
+
+export type ReservedQuantityRow = {
+    product_id: number;
+    reserved_quantity: number | string | null;
+};
+
+export type CheckoutReservationItem = {
+    productId: number;
+    quantity: number;
+};
+
+export type CheckoutReservationInput = {
+    uid: string;
+    authoritativeCart: CartItemRow[];
+    authoritativeTotalPrice: number;
+    discount: number;
+    shippingAddress: string;
+    databaseExpiresAt?: Date;
+};
+
+export type PendingCheckoutInsertInput = {
+    reservationToken: string;
+    userId: string;
+    cartJson: string;
+    totalPrice: number;
+    discount: number;
+    shippingAddress: string;
+    expiresAt: Date;
+};
+
+export type CheckoutReservation = {
+    pendingCheckoutId: number;
+    reservationToken: string;
+    expiresAt: Date;
+    cartSnapshot: CartItemRow[];
+    pricingSnapshot: {
+        totalPrice: number;
+        discount: number;
+    };
+    shippingAddress: string;
+    items: CheckoutReservationItem[];
 };
 
 export type OrderBySessionRow = {
