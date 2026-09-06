@@ -33,6 +33,8 @@ const setAuthCookies = (res: Response, payload: AuthSessionPayload, rememberMe: 
 
     if (rememberMe && payload.refreshToken) {
         res.cookie("refreshToken", payload.refreshToken, withMaxAge(THIRTY_DAYS));
+    } else if (!rememberMe) {
+        res.clearCookie("refreshToken", baseCookieOptions);
     }
 };
 

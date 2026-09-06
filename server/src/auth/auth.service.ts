@@ -170,19 +170,26 @@ export class NestAuthService {
     }
 
     async refreshToken(oldRefreshToken: string): Promise<string> {
-        return new Promise((resolve, reject) => {
-            jwt.verify(oldRefreshToken, env.jwtRefreshSecret, (err, payload) => {
-                if (err) return reject(err);
-                const parsedPayload = payload as JwtPayload;
-                const newAccess = jwt.sign(
-                    { id: parsedPayload.id, email: parsedPayload.email, role: parsedPayload.role },
-                    env.jwtSecret,
-                    { expiresIn: "15m" },
-                );
+        let parsedPayload: JwtPayload;
+        try {
+            parsedPayload = jwt.verify(oldRefreshToken, env.jwtRefreshSecret) as JwtPayload;
+        } catch {
+            throw new UnauthorizedException({ msg: "Invalid refresh token" });
+        }
 
-                resolve(newAccess);
-            });
-        });
+        const user = await this.usersRepository.findById(parsedPayload.id);
+        if (!user) {
+            throw new UnauthorizedException({ msg: "Account is not registered" });
+        }
+        if (user.status && user.status !== "Active") {
+            throw new UnauthorizedException({ msg: "Account is suspended" });
+        }
+
+        return jwt.sign(
+            { id: user.id, email: user.email, role: user.role },
+            env.jwtSecret,
+            { expiresIn: "15m" },
+        );
     }
 
     async getCurrentUser(accessToken?: string, sessionId?: string) {

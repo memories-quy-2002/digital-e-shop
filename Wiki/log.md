@@ -15,3 +15,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-04 — Codex — Expanded the local demo catalog to 28 linked products across 8 categories and 16 brands; connected every product to demo orders, reviews, wishlists, images, and FK/orphan verification.
 - 2026-09-04 — Codex — Standardized backend success/error metadata with request correlation IDs and structured access/error logging; added critical auth, ownership, checkout, Stripe webhook, response-contract, and observability specs, and fixed Nest role metadata attachment.
 - 2026-09-06 — Codex — Moved login and registration to server-verified Firebase ID tokens, made public auth schemas strict, and enforced customer-only public registration.
+- 2026-09-06 — Codex — Hardened refresh identity reloading, suspended-user rejection, stale refresh-cookie cleanup, and explicit missing Firebase ID-token validator coverage.
