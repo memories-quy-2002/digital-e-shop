@@ -69,7 +69,7 @@ digital-e-shop/
 
 ### Database
 - Primary access through `server/src/<feature>/<feature>.repository.ts` (MySQL, `@Injectable()` Nest providers). Prisma schema at `server/src/database/prisma/schema.prisma` is partially adopted. See [[0001-mysql-primary-prisma-partial]].
-- **Prisma 7**: uses the rust-free `prisma-client` generator (`moduleFormat = "cjs"`, `runtime = "nodejs"`) emitting to `server/src/generated/prisma` (gitignored, rebuilt on install/build). The datasource URL lives in `server/prisma.config.ts` — not the schema — and the runtime connects via the `@prisma/adapter-mariadb` driver adapter (MySQL-compatible) constructed in `server/src/database/prisma/client.ts`.
+- **Prisma 7**: uses the rust-free `prisma-client` generator (`moduleFormat = "cjs"`, `runtime = "nodejs"`) emitting to `server/src/generated/prisma` (gitignored, rebuilt on install/build through the serialized `server/scripts/prisma-generate.mjs` wrapper). The datasource URL lives in `server/prisma.config.ts` — not the schema — and the runtime connects via the `@prisma/adapter-mariadb` driver adapter (MySQL-compatible) constructed in `server/src/database/prisma/client.ts`.
 - **DB connection is env-driven** (`DB_HOST/PORT/USER/PASSWORD/NAME` in `server/src/config/database.config.ts`). Managed MySQL (Aiven) requires TLS: set `DB_SSL=true` to load the CA at `server/src/database/ca.pem` (override via `DB_SSL_CA_PATH`) and connect over verified SSL; leave `DB_SSL` unset for plaintext local/Docker. Docker is test-only, driven by its own env and the `docker:*` scripts.
 - SQL baseline dump under `server/src/database/migrations/`. Some tables (inventory movement, notifications, address book, order timeline) are created defensively on first use.
 - Keep table/column names aligned with the existing dump/schema. Prefer additive, reviewable changes; update all affected layers (repository, service, validator, types, Prisma) together.
@@ -90,16 +90,13 @@ digital-e-shop/
 - Local development uses the isolated Docker MySQL database
   `digital_e_shop_local` on `127.0.0.1:3307` and the dedicated
   `digital_e_shop_local_mysql_data` volume. Runtime, Prisma, and mock-seed
-  entrypoints reject remote targets outside production; production credentials
-  are injected by the deployment environment.
+  entrypoints reject remote targets by default; intentional remote development
+  requires `ALLOW_REMOTE_DATABASE=true`, while production credentials are
+  injected by the deployment environment.
 - The server project's `server/vercel.json` pins Vercel's install step to the workspace
-  package manager with `corepack pnpm@11.5.3 install --frozen-lockfile`. This is
-  required because the older `digital-e-server` project otherwise infers pnpm 9
-  from lockfile version `9.0` and rejects the workspace override configuration.
-- The root `package.json` also mirrors the security overrides in its legacy
-  `pnpm` field for Vercel's native serverless API builder, which may perform a
-  second pnpm 9 install. pnpm 11 ignores that field; `pnpm-workspace.yaml` is
-  still canonical, and both phases resolve the same pinned versions.
+  package manager with `corepack pnpm@12.3.4 install --frozen-lockfile`.
+- The root `package.json` no longer duplicates the deprecated `pnpm` settings
+  field; `pnpm-workspace.yaml` is the canonical override configuration.
 - Prisma's schema-only `generate` command is allowed during dependency
   installation because it does not connect to a database; migration and other
   database-connecting commands remain subject to the target guard.

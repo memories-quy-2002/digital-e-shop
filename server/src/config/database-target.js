@@ -27,7 +27,7 @@ const hasRemoteHost = (hosts) => hosts.some((host) => !LOCAL_DATABASE_HOSTS.has(
 
 const nonLocalTargetError = () =>
     new Error(
-        "Refusing to use a non-local database target outside production. Set DB_HOST and DATABASE_URL to localhost, 127.0.0.1, or ::1.",
+        "Refusing to use a non-local database target outside production. Set DB_HOST and DATABASE_URL to localhost, 127.0.0.1, or ::1, or explicitly set ALLOW_REMOTE_DATABASE=true.",
     );
 
 /**
@@ -45,22 +45,29 @@ function isPrismaGenerateCommand(argv = process.argv) {
  * @property {string} [nodeEnv]
  * @property {string} [dbHost]
  * @property {string} [databaseUrl]
+ * @property {boolean} [allowRemoteDatabase]
  */
 
 /**
  * Protects runtime and Prisma CLI entrypoints from using a remote database
- * while running in development or test mode. Production is configured through
- * the deployment environment and is intentionally allowed to use a remote DB.
+ * while running in development or test mode unless remote access is explicitly
+ * opted in. Production is configured through the deployment environment and is
+ * intentionally allowed to use a remote DB.
  * @param {DatabaseTargetOptions} options
  */
-function assertSafeDatabaseTarget({ nodeEnv = "development", dbHost, databaseUrl } = {}) {
+function assertSafeDatabaseTarget({
+    nodeEnv = "development",
+    dbHost,
+    databaseUrl,
+    allowRemoteDatabase = false,
+} = {}) {
     if (nodeEnv === "production") {
         return;
     }
 
     const { hosts, invalidUrl } = inspectDatabaseTarget({ dbHost, databaseUrl });
 
-    if (invalidUrl || hasRemoteHost(hosts)) {
+    if (invalidUrl || (hasRemoteHost(hosts) && !allowRemoteDatabase)) {
         throw nonLocalTargetError();
     }
 }

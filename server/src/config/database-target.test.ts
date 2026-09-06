@@ -43,6 +43,15 @@ describe("database target guards", () => {
         })).not.toThrow();
     });
 
+    it("allows a remote development target only with explicit opt-in", () => {
+        expect(() => assertSafeDatabaseTarget({
+            nodeEnv: "development",
+            dbHost: "mysql.example.test",
+            databaseUrl: "mysql://root:password@mysql.example.test:3306/digital_e_shop",
+            allowRemoteDatabase: true,
+        })).not.toThrow();
+    });
+
     it("requires the mock seed to use a configured local database", () => {
         expect(() => assertLocalDatabaseTarget({})).toThrow(
             "Local database target is not configured",

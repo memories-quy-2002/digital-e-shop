@@ -10,6 +10,7 @@ if (process.env.DATABASE_URL && !isPrismaGenerateCommand()) {
         nodeEnv: process.env.NODE_ENV || "development",
         dbHost: process.env.DB_HOST,
         databaseUrl: process.env.DATABASE_URL,
+        allowRemoteDatabase: process.env.ALLOW_REMOTE_DATABASE === "true",
     });
 }
 
