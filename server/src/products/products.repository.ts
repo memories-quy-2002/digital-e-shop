@@ -48,11 +48,22 @@ const productRatingSelect = `
     COALESCE(review_summary.reviews, 0) AS reviews
 `;
 
+const productAvailabilityJoin = `
+    LEFT JOIN (
+        SELECT ir.product_id, SUM(ir.quantity) AS reserved_quantity
+        FROM inventory_reservations ir
+        JOIN pending_checkouts pc ON pc.id = ir.pending_checkout_id
+        WHERE pc.status = 'PENDING' AND pc.expires_at > UTC_TIMESTAMP()
+        GROUP BY ir.product_id
+    ) active_reservations ON active_reservations.product_id = products.id
+`;
+
 const productBaseFrom = `
     FROM products
     JOIN categories ON categories.id = products.category_id
     JOIN brands ON brands.id = products.brand_id
     ${productRatingJoin}
+    ${productAvailabilityJoin}
 `;
 
 const getProductListWhere = (filters: ProductListFilters = {}) => {
@@ -210,12 +221,14 @@ export class NestProductsRepository {
         return new Promise((resolve, reject) => {
             pool.query(
                 `SELECT products.id, products.name, description, categories.name AS category,
-                    brands.name AS brand, price, sale_price, stock, main_image,
+                    brands.name AS brand, price, sale_price, stock,
+                    GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
                     specifications, ${productRatingSelect}
                 FROM products
                 JOIN categories ON categories.id = products.category_id
                 JOIN brands ON brands.id = products.brand_id
                 ${productRatingJoin}
+                ${productAvailabilityJoin}
                 WHERE products.id = ? AND products.stock >= 0`,
                 [pid],
                 (err: Error | null, rows: ProductEditorRow[]) => {
@@ -230,7 +243,8 @@ export class NestProductsRepository {
         return new Promise((resolve, reject) => {
             pool.query(
                 `SELECT products.id, products.name, description, categories.name AS category,
-                    brands.name AS brand, price, sale_price, stock, main_image,
+                    brands.name AS brand, price, sale_price, stock,
+                    GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
                     specifications, ${productRatingSelect}
                 ${productBaseFrom}
                 WHERE products.stock >= 0
@@ -247,7 +261,8 @@ export class NestProductsRepository {
         return new Promise((resolve, reject) => {
             pool.query(
                 `SELECT products.id, products.name, description, categories.name AS category,
-                    brands.name AS brand, price, sale_price, stock, main_image,
+                    brands.name AS brand, price, sale_price, stock,
+                    GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
                     specifications, ${productRatingSelect}
                 ${productBaseFrom}
                 WHERE products.stock >= 0
@@ -270,7 +285,8 @@ export class NestProductsRepository {
         return new Promise((resolve, reject) => {
             pool.query(
                 `SELECT products.id, products.name, description, categories.name AS category,
-                    brands.name AS brand, price, sale_price, stock, main_image,
+                    brands.name AS brand, price, sale_price, stock,
+                    GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
                     specifications, ${productRatingSelect}
                 ${productBaseFrom}
                 ${whereClause}

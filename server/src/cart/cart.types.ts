@@ -12,6 +12,7 @@ export type CartItemRow = {
     main_image?: string | null;
     quantity?: number;
     stock?: number | null;
+    available_stock?: number | null;
     [key: string]: unknown;
 };
 

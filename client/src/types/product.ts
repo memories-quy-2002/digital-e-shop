@@ -9,6 +9,7 @@ export interface Product {
     reviews: number;
     main_image: string | null;
     stock: number;
+    available_stock?: number;
     description: string;
     specifications: string | null;
 }

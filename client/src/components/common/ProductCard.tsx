@@ -36,7 +36,8 @@ const ProductCard = ({
         normalizedProduct.sale_price < normalizedProduct.price;
     const activePrice = hasSale ? normalizedProduct.sale_price ?? normalizedProduct.price : normalizedProduct.price;
     const productPath = `/product?id=${normalizedProduct.id}`;
-    const stockLabel = normalizedProduct.stock > 0 ? `${normalizedProduct.stock} in stock` : "Out of stock";
+    const availableStock = normalizedProduct.available_stock ?? normalizedProduct.stock;
+    const stockLabel = availableStock > 0 ? `${availableStock} in stock` : "Out of stock";
 
     return (
         <Card
@@ -48,7 +49,7 @@ const ProductCard = ({
                     <Badge variant="signal" className="absolute left-3 top-3 z-10 rounded-control">
                         Sale
                     </Badge>
-                ) : normalizedProduct.stock > 0 ? (
+                ) : availableStock > 0 ? (
                     <Badge variant="default" className="absolute left-3 top-3 z-10 rounded-control">
                         In stock
                     </Badge>
@@ -105,7 +106,7 @@ const ProductCard = ({
 
                 <div className="flex min-h-5 items-center justify-between gap-2 font-mono text-[0.65rem] text-success-strong">
                     <span>{stockLabel}</span>
-                    {normalizedProduct.stock > 0 ? <span className="hidden text-[0.55rem] uppercase text-muted-foreground sm:inline">Ready to ship</span> : null}
+                    {availableStock > 0 ? <span className="hidden text-[0.55rem] uppercase text-muted-foreground sm:inline">Ready to ship</span> : null}
                 </div>
 
                 <div className="flex min-h-7 items-baseline gap-2 font-mono">
@@ -127,7 +128,7 @@ const ProductCard = ({
                     type="button"
                     className="mt-1 w-full"
                     onClick={() => onAddingCart(uid, normalizedProduct.id)}
-                    disabled={normalizedProduct.stock <= 0}
+                    disabled={availableStock <= 0}
                 >
                     <CartIcon size={16} color="currentColor" />
                     Add to cart

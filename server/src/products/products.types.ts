@@ -9,6 +9,7 @@ export type ProductEditorRow = {
     price: number;
     sale_price?: number | null;
     stock: number;
+    available_stock?: number;
     specifications?: string | null;
     main_image?: string;
     rating?: number;

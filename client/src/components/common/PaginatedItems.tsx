@@ -180,7 +180,7 @@ const PaginatedItems = ({
 
         try {
             const product = productById.get(product_id);
-            const stock = product ? product.stock : 0;
+            const stock = product ? (product.available_stock ?? product.stock) : 0;
             if (stock <= 0) {
                 addToast("Out of stock", "This product is out of stock.");
                 return;

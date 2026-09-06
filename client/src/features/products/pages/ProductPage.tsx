@@ -86,9 +86,11 @@ const ProductPage = () => {
         reviews: 0,
         main_image: "",
         stock: 0,
+        available_stock: 0,
         description: "",
         specifications: "",
     });
+    const availableStock = productDetail.available_stock ?? productDetail.stock;
     const [isLoadingProduct, setIsLoadingProduct] = useState(true);
     const [productLoadError, setProductLoadError] = useState(false);
     const [relevantProducts, setRelevantProducts] = useState<Product[]>([]);
@@ -308,8 +310,8 @@ const ProductPage = () => {
     };
 
     const handleIncrease = () => {
-        if (productDetail.stock > 0) {
-            setQuantity((value) => Math.min(productDetail.stock, value + 1));
+        if (availableStock > 0) {
+            setQuantity((value) => Math.min(availableStock, value + 1));
         }
     };
 
@@ -322,7 +324,7 @@ const ProductPage = () => {
             addToast("Login required", "You need to login to use this feature.");
             return;
         } else {
-            if (productDetail.stock === 0) {
+            if (availableStock === 0) {
                 addToast("Out of stock", "The product is out of stock.");
                 return;
             } else if (quantity === 0) {
@@ -451,8 +453,8 @@ const ProductPage = () => {
         {
             label: t("product.stockLabel"),
             value:
-                productDetail.stock > 0
-                    ? t("product.stockValueIn", productDetail.stock)
+                availableStock > 0
+                    ? t("product.stockValueIn", availableStock)
                     : t("product.stockValueOut"),
         },
     ];
@@ -577,7 +579,7 @@ const ProductPage = () => {
                                 <label className="product-page__quantity-field" htmlFor="quantity">
                                     <span>{t("product.quantity")}</span>
                                     <div className="product-page__quantity">
-                                        <button type="button" onClick={handleDecrease} disabled={productDetail.stock <= 0}>
+                                        <button type="button" onClick={handleDecrease} disabled={availableStock <= 0}>
                                             -
                                         </button>
                                         <input
@@ -585,25 +587,25 @@ const ProductPage = () => {
                                             name="quantity"
                                             id="quantity"
                                             min={1}
-                                            max={productDetail.stock}
+                                            max={availableStock}
                                             value={quantity}
                                             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                                                 setQuantity(() => {
                                                     const raw = Number(e.target.value);
                                                     const safe = Number.isFinite(raw) ? raw : 1;
-                                                    const max = productDetail.stock > 0 ? productDetail.stock : 1;
+                                                    const max = availableStock > 0 ? availableStock : 1;
                                                     return Math.max(1, Math.min(max, safe));
                                                 })
                                             }
-                                            disabled={productDetail.stock <= 0}
+                                            disabled={availableStock <= 0}
                                         />
-                                        <button type="button" onClick={handleIncrease} disabled={productDetail.stock <= 0}>
+                                        <button type="button" onClick={handleIncrease} disabled={availableStock <= 0}>
                                             +
                                         </button>
                                     </div>
                                     <small>
-                                        {productDetail.stock > 0
-                                            ? t("product.stockIn", productDetail.stock)
+                                        {availableStock > 0
+                                            ? t("product.stockIn", availableStock)
                                             : t("product.stockOut")}
                                     </small>
                                 </label>
@@ -617,7 +619,7 @@ const ProductPage = () => {
                                             addToast("Login required", "You need to login to use this feature.");
                                         }
                                     }}
-                                    disabled={productDetail.stock <= 0}
+                                    disabled={availableStock <= 0}
                                 >
                                     {t("product.addToCart")}
                                 </button>

@@ -16,6 +16,7 @@ export type CustomerOrderItem = {
     price: number;
     sale_price: number | null;
     stock: number;
+    available_stock?: number;
     quantity: number;
     totalPrice: number;
 };
@@ -44,6 +45,7 @@ export type CheckoutCartItem = {
     main_image: string;
     quantity: number;
     stock: number;
+    available_stock?: number;
 };
 
 export type CartValidationIssue = {
@@ -80,6 +82,10 @@ export const normalizeCheckoutCartItems = (items: any[] = []): CheckoutCartItem[
         main_image: String(item.main_image || ""),
         quantity: Number(item.quantity) || 0,
         stock: item.stock === null || item.stock === undefined ? 0 : Number(item.stock) || 0,
+        available_stock:
+            item.available_stock === null || item.available_stock === undefined
+                ? (item.stock === null || item.stock === undefined ? 0 : Number(item.stock) || 0)
+                : Number(item.available_stock) || 0,
     }));
 
 export const getCartValidationMessage = (issues: CartValidationIssue[]) => {

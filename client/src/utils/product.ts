@@ -27,6 +27,7 @@ export const normalizeProduct = (value: unknown): Product => {
         reviews: asNumber(source.reviews),
         main_image: source.main_image ? String(source.main_image) : null,
         stock: asNumber(source.stock),
+        available_stock: asNumber(source.available_stock ?? source.stock),
         description: String(source.description ?? ""),
         specifications:
             source.specifications === null || source.specifications === undefined

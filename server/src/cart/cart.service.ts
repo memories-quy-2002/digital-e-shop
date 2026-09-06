@@ -32,9 +32,10 @@ export function buildCartValidationIssue(item: CartItemRow): CartValidationIssue
     const productId = Number(item.product_id || 0);
     const productName = String(item.product_name || `Product #${productId}`);
     const requestedQuantity = Number(item.quantity) || 0;
-    const availableStock = item.stock === null || item.stock === undefined ? 0 : Number(item.stock) || 0;
+    const rawAvailableStock = item.available_stock ?? item.stock;
+    const availableStock = rawAvailableStock === null || rawAvailableStock === undefined ? 0 : Number(rawAvailableStock) || 0;
 
-    if (!productId || item.stock === null || item.stock === undefined || availableStock < 0) {
+    if (!productId || rawAvailableStock === null || rawAvailableStock === undefined || availableStock < 0) {
         return {
             cartItemId,
             productId,
@@ -200,8 +201,9 @@ export class NestCartService {
         if (!product) {
             throw new Error("Product not found");
         }
-        if ((product as ProductEditorRow).stock < safeQuantity) {
-            throw new Error(`Only ${(product as ProductEditorRow).stock} item(s) available`);
+        const availableStock = Number((product as ProductEditorRow).available_stock ?? (product as ProductEditorRow).stock) || 0;
+        if (availableStock < safeQuantity) {
+            throw new Error(`Only ${availableStock} item(s) available`);
         }
 
         return new Promise((resolve, reject) => {
@@ -293,7 +295,7 @@ export class NestCartService {
         return new Promise((resolve, reject) => {
             this.cartRepository.getCartItemStock(cartItemId, (stockErr: DbError | null, stockResults: CartItemRow[]) => {
                 if (stockErr) return reject(stockErr);
-                const stock = Number(stockResults[0]?.stock) || 0;
+                const stock = Number(stockResults[0]?.available_stock ?? stockResults[0]?.stock) || 0;
                 if (stock < safeQuantity) {
                     return reject(new Error(`Only ${stock} item(s) available`));
                 }
