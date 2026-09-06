@@ -120,6 +120,60 @@ describe("authentication flow response contract", () => {
         expect(authService.registerUser).toHaveBeenCalledWith("firebase-id-token", { username: "attacker" });
     });
 
+    it("sets a session access cookie when refreshing an access token", async () => {
+        authService.refreshToken.mockResolvedValue("refreshed-access-token");
+        const response = mockResponse();
+
+        await controller.userRefreshToken(
+            { requestId: "auth-refresh-cookie-1", cookies: { refreshToken: "refresh-token" } } as never,
+            response as never,
+        );
+
+        expect(response.cookie).toHaveBeenCalledWith(
+            "accessToken",
+            "refreshed-access-token",
+            expect.objectContaining({
+                httpOnly: true,
+                secure: false,
+                sameSite: "lax",
+            }),
+        );
+        expect(response.cookie.mock.calls[0][2]).not.toHaveProperty("maxAge");
+        expect(response.json).toHaveBeenCalledWith({
+            token: "refreshed-access-token",
+            msg: "Token refreshed successfully",
+            success: true,
+            requestId: "auth-refresh-cookie-1",
+        });
+    });
+
+    it("keeps registration cookies session-scoped and does not set a refresh cookie", async () => {
+        authService.registerUser.mockResolvedValue({
+            user: { id: "firebase-uid", email: "customer@example.com", role: "Customer" },
+            token: "access-token",
+            sessionId: 42,
+            refreshToken: null,
+        });
+        const response = mockResponse();
+
+        await controller.registerUser(
+            { idToken: "firebase-id-token", user: { username: "new-user" } } as never,
+            { requestId: "auth-register-cookie-1" } as never,
+            response as never,
+        );
+
+        expect(response.cookie).toHaveBeenCalledTimes(3);
+        for (const [, , options] of response.cookie.mock.calls) {
+            expect(options).toEqual(expect.objectContaining({
+                httpOnly: true,
+                secure: false,
+                sameSite: "lax",
+            }));
+            expect(options).not.toHaveProperty("maxAge");
+        }
+        expect(response.cookie).not.toHaveBeenCalledWith("refreshToken", expect.anything(), expect.anything());
+    });
+
     it("returns canonical success metadata when the customer session is valid", async () => {
         authService.verifySessionToken.mockResolvedValue({ valid: true });
         const response = mockResponse();

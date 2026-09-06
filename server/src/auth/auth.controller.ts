@@ -72,11 +72,9 @@ export class NestAuthController {
         @Res() res: Response,
     ) {
         const { idToken, user } = body;
-        const { user: createdUser, token, sessionId } = await this.authService.registerUser(idToken, user);
-
-        res.cookie("session", sessionId, withMaxAge(THIRTY_DAYS));
-        res.cookie("userInfo", JSON.stringify({ uid: createdUser.id, token }), withMaxAge(THIRTY_DAYS));
-        res.cookie("accessToken", token, withMaxAge(THIRTY_DAYS));
+        const sessionPayload = await this.authService.registerUser(idToken, user);
+        const { user: createdUser, token } = sessionPayload;
+        setAuthCookies(res, sessionPayload, false);
 
         return res.status(200).json(buildSuccessResponse(
             { uid: createdUser.id, token, msg: "User created successfully" },
@@ -117,6 +115,7 @@ export class NestAuthController {
 
         try {
             const newAccessToken = await this.authService.refreshToken(refreshTokenCookie);
+            res.cookie("accessToken", newAccessToken, baseCookieOptions);
             return res.status(200).json(buildSuccessResponse({
                 token: newAccessToken,
                 msg: "Token refreshed successfully",
