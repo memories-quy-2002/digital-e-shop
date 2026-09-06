@@ -5,10 +5,14 @@ import { randomUUID } from "node:crypto";
 import { logger } from "#src/shared/utils/logger";
 import type { ProductEditorRow } from "./products.types";
 import type { ProductCreateInput, ProductUpdateInput } from "./products.dto";
+import type { ProductAttributeInput } from "./product-attributes.types";
 import type { UploadedFile } from "../blob/blob.types";
 import type { IdNameRow, InsertResult, UpdateResult } from "#src/shared/interfaces/domain";
 import { NestProductsRepository } from "./products.repository";
 import { NestInventoryService } from "../inventory/inventory.service";
+import { ProductAttributesRepository } from "./product-attributes.repository";
+import { withTransaction } from "../database/transaction";
+import type { TransactionContext } from "../database/transaction";
 
 const query = util.promisify(pool.query).bind(pool);
 const dbQuery = <T = unknown>(sql: string, values?: unknown[]): Promise<T> => query(sql, values) as Promise<T>;
@@ -41,6 +45,7 @@ export class NestProductsService {
     constructor(
         private readonly productsRepository: NestProductsRepository,
         private readonly inventoryService: NestInventoryService,
+        private readonly productAttributesRepository: ProductAttributesRepository,
     ) {}
 
     async addSingleProductService(data: ProductCreateInput, file?: UploadedFile) {
@@ -53,6 +58,7 @@ export class NestProductsService {
             sku,
             manufacturerPartNumber,
             warrantyMonths,
+            attributes = [],
             price,
             inventory,
             imageUrl,
@@ -77,47 +83,31 @@ export class NestProductsService {
             throw new Error("Product image is required");
         }
 
-        await query("START TRANSACTION");
-
         try {
-            let brandId: number;
-            const brandResults = await dbQuery<IdNameRow[]>("SELECT id FROM brands WHERE name = ?", [brand]);
-            if (brandResults.length > 0) {
-                brandId = brandResults[0].id;
-            } else {
-                const insertBrand = await dbQuery<InsertResult>("INSERT INTO brands (name) VALUES (?)", [brand]);
-                brandId = insertBrand.insertId;
-            }
-
-            let categoryId: number;
-            const categoryResults = await dbQuery<IdNameRow[]>("SELECT id FROM categories WHERE name = ?", [category]);
-            if (categoryResults.length > 0) {
-                categoryId = categoryResults[0].id;
-            } else {
-                const insertCategory = await dbQuery<InsertResult>("INSERT INTO categories (name) VALUES (?)", [category]);
-                categoryId = insertCategory.insertId;
-            }
-
-            const insertProduct = await dbQuery<InsertResult>(
-                `INSERT INTO products
-                    (name, description, main_image, category_id, brand_id, specifications, sku, manufacturer_part_number, warranty_months, price, stock)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [
-                    name,
-                    description,
-                    fileName,
-                    categoryId,
-                    brandId,
-                    specifications,
-                    normalizedSku,
-                    normalizedManufacturerPartNumber,
-                    normalizedWarrantyMonths,
-                    price,
-                    inventory,
-                ],
-            );
-
-            await query("COMMIT");
+            const insertProduct = await withTransaction(async (tx) => {
+                const brandId = await this.ensureNamedId("brands", brand, tx);
+                const categoryId = await this.ensureNamedId("categories", category, tx);
+                const result = await tx.query<InsertResult>(
+                    `INSERT INTO products
+                        (name, description, main_image, category_id, brand_id, specifications, sku, manufacturer_part_number, warranty_months, price, stock)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [
+                        name,
+                        description,
+                        fileName,
+                        categoryId,
+                        brandId,
+                        specifications,
+                        normalizedSku,
+                        normalizedManufacturerPartNumber,
+                        normalizedWarrantyMonths,
+                        price,
+                        inventory,
+                    ],
+                );
+                await this.productAttributesRepository.replaceForProduct(tx, result.insertId, attributes as ProductAttributeInput[]);
+                return result;
+            });
             this.inventoryService.recordMovement({
                 productId: insertProduct.insertId,
                 movementType: "initial_stock",
@@ -129,7 +119,6 @@ export class NestProductsService {
             });
             return { msg: "Product added successfully" };
         } catch (err) {
-            await query("ROLLBACK");
             if ((err as { code?: string }).code === "ER_DUP_ENTRY") {
                 throw Object.assign(new Error("SKU already exists"), { statusCode: 409 });
             }
@@ -137,38 +126,31 @@ export class NestProductsService {
         }
     }
 
-    private async ensureNamedId(tableName: "categories" | "brands", name: string) {
+    private async ensureNamedId(tableName: "categories" | "brands", name: string, tx?: TransactionContext) {
         const safeName = String(name || "").trim();
         if (!safeName) {
             throw Object.assign(new Error(`${tableName} is required`), { statusCode: 400 });
         }
 
-        const rows = await dbQuery<IdNameRow[]>(`SELECT id FROM ${tableName} WHERE name = ?`, [safeName]);
+        const rows = tx
+            ? await tx.query<IdNameRow[]>(`SELECT id FROM ${tableName} WHERE name = ?`, [safeName])
+            : await dbQuery<IdNameRow[]>(`SELECT id FROM ${tableName} WHERE name = ?`, [safeName]);
         if (rows.length > 0) {
             return rows[0].id;
         }
 
-        const result = await dbQuery<InsertResult>(`INSERT INTO ${tableName} (name) VALUES (?)`, [safeName]);
+        const result = tx
+            ? await tx.query<InsertResult>(`INSERT INTO ${tableName} (name) VALUES (?)`, [safeName])
+            : await dbQuery<InsertResult>(`INSERT INTO ${tableName} (name) VALUES (?)`, [safeName]);
         return result.insertId;
     }
 
     async updateProductDetailsService(pid: number, updates: ProductUpdateInput): Promise<ProductEditorRow> {
-        const currentRows = await dbQuery<ProductEditorRow[]>(
-            `SELECT products.id, products.name, description, categories.name AS category,
-                brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months,
-                price, sale_price, stock, specifications
-            FROM products
-            JOIN categories ON categories.id = products.category_id
-            JOIN brands ON brands.id = products.brand_id
-            WHERE products.id = ? AND products.stock >= 0`,
-            [pid],
-        );
-
-        if (currentRows.length === 0) {
+        const current = await this.productsRepository.getProductById(pid);
+        if (!current) {
             throw Object.assign(new Error("Product not found"), { statusCode: 404 });
         }
 
-        const current = currentRows[0];
         const name = String(updates.name ?? current.name).trim();
         const description = String(updates.description ?? current.description ?? "").trim();
         const category = String(updates.category ?? current.category).trim();
@@ -198,63 +180,53 @@ export class NestProductsService {
             throw Object.assign(new Error("Sale price cannot be negative"), { statusCode: 400 });
         }
 
-        const categoryId = await this.ensureNamedId("categories", category);
-        const brandId = await this.ensureNamedId("brands", brand);
-
-        let result: UpdateResult;
         try {
-            result = await dbQuery<UpdateResult>(
-                `UPDATE products
-                SET name = ?, description = ?, category_id = ?, brand_id = ?, specifications = ?, sku = ?, manufacturer_part_number = ?, warranty_months = ?, price = ?, sale_price = ?, stock = ?
-                WHERE id = ? AND stock >= 0`,
-                [name, description, categoryId, brandId, specifications, sku, manufacturerPartNumber, warrantyMonths, price, salePrice, stock, pid],
-            );
+            const result = await withTransaction(async (tx) => {
+                const categoryId = await this.ensureNamedId("categories", category, tx);
+                const brandId = await this.ensureNamedId("brands", brand, tx);
+                const updateResult = await tx.query<UpdateResult>(
+                    `UPDATE products
+                    SET name = ?, description = ?, category_id = ?, brand_id = ?, specifications = ?, sku = ?, manufacturer_part_number = ?, warranty_months = ?, price = ?, sale_price = ?, stock = ?
+                    WHERE id = ? AND stock >= 0`,
+                    [name, description, categoryId, brandId, specifications, sku, manufacturerPartNumber, warrantyMonths, price, salePrice, stock, pid],
+                );
+                if (updateResult.affectedRows === 0) return updateResult;
+                if (updates.attributes !== undefined) {
+                    await this.productAttributesRepository.replaceForProduct(tx, pid, updates.attributes);
+                }
+                return updateResult;
+            });
+
+            if (result.affectedRows === 0) {
+                throw Object.assign(new Error("Product not found"), { statusCode: 404 });
+            }
+
+            const refreshed = await this.productsRepository.getProductById(pid);
+            if (!refreshed) {
+                throw Object.assign(new Error("Product not found"), { statusCode: 404 });
+            }
+
+            const previousStock = Number(current.stock) || 0;
+            const nextStock = Number(refreshed.stock) || 0;
+            if (previousStock !== nextStock) {
+                this.inventoryService.recordMovement({
+                    productId: pid,
+                    movementType: "manual_adjustment",
+                    quantityChange: nextStock - previousStock,
+                    stockBefore: previousStock,
+                    stockAfter: nextStock,
+                    note: "Product stock changed in product editor",
+                    actorId: updates.actorId || "admin",
+                });
+            }
+
+            return refreshed;
         } catch (error) {
             if ((error as { code?: string }).code === "ER_DUP_ENTRY") {
                 throw Object.assign(new Error("SKU already exists"), { statusCode: 409 });
             }
             throw error;
         }
-
-        if (result.affectedRows === 0) {
-            throw Object.assign(new Error("Product not found"), { statusCode: 404 });
-        }
-
-        const refreshedRows = await dbQuery<ProductEditorRow[]>(
-            `SELECT products.id, products.name, description, categories.name AS category,
-                brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months,
-                price, sale_price, stock, main_image,
-                specifications,
-                COALESCE(review_summary.rating, 0) AS rating,
-                COALESCE(review_summary.reviews, 0) AS reviews
-            FROM products
-            JOIN categories ON categories.id = products.category_id
-            JOIN brands ON brands.id = products.brand_id
-            LEFT JOIN (
-                SELECT product_id, COUNT(*) AS reviews, ROUND(COALESCE(AVG(rating), 0), 1) AS rating
-                FROM reviews
-                GROUP BY product_id
-            ) review_summary ON review_summary.product_id = products.id
-            WHERE products.id = ? AND products.stock >= 0`,
-            [pid],
-        );
-
-        const refreshed = refreshedRows[0];
-        const previousStock = Number(current.stock) || 0;
-        const nextStock = Number(refreshed.stock) || 0;
-        if (previousStock !== nextStock) {
-            this.inventoryService.recordMovement({
-                productId: pid,
-                movementType: "manual_adjustment",
-                quantityChange: nextStock - previousStock,
-                stockBefore: previousStock,
-                stockAfter: nextStock,
-                note: "Product stock changed in product editor",
-                actorId: updates.actorId || "admin",
-            });
-        }
-
-        return refreshed;
     }
 
     async updateInventoryService(pid: number, stock: number): Promise<ProductEditorRow> {

@@ -6,9 +6,14 @@ import AdminLayout from "../../../components/layout/AdminLayout";
 import { useToast } from "../../../context/ToastContext";
 import { highlightsFromText, rowsFromText, serializeProductDetails } from "../../../utils/productDetails";
 import { uploadBlob, addProduct } from "../api";
+import {
+    createProductAttributeRow,
+    productAttributeRowsToInputs,
+    type ProductAttributeRow,
+} from "../../products/api";
 
 interface ProductData {
-    [key: string]: string | number | File | null;
+    [key: string]: string | number | File | null | ProductAttributeRow[];
     name: string;
     sku: string;
     manufacturerPartNumber: string;
@@ -25,7 +30,60 @@ interface ProductData {
     highlights: string;
     price: number;
     inventory: number;
+    attributes: ProductAttributeRow[];
 }
+
+type ProductAttributeEditorProps = {
+    rows: ProductAttributeRow[];
+    onChange: (id: string, patch: Partial<ProductAttributeRow>) => void;
+    onAdd: () => void;
+    onRemove: (id: string) => void;
+};
+
+const ProductAttributeEditor = ({ rows, onChange, onAdd, onRemove }: ProductAttributeEditorProps) => (
+    <section className="admin__form-section">
+        <div className="admin__form-section__header">
+            <h4>Structured attributes</h4>
+            <p>Use generic typed rows for electronics filters. Legacy specifications remain a display fallback.</p>
+        </div>
+        <button type="button" className="admin__button admin__button--ghost" onClick={onAdd}>Add attribute</button>
+        {rows.length === 0 ? <p className="text-sm text-muted-foreground">No structured attributes yet.</p> : (
+            <div className="grid gap-3 mt-3">
+                {rows.map((row, index) => (
+                    <div key={row.id} className="grid gap-3 rounded-control border border-border p-3 md:grid-cols-12" data-testid="product-attribute-row">
+                        <Form.Group className="md:col-span-2" controlId={`productAttributeKey-${row.id}`}>
+                            <Form.Label htmlFor={`productAttributeKey-${row.id}`}>Key</Form.Label>
+                            <Form.Control id={`productAttributeKey-${row.id}`} value={row.key} placeholder="vram_gb" autoComplete="off" spellCheck={false} onChange={(event) => onChange(row.id, { key: event.target.value })} />
+                        </Form.Group>
+                        <Form.Group className="md:col-span-3" controlId={`productAttributeLabel-${row.id}`}>
+                            <Form.Label htmlFor={`productAttributeLabel-${row.id}`}>Label</Form.Label>
+                            <Form.Control id={`productAttributeLabel-${row.id}`} value={row.label} placeholder="VRAM" onChange={(event) => onChange(row.id, { label: event.target.value })} />
+                        </Form.Group>
+                        <Form.Group className="md:col-span-2" controlId={`productAttributeType-${row.id}`}>
+                            <Form.Label htmlFor={`productAttributeType-${row.id}`}>Type</Form.Label>
+                            <Form.Control as="select" id={`productAttributeType-${row.id}`} value={row.type} onChange={(event) => onChange(row.id, { type: event.target.value as ProductAttributeRow["type"] })}>
+                                <option value="text">Text</option>
+                                <option value="number">Number</option>
+                            </Form.Control>
+                        </Form.Group>
+                        <Form.Group className="md:col-span-2" controlId={`productAttributeValue-${row.id}`}>
+                            <Form.Label htmlFor={`productAttributeValue-${row.id}`}>Value</Form.Label>
+                            <Form.Control id={`productAttributeValue-${row.id}`} type={row.type === "number" ? "number" : "text"} step={row.type === "number" ? "any" : undefined} value={row.value} placeholder={row.type === "number" ? "12" : "GDDR7"} onChange={(event) => onChange(row.id, { value: event.target.value })} />
+                        </Form.Group>
+                        <Form.Group className="md:col-span-1" controlId={`productAttributeUnit-${row.id}`}>
+                            <Form.Label htmlFor={`productAttributeUnit-${row.id}`}>Unit</Form.Label>
+                            <Form.Control id={`productAttributeUnit-${row.id}`} value={row.unit} placeholder="GB" onChange={(event) => onChange(row.id, { unit: event.target.value })} />
+                        </Form.Group>
+                        <div className="flex items-end gap-3 md:col-span-2">
+                            <Form.Check id={`productAttributeFilterable-${row.id}`} type="checkbox" label="Filterable" checked={row.filterable} onChange={(event) => onChange(row.id, { filterable: event.target.checked })} />
+                            <button type="button" className="admin__button admin__button--danger" aria-label={`Remove attribute ${index + 1}`} onClick={() => onRemove(row.id)}>Remove</button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        )}
+    </section>
+);
 
 const AdminAddProductPage = () => {
     const navigate = useNavigate();
@@ -46,6 +104,7 @@ const AdminAddProductPage = () => {
         highlights: "",
         price: 0,
         inventory: 0,
+        attributes: [],
     });
     const [error, setError] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
@@ -78,12 +137,22 @@ const AdminAddProductPage = () => {
         }
     };
 
+    const updateAttribute = (id: string, patch: Partial<ProductAttributeRow>) => {
+        setProductData((current) => ({
+            ...current,
+            attributes: current.attributes.map((row) => row.id === id ? { ...row, ...patch } : row),
+        }));
+    };
+
+    const addAttribute = () => setProductData((current) => ({ ...current, attributes: [...current.attributes, createProductAttributeRow()] }));
+    const removeAttribute = (id: string) => setProductData((current) => ({ ...current, attributes: current.attributes.filter((row) => row.id !== id) }));
+
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         try {
             const formData = new FormData();
             Object.keys(productData).forEach((key) => {
-                if (["model", "warranty", "datasheet", "highlights"].includes(key)) return;
+                if (["model", "warranty", "datasheet", "highlights", "attributes"].includes(key)) return;
                 const value = productData[key];
                 if (value !== null) {
                     if (typeof value === "string") {
@@ -114,6 +183,8 @@ const AdminAddProductPage = () => {
                     }
                 }
             });
+            const attributes = productAttributeRowsToInputs(productData.attributes);
+            formData.append("attributes", JSON.stringify(attributes));
             await addProduct(formData);
             setError(null);
             addToast("Adding product", "Product has been added successfully");
@@ -389,7 +460,7 @@ const AdminAddProductPage = () => {
                                         />
                                     </Form.Group>
 
-                                    <Form.Group className="mb-3" controlId="formInventory">
+                                <Form.Group className="mb-3" controlId="formInventory">
                                         <Form.Label>Inventory Quantity</Form.Label>
                                         <Form.Control
                                             type="number"
@@ -398,9 +469,16 @@ const AdminAddProductPage = () => {
                                             value={productData.inventory}
                                             onChange={handleInputChange}
                                         />
-                                    </Form.Group>
+                                </Form.Group>
                                 </div>
                             </section>
+
+                            <ProductAttributeEditor
+                                rows={productData.attributes}
+                                onChange={updateAttribute}
+                                onAdd={addAttribute}
+                                onRemove={removeAttribute}
+                            />
 
                             <div className="admin__form-actions">
                                 <button type="submit" className="admin__button admin__button--success">

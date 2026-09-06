@@ -1,3 +1,5 @@
+import type { ProductAttributeInput } from "./product-attributes.types";
+
 export type ProductCreateInput = {
     name: string;
     description: string;
@@ -7,6 +9,7 @@ export type ProductCreateInput = {
     sku?: string;
     manufacturerPartNumber?: string;
     warrantyMonths?: number | string | null;
+    attributes?: ProductAttributeInput[];
     price: number | string;
     inventory: number | string;
     imageUrl?: string;
@@ -21,6 +24,7 @@ export type ProductUpdateInput = Partial<{
     sku: string;
     manufacturerPartNumber: string | null;
     warrantyMonths: number | string | null;
+    attributes: ProductAttributeInput[];
     price: number | string;
     salePrice: number | string | null;
     stock: number | string;

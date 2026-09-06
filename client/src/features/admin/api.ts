@@ -1,6 +1,5 @@
 import http from "../../lib/http";
-import type { Product } from "../../types/product";
-import { normalizeProduct } from "../../utils/product";
+import { normalizeProductWithAttributes, type ProductWithAttributes } from "../products/api";
 import type { AdminOrder, AdminOrderDetail, AdminOrderItem, AdminCustomerProfile } from "../../types/order";
 
 export async function fetchAnalyticsSummary(): Promise<any> {
@@ -8,14 +7,14 @@ export async function fetchAnalyticsSummary(): Promise<any> {
     return response.data;
 }
 
-export async function fetchAdminProducts(page = 1, limit = 60): Promise<Product[]> {
+export async function fetchAdminProducts(page = 1, limit = 60): Promise<ProductWithAttributes[]> {
     const response = await http.get(`/api/products?page=${page}&limit=${limit}`);
-    return (response.data.products || []).map(normalizeProduct);
+    return (response.data.products || []).map(normalizeProductWithAttributes);
 }
 
-export async function fetchAllProducts(): Promise<Product[]> {
+export async function fetchAllProducts(): Promise<ProductWithAttributes[]> {
     const response = await http.get("/api/products");
-    return (response.data.products || []).map(normalizeProduct);
+    return (response.data.products || []).map(normalizeProductWithAttributes);
 }
 
 export async function fetchAdminOrders(page = 1, limit = 80): Promise<AdminOrder[]> {
@@ -46,18 +45,18 @@ export async function fetchOrderItems(page = 1, limit = 120): Promise<AdminOrder
 export async function updateProduct(
     productId: number,
     data: Record<string, unknown>,
-): Promise<Product> {
+): Promise<ProductWithAttributes> {
     const response = await http.put(`/api/products/${productId}`, data);
-    return response.data.product;
+    return normalizeProductWithAttributes(response.data.product);
 }
 
 export async function deleteProduct(productId: number): Promise<void> {
     await http.delete("/api/products/", { data: { pid: productId } });
 }
 
-export async function updateProductInventory(productId: number, stock: number): Promise<Product> {
+export async function updateProductInventory(productId: number, stock: number): Promise<ProductWithAttributes> {
     const response = await http.put(`/api/products/${productId}/inventory`, { stock });
-    return response.data.product;
+    return normalizeProductWithAttributes(response.data.product);
 }
 
 export async function fetchInventoryMovements(limit = 12): Promise<any[]> {

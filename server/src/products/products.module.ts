@@ -6,12 +6,13 @@ import { NestProductsRepository } from "./products.repository";
 import { createRateLimitMiddleware } from "../middleware/rate-limit.middleware";
 import { NestConfigModule } from "../config/nest-config.module";
 import { InventoryModule } from "../inventory/inventory.module";
+import { ProductAttributesRepository } from "./product-attributes.repository";
 
 @Module({
     imports: [NestConfigModule, InventoryModule],
     controllers: [ProductsController],
-    providers: [NestProductsService, NestProductsRepository],
-    exports: [NestProductsRepository, NestProductsService],
+    providers: [NestProductsService, NestProductsRepository, ProductAttributesRepository],
+    exports: [NestProductsRepository, NestProductsService, ProductAttributesRepository],
 })
 export class ProductsModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {

@@ -9,6 +9,7 @@ import { NestOrdersService } from "../orders.service";
 import { NestOrdersStripeService } from "../orders.stripe.service";
 import { CheckoutReservationRepository } from "../checkout-reservation.repository";
 import { PromotionsRepository } from "../../promotions/promotions.repository";
+import { ProductAttributesRepository } from "../../products/product-attributes.repository";
 import {
     cleanupTestData,
     closeIntegrationPools,
@@ -41,6 +42,7 @@ function buildOrdersService() {
         notificationsService as never,
         new CheckoutReservationRepository(),
         new PromotionsRepository(),
+        new ProductAttributesRepository(),
     );
 
     return { ordersService, orderTimelineService, inventoryService, notificationsService };

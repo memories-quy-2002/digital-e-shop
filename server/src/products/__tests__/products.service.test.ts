@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { productCreateSchema, productUpdateSchema } from "../products.validator";
+import { productAttributesSchema, productCreateSchema, productUpdateSchema } from "../products.validator";
 
 describe("product commerce identity validation", () => {
     it("keeps SKU optional for new products and validates warranty months", () => {
@@ -33,5 +33,35 @@ describe("product commerce identity validation", () => {
             inventory: 4,
             warrantyMonths: -1,
         })).toThrow(/Warranty cannot be negative/);
+    });
+
+    it("parses typed text and number attributes with normalized keys", () => {
+        const parsed = productCreateSchema.parse({
+            name: "Example GPU",
+            category: "GPU",
+            brand: "Example",
+            price: 500,
+            inventory: 5,
+            attributes: [
+                { key: "VRAM GB", label: "VRAM", type: "number", numberValue: 12, unit: "GB", filterable: true },
+                { key: "memory_type", label: "Memory Type", type: "text", textValue: "GDDR7", filterable: true },
+            ],
+        });
+
+        expect(parsed.attributes).toMatchObject([
+            { key: "vram_gb", type: "number", numberValue: 12 },
+            { key: "memory_type", type: "text", textValue: "GDDR7" },
+        ]);
+    });
+
+    it("rejects duplicate keys and missing number values", () => {
+        expect(() => productAttributesSchema.parse([
+            { key: "socket", label: "Socket", type: "text", textValue: "AM5" },
+            { key: "SOCKET", label: "Socket 2", type: "text", textValue: "LGA1700" },
+        ])).toThrow(/Duplicate attribute key/);
+
+        expect(() => productAttributesSchema.parse([
+            { key: "vram_gb", label: "VRAM", type: "number" },
+        ])).toThrow();
     });
 });

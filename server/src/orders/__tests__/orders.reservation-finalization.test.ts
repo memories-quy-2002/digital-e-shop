@@ -37,6 +37,7 @@ function buildService(status: string = "PENDING") {
         consumeReservation: vi.fn().mockResolvedValue(1),
     };
     const inventoryService = { createMovementsInTransaction: vi.fn().mockResolvedValue(undefined) };
+    const productAttributesRepository = { getForProducts: vi.fn().mockResolvedValue(new Map()) };
     const timelineService = { recordTimelineEvent: vi.fn() };
     const notificationsService = { notifyOrderPlaced: vi.fn() };
 
@@ -57,8 +58,9 @@ function buildService(status: string = "PENDING") {
         notificationsService as never,
         reservationRepository as never,
         { consumePromotionReservation: vi.fn() } as never,
+        productAttributesRepository as never,
     );
-    return { service, tx, reservationRepository, inventoryService, timelineService, notificationsService };
+    return { service, tx, reservationRepository, inventoryService, timelineService, notificationsService, productAttributesRepository };
 }
 
 describe("reserved checkout finalization", () => {
@@ -85,6 +87,20 @@ describe("reserved checkout finalization", () => {
         expect(reservationRepository.consumeReservation).toHaveBeenCalledWith(tx, 7);
         expect(timelineService.recordTimelineEvent).toHaveBeenCalledOnce();
         expect(notificationsService.notifyOrderPlaced).toHaveBeenCalledWith("user-1", 42, 18);
+    });
+
+    it("uses current structured product attributes in the order snapshot", async () => {
+        const { service, tx, productAttributesRepository } = buildService();
+        productAttributesRepository.getForProducts.mockResolvedValue(new Map([
+            [4, [{ key: "socket", label: "Socket", type: "text", textValue: "AM5", filterable: true }]],
+        ]));
+
+        await service.finalizeReservedCheckout("cs_123", "pi_123");
+
+        const orderItemsCall = tx.query.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO order_items"));
+        expect(orderItemsCall?.[1]?.[0]?.[0]?.[11]).toBe(JSON.stringify({
+            socket: { label: "Socket", type: "text", value: "AM5", filterable: true },
+        }));
     });
 
     it("returns an already-created order without decrementing stock or sending side effects twice", async () => {

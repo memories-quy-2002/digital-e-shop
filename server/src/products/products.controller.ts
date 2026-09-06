@@ -26,7 +26,8 @@ import { NestProductsService } from "./products.service";
 import { NestProductsRepository } from "./products.repository";
 import { getValidationMessage } from "#src/shared/validation/requestSchemas";
 import type { ProductCreateInput } from "./products.dto";
-import { productCreateSchema, productUpdateSchema, inventoryUpdateSchema } from "./products.validator";
+import { attributeFilterSchema, productCreateSchema, productUpdateSchema, inventoryUpdateSchema } from "./products.validator";
+import type { AttributeFilter } from "./product-attributes.types";
 
 const uploadsDir = resolve(process.cwd(), "src", "uploads");
 
@@ -146,6 +147,7 @@ export class ProductsController {
         @Query("minPrice") minPrice: string,
         @Query("maxPrice") maxPrice: string,
         @Query("sortBy") sortBy: string,
+        @Query("attributeFilters") attributeFilters: string,
     ) {
         const pageNum = Number(page);
         const limitNum = Number(limit);
@@ -159,6 +161,20 @@ export class ProductsController {
         const minPriceNum = Number(minPrice);
         const maxPriceNum = Number(maxPrice);
         const sortByStr = typeof sortBy === "string" ? sortBy : "relevance";
+        let parsedAttributeFilters: AttributeFilter[] = [];
+        if (attributeFilters) {
+            let rawAttributeFilters: unknown;
+            try {
+                rawAttributeFilters = JSON.parse(attributeFilters);
+            } catch {
+                throw new HttpException({ msg: "Invalid attribute filters" }, 400);
+            }
+            const parsed = attributeFilterSchema.array().safeParse(rawAttributeFilters);
+            if (!parsed.success) {
+                throw new HttpException({ msg: "Invalid attribute filters" }, 400);
+            }
+            parsedAttributeFilters = parsed.data as AttributeFilter[];
+        }
 
         const filters = {
             term: termStr,
@@ -167,6 +183,7 @@ export class ProductsController {
             minPrice: Number.isFinite(minPriceNum) ? minPriceNum : undefined,
             maxPrice: Number.isFinite(maxPriceNum) ? maxPriceNum : undefined,
             sortBy: sortByStr as "relevance" | "price-asc" | "price-desc" | "rating-desc" | "newest",
+            attributeFilters: parsedAttributeFilters,
         };
 
         const usePagination = Number.isInteger(pageNum) && pageNum > 0 && Number.isInteger(limitNum) && limitNum > 0;
@@ -178,6 +195,7 @@ export class ProductsController {
             brandsArr.length > 0 ||
             Number.isFinite(minPriceNum) ||
             Number.isFinite(maxPriceNum) ||
+            parsedAttributeFilters.length > 0 ||
             sortByStr !== "relevance";
 
         if (useFilteredQuery) {
@@ -292,6 +310,7 @@ export class ProductsController {
             sku?: string;
             manufacturerPartNumber?: string | null;
             warrantyMonths?: number | string | null;
+            attributes?: import("./product-attributes.types").ProductAttributeInput[];
             price?: number;
             salePrice?: number | string | null;
             stock?: number;

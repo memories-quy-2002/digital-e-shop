@@ -65,9 +65,29 @@ model Product {
   cartItems             CartItem[]
   orderItems            OrderItem[]
   inventoryReservations InventoryReservation[]
+  attributes            ProductAttribute[]
 
   @@index([manufacturerPartNumber], map: "products_mpn_idx")
   @@map("products")
+}
+
+model ProductAttribute {
+  id           Int      @id @default(autoincrement())
+  productId    Int      @map("product_id")
+  attributeKey String   @map("attribute_key") @db.VarChar(80)
+  label        String   @db.VarChar(120)
+  valueType    String   @map("value_type") @db.VarChar(16)
+  textValue    String?  @map("text_value") @db.VarChar(255)
+  numberValue  Decimal? @map("number_value") @db.Decimal(18, 4)
+  unit         String?  @db.VarChar(32)
+  filterable   Boolean  @default(true) @db.TinyInt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, attributeKey], map: "uq_product_attributes_product_key")
+  @@index([attributeKey, textValue], map: "product_attributes_text_filter_idx")
+  @@index([attributeKey, numberValue], map: "product_attributes_number_filter_idx")
+  @@map("product_attributes")
 }
 
 model Review {

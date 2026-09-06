@@ -14,6 +14,7 @@ export type CartItemRow = {
     sale_price?: number | null;
     main_image?: string | null;
     specifications?: string | null;
+    attributes?: Record<string, unknown> | string | null;
     quantity?: number;
     stock?: number | null;
     available_stock?: number | null;

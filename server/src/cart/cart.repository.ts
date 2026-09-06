@@ -51,6 +51,20 @@ export class CartRepository {
                 GREATEST(p.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock,
                 p.main_image,
                 p.specifications,
+                COALESCE((
+                    SELECT JSON_OBJECTAGG(
+                        pa.attribute_key,
+                        JSON_OBJECT(
+                            'label', pa.label,
+                            'type', pa.value_type,
+                            'value', IF(pa.value_type = 'number', pa.number_value, pa.text_value),
+                            'unit', pa.unit,
+                            'filterable', pa.filterable
+                        )
+                    )
+                    FROM product_attributes pa
+                    WHERE pa.product_id = p.id
+                ), JSON_OBJECT()) AS attributes,
                 ci.quantity
             FROM
                 cart_items ci
@@ -90,6 +104,20 @@ export class CartRepository {
                 GREATEST(p.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock,
                 p.main_image,
                 p.specifications,
+                COALESCE((
+                    SELECT JSON_OBJECTAGG(
+                        pa.attribute_key,
+                        JSON_OBJECT(
+                            'label', pa.label,
+                            'type', pa.value_type,
+                            'value', IF(pa.value_type = 'number', pa.number_value, pa.text_value),
+                            'unit', pa.unit,
+                            'filterable', pa.filterable
+                        )
+                    )
+                    FROM product_attributes pa
+                    WHERE pa.product_id = p.id
+                ), JSON_OBJECT()) AS attributes,
                 ci.quantity
             FROM cart_items ci
             LEFT JOIN products p ON p.id = ci.product_id

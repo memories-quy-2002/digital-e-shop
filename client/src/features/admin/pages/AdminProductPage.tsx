@@ -17,6 +17,12 @@ import {
     fetchInventoryMovements,
 } from "../api";
 import {
+    createProductAttributeRow,
+    productAttributeRowsToInputs,
+    type ProductAttributeRow,
+    type ProductWithAttributes,
+} from "../../products/api";
+import {
     highlightsFromText,
     highlightsToText,
     parseProductDetails,
@@ -46,6 +52,7 @@ type ProductEditForm = {
     datasheet: string;
     highlights: string;
     specifications: string;
+    attributes: ProductAttributeRow[];
 };
 
 type InventoryMovement = {
@@ -61,22 +68,121 @@ type InventoryMovement = {
     created_at: string;
 };
 
-const normalizeProduct = (product: Product): Product => {
+const normalizeProduct = (product: ProductWithAttributes): ProductWithAttributes => {
     const normalized = normalizeProductResponse(product);
     return {
         ...normalized,
+        attributes: product.attributes,
         price: Number(normalized.price) || 0,
         sale_price: normalized.sale_price === null ? null : Number(normalized.sale_price) || null,
         stock: Number(normalized.stock) || 0,
     };
 };
 
+type ProductAttributeEditorProps = {
+    rows: ProductAttributeRow[];
+    onChange: (id: string, patch: Partial<ProductAttributeRow>) => void;
+    onAdd: () => void;
+    onRemove: (id: string) => void;
+};
+
+const ProductAttributeEditor = ({ rows, onChange, onAdd, onRemove }: ProductAttributeEditorProps) => (
+    <section className="admin__form-section">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="admin__form-section__header">
+                <h4>Structured attributes</h4>
+                <p>Use generic typed rows for electronics filters. Legacy specifications remain a display fallback.</p>
+            </div>
+            <button type="button" className="admin__button admin__button--ghost" onClick={onAdd}>
+                Add attribute
+            </button>
+        </div>
+        {rows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No structured attributes yet.</p>
+        ) : (
+            <div className="grid gap-3">
+                {rows.map((row, index) => (
+                    <div key={row.id} className="grid gap-3 rounded-control border border-border p-3 md:grid-cols-12" data-testid="product-attribute-row">
+                        <Form.Group className="md:col-span-2" controlId={`productAttributeKey-${row.id}`}>
+                            <Form.Label htmlFor={`productAttributeKey-${row.id}`}>Key</Form.Label>
+                            <Form.Control
+                                id={`productAttributeKey-${row.id}`}
+                                value={row.key}
+                                placeholder="vram_gb"
+                                autoComplete="off"
+                                spellCheck={false}
+                                onChange={(event) => onChange(row.id, { key: event.target.value })}
+                            />
+                        </Form.Group>
+                        <Form.Group className="md:col-span-3" controlId={`productAttributeLabel-${row.id}`}>
+                            <Form.Label htmlFor={`productAttributeLabel-${row.id}`}>Label</Form.Label>
+                            <Form.Control
+                                id={`productAttributeLabel-${row.id}`}
+                                value={row.label}
+                                placeholder="VRAM"
+                                onChange={(event) => onChange(row.id, { label: event.target.value })}
+                            />
+                        </Form.Group>
+                        <Form.Group className="md:col-span-2" controlId={`productAttributeType-${row.id}`}>
+                            <Form.Label htmlFor={`productAttributeType-${row.id}`}>Type</Form.Label>
+                            <Form.Control
+                                as="select"
+                                id={`productAttributeType-${row.id}`}
+                                value={row.type}
+                                onChange={(event) => onChange(row.id, { type: event.target.value as ProductAttributeRow["type"] })}
+                            >
+                                <option value="text">Text</option>
+                                <option value="number">Number</option>
+                            </Form.Control>
+                        </Form.Group>
+                        <Form.Group className="md:col-span-2" controlId={`productAttributeValue-${row.id}`}>
+                            <Form.Label htmlFor={`productAttributeValue-${row.id}`}>Value</Form.Label>
+                            <Form.Control
+                                id={`productAttributeValue-${row.id}`}
+                                type={row.type === "number" ? "number" : "text"}
+                                step={row.type === "number" ? "any" : undefined}
+                                value={row.value}
+                                placeholder={row.type === "number" ? "12" : "GDDR7"}
+                                onChange={(event) => onChange(row.id, { value: event.target.value })}
+                            />
+                        </Form.Group>
+                        <Form.Group className="md:col-span-1" controlId={`productAttributeUnit-${row.id}`}>
+                            <Form.Label htmlFor={`productAttributeUnit-${row.id}`}>Unit</Form.Label>
+                            <Form.Control
+                                id={`productAttributeUnit-${row.id}`}
+                                value={row.unit}
+                                placeholder="GB"
+                                onChange={(event) => onChange(row.id, { unit: event.target.value })}
+                            />
+                        </Form.Group>
+                        <div className="flex items-end gap-3 md:col-span-2">
+                            <Form.Check
+                                label="Filterable"
+                                checked={row.filterable}
+                                onChange={(event) => onChange(row.id, { filterable: event.target.checked })}
+                            />
+                            <button
+                                type="button"
+                                className="admin__button admin__button--ghost"
+                                aria-label={`Remove attribute ${index + 1}`}
+                                onClick={() => onRemove(row.id)}
+                            >
+                                Remove
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        )}
+    </section>
+);
+
 const AdminProductPage = () => {
     const navigate = useNavigate();
-    const [products, setProducts] = useState<Product[]>([]);
+    const [products, setProducts] = useState<ProductWithAttributes[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [show, setShow] = useState(false);
-    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    const [selectedProduct, setSelectedProduct] = useState<ProductWithAttributes | null>(null);
     const [editForm, setEditForm] = useState<ProductEditForm>({
         name: "",
         sku: "",
@@ -93,6 +199,7 @@ const AdminProductPage = () => {
         datasheet: "",
         highlights: "",
         specifications: "",
+        attributes: [],
     });
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -106,7 +213,7 @@ const AdminProductPage = () => {
         const loadProducts = async () => {
             try {
                 const products = await fetchAllProducts();
-                setProducts(products.map(normalizeProduct).sort((a: Product, b: Product) => a.id - b.id));
+                setProducts(products.map(normalizeProduct).sort((a, b) => a.id - b.id));
             } catch {
                 addToast("Products", "Unable to load products.");
             }
@@ -161,8 +268,9 @@ const AdminProductPage = () => {
     }, [currentPage, pageCount]);
 
     const handleOpen = (product: Product) => {
+        const productWithAttributes = product as ProductWithAttributes;
         const details = parseProductDetails(product.specifications);
-        setSelectedProduct(product);
+        setSelectedProduct(productWithAttributes);
         setEditForm({
             name: product.name,
             sku: product.sku || "",
@@ -179,6 +287,7 @@ const AdminProductPage = () => {
             datasheet: details.datasheet,
             highlights: highlightsToText(details.highlights),
             specifications: rowsToText(details.specifications),
+            attributes: productWithAttributes.attributes ?? [],
         });
         setShow(true);
     };
@@ -193,6 +302,27 @@ const AdminProductPage = () => {
         setEditForm((currentForm) => ({ ...currentForm, [name]: value }));
     };
 
+    const handleAttributeChange = (id: string, patch: Partial<ProductAttributeRow>) => {
+        setEditForm((currentForm) => ({
+            ...currentForm,
+            attributes: currentForm.attributes.map((row) => (row.id === id ? { ...row, ...patch } : row)),
+        }));
+    };
+
+    const addAttribute = () => {
+        setEditForm((currentForm) => ({
+            ...currentForm,
+            attributes: [...currentForm.attributes, createProductAttributeRow()],
+        }));
+    };
+
+    const removeAttribute = (id: string) => {
+        setEditForm((currentForm) => ({
+            ...currentForm,
+            attributes: currentForm.attributes.filter((row) => row.id !== id),
+        }));
+    };
+
     const handleSave = async () => {
         if (!selectedProduct) {
             return;
@@ -202,6 +332,14 @@ const AdminProductPage = () => {
         const salePrice = editForm.salePrice.trim() === "" ? null : Number(editForm.salePrice);
         const stock = Number(editForm.stock);
         const warrantyMonths = editForm.warrantyMonths.trim() === "" ? null : Number(editForm.warrantyMonths);
+        let attributes;
+
+        try {
+            attributes = productAttributeRowsToInputs(editForm.attributes);
+        } catch (error) {
+            addToast("Update product", error instanceof Error ? error.message : "Product attributes are invalid.");
+            return;
+        }
 
         if (
             !editForm.name.trim() ||
@@ -240,6 +378,7 @@ const AdminProductPage = () => {
                 price,
                 salePrice,
                 stock,
+                attributes,
                 specifications: serializeProductDetails({
                     model: editForm.model,
                     warranty: editForm.warranty,
@@ -773,6 +912,12 @@ const AdminProductPage = () => {
                                         </Form.Group>
                                     </div>
                                     </section>
+                                    <ProductAttributeEditor
+                                        rows={editForm.attributes}
+                                        onChange={handleAttributeChange}
+                                        onAdd={addAttribute}
+                                        onRemove={removeAttribute}
+                                    />
                                 </Form>
                             </Modal.Body>
                             <Modal.Footer className="admin__modal-actions">

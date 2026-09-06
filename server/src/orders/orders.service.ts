@@ -14,6 +14,8 @@ import { NestNotificationsService } from "../notifications/notifications.service
 import { withTransaction } from "../database/transaction";
 import { CheckoutReservationRepository } from "./checkout-reservation.repository";
 import { PromotionsRepository } from "../promotions/promotions.repository";
+import { ProductAttributesRepository } from "../products/product-attributes.repository";
+import { attributeMapToSnapshot, type ProductAttribute } from "../products/product-attributes.types";
 
 export const createCheckoutError = (message: string, statusCode = 409, details: Record<string, unknown> = {}) =>
     Object.assign(new Error(message), { statusCode, details });
@@ -38,12 +40,14 @@ const parseSpecificationsSnapshot = (value: unknown): Record<string, unknown> =>
     return {};
 };
 
-const buildOrderItemSnapshot = (product: CartItemRow): OrderItemSnapshot => {
+const buildOrderItemSnapshot = (product: CartItemRow, currentAttributes?: ProductAttribute[]): OrderItemSnapshot => {
     const productId = Number(product.product_id || 0);
     const quantity = Number(product.quantity) || 0;
     const unitPrice = product.sale_price !== null && product.sale_price !== undefined
         ? Number(product.sale_price)
         : Number(product.price) || 0;
+
+    const structuredAttributes = attributeMapToSnapshot(currentAttributes);
 
     return {
         productId,
@@ -56,7 +60,9 @@ const buildOrderItemSnapshot = (product: CartItemRow): OrderItemSnapshot => {
         warrantyMonths: product.warranty_months === null || product.warranty_months === undefined
             ? null
             : Number(product.warranty_months),
-        specifications: parseSpecificationsSnapshot(product.specifications),
+        specifications: Object.keys(structuredAttributes).length > 0
+            ? structuredAttributes
+            : parseSpecificationsSnapshot(product.specifications),
         quantity,
     };
 };
@@ -83,6 +89,7 @@ export class NestOrdersService {
         private readonly notificationsService: NestNotificationsService,
         private readonly checkoutReservationRepository: CheckoutReservationRepository,
         private readonly promotionsRepository: PromotionsRepository,
+        private readonly productAttributesRepository: ProductAttributesRepository,
     ) {}
 
     async createOrderFromValidatedCart({
@@ -126,7 +133,11 @@ export class NestOrdersService {
                 }
             }
 
-            const orderItemSnapshots = authoritativeCart.map(buildOrderItemSnapshot);
+            const productIdsForSnapshot = [...new Set(authoritativeCart.map((item) => Number(item.product_id || 0)).filter(Boolean))];
+            const productAttributes = await this.productAttributesRepository.getForProducts(tx, productIdsForSnapshot);
+            const orderItemSnapshots = authoritativeCart.map((item) =>
+                buildOrderItemSnapshot(item, productAttributes.get(Number(item.product_id || 0))),
+            );
             const orderItemsValues = orderItemSnapshots.map((snapshot) => [
                 orderId,
                 snapshot.productId,
@@ -421,7 +432,10 @@ export class NestOrdersService {
                     throw createCheckoutError("Promotion reservation was already finalized.", 409);
                 }
             }
-            const orderItemSnapshots = authoritativeCart.map(buildOrderItemSnapshot);
+            const productAttributes = await this.productAttributesRepository.getForProducts(tx, productIds);
+            const orderItemSnapshots = authoritativeCart.map((item) =>
+                buildOrderItemSnapshot(item, productAttributes.get(Number(item.product_id || 0))),
+            );
             const orderItemsValues = orderItemSnapshots.map((snapshot) => [
                 orderId,
                 snapshot.productId,
