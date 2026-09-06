@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+vi.mock("../orders/orders.stripe.service", () => ({ NestOrdersStripeService: class {} }));
+vi.mock("./stripe.service", () => ({ StripeService: class {} }));
 import { StripeWebhookController } from "./stripeWebhook.controller";
 import type { NestOrdersStripeService } from "../orders/orders.stripe.service";
 import type { StripeService } from "./stripe.service";
@@ -66,5 +68,31 @@ describe("Stripe checkout webhook flow", () => {
             code: "STRIPE_SIGNATURE_MISSING",
             requestId: "stripe-2",
         });
+    });
+
+    it("routes checkout.session.expired to reservation cleanup", async () => {
+        const ordersStripeService = {
+            handleCheckoutSessionCompleted: vi.fn(),
+            handleCheckoutSessionExpired: vi.fn(),
+        };
+        const stripeService = { constructWebhookEvent: vi.fn() };
+        const controller = new StripeWebhookController(
+            ordersStripeService as unknown as NestOrdersStripeService,
+            stripeService as unknown as StripeService,
+        );
+        const response = mockResponse();
+        stripeService.constructWebhookEvent.mockReturnValue({
+            type: "checkout.session.expired",
+            data: { object: { id: "cs_flow_expired" } },
+        });
+
+        await controller.handleStripeWebhook({
+            requestId: "stripe-3",
+            headers: { "stripe-signature": "sig" },
+            rawBody: Buffer.from('{"type":"checkout.session.expired"}'),
+        } as never, response as never);
+
+        expect(ordersStripeService.handleCheckoutSessionExpired).toHaveBeenCalledWith({ id: "cs_flow_expired" });
+        expect(response.status).toHaveBeenCalledWith(200);
     });
 });

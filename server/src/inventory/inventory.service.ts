@@ -3,6 +3,7 @@ import type { DbError, LooseRecord } from "#src/shared/interfaces/domain";
 import type { InventoryMovementInput } from "./inventory.dto";
 import { logger } from "#src/shared/utils/logger";
 import { InventoryRepository } from "./inventory.repository";
+import type { TransactionContext } from "../database/transaction";
 
 export const normalizeMovement = (movement: LooseRecord = {}) => ({
     id: Number(movement.id),
@@ -50,5 +51,9 @@ export class NestInventoryService {
                 logger.error({ err, count: movements.length }, "Inventory movement bulk log failed");
             }
         });
+    }
+
+    createMovementsInTransaction(tx: TransactionContext, movements: InventoryMovementInput[]): Promise<void> {
+        return this.inventoryRepository.createMovementsInTransaction(tx, movements);
     }
 }

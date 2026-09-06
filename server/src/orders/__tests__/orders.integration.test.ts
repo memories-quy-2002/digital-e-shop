@@ -7,6 +7,7 @@ import { OrdersController } from "../orders.controller";
 import { OrdersRepository } from "../orders.repository";
 import { NestOrdersService } from "../orders.service";
 import { NestOrdersStripeService } from "../orders.stripe.service";
+import { CheckoutReservationRepository } from "../checkout-reservation.repository";
 import { PromotionsRepository } from "../../promotions/promotions.repository";
 import {
     cleanupTestData,
@@ -27,7 +28,10 @@ function buildOrdersService() {
         getTimeline: vi.fn().mockResolvedValue([]),
         recordTimelineEvent: vi.fn(),
     };
-    const inventoryService = { recordMovements: vi.fn() };
+    const inventoryService = {
+        recordMovements: vi.fn(),
+        createMovementsInTransaction: vi.fn().mockResolvedValue(undefined),
+    };
     const notificationsService = { notifyOrderPlaced: vi.fn(), notifyOrderStatus: vi.fn() };
     const ordersService = new NestOrdersService(
         new OrdersRepository(new PromotionsRepository()),
@@ -35,6 +39,7 @@ function buildOrdersService() {
         {} as never,
         inventoryService as never,
         notificationsService as never,
+        new CheckoutReservationRepository(),
     );
 
     return { ordersService, orderTimelineService, inventoryService, notificationsService };
@@ -76,7 +81,12 @@ describe("orders database integration", () => {
 
     it("integration handles a repeated checkout event without creating a second order", async () => {
         const { ordersService } = buildOrdersService();
-        const stripeService = new NestOrdersStripeService({} as never, ordersService, {} as never);
+        const stripeService = new NestOrdersStripeService(
+            {} as never,
+            ordersService,
+            {} as never,
+            {} as never,
+        );
         const sessionId = `${integrationPrefix}-checkout`;
         const cart = [{ product_id: productId, product_name: "Integration product", price: 10, quantity: 1 }];
 

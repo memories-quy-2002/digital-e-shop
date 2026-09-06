@@ -69,12 +69,27 @@ export async function createTestPendingCheckout(
     cart: unknown[],
     totalPrice = 10,
 ): Promise<void> {
-    await integrationPool.execute(
+    const [result] = await integrationPool.execute<ResultSetHeader>(
         `INSERT INTO pending_checkouts
-            (stripe_session_id, user_id, cart_json, total_price, discount, shipping_address)
-        VALUES (?, ?, ?, ?, 0, 'Integration test address')`,
+            (stripe_session_id, reservation_token, user_id, cart_json, total_price, discount, shipping_address, status, expires_at)
+        VALUES (?, UUID(), ?, ?, ?, 0, 'Integration test address', 'PENDING', DATE_ADD(UTC_TIMESTAMP(), INTERVAL 35 MINUTE))`,
         [stripeSessionId, userId, JSON.stringify(cart), totalPrice],
     );
+    const quantities = new Map<number, number>();
+    for (const item of cart as Array<{ product_id: number; quantity: number }>) {
+        quantities.set(item.product_id, (quantities.get(item.product_id) || 0) + item.quantity);
+    }
+    const reservationValues = [...quantities.entries()].map(([productId, quantity]) => [
+        result.insertId,
+        productId,
+        quantity,
+    ]);
+    if (reservationValues.length > 0) {
+        await integrationPool.query(
+            `INSERT INTO inventory_reservations (pending_checkout_id, product_id, quantity) VALUES ?`,
+            [reservationValues],
+        );
+    }
 }
 
 async function ignoreMissingTable(operation: () => Promise<unknown>): Promise<void> {
@@ -95,6 +110,11 @@ export async function cleanupTestData(): Promise<void> {
         `DELETE FROM inventory_movements
         WHERE actor_id LIKE ? OR product_id IN (SELECT id FROM products WHERE name LIKE ?)`,
         [userPattern, productPattern],
+    ));
+    await ignoreMissingTable(() => integrationPool.execute(
+        `DELETE FROM inventory_reservations
+        WHERE pending_checkout_id IN (SELECT id FROM pending_checkouts WHERE user_id LIKE ?)`,
+        [userPattern],
     ));
     await ignoreMissingTable(() => integrationPool.execute(
         `DELETE FROM order_status_events

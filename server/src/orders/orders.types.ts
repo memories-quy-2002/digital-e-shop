@@ -79,12 +79,16 @@ export type OrderTimelineInput = {
 
 export type PendingCheckoutRow = {
     id: number;
-    stripe_session_id: string;
+    stripe_session_id: string | null;
+    reservation_token: string;
     user_id: string;
     cart_json: string;
     total_price: string;
     discount: string;
     shipping_address: string;
+    status: "PENDING" | "CONSUMED" | "RELEASED" | "EXPIRED" | string;
+    expires_at: string | Date | null;
+    discount_id?: number | null;
     created_at: string;
     consumed_at: string | null;
 };

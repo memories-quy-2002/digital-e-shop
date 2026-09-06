@@ -3,6 +3,7 @@ import pool from "#src/config/database.config";
 import type { QueryCallback, QueryParams, UpdateResult } from "#src/shared/interfaces/domain";
 import type { InventoryMovementInput } from "./inventory.dto";
 import type { InventoryMovementRow } from "./inventory.types";
+import type { TransactionContext } from "../database/transaction";
 
 @Injectable()
 export class InventoryRepository {
@@ -92,6 +93,28 @@ export class InventoryRepository {
                 callback,
             );
         });
+    }
+
+    async createMovementsInTransaction(tx: TransactionContext, movements: InventoryMovementInput[]): Promise<void> {
+        if (!movements || movements.length === 0) return;
+
+        const values = movements.map((movement: InventoryMovementInput) => [
+            movement.productId,
+            movement.orderId || null,
+            movement.movementType,
+            movement.quantityChange,
+            movement.stockBefore ?? null,
+            movement.stockAfter ?? null,
+            movement.note || null,
+            movement.actorId || null,
+        ]);
+
+        await tx.query(
+            `INSERT INTO inventory_movements
+                (product_id, order_id, movement_type, quantity_change, stock_before, stock_after, note, actor_id)
+            VALUES ?`,
+            [values],
+        );
     }
 
     getMovements(limit: number, callback: QueryCallback<InventoryMovementRow[]>) {

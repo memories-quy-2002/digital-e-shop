@@ -12,6 +12,7 @@ import { NestCartService } from "../cart/cart.service";
 import { NestInventoryService } from "../inventory/inventory.service";
 import { NestNotificationsService } from "../notifications/notifications.service";
 import { withTransaction } from "../database/transaction";
+import { CheckoutReservationRepository } from "./checkout-reservation.repository";
 
 export const createCheckoutError = (message: string, statusCode = 409, details: Record<string, unknown> = {}) =>
     Object.assign(new Error(message), { statusCode, details });
@@ -23,7 +24,6 @@ type CreateOrderFromCartInput = {
     discount: number;
     shippingAddress: string;
     paymentMethod: string;
-    allowOversell?: boolean;
     stripeCheckoutSessionId?: string | null;
     stripePaymentIntentId?: string | null;
 };
@@ -36,6 +36,7 @@ export class NestOrdersService {
         private readonly cartService: NestCartService,
         private readonly inventoryService: NestInventoryService,
         private readonly notificationsService: NestNotificationsService,
+        private readonly checkoutReservationRepository: CheckoutReservationRepository,
     ) {}
 
     async createOrderFromValidatedCart({
@@ -45,12 +46,11 @@ export class NestOrdersService {
         discount,
         shippingAddress,
         paymentMethod,
-        allowOversell = false,
         stripeCheckoutSessionId = null,
         stripePaymentIntentId = null,
     }: CreateOrderFromCartInput): Promise<{ id: number; date_added: string }> {
         const startedAt = Date.now();
-        logger.info({ uid, items: authoritativeCart?.length, authoritativeTotalPrice, paymentMethod, allowOversell }, "[createOrderFromValidatedCart] start");
+        logger.info({ uid, items: authoritativeCart?.length, authoritativeTotalPrice, paymentMethod }, "[createOrderFromValidatedCart] start");
 
         const transactionResult = await withTransaction(async (tx) => {
             const q = <T = unknown>(sql: string, values?: unknown[]) => tx.query<T>(sql, values);
@@ -85,7 +85,7 @@ export class NestOrdersService {
                 logger.debug({ orderId, count: orderItemsValues.length }, "[createOrderFromValidatedCart] insertOrderItems");
                 await q("INSERT INTO order_items (order_id, product_id, quantity, total_price) VALUES ?", [orderItemsValues]);
 
-                const productIds = [...productQuantities.keys()];
+                const productIds = [...productQuantities.keys()].sort((left, right) => left - right);
                 const placeholderList = productIds.map(() => "?").join(", ");
                 const authoritativeItemsById = new Map(
                     authoritativeCart.map((item: CartItemRow) => [Number(item.product_id || 0), item] as const),
@@ -102,41 +102,34 @@ export class NestOrdersService {
                     const productName = String(authoritativeItem?.product_name || `Product #${productId}`);
                     const stock = stockById.get(productId);
                     if (stock == null) {
-                        if (!allowOversell) {
-                            const issues: CartValidationIssue[] = [{
-                                cartItemId: Number(authoritativeItem?.cart_item_id || 0),
-                                productId,
-                                productName,
-                                requestedQuantity: quantity,
-                                availableStock: 0,
-                                reason: "unavailable",
-                            }];
-                            throw createCheckoutError(
-                                `${productName} is no longer available. Remove it from your cart and try again.`,
-                                409,
-                                { issues, authoritativeCart, authoritativeTotalPrice },
-                            );
-                        }
-                        logger.error({ uid, productId, orderId }, "[createOrderFromValidatedCart] product unavailable during paid checkout — proceeding, needs manual review");
-                        continue;
+                        const issues: CartValidationIssue[] = [{
+                            cartItemId: Number(authoritativeItem?.cart_item_id || 0),
+                            productId,
+                            productName,
+                            requestedQuantity: quantity,
+                            availableStock: 0,
+                            reason: "unavailable",
+                        }];
+                        throw createCheckoutError(
+                            `${productName} is no longer available. Remove it from your cart and try again.`,
+                            409,
+                            { issues, authoritativeCart, authoritativeTotalPrice },
+                        );
                     }
                     if (stock < quantity) {
-                        if (!allowOversell) {
-                            const issues: CartValidationIssue[] = [{
-                                cartItemId: Number(authoritativeItem?.cart_item_id || 0),
-                                productId,
-                                productName,
-                                requestedQuantity: quantity,
-                                availableStock: Number(stock) || 0,
-                                reason: stock <= 0 ? "out_of_stock" : "insufficient_stock",
-                            }];
-                            throw createCheckoutError(
-                                `${productName} only has ${stock} item(s) left. Update your cart and try again.`,
-                                409,
-                                { issues, authoritativeCart, authoritativeTotalPrice },
-                            );
-                        }
-                        logger.error({ uid, productId, orderId, stock, quantity }, "[createOrderFromValidatedCart] insufficient stock during paid checkout — proceeding, needs manual review");
+                        const issues: CartValidationIssue[] = [{
+                            cartItemId: Number(authoritativeItem?.cart_item_id || 0),
+                            productId,
+                            productName,
+                            requestedQuantity: quantity,
+                            availableStock: Number(stock) || 0,
+                            reason: stock <= 0 ? "out_of_stock" : "insufficient_stock",
+                        }];
+                        throw createCheckoutError(
+                            `${productName} only has ${stock} item(s) left. Update your cart and try again.`,
+                            409,
+                            { issues, authoritativeCart, authoritativeTotalPrice },
+                        );
                     }
                 }
 
@@ -165,16 +158,18 @@ export class NestOrdersService {
                     [],
                 );
 
-                const cases = productIds.map(() => "WHEN ? THEN ?");
-                const caseValues = productIds.flatMap((productId) => [productId, productQuantities.get(productId)]);
-
                 logger.debug({ count: productIds.length }, "[createOrderFromValidatedCart] updateProductStock");
-                await q(
-                    `UPDATE products
-                    SET stock = GREATEST(stock - CASE id ${cases.join(" ")} END, 0)
-                    WHERE id IN (${placeholderList})`,
-                    [...caseValues, ...productIds],
-                );
+                for (const productId of productIds) {
+                    const quantity = productQuantities.get(productId) || 0;
+                    const result = await q<{ affectedRows: number }>(
+                        "UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?",
+                        [quantity, productId, quantity],
+                    );
+                    if (result.affectedRows !== 1) {
+                        throw createCheckoutError("Stock changed while placing the order. Please try again.", 409);
+                    }
+                }
+                await this.inventoryService.createMovementsInTransaction(tx, inventoryMovements);
             }
 
             await q("UPDATE carts SET done = 1 WHERE user_id = ? AND done = 0", [uid]);
@@ -204,7 +199,6 @@ export class NestOrdersService {
             transactionResult.orderId,
             Number(authoritativeTotalPrice) - Number(discount || 0),
         );
-        this.inventoryService.recordMovements(transactionResult.inventoryMovements);
         logger.info({ orderId: transactionResult.orderId, ms: Date.now() - startedAt }, "[createOrderFromValidatedCart] commit ok");
         return transactionResult.order;
     }
@@ -262,6 +256,150 @@ export class NestOrdersService {
             shippingAddress,
             paymentMethod,
         });
+    }
+
+    async finalizeReservedCheckout(
+        stripeSessionId: string,
+        stripePaymentIntentId: string | null,
+    ): Promise<{ id: number; date_added: string } | null> {
+        const transactionResult = await withTransaction(async (tx) => {
+            const pending = await this.checkoutReservationRepository.getPendingCheckoutForUpdate(tx, stripeSessionId);
+            if (!pending) return null;
+
+            const [existingOrder] = await tx.query<Array<{ id: number; date_added: string }>>(
+                `SELECT id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
+                 FROM orders WHERE stripe_checkout_session_id = ? LIMIT 1`,
+                [stripeSessionId],
+            );
+            if (existingOrder) {
+                if (pending.status === "PENDING" && !pending.consumed_at) {
+                    await this.checkoutReservationRepository.consumeReservation(tx, pending.id);
+                }
+                return {
+                    orderId: existingOrder.id,
+                    userId: pending.user_id,
+                    payableAmount: Number(pending.total_price) - Number(pending.discount),
+                    alreadyProcessed: true,
+                    order: existingOrder,
+                };
+            }
+            const reservationExpired = pending.expires_at
+                ? new Date(pending.expires_at).getTime() <= Date.now()
+                : false;
+            if (pending.status !== "PENDING" || pending.consumed_at || reservationExpired) {
+                throw createCheckoutError("Checkout reservation is no longer payable.", 409);
+            }
+
+            let authoritativeCart: CartItemRow[];
+            try {
+                authoritativeCart = JSON.parse(pending.cart_json) as CartItemRow[];
+            } catch (error) {
+                throw createCheckoutError("Checkout reservation contains invalid cart data.", 500, { cause: String(error) });
+            }
+
+            const reservationItems = await this.checkoutReservationRepository.getReservationItems(tx, pending.id);
+            if (reservationItems.length === 0) {
+                throw createCheckoutError("Checkout reservation has no inventory items.", 409);
+            }
+            const productIds = reservationItems.map((item) => item.productId).sort((left, right) => left - right);
+            const lockedProducts = await this.checkoutReservationRepository.lockProducts(tx, productIds);
+            const stockById = new Map(lockedProducts.map((product) => [product.id, Number(product.stock) || 0]));
+            const cartItemById = new Map(
+                authoritativeCart.map((item) => [Number(item.product_id || 0), item] as const),
+            );
+            for (const item of reservationItems) {
+                const stock = stockById.get(item.productId);
+                if (stock == null || stock < item.quantity) {
+                    const productName = String(cartItemById.get(item.productId)?.product_name || `Product #${item.productId}`);
+                    throw createCheckoutError(
+                        `${productName} no longer has enough stock to complete this paid order.`,
+                        409,
+                        { productId: item.productId, requestedQuantity: item.quantity, availableStock: stock ?? 0 },
+                    );
+                }
+            }
+
+            const orderResult = await tx.query<InsertResult>(
+                "INSERT INTO orders (user_id, total_price, discount, shipping_address, payment_method, stripe_checkout_session_id, stripe_payment_intent_id, date_added) VALUES (?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())",
+                [
+                    pending.user_id,
+                    Number(pending.total_price),
+                    Number(pending.discount),
+                    pending.shipping_address,
+                    "card",
+                    stripeSessionId,
+                    stripePaymentIntentId,
+                ],
+            );
+            const orderId = orderResult.insertId;
+            const orderItemsValues = authoritativeCart.map((product) => [
+                orderId,
+                Number(product.product_id || 0),
+                Number(product.quantity) || 0,
+                ((product.sale_price !== null && product.sale_price !== undefined
+                    ? Number(product.sale_price)
+                    : Number(product.price) || 0) || 0) * (Number(product.quantity) || 0),
+            ]);
+            if (orderItemsValues.length > 0) {
+                await tx.query("INSERT INTO order_items (order_id, product_id, quantity, total_price) VALUES ?", [orderItemsValues]);
+            }
+
+            const inventoryMovements: InventoryMovementInput[] = [];
+            for (const item of reservationItems) {
+                const stockBefore = stockById.get(item.productId) || 0;
+                const result = await tx.query<{ affectedRows: number }>(
+                    "UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?",
+                    [item.quantity, item.productId, item.quantity],
+                );
+                if (result.affectedRows !== 1) {
+                    throw createCheckoutError("Stock changed while confirming payment. The order was not created.", 409);
+                }
+                inventoryMovements.push({
+                    productId: item.productId,
+                    orderId,
+                    movementType: "sale",
+                    quantityChange: -item.quantity,
+                    stockBefore,
+                    stockAfter: stockBefore - item.quantity,
+                    note: `Stock deducted for order #${orderId}`,
+                    actorId: pending.user_id,
+                });
+            }
+            await this.inventoryService.createMovementsInTransaction(tx, inventoryMovements);
+            await tx.query("UPDATE carts SET done = 1 WHERE user_id = ? AND done = 0", [pending.user_id]);
+
+            const consumedRows = await this.checkoutReservationRepository.consumeReservation(tx, pending.id);
+            if (consumedRows !== 1) {
+                throw createCheckoutError("Checkout reservation was already finalized.", 409);
+            }
+            const [order] = await tx.query<Array<{ id: number; date_added: string }>>(
+                `SELECT id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
+                 FROM orders WHERE id = ?`,
+                [orderId],
+            );
+            return {
+                orderId,
+                userId: pending.user_id,
+                payableAmount: Number(pending.total_price) - Number(pending.discount),
+                alreadyProcessed: false,
+                order: order || { id: orderId, date_added: new Date().toISOString() },
+            };
+        });
+
+        if (!transactionResult) return null;
+        if (transactionResult.alreadyProcessed) return transactionResult.order;
+        this.orderTimelineService.recordTimelineEvent({
+            orderId: transactionResult.orderId,
+            status: 0,
+            note: "Order was placed by the customer.",
+            actorId: transactionResult.userId,
+        });
+        this.notificationsService.notifyOrderPlaced(
+            transactionResult.userId,
+            transactionResult.orderId,
+            transactionResult.payableAmount,
+        );
+        return transactionResult.order;
     }
 
     getOrders(): Promise<OrderSummaryRow[]> {
@@ -408,22 +546,6 @@ export class NestOrdersService {
         });
     }
 
-    insertPendingCheckout(input: {
-        stripeSessionId: string;
-        userId: string;
-        cartJson: string;
-        totalPrice: number;
-        discount: number;
-        shippingAddress: string;
-    }): Promise<void> {
-        return new Promise((resolve, reject) => {
-            this.ordersRepository.insertPendingCheckout(input, (err: Error | null) => {
-                if (err) return reject(err);
-                resolve();
-            });
-        });
-    }
-
     getPendingCheckoutBySessionId(stripeSessionId: string): Promise<PendingCheckoutRow | null> {
         return new Promise((resolve, reject) => {
             this.ordersRepository.getPendingCheckoutBySessionId(stripeSessionId, (err: Error | null, results: PendingCheckoutRow[]) => {
@@ -440,6 +562,10 @@ export class NestOrdersService {
                 resolve(result?.affectedRows ?? 0);
             });
         });
+    }
+
+    markPendingCheckoutExpired(stripeSessionId: string): Promise<number> {
+        return withTransaction((tx) => this.checkoutReservationRepository.expireReservationBySession(tx, stripeSessionId));
     }
 
     getOrderByStripeSessionId(stripeSessionId: string): Promise<OrderBySessionRow | null> {

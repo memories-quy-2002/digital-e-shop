@@ -57,6 +57,9 @@ export class StripeWebhookController {
             if (event.type === "checkout.session.completed") {
                 await this.ordersStripeService.handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session);
             }
+            if (event.type === "checkout.session.expired") {
+                await this.ordersStripeService.handleCheckoutSessionExpired(event.data.object as Stripe.Checkout.Session);
+            }
             return res.status(HttpStatus.OK).json(buildSuccessResponse({ received: true }, requestId));
         } catch (err) {
             logger.error({ err, requestId }, "[stripeWebhook] handler error");

@@ -4,6 +4,7 @@ import type { TransactionContext } from "../database/transaction";
 import type {
     CheckoutReservationItem,
     LockedProductRow,
+    PendingCheckoutRow,
     PendingCheckoutInsertInput,
     ReservedQuantityRow,
 } from "./orders.types";
@@ -62,6 +63,67 @@ export class CheckoutReservationRepository {
              VALUES ?`,
             [values],
         );
+    }
+
+    async attachStripeSession(
+        tx: TransactionContext,
+        reservationToken: string,
+        stripeSessionId: string,
+    ): Promise<number> {
+        const result = await tx.query<{ affectedRows: number }>(
+            `UPDATE pending_checkouts
+             SET stripe_session_id = ?
+             WHERE reservation_token = ? AND status = 'PENDING' AND expires_at > UTC_TIMESTAMP()`,
+            [stripeSessionId, reservationToken],
+        );
+        return result.affectedRows;
+    }
+
+    async getPendingCheckoutForUpdate(
+        tx: TransactionContext,
+        stripeSessionId: string,
+    ): Promise<PendingCheckoutRow | null> {
+        const rows = await tx.query<PendingCheckoutRow[]>(
+            `SELECT id, stripe_session_id, reservation_token, user_id, cart_json, total_price,
+                    discount, shipping_address, status, expires_at, discount_id, created_at, consumed_at
+             FROM pending_checkouts
+             WHERE stripe_session_id = ?
+             LIMIT 1
+             FOR UPDATE`,
+            [stripeSessionId],
+        );
+        return rows[0] || null;
+    }
+
+    async getReservationItems(tx: TransactionContext, pendingCheckoutId: number): Promise<CheckoutReservationItem[]> {
+        const rows = await tx.query<Array<{ product_id: number; quantity: number }>>(
+            `SELECT product_id, quantity
+             FROM inventory_reservations
+             WHERE pending_checkout_id = ?
+             ORDER BY product_id`,
+            [pendingCheckoutId],
+        );
+        return rows.map((row) => ({ productId: Number(row.product_id), quantity: Number(row.quantity) }));
+    }
+
+    async consumeReservation(tx: TransactionContext, pendingCheckoutId: number): Promise<number> {
+        const result = await tx.query<{ affectedRows: number }>(
+            `UPDATE pending_checkouts
+             SET status = 'CONSUMED', consumed_at = UTC_TIMESTAMP()
+             WHERE id = ? AND status = 'PENDING'`,
+            [pendingCheckoutId],
+        );
+        return result.affectedRows;
+    }
+
+    async expireReservationBySession(tx: TransactionContext, stripeSessionId: string): Promise<number> {
+        const result = await tx.query<{ affectedRows: number }>(
+            `UPDATE pending_checkouts
+             SET status = 'EXPIRED'
+             WHERE stripe_session_id = ? AND status = 'PENDING'`,
+            [stripeSessionId],
+        );
+        return result.affectedRows;
     }
 
     async releaseReservation(tx: TransactionContext, reservationToken: string, reason: string): Promise<void> {

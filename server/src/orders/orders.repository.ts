@@ -206,27 +206,10 @@ export class OrdersRepository {
         this.promotionsRepository.getActivePromotionByCode(discountCode, callback);
     }
 
-    insertPendingCheckout(
-        input: {
-            stripeSessionId: string;
-            userId: string;
-            cartJson: string;
-            totalPrice: number;
-            discount: number;
-            shippingAddress: string;
-        },
-        callback: QueryCallback<InsertResult>,
-    ) {
-        this.query(
-            "INSERT INTO pending_checkouts (stripe_session_id, user_id, cart_json, total_price, discount, shipping_address) VALUES (?, ?, ?, ?, ?, ?)",
-            [input.stripeSessionId, input.userId, input.cartJson, input.totalPrice, input.discount, input.shippingAddress],
-            callback,
-        );
-    }
-
     getPendingCheckoutBySessionId(stripeSessionId: string, callback: QueryCallback<PendingCheckoutRow[]>) {
         this.query(
-            `SELECT id, stripe_session_id, user_id, cart_json, total_price, discount, shipping_address, created_at, consumed_at
+            `SELECT id, stripe_session_id, reservation_token, user_id, cart_json, total_price, discount,
+                    shipping_address, status, expires_at, discount_id, created_at, consumed_at
             FROM pending_checkouts WHERE stripe_session_id = ? LIMIT 1`,
             [stripeSessionId],
             callback,
@@ -234,7 +217,11 @@ export class OrdersRepository {
     }
 
     markPendingCheckoutConsumed(stripeSessionId: string, callback: QueryCallback<UpdateResult>) {
-        this.query("UPDATE pending_checkouts SET consumed_at = UTC_TIMESTAMP() WHERE stripe_session_id = ?", [stripeSessionId], callback);
+        this.query(
+            "UPDATE pending_checkouts SET status = 'CONSUMED', consumed_at = UTC_TIMESTAMP() WHERE stripe_session_id = ? AND status = 'PENDING'",
+            [stripeSessionId],
+            callback,
+        );
     }
 
     getOrderByStripeSessionId(stripeSessionId: string, callback: QueryCallback<OrderBySessionRow[]>) {

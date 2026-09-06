@@ -106,6 +106,19 @@ export class CheckoutReservationService {
         });
     }
 
+    async attachStripeSession(reservationToken: string, stripeSessionId: string): Promise<void> {
+        await withTransaction(async (tx) => {
+            const affectedRows = await this.repository.attachStripeSession(tx, reservationToken, stripeSessionId);
+            if (affectedRows !== 1) {
+                throw createReservationError("Checkout reservation is no longer available.", 409);
+            }
+        });
+    }
+
+    async expireStripeSession(stripeSessionId: string): Promise<number> {
+        return withTransaction((tx) => this.repository.expireReservationBySession(tx, stripeSessionId));
+    }
+
     async getAvailableQuantity(productId: number): Promise<number> {
         return withTransaction((tx) => this.repository.getAvailableQuantity(tx, productId));
     }

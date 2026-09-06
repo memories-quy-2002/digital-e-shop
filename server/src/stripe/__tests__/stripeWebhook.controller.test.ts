@@ -1,4 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+vi.mock("../../orders/orders.stripe.service", () => ({ NestOrdersStripeService: class {} }));
+vi.mock("../stripe.service", () => ({ StripeService: class {} }));
 import { StripeWebhookController } from "../stripeWebhook.controller";
 import type { NestOrdersStripeService } from "../../orders/orders.stripe.service";
 import type { StripeService } from "../stripe.service";
@@ -17,11 +19,17 @@ function mockRes() {
 
 describe("StripeWebhookController", () => {
     let controller: StripeWebhookController;
-    let ordersStripeService: { handleCheckoutSessionCompleted: ReturnType<typeof vi.fn> };
+    let ordersStripeService: {
+        handleCheckoutSessionCompleted: ReturnType<typeof vi.fn>;
+        handleCheckoutSessionExpired: ReturnType<typeof vi.fn>;
+    };
     let stripeService: { constructWebhookEvent: ReturnType<typeof vi.fn> };
 
     beforeEach(() => {
-        ordersStripeService = { handleCheckoutSessionCompleted: vi.fn() };
+        ordersStripeService = {
+            handleCheckoutSessionCompleted: vi.fn(),
+            handleCheckoutSessionExpired: vi.fn(),
+        };
         stripeService = { constructWebhookEvent: vi.fn() };
         controller = new StripeWebhookController(
             ordersStripeService as unknown as NestOrdersStripeService,
@@ -107,5 +115,22 @@ describe("StripeWebhookController", () => {
             code: "STRIPE_SIGNATURE_INVALID",
             requestId: "unknown",
         });
+    });
+
+    it("releases the reservation when Stripe reports an expired checkout", async () => {
+        const req = {
+            headers: { "stripe-signature": "sig" },
+            rawBody: Buffer.from('{"type":"checkout.session.expired"}'),
+        } as never;
+        const res = mockRes();
+        stripeService.constructWebhookEvent.mockReturnValue({
+            type: "checkout.session.expired",
+            data: { object: { id: "sess_expired" } },
+        });
+
+        await controller.handleStripeWebhook(req, res as never);
+
+        expect(ordersStripeService.handleCheckoutSessionExpired).toHaveBeenCalledWith({ id: "sess_expired" });
+        expect(res.status).toHaveBeenCalledWith(200);
     });
 });

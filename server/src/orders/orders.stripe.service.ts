@@ -6,6 +6,7 @@ import { NestCartService } from "../cart/cart.service";
 import { StripeService } from "../stripe/stripe.service";
 import { NestOrdersService, createCheckoutError } from "./orders.service";
 import { calculatePromotionDiscount } from "./orders.pricing";
+import { CheckoutReservationService } from "./checkout-reservation.service";
 
 @Injectable()
 export class NestOrdersStripeService {
@@ -13,6 +14,7 @@ export class NestOrdersStripeService {
         private readonly cartService: NestCartService,
         private readonly ordersService: NestOrdersService,
         private readonly stripeService: StripeService,
+        private readonly checkoutReservationService: CheckoutReservationService,
     ) {}
 
     async createCheckoutSession(
@@ -64,10 +66,22 @@ export class NestOrdersStripeService {
             throw createCheckoutError("Order total must be greater than zero to pay by card.", 400);
         }
 
+        const stripeExpiresAt = Math.floor(Date.now() / 1000) + 30 * 60;
+        const reservation = await this.checkoutReservationService.reserveInventory({
+            uid,
+            authoritativeCart,
+            authoritativeTotalPrice,
+            discount: authoritativeDiscount,
+            shippingAddress,
+            databaseExpiresAt: new Date((stripeExpiresAt + 5 * 60) * 1000),
+        });
+
         let session;
         try {
             session = await this.stripeService.createCheckoutSession({
                 mode: "payment",
+                expires_at: stripeExpiresAt,
+                client_reference_id: reservation.reservationToken,
                 payment_method_types: ["card"],
                 line_items: [
                     {
@@ -81,9 +95,12 @@ export class NestOrdersStripeService {
                 ],
                 success_url: `${env.clientUrl}/checkout-success?session_id={CHECKOUT_SESSION_ID}`,
                 cancel_url: `${env.clientUrl}/cart`,
-                metadata: { uid },
+                metadata: { uid, reservationToken: reservation.reservationToken },
             });
         } catch (err) {
+            await this.checkoutReservationService.releaseReservation(reservation.reservationToken, "stripe_session_create_failed").catch((releaseErr) => {
+                logger.error({ err: releaseErr, reservationToken: reservation.reservationToken }, "[createCheckoutSession] failed to release reservation after stripe error");
+            });
             const stripeError = err as Error & { code?: string; type?: string; statusCode?: number; raw?: unknown };
             logger.error({
                 err,
@@ -101,25 +118,27 @@ export class NestOrdersStripeService {
         }
 
         if (!session.url) {
+            await this.stripeService.expireCheckoutSession(session.id).catch((expireErr) => {
+                logger.error({ err: expireErr, sessionId: session.id }, "[createCheckoutSession] failed to expire Stripe session without URL");
+            });
+            await this.checkoutReservationService.releaseReservation(reservation.reservationToken, "stripe_checkout_url_missing").catch((releaseErr) => {
+                logger.error({ err: releaseErr, reservationToken: reservation.reservationToken }, "[createCheckoutSession] failed to release reservation without URL");
+            });
             throw createCheckoutError("Stripe did not return a checkout URL. Please try again.", 500);
         }
 
         try {
-            await this.ordersService.insertPendingCheckout({
-                stripeSessionId: session.id,
-                userId: uid,
-                cartJson: JSON.stringify(authoritativeCart),
-                totalPrice: authoritativeTotalPrice,
-                discount: authoritativeDiscount,
-                shippingAddress,
-            });
+            await this.checkoutReservationService.attachStripeSession(reservation.reservationToken, session.id);
         } catch (err) {
             try {
                 await this.stripeService.expireCheckoutSession(session.id);
             } catch (expireErr) {
                 logger.error({ err: expireErr, sessionId: session.id }, "[createCheckoutSession] failed to expire orphaned stripe session");
             }
-            logger.error({ err, uid, sessionId: session.id }, "[createCheckoutSession] pending_checkouts insert failed");
+            await this.checkoutReservationService.releaseReservation(reservation.reservationToken, "stripe_session_attach_failed").catch((releaseErr) => {
+                logger.error({ err: releaseErr, reservationToken: reservation.reservationToken }, "[createCheckoutSession] failed to release unattached reservation");
+            });
+            logger.error({ err, uid, sessionId: session.id }, "[createCheckoutSession] failed to attach Stripe session to reservation");
             throw createCheckoutError(
                 `Unable to start checkout right now. ${(err as Error)?.message || "Please try again."}`,
                 500,
@@ -130,47 +149,15 @@ export class NestOrdersStripeService {
     }
 
     async handleCheckoutSessionCompleted(session: { id: string; payment_intent: string | { id: string } | null }): Promise<void> {
-        const pending = await this.ordersService.getPendingCheckoutBySessionId(session.id);
-        if (!pending) {
-            logger.error({ sessionId: session.id }, "[handleCheckoutSessionCompleted] no pending checkout found for session");
-            return;
-        }
-        if (pending.consumed_at) {
-            logger.info({ sessionId: session.id }, "[handleCheckoutSessionCompleted] session already consumed, skipping");
-            return;
-        }
-
         const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id || null;
-
-        try {
-            await this.ordersService.createOrderFromValidatedCart({
-                uid: pending.user_id,
-                authoritativeCart: JSON.parse(pending.cart_json),
-                authoritativeTotalPrice: Number(pending.total_price),
-                discount: Number(pending.discount),
-                shippingAddress: pending.shipping_address,
-                paymentMethod: "card",
-                allowOversell: true,
-                stripeCheckoutSessionId: session.id,
-                stripePaymentIntentId: paymentIntentId,
-            });
-
-            await this.ordersService.markPendingCheckoutConsumed(session.id);
-        } catch (err) {
-            const existingOrder = await this.ordersService
-                .getOrderByStripeSessionId(session.id)
-                .catch((): null => null);
-            if (existingOrder) {
-                logger.info(
-                    { sessionId: session.id, orderId: existingOrder.id },
-                    "[handleCheckoutSessionCompleted] session already created an order, marking consumed",
-                );
-                await this.ordersService.markPendingCheckoutConsumed(session.id);
-                return;
-            }
-
-            logger.error({ err, sessionId: session.id }, "[handleCheckoutSessionCompleted] failed to create order from confirmed payment");
-            throw err;
+        const order = await this.ordersService.finalizeReservedCheckout(session.id, paymentIntentId);
+        if (!order) {
+            logger.error({ sessionId: session.id }, "[handleCheckoutSessionCompleted] no pending checkout found for session");
         }
+    }
+
+    async handleCheckoutSessionExpired(session: { id: string }): Promise<void> {
+        const affectedRows = await this.ordersService.markPendingCheckoutExpired(session.id);
+        logger.info({ sessionId: session.id, affectedRows }, "[handleCheckoutSessionExpired] checkout reservation expired");
     }
 }
