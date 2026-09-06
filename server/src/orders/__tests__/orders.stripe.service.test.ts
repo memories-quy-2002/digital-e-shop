@@ -113,7 +113,10 @@ describe("createCheckoutSession", () => {
             issues: [],
             mismatches: [],
         } as never);
-        vi.mocked(checkoutReservationService.reserveInventory).mockResolvedValue(reservation);
+        vi.mocked(checkoutReservationService.reserveInventory).mockResolvedValue({
+            ...reservation,
+            pricingSnapshot: { totalPrice: 10, discount: 0 },
+        });
         vi.mocked(stripeService.createCheckoutSession).mockRejectedValue(new Error("stripe down"));
 
         await expect(service.createCheckoutSession("user-1", {

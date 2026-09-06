@@ -40,6 +40,7 @@ function buildOrdersService() {
         inventoryService as never,
         notificationsService as never,
         new CheckoutReservationRepository(),
+        new PromotionsRepository(),
     );
 
     return { ordersService, orderTimelineService, inventoryService, notificationsService };

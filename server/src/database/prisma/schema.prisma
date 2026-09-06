@@ -117,6 +117,9 @@ model Discount {
   expiresAt       DateTime? @map("expires_at") @db.DateTime(0)
   usageLimit      Int?      @map("usage_limit")
 
+  redemptions      DiscountRedemption[]
+  pendingCheckouts PendingCheckout[]
+
   @@unique([discountCode], map: "uq_discounts_code")
   @@map("discounts")
 }
@@ -133,8 +136,9 @@ model Order {
   dateAdded               DateTime @default(now()) @map("date_added") @db.DateTime(0)
   status                  Int      @default(0)
 
-  user  User        @relation(fields: [userId], references: [id])
-  items OrderItem[]
+  user                User                 @relation(fields: [userId], references: [id])
+  items               OrderItem[]
+  discountRedemptions DiscountRedemption[]
 
   @@map("orders")
 }
@@ -149,13 +153,15 @@ model PendingCheckout {
   discount         Decimal   @default(0) @db.Decimal(11, 2)
   shippingAddress  String    @map("shipping_address") @db.Text
   status           String    @default("PENDING") @db.VarChar(20)
-  expiresAt        DateTime? @map("expires_at") @db.DateTime(0)
+  expiresAt        DateTime  @map("expires_at") @db.DateTime(0)
   discountId       Int?      @map("discount_id")
   createdAt        DateTime  @default(now()) @map("created_at") @db.DateTime(0)
   consumedAt       DateTime? @map("consumed_at") @db.DateTime(0)
 
   user                  User                   @relation(fields: [userId], references: [id])
+  promotion             Discount?              @relation(fields: [discountId], references: [id])
   inventoryReservations InventoryReservation[]
+  discountRedemptions   DiscountRedemption[]
 
   @@index([status, expiresAt], map: "pending_checkouts_status_expiry_idx")
   @@map("pending_checkouts")
@@ -174,6 +180,25 @@ model InventoryReservation {
   @@unique([pendingCheckoutId, productId], map: "uq_inventory_reservation_checkout_product")
   @@index([productId], map: "inventory_reservations_product_idx")
   @@map("inventory_reservations")
+}
+
+model DiscountRedemption {
+  id                Int       @id @default(autoincrement())
+  discountId        Int       @map("discount_id")
+  pendingCheckoutId Int?      @unique(map: "uq_discount_redemptions_pending_checkout") @map("pending_checkout_id")
+  orderId           Int?      @unique(map: "uq_discount_redemptions_order") @map("order_id")
+  userId            String    @map("user_id") @db.VarChar(255)
+  status            String    @db.VarChar(20)
+  expiresAt         DateTime? @map("expires_at") @db.DateTime(0)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  consumedAt        DateTime? @map("consumed_at") @db.DateTime(0)
+
+  discount        Discount         @relation(fields: [discountId], references: [id])
+  pendingCheckout PendingCheckout? @relation(fields: [pendingCheckoutId], references: [id])
+  order           Order?           @relation(fields: [orderId], references: [id])
+
+  @@index([discountId, status, expiresAt], map: "discount_redemptions_quota_idx")
+  @@map("discount_redemptions")
 }
 
 model OrderItem {

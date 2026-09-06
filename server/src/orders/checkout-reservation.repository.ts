@@ -79,6 +79,21 @@ export class CheckoutReservationRepository {
         return result.affectedRows;
     }
 
+    async getPendingCheckoutByTokenForUpdate(
+        tx: TransactionContext,
+        reservationToken: string,
+    ): Promise<Pick<PendingCheckoutRow, "id" | "discount_id"> | null> {
+        const rows = await tx.query<Array<Pick<PendingCheckoutRow, "id" | "discount_id">>>(
+            `SELECT id, discount_id
+             FROM pending_checkouts
+             WHERE reservation_token = ?
+             LIMIT 1
+             FOR UPDATE`,
+            [reservationToken],
+        );
+        return rows[0] || null;
+    }
+
     async getPendingCheckoutForUpdate(
         tx: TransactionContext,
         stripeSessionId: string,

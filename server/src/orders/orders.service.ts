@@ -13,6 +13,7 @@ import { NestInventoryService } from "../inventory/inventory.service";
 import { NestNotificationsService } from "../notifications/notifications.service";
 import { withTransaction } from "../database/transaction";
 import { CheckoutReservationRepository } from "./checkout-reservation.repository";
+import { PromotionsRepository } from "../promotions/promotions.repository";
 
 export const createCheckoutError = (message: string, statusCode = 409, details: Record<string, unknown> = {}) =>
     Object.assign(new Error(message), { statusCode, details });
@@ -24,6 +25,7 @@ type CreateOrderFromCartInput = {
     discount: number;
     shippingAddress: string;
     paymentMethod: string;
+    discountCode?: string;
     stripeCheckoutSessionId?: string | null;
     stripePaymentIntentId?: string | null;
 };
@@ -37,6 +39,7 @@ export class NestOrdersService {
         private readonly inventoryService: NestInventoryService,
         private readonly notificationsService: NestNotificationsService,
         private readonly checkoutReservationRepository: CheckoutReservationRepository,
+        private readonly promotionsRepository: PromotionsRepository,
     ) {}
 
     async createOrderFromValidatedCart({
@@ -46,10 +49,12 @@ export class NestOrdersService {
         discount,
         shippingAddress,
         paymentMethod,
+        discountCode,
         stripeCheckoutSessionId = null,
         stripePaymentIntentId = null,
     }: CreateOrderFromCartInput): Promise<{ id: number; date_added: string }> {
         const startedAt = Date.now();
+        const requestedDiscount = discountCode ? Number(discount) || 0 : 0;
         logger.info({ uid, items: authoritativeCart?.length, authoritativeTotalPrice, paymentMethod }, "[createOrderFromValidatedCart] start");
 
         const transactionResult = await withTransaction(async (tx) => {
@@ -58,10 +63,25 @@ export class NestOrdersService {
 
             const orderResult = await q<InsertResult>(
                 "INSERT INTO orders (user_id, total_price, discount, shipping_address, payment_method, stripe_checkout_session_id, stripe_payment_intent_id, date_added) VALUES (?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())",
-                [uid, authoritativeTotalPrice, discount, shippingAddress, paymentMethod, stripeCheckoutSessionId, stripePaymentIntentId],
+                [uid, authoritativeTotalPrice, requestedDiscount, shippingAddress, paymentMethod, stripeCheckoutSessionId, stripePaymentIntentId],
             );
             const orderId = orderResult.insertId;
             logger.debug({ orderId }, "[createOrderFromValidatedCart] order inserted");
+
+            let appliedDiscount = requestedDiscount;
+            if (discountCode) {
+                const promotion = await this.promotionsRepository.consumePromotion(
+                    tx,
+                    discountCode,
+                    uid,
+                    orderId,
+                    authoritativeTotalPrice,
+                );
+                appliedDiscount = promotion.discount;
+                if (appliedDiscount !== requestedDiscount) {
+                    await q("UPDATE orders SET discount = ? WHERE id = ?", [appliedDiscount, orderId]);
+                }
+            }
 
             const orderItemsValues = authoritativeCart.map((product: CartItemRow) => [
                 orderId,
@@ -184,6 +204,7 @@ export class NestOrdersService {
             return {
                 orderId,
                 inventoryMovements,
+                appliedDiscount,
                 order: order || { id: orderId, date_added: new Date().toISOString() },
             };
         });
@@ -197,7 +218,7 @@ export class NestOrdersService {
         this.notificationsService.notifyOrderPlaced(
             uid,
             transactionResult.orderId,
-            Number(authoritativeTotalPrice) - Number(discount || 0),
+            Number(authoritativeTotalPrice) - Number(transactionResult.appliedDiscount || 0),
         );
         logger.info({ orderId: transactionResult.orderId, ms: Date.now() - startedAt }, "[createOrderFromValidatedCart] commit ok");
         return transactionResult.order;
@@ -205,7 +226,7 @@ export class NestOrdersService {
 
     async makePurchase(
         uid: string,
-        { totalPrice, cart, discount, shippingAddress, paymentMethod }: PurchasePayload,
+        { totalPrice, cart, discount, discountCode, shippingAddress, paymentMethod }: PurchasePayload,
     ) {
         logger.info({ uid, items: cart?.length, totalPrice, paymentMethod }, "[makePurchase] start");
 
@@ -253,6 +274,7 @@ export class NestOrdersService {
             authoritativeCart: checkoutValidation.cartItems,
             authoritativeTotalPrice: checkoutValidation.authoritativeTotalPrice,
             discount,
+            discountCode,
             shippingAddress,
             paymentMethod,
         });
@@ -273,6 +295,12 @@ export class NestOrdersService {
             );
             if (existingOrder) {
                 if (pending.status === "PENDING" && !pending.consumed_at) {
+                    if (pending.discount_id) {
+                        const consumedRows = await this.promotionsRepository.consumePromotionReservation(tx, pending.id, existingOrder.id);
+                        if (consumedRows !== 1) {
+                            throw createCheckoutError("Promotion reservation was already finalized.", 409);
+                        }
+                    }
                     await this.checkoutReservationRepository.consumeReservation(tx, pending.id);
                 }
                 return {
@@ -283,9 +311,7 @@ export class NestOrdersService {
                     order: existingOrder,
                 };
             }
-            const reservationExpired = pending.expires_at
-                ? new Date(pending.expires_at).getTime() <= Date.now()
-                : false;
+            const reservationExpired = !pending.expires_at || new Date(pending.expires_at).getTime() <= Date.now();
             if (pending.status !== "PENDING" || pending.consumed_at || reservationExpired) {
                 throw createCheckoutError("Checkout reservation is no longer payable.", 409);
             }
@@ -332,6 +358,12 @@ export class NestOrdersService {
                 ],
             );
             const orderId = orderResult.insertId;
+            if (pending.discount_id) {
+                const consumedRows = await this.promotionsRepository.consumePromotionReservation(tx, pending.id, orderId);
+                if (consumedRows !== 1) {
+                    throw createCheckoutError("Promotion reservation was already finalized.", 409);
+                }
+            }
             const orderItemsValues = authoritativeCart.map((product) => [
                 orderId,
                 Number(product.product_id || 0),
@@ -565,7 +597,15 @@ export class NestOrdersService {
     }
 
     markPendingCheckoutExpired(stripeSessionId: string): Promise<number> {
-        return withTransaction((tx) => this.checkoutReservationRepository.expireReservationBySession(tx, stripeSessionId));
+        return withTransaction(async (tx) => {
+            const pending = await this.checkoutReservationRepository.getPendingCheckoutForUpdate(tx, stripeSessionId);
+            if (!pending) return 0;
+            const affectedRows = await this.checkoutReservationRepository.expireReservationBySession(tx, stripeSessionId);
+            if (pending.discount_id) {
+                await this.promotionsRepository.releasePromotionReservation(tx, pending.id);
+            }
+            return affectedRows;
+        });
     }
 
     getOrderByStripeSessionId(stripeSessionId: string): Promise<OrderBySessionRow | null> {

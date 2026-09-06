@@ -87,7 +87,7 @@ export type PendingCheckoutRow = {
     discount: string;
     shipping_address: string;
     status: "PENDING" | "CONSUMED" | "RELEASED" | "EXPIRED" | string;
-    expires_at: string | Date | null;
+    expires_at: string | Date;
     discount_id?: number | null;
     created_at: string;
     consumed_at: string | null;
@@ -108,6 +108,7 @@ export type CheckoutReservationInput = {
     authoritativeCart: CartItemRow[];
     authoritativeTotalPrice: number;
     discount: number;
+    discountCode?: string;
     shippingAddress: string;
     databaseExpiresAt?: Date;
 };

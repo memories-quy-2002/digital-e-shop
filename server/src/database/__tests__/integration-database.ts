@@ -117,6 +117,12 @@ export async function cleanupTestData(): Promise<void> {
         [userPattern],
     ));
     await ignoreMissingTable(() => integrationPool.execute(
+        `DELETE FROM discount_redemptions
+        WHERE pending_checkout_id IN (SELECT id FROM pending_checkouts WHERE user_id LIKE ?)
+           OR order_id IN (SELECT id FROM orders WHERE user_id LIKE ?)`,
+        [userPattern, userPattern],
+    ));
+    await ignoreMissingTable(() => integrationPool.execute(
         `DELETE FROM order_status_events
         WHERE actor_id LIKE ? OR order_id IN (SELECT id FROM orders WHERE user_id LIKE ?)`,
         [userPattern, userPattern],

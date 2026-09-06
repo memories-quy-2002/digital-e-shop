@@ -56,6 +56,7 @@ function buildService(status: string = "PENDING") {
         inventoryService as never,
         notificationsService as never,
         reservationRepository as never,
+        { consumePromotionReservation: vi.fn() } as never,
     );
     return { service, tx, reservationRepository, inventoryService, timelineService, notificationsService };
 }

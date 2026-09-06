@@ -59,22 +59,23 @@ export class NestOrdersStripeService {
             throw createCheckoutError("Discount code is no longer valid.", 400);
         }
         const authoritativeDiscount = calculatePromotionDiscount(promotion, authoritativeTotalPrice);
-        const payableTotal = Math.max(authoritativeTotalPrice - authoritativeDiscount, 0);
         const itemCount = authoritativeCart.reduce((sum: number, item) => sum + (Number(item.quantity) || 0), 0);
 
-        if (payableTotal <= 0) {
-            throw createCheckoutError("Order total must be greater than zero to pay by card.", 400);
-        }
-
-        const stripeExpiresAt = Math.floor(Date.now() / 1000) + 30 * 60;
         const reservation = await this.checkoutReservationService.reserveInventory({
             uid,
             authoritativeCart,
             authoritativeTotalPrice,
             discount: authoritativeDiscount,
+            discountCode,
             shippingAddress,
-            databaseExpiresAt: new Date((stripeExpiresAt + 5 * 60) * 1000),
+            databaseExpiresAt: new Date((Math.ceil(Date.now() / 1000) + 35 * 60) * 1000),
         });
+        const stripeExpiresAt = Math.ceil(Date.now() / 1000) + 30 * 60;
+        const payableTotal = Math.max(authoritativeTotalPrice - reservation.pricingSnapshot.discount, 0);
+        if (payableTotal <= 0) {
+            await this.checkoutReservationService.releaseReservation(reservation.reservationToken, "zero_payable_total");
+            throw createCheckoutError("Order total must be greater than zero to pay by card.", 400);
+        }
 
         let session;
         try {

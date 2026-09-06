@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { withTransaction } from "../database/transaction";
 import { CheckoutReservationRepository } from "./checkout-reservation.repository";
+import { PromotionsRepository } from "../promotions/promotions.repository";
 import type { CartItemRow } from "../cart/cart.types";
 import type {
     CheckoutReservation,
@@ -32,7 +33,10 @@ const getQuantity = (item: ReservationCartItem): number => Number(item.quantity 
 
 @Injectable()
 export class CheckoutReservationService {
-    constructor(private readonly repository: CheckoutReservationRepository) {}
+    constructor(
+        private readonly repository: CheckoutReservationRepository,
+        private readonly promotionsRepository: PromotionsRepository,
+    ) {}
 
     async reserveInventory(input: CheckoutReservationInput): Promise<CheckoutReservation> {
         const aggregatedItems = this.aggregateItems(input.authoritativeCart);
@@ -79,11 +83,24 @@ export class CheckoutReservationService {
                 userId: input.uid,
                 cartJson: JSON.stringify(input.authoritativeCart),
                 totalPrice: input.authoritativeTotalPrice,
-                discount: input.discount,
+                discount: input.discountCode ? input.discount : 0,
                 shippingAddress: input.shippingAddress,
                 expiresAt,
             });
             await this.repository.insertInventoryReservations(tx, pendingCheckout.insertId, aggregatedItems);
+
+            let appliedDiscount = 0;
+            if (input.discountCode) {
+                const promotion = await this.promotionsRepository.reservePromotion(
+                    tx,
+                    input.discountCode,
+                    pendingCheckout.insertId,
+                    input.uid,
+                    expiresAt,
+                    input.authoritativeTotalPrice,
+                );
+                appliedDiscount = promotion.discount;
+            }
 
             return {
                 pendingCheckoutId: pendingCheckout.insertId,
@@ -92,7 +109,7 @@ export class CheckoutReservationService {
                 cartSnapshot: input.authoritativeCart,
                 pricingSnapshot: {
                     totalPrice: input.authoritativeTotalPrice,
-                    discount: input.discount,
+                    discount: appliedDiscount,
                 },
                 shippingAddress: input.shippingAddress,
                 items: aggregatedItems,
@@ -102,7 +119,11 @@ export class CheckoutReservationService {
 
     async releaseReservation(reservationToken: string, reason: string): Promise<void> {
         await withTransaction(async (tx) => {
+            const pendingCheckout = await this.repository.getPendingCheckoutByTokenForUpdate(tx, reservationToken);
             await this.repository.releaseReservation(tx, reservationToken, reason);
+            if (pendingCheckout?.discount_id) {
+                await this.promotionsRepository.releasePromotionReservation(tx, pendingCheckout.id);
+            }
         });
     }
 
@@ -116,7 +137,16 @@ export class CheckoutReservationService {
     }
 
     async expireStripeSession(stripeSessionId: string): Promise<number> {
-        return withTransaction((tx) => this.repository.expireReservationBySession(tx, stripeSessionId));
+        return withTransaction(async (tx) => {
+            const pendingCheckout = await this.repository.getPendingCheckoutForUpdate(tx, stripeSessionId);
+            if (!pendingCheckout) return 0;
+
+            const affectedRows = await this.repository.expireReservationBySession(tx, stripeSessionId);
+            if (affectedRows === 1 && pendingCheckout.discount_id) {
+                await this.promotionsRepository.releasePromotionReservation(tx, pendingCheckout.id);
+            }
+            return affectedRows;
+        });
     }
 
     async getAvailableQuantity(productId: number): Promise<number> {

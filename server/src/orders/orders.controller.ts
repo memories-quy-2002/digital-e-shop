@@ -201,6 +201,7 @@ export class OrdersController {
                 totalPrice,
                 cart,
                 discount,
+                discountCode,
                 shippingAddress,
                 paymentMethod,
             });

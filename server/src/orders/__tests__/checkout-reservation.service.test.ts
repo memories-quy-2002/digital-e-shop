@@ -65,6 +65,7 @@ function createMockRepository() {
             const checkout = state.checkouts.find((candidate) => candidate.reservationToken === reservationToken);
             if (checkout?.status === "PENDING") checkout.status = "RELEASED";
         }),
+        getPendingCheckoutByTokenForUpdate: vi.fn(async () => ({ id: 1, discount_id: null })),
         getAvailableQuantity: vi.fn(async (_tx: unknown, productId: number) => {
             const now = Date.now();
             const activeCheckoutIds = new Set(
@@ -79,8 +80,13 @@ function createMockRepository() {
         }),
     };
 
-    return { repository, state };
+        return { repository, state };
 }
+
+const promotionsRepository = {
+    reservePromotion: vi.fn(),
+    releasePromotionReservation: vi.fn(),
+};
 
 function installSerializedTransactions() {
     let tail = Promise.resolve();
@@ -118,7 +124,7 @@ describe("CheckoutReservationService", () => {
         const { repository, state } = createMockRepository();
         state.stockByProductId.set(1, 2);
         state.stockByProductId.set(2, 2);
-        const service = new CheckoutReservationService(repository as never);
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never);
 
         const result = await service.reserveInventory({
             ...reservationInput("user-a", 1),
@@ -151,7 +157,7 @@ describe("CheckoutReservationService", () => {
 
     it("allows only one concurrent quantity-one reservation against stock one", async () => {
         const { repository } = createMockRepository();
-        const service = new CheckoutReservationService(repository as never);
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never);
 
         const results = await Promise.allSettled([
             service.reserveInventory(reservationInput("user-a")),
@@ -165,7 +171,7 @@ describe("CheckoutReservationService", () => {
 
     it("does not subtract expired, released, or consumed reservations", async () => {
         const { repository, state } = createMockRepository();
-        const service = new CheckoutReservationService(repository as never);
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never);
         const expiresAt = new Date(Date.now() + 35 * 60_000);
 
         state.checkouts.push({ id: 1, status: "PENDING", expiresAt, reservationToken: "pending-token" });
@@ -182,7 +188,7 @@ describe("CheckoutReservationService", () => {
 
     it("releases a reservation idempotently", async () => {
         const { repository } = createMockRepository();
-        const service = new CheckoutReservationService(repository as never);
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never);
         const reservation = await service.reserveInventory(reservationInput("user-a"));
 
         await expect(service.releaseReservation(reservation.reservationToken, "stripe_session_creation_failed")).resolves.toBeUndefined();
@@ -193,5 +199,31 @@ describe("CheckoutReservationService", () => {
             reservation.reservationToken,
             "repeated_delivery",
         );
+    });
+
+    it("reserves promotion quota in the same checkout transaction", async () => {
+        const { repository } = createMockRepository();
+        vi.mocked(promotionsRepository.reservePromotion).mockResolvedValue({
+            discountId: 3,
+            discount: 3,
+            promotion: { id: 3, discount_code: "SAVE10", discount_percent: 10 },
+        });
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never);
+
+        const result = await service.reserveInventory({
+            ...reservationInput("user-promo"),
+            discount: 99,
+            discountCode: "SAVE10",
+        });
+
+        expect(promotionsRepository.reservePromotion).toHaveBeenCalledWith(
+            expect.anything(),
+            "SAVE10",
+            1,
+            "user-promo",
+            expect.any(Date),
+            10,
+        );
+        expect(result.pricingSnapshot.discount).toBe(3);
     });
 });
