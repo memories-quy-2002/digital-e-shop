@@ -67,19 +67,19 @@ export class NestAuthController {
     @Post("register")
     @HttpCode(HttpStatus.OK)
     async registerUser(
-        @Body(new ZodValidationPipe(registerUserSchema)) body: { uid: string; user: { username: string; email: string; password: string; role: string } },
+        @Body(new ZodValidationPipe(registerUserSchema)) body: { idToken: string; user: { username: string } },
         @Req() req: Request,
         @Res() res: Response,
     ) {
-        const { uid, user } = body;
-        const { uid: newUid, token, sessionId } = await this.authService.registerUser(uid, user);
+        const { idToken, user } = body;
+        const { user: createdUser, token, sessionId } = await this.authService.registerUser(idToken, user);
 
         res.cookie("session", sessionId, withMaxAge(THIRTY_DAYS));
-        res.cookie("userInfo", JSON.stringify({ uid: newUid, token }), withMaxAge(THIRTY_DAYS));
+        res.cookie("userInfo", JSON.stringify({ uid: createdUser.id, token }), withMaxAge(THIRTY_DAYS));
         res.cookie("accessToken", token, withMaxAge(THIRTY_DAYS));
 
         return res.status(200).json(buildSuccessResponse(
-            { uid: newUid, token, msg: "User created successfully" },
+            { uid: createdUser.id, token, msg: "User created successfully" },
             requestIdFrom(req),
         ));
     }
@@ -87,12 +87,12 @@ export class NestAuthController {
     @Post("login")
     @HttpCode(HttpStatus.OK)
     async userLogin(
-        @Body(new ZodValidationPipe(userLoginSchema)) body: { uid: string; role?: string; rememberMe?: boolean },
+        @Body(new ZodValidationPipe(userLoginSchema)) body: { idToken: string; rememberMe?: boolean },
         @Req() req: Request,
         @Res() res: Response,
     ) {
-        const { uid, role, rememberMe } = body;
-        const { user, token: accessToken, sessionId, refreshToken } = await this.authService.loginUser(uid, role, rememberMe);
+        const { idToken, rememberMe } = body;
+        const { user, token: accessToken, sessionId, refreshToken } = await this.authService.loginUser(idToken, rememberMe);
         setAuthCookies(res, { user, token: accessToken, sessionId, refreshToken }, Boolean(rememberMe));
 
         return res.status(200).json(buildSuccessResponse({

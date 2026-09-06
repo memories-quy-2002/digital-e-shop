@@ -17,7 +17,6 @@ import { loginUser } from "../api";
 interface User {
     email: string;
     password: string;
-    role: Role;
 }
 
 const LoginPage = () => {
@@ -27,7 +26,6 @@ const LoginPage = () => {
     const [user, setUser] = useState<User>({
         email: "",
         password: "",
-        role: Role.Customer,
     });
     const { setUserData } = useAuth();
     const [rememberMe, setRememberMe] = useState<boolean>(false);
@@ -90,11 +88,6 @@ const LoginPage = () => {
         }
     };
 
-    const handleChangeRadio = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const selectedRole = event.target.value as Role;
-        setUser({ ...user, role: selectedRole });
-    };
-
     const handleChangeCheckbox = () => {
         setRememberMe((current) => !current);
     };
@@ -111,11 +104,11 @@ const LoginPage = () => {
         setIsSubmitting(true);
         try {
             const userCredential = await signInWithFirebaseEmail(user.email, user.password);
-            const uid = userCredential.user.uid;
-            const userDataResult = await loginUser(uid, user.role, rememberMe);
+            const idToken = await userCredential.user.getIdToken(true);
+            const userDataResult = await loginUser(idToken, rememberMe);
             setUserData(userDataResult);
             addToast("Login", "You have been logon successfully");
-            navigate(user.role === Role.Admin ? "/admin" : "/");
+            navigate(userDataResult?.role === Role.Admin ? "/admin" : "/");
         } catch (err: unknown) {
             if (err && typeof err === "object" && "response" in err) {
                 const axiosError = err as { response: { status: number; data: { msg: string } } };
@@ -161,7 +154,7 @@ const LoginPage = () => {
                 </aside>
                 <main className="login__form">
                     <h1 className="login__form__title">Welcome back</h1>
-                    <SocialAuthButtons intent="login" role={user.role} disabled={user.role === Role.Admin} />
+                    <SocialAuthButtons intent="login" role={Role.Customer} />
                     <Form className="login__form__container" onSubmit={handleSubmit} name="login-form" aria-label="login-form">
                         <Form.Group className="login__form__container__group mb-3" controlId="formBasicUserName">
                             <Form.Label>Email</Form.Label>
@@ -202,28 +195,11 @@ const LoginPage = () => {
                             {fieldErrors.password ? <Form.Text className="login__field-error">{fieldErrors.password}</Form.Text> : null}
                         </Form.Group>
 
-                        <Form.Group className="login__form__container__group login__role">
-                            <Form.Label>Login as</Form.Label>
-                            <div className="login__role__options">
-                                {[Role.Customer, Role.Admin].map((role) => (
-                                    <label key={role} className={user.role === role ? "active" : ""}>
-                                        <input
-                                            type="radio"
-                                            name="login-role"
-                                            value={role}
-                                            checked={user.role === role}
-                                            onChange={handleChangeRadio}
-                                        />
-                                        {role}
-                                    </label>
-                                ))}
-                            </div>
-                        </Form.Group>
                         <Form.Group className="login__form__container__group mb-3" controlId="formBasicCheckbox">
                             <Form.Check
                                 inline
                                 type="checkbox"
-                                name="signup-role"
+                                name="remember-me"
                                 checked={rememberMe === true}
                                 onChange={handleChangeCheckbox}
                                 label="Remember me"

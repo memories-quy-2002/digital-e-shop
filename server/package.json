@@ -73,6 +73,7 @@
         "dotenv": "^17.4.2",
         "express": "^5.2.1",
         "express-rate-limit": "^8.6.2",
+        "firebase-admin": "^14.3.0",
         "fs": "0.0.1-security",
         "ioredis": "^5.5.0",
         "jsonwebtoken": "^9.0.3",

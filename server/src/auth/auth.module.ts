@@ -2,6 +2,7 @@ import { Global, Module, MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { NestAuthController } from "./auth.controller";
 import { NestAuthService } from "./auth.service";
 import { AuthRepository } from "./auth.repository";
+import { FirebaseAdminAuthService } from "./firebase-admin.service";
 import { createCsrfMiddleware } from "../middleware/csrf.middleware";
 import { UsersModule } from "../users/users.module";
 
@@ -9,8 +10,8 @@ import { UsersModule } from "../users/users.module";
 @Module({
     imports: [UsersModule],
     controllers: [NestAuthController],
-    providers: [NestAuthService, AuthRepository],
-    exports: [NestAuthService, AuthRepository],
+    providers: [NestAuthService, AuthRepository, FirebaseAdminAuthService],
+    exports: [NestAuthService, AuthRepository, FirebaseAdminAuthService],
 })
 export class AuthModule implements NestModule {
     configure(consumer: MiddlewareConsumer) {

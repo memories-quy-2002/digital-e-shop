@@ -9,12 +9,14 @@ import type { UserRow } from "../users/users.types";
 import type { RegisterUserInput } from "./auth.dto";
 import type { AuthSessionPayload, JwtPayload, SocialAuthProfile } from "./auth.types";
 import { AuthRepository } from "./auth.repository";
+import { FirebaseAdminAuthService } from "./firebase-admin.service";
 
 @Injectable()
 export class NestAuthService {
     constructor(
         private readonly authRepository: AuthRepository,
         private readonly usersRepository: UsersRepository,
+        private readonly firebaseAdminAuthService: FirebaseAdminAuthService,
     ) {}
 
     async startSession(userId: string) {
@@ -105,31 +107,33 @@ export class NestAuthService {
         return created;
     }
 
-    async registerUser(uid: string, userData: RegisterUserInput) {
-        const hashedPassword = await hashPassword(userData.password);
-        await this.usersRepository.createUser(uid, userData.username, userData.email, hashedPassword, userData.role);
+    async registerUser(idToken: string, input: RegisterUserInput): Promise<AuthSessionPayload> {
+        const identity = await this.firebaseAdminAuthService.verifyIdToken(idToken);
+        const existing = await this.usersRepository.findById(identity.uid);
+        if (existing) return this.issueLoginSession(existing, false);
 
-        const token = jwt.sign(
-            { id: uid, email: userData.email, role: userData.role },
-            env.jwtSecret,
-            { expiresIn: "30d" },
+        const placeholderPassword = await hashPassword(crypto.randomBytes(32).toString("hex"));
+        await this.usersRepository.createUser(
+            identity.uid,
+            input.username,
+            identity.email,
+            placeholderPassword,
+            "Customer",
         );
 
-        await this.usersRepository.updateUserToken(uid, token);
-        const sessionId = await this.startSession(uid);
-        return { uid, token, sessionId };
+        const created = await this.usersRepository.findById(identity.uid);
+        if (!created) throw new NotFoundException({ msg: "Unable to create user" });
+        return this.issueLoginSession(created, false);
     }
 
-    async loginUser(uid: string, role?: string, rememberMe?: boolean) {
-        const user = await this.usersRepository.findById(uid);
-        if (!user) throw new Error("Invalid username, password, or role");
-
-        if (role && user.role !== role) {
-            throw new Error("Invalid username, password, or role");
+    async loginUser(idToken: string, rememberMe = false) {
+        const identity = await this.firebaseAdminAuthService.verifyIdToken(idToken);
+        const user = await this.usersRepository.findById(identity.uid);
+        if (!user || user.email?.toLowerCase() !== identity.email) {
+            throw new UnauthorizedException({ msg: "Account is not registered" });
         }
-
         if (user.status === "Suspended") {
-            throw new Error("Account is suspended");
+            throw new UnauthorizedException({ msg: "Account is suspended" });
         }
 
         return this.issueLoginSession(user, rememberMe);

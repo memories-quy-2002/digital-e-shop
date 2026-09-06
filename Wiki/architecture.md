@@ -110,7 +110,7 @@ digital-e-shop/
 
 ## Important observations
 
-- Auth is cookie-based JWT (access + refresh) with CSRF protection on unsafe requests; login/register/refresh are intentionally excluded from CSRF — do not broaden.
+- Auth uses Firebase ID tokens as the login/register identity boundary; the server verifies them with Firebase Admin before issuing its cookie-based JWT session (access + refresh). CSRF protection remains on unsafe requests, while login/register/refresh are intentionally excluded — do not broaden.
 - The backend mixes feature-based architecture with some compatibility-era wrapper patterns.
 - Logging is Pino-based on the server with request correlation IDs; avoid noisy hot-path logs and never log secrets/PII.
 

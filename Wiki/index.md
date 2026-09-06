@@ -4,7 +4,7 @@ The long-term knowledge base for the Digital-E e-commerce system. Readable in Ob
 
 **Project summary:** Digital-E is a full-stack e-commerce platform for electronic components and devices, built as a pnpm workspace with a React 19 + Vite storefront/admin (`client/`) and a NestJS + TypeScript API (`server/`, migrated from Express 5 — see [[0002-nestjs-migration]]) backed primarily by MySQL with a partial Prisma layer.
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-09-06
 
 The local MySQL demo seed creates and verifies a linked multi-table graph
 without truncating the database.

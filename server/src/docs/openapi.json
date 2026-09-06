@@ -391,7 +391,7 @@
         "/api/users/register": {
             "post": {
                 "tags": ["Auth"],
-                "summary": "Register a new user",
+                "summary": "Register a new customer",
                 "description": "CSRF-exempt. Creates a new user record and returns the user with a token.",
                 "requestBody": {
                     "required": true,
@@ -399,17 +399,16 @@
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": ["uid", "user"],
+                                "additionalProperties": false,
+                                "required": ["idToken", "user"],
                                 "properties": {
-                                    "uid": { "type": "string", "description": "Firebase UID" },
+                                    "idToken": { "type": "string", "description": "Firebase ID token" },
                                     "user": {
                                         "type": "object",
-                                        "required": ["username", "email", "password", "role"],
+                                        "additionalProperties": false,
+                                        "required": ["username"],
                                         "properties": {
-                                            "username": { "type": "string", "minLength": 3, "maxLength": 50 },
-                                            "email": { "type": "string", "format": "email" },
-                                            "password": { "type": "string", "minLength": 8 },
-                                            "role": { "type": "string", "enum": ["Customer", "Admin"] }
+                                            "username": { "type": "string", "minLength": 3, "maxLength": 50 }
                                         }
                                     }
                                 }
@@ -439,7 +438,7 @@
         "/api/users/login": {
             "post": {
                 "tags": ["Auth"],
-                "summary": "Log in with UID and role",
+                "summary": "Log in with a Firebase ID token",
                 "description": "CSRF-exempt. Sets accessToken and refreshToken cookies.",
                 "requestBody": {
                     "required": true,
@@ -447,10 +446,10 @@
                         "application/json": {
                             "schema": {
                                 "type": "object",
-                                "required": ["uid", "role"],
+                                "additionalProperties": false,
+                                "required": ["idToken"],
                                 "properties": {
-                                    "uid": { "type": "string" },
-                                    "role": { "type": "string", "enum": ["Customer", "Admin"] },
+                                    "idToken": { "type": "string", "description": "Firebase ID token" },
                                     "rememberMe": { "type": "boolean", "default": false }
                                 }
                             }
