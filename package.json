@@ -9,6 +9,7 @@
   "scripts": {
     "start": "concurrently \"pnpm --filter server start\" \"pnpm --filter client start\"",
     "dev": "concurrently \"pnpm --filter server dev\" \"pnpm --filter client dev\"",
+    "test:e2e": "playwright test",
     "vercel-build": "pnpm --filter server build"
   },
   "keywords": [],
@@ -16,6 +17,7 @@
   "license": "ISC",
   "packageManager": "pnpm@11.5.3",
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "concurrently": "^10.0.5"
   },
   "dependencies": {

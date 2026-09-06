@@ -71,7 +71,8 @@ digital-e-shop/
 - Primary access through `server/src/<feature>/<feature>.repository.ts` (MySQL, `@Injectable()` Nest providers). Prisma schema at `server/src/database/prisma/schema.prisma` is partially adopted. See [[0001-mysql-primary-prisma-partial]].
 - **Prisma 7**: uses the rust-free `prisma-client` generator (`moduleFormat = "cjs"`, `runtime = "nodejs"`) emitting to `server/src/generated/prisma` (gitignored, rebuilt on install/build). The datasource URL lives in `server/prisma.config.ts` — not the schema — and the runtime connects via the `@prisma/adapter-mariadb` driver adapter (MySQL-compatible) constructed in `server/src/database/prisma/client.ts`.
 - **DB connection is env-driven** (`DB_HOST/PORT/USER/PASSWORD/NAME` in `server/src/config/database.config.ts`). Managed MySQL (Aiven) requires TLS: set `DB_SSL=true` to load the CA at `server/src/database/ca.pem` (override via `DB_SSL_CA_PATH`) and connect over verified SSL; leave `DB_SSL` unset for plaintext local/Docker. Docker is test-only, driven by its own env and the `docker:*` scripts.
-- SQL baseline dump under `server/src/database/migrations/`. Some tables (inventory movement, notifications, address book, order timeline) are created defensively on first use.
+- SQL baseline dump under `server/src/database/migrations/`; new schema ownership is explicit in forward Prisma migrations under `server/src/database/prisma/migrations/`. Runtime repositories never create tables, alter schema, or discover columns. Inventory movements, order status events, sessions, reservations, product attributes, addresses, and notifications must exist before the corresponding feature is used.
+- Product identity is SKU/MPN-based. Typed text/number product attributes are stored separately, validated at the product boundary, and copied into order-item snapshots together with product, pricing, warranty, image, brand, and category data so order history remains immutable.
 - Keep table/column names aligned with the existing dump/schema. Prefer additive, reviewable changes; update all affected layers (repository, service, validator, types, Prisma) together.
 - **Build assets**: non-`.ts` runtime files (`docs/openapi.json`, `database/ca.pem`) are not emitted by `tsc`; `server/scripts/copy-assets.mjs` (wired into `build`/`vercel-build`) copies them into `dist/` so `pnpm start` resolves them.
 
@@ -111,6 +112,10 @@ digital-e-shop/
 ## Important observations
 
 - Auth uses Firebase ID tokens as the login/register identity boundary; the server verifies them with Firebase Admin before issuing its cookie-based JWT session (access + refresh). Refresh reloads the current active database user before signing a new access token, and a non-remembered login clears any stale refresh cookie. CSRF protection remains on unsafe requests, while login/register/refresh are intentionally excluded — do not broaden.
+- Refresh sessions are database-backed, hashed, rotating, and revocable. Access tokens carry the session identifier and are accepted only while the session and user remain active; logout, expiry, revocation, or suspension blocks renewal.
+- Checkout reserves inventory before payment completion. Stripe finalization consumes a reservation once, is protected by the unique Checkout Session constraint, and promotion redemption quotas are updated transactionally.
+- Inventory stock changes, inventory movements, order timeline/audit events, and product attribute writes are transaction-owned. Notifications are emitted after commit so failed transactions do not publish success side effects.
+- Sensitive route rate limits use an atomic Redis fixed-window store when `NODE_ENV=production` and `REDIS_URL` is configured. Local development and production without Redis use the existing process-local memory store; multi-instance production deployments should provide `REDIS_URL` for shared enforcement.
 - The backend mixes feature-based architecture with some compatibility-era wrapper patterns.
 - Logging is Pino-based on the server with request correlation IDs; avoid noisy hot-path logs and never log secrets/PII.
 
@@ -122,7 +127,7 @@ digital-e-shop/
   a metadata-only `0_init` marker because the schema is still partial. The
   reproducible CI database therefore combines the legacy dump, the historical
   Stripe SQL change, and the tracked Prisma migrations.
-- No committed `.env.example`; environment contract is inferred.
+- `server/.env.example` documents the environment contract. Production must provide database, JWT/refresh, CSRF, Firebase Admin, URL, Stripe, and (for shared multi-instance rate limiting) `REDIS_URL` values through deployment secrets; no secret belongs in the repository.
 - Performance-sensitive paths to treat carefully: product listing/search/facets, cart validation/checkout, admin analytics, order history and notification reads.
 
 > Update this page (and [[log]] + the date in [[index]]) whenever you change architecture, boundaries, the data model, or the CI/CD contract.

@@ -1,8 +1,8 @@
 # Prisma migration workflow
 
-Digital-E Shop now uses Prisma Migrate to **track and deploy new database migrations** while the existing MySQL database remains partially legacy-managed.
+Digital-E Shop uses Prisma Migrate to **track and deploy forward database migrations** while the existing MySQL database remains partially legacy-managed.
 
-This is intentionally narrower than the Food Recipes setup: `src/database/prisma/schema.prisma` does not model every Digital-E table. Repositories still use raw SQL for legacy tables such as customer addresses/notifications and catalog metadata. Because of that, Prisma Migrate is the migration history/runner for new reviewed SQL, but it is not yet the sole owner of the complete database schema.
+`src/database/prisma/schema.prisma` is still a partial model of the Digital-E database, and repositories still use parameterized raw SQL for some legacy tables. Prisma migrations nevertheless own every new schema change. Runtime repositories never run `CREATE TABLE`, `ALTER TABLE`, `SHOW COLUMNS`, or information-schema discovery; they assume the deployed migration history is present.
 
 ## Files
 
@@ -13,13 +13,21 @@ src/database/prisma/
     ├── migration_lock.toml
     ├── 0_init/
     │   └── migration.sql
-    └── 20260824053250_enforce_stripe_checkout_idempotency/
+    ├── 20260824053250_enforce_stripe_checkout_idempotency/
+    │   └── migration.sql
+    ├── 20260906120000_product_attributes/
+    │   └── migration.sql
+    └── 20260906130000_audit_schema_ownership/
         └── migration.sql
 ```
 
 `0_init` is a metadata-only baseline marker. It must be recorded as applied on the existing data-bearing database; it is not a create-schema migration.
 
-The first pending migration adds the unique key required to prevent duplicate orders for the same Stripe Checkout Session.
+The tracked migrations add the Stripe Checkout Session idempotency key, typed product attributes, inventory reservations, product/order snapshot columns, and migration-owned audit tables such as inventory movements and order status events. The audit migration also adopts the existing address, notification, and user-auth schema into the forward migration path without giving repositories runtime DDL responsibilities.
+
+## Environment contract
+
+Migration commands require a valid `DATABASE_URL`. The server runtime also reads `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, and `DB_SSL` for its MySQL pool. Authentication and checkout deployments must provide `JWT_SECRET_KEY`, `JWT_REFRESH_SECRET_KEY`, `CSRF_SECRET`, Firebase Admin credentials (`FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`), and Stripe credentials (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`). Use [`server/.env.example`](.env.example) as the checked-in placeholder template; never commit populated `.env` files.
 
 ## Commands
 
@@ -31,7 +39,7 @@ pnpm prisma:migrate:deploy
 pnpm prisma:migrate:resolve -- --applied <migration-name>
 ```
 
-`prisma:migrate` still maps to `prisma migrate dev` for local development only. Do **not** run it against the shared or production legacy database while the Prisma schema is partial.
+`prisma:migrate` still maps to `prisma migrate dev` for local development only. Do **not** run it against the shared or production legacy database while the Prisma schema is partial. Production and shared environments use reviewed forward migrations with `prisma migrate deploy`.
 
 Never run `prisma migrate reset` against a data-bearing database.
 
@@ -143,7 +151,7 @@ pnpm prisma:migrate:deploy
 
 Do not add new pending migration files to `src/database/migrations/`; that directory is retained for legacy dump/bootstrap history.
 
-Until the Prisma schema models the complete database, do not treat `prisma migrate dev` drift output as authority for dropping legacy tables. Expanding Prisma ownership of the full schema should be a separate reviewed change.
+Until the Prisma schema models the complete database, do not treat `prisma migrate dev` drift output as authority for dropping legacy tables. Expanding Prisma ownership of the full schema should be a separate reviewed change. Do not replace a migration with runtime table creation or schema probing.
 
 ## Local demo seed
 
