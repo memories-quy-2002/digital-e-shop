@@ -63,6 +63,7 @@ export const env = {
     searchApiKey: process.env.SEARCHAPI_KEY || "",
     stripeSecretKey: process.env.STRIPE_SECRET_KEY || "",
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
+    redisUrl: process.env.REDIS_URL || "",
 };
 
 assertSafeDatabaseTarget({
