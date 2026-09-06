@@ -163,6 +163,28 @@ describe("authentication flow response contract", () => {
         expect(lastResponse).not.toHaveProperty("refreshToken");
     });
 
+    it("keeps session cookies session-scoped when remember-me is enabled", async () => {
+        authService.loginUser.mockResolvedValue({
+            user: { id: "firebase-uid", email: "customer@example.com", role: "Customer" },
+            token: "access-token",
+            sessionId: 42,
+            refreshToken: "refresh-token",
+        });
+        const response = mockResponse();
+
+        await controller.userLogin(
+            { idToken: "firebase-id-token", rememberMe: true } as never,
+            { requestId: "auth-remembered-cookie-1" } as never,
+            response as never,
+        );
+
+        const cookiesByName = new Map(response.cookie.mock.calls.map(([name, , options]) => [name, options]));
+        expect(cookiesByName.get("session")).not.toHaveProperty("maxAge");
+        expect(cookiesByName.get("userInfo")).not.toHaveProperty("maxAge");
+        expect(cookiesByName.get("accessToken")).not.toHaveProperty("maxAge");
+        expect(cookiesByName.get("refreshToken")).toEqual(expect.objectContaining({ maxAge: 30 * 24 * 60 * 60 * 1000 }));
+    });
+
     it("sets a session access cookie when refreshing an access token", async () => {
         authService.refreshToken.mockResolvedValue("refreshed-access-token");
         const response = mockResponse();
@@ -188,6 +210,22 @@ describe("authentication flow response contract", () => {
             success: true,
             requestId: "auth-refresh-cookie-1",
         });
+    });
+
+    it("clears the refresh cookie when refreshing an access token fails", async () => {
+        authService.refreshToken.mockRejectedValue(new UnauthorizedException({ msg: "Invalid refresh token" }));
+        const response = mockResponse();
+
+        await controller.userRefreshToken(
+            { requestId: "auth-refresh-failure-1", cookies: { refreshToken: "invalid-refresh-token" } } as never,
+            response as never,
+        );
+
+        expect(response.clearCookie).toHaveBeenCalledWith(
+            "refreshToken",
+            expect.objectContaining({ httpOnly: true, secure: false, sameSite: "lax" }),
+        );
+        expect(response.status).toHaveBeenCalledWith(403);
     });
 
     it("keeps registration cookies session-scoped and does not set a refresh cookie", async () => {
@@ -270,6 +308,30 @@ describe("Firebase identity boundary", () => {
         const { service, usersRepository, firebaseAdminAuthService, issueLoginSession } = buildAuthService();
         firebaseAdminAuthService.verifyIdToken.mockResolvedValue({ uid: "firebase-uid", email: "token@example.com" });
         usersRepository.findById.mockResolvedValue({ id: "firebase-uid", email: "account@example.com", role: "Customer" });
+
+        await expect(service.loginUser("firebase-id-token")).rejects.toBeInstanceOf(UnauthorizedException);
+        expect(issueLoginSession).not.toHaveBeenCalled();
+    });
+
+    it("rejects registration when an existing UID has a different database email", async () => {
+        const { service, usersRepository, firebaseAdminAuthService, issueLoginSession } = buildAuthService();
+        firebaseAdminAuthService.verifyIdToken.mockResolvedValue({ uid: "firebase-uid", email: "token@example.com" });
+        usersRepository.findById.mockResolvedValue({ id: "firebase-uid", email: "account@example.com", role: "Customer" });
+
+        await expect(service.registerUser("firebase-id-token", { username: "existing-user" }))
+            .rejects.toBeInstanceOf(UnauthorizedException);
+        expect(issueLoginSession).not.toHaveBeenCalled();
+    });
+
+    it("rejects login for a suspended account", async () => {
+        const { service, usersRepository, firebaseAdminAuthService, issueLoginSession } = buildAuthService();
+        firebaseAdminAuthService.verifyIdToken.mockResolvedValue({ uid: "firebase-uid", email: "customer@example.com" });
+        usersRepository.findById.mockResolvedValue({
+            id: "firebase-uid",
+            email: "customer@example.com",
+            role: "Customer",
+            status: "Suspended",
+        });
 
         await expect(service.loginUser("firebase-id-token")).rejects.toBeInstanceOf(UnauthorizedException);
         expect(issueLoginSession).not.toHaveBeenCalled();

@@ -21,15 +21,13 @@ const withMaxAge = (maxAge: number) => ({
 });
 
 const setAuthCookies = (res: Response, payload: AuthSessionPayload, rememberMe: boolean) => {
-    const sessionCookieOptions = rememberMe ? withMaxAge(THIRTY_DAYS) : baseCookieOptions;
-
-    res.cookie("session", payload.sessionId, sessionCookieOptions);
+    res.cookie("session", payload.sessionId, baseCookieOptions);
     res.cookie(
         "userInfo",
         JSON.stringify({ uid: payload.user.id, token: payload.token }),
-        rememberMe ? withMaxAge(THIRTY_DAYS) : baseCookieOptions,
+        baseCookieOptions,
     );
-    res.cookie("accessToken", payload.token, rememberMe ? withMaxAge(THIRTY_DAYS) : baseCookieOptions);
+    res.cookie("accessToken", payload.token, baseCookieOptions);
 
     if (rememberMe && payload.refreshToken) {
         res.cookie("refreshToken", payload.refreshToken, withMaxAge(THIRTY_DAYS));
@@ -123,6 +121,7 @@ export class NestAuthController {
                 msg: "Token refreshed successfully",
             }, requestIdFrom(req)));
         } catch {
+            res.clearCookie("refreshToken", baseCookieOptions);
             return res.status(403).json(buildErrorResponse({
                 statusCode: 403,
                 code: "INVALID_REFRESH_TOKEN",

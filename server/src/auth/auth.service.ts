@@ -110,6 +110,9 @@ export class NestAuthService {
     async registerUser(idToken: string, input: RegisterUserInput): Promise<AuthSessionPayload> {
         const identity = await this.firebaseAdminAuthService.verifyIdToken(idToken);
         const existing = await this.usersRepository.findById(identity.uid);
+        if (existing && existing.email?.toLowerCase() !== identity.email) {
+            throw new UnauthorizedException({ msg: "Account is not registered" });
+        }
         if (existing?.status === "Suspended") {
             throw new UnauthorizedException({ msg: "Account is suspended" });
         }
