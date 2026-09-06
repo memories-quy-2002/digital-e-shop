@@ -38,7 +38,7 @@ function buildService(status: string = "PENDING") {
     };
     const inventoryService = { createMovementsInTransaction: vi.fn().mockResolvedValue(undefined) };
     const productAttributesRepository = { getForProducts: vi.fn().mockResolvedValue(new Map()) };
-    const timelineService = { recordTimelineEvent: vi.fn() };
+    const timelineService = { recordTimelineEvent: vi.fn(), createTimelineEventInTransaction: vi.fn().mockResolvedValue(undefined) };
     const notificationsService = { notifyOrderPlaced: vi.fn() };
 
     tx.query.mockImplementation(async (sql: string) => {
@@ -85,7 +85,12 @@ describe("reserved checkout finalization", () => {
             stockAfter: 3,
         })]);
         expect(reservationRepository.consumeReservation).toHaveBeenCalledWith(tx, 7);
-        expect(timelineService.recordTimelineEvent).toHaveBeenCalledOnce();
+        expect(timelineService.createTimelineEventInTransaction).toHaveBeenCalledWith(tx, {
+            orderId: 42,
+            status: 0,
+            note: "Order was placed by the customer.",
+            actorId: "user-1",
+        });
         expect(notificationsService.notifyOrderPlaced).toHaveBeenCalledWith("user-1", 42, 18);
     });
 
@@ -119,7 +124,7 @@ describe("reserved checkout finalization", () => {
         expect(tx.query).not.toHaveBeenCalledWith(expect.stringContaining("UPDATE products"), expect.anything());
         expect(reservationRepository.consumeReservation).not.toHaveBeenCalled();
         expect(inventoryService.createMovementsInTransaction).not.toHaveBeenCalled();
-        expect(timelineService.recordTimelineEvent).not.toHaveBeenCalled();
+        expect(timelineService.createTimelineEventInTransaction).not.toHaveBeenCalled();
         expect(notificationsService.notifyOrderPlaced).not.toHaveBeenCalled();
     });
 

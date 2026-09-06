@@ -3,6 +3,7 @@ import type { DbError } from "#src/shared/interfaces/domain";
 import type { OrderDetail, OrderTimelineInput, OrderTimelineRow } from "./orders.types";
 import { logger } from "#src/shared/utils/logger";
 import { OrderTimelineRepository } from "./orders.timeline.repository";
+import type { TransactionContext } from "../database/transaction";
 
 const statusLabel = (status: number) => {
     if (Number(status) === 1) return "Completed";
@@ -41,6 +42,16 @@ export class NestOrderTimelineService {
                 }
             },
         );
+    }
+
+    createTimelineEventInTransaction(tx: TransactionContext, { orderId, status, note, actorId }: OrderTimelineInput): Promise<void> {
+        return this.orderTimelineRepository.createTimelineEventInTransaction(tx, {
+            orderId,
+            status,
+            label: statusLabel(status),
+            note,
+            actorId,
+        });
     }
 
     async getTimeline(orderId: number, fallbackOrder?: Partial<OrderDetail>): Promise<ReturnType<typeof normalizeTimelineEvent>[]> {

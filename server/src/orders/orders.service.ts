@@ -262,6 +262,12 @@ export class NestOrdersService {
 
             await q("UPDATE carts SET done = 1 WHERE user_id = ? AND done = 0", [uid]);
             logger.debug("[createOrderFromValidatedCart] cart updated");
+            await this.orderTimelineService.createTimelineEventInTransaction(tx, {
+                orderId,
+                status: 0,
+                note: "Order was placed by the customer.",
+                actorId: uid,
+            });
 
             const [order] = await q<Array<{ id: number; date_added: string }>>(
                 `SELECT id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
@@ -277,12 +283,6 @@ export class NestOrdersService {
             };
         });
 
-        this.orderTimelineService.recordTimelineEvent({
-            orderId: transactionResult.orderId,
-            status: 0,
-            note: "Order was placed by the customer.",
-            actorId: uid,
-        });
         this.notificationsService.notifyOrderPlaced(
             uid,
             transactionResult.orderId,
@@ -489,6 +489,12 @@ export class NestOrdersService {
             if (consumedRows !== 1) {
                 throw createCheckoutError("Checkout reservation was already finalized.", 409);
             }
+            await this.orderTimelineService.createTimelineEventInTransaction(tx, {
+                orderId,
+                status: 0,
+                note: "Order was placed by the customer.",
+                actorId: pending.user_id,
+            });
             const [order] = await tx.query<Array<{ id: number; date_added: string }>>(
                 `SELECT id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
                  FROM orders WHERE id = ?`,
@@ -505,12 +511,6 @@ export class NestOrdersService {
 
         if (!transactionResult) return null;
         if (transactionResult.alreadyProcessed) return transactionResult.order;
-        this.orderTimelineService.recordTimelineEvent({
-            orderId: transactionResult.orderId,
-            status: 0,
-            note: "Order was placed by the customer.",
-            actorId: transactionResult.userId,
-        });
         this.notificationsService.notifyOrderPlaced(
             transactionResult.userId,
             transactionResult.orderId,
@@ -608,24 +608,35 @@ export class NestOrdersService {
         status: number,
         actorId: string | number | null = null,
     ): Promise<OrderSummaryRow> {
-        return new Promise((resolve, reject) => {
-            this.ordersRepository.updateOrderStatus(orderId, status, (err: Error | null) => {
-                if (err) return reject(err);
+        return withTransaction(async (tx) => {
+            const result = await tx.query<UpdateResult>("UPDATE orders SET status = ? WHERE id = ?", [status, orderId]);
+            if (result.affectedRows === 0) {
+                throw new Error("Order not found");
+            }
 
-                this.ordersRepository.getOrderById(orderId, (findErr: Error | null, results: OrderSummaryRow[]) => {
-                    if (findErr) return reject(findErr);
-                    if (results.length === 0) return reject(new Error("Order not found"));
-                    this.orderTimelineService.recordTimelineEvent({
-                        orderId,
-                        status,
-                        note: `Order status changed to ${status}.`,
-                        actorId,
-                    });
-                    this.notificationsService.notifyOrderStatus(results[0].user_id, orderId, status);
-                    resolve(results[0]);
-                });
+            const [orderOwner] = await tx.query<Array<{ user_id: string }>>(
+                "SELECT user_id FROM orders WHERE id = ?",
+                [orderId],
+            );
+            if (!orderOwner) {
+                throw new Error("Order not found");
+            }
+
+            await this.orderTimelineService.createTimelineEventInTransaction(tx, {
+                orderId,
+                status,
+                note: `Order status changed to ${status}.`,
+                actorId,
             });
-        });
+            return orderOwner;
+        }).then((orderOwner) => new Promise<OrderSummaryRow>((resolve, reject) => {
+            this.ordersRepository.getOrderById(orderId, (error: Error | null, rows: OrderSummaryRow[]) => {
+                if (error) return reject(error);
+                if (!rows[0]) return reject(new Error("Order not found"));
+                this.notificationsService.notifyOrderStatus(orderOwner.user_id, orderId, status);
+                resolve(rows[0]);
+            });
+        }));
     }
 
     getOrderItems(): Promise<unknown[]> {

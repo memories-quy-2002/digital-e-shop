@@ -1,6 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("#src/config/database.config", () => ({ default: {} }));
+const { pool } = vi.hoisted(() => ({
+    pool: { query: vi.fn() },
+}));
+
+vi.mock("#src/config/database.config", () => ({ default: pool }));
 
 import { PromotionsRepository } from "../promotions.repository";
 
@@ -64,5 +68,76 @@ describe("transactional promotion redemptions", () => {
         await expect(repository.releasePromotionReservation(tx, 8)).resolves.toBe(1);
         expect(tx.query).toHaveBeenNthCalledWith(1, expect.stringContaining("SET status = 'CONSUMED'"), [44, 7]);
         expect(tx.query).toHaveBeenNthCalledWith(2, expect.stringContaining("SET status = 'RELEASED'"), [8]);
+    });
+});
+
+describe("migration-owned promotion catalog queries", () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    it("lists promotions with the complete migration-owned column set", () => {
+        pool.query.mockImplementationOnce((...args) => {
+            const callback = args.at(-1);
+            if (typeof callback === "function") callback(null, []);
+        });
+        const repository = new PromotionsRepository();
+
+        repository.getPromotions(vi.fn());
+
+        const sql = pool.query.mock.calls[0][0] as string;
+        expect(sql).toContain("discount_code");
+        expect(sql).toContain("description");
+        expect(sql).toContain("discount_percent");
+        expect(sql).toContain("active");
+        expect(sql).toContain("min_order_value");
+        expect(sql).toContain("starts_at");
+        expect(sql).toContain("expires_at");
+        expect(sql).toContain("usage_limit");
+        expect(sql).not.toMatch(/CREATE TABLE|ALTER TABLE|SHOW COLUMNS|information_schema/i);
+    });
+
+    it("writes all promotion fields without optional-column branching", () => {
+        pool.query.mockImplementation((...args) => {
+            const callback = args.at(-1);
+            if (typeof callback === "function") callback(null, { affectedRows: 1, insertId: 12 });
+        });
+        const repository = new PromotionsRepository();
+        const payload = {
+            discountCode: "SAVE10",
+            discountPercent: 10,
+            active: 1 as const,
+            minOrderValue: 25,
+            startsAt: null,
+            expiresAt: null,
+            usageLimit: 3,
+        };
+
+        repository.createPromotion(payload, vi.fn());
+        repository.updatePromotion(12, payload, vi.fn());
+        repository.deletePromotion(12, vi.fn());
+
+        expect(pool.query).toHaveBeenNthCalledWith(
+            1,
+            expect.stringContaining("(discount_code, discount_percent, active, min_order_value, starts_at, expires_at, usage_limit)"),
+            ["SAVE10", 10, 1, 25, null, null, 3],
+            expect.any(Function),
+        );
+        expect(pool.query.mock.calls[1][0]).toContain("SET discount_code = ?, discount_percent = ?, active = ?");
+        expect(pool.query.mock.calls[2]).toEqual(["UPDATE discounts SET active = 0 WHERE id = ?", [12], expect.any(Function)]);
+    });
+
+    it("applies active and date validity predicates for public promotion lookup", () => {
+        pool.query.mockImplementationOnce((...args) => {
+            const callback = args.at(-1);
+            if (typeof callback === "function") callback(null, []);
+        });
+        const repository = new PromotionsRepository();
+
+        repository.getActivePromotionByCode("SAVE10", vi.fn());
+
+        const [sql, params] = pool.query.mock.calls[0] as [string, unknown[]];
+        expect(sql).toContain("active = 1");
+        expect(sql).toContain("starts_at IS NULL OR starts_at <= UTC_TIMESTAMP()");
+        expect(sql).toContain("expires_at IS NULL OR expires_at >= UTC_TIMESTAMP()");
+        expect(params).toEqual(["SAVE10"]);
     });
 });

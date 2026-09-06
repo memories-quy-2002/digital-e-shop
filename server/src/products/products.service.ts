@@ -84,7 +84,7 @@ export class NestProductsService {
         }
 
         try {
-            const insertProduct = await withTransaction(async (tx) => {
+            await withTransaction(async (tx) => {
                 const brandId = await this.ensureNamedId("brands", brand, tx);
                 const categoryId = await this.ensureNamedId("categories", category, tx);
                 const result = await tx.query<InsertResult>(
@@ -106,16 +106,16 @@ export class NestProductsService {
                     ],
                 );
                 await this.productAttributesRepository.replaceForProduct(tx, result.insertId, attributes as ProductAttributeInput[]);
+                await this.inventoryService.createMovementsInTransaction(tx, [{
+                    productId: result.insertId,
+                    movementType: "initial_stock",
+                    quantityChange: Number(inventory) || 0,
+                    stockBefore: 0,
+                    stockAfter: Number(inventory) || 0,
+                    note: "Initial stock when product was created",
+                    actorId: "admin",
+                }]);
                 return result;
-            });
-            this.inventoryService.recordMovement({
-                productId: insertProduct.insertId,
-                movementType: "initial_stock",
-                quantityChange: Number(inventory) || 0,
-                stockBefore: 0,
-                stockAfter: Number(inventory) || 0,
-                note: "Initial stock when product was created",
-                actorId: "admin",
             });
             return { msg: "Product added successfully" };
         } catch (err) {
@@ -194,6 +194,17 @@ export class NestProductsService {
                 if (updates.attributes !== undefined) {
                     await this.productAttributesRepository.replaceForProduct(tx, pid, updates.attributes);
                 }
+                if (Number(current.stock) !== stock) {
+                    await this.inventoryService.createMovementsInTransaction(tx, [{
+                        productId: pid,
+                        movementType: "manual_adjustment",
+                        quantityChange: stock - (Number(current.stock) || 0),
+                        stockBefore: Number(current.stock) || 0,
+                        stockAfter: stock,
+                        note: "Product stock changed in product editor",
+                        actorId: updates.actorId || "admin",
+                    }]);
+                }
                 return updateResult;
             });
 
@@ -206,20 +217,6 @@ export class NestProductsService {
                 throw Object.assign(new Error("Product not found"), { statusCode: 404 });
             }
 
-            const previousStock = Number(current.stock) || 0;
-            const nextStock = Number(refreshed.stock) || 0;
-            if (previousStock !== nextStock) {
-                this.inventoryService.recordMovement({
-                    productId: pid,
-                    movementType: "manual_adjustment",
-                    quantityChange: nextStock - previousStock,
-                    stockBefore: previousStock,
-                    stockAfter: nextStock,
-                    note: "Product stock changed in product editor",
-                    actorId: updates.actorId || "admin",
-                });
-            }
-
             return refreshed;
         } catch (error) {
             if ((error as { code?: string }).code === "ER_DUP_ENTRY") {
@@ -230,28 +227,37 @@ export class NestProductsService {
     }
 
     async updateInventoryService(pid: number, stock: number): Promise<ProductEditorRow> {
-        const before = await this.productsRepository.getProductById(pid);
-        if (!before) {
-            throw Object.assign(new Error("Product not found"), { statusCode: 404 });
-        }
-        const stockBefore = Number(before.stock) || 0;
-
-        const result = await this.productsRepository.updateProductStock(pid, stock);
-        if (result.affectedRows === 0) {
-            throw Object.assign(new Error("Product not found"), { statusCode: 404 });
-        }
-
-        const updated = await this.productsRepository.getProductById(pid);
-        this.inventoryService.recordMovement({
-            productId: pid,
-            movementType: "manual_adjustment",
-            quantityChange: stock - stockBefore,
-            stockBefore,
-            stockAfter: stock,
-            note: "Inventory updated from admin quick restock",
-            actorId: "admin",
+        await withTransaction(async (tx) => {
+            const rows = await tx.query<Array<{ stock: number }>>(
+                "SELECT stock FROM products WHERE id = ? AND stock >= 0 FOR UPDATE",
+                [pid],
+            );
+            const before = rows[0];
+            if (!before) {
+                throw Object.assign(new Error("Product not found"), { statusCode: 404 });
+            }
+            const stockBefore = Number(before.stock) || 0;
+            const result = await tx.query<UpdateResult>(
+                "UPDATE products SET stock = ? WHERE id = ? AND stock >= 0",
+                [stock, pid],
+            );
+            if (result.affectedRows === 0) {
+                throw Object.assign(new Error("Product not found"), { statusCode: 404 });
+            }
+            if (stockBefore !== stock) {
+                await this.inventoryService.createMovementsInTransaction(tx, [{
+                    productId: pid,
+                    movementType: "manual_adjustment",
+                    quantityChange: stock - stockBefore,
+                    stockBefore,
+                    stockAfter: stock,
+                    note: "Inventory updated from admin quick restock",
+                    actorId: "admin",
+                }]);
+            }
         });
 
+        const updated = await this.productsRepository.getProductById(pid);
         return updated as ProductEditorRow;
     }
 }

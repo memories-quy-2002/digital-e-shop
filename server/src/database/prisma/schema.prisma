@@ -10,17 +10,19 @@ datasource db {
 }
 
 model User {
-  id        String   @id @db.VarChar(255)
-  username  String   @db.VarChar(16)
-  email     String   @db.VarChar(255)
-  password  String   @db.VarChar(255)
-  role      String   @db.VarChar(16)
-  token     String   @db.Text
-  firstName String?  @map("first_name") @db.Text
-  lastName  String?  @map("last_name") @db.Text
-  status    String   @default("Active") @db.VarChar(20)
-  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(0)
-  lastLogin DateTime @default(now()) @map("last_login") @db.DateTime(0)
+  id             String   @id @db.VarChar(255)
+  username       String   @db.VarChar(16)
+  email          String   @db.VarChar(255)
+  password       String   @db.VarChar(255)
+  role           String   @db.VarChar(16)
+  token          String   @db.Text
+  authProvider   String?  @map("auth_provider") @db.VarChar(32)
+  providerUserId String?  @map("provider_user_id") @db.VarChar(255)
+  firstName      String?  @map("first_name") @db.Text
+  lastName       String?  @map("last_name") @db.Text
+  status         String   @default("Active") @db.VarChar(20)
+  createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  lastLogin      DateTime @default(now()) @map("last_login") @db.DateTime(0)
 
   orders           Order[]
   carts            Cart[]
@@ -88,6 +90,37 @@ model ProductAttribute {
   @@index([attributeKey, textValue], map: "product_attributes_text_filter_idx")
   @@index([attributeKey, numberValue], map: "product_attributes_number_filter_idx")
   @@map("product_attributes")
+}
+
+model InventoryMovement {
+  id             Int      @id @default(autoincrement())
+  productId      Int      @map("product_id")
+  orderId        Int?     @map("order_id")
+  movementType   String   @map("movement_type") @db.VarChar(40)
+  quantityChange Int      @map("quantity_change")
+  stockBefore    Int?     @map("stock_before")
+  stockAfter     Int?     @map("stock_after")
+  note           String?  @db.VarChar(255)
+  actorId        String?  @map("actor_id") @db.VarChar(255)
+  createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(0)
+
+  @@index([productId], map: "inventory_movements_product_id_idx")
+  @@index([createdAt], map: "inventory_movements_created_at_idx")
+  @@map("inventory_movements")
+}
+
+model OrderStatusEvent {
+  id        Int      @id @default(autoincrement())
+  orderId   Int      @map("order_id")
+  status    Int
+  label     String   @db.VarChar(80)
+  note      String?  @db.VarChar(255)
+  actorId   String?  @map("actor_id") @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(0)
+
+  @@index([orderId], map: "order_status_events_order_id_idx")
+  @@index([createdAt], map: "order_status_events_created_at_idx")
+  @@map("order_status_events")
 }
 
 model Review {
