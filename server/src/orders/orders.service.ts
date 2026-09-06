@@ -1,7 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import pool from "#src/config/database.config";
 import { logger } from "#src/shared/utils/logger";
-import util from "node:util";
 import type { InsertResult, UpdateResult } from "#src/shared/interfaces/domain";
 import type { CartItemRow, CartValidationIssue } from "../cart/cart.types";
 import type { InventoryMovementInput } from "../inventory/inventory.dto";
@@ -13,16 +11,7 @@ import { NestOrderTimelineService } from "./orders.timeline.service";
 import { NestCartService } from "../cart/cart.service";
 import { NestInventoryService } from "../inventory/inventory.service";
 import { NestNotificationsService } from "../notifications/notifications.service";
-
-const getConnection = util.promisify(pool.getConnection).bind(pool);
-
-type DbConnection = {
-    query: (sql: unknown, values?: unknown) => unknown;
-    beginTransaction: (callback: (err?: Error | null) => void) => void;
-    commit: (callback: (err?: Error | null) => void) => void;
-    rollback: (callback: (err?: Error | null) => void) => void;
-    release: () => void;
-};
+import { withTransaction } from "../database/transaction";
 
 export const createCheckoutError = (message: string, statusCode = 409, details: Record<string, unknown> = {}) =>
     Object.assign(new Error(message), { statusCode, details });
@@ -38,8 +27,6 @@ type CreateOrderFromCartInput = {
     stripeCheckoutSessionId?: string | null;
     stripePaymentIntentId?: string | null;
 };
-
-const QUERY_TIMEOUT = 8000;
 
 @Injectable()
 export class NestOrdersService {
@@ -65,17 +52,8 @@ export class NestOrdersService {
         const startedAt = Date.now();
         logger.info({ uid, items: authoritativeCart?.length, authoritativeTotalPrice, paymentMethod, allowOversell }, "[createOrderFromValidatedCart] start");
 
-        const connection = (await getConnection()) as DbConnection;
-        const cxQuery = util.promisify(connection.query).bind(connection);
-        const begin = util.promisify(connection.beginTransaction).bind(connection);
-        const commit = util.promisify(connection.commit).bind(connection);
-        const rollback = util.promisify(connection.rollback).bind(connection);
-
-        const q = <T = unknown>(sql: string, values?: unknown[]) =>
-            cxQuery({ sql, timeout: QUERY_TIMEOUT }, values) as Promise<T>;
-
-        try {
-            await begin();
+        const transactionResult = await withTransaction(async (tx) => {
+            const q = <T = unknown>(sql: string, values?: unknown[]) => tx.query<T>(sql, values);
             logger.debug("[createOrderFromValidatedCart] transaction started");
 
             const orderResult = await q<InsertResult>(
@@ -202,38 +180,33 @@ export class NestOrdersService {
             await q("UPDATE carts SET done = 1 WHERE user_id = ? AND done = 0", [uid]);
             logger.debug("[createOrderFromValidatedCart] cart updated");
 
-            await commit();
-            this.orderTimelineService.recordTimelineEvent({
-                orderId,
-                status: 0,
-                note: "Order was placed by the customer.",
-                actorId: uid,
-            });
-            this.notificationsService.notifyOrderPlaced(
-                uid,
-                orderId,
-                Number(authoritativeTotalPrice) - Number(discount || 0),
-            );
-            this.inventoryService.recordMovements(inventoryMovements);
-            logger.info({ orderId, ms: Date.now() - startedAt }, "[createOrderFromValidatedCart] commit ok");
             const [order] = await q<Array<{ id: number; date_added: string }>>(
                 `SELECT id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
                 FROM orders
                 WHERE id = ?`,
                 [orderId],
             );
-            return order || { id: orderId, date_added: new Date().toISOString() };
-        } catch (err) {
-            logger.error(err, "[createOrderFromValidatedCart] item processing error");
-            try {
-                await rollback();
-            } catch (rollbackErr) {
-                logger.error(rollbackErr, "[createOrderFromValidatedCart] rollback failed");
-            }
-            throw err;
-        } finally {
-            connection.release();
-        }
+            return {
+                orderId,
+                inventoryMovements,
+                order: order || { id: orderId, date_added: new Date().toISOString() },
+            };
+        });
+
+        this.orderTimelineService.recordTimelineEvent({
+            orderId: transactionResult.orderId,
+            status: 0,
+            note: "Order was placed by the customer.",
+            actorId: uid,
+        });
+        this.notificationsService.notifyOrderPlaced(
+            uid,
+            transactionResult.orderId,
+            Number(authoritativeTotalPrice) - Number(discount || 0),
+        );
+        this.inventoryService.recordMovements(transactionResult.inventoryMovements);
+        logger.info({ orderId: transactionResult.orderId, ms: Date.now() - startedAt }, "[createOrderFromValidatedCart] commit ok");
+        return transactionResult.order;
     }
 
     async makePurchase(
