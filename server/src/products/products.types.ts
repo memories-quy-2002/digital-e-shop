@@ -6,6 +6,9 @@ export type ProductEditorRow = {
     description?: string | null;
     category: string;
     brand: string;
+    sku: string;
+    manufacturer_part_number?: string | null;
+    warranty_months?: number | null;
     price: number;
     sale_price?: number | null;
     stock: number;

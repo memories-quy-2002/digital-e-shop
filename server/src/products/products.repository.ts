@@ -11,6 +11,9 @@ type ProductInsertRecord = {
     categoryId: number;
     brandId: number;
     specifications?: string;
+    sku: string;
+    manufacturerPartNumber?: string | null;
+    warrantyMonths?: number | null;
     price: number;
     inventory: number;
 };
@@ -21,6 +24,9 @@ type ProductUpdateRecord = {
     categoryId: number;
     brandId: number;
     specifications?: string;
+    sku: string;
+    manufacturerPartNumber?: string | null;
+    warrantyMonths?: number | null;
     price: number;
     salePrice?: number | null;
     stock: number;
@@ -161,8 +167,8 @@ export class NestProductsRepository {
     insertProduct(product: ProductInsertRecord): Promise<UpdateResult> {
         return new Promise((resolve, reject) => {
             pool.query(
-                `INSERT INTO products (name, description, main_image, category_id, brand_id, specifications, price, stock)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO products (name, description, main_image, category_id, brand_id, specifications, sku, manufacturer_part_number, warranty_months, price, stock)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     product.name,
                     product.description,
@@ -170,6 +176,9 @@ export class NestProductsRepository {
                     product.categoryId,
                     product.brandId,
                     product.specifications,
+                    product.sku,
+                    product.manufacturerPartNumber,
+                    product.warrantyMonths,
                     product.price,
                     product.inventory,
                 ],
@@ -221,7 +230,7 @@ export class NestProductsRepository {
         return new Promise((resolve, reject) => {
             pool.query(
                 `SELECT products.id, products.name, description, categories.name AS category,
-                    brands.name AS brand, price, sale_price, stock,
+                    brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, price, sale_price, stock,
                     GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
                     specifications, ${productRatingSelect}
                 FROM products
@@ -243,7 +252,7 @@ export class NestProductsRepository {
         return new Promise((resolve, reject) => {
             pool.query(
                 `SELECT products.id, products.name, description, categories.name AS category,
-                    brands.name AS brand, price, sale_price, stock,
+                    brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, price, sale_price, stock,
                     GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
                     specifications, ${productRatingSelect}
                 ${productBaseFrom}
@@ -261,7 +270,7 @@ export class NestProductsRepository {
         return new Promise((resolve, reject) => {
             pool.query(
                 `SELECT products.id, products.name, description, categories.name AS category,
-                    brands.name AS brand, price, sale_price, stock,
+                    brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, price, sale_price, stock,
                     GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
                     specifications, ${productRatingSelect}
                 ${productBaseFrom}
@@ -285,7 +294,7 @@ export class NestProductsRepository {
         return new Promise((resolve, reject) => {
             pool.query(
                 `SELECT products.id, products.name, description, categories.name AS category,
-                    brands.name AS brand, price, sale_price, stock,
+                    brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, price, sale_price, stock,
                     GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
                     specifications, ${productRatingSelect}
                 ${productBaseFrom}
@@ -446,6 +455,9 @@ export class NestProductsRepository {
                 p.id,
                 p.name,
                 p.description,
+                p.sku,
+                p.manufacturer_part_number,
+                p.warranty_months,
                 categories.name AS category,
                 brands.name AS brand,
                 p.price,
@@ -508,6 +520,9 @@ export class NestProductsRepository {
                 p.id,
                 p.name,
                 p.description,
+                p.sku,
+                p.manufacturer_part_number,
+                p.warranty_months,
                 c.name AS category,
                 b.name AS brand,
                 p.price,

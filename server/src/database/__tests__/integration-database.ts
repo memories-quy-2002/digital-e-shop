@@ -44,9 +44,9 @@ export async function createTestUser(label: string): Promise<TestUser> {
 export async function createTestProduct(label: string, stock = 10): Promise<number> {
     const [result] = await integrationPool.execute<ResultSetHeader>(
         `INSERT INTO products
-            (name, description, category_id, brand_id, price, sale_price, stock, main_image, specifications, created_at, updated_at)
-        VALUES (?, ?, 1, 1, 10.00, NULL, ?, NULL, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP())`,
-        [`${integrationPrefix}-product-${label}`, "Integration test product", stock],
+            (name, description, category_id, brand_id, sku, price, sale_price, stock, main_image, specifications, created_at, updated_at)
+        VALUES (?, ?, 1, 1, ?, 10.00, NULL, ?, NULL, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP())`,
+        [`${integrationPrefix}-product-${label}`, "Integration test product", `${integrationPrefix}-${label}`.slice(0, 64), stock],
     );
 
     return Number(result.insertId);

@@ -1,6 +1,9 @@
 export interface Product {
     id: number;
     name: string;
+    sku: string;
+    manufacturerPartNumber: string | null;
+    warrantyMonths: number | null;
     category: string;
     brand: string;
     price: number;

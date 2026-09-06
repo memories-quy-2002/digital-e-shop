@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import pool from "#src/config/database.config";
 import util from "node:util";
+import { randomUUID } from "node:crypto";
 import { logger } from "#src/shared/utils/logger";
 import type { ProductEditorRow } from "./products.types";
 import type { ProductCreateInput, ProductUpdateInput } from "./products.dto";
@@ -19,6 +20,22 @@ function extractFileName(url: string) {
     return parts[parts.length - 1].split(".")[0];
 }
 
+const generateSku = () => `DIG-${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
+
+const normalizeNullableText = (value: unknown): string | null => {
+    const normalized = String(value ?? "").trim();
+    return normalized ? normalized : null;
+};
+
+const normalizeWarrantyMonths = (value: unknown): number | null => {
+    if (value === undefined || value === null || value === "") return null;
+    const normalized = Number(value);
+    if (!Number.isInteger(normalized) || normalized < 0) {
+        throw Object.assign(new Error("Warranty must be a non-negative whole number"), { statusCode: 400 });
+    }
+    return normalized;
+};
+
 @Injectable()
 export class NestProductsService {
     constructor(
@@ -27,7 +44,22 @@ export class NestProductsService {
     ) {}
 
     async addSingleProductService(data: ProductCreateInput, file?: UploadedFile) {
-        const { name, description, category, brand, specifications, price, inventory, imageUrl } = data;
+        const {
+            name,
+            description,
+            category,
+            brand,
+            specifications,
+            sku,
+            manufacturerPartNumber,
+            warrantyMonths,
+            price,
+            inventory,
+            imageUrl,
+        } = data;
+        const normalizedSku = String(sku ?? "").trim().toUpperCase() || generateSku();
+        const normalizedManufacturerPartNumber = normalizeNullableText(manufacturerPartNumber);
+        const normalizedWarrantyMonths = normalizeWarrantyMonths(warrantyMonths);
 
         const imageName = name.toLowerCase().replace(/ /g, "_").replace(/-/g, "_");
         logger.debug({ imageName }, "Preparing product image name");
@@ -67,9 +99,22 @@ export class NestProductsService {
             }
 
             const insertProduct = await dbQuery<InsertResult>(
-                `INSERT INTO products (name, description, main_image, category_id, brand_id, specifications, price, stock)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                [name, description, fileName, categoryId, brandId, specifications, price, inventory],
+                `INSERT INTO products
+                    (name, description, main_image, category_id, brand_id, specifications, sku, manufacturer_part_number, warranty_months, price, stock)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    name,
+                    description,
+                    fileName,
+                    categoryId,
+                    brandId,
+                    specifications,
+                    normalizedSku,
+                    normalizedManufacturerPartNumber,
+                    normalizedWarrantyMonths,
+                    price,
+                    inventory,
+                ],
             );
 
             await query("COMMIT");
@@ -85,6 +130,9 @@ export class NestProductsService {
             return { msg: "Product added successfully" };
         } catch (err) {
             await query("ROLLBACK");
+            if ((err as { code?: string }).code === "ER_DUP_ENTRY") {
+                throw Object.assign(new Error("SKU already exists"), { statusCode: 409 });
+            }
             throw err;
         }
     }
@@ -107,7 +155,8 @@ export class NestProductsService {
     async updateProductDetailsService(pid: number, updates: ProductUpdateInput): Promise<ProductEditorRow> {
         const currentRows = await dbQuery<ProductEditorRow[]>(
             `SELECT products.id, products.name, description, categories.name AS category,
-                brands.name AS brand, price, sale_price, stock, specifications
+                brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months,
+                price, sale_price, stock, specifications
             FROM products
             JOIN categories ON categories.id = products.category_id
             JOIN brands ON brands.id = products.brand_id
@@ -125,6 +174,13 @@ export class NestProductsService {
         const category = String(updates.category ?? current.category).trim();
         const brand = String(updates.brand ?? current.brand).trim();
         const specifications = String(updates.specifications ?? current.specifications ?? "").trim();
+        const sku = String(updates.sku ?? current.sku ?? "").trim().toUpperCase();
+        const manufacturerPartNumber = updates.manufacturerPartNumber === undefined
+            ? normalizeNullableText(current.manufacturer_part_number)
+            : normalizeNullableText(updates.manufacturerPartNumber);
+        const warrantyMonths = updates.warrantyMonths === undefined
+            ? normalizeWarrantyMonths(current.warranty_months)
+            : normalizeWarrantyMonths(updates.warrantyMonths);
         const price = Number(updates.price ?? current.price);
         const salePrice =
             updates.salePrice === undefined
@@ -134,8 +190,8 @@ export class NestProductsService {
                   : Number(updates.salePrice);
         const stock = Number(updates.stock ?? current.stock);
 
-        if (!name || !category || !brand || Number.isNaN(price) || Number.isNaN(stock) || price < 0 || stock < 0) {
-            throw Object.assign(new Error("Name, category, brand, price, and quantity must be valid"), { statusCode: 400 });
+        if (!name || !category || !brand || !sku || Number.isNaN(price) || Number.isNaN(stock) || price < 0 || stock < 0) {
+            throw Object.assign(new Error("Name, category, brand, SKU, price, and quantity must be valid"), { statusCode: 400 });
         }
 
         if (salePrice !== null && (Number.isNaN(salePrice) || salePrice < 0)) {
@@ -145,12 +201,20 @@ export class NestProductsService {
         const categoryId = await this.ensureNamedId("categories", category);
         const brandId = await this.ensureNamedId("brands", brand);
 
-        const result = await dbQuery<UpdateResult>(
-            `UPDATE products
-            SET name = ?, description = ?, category_id = ?, brand_id = ?, specifications = ?, price = ?, sale_price = ?, stock = ?
-            WHERE id = ? AND stock >= 0`,
-            [name, description, categoryId, brandId, specifications, price, salePrice, stock, pid],
-        );
+        let result: UpdateResult;
+        try {
+            result = await dbQuery<UpdateResult>(
+                `UPDATE products
+                SET name = ?, description = ?, category_id = ?, brand_id = ?, specifications = ?, sku = ?, manufacturer_part_number = ?, warranty_months = ?, price = ?, sale_price = ?, stock = ?
+                WHERE id = ? AND stock >= 0`,
+                [name, description, categoryId, brandId, specifications, sku, manufacturerPartNumber, warrantyMonths, price, salePrice, stock, pid],
+            );
+        } catch (error) {
+            if ((error as { code?: string }).code === "ER_DUP_ENTRY") {
+                throw Object.assign(new Error("SKU already exists"), { statusCode: 409 });
+            }
+            throw error;
+        }
 
         if (result.affectedRows === 0) {
             throw Object.assign(new Error("Product not found"), { statusCode: 404 });
@@ -158,7 +222,8 @@ export class NestProductsService {
 
         const refreshedRows = await dbQuery<ProductEditorRow[]>(
             `SELECT products.id, products.name, description, categories.name AS category,
-                brands.name AS brand, price, sale_price, stock, main_image,
+                brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months,
+                price, sale_price, stock, main_image,
                 specifications,
                 COALESCE(review_summary.rating, 0) AS rating,
                 COALESCE(review_summary.reviews, 0) AS reviews

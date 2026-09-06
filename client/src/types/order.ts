@@ -14,9 +14,12 @@ export type AdminOrder = {
 export type AdminOrderDetail = AdminOrder & {
     items: Array<{
         productId: number;
+        sku?: string | null;
         productName: string;
         brand: string;
         category: string;
+        warrantyMonths?: number | null;
+        specifications?: Record<string, unknown> | string | null;
         price: number;
         sale_price: number | null;
         quantity: number;

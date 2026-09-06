@@ -289,6 +289,9 @@ export class ProductsController {
             category?: string;
             brand?: string;
             specifications?: string;
+            sku?: string;
+            manufacturerPartNumber?: string | null;
+            warrantyMonths?: number | string | null;
             price?: number;
             salePrice?: number | string | null;
             stock?: number;

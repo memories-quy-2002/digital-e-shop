@@ -24,8 +24,11 @@ export type OrderDetailRow = OrderSummaryRow & {
     order_item_id?: number;
     product_id?: number;
     product_name?: string;
+    sku?: string | null;
     category?: string;
     brand?: string;
+    warranty_months?: number | null;
+    specifications?: Record<string, unknown> | string | null;
     price?: number;
     sale_price?: number | null;
     stock?: number;
@@ -48,9 +51,12 @@ export type OrderDetail = {
     items: Array<{
         id?: number;
         productId?: number;
+        sku?: string | null;
         productName?: string;
         category?: string;
         brand?: string;
+        warrantyMonths?: number | null;
+        specifications?: Record<string, unknown> | string | null;
         price: number;
         sale_price: number | null;
         stock: number;
@@ -91,6 +97,19 @@ export type PendingCheckoutRow = {
     discount_id?: number | null;
     created_at: string;
     consumed_at: string | null;
+};
+
+export type OrderItemSnapshot = {
+    productId: number;
+    sku: string;
+    productName: string;
+    image: string | null;
+    unitPrice: number;
+    brand: string;
+    category: string;
+    warrantyMonths: number | null;
+    specifications: Record<string, unknown>;
+    quantity: number;
 };
 
 export type ReservedQuantityRow = {

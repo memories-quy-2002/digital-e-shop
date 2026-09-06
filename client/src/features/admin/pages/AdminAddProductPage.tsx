@@ -10,6 +10,9 @@ import { uploadBlob, addProduct } from "../api";
 interface ProductData {
     [key: string]: string | number | File | null;
     name: string;
+    sku: string;
+    manufacturerPartNumber: string;
+    warrantyMonths: string;
     description: string;
     image: File | null;
     imageUrl: string;
@@ -28,6 +31,9 @@ const AdminAddProductPage = () => {
     const navigate = useNavigate();
     const [productData, setProductData] = useState<ProductData>({
         name: "",
+        sku: "",
+        manufacturerPartNumber: "",
+        warrantyMonths: "",
         description: "",
         image: null,
         imageUrl: "",
@@ -82,6 +88,9 @@ const AdminAddProductPage = () => {
                 if (value !== null) {
                     if (typeof value === "string") {
                         if (key === "imageUrl" && value === "") return;
+                        if (["sku", "manufacturerPartNumber", "warrantyMonths"].includes(key) && value.trim() === "") {
+                            return;
+                        }
                         if (key === "specifications") {
                             formData.append(
                                 key,
@@ -320,6 +329,52 @@ const AdminAddProductPage = () => {
                                             name="brand"
                                             value={productData.brand}
                                             onChange={handleInputChange}
+                                        />
+                                    </Form.Group>
+
+                                    <Form.Group className="mb-3" controlId="formSku">
+                                        <Form.Label htmlFor="formSku">SKU</Form.Label>
+                                        <Form.Control
+                                            id="formSku"
+                                            type="text"
+                                            placeholder="Example: GPU-EX-001"
+                                            name="sku"
+                                            value={productData.sku}
+                                            onChange={handleInputChange}
+                                            autoComplete="off"
+                                            spellCheck={false}
+                                        />
+                                    </Form.Group>
+
+                                    <Form.Group className="mb-3" controlId="formManufacturerPartNumber">
+                                        <Form.Label htmlFor="formManufacturerPartNumber">
+                                            Manufacturer part number
+                                        </Form.Label>
+                                        <Form.Control
+                                            id="formManufacturerPartNumber"
+                                            type="text"
+                                            placeholder="Optional manufacturer reference…"
+                                            name="manufacturerPartNumber"
+                                            value={productData.manufacturerPartNumber}
+                                            onChange={handleInputChange}
+                                            autoComplete="off"
+                                            spellCheck={false}
+                                        />
+                                    </Form.Group>
+
+                                    <Form.Group className="mb-3" controlId="formWarrantyMonths">
+                                        <Form.Label htmlFor="formWarrantyMonths">Warranty (months)</Form.Label>
+                                        <Form.Control
+                                            id="formWarrantyMonths"
+                                            type="number"
+                                            min="0"
+                                            step="1"
+                                            inputMode="numeric"
+                                            placeholder="Optional, e.g. 24"
+                                            name="warrantyMonths"
+                                            value={productData.warrantyMonths}
+                                            onChange={handleInputChange}
+                                            autoComplete="off"
                                         />
                                     </Form.Group>
 

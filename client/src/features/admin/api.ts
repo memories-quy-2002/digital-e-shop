@@ -1,5 +1,6 @@
 import http from "../../lib/http";
 import type { Product } from "../../types/product";
+import { normalizeProduct } from "../../utils/product";
 import type { AdminOrder, AdminOrderDetail, AdminOrderItem, AdminCustomerProfile } from "../../types/order";
 
 export async function fetchAnalyticsSummary(): Promise<any> {
@@ -9,12 +10,12 @@ export async function fetchAnalyticsSummary(): Promise<any> {
 
 export async function fetchAdminProducts(page = 1, limit = 60): Promise<Product[]> {
     const response = await http.get(`/api/products?page=${page}&limit=${limit}`);
-    return response.data.products || [];
+    return (response.data.products || []).map(normalizeProduct);
 }
 
 export async function fetchAllProducts(): Promise<Product[]> {
     const response = await http.get("/api/products");
-    return response.data.products || [];
+    return (response.data.products || []).map(normalizeProduct);
 }
 
 export async function fetchAdminOrders(page = 1, limit = 80): Promise<AdminOrder[]> {

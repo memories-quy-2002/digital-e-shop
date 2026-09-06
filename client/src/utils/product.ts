@@ -19,6 +19,14 @@ export const normalizeProduct = (value: unknown): Product => {
     return {
         id: asNumber(source.id),
         name: String(source.name ?? ""),
+        sku: String(source.sku ?? ""),
+        manufacturerPartNumber:
+            source.manufacturerPartNumber === null || source.manufacturerPartNumber === undefined
+                ? source.manufacturer_part_number === null || source.manufacturer_part_number === undefined
+                    ? null
+                    : String(source.manufacturer_part_number)
+                : String(source.manufacturerPartNumber),
+        warrantyMonths: nullableNumber(source.warrantyMonths ?? source.warranty_months),
         category: String(source.category ?? ""),
         brand: String(source.brand ?? ""),
         price: asNumber(source.price),

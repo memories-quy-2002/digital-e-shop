@@ -6,6 +6,9 @@ import ProductCard from "../ProductCard";
 const product = {
     id: 190,
     name: "Demo Intel Core Ultra Kit",
+    sku: "INTEL-DEMO-190",
+    manufacturerPartNumber: null,
+    warrantyMonths: null,
     category: "PC",
     brand: "Intel",
     price: 449,

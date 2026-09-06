@@ -3,7 +3,7 @@ import { logger } from "#src/shared/utils/logger";
 import type { InsertResult, UpdateResult } from "#src/shared/interfaces/domain";
 import type { CartItemRow, CartValidationIssue } from "../cart/cart.types";
 import type { InventoryMovementInput } from "../inventory/inventory.dto";
-import type { OrderBySessionRow, OrderDetail, OrderDetailRow, OrderSummaryRow, OrderTimelineRow, LockedProductRow, PendingCheckoutRow } from "./orders.types";
+import type { OrderBySessionRow, OrderDetail, OrderDetailRow, OrderItemSnapshot, OrderSummaryRow, OrderTimelineRow, LockedProductRow, PendingCheckoutRow } from "./orders.types";
 import type { PromotionRow } from "../promotions/promotions.types";
 import type { PurchasePayload } from "./orders.dto";
 import { OrdersRepository } from "./orders.repository";
@@ -17,6 +17,49 @@ import { PromotionsRepository } from "../promotions/promotions.repository";
 
 export const createCheckoutError = (message: string, statusCode = 409, details: Record<string, unknown> = {}) =>
     Object.assign(new Error(message), { statusCode, details });
+
+const parseSpecificationsSnapshot = (value: unknown): Record<string, unknown> => {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+        return value as Record<string, unknown>;
+    }
+
+    if (typeof value === "string" && value.trim()) {
+        try {
+            const parsed = JSON.parse(value);
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+                return parsed as Record<string, unknown>;
+            }
+        } catch {
+            return { raw: value };
+        }
+        return { raw: value };
+    }
+
+    return {};
+};
+
+const buildOrderItemSnapshot = (product: CartItemRow): OrderItemSnapshot => {
+    const productId = Number(product.product_id || 0);
+    const quantity = Number(product.quantity) || 0;
+    const unitPrice = product.sale_price !== null && product.sale_price !== undefined
+        ? Number(product.sale_price)
+        : Number(product.price) || 0;
+
+    return {
+        productId,
+        sku: String(product.sku || `DIG-${String(productId).padStart(8, "0")}`).trim(),
+        productName: String(product.product_name || `Product #${productId}`),
+        image: product.main_image ? String(product.main_image) : null,
+        unitPrice,
+        brand: String(product.brand || ""),
+        category: String(product.category || ""),
+        warrantyMonths: product.warranty_months === null || product.warranty_months === undefined
+            ? null
+            : Number(product.warranty_months),
+        specifications: parseSpecificationsSnapshot(product.specifications),
+        quantity,
+    };
+};
 
 type CreateOrderFromCartInput = {
     uid: string;
@@ -83,13 +126,20 @@ export class NestOrdersService {
                 }
             }
 
-            const orderItemsValues = authoritativeCart.map((product: CartItemRow) => [
+            const orderItemSnapshots = authoritativeCart.map(buildOrderItemSnapshot);
+            const orderItemsValues = orderItemSnapshots.map((snapshot) => [
                 orderId,
-                Number(product.product_id || 0),
-                Number(product.quantity) || 0,
-                ((product.sale_price !== null && product.sale_price !== undefined
-                    ? Number(product.sale_price)
-                    : Number(product.price) || 0) || 0) * (Number(product.quantity) || 0),
+                snapshot.productId,
+                snapshot.quantity,
+                snapshot.unitPrice * snapshot.quantity,
+                snapshot.sku,
+                snapshot.productName,
+                snapshot.image,
+                snapshot.unitPrice,
+                snapshot.brand,
+                snapshot.category,
+                snapshot.warrantyMonths,
+                JSON.stringify(snapshot.specifications),
             ]);
 
             const productQuantities = authoritativeCart.reduce((acc: Map<number, number>, product: CartItemRow) => {
@@ -103,7 +153,14 @@ export class NestOrdersService {
             let inventoryMovements: InventoryMovementInput[] = [];
             if (orderItemsValues.length > 0) {
                 logger.debug({ orderId, count: orderItemsValues.length }, "[createOrderFromValidatedCart] insertOrderItems");
-                await q("INSERT INTO order_items (order_id, product_id, quantity, total_price) VALUES ?", [orderItemsValues]);
+                await q(
+                    `INSERT INTO order_items
+                        (order_id, product_id, quantity, total_price, sku_snapshot, product_name_snapshot,
+                         image_snapshot, unit_price_snapshot, brand_snapshot, category_snapshot,
+                         warranty_months_snapshot, specifications_snapshot)
+                     VALUES ?`,
+                    [orderItemsValues],
+                );
 
                 const productIds = [...productQuantities.keys()].sort((left, right) => left - right);
                 const placeholderList = productIds.map(() => "?").join(", ");
@@ -364,16 +421,30 @@ export class NestOrdersService {
                     throw createCheckoutError("Promotion reservation was already finalized.", 409);
                 }
             }
-            const orderItemsValues = authoritativeCart.map((product) => [
+            const orderItemSnapshots = authoritativeCart.map(buildOrderItemSnapshot);
+            const orderItemsValues = orderItemSnapshots.map((snapshot) => [
                 orderId,
-                Number(product.product_id || 0),
-                Number(product.quantity) || 0,
-                ((product.sale_price !== null && product.sale_price !== undefined
-                    ? Number(product.sale_price)
-                    : Number(product.price) || 0) || 0) * (Number(product.quantity) || 0),
+                snapshot.productId,
+                snapshot.quantity,
+                snapshot.unitPrice * snapshot.quantity,
+                snapshot.sku,
+                snapshot.productName,
+                snapshot.image,
+                snapshot.unitPrice,
+                snapshot.brand,
+                snapshot.category,
+                snapshot.warrantyMonths,
+                JSON.stringify(snapshot.specifications),
             ]);
             if (orderItemsValues.length > 0) {
-                await tx.query("INSERT INTO order_items (order_id, product_id, quantity, total_price) VALUES ?", [orderItemsValues]);
+                await tx.query(
+                    `INSERT INTO order_items
+                        (order_id, product_id, quantity, total_price, sku_snapshot, product_name_snapshot,
+                         image_snapshot, unit_price_snapshot, brand_snapshot, category_snapshot,
+                         warranty_months_snapshot, specifications_snapshot)
+                     VALUES ?`,
+                    [orderItemsValues],
+                );
             }
 
             const inventoryMovements: InventoryMovementInput[] = [];
@@ -493,9 +564,14 @@ export class NestOrdersService {
                         .map((row) => ({
                             id: row.order_item_id,
                             productId: row.product_id,
+                            sku: row.sku,
                             productName: row.product_name,
                             category: row.category,
                             brand: row.brand,
+                            warrantyMonths: row.warranty_months === null || row.warranty_months === undefined
+                                ? null
+                                : Number(row.warranty_months),
+                            specifications: row.specifications,
                             price: Number(row.price) || 0,
                             sale_price: row.sale_price === null ? null : Number(row.sale_price) || null,
                             stock: Number(row.stock) || 0,

@@ -78,6 +78,9 @@ const ProductPage = () => {
     const [productDetail, setProductDetail] = useState<Product>({
         id: 0,
         name: "",
+        sku: "",
+        manufacturerPartNumber: null,
+        warrantyMonths: null,
         category: "",
         brand: "",
         price: 0,

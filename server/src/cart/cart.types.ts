@@ -5,11 +5,15 @@ export type CartItemRow = {
     cart_item_id?: number;
     product_id?: number;
     product_name?: string;
+    sku?: string | null;
+    manufacturer_part_number?: string | null;
+    warranty_months?: number | null;
     brand?: string | null;
     category?: string | null;
     price?: number | null;
     sale_price?: number | null;
     main_image?: string | null;
+    specifications?: string | null;
     quantity?: number;
     stock?: number | null;
     available_stock?: number | null;

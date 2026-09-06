@@ -120,13 +120,16 @@ export class OrdersRepository {
                 oi.product_id,
                 oi.quantity,
                 oi.total_price AS item_total_price,
-                p.name AS product_name,
-                p.price,
-                p.sale_price,
+                COALESCE(oi.sku_snapshot, p.sku) AS sku,
+                COALESCE(oi.product_name_snapshot, p.name) AS product_name,
+                COALESCE(oi.unit_price_snapshot, p.sale_price, p.price) AS price,
+                CASE WHEN oi.unit_price_snapshot IS NOT NULL THEN NULL ELSE p.sale_price END AS sale_price,
                 p.stock,
-                p.main_image,
-                c.name AS category,
-                b.name AS brand
+                COALESCE(oi.image_snapshot, p.main_image) AS main_image,
+                COALESCE(oi.category_snapshot, c.name) AS category,
+                COALESCE(oi.brand_snapshot, b.name) AS brand,
+                COALESCE(oi.warranty_months_snapshot, p.warranty_months) AS warranty_months,
+                COALESCE(oi.specifications_snapshot, p.specifications) AS specifications
             FROM orders o
             LEFT JOIN users u ON u.id = o.user_id
             LEFT JOIN order_items oi ON oi.order_id = o.id

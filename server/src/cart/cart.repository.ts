@@ -40,6 +40,9 @@ export class CartRepository {
                 ci.id AS cart_item_id,
                 p.id AS product_id,
                 p.name AS product_name,
+                p.sku,
+                p.manufacturer_part_number,
+                p.warranty_months,
                 b.name AS brand,
                 c.name AS category,
                 p.price,
@@ -47,6 +50,7 @@ export class CartRepository {
                 p.stock,
                 GREATEST(p.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock,
                 p.main_image,
+                p.specifications,
                 ci.quantity
             FROM
                 cart_items ci
@@ -75,6 +79,9 @@ export class CartRepository {
                 ci.id AS cart_item_id,
                 ci.product_id,
                 p.name AS product_name,
+                p.sku,
+                p.manufacturer_part_number,
+                p.warranty_months,
                 b.name AS brand,
                 c.name AS category,
                 p.price,
@@ -82,6 +89,7 @@ export class CartRepository {
                 p.stock,
                 GREATEST(p.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock,
                 p.main_image,
+                p.specifications,
                 ci.quantity
             FROM cart_items ci
             LEFT JOIN products p ON p.id = ci.product_id

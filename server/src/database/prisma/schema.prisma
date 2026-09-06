@@ -45,24 +45,28 @@ model AuthSession {
 }
 
 model Product {
-  id             Int      @id @default(autoincrement())
-  name           String   @db.VarChar(255)
-  description    String   @default("No description available") @db.VarChar(255)
-  mainImage      String?  @map("main_image") @db.VarChar(255)
-  categoryId     Int      @map("category_id")
-  brandId        Int      @map("brand_id")
-  specifications String?  @db.Text
-  price          Decimal  @db.Decimal(10, 2)
-  salePrice      Decimal? @map("sale_price") @db.Decimal(10, 2)
-  stock          Int      @default(0)
-  createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(0)
-  updatedAt      DateTime @default(now()) @map("updated_at") @db.DateTime(0)
+  id                     Int      @id @default(autoincrement())
+  name                   String   @db.VarChar(255)
+  description            String   @default("No description available") @db.VarChar(255)
+  mainImage              String?  @map("main_image") @db.VarChar(255)
+  sku                    String   @unique(map: "uq_products_sku") @db.VarChar(64)
+  manufacturerPartNumber String?  @map("manufacturer_part_number") @db.VarChar(128)
+  warrantyMonths         Int?     @map("warranty_months")
+  categoryId             Int      @map("category_id")
+  brandId                Int      @map("brand_id")
+  specifications         String?  @db.Text
+  price                  Decimal  @db.Decimal(10, 2)
+  salePrice              Decimal? @map("sale_price") @db.Decimal(10, 2)
+  stock                  Int      @default(0)
+  createdAt              DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt              DateTime @default(now()) @map("updated_at") @db.DateTime(0)
 
   reviews               Review[]
   cartItems             CartItem[]
   orderItems            OrderItem[]
   inventoryReservations InventoryReservation[]
 
+  @@index([manufacturerPartNumber], map: "products_mpn_idx")
   @@map("products")
 }
 
@@ -202,11 +206,19 @@ model DiscountRedemption {
 }
 
 model OrderItem {
-  id         Int     @id @default(autoincrement())
-  orderId    Int     @map("order_id")
-  productId  Int     @map("product_id")
-  quantity   Int
-  totalPrice Decimal @default(0) @map("total_price") @db.Decimal(11, 2)
+  id                     Int      @id @default(autoincrement())
+  orderId                Int      @map("order_id")
+  productId              Int      @map("product_id")
+  quantity               Int
+  totalPrice             Decimal  @default(0) @map("total_price") @db.Decimal(11, 2)
+  skuSnapshot            String?  @map("sku_snapshot") @db.VarChar(64)
+  productNameSnapshot    String?  @map("product_name_snapshot") @db.VarChar(255)
+  imageSnapshot          String?  @map("image_snapshot") @db.VarChar(255)
+  unitPriceSnapshot      Decimal? @map("unit_price_snapshot") @db.Decimal(11, 2)
+  brandSnapshot          String?  @map("brand_snapshot") @db.VarChar(255)
+  categorySnapshot       String?  @map("category_snapshot") @db.VarChar(255)
+  warrantyMonthsSnapshot Int?     @map("warranty_months_snapshot")
+  specificationsSnapshot Json?    @map("specifications_snapshot")
 
   order   Order   @relation(fields: [orderId], references: [id])
   product Product @relation(fields: [productId], references: [id])

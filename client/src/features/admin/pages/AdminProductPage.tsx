@@ -24,6 +24,7 @@ import {
     rowsToText,
     serializeProductDetails,
 } from "../../../utils/productDetails";
+import { normalizeProduct as normalizeProductResponse } from "../../../utils/product";
 
 const ITEMS_PER_PAGE = 8;
 
@@ -31,6 +32,9 @@ const productWorkflowSteps = ["Find listing", "Edit product or restock", "Hide o
 
 type ProductEditForm = {
     name: string;
+    sku: string;
+    manufacturerPartNumber: string;
+    warrantyMonths: string;
     description: string;
     category: string;
     brand: string;
@@ -57,12 +61,15 @@ type InventoryMovement = {
     created_at: string;
 };
 
-const normalizeProduct = (product: Product): Product => ({
-    ...product,
-    price: Number(product.price) || 0,
-    sale_price: product.sale_price === null ? null : Number(product.sale_price) || null,
-    stock: Number(product.stock) || 0,
-});
+const normalizeProduct = (product: Product): Product => {
+    const normalized = normalizeProductResponse(product);
+    return {
+        ...normalized,
+        price: Number(normalized.price) || 0,
+        sale_price: normalized.sale_price === null ? null : Number(normalized.sale_price) || null,
+        stock: Number(normalized.stock) || 0,
+    };
+};
 
 const AdminProductPage = () => {
     const navigate = useNavigate();
@@ -72,6 +79,9 @@ const AdminProductPage = () => {
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [editForm, setEditForm] = useState<ProductEditForm>({
         name: "",
+        sku: "",
+        manufacturerPartNumber: "",
+        warrantyMonths: "",
         description: "",
         category: "",
         brand: "",
@@ -155,6 +165,9 @@ const AdminProductPage = () => {
         setSelectedProduct(product);
         setEditForm({
             name: product.name,
+            sku: product.sku || "",
+            manufacturerPartNumber: product.manufacturerPartNumber || "",
+            warrantyMonths: product.warrantyMonths === null ? "" : String(product.warrantyMonths),
             description: product.description || "",
             category: product.category || "",
             brand: product.brand || "",
@@ -188,9 +201,11 @@ const AdminProductPage = () => {
         const price = Number(editForm.price);
         const salePrice = editForm.salePrice.trim() === "" ? null : Number(editForm.salePrice);
         const stock = Number(editForm.stock);
+        const warrantyMonths = editForm.warrantyMonths.trim() === "" ? null : Number(editForm.warrantyMonths);
 
         if (
             !editForm.name.trim() ||
+            !editForm.sku.trim() ||
             !editForm.category.trim() ||
             !editForm.brand.trim() ||
             Number.isNaN(price) ||
@@ -198,7 +213,7 @@ const AdminProductPage = () => {
             price < 0 ||
             stock < 0
         ) {
-            addToast("Update product", "Name, category, brand, price, and quantity must be valid.");
+            addToast("Update product", "SKU, name, category, brand, price, and quantity must be valid.");
             return;
         }
 
@@ -207,10 +222,18 @@ const AdminProductPage = () => {
             return;
         }
 
+        if (warrantyMonths !== null && (!Number.isInteger(warrantyMonths) || warrantyMonths < 0)) {
+            addToast("Update product", "Warranty must be empty or a valid whole number of months.");
+            return;
+        }
+
         try {
             setIsSaving(true);
             const updated = await updateProduct(selectedProduct.id, {
                 name: editForm.name.trim(),
+                sku: editForm.sku.trim(),
+                manufacturerPartNumber: editForm.manufacturerPartNumber.trim() || null,
+                warrantyMonths,
                 description: editForm.description.trim(),
                 category: editForm.category.trim(),
                 brand: editForm.brand.trim(),
@@ -601,9 +624,38 @@ const AdminProductPage = () => {
                                     <section className="admin__form-section">
                                         <div className="admin__form-section__header">
                                             <h4>Commercial details</h4>
-                                            <p>Price, sale price, quantity, and commercial metadata.</p>
+                                            <p>SKU, pricing, quantity, and commercial metadata.</p>
                                         </div>
                                     <div className="admin__edit-form__grid">
+                                        <Form.Group className="mb-3" controlId="productSku">
+                                            <Form.Label htmlFor="productSku">
+                                                SKU <span className="required">*</span>
+                                            </Form.Label>
+                                            <Form.Control
+                                                id="productSku"
+                                                type="text"
+                                                name="sku"
+                                                value={editForm.sku}
+                                                onChange={handleEditChange}
+                                                required
+                                                autoComplete="off"
+                                                spellCheck={false}
+                                            />
+                                        </Form.Group>
+                                        <Form.Group className="mb-3" controlId="productManufacturerPartNumber">
+                                            <Form.Label htmlFor="productManufacturerPartNumber">
+                                                Manufacturer part number
+                                            </Form.Label>
+                                            <Form.Control
+                                                id="productManufacturerPartNumber"
+                                                type="text"
+                                                name="manufacturerPartNumber"
+                                                value={editForm.manufacturerPartNumber}
+                                                onChange={handleEditChange}
+                                                autoComplete="off"
+                                                spellCheck={false}
+                                            />
+                                        </Form.Group>
                                         <Form.Group className="mb-3" controlId="productCategory">
                                             <Form.Label>Category</Form.Label>
                                             <Form.Control
@@ -652,6 +704,20 @@ const AdminProductPage = () => {
                                                 name="stock"
                                                 value={editForm.stock}
                                                 onChange={handleEditChange}
+                                            />
+                                        </Form.Group>
+                                        <Form.Group className="mb-3" controlId="productWarrantyMonths">
+                                            <Form.Label htmlFor="productWarrantyMonths">Warranty (months)</Form.Label>
+                                            <Form.Control
+                                                id="productWarrantyMonths"
+                                                type="number"
+                                                min="0"
+                                                step="1"
+                                                inputMode="numeric"
+                                                name="warrantyMonths"
+                                                value={editForm.warrantyMonths}
+                                                onChange={handleEditChange}
+                                                autoComplete="off"
                                             />
                                         </Form.Group>
                                     </div>
