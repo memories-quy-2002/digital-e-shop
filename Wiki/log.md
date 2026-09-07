@@ -17,3 +17,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-06 — Codex — Moved login and registration to server-verified Firebase ID tokens, made public auth schemas strict, and enforced customer-only public registration.
 - 2026-09-06 — Codex — Hardened refresh identity reloading, suspended-user rejection, stale refresh-cookie cleanup, and explicit missing Firebase ID-token validator coverage.
 - 2026-09-06 — Codex — Completed production hardening through rotating sessions, transactional reservations/promotions/audit writes, immutable catalog snapshots and structured attributes, migration-owned schema, Redis rate limiting, Playwright E2E harness, CI gates, and synchronized architecture documentation.
+- 2026-09-07 — ChatGPT — Synchronized production hardening with the latest main runtime/dependency refresh, standardized Node 24.20.0 and pnpm 12.3.4, retained Firebase Admin and Playwright requirements, and regenerated the workspace lockfile.
