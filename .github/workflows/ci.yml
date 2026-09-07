@@ -145,7 +145,16 @@ jobs:
       - name: Test
         run: pnpm --filter server test -- --run
       - name: Integration tests
-        run: pnpm --filter server test:integration
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter server test:integration 2>&1 | tee integration-tests.log
+      - name: Upload integration test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-diagnostics
+          path: integration-tests.log
       - name: Build
         run: pnpm --filter server build
 
