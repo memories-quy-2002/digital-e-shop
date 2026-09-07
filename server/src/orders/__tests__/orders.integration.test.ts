@@ -28,6 +28,7 @@ function buildOrdersService() {
     const orderTimelineService = {
         getTimeline: vi.fn().mockResolvedValue([]),
         recordTimelineEvent: vi.fn(),
+        createTimelineEventInTransaction: vi.fn().mockResolvedValue(undefined),
     };
     const inventoryService = {
         recordMovements: vi.fn(),
