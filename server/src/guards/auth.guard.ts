@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException, ForbiddenException } from "@nestjs/common";
 import type { CanActivate, ExecutionContext } from "@nestjs/common";
 import jwt from "jsonwebtoken";
-import type { Request } from "express";
+import type { Request } from "express-serve-static-core";
 import { NestConfigService } from "../config/nest-config.service";
 import { NestAuthService } from "../auth/auth.service";
 import { UsersRepository } from "../users/users.repository";

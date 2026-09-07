@@ -40,3 +40,801 @@
 .admin input, .admin textarea, .admin select { border-color: var(--de-color-border-strong) !important; border-radius: 4px !important; background: var(--de-color-bg-muted) !important; color: var(--de-color-text) !important; }
 
 @media (max-width: 880px) { .admin__layout { flex-direction: column; } .admin__layout__sidebar { position: relative; width: 100%; min-height: auto; flex-basis: auto; } .admin__layout__sidebar__navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .admin__layout__sidebar__navigation__caption { grid-column: 1 / -1; } }
+
+// Shared admin surfaces. These rules deliberately sit after the legacy page
+// styles so every admin route uses the same layout and token contract.
+.admin__layout__main__body {
+    background: var(--de-color-bg);
+}
+
+.admin__layout__sidebar {
+    background: var(--de-color-surface-inverse) !important;
+    color: var(--de-color-on-inverse);
+}
+
+.admin__layout__sidebar__title,
+.admin__layout__sidebar__title__brand,
+.admin__layout__sidebar__navigation button,
+.admin__layout__sidebar__navigation .active {
+    color: var(--de-color-on-inverse) !important;
+}
+
+.admin__layout__sidebar__title__tag,
+.admin__layout__sidebar__navigation__caption,
+.admin__layout__sidebar__information__user span {
+    color: rgba(255, 255, 255, 0.68) !important;
+}
+
+.admin__layout__sidebar__information {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+.admin__layout__sidebar__information__user strong {
+    color: var(--de-color-on-inverse) !important;
+}
+
+.admin__layout__sidebar__navigation button:hover,
+.admin__layout__sidebar__navigation .active {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: var(--de-color-on-inverse) !important;
+    box-shadow: inset 3px 0 0 var(--de-color-signal) !important;
+}
+
+.admin__layout__main__header {
+    background: var(--de-color-surface-strong) !important;
+    color: var(--de-color-text) !important;
+}
+
+.admin__layout__main__header__home,
+.admin__layout__main__header__logout,
+.admin__layout__main__header__profile,
+.admin__layout__main__header__search,
+.admin__layout__main__header__notifications__trigger {
+    background: var(--de-color-surface) !important;
+    color: var(--de-color-text-soft) !important;
+    box-shadow: var(--de-shadow-xs) !important;
+}
+
+.admin__layout__main__header__profile-copy strong,
+.admin__layout__main__header__notifications__panel-header strong {
+    color: var(--de-color-text) !important;
+}
+
+.admin__layout__main__header__notifications__panel,
+.admin__layout__main__header__notifications__item {
+    background: var(--de-color-surface-strong) !important;
+    border-color: var(--de-color-border) !important;
+}
+
+.admin__layout__main__header__notifications__item--order,
+.admin__layout__main__header__notifications__item--user,
+.admin__layout__main__header__notifications__item--inventory,
+.admin__layout__main__header__notifications__item--payment {
+    background: var(--de-color-surface) !important;
+}
+
+.admin__page,
+.admin__dashboard {
+    width: 100%;
+    max-width: var(--de-max-width-app);
+    min-width: 0;
+    margin: 0 auto;
+    padding: clamp(1.25rem, 3vw, 2.5rem);
+    display: grid;
+    gap: 1.25rem;
+}
+
+.admin__page__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.25rem;
+}
+
+.admin__page__header > div:first-child {
+    min-width: 0;
+}
+
+.admin__page__eyebrow {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.admin__page__title {
+    margin: 0;
+    color: var(--de-color-text);
+    font-size: clamp(1.6rem, 3vw, 2.35rem);
+    line-height: 1.05;
+}
+
+.admin__page__subtitle {
+    max-width: 64rem;
+    margin: 0.65rem 0 0;
+    line-height: 1.55;
+}
+
+.admin__page__actions,
+.admin__form-grid__actions,
+.admin__form-actions,
+.admin__table__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+.admin__page__actions {
+    justify-content: flex-end;
+    flex: 0 0 auto;
+}
+
+.admin__summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 0.85rem;
+}
+
+.admin__summary-card {
+    min-width: 0;
+    display: grid;
+    gap: 0.35rem;
+    padding: 1rem;
+}
+
+.admin__summary-card strong {
+    font-family: var(--de-font-family-display);
+    font-size: 1.7rem;
+    line-height: 1;
+}
+
+.admin__summary-card p {
+    margin: 0;
+    font-size: 0.82rem;
+}
+
+.admin__workflow {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.admin__workflow__step {
+    min-width: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.85rem 1rem;
+}
+
+.admin__workflow__step > span {
+    display: inline-flex;
+    flex: 0 0 1.55rem;
+    width: 1.55rem;
+    height: 1.55rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--de-color-primary-soft);
+    color: var(--de-color-primary-strong);
+    font-family: var(--de-font-family-mono);
+    font-size: 0.75rem;
+    font-weight: 800;
+}
+
+.admin__workflow__step strong {
+    min-width: 0;
+    line-height: 1.35;
+}
+
+.admin__card {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.admin__card__header,
+.admin__card__body {
+    min-width: 0;
+    padding: 1.15rem 1.25rem;
+}
+
+.admin__card__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.admin__card__header--stacked {
+    align-items: stretch;
+    flex-direction: column;
+}
+
+.admin__card__header h3,
+.admin__card__header h4,
+.admin__form-section__header h4,
+.admin__detail-section__header h4 {
+    margin: 0;
+    color: var(--de-color-text);
+}
+
+.admin__card__header span,
+.admin__form-section__header p,
+.admin__detail-section__header p {
+    display: block;
+    margin: 0.35rem 0 0;
+    color: var(--de-color-text-muted);
+    line-height: 1.45;
+}
+
+.admin__form-section,
+.admin__detail-section {
+    display: grid;
+    gap: 1rem;
+    padding: 1.1rem 0;
+    border-top: 1px solid var(--de-color-border);
+}
+
+.admin__form-section:first-child,
+.admin__detail-section:first-child {
+    padding-top: 0;
+    border-top: 0;
+}
+
+.admin__form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.admin__form-grid--compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin__form-grid > *,
+.admin__form-grid__check {
+    min-width: 0;
+}
+
+.admin__form-grid > label,
+.admin__form-grid__check {
+    display: grid;
+    align-content: start;
+    gap: 0.4rem;
+    color: var(--de-color-text-soft);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.admin__form-grid__check {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.admin__form-grid__check input {
+    width: 1rem;
+    min-height: 1rem;
+}
+
+.admin__form-grid input,
+.admin__form-grid textarea,
+.admin__form-grid select,
+.admin__form-grid .form-control,
+.admin__form-grid__actions select {
+    width: 100%;
+}
+
+.admin__form-section__header p,
+.admin__detail-section__header p {
+    font-size: 0.88rem;
+}
+
+.admin__button {
+    min-height: 2.45rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    border: 1px solid transparent;
+    border-radius: var(--de-radius-sm);
+    padding: 0.55rem 0.85rem;
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 800;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background-color var(--de-transition-fast), border-color var(--de-transition-fast), color var(--de-transition-fast), transform var(--de-transition-fast);
+}
+
+.admin__button:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.admin__button:disabled {
+    cursor: not-allowed;
+    opacity: 0.58;
+}
+
+.admin__button--primary {
+    background: var(--de-color-signal) !important;
+    color: var(--de-color-on-accent) !important;
+}
+
+.admin__button--success {
+    background: var(--de-color-circuit);
+    color: var(--de-color-on-accent);
+}
+
+.admin__button--danger {
+    background: var(--de-color-danger);
+    color: var(--de-color-on-accent);
+}
+
+.admin__button--ghost {
+    border-color: var(--de-color-border-strong);
+    background: transparent !important;
+    color: var(--de-color-text-soft) !important;
+}
+
+.admin__button--compact {
+    min-height: 2.1rem;
+    padding: 0.4rem 0.65rem;
+    font-size: 0.76rem;
+}
+
+.admin__icon-button {
+    min-width: 4rem;
+}
+
+.admin__alert {
+    border: 1px solid var(--de-color-danger);
+    border-radius: var(--de-radius-sm);
+    background: var(--de-color-danger-soft);
+    color: var(--de-color-danger-strong);
+    padding: 0.85rem 1rem;
+    line-height: 1.45;
+}
+
+.admin__table-wrap {
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+}
+
+.admin__table {
+    width: 100%;
+    min-width: 760px;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+.admin__table th,
+.admin__table td {
+    min-width: 0;
+    padding: 0.85rem 0.75rem;
+    vertical-align: top;
+    text-align: left;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
+}
+
+.admin__table th:first-child,
+.admin__table td:first-child {
+    padding-left: 1.25rem;
+}
+
+.admin__table th:last-child,
+.admin__table td:last-child {
+    padding-right: 1.25rem;
+}
+
+.admin__table__stack {
+    min-width: 0;
+    display: grid;
+    gap: 0.25rem;
+}
+
+.admin__table__stack strong,
+.admin__table__stack span,
+.admin__table__stack small,
+.admin__table td > p {
+    display: block;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.admin__table__stack span,
+.admin__table__stack small,
+.admin__table td > p,
+.admin__table td small {
+    color: var(--de-color-text-muted);
+    font-size: 0.78rem;
+}
+
+.admin__table__actions {
+    align-items: flex-start;
+    min-width: 6.5rem;
+}
+
+.admin__table__actions .admin__button {
+    width: 100%;
+    min-width: 5.25rem;
+    overflow-wrap: normal;
+    white-space: nowrap;
+}
+
+.admin__table td > .admin__button {
+    min-width: 5.25rem;
+    overflow-wrap: normal;
+    white-space: nowrap;
+}
+
+.admin__table__pagination {
+    display: flex;
+    justify-content: center;
+    padding: 1rem 1.25rem 1.25rem;
+}
+
+.admin__table__pagination > ul,
+.admin__table__pagination > .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.admin__table__pagination li {
+    display: flex;
+    align-items: center;
+}
+
+.admin__table__pagination a,
+.admin__table__pagination button {
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--de-color-border-strong);
+    border-radius: var(--de-radius-sm);
+    background: var(--de-color-surface);
+    color: var(--de-color-text-soft);
+    padding: 0.4rem 0.65rem;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.admin__table__pagination .selected a,
+.admin__table__pagination .active a,
+.admin__table__pagination li.selected button,
+.admin__table__pagination li.active button {
+    border-color: var(--de-color-signal);
+    background: var(--de-color-signal);
+    color: var(--de-color-on-accent);
+}
+
+.admin__table__pagination .disabled a,
+.admin__table__pagination .disabled button {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.admin__table__input {
+    width: 100%;
+    min-width: 7rem;
+}
+
+.admin__pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    max-width: 100%;
+    border-radius: var(--de-radius-pill);
+    padding: 0.25rem 0.55rem;
+    font-size: 0.7rem;
+    font-weight: 800;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.admin__pill--muted {
+    background: var(--de-color-surface-muted);
+    color: var(--de-color-text-muted);
+}
+
+.admin__detail-section__header {
+    min-width: 0;
+}
+
+.admin__dashboard__hero {
+    background: var(--de-color-surface-inverse) !important;
+    color: var(--de-color-on-inverse);
+}
+
+.admin__dashboard__hero__eyebrow,
+.admin__dashboard__hero__title,
+.admin__dashboard__hero__subtitle,
+.admin__dashboard__live {
+    color: var(--de-color-on-inverse) !important;
+}
+
+.admin__dashboard__hero__subtitle {
+    opacity: 0.78;
+}
+
+.admin__dashboard__hero__action {
+    background: var(--de-color-signal) !important;
+    color: var(--de-color-on-accent) !important;
+    box-shadow: none;
+}
+
+.admin__dashboard__hero__action--secondary {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: var(--de-color-on-inverse) !important;
+}
+
+.admin__metric-card,
+.admin__dashboard__activity__item,
+.admin__dashboard__insight {
+    border-color: var(--de-color-border) !important;
+    background: var(--de-color-surface) !important;
+    color: var(--de-color-text) !important;
+}
+
+.admin__metric-card__title span,
+.admin__metric-card__footer p,
+.admin__metric-card__footer span,
+.admin__dashboard__activity__item p,
+.admin__dashboard__activity__item span,
+.admin__dashboard__insight span,
+.admin__dashboard__insight p {
+    color: var(--de-color-text-muted) !important;
+}
+
+.admin__metric-card__title strong,
+.admin__dashboard__activity__item strong,
+.admin__dashboard__insight strong {
+    color: var(--de-color-text) !important;
+}
+
+@media (max-width: 900px) {
+    .admin__page__header {
+        flex-direction: column;
+    }
+
+    .admin__page__actions {
+        justify-content: flex-start;
+    }
+
+    .admin__form-grid--compact {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 720px) {
+    .admin__page,
+    .admin__dashboard {
+        padding: 1rem;
+        gap: 1rem;
+    }
+
+    .admin__workflow,
+    .admin__form-grid,
+    .admin__form-grid--compact {
+        grid-template-columns: 1fr;
+    }
+
+    .admin__card__header,
+    .admin__card__body {
+        padding: 1rem;
+    }
+
+    .admin__page__actions,
+    .admin__page__actions > * {
+        width: 100%;
+    }
+
+    .admin__page__actions > * {
+        flex: 1 1 100%;
+    }
+}
+
+@media (max-width: 560px) {
+    .admin__summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .admin__summary-card {
+        padding: 0.85rem;
+    }
+
+    .admin__summary-card strong {
+        font-size: 1.4rem;
+    }
+
+    .admin__workflow__step {
+        padding: 0.75rem;
+    }
+}
+
+.admin label,
+.admin .form-label {
+    color: var(--de-color-text-soft);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.admin .form-text,
+.admin .text-muted {
+    color: var(--de-color-text-muted) !important;
+}
+
+.admin__form-grid > div,
+.admin__form-grid .mb-3 {
+    min-width: 0;
+}
+
+.admin__form-grid .mb-3 {
+    display: grid;
+    gap: 0.4rem;
+    margin-bottom: 0.85rem !important;
+}
+
+.admin__form-grid .mb-3:last-child {
+    margin-bottom: 0 !important;
+}
+
+.admin__form-grid input,
+.admin__form-grid textarea,
+.admin__form-grid select,
+.admin__form-grid .form-control,
+.admin__notifications-toolbar input,
+.admin__order-toolbar input,
+.admin__order-toolbar select {
+    min-height: 2.65rem;
+    border: 1px solid var(--de-color-border-strong);
+    border-radius: var(--de-radius-sm);
+    background: var(--de-color-surface-strong);
+    color: var(--de-color-text);
+    padding: 0.6rem 0.75rem;
+    font: inherit;
+}
+
+.admin__form-grid textarea {
+    min-height: 7rem;
+    resize: vertical;
+}
+
+.admin__form-grid input:focus,
+.admin__form-grid textarea:focus,
+.admin__form-grid select:focus,
+.admin__notifications-toolbar input:focus,
+.admin__order-toolbar input:focus,
+.admin__order-toolbar select:focus {
+    border-color: var(--de-color-electric);
+    outline: none;
+    box-shadow: var(--de-shadow-focus);
+}
+
+.admin input[type="checkbox"] {
+    width: 1rem;
+    height: 1rem;
+    min-height: 1rem;
+    accent-color: var(--de-color-signal);
+}
+
+.admin__notifications-toolbar {
+    width: 100%;
+}
+
+.admin__notifications-toolbar input {
+    width: 100%;
+}
+
+.admin__notifications-tabs button {
+    border-color: var(--de-color-border-strong);
+    background: var(--de-color-surface);
+    color: var(--de-color-text-soft);
+    cursor: pointer;
+}
+
+.admin__notifications-tabs button.active {
+    border-color: var(--de-color-signal);
+    background: var(--de-color-signal);
+    color: var(--de-color-on-accent);
+}
+
+.admin__notifications-tabs button span {
+    background: var(--de-color-surface-muted);
+    color: var(--de-color-text-muted);
+}
+
+.admin__notifications-tabs button.active span {
+    background: rgba(255, 255, 255, 0.2);
+    color: inherit;
+}
+
+.admin__notification__icon {
+    background: var(--de-color-info-soft) !important;
+    color: var(--de-color-info-strong) !important;
+}
+
+.admin__notification__title-row strong,
+.admin__notification__content p,
+.admin__notification__content > span,
+.admin__notifications-empty,
+.admin__notifications-empty strong {
+    color: var(--de-color-text) !important;
+}
+
+.admin__notification__content p,
+.admin__notification__content > span,
+.admin__notifications-empty > span {
+    color: var(--de-color-text-muted) !important;
+}
+
+.admin__notifications-empty {
+    border-color: var(--de-color-border-strong);
+    background: var(--de-color-surface-muted);
+}
+
+.admin__order-detail__summary div,
+.admin__order-detail__address,
+.admin__order-detail__items__header,
+.admin__order-detail__item-row,
+.admin__customer-profile__hero,
+.admin__customer-profile__stats,
+.admin__customer-profile__orders > div,
+.admin__form-upload__preview {
+    border-color: var(--de-color-border) !important;
+    background: var(--de-color-surface) !important;
+    color: var(--de-color-text) !important;
+}
+
+.admin__order-detail__summary span,
+.admin__order-detail__summary small,
+.admin__order-detail__address span,
+.admin__order-detail__items__header span,
+.admin__order-detail__items span,
+.admin__order-detail__item-row__info small,
+.admin__customer-profile__hero p,
+.admin__customer-profile__stats span,
+.admin__customer-profile__orders small {
+    color: var(--de-color-text-muted) !important;
+}
+
+.admin__order-detail__summary strong,
+.admin__order-detail__address strong,
+.admin__order-detail__items__header strong,
+.admin__order-detail__items strong,
+.admin__customer-profile__hero strong {
+    color: var(--de-color-text) !important;
+}
+
+.admin__order-detail__timeline span {
+    background: var(--de-color-surface-muted);
+    color: var(--de-color-text-soft);
+}
+
+.admin__order-detail__timeline .is-done {
+    background: var(--de-color-success-soft);
+    color: var(--de-color-success-strong);
+}
+
+.admin__form-upload__status {
+    color: var(--de-color-success-strong);
+}

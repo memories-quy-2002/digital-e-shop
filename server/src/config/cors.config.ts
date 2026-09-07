@@ -6,15 +6,20 @@ export const defaultClientOrigin =
 export const defaultServerOrigin =
     env.serverUrl || (isProduction ? "https://e-commerce-express-server-app.vercel.app" : "http://localhost:4000");
 
-export const allowedOrigins = Array.from(
-    new Set(
-        [
-            "http://localhost:5173",
-            "https://digital-e.vercel.app",
-            env.clientUrl,
-        ].filter(Boolean),
-    ),
-);
+type AllowedOriginsOptions = {
+    clientUrl?: string;
+    isProduction?: boolean;
+};
+
+export const resolveAllowedOrigins = ({ clientUrl, isProduction = false }: AllowedOriginsOptions = {}) =>
+    Array.from(new Set([
+        clientUrl || (isProduction ? "https://digital-e.vercel.app" : "http://localhost:5173"),
+    ].filter(Boolean)));
+
+export const allowedOrigins = resolveAllowedOrigins({
+    clientUrl: env.clientUrl,
+    isProduction,
+});
 
 const localOriginPattern = /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/;
 

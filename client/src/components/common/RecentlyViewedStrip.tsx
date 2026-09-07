@@ -1,8 +1,7 @@
 import React from "react";
-import LazyLoadImage from "../../utils/LazyLoadingImage";
-import { normalizeProductImageName } from "../../utils/images";
 import type { RecentlyViewedEntry } from "../../hooks/useRecentlyViewed";
 import { useT } from "../../hooks/useT";
+import loadImage from "../../utils/loadImage";
 
 type RecentlyViewedStripProps = {
     items: RecentlyViewedEntry[];
@@ -41,13 +40,12 @@ const RecentlyViewedStrip: React.FC<RecentlyViewedStripProps> = ({ items, onSele
                                     }
                                 }}
                             >
-                                <div className="recently-viewed__image">
-                                    <LazyLoadImage
-                                        src={`https://2txtqipejre57csy.public.blob.vercel-storage.com/uploads/${normalizeProductImageName(item.main_image)}.jpg`}
-                                        alt={item.name}
-                                        onError={() => undefined}
-                                        style={{ width: "100%", height: "100%", objectFit: "contain" }}
-                                    />
+                                <div className="recently-viewed__image de-product-media de-product-media--compact" data-testid="recently-viewed-image">
+                                    {loadImage(item.main_image, item.name, {
+                                        width: "100%",
+                                        height: "100%",
+                                        objectFit: "contain",
+                                    }, false, "84px")}
                                 </div>
                                 <div className="recently-viewed__body">
                                     <span className="recently-viewed__brand">{item.brand}</span>
@@ -55,11 +53,11 @@ const RecentlyViewedStrip: React.FC<RecentlyViewedStripProps> = ({ items, onSele
                                     <span className="recently-viewed__price">
                                         {hasSale ? (
                                             <>
-                                                <em>${formatPrice(item.price)}</em>
-                                                <strong>${formatPrice(activePrice)}</strong>
+                                                <em>{formatPrice(item.price)}</em>
+                                                <strong>{formatPrice(activePrice)}</strong>
                                             </>
                                         ) : (
-                                            <strong>${formatPrice(activePrice)}</strong>
+                                            <strong>{formatPrice(activePrice)}</strong>
                                         )}
                                     </span>
                                 </div>

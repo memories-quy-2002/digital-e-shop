@@ -5,7 +5,7 @@ export type CheckoutSuccessData = {
     subtotal: number;
     itemsCount: number;
     placedAt: string;
-    paymentMethod?: "bank_transfer" | "cash" | "card";
+    paymentMethod?: "bank_transfer" | "cash" | "payos" | "stripe" | "card";
     email?: string;
     name?: string;
     address?: string;

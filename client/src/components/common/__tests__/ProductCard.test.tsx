@@ -39,4 +39,23 @@ describe("ProductCard", () => {
         expect(screen.getByRole("button", { name: "Add to wishlist" })).toHaveAttribute("aria-pressed", "false");
         expect(screen.getByRole("button", { name: /Add to cart/i })).toBeEnabled();
     });
+
+    it("keeps the product media full-width without a hover border treatment", () => {
+        render(
+            <MemoryRouter>
+                <ProductCard
+                    product={product}
+                    uid=""
+                    isWishlist={false}
+                    onToggleWishlist={vi.fn()}
+                    onAddingCart={vi.fn()}
+                />
+            </MemoryRouter>,
+        );
+
+        const media = screen.getByTestId("product-card-image");
+
+        expect(media).toHaveClass("w-full", "max-w-none");
+        expect(media).not.toHaveClass("group-hover:border-electric");
+    });
 });

@@ -17,15 +17,9 @@ import { UsersModule } from "../users/users.module";
 export class AuthModule implements NestModule {
     configure(consumer: MiddlewareConsumer) {
         consumer.apply(createCsrfMiddleware()).exclude(
-            "api/users/login",
-            "api/users/register",
-            "api/users/refresh",
-            "api/user/login",
-            "api/user/register",
-            "api/user/refresh",
-            "user/login",
-            "user/register",
-            "user/refresh",
+            "users/login",
+            "users/register",
+            "users/refresh",
         ).forRoutes("*");
     }
 }

@@ -27,6 +27,9 @@ digital-e-shop/
                           promotions, reviews, stripe, users, wishlist — each holds
                           its own controller/service/repository/dto/validator/types
                           + __tests__/
+      payments/           Provider boundary, USD/VND quote rules, and payment ledger types
+      support/            Customer-owned and admin-managed support ticket workflow
+      admin-alerts/       Bounded database-backed operational alert queries
       guards/             AuthGuard, RolesGuard (@OwnerParam/@Roles)
       pipes/              ZodValidationPipe
       filters/            AllExceptionsFilter
@@ -44,6 +47,18 @@ digital-e-shop/
   docs/                   Human guides + bmad/ + ai-prompts/
   Wiki/                   This knowledge base
 ```
+
+`client/` and `server/` are independent pnpm package roots. Each owns its
+`package.json`, lockfile, package-local pnpm policy, and `node_modules`; the
+repository root intentionally has no package manifest, workspace file, lockfile,
+or installed dependencies. The E2E/Playwright project was removed, so CI now
+validates only the two application packages and server-side integration tests.
+
+The shared runtime is pinned to Node.js `24.20.0` in `.node-version` and pnpm
+`12.3.4` in both package manifests and CI setup. Production client builds
+require `VITE_API_BASE_URL`; production CORS derives from the configured client
+origin and does not add localhost by default. CI uses HTTP smoke checks for the
+client preview and `/api/health` instead of browser E2E.
 
 ## Boundaries
 
@@ -93,14 +108,12 @@ digital-e-shop/
   `digital_e_shop_local_mysql_data` volume. Runtime, Prisma, and mock-seed
   entrypoints reject remote targets outside production; production credentials
   are injected by the deployment environment.
-- The server project's `server/vercel.json` pins Vercel's install step to the workspace
-  package manager with `corepack pnpm@11.5.3 install --frozen-lockfile`. This is
-  required because the older `digital-e-server` project otherwise infers pnpm 9
-  from lockfile version `9.0` and rejects the workspace override configuration.
-- The root `package.json` also mirrors the security overrides in its legacy
-  `pnpm` field for Vercel's native serverless API builder, which may perform a
-  second pnpm 9 install. pnpm 11 ignores that field; `pnpm-workspace.yaml` is
-  still canonical, and both phases resolve the same pinned versions.
+- The server project's `server/vercel.json` installs and builds from the server
+  package root using `server/pnpm-lock.yaml`; its package-local pnpm policy owns
+  approved build scripts and dependency overrides.
+- `server/package.json` runs Prisma Client generation followed by
+  `prisma migrate deploy` from both `predev` and `prestart`. Startup therefore
+  stops before opening localhost if generation or a checked-in migration fails.
 - Prisma's schema-only `generate` command is allowed during dependency
   installation because it does not connect to a database; migration and other
   database-connecting commands remain subject to the target guard.
@@ -111,9 +124,13 @@ digital-e-shop/
 
 ## Important observations
 
-- Auth uses Firebase ID tokens as the login/register identity boundary; the server verifies them with Firebase Admin before issuing its cookie-based JWT session (access + refresh). Refresh reloads the current active database user before signing a new access token, and a non-remembered login clears any stale refresh cookie. CSRF protection remains on unsafe requests, while login/register/refresh are intentionally excluded — do not broaden.
+- Auth is provider-bound by environment: non-production defaults to local MySQL email/password login against the stored bcrypt hash, while production always uses server-verified Firebase ID tokens. Both paths issue the same cookie-based JWT session (access + refresh); public registration remains Firebase-backed. Refresh reloads the current active database user before signing a new access token, and a non-remembered login clears any stale refresh cookie. CSRF protection remains on unsafe requests, while login/register/refresh are intentionally excluded — do not broaden.
 - Refresh sessions are database-backed, hashed, rotating, and revocable. Access tokens carry the session identifier and are accepted only while the session and user remain active; logout, expiry, revocation, or suspension blocks renewal.
 - Checkout reserves inventory before payment completion. Stripe finalization consumes a reservation once, is protected by the unique Checkout Session constraint, and promotion redemption quotas are updated transactionally.
+- Orders retain USD as the canonical amount. `order_payments` stores provider settlement currency, amount, FX snapshot, idempotency key, and refund state; PayOS quotes are integer VND values derived from the stored USD base amount. Local symbolic provider mode does not call external payment APIs.
+- Pending cancellation is a guarded transition. It locks the order, refunds a paid Stripe payment through the provider boundary before finalization, restores inventory once using `inventory_restored_at`, and emits the cancellation timeline/notification after commit. Done and Canceled orders are terminal.
+- Reviews use the same `orders.status = 1` completed-purchase predicate for write eligibility and public verified-purchase badges. Support tickets are persisted and ownership-scoped rather than represented by a client-only toast.
+- Promotion performance and admin alerts are queried from operational tables; the admin client consumes bounded alert responses instead of reconstructing alerts from broad datasets.
 - Inventory stock changes, inventory movements, order timeline/audit events, and product attribute writes are transaction-owned. Notifications are emitted after commit so failed transactions do not publish success side effects.
 - Sensitive route rate limits use an atomic Redis fixed-window store when `NODE_ENV=production` and `REDIS_URL` is configured. Local development and production without Redis use the existing process-local memory store; multi-instance production deployments should provide `REDIS_URL` for shared enforcement.
 - The backend mixes feature-based architecture with some compatibility-era wrapper patterns.
@@ -122,7 +139,8 @@ digital-e-shop/
 ## Risks / unknowns
 
 - Route payloads remain feature-specific, but shared success/error metadata is standardized; callers still consume the legacy top-level fields for compatibility.
-- Root lockfile coexists with nested `client/`/`server/` lockfiles, which can drift.
+- Client and server have independent lockfiles; dependency updates must be
+  performed from the owning package directory.
 - Prisma migration history is now committed, but it intentionally starts with
   a metadata-only `0_init` marker because the schema is still partial. The
   reproducible CI database therefore combines the legacy dump, the historical

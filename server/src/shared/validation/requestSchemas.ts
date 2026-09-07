@@ -107,7 +107,7 @@ export const purchaseSchema = z.object({
     ).min(1, "Cart cannot be empty"),
     discount: nonNegativeNumber("Discount").default(0),
     shippingAddress: requiredText("Shipping address"),
-    paymentMethod: z.enum(["bank_transfer", "cash"], { error: "Unsupported payment method" }),
+    paymentMethod: z.enum(["bank_transfer", "cash", "payos", "stripe", "card"], { error: "Unsupported payment method" }),
 });
 
 export const applyDiscountSchema = z.object({

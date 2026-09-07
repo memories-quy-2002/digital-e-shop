@@ -487,7 +487,10 @@ const ProductPage = () => {
                                     : t("product.singleImage")}
                             </strong>
                         </div>
-                        <div className="product-page__gallery-main">
+                        <div
+                            className="product-page__gallery-main product-page__gallery-main--fixed"
+                            data-testid="product-gallery-main"
+                        >
                             {activeImageUrl ? (
                                 <button
                                     type="button"
@@ -579,8 +582,10 @@ const ProductPage = () => {
 
                         <div className="product-page__purchase-card">
                             <div className="product-page__actions">
-                                <label className="product-page__quantity-field" htmlFor="quantity">
-                                    <span>{t("product.quantity")}</span>
+                                <div className="product-page__quantity-field" data-testid="product-quantity-field">
+                                    <label className="product-page__quantity-label" htmlFor="quantity">
+                                        {t("product.quantity")}
+                                    </label>
                                     <div className="product-page__quantity">
                                         <button type="button" onClick={handleDecrease} disabled={availableStock <= 0}>
                                             -
@@ -606,12 +611,12 @@ const ProductPage = () => {
                                             +
                                         </button>
                                     </div>
-                                    <small>
+                                    <span className="product-page__availability" data-testid="product-availability" role="status">
                                         {availableStock > 0
                                             ? t("product.stockIn", availableStock)
                                             : t("product.stockOut")}
-                                    </small>
-                                </label>
+                                    </span>
+                                </div>
                                 <button
                                     className="product-page__button product-page__button--primary"
                                     type="button"
@@ -647,7 +652,19 @@ const ProductPage = () => {
                     </div>
                 </section>
 
-                <div className="product-page__tabs">
+                <section className="product-page__recommendations-shell" data-testid="product-recommendations-shell">
+                    <div className="product-page__recommendations-head">
+                        <h2 className="product-page__recommendations-title">
+                            {t("product.recommendationsTitle")}
+                        </h2>
+                        <Link to="/shops" className="product-page__recommendations-link">
+                            {t("product.browseCatalog")}
+                        </Link>
+                    </div>
+                    <RecommendedProduct relevantProducts={relevantProducts} />
+                </section>
+
+                <div className="product-page__tabs" data-testid="product-tabs">
                     <div className="product-page__tabs-nav">
                         <button
                             type="button"
@@ -725,8 +742,8 @@ const ProductPage = () => {
 
                     <Activity mode={toggle ? "visible" : "hidden"}>
                         <div className="product-page__reviews">
-                            <div className="product-page__reviews-card">
-                                <section className="product-page__reviews-summary">
+                            <div className="product-page__reviews-card" data-testid="product-reviews-card">
+                                <section className="product-page__reviews-summary" data-testid="product-reviews-summary">
                                     <div className="product-page__reviews-score">
                                         <strong>{formatProductRating(displayedRating)}</strong>
                                         <span>{ratingStar(displayedRating, "#FFCC4A", 20)}</span>
@@ -800,7 +817,7 @@ const ProductPage = () => {
                                     </form>
                                 )}
 
-                                <section className="product-page__reviews-list">
+                                <section className="product-page__reviews-list" data-testid="product-reviews-list">
                                     <div className="product-page__reviews-list-header">
                                         <h2>{t("product.reviewsTitle")}</h2>
                                         <span>{t("product.reviewsVisible", optimisticReviews.length)}</span>
@@ -838,18 +855,6 @@ const ProductPage = () => {
                         </div>
                     </Activity>
                 </div>
-
-                <section className="product-page__recommendations-shell">
-                    <div className="product-page__recommendations-head">
-                        <h2 className="product-page__recommendations-title">
-                            {t("product.recommendationsTitle")}
-                        </h2>
-                        <Link to="/shops" className="product-page__recommendations-link">
-                            {t("product.browseCatalog")}
-                        </Link>
-                    </div>
-                    <RecommendedProduct relevantProducts={relevantProducts} />
-                </section>
 
                 <ImageLightbox
                     show={isLightboxOpen}

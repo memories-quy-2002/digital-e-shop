@@ -23,6 +23,11 @@ export class NestReviewsService {
         const safeRating = Number(rating);
         const safeComment = String(comment || "").trim();
 
+        const eligible = await this.reviewsRepository.hasCompletedPurchase(uid, pid);
+        if (!eligible) {
+            throw Object.assign(new Error("You can review this product after a completed order."), { statusCode: 403 });
+        }
+
         return new Promise((resolve, reject) => {
             this.reviewsRepository.getReviewByUserAndProduct(uid, pid, (findErr: DbError | null, existingRows: ReviewRow[]) => {
                 if (findErr) return reject(findErr);

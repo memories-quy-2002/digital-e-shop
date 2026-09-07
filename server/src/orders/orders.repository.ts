@@ -77,12 +77,20 @@ export class OrdersRepository {
         o.discount,
         o.status,
         o.shipping_address,
-        o.payment_method
+        o.payment_method,
+        o.currency,
+        p.status AS payment_status,
+        p.amount AS payment_amount,
+        p.currency AS payment_currency,
+        p.simulated AS payment_simulated
     `;
 
     private readonly orderUserJoin = `
         FROM orders o
         LEFT JOIN users u ON u.id = o.user_id
+        LEFT JOIN order_payments p ON p.id = (
+            SELECT p2.id FROM order_payments p2 WHERE p2.order_id = o.id ORDER BY p2.id DESC LIMIT 1
+        )
     `;
 
     getOrders(callback: QueryCallback<OrderSummaryRow[]>) {
@@ -113,6 +121,10 @@ export class OrdersRepository {
         this.query(
             `SELECT
                 o.*,
+                op.status AS payment_status,
+                op.amount AS payment_amount,
+                op.currency AS payment_currency,
+                op.simulated AS payment_simulated,
                 COALESCE(u.username, o.user_id) AS customer_name,
                 u.email AS customer_email,
                 DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added,
@@ -132,6 +144,9 @@ export class OrdersRepository {
                 COALESCE(oi.specifications_snapshot, p.specifications) AS specifications
             FROM orders o
             LEFT JOIN users u ON u.id = o.user_id
+            LEFT JOIN order_payments op ON op.id = (
+                SELECT op2.id FROM order_payments op2 WHERE op2.order_id = o.id ORDER BY op2.id DESC LIMIT 1
+            )
             LEFT JOIN order_items oi ON oi.order_id = o.id
             LEFT JOIN products p ON p.id = oi.product_id
             LEFT JOIN categories c ON c.id = p.category_id

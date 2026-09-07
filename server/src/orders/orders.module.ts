@@ -16,9 +16,10 @@ import { StripeService } from "../stripe/stripe.service";
 import { CheckoutReservationRepository } from "./checkout-reservation.repository";
 import { CheckoutReservationService } from "./checkout-reservation.service";
 import { ProductsModule } from "../products/products.module";
+import { PaymentsModule } from "../payments/payments.module";
 
 @Module({
-    imports: [NestConfigModule, CartModule, InventoryModule, NotificationsModule, PromotionsModule, ProductsModule],
+    imports: [NestConfigModule, CartModule, InventoryModule, NotificationsModule, PromotionsModule, ProductsModule, PaymentsModule],
     controllers: [OrdersController],
     providers: [
         NestOrdersService,

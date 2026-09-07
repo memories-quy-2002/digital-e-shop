@@ -14,7 +14,7 @@ import { fetchAllOrders, fetchOrderDetail, updateOrderStatus, bulkUpdateOrderSta
 const ITEMS_PER_PAGE = 8;
 
 type StatusFilter = "all" | "pending" | "done" | "canceled";
-type PaymentFilter = "all" | "bank_transfer" | "cash" | "none";
+type PaymentFilter = "all" | "bank_transfer" | "cash" | "payos" | "stripe" | "none";
 
 const orderWorkflowSteps = ["Review pending orders", "Open detail before changing status", "Mark done or cancel"];
 
@@ -29,6 +29,8 @@ const normalizeOrder = (order: any): Order => ({
 const getPaymentMethodLabel = (paymentMethod?: Order["payment_method"]) => {
     if (paymentMethod === "bank_transfer") return "Bank transfer";
     if (paymentMethod === "cash") return "Cash on delivery";
+    if (paymentMethod === "payos") return "PayOS (VND)";
+    if (paymentMethod === "stripe" || paymentMethod === "card") return "Stripe card";
     return "Not recorded";
 };
 
@@ -396,6 +398,8 @@ const AdminOrderPage = () => {
                                     <option value="all">All payments</option>
                                     <option value="bank_transfer">Bank transfer</option>
                                     <option value="cash">Cash on delivery</option>
+                                    <option value="payos">PayOS (VND)</option>
+                                    <option value="stripe">Stripe card</option>
                                     <option value="none">No payment</option>
                                 </select>
                                 <button

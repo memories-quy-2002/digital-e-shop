@@ -1,9 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import http from "../../lib/http";
 import {
+  fetchProduct,
   normalizeProductAttributes,
   productAttributeRowsToInputs,
   type ProductAttributeRow,
 } from "./api";
+
+vi.mock("../../lib/http", () => ({
+  default: {
+    get: vi.fn(),
+  },
+}));
 
 const row = (overrides: Partial<ProductAttributeRow>): ProductAttributeRow => ({
   id: "test-row",
@@ -131,5 +139,13 @@ describe("product attribute API mapping", () => {
         }),
       ]),
     ).toThrow("Attribute wattage must contain a valid number.");
+  });
+});
+
+describe("product lookup", () => {
+  it("treats a missing product as an empty result for cached catalog entries", async () => {
+    vi.mocked(http.get).mockRejectedValueOnce({ response: { status: 404 } });
+
+    await expect(fetchProduct(901)).resolves.toBeNull();
   });
 });

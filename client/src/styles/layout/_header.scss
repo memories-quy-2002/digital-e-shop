@@ -103,6 +103,7 @@
 
     &__actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.4rem; }
     &__action, &__burger { display: inline-flex; width: 40px; height: 40px; align-items: center; justify-content: center; border: 1px solid var(--de-color-border); border-radius: 4px; background: transparent; color: var(--de-color-text-soft); cursor: pointer; &:hover { border-color: var(--de-color-electric); color: var(--de-color-electric); } }
+    &__burger { display: none; }
     &__profile__trigger { width: auto; gap: 0.5rem; padding: 0 0.7rem; }
     &__profile__trigger.is-open { border-color: var(--de-color-signal); color: var(--de-color-signal); }
     &__action--badge { position: relative; span { position: absolute; top: -7px; right: -7px; display: grid; min-width: 18px; height: 18px; place-items: center; border: 2px solid var(--de-color-bg); border-radius: 50%; background: var(--de-color-signal); color: #fff; font-family: var(--de-font-family-mono); font-size: 0.62rem; } }
@@ -111,7 +112,7 @@
     &__mobile { display: none; width: min(100%, var(--de-max-width-app)); margin: 0 auto; padding: 0 1rem 1rem; }
     &__sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
-    @media (max-width: 1180px) { &__main { gap: 1rem; } &__nav { display: none; } }
+    @media (max-width: 1320px) { &__main { gap: 1rem; } &__nav { display: none; } }
     @media (max-width: 780px) { &__shell { padding: 0.75rem 1rem; } &__main { grid-template-columns: 1fr auto; } &__search, &__profile, &__action { display: none; } &__brand__wordmark small { display: none; } &__burger { display: inline-flex; flex-direction: column; gap: 4px; span { width: 17px; height: 2px; border-radius: 99px; background: currentColor; } } &__mobile.is-open { display: flex; flex-direction: column; gap: 0.7rem; } }
 }
 

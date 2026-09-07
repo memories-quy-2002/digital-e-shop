@@ -6,6 +6,6 @@
         "node": ">=24.20.0 <25"
     },
     "scripts": {
-        "vercel-build": "corepack pnpm@12.3.4 --dir .. run build"
+        "vercel-build": "pnpm --dir .. run build"
     }
 }

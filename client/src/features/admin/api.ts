@@ -143,3 +143,20 @@ export async function updatePromotion(id: number, data: Record<string, unknown>)
 export async function deletePromotion(id: number): Promise<void> {
     await http.delete(`/api/promotions/${id}`);
 }
+
+export type AdminAlert = {
+    id: string;
+    type: "order" | "payment" | "inventory" | "support" | "customer";
+    title: string;
+    description: string;
+    createdAt: string;
+    priority: "High" | "Medium" | "Low";
+    actionLabel: string;
+    route: string;
+    unread: boolean;
+};
+
+export async function fetchAdminAlerts(): Promise<{ alerts: AdminAlert[]; unread: number }> {
+    const response = await http.get("/api/admin/alerts");
+    return { alerts: response.data.alerts || [], unread: Number(response.data.unread || 0) };
+}

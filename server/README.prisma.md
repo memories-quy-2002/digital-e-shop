@@ -23,7 +23,7 @@ src/database/prisma/
 
 `0_init` is a metadata-only baseline marker. It must be recorded as applied on the existing data-bearing database; it is not a create-schema migration.
 
-The tracked migrations add the Stripe Checkout Session idempotency key, typed product attributes, inventory reservations, product/order snapshot columns, and migration-owned audit tables such as inventory movements and order status events. The audit migration also adopts the existing address, notification, and user-auth schema into the forward migration path without giving repositories runtime DDL responsibilities.
+The tracked migrations add the Stripe Checkout Session idempotency key, typed product attributes, inventory reservations, product/order snapshot columns, payment ledger and cancellation fields, persisted support tickets, and migration-owned audit tables such as inventory movements and order status events. The audit migration also adopts the existing address, notification, and user-auth schema into the forward migration path without giving repositories runtime DDL responsibilities.
 
 ## Environment contract
 
@@ -183,8 +183,8 @@ All four demo accounts use the password `DemoPass123!`:
 The graph links users to addresses, carts, orders, order items, reviews,
 wishlists, notifications, sessions, and inventory movements. Products resolve
 through their category and brand parents, every order has distinct product
-items with matching totals, and every seeded catalog product has a real image
-slug already understood by the storefront's Vercel Blob image helper. The
+items with matching totals, and every seeded catalog product has a unique,
+verified HTTPS stock image URL understood by the storefront image helper. The
 expanded catalog contains 28 products across 8 categories and 16 brands, and
 each product is represented in demo order, review, and wishlist relationships.
 `demo:verify` fails on count, image, or orphan-link mismatches.

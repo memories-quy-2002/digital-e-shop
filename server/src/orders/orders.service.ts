@@ -1,4 +1,5 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
+import { env } from "#src/config/env.config";
 import { logger } from "#src/shared/utils/logger";
 import type { InsertResult, UpdateResult } from "#src/shared/interfaces/domain";
 import type { CartItemRow, CartValidationIssue } from "../cart/cart.types";
@@ -12,10 +13,14 @@ import { NestCartService } from "../cart/cart.service";
 import { NestInventoryService } from "../inventory/inventory.service";
 import { NestNotificationsService } from "../notifications/notifications.service";
 import { withTransaction } from "../database/transaction";
+import type { TransactionContext } from "../database/transaction";
 import { CheckoutReservationRepository } from "./checkout-reservation.repository";
 import { PromotionsRepository } from "../promotions/promotions.repository";
 import { ProductAttributesRepository } from "../products/product-attributes.repository";
 import { attributeMapToSnapshot, type ProductAttribute } from "../products/product-attributes.types";
+import { PaymentProviderService } from "../payments/payment-provider.service";
+import { buildPaymentQuote } from "../payments/currency";
+import type { PaymentProviderName } from "../payments/payment.types";
 
 export const createCheckoutError = (message: string, statusCode = 409, details: Record<string, unknown> = {}) =>
     Object.assign(new Error(message), { statusCode, details });
@@ -67,6 +72,9 @@ const buildOrderItemSnapshot = (product: CartItemRow, currentAttributes?: Produc
     };
 };
 
+const normalizePaymentProvider = (paymentMethod: string): PaymentProviderName =>
+    paymentMethod === "card" ? "stripe" : paymentMethod as PaymentProviderName;
+
 type CreateOrderFromCartInput = {
     uid: string;
     authoritativeCart: CartItemRow[];
@@ -77,6 +85,22 @@ type CreateOrderFromCartInput = {
     discountCode?: string;
     stripeCheckoutSessionId?: string | null;
     stripePaymentIntentId?: string | null;
+};
+
+type CancellationPayment = {
+    id: number;
+    provider: string;
+    status: string;
+    provider_payment_id: string | null;
+    amount: number | string;
+    currency: string;
+};
+
+type CancellationPrecheck = {
+    alreadyCanceled: boolean;
+    userId: string;
+    payment: CancellationPayment | null;
+    needsRefund: boolean;
 };
 
 @Injectable()
@@ -90,7 +114,207 @@ export class NestOrdersService {
         private readonly checkoutReservationRepository: CheckoutReservationRepository,
         private readonly promotionsRepository: PromotionsRepository,
         private readonly productAttributesRepository: ProductAttributesRepository,
+        @Optional() private readonly paymentProviderService?: PaymentProviderService,
     ) {}
+
+    private async createPaymentLedgerInTransaction(
+        tx: TransactionContext,
+        {
+            orderId,
+            paymentMethod,
+            baseAmount,
+            providerPaymentId = null,
+            status = "pending",
+        }: {
+            orderId: number;
+            paymentMethod: string;
+            baseAmount: number;
+            providerPaymentId?: string | null;
+            status?: "pending" | "paid";
+        },
+    ) {
+        const provider = normalizePaymentProvider(paymentMethod);
+        const quote = buildPaymentQuote(baseAmount, provider, env.payosUsdToVndRate);
+        const providerResult = this.paymentProviderService
+            ? await this.paymentProviderService.createPayment({
+                provider,
+                orderId,
+                amount: quote.amount,
+                currency: quote.currency,
+                providerPaymentId,
+            })
+            : null;
+        const paymentStatus = status === "paid" ? "paid" : providerResult?.status || "pending";
+
+        await tx.query(
+            `INSERT INTO order_payments
+                (order_id, provider, status, provider_reference, provider_payment_id, idempotency_key,
+                 base_amount, base_currency, amount, currency, fx_rate, paid_at, simulated, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'USD', ?, ?, ?, ${paymentStatus === "paid" ? "UTC_TIMESTAMP()" : "NULL"}, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP())
+             ON DUPLICATE KEY UPDATE updated_at = UTC_TIMESTAMP()`,
+            [
+                orderId,
+                provider,
+                paymentStatus,
+                providerResult?.providerReference || providerPaymentId,
+                providerPaymentId,
+                `order:${orderId}:payment`,
+                quote.baseAmount,
+                quote.amount,
+                quote.currency,
+                quote.fxRate,
+                providerResult?.simulated ? 1 : 0,
+            ],
+        );
+    }
+
+    private getOrderSummary(orderId: number): Promise<OrderSummaryRow> {
+        return new Promise((resolve, reject) => {
+            this.ordersRepository.getOrderById(orderId, (error: Error | null, rows: OrderSummaryRow[]) => {
+                if (error) return reject(error);
+                if (!rows?.[0]) return reject(createCheckoutError("Order not found", 404));
+                resolve(rows[0]);
+            });
+        });
+    }
+
+    async cancelOrder(orderId: number, actorId: string, admin = false, reason?: string): Promise<OrderSummaryRow> {
+        const cancellation = await withTransaction<CancellationPrecheck>(async (tx) => {
+            const [order] = await tx.query<Array<{
+                id: number;
+                user_id: string;
+                status: number;
+                total_price: number | string;
+                discount: number | string;
+            }>>(
+                `SELECT id, user_id, status, total_price, discount
+                 FROM orders WHERE id = ? FOR UPDATE`,
+                [orderId],
+            );
+            if (!order) throw createCheckoutError("Order not found", 404);
+            if (!admin && String(order.user_id) !== String(actorId)) {
+                throw createCheckoutError("You cannot cancel this order", 403);
+            }
+            if (Number(order.status) === 2) {
+                return { alreadyCanceled: true, userId: order.user_id, payment: null, needsRefund: false };
+            }
+            if (Number(order.status) !== 0) {
+                throw createCheckoutError("Only pending orders can be canceled", 409);
+            }
+
+            const [payments] = await tx.query<CancellationPayment[]>(
+                `SELECT id, provider, status, provider_payment_id, amount, currency
+                 FROM order_payments WHERE order_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE`,
+                [orderId],
+            );
+            const payment = payments || null;
+            if (payment?.provider === "stripe" && payment.status === "refund_pending") {
+                throw createCheckoutError("A Stripe refund is already in progress for this order", 409);
+            }
+            if (payment?.provider === "stripe" && payment.status === "paid") {
+                await tx.query("UPDATE order_payments SET status = 'refund_pending', updated_at = UTC_TIMESTAMP() WHERE id = ?", [payment.id]);
+                return { alreadyCanceled: false, userId: order.user_id, payment, needsRefund: true };
+            }
+            return { alreadyCanceled: false, userId: order.user_id, payment, needsRefund: false };
+        });
+
+        if (cancellation.alreadyCanceled) return this.getOrderSummary(orderId);
+
+        if (cancellation.needsRefund) {
+            const payment = cancellation.payment;
+            if (!payment?.provider_payment_id || !this.paymentProviderService) {
+                await withTransaction(async (tx): Promise<void> => {
+                    await tx.query(
+                        "UPDATE order_payments SET status = 'paid', updated_at = UTC_TIMESTAMP() WHERE order_id = ? AND status = 'refund_pending'",
+                        [orderId],
+                    );
+                });
+                throw createCheckoutError("Stripe payments are not configured", 503);
+            }
+            let refund;
+            try {
+                refund = await this.paymentProviderService.refundPayment({
+                    provider: "stripe",
+                    orderId,
+                    paymentId: payment.provider_payment_id,
+                    amount: Number(payment.amount),
+                    currency: payment.currency === "VND" ? "VND" : "USD",
+                });
+            } catch (error) {
+                await withTransaction(async (tx): Promise<void> => {
+                    await tx.query(
+                        "UPDATE order_payments SET status = 'paid', updated_at = UTC_TIMESTAMP() WHERE order_id = ? AND status = 'refund_pending'",
+                        [orderId],
+                    );
+                });
+                throw createCheckoutError((error as Error).message || "Stripe refund failed", 502);
+            }
+            await withTransaction(async (tx): Promise<void> => {
+                await tx.query(
+                    `UPDATE order_payments
+                     SET status = 'refunded', refunded_at = UTC_TIMESTAMP(), refund_reference = ?, updated_at = UTC_TIMESTAMP()
+                     WHERE order_id = ? AND status = 'refund_pending'`,
+                    [refund.refundReference || refund.providerReference, orderId],
+                );
+            });
+        }
+
+        const result = await withTransaction(async (tx) => {
+            const [order] = await tx.query<Array<{ user_id: string; status: number; inventory_restored_at: Date | null }>>(
+                "SELECT user_id, status, inventory_restored_at FROM orders WHERE id = ? FOR UPDATE",
+                [orderId],
+            );
+            if (!order) throw createCheckoutError("Order not found", 404);
+            if (Number(order.status) === 2) return { userId: order.user_id, changed: false };
+            if (Number(order.status) !== 0) throw createCheckoutError("Only pending orders can be canceled", 409);
+
+            if (!order.inventory_restored_at) {
+                const items = await tx.query<Array<{ product_id: number; quantity: number }>>(
+                    "SELECT product_id, quantity FROM order_items WHERE order_id = ? ORDER BY product_id FOR UPDATE",
+                    [orderId],
+                );
+                const movements: InventoryMovementInput[] = [];
+                for (const item of items) {
+                    const [product] = await tx.query<Array<{ id: number; stock: number }>>(
+                        "SELECT id, stock FROM products WHERE id = ? FOR UPDATE",
+                        [item.product_id],
+                    );
+                    if (!product) throw createCheckoutError("Product for this order no longer exists", 409);
+                    const quantity = Number(item.quantity) || 0;
+                    await tx.query("UPDATE products SET stock = stock + ? WHERE id = ?", [quantity, item.product_id]);
+                    movements.push({
+                        productId: item.product_id,
+                        orderId,
+                        movementType: "restock_cancelled_order",
+                        quantityChange: quantity,
+                        stockBefore: Number(product.stock),
+                        stockAfter: Number(product.stock) + quantity,
+                        note: `Stock restored for canceled order #${orderId}`,
+                        actorId,
+                    });
+                }
+                if (movements.length > 0) await this.inventoryService.createMovementsInTransaction(tx, movements);
+            }
+
+            await tx.query(
+                `UPDATE orders
+                 SET status = 2, inventory_restored_at = COALESCE(inventory_restored_at, UTC_TIMESTAMP()),
+                     cancellation_reason = ?
+                 WHERE id = ? AND status = 0`,
+                [reason || null, orderId],
+            );
+            await this.orderTimelineService.createTimelineEventInTransaction(tx, {
+                orderId,
+                status: 2,
+                note: reason ? `Order canceled: ${reason}` : "Order was canceled.",
+                actorId,
+            });
+            return { userId: order.user_id, changed: true };
+        });
+
+        if (result.changed) this.notificationsService.notifyOrderStatus(result.userId, orderId, 2);
+        return this.getOrderSummary(orderId);
+    }
 
     async createOrderFromValidatedCart({
         uid,
@@ -132,6 +356,13 @@ export class NestOrdersService {
                     await q("UPDATE orders SET discount = ? WHERE id = ?", [appliedDiscount, orderId]);
                 }
             }
+
+            await this.createPaymentLedgerInTransaction(tx, {
+                orderId,
+                paymentMethod,
+                baseAmount: Math.max(authoritativeTotalPrice - appliedDiscount, 0),
+                providerPaymentId: stripePaymentIntentId,
+            });
 
             const productIdsForSnapshot = [...new Set(authoritativeCart.map((item) => Number(item.product_id || 0)).filter(Boolean))];
             const productAttributes = await this.productAttributesRepository.getForProducts(tx, productIdsForSnapshot);
@@ -432,6 +663,13 @@ export class NestOrdersService {
                     throw createCheckoutError("Promotion reservation was already finalized.", 409);
                 }
             }
+            await this.createPaymentLedgerInTransaction(tx, {
+                orderId,
+                paymentMethod: "stripe",
+                baseAmount: Math.max(Number(pending.total_price) - Number(pending.discount), 0),
+                providerPaymentId: stripePaymentIntentId,
+                status: "paid",
+            });
             const productAttributes = await this.productAttributesRepository.getForProducts(tx, productIds);
             const orderItemSnapshots = authoritativeCart.map((item) =>
                 buildOrderItemSnapshot(item, productAttributes.get(Number(item.product_id || 0))),
@@ -573,6 +811,11 @@ export class NestOrdersService {
                     discount: Number(first.discount) || 0,
                     shipping_address: first.shipping_address,
                     payment_method: first.payment_method,
+                    currency: first.currency || "USD",
+                    payment_status: first.payment_status || null,
+                    payment_amount: first.payment_amount === null || first.payment_amount === undefined ? null : Number(first.payment_amount),
+                    payment_currency: first.payment_currency || null,
+                    payment_simulated: first.payment_simulated === null || first.payment_simulated === undefined ? null : Boolean(first.payment_simulated),
                     items: results
                         .filter((row) => row.product_id)
                         .map((row) => ({
@@ -608,35 +851,37 @@ export class NestOrdersService {
         status: number,
         actorId: string | number | null = null,
     ): Promise<OrderSummaryRow> {
-        return withTransaction(async (tx) => {
-            const result = await tx.query<UpdateResult>("UPDATE orders SET status = ? WHERE id = ?", [status, orderId]);
-            if (result.affectedRows === 0) {
-                throw new Error("Order not found");
-            }
+        if (Number(status) === 2) {
+            return this.cancelOrder(orderId, String(actorId || "admin"), true);
+        }
+        if (Number(status) !== 1) {
+            return Promise.reject(createCheckoutError("Only pending orders can transition to Done", 409));
+        }
 
-            const [orderOwner] = await tx.query<Array<{ user_id: string }>>(
-                "SELECT user_id FROM orders WHERE id = ?",
+        return withTransaction(async (tx) => {
+            const [current] = await tx.query<Array<{ user_id: string; status: number }>>(
+                "SELECT user_id, status FROM orders WHERE id = ? FOR UPDATE",
                 [orderId],
             );
-            if (!orderOwner) {
-                throw new Error("Order not found");
+            if (!current) throw createCheckoutError("Order not found", 404);
+            if (Number(current.status) === 1) return { userId: current.user_id, changed: false };
+            if (Number(current.status) !== 0) {
+                throw createCheckoutError("Canceled orders cannot transition to Done", 409);
             }
+
+            await tx.query("UPDATE orders SET status = 1 WHERE id = ? AND status = 0", [orderId]);
 
             await this.orderTimelineService.createTimelineEventInTransaction(tx, {
                 orderId,
-                status,
-                note: `Order status changed to ${status}.`,
+                status: 1,
+                note: "Order was completed by an admin.",
                 actorId,
             });
-            return orderOwner;
-        }).then((orderOwner) => new Promise<OrderSummaryRow>((resolve, reject) => {
-            this.ordersRepository.getOrderById(orderId, (error: Error | null, rows: OrderSummaryRow[]) => {
-                if (error) return reject(error);
-                if (!rows[0]) return reject(new Error("Order not found"));
-                this.notificationsService.notifyOrderStatus(orderOwner.user_id, orderId, status);
-                resolve(rows[0]);
-            });
-        }));
+            return { userId: current.user_id, changed: true };
+        }).then(async (result) => {
+            if (result.changed) this.notificationsService.notifyOrderStatus(result.userId, orderId, 1);
+            return this.getOrderSummary(orderId);
+        });
     }
 
     getOrderItems(): Promise<unknown[]> {

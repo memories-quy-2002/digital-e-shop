@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UnauthorizedException } from "@nestjs/common";
 import jwt from "jsonwebtoken";
 import crypto from "node:crypto";
+import bcrypt from "bcryptjs";
 import { env } from "#src/config/env.config";
 import { NestAuthController } from "./auth.controller";
 import { registerUserSchema, userLoginSchema } from "./auth.validator";
@@ -27,6 +28,7 @@ function buildAuthService(options: { stubIssueLoginSession?: boolean } = {}) {
     };
     const usersRepository = {
         findById: vi.fn(),
+        findByEmail: vi.fn(),
         updateUserToken: vi.fn(),
         createUser: vi.fn(),
     };
@@ -56,6 +58,7 @@ describe("authentication flow response contract", () => {
         verifySessionToken: ReturnType<typeof vi.fn>;
         refreshToken: ReturnType<typeof vi.fn>;
         loginUser: ReturnType<typeof vi.fn>;
+        loginWithPassword: ReturnType<typeof vi.fn>;
         registerUser: ReturnType<typeof vi.fn>;
     };
     let controller: NestAuthController;
@@ -65,8 +68,10 @@ describe("authentication flow response contract", () => {
             verifySessionToken: vi.fn(),
             refreshToken: vi.fn(),
             loginUser: vi.fn(),
+            loginWithPassword: vi.fn(),
             registerUser: vi.fn(),
         };
+        env.authProvider = "firebase";
         controller = new NestAuthController(authService as unknown as NestAuthService);
     });
 
@@ -81,6 +86,18 @@ describe("authentication flow response contract", () => {
 
     it("rejects login when the Firebase ID token is missing", () => {
         expect(() => userLoginSchema.parse({ rememberMe: false })).toThrow();
+    });
+
+    it("accepts local email and password login credentials", () => {
+        expect(userLoginSchema.parse({
+            email: "demo.admin@digital-e.local",
+            password: "DemoPass123!",
+            rememberMe: true,
+        })).toEqual({
+            email: "demo.admin@digital-e.local",
+            password: "DemoPass123!",
+            rememberMe: true,
+        });
     });
 
     it("rejects client-controlled registration identity fields", () => {
@@ -119,6 +136,29 @@ describe("authentication flow response contract", () => {
         await controller.userLogin({ idToken: "firebase-id-token", rememberMe: true } as never, { requestId: "auth-login-1" } as never, response as never);
 
         expect(authService.loginUser).toHaveBeenCalledWith("firebase-id-token", true);
+    });
+
+    it("passes local credentials to the password login service", async () => {
+        env.authProvider = "local";
+        authService.loginWithPassword.mockResolvedValue({
+            user: { id: "demo-digital-e-admin", email: "demo.admin@digital-e.local", role: "Admin" },
+            token: "access-token",
+            sessionId: 42,
+            refreshToken: null,
+        });
+        const response = mockResponse();
+
+        await controller.userLogin(
+            { email: "demo.admin@digital-e.local", password: "DemoPass123!", rememberMe: true } as never,
+            { requestId: "auth-local-login-1" } as never,
+            response as never,
+        );
+
+        expect(authService.loginWithPassword).toHaveBeenCalledWith(
+            "demo.admin@digital-e.local",
+            "DemoPass123!",
+            true,
+        );
     });
 
     it("passes only the Firebase ID token and username to the registration service", async () => {
@@ -302,6 +342,26 @@ describe("authentication flow response contract", () => {
 });
 
 describe("Firebase identity boundary", () => {
+    it("authenticates local credentials against the stored MySQL password hash", async () => {
+        const { service, usersRepository, firebaseAdminAuthService, issueLoginSession } = buildAuthService();
+        const user = {
+            id: "demo-digital-e-admin",
+            email: "demo.admin@digital-e.local",
+            role: "Admin",
+            status: "Active",
+            password: await bcrypt.hash("DemoPass123!", 10),
+        };
+        const session = { user, token: "access-token", sessionId: 42, refreshToken: null as string | null };
+        usersRepository.findByEmail.mockResolvedValue(user);
+        issueLoginSession.mockResolvedValue(session);
+
+        await expect(service.loginWithPassword("demo.admin@digital-e.local", "DemoPass123!", true)).resolves.toBe(session);
+
+        expect(usersRepository.findByEmail).toHaveBeenCalledWith("demo.admin@digital-e.local");
+        expect(firebaseAdminAuthService.verifyIdToken).not.toHaveBeenCalled();
+        expect(issueLoginSession).toHaveBeenCalledWith(user, true);
+    });
+
     it("looks up the account by the verified UID and does not accept a client role", async () => {
         const { service, usersRepository, firebaseAdminAuthService, issueLoginSession } = buildAuthService();
         const user = { id: "firebase-uid", email: "customer@example.com", role: "Customer" };

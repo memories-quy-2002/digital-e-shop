@@ -47,7 +47,17 @@ export function useRecentlyViewed() {
         setItems([]);
     }, [setItems]);
 
-    const value = useMemo(() => ({ items, track, clear }), [items, track, clear]);
+    const prune = useCallback(
+        (validProductIds: ReadonlySet<number>) => {
+            setItems((previous) => {
+                const next = previous.filter((item) => validProductIds.has(item.id));
+                return next.length === previous.length ? previous : next;
+            });
+        },
+        [setItems],
+    );
+
+    const value = useMemo(() => ({ items, track, clear, prune }), [items, track, clear, prune]);
 
     return value;
 }

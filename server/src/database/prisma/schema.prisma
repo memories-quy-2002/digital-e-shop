@@ -28,6 +28,7 @@ model User {
   carts            Cart[]
   reviews          Review[]
   pendingCheckouts PendingCheckout[]
+  supportTickets   SupportTicket[]
 
   @@map("users")
 }
@@ -182,20 +183,25 @@ model Discount {
 }
 
 model Order {
-  id                      Int      @id @default(autoincrement())
-  userId                  String   @map("user_id") @db.VarChar(255)
-  totalPrice              Decimal  @map("total_price") @db.Decimal(11, 2)
-  discount                Decimal  @default(0) @db.Decimal(11, 2)
-  shippingAddress         String   @map("shipping_address") @db.Text
-  paymentMethod           String   @default("cash") @map("payment_method") @db.VarChar(32)
-  stripeCheckoutSessionId String?  @unique(map: "uq_orders_stripe_checkout_session") @map("stripe_checkout_session_id") @db.VarChar(255)
-  stripePaymentIntentId   String?  @map("stripe_payment_intent_id") @db.VarChar(255)
-  dateAdded               DateTime @default(now()) @map("date_added") @db.DateTime(0)
-  status                  Int      @default(0)
+  id                      Int       @id @default(autoincrement())
+  userId                  String    @map("user_id") @db.VarChar(255)
+  totalPrice              Decimal   @map("total_price") @db.Decimal(11, 2)
+  discount                Decimal   @default(0) @db.Decimal(11, 2)
+  shippingAddress         String    @map("shipping_address") @db.Text
+  paymentMethod           String    @default("cash") @map("payment_method") @db.VarChar(32)
+  stripeCheckoutSessionId String?   @unique(map: "uq_orders_stripe_checkout_session") @map("stripe_checkout_session_id") @db.VarChar(255)
+  stripePaymentIntentId   String?   @map("stripe_payment_intent_id") @db.VarChar(255)
+  dateAdded               DateTime  @default(now()) @map("date_added") @db.DateTime(0)
+  status                  Int       @default(0)
+  currency                String    @default("USD") @db.Char(3)
+  inventoryRestoredAt     DateTime? @map("inventory_restored_at") @db.DateTime(0)
+  cancellationReason      String?   @map("cancellation_reason") @db.Text
 
   user                User                 @relation(fields: [userId], references: [id])
   items               OrderItem[]
   discountRedemptions DiscountRedemption[]
+  payments            OrderPayment[]
+  supportTickets      SupportTicket[]
 
   @@map("orders")
 }
@@ -278,4 +284,52 @@ model OrderItem {
 
   @@unique([orderId, productId], map: "uq_order_items_order_id_product_id")
   @@map("order_items")
+}
+
+model OrderPayment {
+  id                Int       @id @default(autoincrement())
+  orderId           Int       @map("order_id")
+  provider          String    @db.VarChar(32)
+  status            String    @db.VarChar(24)
+  providerReference String?   @map("provider_reference") @db.VarChar(255)
+  providerPaymentId String?   @map("provider_payment_id") @db.VarChar(255)
+  idempotencyKey    String    @unique(map: "uq_order_payments_idempotency") @map("idempotency_key") @db.VarChar(128)
+  baseAmount        Decimal   @map("base_amount") @db.Decimal(11, 2)
+  baseCurrency      String    @default("USD") @map("base_currency") @db.Char(3)
+  amount            Decimal   @db.Decimal(14, 2)
+  currency          String    @db.Char(3)
+  fxRate            Decimal   @default(1) @map("fx_rate") @db.Decimal(18, 6)
+  paidAt            DateTime? @map("paid_at") @db.DateTime(0)
+  refundedAt        DateTime? @map("refunded_at") @db.DateTime(0)
+  refundReference   String?   @map("refund_reference") @db.VarChar(255)
+  simulated         Boolean   @default(false) @db.TinyInt
+  createdAt         DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt         DateTime  @default(now()) @map("updated_at") @db.DateTime(0)
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId, status], map: "order_payments_order_status_idx")
+  @@index([provider, providerReference], map: "order_payments_provider_reference_idx")
+  @@map("order_payments")
+}
+
+model SupportTicket {
+  id        Int      @id @default(autoincrement())
+  userId    String   @map("user_id") @db.VarChar(255)
+  orderId   Int?     @map("order_id")
+  category  String   @default("general") @db.VarChar(32)
+  subject   String   @db.VarChar(160)
+  message   String   @db.Text
+  status    String   @default("OPEN") @db.VarChar(32)
+  priority  String   @default("NORMAL") @db.VarChar(16)
+  adminNote String?  @map("admin_note") @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.DateTime(0)
+
+  user  User   @relation(fields: [userId], references: [id])
+  order Order? @relation(fields: [orderId], references: [id])
+
+  @@index([userId, createdAt], map: "support_tickets_user_created_idx")
+  @@index([status, priority, createdAt], map: "support_tickets_queue_idx")
+  @@map("support_tickets")
 }

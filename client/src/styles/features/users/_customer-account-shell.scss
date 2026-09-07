@@ -2,12 +2,10 @@
     max-width: 1180px;
     margin: 0 auto 1.25rem;
     padding: 1.25rem;
-    border: 1px solid rgba(99, 108, 122, 0.18);
+    border: 1px solid var(--de-color-border);
     border-radius: var(--de-radius-lg);
-    background:
-        linear-gradient(180deg, rgba(255, 253, 248, 0.98) 0%, rgba(248, 244, 236, 0.98) 100%),
-        #fffdf8;
-    box-shadow: 0 12px 28px rgba(23, 35, 52, 0.08);
+    background: linear-gradient(180deg, var(--de-color-surface-strong), var(--de-color-surface-muted));
+    box-shadow: var(--de-shadow-sm);
 
     &__header {
         display: flex;
@@ -27,7 +25,7 @@
 
         h1 {
             margin: 0.35rem 0 0.4rem;
-            color: #0f172a;
+            color: var(--de-color-text);
             font-size: clamp(1.65rem, 2.5vw, 2.15rem);
             line-height: 1.12;
         }
@@ -76,9 +74,9 @@
             align-items: center;
             gap: 0.6rem;
             min-width: 10rem;
-            border: 1px solid rgba(99, 108, 122, 0.18);
+            border: 1px solid var(--de-color-border);
             border-radius: var(--de-radius-sm);
-            background: #fffdf8;
+            background: var(--de-color-surface);
             color: var(--de-color-text-soft);
             padding: 0.72rem 0.85rem;
             text-decoration: none;
@@ -92,7 +90,7 @@
                 background: var(--de-color-primary-tint);
                 border-color: var(--de-color-primary);
                 color: var(--de-color-primary-strong);
-                box-shadow: inset 0 0 0 1px rgba(45, 81, 125, 0.12);
+                box-shadow: inset 0 0 0 1px var(--de-color-primary-soft);
             }
         }
 
@@ -104,7 +102,7 @@
             width: 1.65rem;
             height: 1.65rem;
             border-radius: 999px;
-            background: #e5ddd0;
+            background: var(--de-color-surface-muted);
             color: var(--de-color-text-soft);
             font-size: 0.78rem;
             font-weight: 900;

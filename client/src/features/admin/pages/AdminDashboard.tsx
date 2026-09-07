@@ -186,6 +186,14 @@ const buildPaymentMix = (orders: Order[]): ChartDatum[] => [
         value: orders.filter((order) => order.payment_method === "cash").length,
     },
     {
+        name: "PayOS",
+        value: orders.filter((order) => order.payment_method === "payos").length,
+    },
+    {
+        name: "Stripe",
+        value: orders.filter((order) => order.payment_method === "stripe" || order.payment_method === "card").length,
+    },
+    {
         name: "Unknown",
         value: orders.filter((order) => !order.payment_method).length,
     },
@@ -423,7 +431,15 @@ const AdminDashboard = () => {
     const analyticsPaymentMix = useMemo(
         () =>
             (analyticsSummary?.charts?.paymentMethods || []).map((point: any) => ({
-                name: point.name === "bank_transfer" ? "Bank transfer" : point.name === "cash" ? "Cash" : "Unknown",
+                name: point.name === "bank_transfer"
+                    ? "Bank transfer"
+                    : point.name === "cash"
+                      ? "Cash"
+                      : point.name === "payos"
+                        ? "PayOS"
+                        : point.name === "stripe" || point.name === "card"
+                          ? "Stripe"
+                          : "Unknown",
                 value: Number(point.value) || 0,
             })),
         [analyticsSummary],
@@ -465,6 +481,8 @@ const AdminDashboard = () => {
         const cancelledOrders = Number(analyticsSummary?.kpis?.orders?.cancelled) || orders.filter((order) => order.status === 2).length;
         const bankTransferOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Bank transfer")?.value || orders.filter((order) => order.payment_method === "bank_transfer").length;
         const cashOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Cash")?.value || orders.filter((order) => order.payment_method === "cash").length;
+        const payosOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "PayOS")?.value || orders.filter((order) => order.payment_method === "payos").length;
+        const stripeOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Stripe")?.value || orders.filter((order) => order.payment_method === "stripe" || order.payment_method === "card").length;
         const totalRevenue = Number(analyticsSummary?.kpis?.revenue?.net) || orders.reduce((sum, order) => sum + getNetRevenue(order), 0);
         const lowStockProducts = (analyticsSummary?.operations?.inventoryRisk || [])
             .filter((product: any) => Number(product.stock) <= 5)
@@ -487,6 +505,8 @@ const AdminDashboard = () => {
             cancelledOrders,
             bankTransferOrders,
             cashOrders,
+            payosOrders,
+            stripeOrders,
             totalRevenue,
             lowStockProducts: lowStockProducts.length > 0 ? lowStockProducts : fallbackLowStockProducts,
             latestOrders,

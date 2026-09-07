@@ -1,8 +1,8 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from "@nestjs/common";
 import type { Request, Response } from "express";
-import { isProduction } from "#src/config/env.config";
+import { env, isProduction } from "#src/config/env.config";
 import { NestAuthService } from "./auth.service";
-import { registerUserSchema, userLoginSchema } from "./auth.validator";
+import { registerUserSchema, userLoginSchema, type UserLoginInput } from "./auth.validator";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import type { AuthSessionPayload } from "./auth.types";
 import { buildErrorResponse, buildSuccessResponse, requestIdFrom } from "#src/shared/http/api-response";
@@ -85,12 +85,25 @@ export class NestAuthController {
     @Post("login")
     @HttpCode(HttpStatus.OK)
     async userLogin(
-        @Body(new ZodValidationPipe(userLoginSchema)) body: { idToken: string; rememberMe?: boolean },
+        @Body(new ZodValidationPipe(userLoginSchema)) body: UserLoginInput,
         @Req() req: Request,
         @Res() res: Response,
     ) {
-        const { idToken, rememberMe } = body;
-        const { user, token: accessToken, sessionId, refreshToken } = await this.authService.loginUser(idToken, rememberMe);
+        const rememberMe = body.rememberMe;
+        let sessionPayload: AuthSessionPayload;
+
+        if ("email" in body) {
+            if (env.authProvider !== "local") {
+                throw new BadRequestException({ msg: "Firebase login requires an ID token" });
+            }
+            sessionPayload = await this.authService.loginWithPassword(body.email, body.password, rememberMe);
+        } else {
+            if (env.authProvider !== "firebase") {
+                throw new BadRequestException({ msg: "Local login requires email and password" });
+            }
+            sessionPayload = await this.authService.loginUser(body.idToken, rememberMe);
+        }
+        const { user, token: accessToken, sessionId, refreshToken } = sessionPayload;
         setAuthCookies(res, { user, token: accessToken, sessionId, refreshToken }, Boolean(rememberMe));
 
         return res.status(200).json(buildSuccessResponse({

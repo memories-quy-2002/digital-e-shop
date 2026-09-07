@@ -14,6 +14,7 @@ const DEMO_ORDER_ADDRESS_PREFIX = "Digital-E Demo Order ";
 const DEMO_ORDER_SESSION_PREFIX = "digital-e-demo-order-";
 const DEMO_NOTIFICATION_PREFIX = "Demo";
 const DEMO_MOVEMENT_PREFIX = "Digital-E demo seed";
+const LEGACY_PRODUCT_NAME_PATTERNS = ["%e2e%", "%demo%"];
 
 const roundMoney = (value) => Number(Number(value).toFixed(2));
 
@@ -183,6 +184,30 @@ const clearDemoRows = async (connection, plan, userIds, productIds) => {
     await deleteByIds(connection, "orders", "id", orderIds);
     await deleteByIds(connection, "carts", "id", cartIds);
     await connection.query("DELETE FROM discounts WHERE discount_code IN (?)", [plan.discounts.map((discount) => discount.code)]);
+};
+
+const clearLegacyCatalogProducts = async (connection) => {
+    const rows = await query(
+        connection,
+        "SELECT id FROM products WHERE LOWER(name) LIKE ? OR LOWER(name) LIKE ?",
+        LEGACY_PRODUCT_NAME_PATTERNS,
+    );
+    const productIds = rows.map((row) => Number(row.id));
+
+    if (productIds.length === 0) {
+        return 0;
+    }
+
+    await deleteByIds(connection, "product_attributes", "product_id", productIds);
+    await deleteByIds(connection, "inventory_reservations", "product_id", productIds);
+    await deleteByIds(connection, "cart_items", "product_id", productIds);
+    await deleteByIds(connection, "order_items", "product_id", productIds);
+    await deleteByIds(connection, "reviews", "product_id", productIds);
+    await deleteByIds(connection, "wishlist", "product_id", productIds);
+    await deleteByIds(connection, "inventory_movements", "product_id", productIds);
+    await deleteByIds(connection, "products", "id", productIds);
+
+    return productIds.length;
 };
 
 const seedAddresses = async (connection, plan, userIds) => {
@@ -442,6 +467,7 @@ const main = async () => {
         await connection.beginTransaction();
         const userIds = await upsertDemoUsers(connection, DEMO_SEED_PLAN, passwordHash);
         const { productIds } = await upsertDemoProducts(connection, DEMO_SEED_PLAN);
+        const legacyProductCount = await clearLegacyCatalogProducts(connection);
         await clearDemoRows(connection, DEMO_SEED_PLAN, userIds, productIds);
         await seedAddresses(connection, DEMO_SEED_PLAN, userIds);
         await seedCarts(connection, DEMO_SEED_PLAN, userIds, productIds);
@@ -454,6 +480,7 @@ const main = async () => {
         await connection.commit();
 
         console.log(`Digital-E demo seed complete: ${JSON.stringify(summary)}`);
+        console.log(`Removed ${legacyProductCount} legacy E2E/Demo catalog products.`);
         console.log("Demo login password for all four accounts: DemoPass123!");
     } catch (error) {
         await connection.rollback();

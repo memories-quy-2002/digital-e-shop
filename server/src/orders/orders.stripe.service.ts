@@ -77,6 +77,31 @@ export class NestOrdersStripeService {
             throw createCheckoutError("Order total must be greater than zero to pay by card.", 400);
         }
 
+        if (env.paymentProviderMode === "mock") {
+            const mockSessionId = `mock_stripe_${reservation.reservationToken}`;
+            const mockPaymentIntentId = `mock_pi_${reservation.reservationToken}`;
+            try {
+                await this.checkoutReservationService.attachStripeSession(reservation.reservationToken, mockSessionId);
+                const order = await this.ordersService.finalizeReservedCheckout(mockSessionId, mockPaymentIntentId);
+                if (!order) throw new Error("Mock Stripe checkout did not produce an order.");
+            } catch (err) {
+                await this.checkoutReservationService.releaseReservation(
+                    reservation.reservationToken,
+                    "mock_checkout_finalize_failed",
+                ).catch((releaseErr) => {
+                    logger.error({ err: releaseErr, reservationToken: reservation.reservationToken }, "[createCheckoutSession] failed to release mock reservation");
+                });
+                throw createCheckoutError(
+                    `Unable to complete mock checkout. ${(err as Error)?.message || "Please try again."}`,
+                    500,
+                );
+            }
+
+            return {
+                url: `${env.clientUrl}/checkout-success?session_id=${encodeURIComponent(mockSessionId)}`,
+            };
+        }
+
         let session;
         try {
             session = await this.stripeService.createCheckoutSession({

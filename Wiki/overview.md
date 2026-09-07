@@ -2,6 +2,13 @@
 
 Back to [[index]].
 
+## Runtime baseline
+
+- Node.js `24.20.0` selected by `.node-version`.
+- pnpm `12.3.4` declared by both package manifests and CI.
+- Production client builds require `VITE_API_BASE_URL`.
+- Production server startup validates database, auth, and origin environment variables.
+
 ## Purpose
 
 Digital-E is a full-stack e-commerce system for selling electronic components and devices. It provides a customer storefront (catalog, cart, checkout, wishlist, order history, account/address book, notifications) and an admin dashboard (products, orders, accounts, promotions, inventory, analytics, notifications).
@@ -10,39 +17,41 @@ Digital-E is a full-stack e-commerce system for selling electronic components an
 
 | Area | Tools |
 | --- | --- |
-| Workspace | pnpm workspace (`pnpm@11.3.0`) — **pnpm only**, no npm/yarn |
-| Frontend (`client/`) | React 19.2, React Router DOM 7, Vite 8, TypeScript (`strict: true`), SCSS/Sass, React Bootstrap, Axios, Firebase client auth, Recharts, Vitest (configured, no tests yet) |
-| Backend (`server/`) | Node.js, Express 5.2, TypeScript (`strict: false`), MySQL (`mysql`/`mysql2`), Prisma 6 (partial), Zod, Passport + Google OAuth, `csrf-csrf`, `jsonwebtoken`, `express-rate-limit`, `multer`, Sharp, `@vercel/blob`, Pino logging |
+| Package management | Independent pnpm packages (`pnpm@12.3.4`) — **pnpm only**, no root workspace or npm/yarn |
+| Frontend (`client/`) | React 19.2, React Router DOM 7, Vite 8, TypeScript (`strict: true`), SCSS/Sass, React Bootstrap, Axios, Firebase client auth, Recharts, Vitest |
+| Backend (`server/`) | Node.js, NestJS on Express 5.2, TypeScript (`strict: false`), MySQL (`mysql`/`mysql2`), Prisma 7 (partial), Zod, Passport + Google OAuth, `csrf-csrf`, `jsonwebtoken`, `express-rate-limit`, `multer`, Sharp, `@vercel/blob`, Pino logging |
 | Deployment | Vercel (`client/vercel.json`, `server/vercel.json`), k6 read-only perf scripts |
 
 ## High-level modules
 
 - **Frontend** — feature-scoped UI under `client/src/features/<domain>/` (admin, auth, orders, products, users); generic pages in `client/src/pages/`; shared infra in `client/src/lib`, `client/src/context`, `client/src/components`.
+- **Checkout UX** — `client/src/features/orders/components/CheckoutPaymentPage.tsx` keeps contact, shipping, payment, and order-summary states in one flow; its dark technical presentation is scoped in `client/src/styles/features/orders/_cart.scss`, while email normalization/validation lives in `client/src/features/orders/checkoutValidation.ts`.
+- **Toast UX** — `client/src/context/ToastContext.tsx` owns a maximum-three-message transient queue and portals the Toast viewport to `document.body`; `client/src/styles/components/_toast.scss` positions it outside the Header/app flow with desktop, mobile safe-area, and reduced-motion rules.
 - **Backend** — feature-based API under `server/src/modules/<feature>/` following `routes → controller → service → repository`, plus shared `core`, `config`, `database`, `shared` layers.
 - **Data** — primary runtime access is MySQL via feature repositories; Prisma is partially adopted for a limited subset of reads.
 
 ## Important commands
 
 ```powershell
-pnpm install
-pnpm dev                              # run both apps (root)
-pnpm --filter server dev              # backend only
-pnpm --filter client start            # frontend only (Vite)
+pnpm --dir client install
+pnpm --dir server install
+pnpm --dir server dev                 # generate, migrate, compile, then run API
+pnpm --dir client dev                 # run Vite
 
 # Verification
 client\node_modules\.bin\tsc.cmd -p client\tsconfig.json --noEmit
-pnpm --filter client build
-pnpm --filter client lint
-pnpm --filter server typecheck
-pnpm --filter server build
-pnpm --filter server lint
+pnpm --dir client build
+pnpm --dir client lint
+pnpm --dir server typecheck
+pnpm --dir server build
+pnpm --dir server lint
 
 # Database / Prisma
-pnpm --filter server prisma:generate
-pnpm --filter server prisma:migrate
-pnpm --filter server prisma:seed
-pnpm --filter server demo:verify
-pnpm --filter server seed:mock
+pnpm --dir server prisma:generate
+pnpm --dir server prisma:migrate
+pnpm --dir server prisma:seed
+pnpm --dir server demo:verify
+pnpm --dir server seed:mock
 ```
 
 Local defaults: client `http://localhost:5173`, server `http://localhost:4000`, health `http://localhost:4000/api/health`.
@@ -54,7 +63,7 @@ integration suite. Production Vercel deployment and `main` branch protection
 remain repository settings that must be configured and verified externally.
 
 Local database setup is isolated from production: copy the tracked server
-environment templates, run `pnpm --filter server docker:setup`, and use the
+environment templates, run `pnpm --dir server docker:setup`, and use the
 `digital_e_shop_local` MySQL database on `127.0.0.1:3307`. Runtime and Prisma
 guards reject remote database targets by default; intentional remote development
 requires `ALLOW_REMOTE_DATABASE=true`; CI uses its separate `digital_e_shop_ci`
@@ -73,7 +82,8 @@ runtime remote access is enabled.
 
 - MySQL remains the dominant persistence layer; Prisma is **not** fully migrated to.
 - Backend API response shapes are route-specific and inconsistent (`msg` vs `error` plus route data keys) — preserve per-route contracts.
-- No committed `.env.example`; env vars are inferred (see [AGENTS.md](../AGENTS.md) → Environment variables).
-- Client has Vitest configured but no discovered frontend test files; server has
-  unit tests plus an opt-in MySQL-backed integration suite (and k6 read-only scripts).
-- `client/src/lib/env.ts` currently hard-codes the API base URL rather than reading from env.
+- Environment templates are tracked at `client/.env.example`, `server/.env.example`, and `server/.env.docker.example`.
+- Client and server both have Vitest suites; server has unit tests plus an
+  opt-in MySQL-backed integration suite (and k6 read-only scripts).
+- `client/src/lib/env.ts` reads `VITE_API_BASE_URL`, defaults to localhost only
+  for development, and rejects a missing URL in production builds.

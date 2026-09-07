@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet";
 import { Link } from "react-router-dom";
 import Layout from "../components/layout/Layout";
 import { useToast } from "../context/ToastContext";
+import { createSupportTicket } from "../features/support/api";
 import { BellIcon, HouseIcon, PersonIcon } from "../components/common/Icons";
 import { useT } from "../hooks/useT";
 import "../styles/pages/_contact.scss";
@@ -15,15 +16,28 @@ const ContactUsPage: React.FC = () => {
         message: "",
     });
     const { addToast } = useToast();
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        addToast(t("contact.submitSuccess"), t("contact.submitSuccessBody"));
-        setFormData({ name: "", email: "", message: "" });
+        try {
+            setIsSubmitting(true);
+            await createSupportTicket({
+                subject: `Contact request from ${formData.name.trim()}`,
+                message: `Name: ${formData.name.trim()}\nEmail: ${formData.email.trim()}\n\n${formData.message.trim()}`,
+                category: "general",
+            });
+            addToast(t("contact.submitSuccess"), t("contact.submitSuccessBody"));
+            setFormData({ name: "", email: "", message: "" });
+        } catch {
+            addToast("Support request failed", "Please sign in and try again, or contact support by email.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -42,7 +56,7 @@ const ContactUsPage: React.FC = () => {
                         <p>{t("contact.subtitle")}</p>
                         <div className="info-page__actions">
                             <Link to="/support">{t("contact.visitSupport")}</Link>
-                            <Link to="/orders" className="ghost">
+                            <Link to="/orders" className="ghost contact__hero__action--ghost">
                                 {t("contact.reviewOrders")}
                             </Link>
                         </div>
@@ -109,8 +123,8 @@ const ContactUsPage: React.FC = () => {
                                 />
                             </label>
                             <div className="contact__form__actions">
-                                <button type="submit" className="contact__form__button">
-                                    {t("contact.sendButton")}
+                                <button type="submit" className="contact__form__button contact__form__button--primary" disabled={isSubmitting}>
+                                    {isSubmitting ? "Sending..." : t("contact.sendButton")}
                                 </button>
                                 <small>{t("contact.replyNote")}</small>
                             </div>

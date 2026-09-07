@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import type { Request } from "express";
 import { Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { env } from "#src/config/env.config";
-import { hashPassword } from "#src/utils/hashPassword";
+import { checkPassword, hashPassword } from "#src/utils/hashPassword";
 import { UsersRepository } from "../users/users.repository";
 import type { UserRow } from "../users/users.types";
 import type { RegisterUserInput } from "./auth.dto";
@@ -127,6 +127,23 @@ export class NestAuthService {
         const user = await this.usersRepository.findById(identity.uid);
         if (!user || user.email?.toLowerCase() !== identity.email) {
             throw new UnauthorizedException({ msg: "Account is not registered" });
+        }
+        if (user.status === "Suspended") {
+            throw new UnauthorizedException({ msg: "Account is suspended" });
+        }
+
+        return this.issueLoginSession(user, rememberMe);
+    }
+
+    async loginWithPassword(email: string, password: string, rememberMe = false) {
+        const normalizedEmail = email.trim().toLowerCase();
+        const user = await this.usersRepository.findByEmail(normalizedEmail);
+        const storedPassword = user?.password;
+        const passwordMatches =
+            typeof storedPassword === "string" && Boolean(await checkPassword(password, storedPassword));
+
+        if (!user || !passwordMatches) {
+            throw new UnauthorizedException({ msg: "Invalid email or password" });
         }
         if (user.status === "Suspended") {
             throw new UnauthorizedException({ msg: "Account is suspended" });

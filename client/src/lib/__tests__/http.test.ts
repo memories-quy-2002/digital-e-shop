@@ -67,7 +67,7 @@ const loadHttp = async () => {
 
 const mockCsrf = (token: string | null) => {
     const impl = (url: string) => {
-        if (url === "/api/csrf") {
+        if (url === "/api/users/csrf") {
             if (token === null) return Promise.reject(new Error("network"));
             return Promise.resolve({ data: { csrfToken: token } });
         }
@@ -114,7 +114,7 @@ describe("http client", () => {
         const cfg = createConfig("post");
         const result = await requestSuccess(cfg);
         expect(result.headers["x-csrf-token"]).toBe("fresh-token");
-        expect(mockGet).toHaveBeenCalledWith("/api/csrf");
+        expect(mockGet).toHaveBeenCalledWith("/api/users/csrf");
     });
 
     it("returns config unchanged if CSRF fetch fails", async () => {

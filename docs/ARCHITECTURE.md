@@ -1,16 +1,21 @@
 # Architecture
 
-Digital-E is a pnpm workspace with a React client and an Express API backed by
-MySQL.
+Digital-E is a pair of independently installable pnpm packages: a React client
+and a NestJS API on an Express-compatible runtime backed by MySQL.
 
-## Workspace Layout
+## Repository Layout
 
 ```text
 digital-e-shop/
-  client/    React, Vite, TypeScript, SCSS
-  server/    Express API, services, models, routes
+  client/    React, Vite, TypeScript, SCSS, package-local lockfile
+  server/    NestJS API, services, repositories, package-local lockfile
   docs/      Project documentation
 ```
+
+The repository root intentionally has no `package.json`, pnpm workspace file,
+lockfile, or installed dependencies. Run client and server commands from their
+own package directories. The server's `predev` and `prestart` lifecycle hooks
+run Prisma generation and `prisma migrate deploy` before the application starts.
 
 ## Frontend
 

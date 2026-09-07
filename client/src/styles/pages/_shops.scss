@@ -28,5 +28,120 @@
     &__price-slider { padding: 0.7rem 0.3rem; .horizontal-slider { position: relative; height: 5px; margin: 1rem 0; background: var(--de-color-border-strong); } .example-track { height: 5px; background: var(--de-color-signal); } .example-thumb { position: relative; top: -7px; width: 18px; height: 18px; border: 2px solid var(--de-color-signal); border-radius: 50%; background: var(--de-color-bg); cursor: grab; span { position: absolute; top: 20px; left: 50%; color: var(--de-color-text-muted); font-family: var(--de-font-family-mono); font-size: 0.55rem; transform: translateX(-50%); white-space: nowrap; } } }
     &__filters-button { min-height: 42px; border: 0; border-radius: 4px; background: var(--de-color-circuit); color: var(--de-color-bg); font-weight: 900; cursor: pointer; &:hover { background: #d3ec6e; } }
     &__empty { border: 1px solid var(--de-color-border); background: var(--de-color-surface); }
-    &__pagination-wrap { display: flex; justify-content: center; margin-top: 0.4rem; } &__pagination { display: flex; flex-wrap: wrap; gap: 0.35rem; padding: 0.35rem; border: 1px solid var(--de-color-border); border-radius: 4px; background: var(--de-color-surface); button { min-width: 36px; height: 36px; border: 0; border-radius: 3px; background: transparent; color: var(--de-color-text-muted); cursor: pointer; &.active, &:hover { background: var(--de-color-signal); color: #fff; } } }
+
+    &__pagination-wrap {
+        display: flex;
+        justify-content: center;
+        margin-top: 0.4rem;
+    }
+
+    &__pagination {
+        display: flex;
+        max-width: 100%;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+        margin: 0;
+        padding: 0.35rem;
+        overflow-x: auto;
+        border: 1px solid var(--de-color-border);
+        border-radius: var(--de-radius-sm);
+        background: var(--de-color-surface);
+        list-style: none;
+
+        &__item {
+            display: flex;
+            min-width: 2.25rem;
+            height: 2.25rem;
+            flex: 0 0 auto;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            color: var(--de-color-text-muted);
+            font-family: var(--de-font-family-mono);
+            font-size: 0.68rem;
+            font-weight: 700;
+            transition: background-color var(--de-transition-fast), border-color var(--de-transition-fast), color var(--de-transition-fast), transform var(--de-transition-fast);
+
+            &:hover {
+                border-color: var(--de-color-electric);
+                background: var(--de-color-bg-muted);
+                color: var(--de-color-text);
+                transform: translateY(-1px);
+            }
+
+            &--active {
+                border-color: var(--de-color-signal);
+                background: var(--de-color-signal);
+                color: #fff;
+            }
+
+            &--disabled {
+                opacity: 0.4;
+                pointer-events: none;
+            }
+
+            &--break {
+                min-width: 1.5rem;
+                border-color: transparent;
+                pointer-events: none;
+            }
+
+            &--previous,
+            &--next {
+                min-width: 5.25rem;
+                border-color: var(--de-color-border-strong);
+                background: var(--de-color-bg-muted);
+                color: var(--de-color-text-soft);
+                font-size: 0.62rem;
+                text-transform: uppercase;
+            }
+
+            &--edge {
+                min-width: 5.25rem;
+            }
+        }
+
+        &__link {
+            display: inline-flex;
+            width: 100%;
+            height: 100%;
+            align-items: center;
+            justify-content: center;
+            padding: 0 0.55rem;
+            color: inherit;
+            line-height: 1;
+            text-decoration: none;
+            white-space: nowrap;
+
+            &:focus-visible {
+                outline: 2px solid var(--de-color-circuit);
+                outline-offset: 2px;
+            }
+        }
+    }
+
+    @media (max-width: 560px) {
+        &__pagination-wrap {
+            width: 100%;
+        }
+
+        &__pagination {
+            width: 100%;
+            justify-content: space-between;
+            gap: 0.2rem;
+            overflow-x: hidden;
+
+            &__item {
+                &--edge {
+                    min-width: 3.5rem;
+                }
+            }
+
+            &__link {
+                padding-inline: 0.3rem;
+            }
+        }
+    }
 }

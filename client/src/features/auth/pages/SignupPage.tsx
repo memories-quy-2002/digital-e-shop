@@ -5,7 +5,7 @@ import { Helmet } from "react-helmet";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import authImage from "../../../assets/images/background_form.jpg";
 import { useToast } from "../../../context/ToastContext";
-import { createFirebaseUser, signInWithFirebaseEmail } from "../../../services/firebase";
+import { createFirebaseUser, sendFirebaseEmailVerification, signInWithFirebaseEmail } from "../../../services/firebase";
 import "../../../styles/features/auth/_signup.scss";
 import { PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../../../utils/images";
 import { Role } from "../../../types/user";
@@ -153,6 +153,12 @@ const SignupPage = () => {
             const idToken = await userCredential.user.getIdToken(true);
             await registerUser({ username: user.username }, idToken);
             addToast("Signup", "Account created successfully.");
+            try {
+                await sendFirebaseEmailVerification();
+                addToast("Verify your email", "We sent a verification link to your inbox.");
+            } catch {
+                addToast("Verify your email", "Your account is ready. You can resend verification from your account page.");
+            }
             navigate("/");
         } catch (err: unknown) {
             if (err instanceof AxiosError) {

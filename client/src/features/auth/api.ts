@@ -1,11 +1,15 @@
 import http from "../../lib/http";
 import type { UserData } from "../../types/user";
 
+export type LoginCredentials =
+    | { email: string; password: string }
+    | { idToken: string };
+
 export async function loginUser(
-    idToken: string,
+    credentials: LoginCredentials,
     rememberMe: boolean,
 ): Promise<UserData> {
-    const response = await http.post("/api/users/login", { idToken, rememberMe });
+    const response = await http.post("/api/users/login", { ...credentials, rememberMe });
     return response.data.userData;
 }
 

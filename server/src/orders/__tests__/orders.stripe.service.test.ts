@@ -3,6 +3,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 vi.mock("../../cart/cart.service", () => ({ NestCartService: class {} }));
 vi.mock("../../stripe/stripe.service", () => ({ StripeService: class {} }));
 vi.mock("../checkout-reservation.service", () => ({ CheckoutReservationService: class {} }));
+vi.mock("#src/config/env.config", () => ({
+    env: {
+        clientUrl: "http://localhost:5173",
+        paymentProviderMode: "live",
+    },
+}));
 vi.mock("../orders.service", () => ({
     NestOrdersService: class {},
     createCheckoutError: (message: string, statusCode = 409, details = {}) => Object.assign(new Error(message), { statusCode, details }),
@@ -13,6 +19,7 @@ import type { NestCartService } from "../../cart/cart.service";
 import type { NestOrdersService } from "../orders.service";
 import type { StripeService } from "../../stripe/stripe.service";
 import type { CheckoutReservationService } from "../checkout-reservation.service";
+import { env } from "#src/config/env.config";
 
 vi.mock("#src/shared/utils/logger", () => ({
     logger: { info: vi.fn(), error: vi.fn(), debug: vi.fn(), warn: vi.fn() },
@@ -57,6 +64,7 @@ const reservation = {
 describe("createCheckoutSession", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        env.paymentProviderMode = "live";
         vi.useFakeTimers();
         vi.setSystemTime(new Date("2026-09-06T01:00:00.000Z"));
     });
@@ -125,6 +133,40 @@ describe("createCheckoutSession", () => {
             shippingAddress: "123 Main St",
         } as never)).rejects.toThrow("stripe down");
         expect(checkoutReservationService.releaseReservation).toHaveBeenCalledWith("reservation-token", "stripe_session_create_failed");
+    });
+
+    it("finalizes a symbolic Stripe checkout locally in mock mode", async () => {
+        const { service, cartService, ordersService, stripeService, checkoutReservationService } = buildService();
+        env.paymentProviderMode = "mock";
+        vi.mocked(cartService.validateCheckoutSubmission).mockResolvedValue({
+            cartItems: [{ product_id: 1, quantity: 1, price: 100, product_name: "Widget" }],
+            authoritativeTotalPrice: 100,
+            issues: [],
+            mismatches: [],
+        } as never);
+        vi.mocked(checkoutReservationService.reserveInventory).mockResolvedValue(reservation);
+        vi.mocked(ordersService.finalizeReservedCheckout).mockResolvedValue({
+            id: 12,
+            date_added: "2026-09-06T01:00:00.000Z",
+        });
+
+        await expect(service.createCheckoutSession("user-1", {
+            totalPrice: 100,
+            cart: [{ productId: 1, quantity: 1, price: 100 }],
+            shippingAddress: "123 Main St",
+        } as never)).resolves.toEqual({
+            url: "http://localhost:5173/checkout-success?session_id=mock_stripe_reservation-token",
+        });
+
+        expect(stripeService.createCheckoutSession).not.toHaveBeenCalled();
+        expect(checkoutReservationService.attachStripeSession).toHaveBeenCalledWith(
+            "reservation-token",
+            "mock_stripe_reservation-token",
+        );
+        expect(ordersService.finalizeReservedCheckout).toHaveBeenCalledWith(
+            "mock_stripe_reservation-token",
+            "mock_pi_reservation-token",
+        );
     });
 });
 

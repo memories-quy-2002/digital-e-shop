@@ -13,7 +13,7 @@ Digital-E is a full-stack e-commerce platform for **electronic components and de
 
 ## Value proposition
 
-A focused storefront for electronics with operational admin tooling (inventory movement tracking, promotions, order timelines, analytics) in one workspace.
+A focused storefront for electronics with operational admin tooling (inventory movement tracking, promotions, order timelines, analytics) across independent client and server packages.
 
 ## Current scope (high level)
 
@@ -23,7 +23,7 @@ A focused storefront for electronics with operational admin tooling (inventory m
 
 ## Constraints
 
-- pnpm workspace; **pnpm only**.
+- Independent pnpm packages in `client/` and `server/`; **pnpm only**.
 - Preserve existing API contracts, auth/CSRF/CORS, and route aliases.
 - MySQL is primary persistence; Prisma is partial (see [Wiki ADR 0001](../../Wiki/decisions/0001-mysql-primary-prisma-partial.md)).
 - Small-team / solo maintainability — avoid heavy process and unnecessary dependencies.

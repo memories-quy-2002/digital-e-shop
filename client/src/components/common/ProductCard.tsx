@@ -77,7 +77,8 @@ const ProductCard = ({
 
                 <Link
                     to={productPath}
-                    className="flex h-[210px] items-center justify-center overflow-hidden rounded-control border border-border bg-background-muted p-4 transition-colors duration-200 group-hover:border-electric"
+                    className="de-product-media de-product-media--catalog w-full max-w-none"
+                    data-testid="product-card-image"
                     aria-label={`View ${normalizedProduct.name}`}
                 >
                     {loadImage(normalizeProductImageName(normalizedProduct.main_image), normalizedProduct.name, {

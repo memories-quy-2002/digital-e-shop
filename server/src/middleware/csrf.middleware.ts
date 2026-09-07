@@ -1,4 +1,5 @@
-import type { Request, Response, NextFunction, RequestHandler } from "express";
+import type { Response, NextFunction, RequestHandler } from "express";
+import type { Request } from "express-serve-static-core";
 import { doubleCsrf } from "csrf-csrf";
 import { env, isProduction } from "#src/config/env.config";
 

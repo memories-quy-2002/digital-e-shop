@@ -8,7 +8,7 @@ export type AdminOrder = {
     total_price: number;
     discount: number;
     shipping_address: string;
-    payment_method?: "bank_transfer" | "cash";
+    payment_method?: "bank_transfer" | "cash" | "payos" | "stripe" | "card" | string;
 };
 
 export type AdminOrderDetail = AdminOrder & {

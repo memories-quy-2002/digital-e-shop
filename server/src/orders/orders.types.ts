@@ -8,6 +8,13 @@ export type OrderSummaryRow = {
     total_price: number;
     discount: number;
     date_added: string;
+    currency?: string;
+    inventory_restored_at?: string | Date | null;
+    cancellation_reason?: string | null;
+    payment_status?: string | null;
+    payment_amount?: number | null;
+    payment_currency?: string | null;
+    payment_simulated?: boolean | number | null;
 };
 
 export type LockedProductRow = {
@@ -21,6 +28,11 @@ export type OrderDetailRow = OrderSummaryRow & {
     customer_email?: string;
     shipping_address?: string;
     payment_method?: string;
+    currency?: string;
+    payment_status?: string | null;
+    payment_amount?: number | null;
+    payment_currency?: string | null;
+    payment_simulated?: boolean | number | null;
     order_item_id?: number;
     product_id?: number;
     product_name?: string;
@@ -48,6 +60,11 @@ export type OrderDetail = {
     discount: number;
     shipping_address?: string;
     payment_method?: string;
+    currency?: string;
+    payment_status?: string | null;
+    payment_amount?: number | null;
+    payment_currency?: string | null;
+    payment_simulated?: boolean | null;
     items: Array<{
         id?: number;
         productId?: number;

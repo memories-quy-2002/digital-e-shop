@@ -1,6 +1,6 @@
 # Digital-E E-commerce System
 
-Digital-E is a full-stack e-commerce system for electronic products. The project is organized as a pnpm workspace with a React storefront, a NestJS API on an Express-compatible runtime, MySQL persistence, admin operations tools, and read-only k6 performance tests.
+Digital-E is a full-stack e-commerce system for electronic products. The repository contains an independently installable React storefront, an independently installable NestJS API on an Express-compatible runtime, MySQL persistence, admin operations tools, and read-only k6 performance tests.
 
 ## Tech Stack
 
@@ -12,7 +12,7 @@ Digital-E is a full-stack e-commerce system for electronic products. The project
 | Admin tools | Product, order, account, promotion, notification, analytics, and inventory management |
 | Production services | Firebase Admin identity verification, Stripe checkout/webhooks, optional Redis-backed rate limiting |
 | Testing | TypeScript checks, Vite build, k6 read-only performance tests |
-| Package management | pnpm workspace |
+| Package management | Independent pnpm packages (`client/` and `server/`) |
 
 ## Main Features
 
@@ -86,8 +86,8 @@ digital-e-shop/
       modules/            Feature-owned controllers, services, repositories, and validators
       shared/             Cross-cutting types, helpers, and utilities
     test/                 k6 performance scripts
-  pnpm-workspace.yaml     Workspace package definition
-  pnpm-lock.yaml          Root lockfile for client and server
+  client/pnpm-lock.yaml   Client lockfile
+  server/pnpm-lock.yaml   Server lockfile
 ```
 
 ## Documentation
@@ -102,35 +102,43 @@ digital-e-shop/
 
 ## Prerequisites
 
-- Node.js compatible with the current package set.
-- pnpm via Corepack or a global pnpm install.
+- Node.js `24.20.0` (select it with a Node version manager; see `.node-version`).
+- pnpm `12.3.4` via Corepack or a global pnpm install.
 - MySQL database and a configured `server/.env`.
 - k6, only if you want to run performance tests.
 
 ## Installation
 
-Install all workspace dependencies from the repository root:
+Install each application from its own package directory (the repository root
+has no package manifest or lockfile):
 
 ```powershell
-pnpm install
+pnpm --dir client install
+pnpm --dir server install
 ```
 
-The root `pnpm-lock.yaml` resolves both `client` and `server`.
+Each command uses the lockfile owned by that application.
 
 ## Local Development
 
-Run both apps from the root:
+Run the applications independently in separate terminals:
 
 ```powershell
-pnpm dev
+pnpm --dir server dev
+pnpm --dir client dev
 ```
 
-Or run each package separately:
+`server dev` runs Prisma Client generation, applies pending checked-in
+migrations with `prisma migrate deploy`, compiles the server, and then starts
+the localhost watcher. `server start` performs the same Prisma preparation and
+builds before starting the compiled server. The client does not depend on the
+server package manager process.
 
-```powershell
-pnpm --filter server dev
-pnpm --filter client start
-```
+For a production client build, set `VITE_API_BASE_URL` explicitly. The client
+does not silently fall back to a production API when that variable is missing.
+For local development, `client/.env` and `client/.env.local` point to
+`http://localhost:4000`; `server/.env` and `server/.env.local` point to the
+local MySQL mapping at `127.0.0.1:3307`.
 
 Default local URLs:
 
@@ -139,13 +147,6 @@ Default local URLs:
 - Health check: `http://localhost:4000/api/health`
 
 ## Useful Scripts
-
-From the root:
-
-```powershell
-pnpm dev
-pnpm start
-```
 
 From `client/`:
 

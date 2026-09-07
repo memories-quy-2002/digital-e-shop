@@ -13,6 +13,7 @@ import SocialAuthButtons from "../components/SocialAuthButtons";
 import { getSocialAuthMessage } from "../utils/socialAuth";
 import { EyeIcon, EyeOffIcon } from "../../../components/common/Icons";
 import { loginUser } from "../api";
+import { isLocalAuth } from "../../../lib/env";
 
 interface User {
     email: string;
@@ -68,7 +69,7 @@ const LoginPage = () => {
 
     const validateForm = (): string[] => {
         const errorsList: string[] = [];
-        const emailPattern = /^([A-Za-z0-9_\-.])+@([A-Za-z0-9_\-.])+\.([A-Za-z]{2,4})$/;
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
         if (!user.email) {
             errorsList.push("Email is required");
         } else if (!user.email.match(emailPattern)) {
@@ -103,9 +104,14 @@ const LoginPage = () => {
 
         setIsSubmitting(true);
         try {
-            const userCredential = await signInWithFirebaseEmail(user.email, user.password);
-            const idToken = await userCredential.user.getIdToken(true);
-            const userDataResult = await loginUser(idToken, rememberMe);
+            let userDataResult;
+            if (isLocalAuth) {
+                userDataResult = await loginUser({ email: user.email.trim(), password: user.password }, rememberMe);
+            } else {
+                const userCredential = await signInWithFirebaseEmail(user.email, user.password);
+                const idToken = await userCredential.user.getIdToken(true);
+                userDataResult = await loginUser({ idToken }, rememberMe);
+            }
             setUserData(userDataResult);
             addToast("Login", "You have been logon successfully");
             navigate(userDataResult?.role === Role.Admin ? "/admin" : "/");
@@ -205,6 +211,9 @@ const LoginPage = () => {
                                 label="Remember me"
                             />
                         </Form.Group>
+                        <div className="login__form__switch login__form__forgot">
+                            <Link to="/forgot-password">Forgot password?</Link>
+                        </div>
                         {fieldErrors.general ? (
                             <div className="login__form__errors" aria-live="polite">
                                 <div>{fieldErrors.general}</div>

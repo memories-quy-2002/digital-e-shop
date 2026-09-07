@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useMemo, useReducer, ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Toast, ToastContainer } from "../components/ui/legacy";
 import "../styles/components/_toast.scss";
 
@@ -27,7 +28,7 @@ const toastReducer = (
 ): ToastMessage[] => {
     switch (action.type) {
         case "ADD_TOAST":
-            return [...state, action.toast];
+            return [...state, action.toast].slice(-MAX_VISIBLE_TOASTS);
         case "REMOVE_TOAST":
             return state.filter((toast) => toast.id !== action.id);
         default:
@@ -36,6 +37,7 @@ const toastReducer = (
 };
 
 let toastId = 1;
+const MAX_VISIBLE_TOASTS = 3;
 
 const inferToastTone = (title: string, body: string): ToastMessage["tone"] => {
     const content = `${title} ${body}`.toLowerCase();
@@ -64,6 +66,18 @@ const inferToastTone = (title: string, body: string): ToastMessage["tone"] => {
     return "info";
 };
 
+const toastMarkers: Record<ToastMessage["tone"], string> = {
+    success: "✓",
+    error: "!",
+    info: "i",
+};
+
+const toastToneLabels: Record<ToastMessage["tone"], string> = {
+    success: "Success",
+    error: "Action needed",
+    info: "Information",
+};
+
 const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [toasts, dispatch] = useReducer(toastReducer, []);
 
@@ -87,58 +101,42 @@ const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         removeToast,
     }), [addToast, removeToast, toasts]);
 
-    const errorToasts = toasts.filter((t) => t.tone === "error");
-    const otherToasts = toasts.filter((t) => t.tone !== "error");
-
     return (
         <ToastContext.Provider value={contextValue}>
+            {typeof document === "undefined"
+                ? null
+                : createPortal(
+                      <ToastContainer
+                          className={`app-toast${toasts.length > 0 ? " app-toast--open" : ""}`}
+                          role="region"
+                          aria-label="Notifications"
+                          aria-live="polite"
+                      >
+                          {toasts.map((toast) => (
+                              <Toast
+                                  key={toast.id}
+                                  onClose={() => removeToast(toast.id)}
+                                  delay={toast.tone === "error" ? 5000 : 4000}
+                                  autohide
+                                  animation
+                                  className={`app-toast__item app-toast__item--${toast.tone}`}
+                              >
+                                  <Toast.Header className="app-toast__header" closeButton>
+                                      <span className="app-toast__badge" aria-hidden="true">
+                                          {toastMarkers[toast.tone]}
+                                      </span>
+                                      <span className="app-toast__heading">
+                                          <span className="app-toast__tone">{toastToneLabels[toast.tone]}</span>
+                                          <strong>{toast.title}</strong>
+                                      </span>
+                                  </Toast.Header>
+                                  <Toast.Body className="app-toast__body">{toast.body}</Toast.Body>
+                              </Toast>
+                          ))}
+                      </ToastContainer>,
+                      document.body,
+                  )}
             {children}
-            <ToastContainer
-                className="app-toast app-toast--errors"
-                position="top-end"
-            >
-                {errorToasts.map((toast) => (
-                    <Toast
-                        key={toast.id}
-                        onClose={() => removeToast(toast.id)}
-                        delay={4000}
-                        autohide
-                        animation
-                        className={`app-toast__item app-toast__item--${toast.tone}`}
-                    >
-                        <Toast.Header className="app-toast__header" closeButton>
-                            <span className="app-toast__badge" aria-hidden="true">
-                                {toast.title.slice(0, 1).toUpperCase()}
-                            </span>
-                            <strong className="me-auto">{toast.title}</strong>
-                        </Toast.Header>
-                        <Toast.Body className="app-toast__body">{toast.body}</Toast.Body>
-                    </Toast>
-                ))}
-            </ToastContainer>
-            <ToastContainer
-                className="app-toast"
-                position="bottom-end"
-            >
-                {otherToasts.map((toast) => (
-                    <Toast
-                        key={toast.id}
-                        onClose={() => removeToast(toast.id)}
-                        delay={3000}
-                        autohide
-                        animation
-                        className={`app-toast__item app-toast__item--${toast.tone}`}
-                    >
-                        <Toast.Header className="app-toast__header" closeButton>
-                            <span className="app-toast__badge" aria-hidden="true">
-                                {toast.title.slice(0, 1).toUpperCase()}
-                            </span>
-                            <strong className="me-auto">{toast.title}</strong>
-                        </Toast.Header>
-                        <Toast.Body className="app-toast__body">{toast.body}</Toast.Body>
-                    </Toast>
-                ))}
-            </ToastContainer>
         </ToastContext.Provider>
     );
 };

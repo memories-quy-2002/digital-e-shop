@@ -215,9 +215,26 @@ const normalizeSummary = (summary?: any): ReviewSummary => ({
     },
 });
 
+const isNotFoundError = (error: unknown): boolean => {
+    if (!error || typeof error !== "object" || !("response" in error)) {
+        return false;
+    }
+
+    const response = (error as { response?: { status?: unknown } }).response;
+    return response?.status === 404;
+};
+
 export async function fetchProduct(productId: number): Promise<ProductWithAttributes | null> {
-    const response = await http.get(`/api/products/${productId}`);
-    return response.data.product ? normalizeProductWithAttributes(response.data.product) : null;
+    try {
+        const response = await http.get(`/api/products/${productId}`);
+        return response.data.product ? normalizeProductWithAttributes(response.data.product) : null;
+    } catch (error) {
+        if (isNotFoundError(error)) {
+            return null;
+        }
+
+        throw error;
+    }
 }
 
 export async function fetchRelevantProducts(productId: number): Promise<Product[]> {
