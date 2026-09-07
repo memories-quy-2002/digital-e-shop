@@ -155,9 +155,9 @@ jobs:
         with:
           name: integration-test-diagnostics
           path: integration-tests.log
-      - name: Build from Vercel function directory
+      - name: Build exactly as Vercel function builder
         working-directory: server/api
-        run: corepack pnpm@12.3.4 --filter server run build
+        run: pnpm run vercel-build
 
   e2e:
     needs: [client, server]
