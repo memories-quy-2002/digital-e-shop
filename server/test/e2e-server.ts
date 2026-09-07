@@ -41,7 +41,7 @@ async function seedE2eProducts() {
         if (productIds.length === 0) return;
 
         const placeholders = productIds.map(() => "?").join(", ");
-        await connection.query(`DELETE FROM carts WHERE product_id IN (${placeholders})`, productIds);
+        await connection.query(`DELETE FROM cart_items WHERE product_id IN (${placeholders})`, productIds);
         await connection.query(
             `DELETE ir FROM inventory_reservations ir
              JOIN pending_checkouts pc ON pc.id = ir.pending_checkout_id
