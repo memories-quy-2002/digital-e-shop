@@ -48,17 +48,10 @@ Vercel project IDs and production token stored in GitHub Environment secrets;
 do not put those values in source control.
 
 The server project's `server/vercel.json` pins Vercel's dependency install to
-`corepack pnpm@11.5.3 install --frozen-lockfile`. This keeps Vercel aligned with
-the workspace lockfile and preserves the root `pnpm-workspace.yaml` overrides.
-Without this override, older Vercel projects can infer pnpm 9 from lockfile
-version `9.0`, which rejects the current override configuration before the
-application build starts.
-
-The root `package.json` mirrors those same overrides under its `pnpm` field as
-a compatibility bridge for Vercel's native serverless API builder, which may
-still run its own pnpm 9 install after the configured install command. pnpm 11
-ignores that legacy field; `pnpm-workspace.yaml` remains the canonical override
-configuration, so both install phases resolve the same security-pinned versions.
+`corepack pnpm@12.3.4 install --frozen-lockfile`. This keeps Vercel aligned with
+the workspace lockfile and uses the root `pnpm-workspace.yaml` as the canonical
+source for dependency overrides. The root `package.json` intentionally does
+not duplicate the deprecated `pnpm` settings field, which pnpm 11+ ignores.
 
 Vercel `READY` is not an application-health check. After every production
 deployment, run both smoke checks:
@@ -106,12 +99,14 @@ pnpm --filter server docker:setup
 
 If `server/.env` currently contains a remote Aiven or production target,
 replace its database variables with the local values before starting the
-server. The application runtime, Prisma CLI configuration, Prisma runtime
-URL helper, and mock seed command reject remote database targets outside
-production. The mock seed is local-only even when `NODE_ENV=production` is
-set accidentally. Prisma's schema-only `generate` command is exempt because
-it does not connect to a database and runs during dependency installation;
-database-connecting Prisma commands remain guarded.
+server. If remote development is intentional, set
+`ALLOW_REMOTE_DATABASE=true` explicitly; the application runtime, Prisma CLI
+configuration, and Prisma runtime URL helper then allow that target. The mock
+seed remains local-only even when `ALLOW_REMOTE_DATABASE=true` or
+`NODE_ENV=production` is set accidentally. Prisma's schema-only `generate`
+command is exempt because it does not connect to a database and runs during
+dependency installation; database-connecting Prisma commands remain guarded
+unless remote access is explicitly opted in.
 
 The local setup imports the checked-in legacy dump and historical Stripe SQL,
 records the metadata-only `0_init` migration as applied, then runs
@@ -144,6 +139,10 @@ pnpm --filter server prisma:migrate:status
 pnpm --filter server test:integration
 pnpm --filter server build
 ```
+
+The root `pnpm start` uses the server's `build:compile` script so it does not
+rewrite the generated Prisma Client on every startup. `pnpm install` and the
+full deployment build still run the serialized Prisma generate step.
 
 `test:integration` requires a disposable MySQL database and the server
 connection variables (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`,

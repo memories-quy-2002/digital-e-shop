@@ -5,6 +5,7 @@ import { requireDatabaseUrl } from "./requireDatabaseUrl";
 const originalDatabaseUrl = process.env.DATABASE_URL;
 const originalDbHost = process.env.DB_HOST;
 const originalNodeEnv = process.env.NODE_ENV;
+const originalAllowRemoteDatabase = process.env.ALLOW_REMOTE_DATABASE;
 
 describe("requireDatabaseUrl", () => {
     afterEach(() => {
@@ -24,6 +25,12 @@ describe("requireDatabaseUrl", () => {
             delete process.env.NODE_ENV;
         } else {
             process.env.NODE_ENV = originalNodeEnv;
+        }
+
+        if (originalAllowRemoteDatabase === undefined) {
+            delete process.env.ALLOW_REMOTE_DATABASE;
+        } else {
+            process.env.ALLOW_REMOTE_DATABASE = originalAllowRemoteDatabase;
         }
     });
 
@@ -48,6 +55,17 @@ describe("requireDatabaseUrl", () => {
 
         expect(() => requireDatabaseUrl()).toThrow(
             "Refusing to use a non-local database target",
+        );
+    });
+
+    it("allows an explicitly opted-in remote database url in development", () => {
+        process.env.NODE_ENV = "development";
+        process.env.DB_HOST = "mysql.example.test";
+        process.env.DATABASE_URL = "mysql://root:password@mysql.example.test:3306/digital_e_shop";
+        process.env.ALLOW_REMOTE_DATABASE = "true";
+
+        expect(requireDatabaseUrl()).toBe(
+            "mysql://root:password@mysql.example.test:3306/digital_e_shop",
         );
     });
 });

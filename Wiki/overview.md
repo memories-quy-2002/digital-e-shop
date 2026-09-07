@@ -56,8 +56,9 @@ remain repository settings that must be configured and verified externally.
 Local database setup is isolated from production: copy the tracked server
 environment templates, run `pnpm --filter server docker:setup`, and use the
 `digital_e_shop_local` MySQL database on `127.0.0.1:3307`. Runtime and Prisma
-guards reject remote database targets outside production; CI uses its separate
-`digital_e_shop_ci` database.
+guards reject remote database targets by default; intentional remote development
+requires `ALLOW_REMOTE_DATABASE=true`; CI uses its separate `digital_e_shop_ci`
+database.
 
 The local demo seed is a transactional, idempotent MySQL seed for deterministic
 admin/customer accounts, realistic catalog products with populated storefront
@@ -65,8 +66,8 @@ image slugs, carts, orders, reviews, wishlists, addresses, notifications,
 sessions, discounts, and inventory movements. `demo:verify` checks exact
 demo-owned counts, image presence, order/review/wishlist coverage, order totals,
 and relationship orphan counts. The catalog currently covers 28 products across
-8 categories and 16 brands.
-It intentionally refuses the configured remote Aiven target.
+8 categories and 16 brands. It intentionally refuses remote targets even when
+runtime remote access is enabled.
 
 ## Current assumptions
 

@@ -11,6 +11,21 @@ export const resolveServerRoot = (moduleDirectory: string) => {
         : path.resolve(moduleDirectory, "../../..");
 };
 
+type FileExists = (candidate: string) => boolean;
+type ReadFile = (candidate: string) => string;
+
+export const resolveEnvPath = (
+    candidates: string[],
+    fileExists: FileExists = fs.existsSync,
+    readFile: ReadFile = (candidate) => fs.readFileSync(candidate, "utf8"),
+) => candidates.find((candidate) => {
+    if (!candidate || !fileExists(candidate)) {
+        return false;
+    }
+
+    return /(^|\r?\n)\s*(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=/.test(readFile(candidate));
+});
+
 const serverRoot = resolveServerRoot(__dirname);
 const mode = process.env.NODE_ENV || "development";
 const configuredEnvFile = process.env.DIGITAL_E_ENV_FILE?.trim();
@@ -24,7 +39,7 @@ const envCandidates = [
     path.resolve(process.cwd(), ".env"),
 ].filter((candidate, index, candidates) => Boolean(candidate) && candidates.indexOf(candidate) === index);
 
-const envPath = envCandidates.find((candidate) => fs.existsSync(candidate));
+const envPath = resolveEnvPath(envCandidates);
 
 dotenv.config(
     envPath
@@ -70,6 +85,7 @@ assertSafeDatabaseTarget({
     nodeEnv: env.nodeEnv,
     dbHost: env.dbHost,
     databaseUrl: env.databaseUrl,
+    allowRemoteDatabase: process.env.ALLOW_REMOTE_DATABASE === "true",
 });
 
 export const isProduction = env.nodeEnv === "production";
