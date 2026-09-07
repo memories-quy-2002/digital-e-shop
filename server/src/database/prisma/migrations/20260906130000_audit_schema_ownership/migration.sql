@@ -58,6 +58,34 @@ CREATE TABLE IF NOT EXISTS `customer_notifications` (
 );
 
 ALTER TABLE `users`
-    MODIFY COLUMN `token` TEXT NOT NULL,
-    ADD COLUMN IF NOT EXISTS `auth_provider` VARCHAR(32) NULL,
-    ADD COLUMN IF NOT EXISTS `provider_user_id` VARCHAR(255) NULL;
+    MODIFY COLUMN `token` TEXT NOT NULL;
+
+SET @add_auth_provider_sql = IF(
+    EXISTS(
+        SELECT 1
+        FROM `information_schema`.`COLUMNS`
+        WHERE `TABLE_SCHEMA` = DATABASE()
+          AND `TABLE_NAME` = 'users'
+          AND `COLUMN_NAME` = 'auth_provider'
+    ),
+    'SELECT 1',
+    'ALTER TABLE `users` ADD COLUMN `auth_provider` VARCHAR(32) NULL'
+);
+PREPARE add_auth_provider_stmt FROM @add_auth_provider_sql;
+EXECUTE add_auth_provider_stmt;
+DEALLOCATE PREPARE add_auth_provider_stmt;
+
+SET @add_provider_user_id_sql = IF(
+    EXISTS(
+        SELECT 1
+        FROM `information_schema`.`COLUMNS`
+        WHERE `TABLE_SCHEMA` = DATABASE()
+          AND `TABLE_NAME` = 'users'
+          AND `COLUMN_NAME` = 'provider_user_id'
+    ),
+    'SELECT 1',
+    'ALTER TABLE `users` ADD COLUMN `provider_user_id` VARCHAR(255) NULL'
+);
+PREPARE add_provider_user_id_stmt FROM @add_provider_user_id_sql;
+EXECUTE add_provider_user_id_stmt;
+DEALLOCATE PREPARE add_provider_user_id_stmt;
