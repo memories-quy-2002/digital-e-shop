@@ -126,7 +126,16 @@ jobs:
       - name: Record Prisma legacy baseline
         run: pnpm --filter server prisma:migrate:resolve --applied 0_init
       - name: Apply Prisma migrations
-        run: pnpm --filter server prisma:migrate:deploy
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter server prisma:migrate:deploy 2>&1 | tee prisma-migrate.log
+      - name: Upload Prisma migration diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prisma-migration-diagnostics
+          path: prisma-migrate.log
       - name: Verify Prisma migration status
         run: pnpm --filter server prisma:migrate:status
       - name: Typecheck
