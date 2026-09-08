@@ -25,7 +25,15 @@ export type OrderSummaryRow = {
 export type LockedProductRow = {
     id: number;
     name?: string | null;
-    stock: number;
+    sku?: string | null;
+    warranty_months?: number | string | null;
+    brand?: string | null;
+    category?: string | null;
+    price?: number | string | null;
+    sale_price?: number | string | null;
+    stock: number | string;
+    main_image?: string | null;
+    specifications?: string | null;
 };
 
 export type OrderDetailRow = OrderSummaryRow & {

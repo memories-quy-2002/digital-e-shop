@@ -4,7 +4,10 @@ const requiredText = (field: string) => z.string({ error: `${field} is required`
 const positiveInt = (field: string) => z.coerce.number({ error: `${field} must be a number` }).int(`${field} must be a whole number`).positive(`${field} must be greater than zero`);
 const nonNegativeNumber = (field: string) => z.coerce.number({ error: `${field} must be a number` }).nonnegative(`${field} cannot be negative`);
 const optionalDiscountCode = z.string().trim().min(1, "Discount code cannot be empty").max(50, "Discount code is too long").optional();
-const guestPositiveInt = (field: string) => z.number({ error: `${field} must be a number` }).int(`${field} must be a whole number`).positive(`${field} must be greater than zero`);
+const guestPositiveInt = (field: string) => z.number({ error: `${field} must be a number` })
+    .int(`${field} must be a whole number`)
+    .positive(`${field} must be greater than zero`)
+    .refine(Number.isSafeInteger, `${field} must be a safe integer`);
 const guestRequiredText = (field: string, max: number) => z.string({ error: `${field} is required` }).trim().min(1, `${field} is required`).max(max, `${field} is too long`);
 const guestCartItemSchema = z.object({
     productId: guestPositiveInt("Product id"),
@@ -12,7 +15,11 @@ const guestCartItemSchema = z.object({
 }).strict();
 
 const guestContactSchema = z.object({
-    email: z.email("Email must be valid"),
+    email: z.string({ error: "Email must be valid" })
+        .trim()
+        .toLowerCase()
+        .email("Email must be valid")
+        .max(255, "Email is too long"),
     name: guestRequiredText("Recipient name", 160),
     phone: z.string().trim().max(40, "Phone number is too long").transform((value) => value || null).optional(),
 }).strict();

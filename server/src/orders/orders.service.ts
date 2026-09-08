@@ -76,10 +76,23 @@ const buildOrderItemSnapshot = (product: CartItemRow, currentAttributes?: Produc
 const normalizePaymentProvider = (paymentMethod: string): PaymentProviderName =>
     paymentMethod === "card" ? "stripe" : paymentMethod as PaymentProviderName;
 
+const roundCurrency = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
+
+const normalizeSalePrice = (value: unknown): number | null => {
+    if (value === null || value === undefined || value === "") return null;
+    const numberValue = Number(value);
+    return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : null;
+};
+
 type CreateOrderFromCartInputBase = {
     authoritativeCart: CartItemRow[];
     authoritativeTotalPrice: number;
     discount: number;
+    guestQuote?: {
+        cart: CartItemRow[];
+        merchandiseTotal: number;
+        discount: number;
+    };
     shippingAddress: string;
     paymentMethod: string;
     discountCode?: string;
@@ -321,12 +334,132 @@ export class NestOrdersService {
         return this.getOrderSummary(orderId);
     }
 
+    private async loadGuestTransactionalCart(
+        tx: TransactionContext,
+        expectedCart: CartItemRow[],
+        expectedMerchandiseTotal: number,
+    ): Promise<{
+        cart: CartItemRow[];
+        merchandiseTotal: number;
+        lockedProducts: LockedProductRow[];
+    }> {
+        const quantitiesByProductId = new Map<number, number>();
+        for (const item of expectedCart) {
+            const productId = Number(item.product_id || 0);
+            const quantity = Number(item.quantity) || 0;
+            if (Number.isSafeInteger(productId) && productId > 0 && Number.isSafeInteger(quantity) && quantity > 0) {
+                quantitiesByProductId.set(productId, (quantitiesByProductId.get(productId) || 0) + quantity);
+            }
+        }
+
+        const productIds = [...quantitiesByProductId.keys()].sort((left, right) => left - right);
+        const lockedProducts = await this.checkoutReservationRepository.lockProductsForPurchase(tx, productIds);
+        const activeReservations = await this.checkoutReservationRepository.getActiveReservationQuantities(tx, productIds);
+        const lockedByProductId = new Map(lockedProducts.map((product) => [product.id, product]));
+        const reservedByProductId = new Map(
+            activeReservations.map((row) => [row.product_id, Number(row.reserved_quantity) || 0]),
+        );
+        const expectedByProductId = new Map(
+            expectedCart.map((item) => [Number(item.product_id || 0), item]),
+        );
+        const cart: CartItemRow[] = [];
+        const issues: CartValidationIssue[] = [];
+        const priceMismatches: Array<Record<string, unknown>> = [];
+
+        for (const productId of productIds) {
+            const expectedItem = expectedByProductId.get(productId);
+            const product = lockedByProductId.get(productId);
+            const stock = product ? Number(product.stock) || 0 : 0;
+            const reserved = reservedByProductId.get(productId) || 0;
+            const availableStock = Math.max(stock - reserved, 0);
+            const quantity = quantitiesByProductId.get(productId) || 0;
+            const productName = String(product?.name || expectedItem?.product_name || `Product #${productId}`);
+
+            if (!product || availableStock < quantity) {
+                issues.push({
+                    cartItemId: Number(expectedItem?.cart_item_id || 0),
+                    productId,
+                    productName,
+                    requestedQuantity: quantity,
+                    availableStock,
+                    reason: !product ? "unavailable" : availableStock <= 0 ? "out_of_stock" : "insufficient_stock",
+                });
+                continue;
+            }
+
+            const actualPrice = Number(product.price);
+            const actualSalePrice = normalizeSalePrice(product.sale_price);
+            const expectedPrice = Number(expectedItem?.price);
+            const expectedSalePrice = normalizeSalePrice(expectedItem?.sale_price);
+            if (
+                !Number.isFinite(actualPrice)
+                || Math.abs(actualPrice - expectedPrice) > 0.01
+                || actualSalePrice !== expectedSalePrice
+            ) {
+                priceMismatches.push({
+                    productId,
+                    productName,
+                    expectedPrice,
+                    actualPrice,
+                    expectedSalePrice,
+                    actualSalePrice,
+                });
+            }
+
+            cart.push({
+                product_id: product.id,
+                product_name: product.name,
+                sku: product.sku,
+                warranty_months: product.warranty_months === null || product.warranty_months === undefined
+                    ? null
+                    : Number(product.warranty_months),
+                brand: product.brand,
+                category: product.category,
+                price: actualPrice,
+                sale_price: actualSalePrice,
+                stock,
+                available_stock: availableStock,
+                main_image: product.main_image,
+                specifications: product.specifications,
+                quantity,
+            });
+        }
+
+        if (issues.length > 0) {
+            throw createCheckoutError(
+                "Some items in your cart are unavailable or no longer have enough stock. Update your cart and try again.",
+                409,
+                { issues, authoritativeCart: cart, authoritativeTotalPrice: expectedMerchandiseTotal },
+            );
+        }
+
+        const merchandiseTotal = roundCurrency(cart.reduce((total, item) => {
+            const unitPrice = normalizeSalePrice(item.sale_price) ?? (Number(item.price) || 0);
+            return total + unitPrice * (Number(item.quantity) || 0);
+        }, 0));
+
+        if (priceMismatches.length > 0 || Math.abs(merchandiseTotal - Number(expectedMerchandiseTotal)) > 0.01) {
+            throw createCheckoutError(
+                "Product prices changed while placing the order. Refresh your cart and try again.",
+                409,
+                {
+                    mismatches: priceMismatches,
+                    authoritativeCart: cart,
+                    authoritativeTotalPrice: merchandiseTotal,
+                },
+            );
+        }
+
+        return { cart, merchandiseTotal, lockedProducts };
+    }
+
     async createOrderFromValidatedCart({
         uid,
         identity: suppliedIdentity,
         authoritativeCart,
         authoritativeTotalPrice,
         discount,
+        guestQuote,
         shippingAddress,
         paymentMethod,
         discountCode,
@@ -349,6 +482,23 @@ export class NestOrdersService {
             const q = <T = unknown>(sql: string, values?: unknown[]) => tx.query<T>(sql, values);
             logger.debug("[createOrderFromValidatedCart] transaction started");
 
+            let transactionCart = authoritativeCart;
+            let transactionMerchandiseTotal = authoritativeTotalPrice;
+            let guestLockedProducts: LockedProductRow[] | null = null;
+            if (identity.kind === "guest") {
+                if (!guestQuote) {
+                    throw createCheckoutError("Guest checkout quote is missing. Refresh your cart and try again.", 409);
+                }
+                const guestTransaction = await this.loadGuestTransactionalCart(
+                    tx,
+                    guestQuote.cart,
+                    guestQuote.merchandiseTotal,
+                );
+                transactionCart = guestTransaction.cart;
+                transactionMerchandiseTotal = guestTransaction.merchandiseTotal;
+                guestLockedProducts = guestTransaction.lockedProducts;
+            }
+
             const orderResult = await q<InsertResult>(
                 `INSERT INTO orders
                     (user_id, guest_email, guest_name, guest_phone, guest_order_token_hash,
@@ -361,8 +511,8 @@ export class NestOrdersService {
                     identity.kind === "guest" ? identity.guestContact.guestName : null,
                     identity.kind === "guest" ? identity.guestContact.guestPhone ?? null : null,
                     identity.kind === "guest" ? identity.guestOrderTokenHash : null,
-                    authoritativeTotalPrice,
-                    requestedDiscount,
+                    transactionMerchandiseTotal,
+                    identity.kind === "guest" ? 0 : requestedDiscount,
                     shippingAddress,
                     paymentMethod,
                     stripeCheckoutSessionId,
@@ -379,10 +529,24 @@ export class NestOrdersService {
                     discountCode,
                     userId,
                     orderId,
-                    authoritativeTotalPrice,
+                    transactionMerchandiseTotal,
                 );
                 appliedDiscount = promotion.discount;
-                if (appliedDiscount !== requestedDiscount) {
+                if (
+                    identity.kind === "guest"
+                    && guestQuote
+                    && Math.abs(appliedDiscount - Number(guestQuote.discount)) > 0.01
+                ) {
+                    throw createCheckoutError(
+                        "The promotion changed while placing the order. Refresh your cart and try again.",
+                        409,
+                        {
+                            authoritativeCart: transactionCart,
+                            authoritativeTotalPrice: transactionMerchandiseTotal,
+                        },
+                    );
+                }
+                if (appliedDiscount !== (identity.kind === "guest" ? 0 : requestedDiscount)) {
                     await q("UPDATE orders SET discount = ? WHERE id = ?", [appliedDiscount, orderId]);
                 }
             }
@@ -390,13 +554,13 @@ export class NestOrdersService {
             await this.createPaymentLedgerInTransaction(tx, {
                 orderId,
                 paymentMethod,
-                baseAmount: Math.max(authoritativeTotalPrice - appliedDiscount, 0),
+                baseAmount: Math.max(transactionMerchandiseTotal - appliedDiscount, 0),
                 providerPaymentId: stripePaymentIntentId,
             });
 
-            const productIdsForSnapshot = [...new Set(authoritativeCart.map((item) => Number(item.product_id || 0)).filter(Boolean))];
+            const productIdsForSnapshot = [...new Set(transactionCart.map((item) => Number(item.product_id || 0)).filter(Boolean))];
             const productAttributes = await this.productAttributesRepository.getForProducts(tx, productIdsForSnapshot);
-            const orderItemSnapshots = authoritativeCart.map((item) =>
+            const orderItemSnapshots = transactionCart.map((item) =>
                 buildOrderItemSnapshot(item, productAttributes.get(Number(item.product_id || 0))),
             );
             const orderItemsValues = orderItemSnapshots.map((snapshot) => [
@@ -414,7 +578,7 @@ export class NestOrdersService {
                 JSON.stringify(snapshot.specifications),
             ]);
 
-            const productQuantities = authoritativeCart.reduce((acc: Map<number, number>, product: CartItemRow) => {
+            const productQuantities = transactionCart.reduce((acc: Map<number, number>, product: CartItemRow) => {
                 const productId = Number(product.product_id || 0);
                 const quantity = Number(product.quantity) || 0;
                 const currentQuantity = acc.get(productId) || 0;
@@ -435,17 +599,16 @@ export class NestOrdersService {
                 );
 
                 const productIds = [...productQuantities.keys()].sort((left, right) => left - right);
-                const placeholderList = productIds.map(() => "?").join(", ");
                 const authoritativeItemsById = new Map(
-                    authoritativeCart.map((item: CartItemRow) => [Number(item.product_id || 0), item] as const),
+                    transactionCart.map((item: CartItemRow) => [Number(item.product_id || 0), item] as const),
                 );
 
-                const lockedProducts = await q<LockedProductRow[]>(
-                    `SELECT id, name, stock FROM products WHERE id IN (${placeholderList}) AND stock >= 0 FOR UPDATE`,
+                const lockedProducts = guestLockedProducts || await q<LockedProductRow[]>(
+                    `SELECT id, name, stock FROM products WHERE id IN (${productIds.map(() => "?").join(", ")}) AND stock >= 0 FOR UPDATE`,
                     productIds,
                 );
 
-                const stockById = new Map(lockedProducts.map((row) => [row.id, row.stock]));
+                const stockById = new Map(lockedProducts.map((row) => [row.id, Number(row.stock) || 0]));
                 for (const [productId, quantity] of productQuantities.entries()) {
                     const authoritativeItem = authoritativeItemsById.get(productId);
                     const productName = String(authoritativeItem?.product_name || `Product #${productId}`);
@@ -462,7 +625,7 @@ export class NestOrdersService {
                         throw createCheckoutError(
                             `${productName} is no longer available. Remove it from your cart and try again.`,
                             409,
-                            { issues, authoritativeCart, authoritativeTotalPrice },
+                            { issues, authoritativeCart: transactionCart, authoritativeTotalPrice: transactionMerchandiseTotal },
                         );
                     }
                     if (stock < quantity) {
@@ -477,7 +640,7 @@ export class NestOrdersService {
                         throw createCheckoutError(
                             `${productName} only has ${stock} item(s) left. Update your cart and try again.`,
                             409,
-                            { issues, authoritativeCart, authoritativeTotalPrice },
+                            { issues, authoritativeCart: transactionCart, authoritativeTotalPrice: transactionMerchandiseTotal },
                         );
                     }
                 }
@@ -542,6 +705,7 @@ export class NestOrdersService {
                 orderId,
                 inventoryMovements,
                 appliedDiscount,
+                authoritativeTotalPrice: transactionMerchandiseTotal,
                 order: order || { id: orderId, date_added: new Date().toISOString() },
             };
         });
@@ -550,7 +714,7 @@ export class NestOrdersService {
             this.notificationsService.notifyOrderPlaced(
                 identity.userId,
                 transactionResult.orderId,
-                Number(authoritativeTotalPrice) - Number(transactionResult.appliedDiscount || 0),
+                Number(transactionResult.authoritativeTotalPrice) - Number(transactionResult.appliedDiscount || 0),
             );
         }
         logger.info({ orderId: transactionResult.orderId, ms: Date.now() - startedAt }, "[createOrderFromValidatedCart] commit ok");
@@ -652,6 +816,11 @@ export class NestOrdersService {
             authoritativeCart: preview.cartItems,
             authoritativeTotalPrice: preview.merchandiseTotal,
             discount: preview.promotion.discount,
+            guestQuote: {
+                cart: preview.cartItems,
+                merchandiseTotal: preview.merchandiseTotal,
+                discount: preview.promotion.discount,
+            },
             discountCode: payload.discountCode,
             shippingAddress: JSON.stringify(payload.shipping),
             paymentMethod: payload.paymentMethod,
@@ -662,12 +831,12 @@ export class NestOrdersService {
 
     async lookupGuestOrder(orderId: number, guestOrderToken: string): Promise<GuestSafeOrderDetail> {
         const normalizedToken = String(guestOrderToken || "").trim();
-        if (!Number.isSafeInteger(Number(orderId)) || Number(orderId) <= 0 || !normalizedToken) {
+        if (!Number.isSafeInteger(orderId) || orderId <= 0 || !normalizedToken) {
             throw createCheckoutError("Order not found", 404);
         }
 
         const identity = await new Promise<GuestOrderIdentityRow | null>((resolve, reject) => {
-            this.ordersRepository.getGuestOrderIdentity(Number(orderId), (error: Error | null, rows: GuestOrderIdentityRow[]) => {
+            this.ordersRepository.getGuestOrderIdentity(orderId, (error: Error | null, rows: GuestOrderIdentityRow[]) => {
                 if (error) return reject(error);
                 resolve(rows?.[0] || null);
             });
@@ -676,7 +845,7 @@ export class NestOrdersService {
             throw createCheckoutError("Order not found", 404);
         }
 
-        const order = await this.getOrderDetail(Number(orderId));
+        const order = await this.getOrderDetail(orderId);
         if (!order || order.user_id !== null) {
             throw createCheckoutError("Order not found", 404);
         }
@@ -697,11 +866,21 @@ export class NestOrdersService {
             payment_amount: order.payment_amount,
             payment_currency: order.payment_currency,
             payment_simulated: order.payment_simulated,
-            items: order.items.map((item) => {
-                const safeItem = { ...item };
-                delete safeItem.id;
-                return safeItem;
-            }),
+            items: order.items.map((item) => ({
+                productId: item.productId,
+                sku: item.sku ?? null,
+                productName: item.productName,
+                category: item.category,
+                brand: item.brand,
+                warrantyMonths: item.warrantyMonths ?? null,
+                specifications: item.specifications ?? null,
+                price: item.price,
+                sale_price: item.sale_price ?? null,
+                stock: item.stock,
+                main_image: item.main_image,
+                quantity: item.quantity,
+                totalPrice: item.totalPrice,
+            })),
         };
     }
 

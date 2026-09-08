@@ -26,6 +26,23 @@ export class CheckoutReservationRepository {
         );
     }
 
+    async lockProductsForPurchase(tx: TransactionContext, productIds: number[]): Promise<LockedProductRow[]> {
+        if (productIds.length === 0) return [];
+
+        const placeholders = productIds.map(() => "?").join(", ");
+        return tx.query<LockedProductRow[]>(
+            `SELECT p.id, p.name, p.sku, p.warranty_months, p.price, p.sale_price, p.stock,
+                    p.main_image, p.specifications, b.name AS brand, c.name AS category
+             FROM products p
+             JOIN brands b ON b.id = p.brand_id
+             JOIN categories c ON c.id = p.category_id
+             WHERE p.id IN (${placeholders}) AND p.stock >= 0
+             ORDER BY p.id
+             FOR UPDATE`,
+            productIds,
+        );
+    }
+
     async getActiveReservationQuantities(tx: TransactionContext, productIds: number[]): Promise<ReservedQuantityRow[]> {
         if (productIds.length === 0) return [];
 

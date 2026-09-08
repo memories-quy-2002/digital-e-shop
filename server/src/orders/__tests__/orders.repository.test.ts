@@ -58,4 +58,18 @@ describe("pending checkout repositories", () => {
 
         expect(query).not.toHaveBeenCalled();
     });
+
+    it("locks the complete transactional guest purchase product snapshot", async () => {
+        const query = vi.fn().mockResolvedValue([]);
+        const repository = new CheckoutReservationRepository();
+
+        await repository.lockProductsForPurchase({ query } as never, [7, 9]);
+
+        expect(query).toHaveBeenCalledWith(
+            expect.stringContaining("p.price, p.sale_price, p.stock"),
+            [7, 9],
+        );
+        expect(query.mock.calls[0][0]).toContain("FOR UPDATE");
+        expect(query.mock.calls[0][0]).toContain("p.stock >= 0");
+    });
 });

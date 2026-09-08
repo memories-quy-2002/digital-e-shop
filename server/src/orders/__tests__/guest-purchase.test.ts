@@ -45,6 +45,23 @@ function buildService() {
     const tx = { query: vi.fn() };
     const cartService = { previewGuestCart: vi.fn() };
     const ordersRepository = { getGuestOrderIdentity: vi.fn() };
+    const checkoutReservations = {
+        lockProducts: vi.fn(),
+        lockProductsForPurchase: vi.fn().mockResolvedValue([{
+            id: 7,
+            name: "Widget",
+            sku: "WIDGET-7",
+            warranty_months: 12,
+            brand: "Acme",
+            category: "Components",
+            price: 10,
+            sale_price: 8,
+            stock: 5,
+            main_image: null,
+            specifications: null,
+        }]),
+        getActiveReservationQuantities: vi.fn().mockResolvedValue([]),
+    };
     const timeline = { createTimelineEventInTransaction: vi.fn().mockResolvedValue(undefined), getTimeline: vi.fn().mockResolvedValue([]) };
     const inventory = { createMovementsInTransaction: vi.fn().mockResolvedValue(undefined) };
     const notifications = { notifyOrderPlaced: vi.fn() };
@@ -66,12 +83,12 @@ function buildService() {
         cartService as never,
         inventory as never,
         notifications as never,
-        {} as never,
+        checkoutReservations as never,
         promotions as never,
         productAttributes as never,
     );
 
-    return { service, tx, cartService, ordersRepository, timeline, inventory, notifications, promotions };
+    return { service, tx, cartService, checkoutReservations, ordersRepository, timeline, inventory, notifications, promotions };
 }
 
 describe("guest checkout contracts", () => {
@@ -104,10 +121,20 @@ describe("guest checkout contracts", () => {
         }).success).toBe(false);
     });
 
-    it("normalizes an optional phone and validates the token lookup pair", () => {
+    it("normalizes guest contact values and requires a strict safe lookup order ID", () => {
         const parsed = guestPurchaseSchema.parse(guestPayload());
         expect(parsed.contact.phone).toBe("+84123456789");
+        expect(guestPurchaseSchema.parse({
+            ...guestPayload(),
+            contact: { ...guestPayload().contact, email: " Buyer@EXAMPLE.com " },
+        }).contact.email).toBe("buyer@example.com");
+        expect(guestPurchaseSchema.safeParse({
+            ...guestPayload(),
+            contact: { ...guestPayload().contact, email: `${"a".repeat(245)}@example.com` },
+        }).success).toBe(false);
         expect(guestOrderLookupSchema.safeParse({ orderId: 91 }).success).toBe(false);
+        expect(guestOrderLookupSchema.safeParse({ orderId: "91", guestOrderToken: "raw-token" }).success).toBe(false);
+        expect(guestOrderLookupSchema.safeParse({ orderId: Number.MAX_SAFE_INTEGER + 1, guestOrderToken: "raw-token" }).success).toBe(false);
         expect(guestOrderLookupSchema.safeParse({ orderId: 91, guestOrderToken: "raw-token" }).success).toBe(true);
     });
 });
@@ -192,7 +219,7 @@ describe("guest purchase transaction", () => {
     );
 
     it("passes a server-derived coupon amount and null user ID into transactional redemption", async () => {
-        const { service, cartService, promotions } = buildService();
+        const { service, cartService, checkoutReservations, promotions } = buildService();
         vi.mocked(cartService.previewGuestCart).mockResolvedValue({
             valid: true,
             cartItems: [{ product_id: 7, product_name: "Widget", price: 10, sale_price: null, stock: 5, quantity: 1 }],
@@ -201,6 +228,19 @@ describe("guest purchase transaction", () => {
             promotion: { code: "SAVE10", valid: true, discount: 1, discountPercent: 10 },
             totalPrice: 9,
         });
+        vi.mocked(checkoutReservations.lockProductsForPurchase).mockResolvedValue([{
+            id: 7,
+            name: "Widget",
+            sku: "WIDGET-7",
+            warranty_months: 12,
+            brand: "Acme",
+            category: "Components",
+            price: 10,
+            sale_price: null,
+            stock: 5,
+            main_image: null,
+            specifications: null,
+        }] as never);
         vi.mocked(promotions.consumePromotion).mockResolvedValue({ discount: 1, discountId: 3, promotion: { id: 3, discount_code: "SAVE10", discount_percent: 10 } });
 
         await service.makeGuestPurchase({ ...guestPayload(), cart: [{ productId: 7, quantity: 1 }], discountCode: "SAVE10" });
@@ -212,9 +252,9 @@ describe("guest purchase transaction", () => {
         const { service, tx, cartService } = buildService();
         vi.mocked(cartService.previewGuestCart).mockResolvedValue({
             valid: false,
-            cartItems: [{ product_id: 7, product_name: "Widget", price: 10, sale_price: null, stock: 5, quantity: 1 }],
+            cartItems: [{ product_id: 7, product_name: "Widget", price: 10, sale_price: 8, stock: 5, quantity: 1 }],
             issues: [],
-            merchandiseTotal: 10,
+            merchandiseTotal: 8,
             promotion: {
                 code: "EXPIRED",
                 valid: false,
@@ -222,7 +262,7 @@ describe("guest purchase transaction", () => {
                 discountPercent: null,
                 message: "Discount code is no longer valid.",
             },
-            totalPrice: 10,
+            totalPrice: 8,
         });
 
         await expect(service.makeGuestPurchase({ ...guestPayload(), discountCode: "EXPIRED" })).rejects.toMatchObject({
@@ -251,11 +291,11 @@ describe("guest purchase transaction", () => {
         const { service, tx, cartService } = buildService();
         vi.mocked(cartService.previewGuestCart).mockResolvedValue({
             valid: true,
-            cartItems: [{ product_id: 7, product_name: "Widget", price: 10, sale_price: null, stock: 5, quantity: 1 }],
+            cartItems: [{ product_id: 7, product_name: "Widget", price: 10, sale_price: 8, stock: 5, quantity: 1 }],
             issues: [],
-            merchandiseTotal: 10,
+            merchandiseTotal: 8,
             promotion: { code: null, valid: true, discount: 0, discountPercent: null },
-            totalPrice: 10,
+            totalPrice: 8,
         });
         tx.query.mockImplementation(async (sql: string) => {
             if (sql.startsWith("INSERT INTO orders")) return { insertId: 92 };
@@ -270,6 +310,52 @@ describe("guest purchase transaction", () => {
             "UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?",
             [1, 7, 1],
         );
+    });
+
+    it("rejects a stale guest price quote before writing an order", async () => {
+        const { service, tx, cartService, checkoutReservations } = buildService();
+        vi.mocked(cartService.previewGuestCart).mockResolvedValue({
+            valid: true,
+            cartItems: [{ product_id: 7, product_name: "Widget", price: 10, sale_price: 8, stock: 5, quantity: 2 }],
+            issues: [],
+            merchandiseTotal: 16,
+            promotion: { code: null, valid: true, discount: 0, discountPercent: null },
+            totalPrice: 16,
+        });
+        vi.mocked(checkoutReservations.lockProductsForPurchase).mockResolvedValue([{
+            id: 7,
+            name: "Widget",
+            sku: "WIDGET-7",
+            warranty_months: 12,
+            brand: "Acme",
+            category: "Components",
+            price: 10,
+            sale_price: 9,
+            stock: 5,
+            main_image: null,
+            specifications: null,
+        }] as never);
+
+        await expect(service.makeGuestPurchase(guestPayload())).rejects.toMatchObject({ statusCode: 409 });
+        expect(tx.query).not.toHaveBeenCalledWith(expect.stringContaining("INSERT INTO orders"), expect.anything());
+    });
+
+    it("rejects guest checkout when active reservations consume the available stock", async () => {
+        const { service, tx, cartService, checkoutReservations } = buildService();
+        vi.mocked(cartService.previewGuestCart).mockResolvedValue({
+            valid: true,
+            cartItems: [{ product_id: 7, product_name: "Widget", price: 10, sale_price: 8, stock: 5, quantity: 2 }],
+            issues: [],
+            merchandiseTotal: 16,
+            promotion: { code: null, valid: true, discount: 0, discountPercent: null },
+            totalPrice: 16,
+        });
+        vi.mocked(checkoutReservations.getActiveReservationQuantities).mockResolvedValue([
+            { product_id: 7, reserved_quantity: 4 },
+        ]);
+
+        await expect(service.makeGuestPurchase(guestPayload())).rejects.toMatchObject({ statusCode: 409 });
+        expect(tx.query).not.toHaveBeenCalledWith(expect.stringContaining("INSERT INTO orders"), expect.anything());
     });
 
     it("requires the matching raw token for a guest order and strips internal fields from the lookup DTO", async () => {
@@ -291,10 +377,12 @@ describe("guest purchase transaction", () => {
             status: 0,
             total_price: 16,
             discount: 0,
-            items: [{ id: 4, productId: 7, productName: "Widget", price: 8, sale_price: null, stock: 3, quantity: 2, totalPrice: 16 }],
+            items: [{ id: 4, productId: 7, productName: "Widget", price: 8, sale_price: null, stock: 3, quantity: 2, totalPrice: 16, internal_secret: "must-not-leak" }],
             admin_notes: "private",
         } as never);
 
+        await expect(service.lookupGuestOrder("91" as never, "raw-token")).rejects.toMatchObject({ statusCode: 404 });
+        await expect(service.lookupGuestOrder(Number.MAX_SAFE_INTEGER + 1, "raw-token")).rejects.toMatchObject({ statusCode: 404 });
         await expect(service.lookupGuestOrder(91, "wrong-token")).rejects.toMatchObject({ statusCode: 404 });
         await expect(service.lookupGuestOrder(91, "raw-token")).resolves.toEqual(expect.objectContaining({
             id: 91,
@@ -305,5 +393,6 @@ describe("guest purchase transaction", () => {
         expect(safe).not.toHaveProperty("guest_order_token_hash");
         expect(safe).not.toHaveProperty("admin_notes");
         expect(safe.items[0]).not.toHaveProperty("id");
+        expect(safe.items[0]).not.toHaveProperty("internal_secret");
     });
 });
