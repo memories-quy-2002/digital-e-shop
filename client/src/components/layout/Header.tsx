@@ -139,6 +139,8 @@ export const Header = (): JSX.Element => {
         navigate("/login");
     };
 
+    const handleCartNavigation = () => navigate("/cart");
+
     const closeMenu = () => setIsMenuOpen(false);
 
     useEffect(() => {
@@ -378,7 +380,7 @@ export const Header = (): JSX.Element => {
                         <button
                             type="button"
                             className="header__action header__action--badge"
-                            onClick={() => handleRequireLogin("/cart")}
+                            onClick={handleCartNavigation}
                             aria-label={t("common.cart")}
                         >
                             <CartIcon size={20} />
@@ -437,7 +439,7 @@ export const Header = (): JSX.Element => {
                                         type="button"
                                         className="header__profile__item"
                                         onClick={() => {
-                                            handleRequireLogin("/cart");
+                                            handleCartNavigation();
                                             setIsProfileMenuOpen(false);
                                         }}
                                     >
@@ -547,7 +549,7 @@ export const Header = (): JSX.Element => {
                     <button
                         type="button"
                         onClick={() => {
-                            handleRequireLogin("/cart");
+                            handleCartNavigation();
                             closeMenu();
                         }}
                     >

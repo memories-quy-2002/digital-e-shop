@@ -63,7 +63,7 @@ interface CartContextValue {
     isLoading: boolean;
     isRemovingItem: boolean;
     pendingRemoveItem: CheckoutCartItem | null;
-    fetchCart: () => Promise<void>;
+    fetchCart: () => Promise<boolean>;
     addItem: (productId: number, quantity?: number) => Promise<boolean>;
     updateQuantity: (itemId: number, quantity: number) => Promise<void>;
     removeItem: (item: CheckoutCartItem) => void;
@@ -194,11 +194,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [applyGuestPreview, isCurrentSource]);
 
-    const fetchCart = useCallback(async (requestedDiscountCode?: string | null) => {
+    const fetchCart = useCallback(async (requestedDiscountCode?: string | null): Promise<boolean> => {
         const expectedSource = sourceRef.current;
         if (!expectedSource.uid) {
-            await refreshGuestCart(requestedDiscountCode, expectedSource);
-            return;
+            const preview = await refreshGuestCart(requestedDiscountCode, expectedSource);
+            return preview !== null || readGuestCart().length === 0;
         }
 
         const requestId = ++requestIdRef.current;
@@ -208,14 +208,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setError(null);
         try {
             const nextItems = await fetchCustomerCart(expectedSource.uid);
-            if (!isActiveRequest()) return;
+            if (!isActiveRequest()) return false;
             setGuestItems(readGuestCart());
             setReadyState(nextItems);
+            return true;
         } catch (cartError) {
-            if (!isActiveRequest()) return;
+            if (!isActiveRequest()) return false;
             setStatus("error");
             setError("Unable to load cart items.");
             addToast("Cart", getErrorMessage(cartError, "Unable to load cart items."));
+            return false;
         } finally {
             if (isActiveRequest()) setIsLoading(false);
         }
@@ -233,13 +235,23 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     stock: normalizedQuantity,
                 }]);
                 if (!isCurrentSource(expectedSource)) return false;
-                await fetchCart();
-                return true;
+                return await fetchCart();
             }
             addGuestCartItem({ productId, quantity: normalizedQuantity });
             if (!isCurrentSource(expectedSource)) return false;
             const preview = await refreshGuestCart(discountCode, expectedSource);
-            return preview !== null;
+            if (preview === null) return false;
+            const issues = preview.issues || [];
+            if (preview.valid !== true || issues.length > 0) {
+                setStatus(issues.length > 0 ? "validation-error" : "error");
+                setError(
+                    issues.length > 0
+                        ? getCartValidationMessage(issues)
+                        : "Unable to update cart right now.",
+                );
+                return false;
+            }
+            return true;
         } catch (cartError) {
             if (!isCurrentSource(expectedSource)) return false;
             setStatus("error");

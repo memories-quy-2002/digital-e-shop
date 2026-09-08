@@ -180,6 +180,29 @@ describe("guest cart entry points", () => {
         expect(mocks.toast.addToast).toHaveBeenCalledWith("Add cart item", expect.stringContaining("success"));
     });
 
+    it("shows an error instead of success when the home cart mutation fails", async () => {
+        mocks.cart.addItem.mockResolvedValue(false);
+
+        render(
+            <MemoryRouter>
+                <LocaleProvider>
+                    <HomePage />
+                </LocaleProvider>
+            </MemoryRouter>,
+        );
+
+        fireEvent.click(await screen.findByRole("button", { name: "Add to cart" }));
+
+        await waitFor(() => expect(mocks.toast.addToast).toHaveBeenCalledWith(
+            "Add cart item",
+            "Unable to add item to cart.",
+        ));
+        expect(mocks.toast.addToast).not.toHaveBeenCalledWith(
+            "Add cart item",
+            expect.stringContaining("success"),
+        );
+    });
+
     it("adds a signed-out catalog product through CartContext while keeping wishlist protected", async () => {
         render(
             <PaginatedItems
@@ -198,6 +221,31 @@ describe("guest cart entry points", () => {
         expect(mocks.toast.addToast).toHaveBeenCalledWith("Login required", "You need to login to use this feature.");
     });
 
+    it("shows an error instead of success when the catalog cart mutation fails", async () => {
+        mocks.cart.addItem.mockResolvedValue(false);
+
+        render(
+            <PaginatedItems
+                itemsPerPage={6}
+                items={[product]}
+                uid=""
+                wishlist={[]}
+                isWishlistPage={false}
+            />,
+        );
+
+        fireEvent.click(screen.getByRole("button", { name: "Add to cart" }));
+
+        await waitFor(() => expect(mocks.toast.addToast).toHaveBeenCalledWith(
+            "Add cart item",
+            "Unable to add item to cart.",
+        ));
+        expect(mocks.toast.addToast).not.toHaveBeenCalledWith(
+            "Add cart item",
+            expect.stringContaining("success"),
+        );
+    });
+
     it("adds a signed-out product-detail item through CartContext", async () => {
         render(
             <MemoryRouter initialEntries={["/product?id=1"]}>
@@ -211,5 +259,28 @@ describe("guest cart entry points", () => {
 
         await waitFor(() => expect(mocks.cart.addItem).toHaveBeenCalledWith(1, 1));
         expect(mocks.toast.addToast).toHaveBeenCalledWith("Add cart item", expect.stringContaining("success"));
+    });
+
+    it("shows an error instead of success when the product-detail cart mutation fails", async () => {
+        mocks.cart.addItem.mockResolvedValue(false);
+
+        render(
+            <MemoryRouter initialEntries={["/product?id=1"]}>
+                <LocaleProvider>
+                    <ProductPage />
+                </LocaleProvider>
+            </MemoryRouter>,
+        );
+
+        fireEvent.click(await screen.findByRole("button", { name: "Add to cart" }));
+
+        await waitFor(() => expect(mocks.toast.addToast).toHaveBeenCalledWith(
+            "Add cart item",
+            "Unable to add item to cart.",
+        ));
+        expect(mocks.toast.addToast).not.toHaveBeenCalledWith(
+            "Add cart item",
+            expect.stringContaining("success"),
+        );
     });
 });

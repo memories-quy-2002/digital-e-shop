@@ -176,6 +176,30 @@ describe("CartContext dual-source state", () => {
         await waitFor(() => expect(screen.getByTestId("add-result")).toHaveTextContent("false"));
     });
 
+    it("reports an invalid guest preview as a failed add", async () => {
+        const invalidPreview = preview({
+            valid: false,
+            issues: [{
+                productId: 10,
+                productName: "Widget",
+                requestedQuantity: 1,
+                availableStock: 0,
+                reason: "out_of_stock",
+            }],
+        });
+        mocks.previewGuestCart
+            .mockResolvedValueOnce(preview())
+            .mockResolvedValueOnce(invalidPreview);
+        addGuestCartItem({ productId: 10, quantity: 1 });
+
+        render(<CartProvider><AddResultProbe /></CartProvider>);
+        await waitFor(() => expect(mocks.previewGuestCart).toHaveBeenCalledTimes(1));
+
+        fireEvent.click(screen.getByText("add-result"));
+
+        await waitFor(() => expect(screen.getByTestId("add-result")).toHaveTextContent("false"));
+    });
+
     it("removes a guest item through the confirmed context flow", async () => {
         addGuestCartItem({ productId: 10, quantity: 2 });
         renderCart();
@@ -276,6 +300,25 @@ describe("CartContext dual-source state", () => {
         fireEvent.click(screen.getByText("update"));
         await waitFor(() => expect(mocks.updateCustomerCartItem).toHaveBeenCalledWith("user-1", 7, 3));
         expect(readGuestCart()).toEqual([]);
+    });
+
+    it("reports an authenticated add as failed when the cart refresh fails", async () => {
+        mocks.auth.userData = { id: "user-1" };
+        mocks.fetchCustomerCart
+            .mockResolvedValueOnce([serverItem()])
+            .mockRejectedValueOnce(new Error("refresh unavailable"));
+
+        render(<CartProvider><AddResultProbe /></CartProvider>);
+        await waitFor(() => expect(mocks.fetchCustomerCart).toHaveBeenCalledWith("user-1"));
+
+        fireEvent.click(screen.getByText("add-result"));
+
+        await waitFor(() => expect(screen.getByTestId("add-result")).toHaveTextContent("false"));
+        expect(mocks.addItemsToCustomerCart).toHaveBeenCalledWith("user-1", [{
+            productId: 10,
+            quantity: 1,
+            stock: 1,
+        }]);
     });
 
     it("merges accepted guest items while retaining rejected items for retry", async () => {

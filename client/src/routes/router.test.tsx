@@ -20,6 +20,10 @@ vi.mock("../features/users/pages/CustomerAccountPage", () => ({
     default: () => <div data-testid="account-page">Account page</div>,
 }));
 
+vi.mock("../pages/WishlistPage", () => ({
+    default: () => <div data-testid="wishlist-page">Wishlist page</div>,
+}));
+
 describe("cart routing", () => {
     it("renders /cart without the protected route wrapper", async () => {
         render(
@@ -41,5 +45,16 @@ describe("cart routing", () => {
 
         expect(await screen.findByTestId("protected-route")).toBeInTheDocument();
         expect(await screen.findByTestId("account-page")).toBeInTheDocument();
+    });
+
+    it("keeps wishlist routes protected", async () => {
+        render(
+            <MemoryRouter initialEntries={["/wishlist"]}>
+                <AppRouter />
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByTestId("protected-route")).toBeInTheDocument();
+        expect(await screen.findByTestId("wishlist-page")).toBeInTheDocument();
     });
 });

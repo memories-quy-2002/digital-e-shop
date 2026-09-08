@@ -231,6 +231,8 @@ const HomePage = () => {
         try {
             if (await addItem(product_id, 1)) {
                 addToast("Add cart item", "Product added to cart successfully");
+            } else {
+                addToast("Add cart item", "Unable to add item to cart.");
             }
         } catch {
             addToast("Add cart item", "Unable to add item to cart.");
