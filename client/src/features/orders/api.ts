@@ -1,5 +1,11 @@
 import http from "../../lib/http";
-import type { CustomerOrder, CustomerOrderDetail, GuestCartItemInput, GuestCartPreview } from "./types";
+import {
+    normalizeCheckoutCartItems,
+    type CustomerOrder,
+    type CustomerOrderDetail,
+    type GuestCartItemInput,
+    type GuestCartPreview,
+} from "./types";
 
 export type { CustomerOrder, CustomerOrderDetail } from "./types";
 
@@ -41,5 +47,8 @@ export async function previewGuestCart(
         items,
         ...(discountCode ? { discountCode } : {}),
     });
-    return response.data as GuestCartPreview;
+    return {
+        ...response.data,
+        cartItems: normalizeCheckoutCartItems(response.data.cartItems),
+    } as GuestCartPreview;
 }

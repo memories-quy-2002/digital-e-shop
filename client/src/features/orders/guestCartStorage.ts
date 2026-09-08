@@ -59,7 +59,9 @@ export const readGuestCart = (): GuestCartStorageItem[] => {
         if (!raw) return [];
         const parsed = JSON.parse(raw) as { items?: unknown };
         const items = sanitizeItems(parsed?.items);
-        if (!Array.isArray(parsed?.items)) {
+        if (Array.isArray(parsed?.items)) {
+            writeGuestCart(items);
+        } else {
             storage.removeItem(GUEST_CART_STORAGE_KEY);
         }
         return items;

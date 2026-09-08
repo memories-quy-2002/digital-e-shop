@@ -24,6 +24,8 @@ describe("guestCartPreviewSchema", () => {
         expect(guestCartPreviewSchema.safeParse({ items: [] }).success).toBe(false);
         expect(guestCartPreviewSchema.safeParse({ items: [{ productId: 1, quantity: 0 }] }).success).toBe(false);
         expect(guestCartPreviewSchema.safeParse({ items: [{ productId: 1.5, quantity: 1 }] }).success).toBe(false);
+        expect(guestCartPreviewSchema.safeParse({ items: [{ productId: true, quantity: 1 }] }).success).toBe(false);
+        expect(guestCartPreviewSchema.safeParse({ items: [{ productId: 1, quantity: true }] }).success).toBe(false);
         expect(guestCartPreviewSchema.safeParse({
             items: [{ productId: 1, quantity: 99 }, { productId: 1, quantity: 1 }],
         }).success).toBe(false);

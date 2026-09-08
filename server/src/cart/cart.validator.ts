@@ -2,9 +2,10 @@ import { z } from "zod";
 
 const requiredText = (field: string) => z.string({ error: `${field} is required` }).trim().min(1, `${field} is required`);
 const positiveInt = (field: string) => z.coerce.number({ error: `${field} must be a number` }).int(`${field} must be a whole number`).positive(`${field} must be greater than zero`);
+const guestPositiveInt = (field: string) => z.number({ error: `${field} must be a number` }).int(`${field} must be a whole number`).positive(`${field} must be greater than zero`);
 const guestCartItemSchema = z.object({
-    productId: positiveInt("Product id"),
-    quantity: positiveInt("Quantity").max(99, "Quantity must not exceed 99"),
+    productId: guestPositiveInt("Product id"),
+    quantity: guestPositiveInt("Quantity").max(99, "Quantity must not exceed 99"),
 });
 
 export const cartAddItemSchema = z.object({

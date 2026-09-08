@@ -46,6 +46,17 @@ describe("guest cart storage", () => {
         expect(localStorage.getItem(GUEST_CART_STORAGE_KEY)).toBeNull();
     });
 
+    it("rewrites legacy extra fields to the minimal representation when reading", () => {
+        localStorage.setItem(GUEST_CART_STORAGE_KEY, JSON.stringify({
+            items: [{ productId: 18, quantity: 2, price: 999, stock: 4, userId: "private" }],
+        }));
+
+        expect(readGuestCart()).toEqual([{ productId: 18, quantity: 2 }]);
+        expect(JSON.parse(localStorage.getItem(GUEST_CART_STORAGE_KEY) || "{}")).toEqual({
+            items: [{ productId: 18, quantity: 2 }],
+        });
+    });
+
     it("returns an empty cart when local storage is unavailable", () => {
         vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
             throw new Error("Storage disabled");
