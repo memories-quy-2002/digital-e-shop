@@ -41,6 +41,10 @@ const CartPage = () => {
         validateBeforeCheckout,
         fetchCart,
         onValidationRefresh,
+        isGuest,
+        hasGuestItems,
+        mergeStatus,
+        mergeGuestCart,
     } = useCart();
     const [show, setShow] = useState<boolean>(false);
     const [isPayment, setIsPayment] = useState<boolean>(false);
@@ -163,6 +167,15 @@ const CartPage = () => {
         [onValidationRefresh],
     );
 
+    const handleMergeGuestCart = useCallback(async () => {
+        const result = await mergeGuestCart();
+        if (result.complete) {
+            addToast("Guest cart", "Guest cart items were merged successfully.");
+        } else if (result.accepted.length > 0) {
+            addToast("Guest cart", "Some guest cart items could not be merged.");
+        }
+    }, [addToast, mergeGuestCart]);
+
     if (isCartLoading && cart.length === 0) {
         return (
             <Layout>
@@ -275,6 +288,20 @@ const CartPage = () => {
                                     </button>
                                 </div>
                                 <div className="cart__support">
+                                    {!isGuest && hasGuestItems ? (
+                                        <div className="cart__warning" role="region" aria-label={t("cart.guestCart")}>
+                                            <strong>{t("cart.guestCartTitle")}</strong>
+                                            <span>{t("cart.guestCartDescription")}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => void handleMergeGuestCart()}
+                                                disabled={mergeStatus === "loading"}
+                                            >
+                                                {mergeStatus === "loading" ? t("cart.mergingGuestCart") : t("cart.mergeGuestCart")}
+                                            </button>
+                                            {mergeStatus === "partial" ? <small>{t("cart.guestCartMergePartial")}</small> : null}
+                                        </div>
+                                    ) : null}
                                     {activeValidationIssues.length > 0 ? (
                                         <div className="cart__warning">
                                             <strong>{t("cart.checkoutNeedsUpdates")}</strong>

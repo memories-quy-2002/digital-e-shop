@@ -20,6 +20,10 @@ const mocks = vi.hoisted(() => ({
         isLoading: false,
         isRemovingItem: false,
         pendingRemoveItem: null,
+        isGuest: true,
+        hasGuestItems: false,
+        mergeStatus: "idle",
+        mergeGuestCart: vi.fn(),
         updateQuantity: vi.fn(),
         removeItem: vi.fn(),
         confirmRemoveItem: vi.fn(),
@@ -105,6 +109,9 @@ describe("public cart states", () => {
         mocks.cart.status = "empty";
         mocks.cart.error = null;
         mocks.cart.isLoading = false;
+        mocks.cart.isGuest = true;
+        mocks.cart.hasGuestItems = false;
+        mocks.cart.mergeStatus = "idle";
     });
 
     it("renders a recoverable preview error instead of an empty cart", () => {
@@ -145,5 +152,15 @@ describe("public cart states", () => {
 
         expect(screen.getByText("Unavailable widget")).toBeInTheDocument();
         expect(screen.getByText("unavailable")).toBeInTheDocument();
+    });
+
+    it("surfaces a merge action when a signed-in user still has guest cart items", () => {
+        mocks.cart.isGuest = false;
+        mocks.cart.hasGuestItems = true;
+
+        renderPage();
+
+        expect(screen.getByRole("region", { name: /guest cart/i })).toHaveTextContent(/guest cart/i);
+        expect(screen.getByRole("button", { name: /merge guest cart/i })).toBeInTheDocument();
     });
 });

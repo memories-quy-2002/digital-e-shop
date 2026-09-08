@@ -146,6 +146,12 @@ const en = {
         loadErrorTitle: "We could not load your cart",
         loadError: "Your cart could not be refreshed. Please try again.",
         retry: "Retry",
+        guestCart: "Guest cart",
+        guestCartTitle: "You have items saved from guest browsing.",
+        guestCartDescription: "Merge them into your account cart to keep shopping from this account.",
+        mergeGuestCart: "Merge guest cart",
+        mergingGuestCart: "Merging guest cart...",
+        guestCartMergePartial: "Some items could not be merged. You can retry.",
     },
     guestOrder: {
         title: "Look up a guest order",

@@ -148,6 +148,12 @@ const vi: Dictionary = {
         loadErrorTitle: "Không thể tải giỏ hàng",
         loadError: "Không thể cập nhật giỏ hàng. Vui lòng thử lại.",
         retry: "Thử lại",
+        guestCart: "Giỏ hàng khách",
+        guestCartTitle: "Bạn có sản phẩm đã lưu khi chưa đăng nhập.",
+        guestCartDescription: "Gộp chúng vào giỏ hàng tài khoản để tiếp tục mua sắm.",
+        mergeGuestCart: "Gộp giỏ hàng khách",
+        mergingGuestCart: "Đang gộp giỏ hàng khách...",
+        guestCartMergePartial: "Một số sản phẩm chưa thể gộp. Bạn có thể thử lại.",
     },
     guestOrder: {
         title: "Tra cứu đơn hàng khách",

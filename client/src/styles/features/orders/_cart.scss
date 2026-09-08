@@ -239,6 +239,23 @@
         small {
             font-weight: 600;
         }
+
+        button {
+            width: fit-content;
+            margin-top: 0.35rem;
+            padding: 0.55rem 0.8rem;
+            border: 1px solid currentColor;
+            border-radius: 999px;
+            background: transparent;
+            color: inherit;
+            font-weight: 800;
+            cursor: pointer;
+
+            &:disabled {
+                cursor: wait;
+                opacity: 0.7;
+            }
+        }
     }
 
     &__note {
