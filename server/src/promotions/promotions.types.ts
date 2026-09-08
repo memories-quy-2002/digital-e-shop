@@ -11,4 +11,6 @@ export type PromotionRow = {
     usage_limit?: number | null;
 };
 
+export type PromotionRedemptionUserId = string | null;
+
 export type { PromotionInput, PromotionPayload };

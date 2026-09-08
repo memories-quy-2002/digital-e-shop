@@ -8,6 +8,7 @@ import type {
     CheckoutReservation,
     CheckoutReservationInput,
     CheckoutReservationItem,
+    OrderIdentity,
 } from "./orders.types";
 
 type ReservationError = Error & {
@@ -50,6 +51,7 @@ export class CheckoutReservationService {
         }
 
         const reservationToken = randomUUID();
+        const identity = this.resolveIdentity(input);
         return withTransaction(async (tx) => {
             const productIds = aggregatedItems.map((item) => item.productId).sort((a, b) => a - b);
             const lockedProducts = await this.repository.lockProducts(tx, productIds);
@@ -80,7 +82,11 @@ export class CheckoutReservationService {
 
             const pendingCheckout = await this.repository.insertPendingCheckout(tx, {
                 reservationToken,
-                userId: input.uid,
+                userId: identity.userId,
+                guestEmail: identity.kind === "guest" ? identity.guestContact.guestEmail : null,
+                guestName: identity.kind === "guest" ? identity.guestContact.guestName : null,
+                guestPhone: identity.kind === "guest" ? identity.guestContact.guestPhone ?? null : null,
+                guestOrderTokenHash: identity.kind === "guest" ? identity.guestOrderTokenHash : null,
                 cartJson: JSON.stringify(input.authoritativeCart),
                 totalPrice: input.authoritativeTotalPrice,
                 discount: input.discountCode ? input.discount : 0,
@@ -95,7 +101,7 @@ export class CheckoutReservationService {
                     tx,
                     input.discountCode,
                     pendingCheckout.insertId,
-                    input.uid,
+                    identity.userId,
                     expiresAt,
                     input.authoritativeTotalPrice,
                 );
@@ -164,5 +170,11 @@ export class CheckoutReservationService {
             quantities.set(productId, (quantities.get(productId) ?? 0) + quantity);
         }
         return [...quantities.entries()].map(([productId, quantity]) => ({ productId, quantity }));
+    }
+
+    private resolveIdentity(input: CheckoutReservationInput): OrderIdentity {
+        if (input.identity) return input.identity;
+        if (input.uid) return { kind: "authenticated", userId: input.uid };
+        throw createReservationError("Checkout identity is required", 400);
     }
 }

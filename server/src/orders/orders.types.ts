@@ -3,7 +3,11 @@ import type { CartItemRow } from "../cart/cart.types";
 
 export type OrderSummaryRow = {
     id: number;
-    user_id: string;
+    user_id: string | null;
+    guest_email?: string | null;
+    guest_name?: string | null;
+    guest_phone?: string | null;
+    guest_order_token_hash?: string | null;
     status: number;
     total_price: number;
     discount: number;
@@ -52,7 +56,10 @@ export type OrderDetailRow = OrderSummaryRow & {
 export type OrderDetail = {
     id: number;
     date_added: string;
-    user_id: string;
+    user_id: string | null;
+    guest_email?: string | null;
+    guest_name?: string | null;
+    guest_phone?: string | null;
     customer_name?: string;
     customer_email?: string;
     status: number;
@@ -104,7 +111,11 @@ export type PendingCheckoutRow = {
     id: number;
     stripe_session_id: string | null;
     reservation_token: string;
-    user_id: string;
+    user_id: string | null;
+    guest_email: string | null;
+    guest_name: string | null;
+    guest_phone: string | null;
+    guest_order_token_hash: string | null;
     cart_json: string;
     total_price: string;
     discount: string;
@@ -139,8 +150,27 @@ export type CheckoutReservationItem = {
     quantity: number;
 };
 
-export type CheckoutReservationInput = {
-    uid: string;
+export type GuestContactSnapshot = {
+    guestEmail: string;
+    guestName: string;
+    guestPhone?: string | null;
+};
+
+export type AuthenticatedOrderIdentity = {
+    kind: "authenticated";
+    userId: string;
+};
+
+export type GuestOrderIdentity = {
+    kind: "guest";
+    userId: null;
+    guestContact: GuestContactSnapshot;
+    guestOrderTokenHash: string;
+};
+
+export type OrderIdentity = AuthenticatedOrderIdentity | GuestOrderIdentity;
+
+type CheckoutReservationInputBase = {
     authoritativeCart: CartItemRow[];
     authoritativeTotalPrice: number;
     discount: number;
@@ -149,9 +179,18 @@ export type CheckoutReservationInput = {
     databaseExpiresAt?: Date;
 };
 
+export type CheckoutReservationInput = CheckoutReservationInputBase & (
+    | { uid: string; identity?: never }
+    | { identity: OrderIdentity; uid?: never }
+);
+
 export type PendingCheckoutInsertInput = {
     reservationToken: string;
-    userId: string;
+    userId: string | null;
+    guestEmail: string | null;
+    guestName: string | null;
+    guestPhone: string | null;
+    guestOrderTokenHash: string | null;
     cartJson: string;
     totalPrice: number;
     discount: number;
@@ -174,7 +213,7 @@ export type CheckoutReservation = {
 
 export type OrderBySessionRow = {
     id: number;
-    user_id: string;
+    user_id: string | null;
     date_added: string;
     payment_method: string;
 };

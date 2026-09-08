@@ -44,9 +44,23 @@ export class CheckoutReservationRepository {
     async insertPendingCheckout(tx: TransactionContext, input: PendingCheckoutInsertInput): Promise<InsertResult> {
         return tx.query<InsertResult>(
             `INSERT INTO pending_checkouts
-                (stripe_session_id, reservation_token, user_id, cart_json, total_price, discount, shipping_address, status, expires_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)`,
-            [null, input.reservationToken, input.userId, input.cartJson, input.totalPrice, input.discount, input.shippingAddress, input.expiresAt],
+                (stripe_session_id, reservation_token, user_id, guest_email, guest_name, guest_phone, guest_order_token_hash,
+                 cart_json, total_price, discount, shipping_address, status, expires_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)`,
+            [
+                null,
+                input.reservationToken,
+                input.userId,
+                input.guestEmail,
+                input.guestName,
+                input.guestPhone,
+                input.guestOrderTokenHash,
+                input.cartJson,
+                input.totalPrice,
+                input.discount,
+                input.shippingAddress,
+                input.expiresAt,
+            ],
         );
     }
 
@@ -99,8 +113,9 @@ export class CheckoutReservationRepository {
         stripeSessionId: string,
     ): Promise<PendingCheckoutRow | null> {
         const rows = await tx.query<PendingCheckoutRow[]>(
-            `SELECT id, stripe_session_id, reservation_token, user_id, cart_json, total_price,
-                    discount, shipping_address, status, expires_at, discount_id, created_at, consumed_at
+            `SELECT id, stripe_session_id, reservation_token, user_id, guest_email, guest_name, guest_phone,
+                    guest_order_token_hash, cart_json, total_price, discount, shipping_address, status, expires_at,
+                    discount_id, created_at, consumed_at
              FROM pending_checkouts
              WHERE stripe_session_id = ?
              LIMIT 1
