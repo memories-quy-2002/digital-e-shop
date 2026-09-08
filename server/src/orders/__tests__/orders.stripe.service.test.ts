@@ -20,13 +20,14 @@ import type { NestOrdersService } from "../orders.service";
 import type { StripeService } from "../../stripe/stripe.service";
 import type { CheckoutReservationService } from "../checkout-reservation.service";
 import { env } from "#src/config/env.config";
+import { hashGuestOrderToken } from "../guest-order-token";
 
 vi.mock("#src/shared/utils/logger", () => ({
     logger: { info: vi.fn(), error: vi.fn(), debug: vi.fn(), warn: vi.fn() },
 }));
 
 function buildService() {
-    const cartService = { validateCheckoutSubmission: vi.fn() } as unknown as NestCartService;
+    const cartService = { validateCheckoutSubmission: vi.fn(), previewGuestCart: vi.fn() } as unknown as NestCartService;
     const ordersService = {
         finalizeReservedCheckout: vi.fn(),
         applyDiscount: vi.fn(),
@@ -167,6 +168,71 @@ describe("createCheckoutSession", () => {
             "mock_stripe_reservation-token",
             "mock_pi_reservation-token",
         );
+    });
+
+    it("creates a guest Stripe checkout without trusting prices and returns the raw token once", async () => {
+        const { service, cartService, ordersService, checkoutReservationService } = buildService();
+        env.paymentProviderMode = "mock";
+        const guestPayload = {
+            cart: [{ productId: 1, quantity: 1 }],
+            contact: { email: "buyer@example.com", name: "Buyer Name", phone: "+84123456789" },
+            shipping: { address: "123 Main St", city: "Ho Chi Minh City", country: "Vietnam" },
+            paymentMethod: "card",
+        };
+        vi.mocked(cartService.previewGuestCart).mockResolvedValue({
+            cartItems: [{ product_id: 1, quantity: 1, price: 100, product_name: "Widget" }],
+            merchandiseTotal: 100,
+            issues: [],
+            promotion: { valid: true, discount: 0 },
+        });
+        vi.mocked(checkoutReservationService.reserveInventory).mockImplementation(async (input: never) => {
+            expect(input.identity.kind).toBe("guest");
+            expect(input.identity.userId).toBeNull();
+            expect(input.identity.guestOrderTokenHash).toMatch(/^[a-f0-9]{64}$/);
+            return reservation;
+        });
+        vi.mocked(ordersService.finalizeReservedCheckout).mockResolvedValue({ id: 12, date_added: "2026-09-06T01:00:00.000Z" });
+
+        const result = await service.createGuestCheckoutSession(guestPayload as never);
+
+        expect(result).toEqual(expect.objectContaining({
+            url: "http://localhost:5173/checkout-success?session_id=mock_stripe_reservation-token",
+            guestOrderToken: expect.any(String),
+        }));
+        expect(result.guestOrderToken).toMatch(/^[A-Za-z0-9_-]{40,}$/);
+        expect(hashGuestOrderToken(result.guestOrderToken)).toMatch(/^[a-f0-9]{64}$/);
+        expect(ordersService.finalizeReservedCheckout).toHaveBeenCalledWith(
+            "mock_stripe_reservation-token",
+            "mock_pi_reservation-token",
+        );
+    });
+
+    it("does not send the guest access token or contact snapshot to Stripe metadata", async () => {
+        const { service, cartService, stripeService, checkoutReservationService } = buildService();
+        vi.mocked(cartService.previewGuestCart).mockResolvedValue({
+            cartItems: [{ product_id: 1, quantity: 1, price: 100, product_name: "Widget" }],
+            merchandiseTotal: 100,
+            issues: [],
+            promotion: { valid: true, discount: 0 },
+        } as never);
+        vi.mocked(checkoutReservationService.reserveInventory).mockResolvedValue(reservation);
+        vi.mocked(stripeService.createCheckoutSession).mockResolvedValue({
+            id: "cs_guest_live",
+            url: "https://checkout.stripe.test/guest",
+        } as never);
+
+        const result = await service.createGuestCheckoutSession({
+            cart: [{ productId: 1, quantity: 1 }],
+            contact: { email: "buyer@example.com", name: "Buyer Name" },
+            shipping: { address: "123 Main St", city: "Ho Chi Minh City", country: "Vietnam" },
+            paymentMethod: "card",
+        });
+
+        expect(result.url).toBe("https://checkout.stripe.test/guest");
+        const stripeParams = vi.mocked(stripeService.createCheckoutSession).mock.calls[0][0] as never;
+        expect(stripeParams.metadata).toEqual({ reservationToken: "reservation-token" });
+        expect(JSON.stringify(stripeParams)).not.toContain(result.guestOrderToken);
+        expect(JSON.stringify(stripeParams)).not.toContain("buyer@example.com");
     });
 });
 

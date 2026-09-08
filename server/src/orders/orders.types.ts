@@ -1,4 +1,4 @@
-import type { GuestPurchasePayload, PurchasePayload } from "./orders.dto";
+import type { GuestPurchasePayload, PurchasePayload, GuestCheckoutSessionPayload, GuestSessionLookupPayload } from "./orders.dto";
 import type { CartItemRow } from "../cart/cart.types";
 import type { GuestOrderTokenHash } from "./guest-order-token";
 
@@ -245,3 +245,4 @@ export type OrderBySessionRow = {
 
 export type { PurchasePayload };
 export type { GuestPurchasePayload };
+export type { GuestCheckoutSessionPayload, GuestSessionLookupPayload };

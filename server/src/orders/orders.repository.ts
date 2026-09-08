@@ -246,6 +246,17 @@ export class OrdersRepository {
         );
     }
 
+    getGuestOrderIdentityBySessionId(stripeSessionId: string, callback: QueryCallback<GuestOrderIdentityRow[]>) {
+        this.query(
+            `SELECT o.id, o.user_id, o.guest_email, o.guest_name, o.guest_phone, o.guest_order_token_hash
+             FROM orders o
+             WHERE o.stripe_checkout_session_id = ? AND o.user_id IS NULL
+             LIMIT 1`,
+            [stripeSessionId],
+            callback,
+        );
+    }
+
     markPendingCheckoutConsumed(stripeSessionId: string, callback: QueryCallback<UpdateResult>) {
         this.query(
             "UPDATE pending_checkouts SET status = 'CONSUMED', consumed_at = UTC_TIMESTAMP() WHERE stripe_session_id = ? AND status = 'PENDING'",

@@ -128,6 +128,42 @@ describe("reserved checkout finalization", () => {
         expect(notificationsService.notifyOrderPlaced).not.toHaveBeenCalled();
     });
 
+    it("finalizes a guest reservation with its contact snapshot and does not touch a user cart", async () => {
+        const { service, tx, reservationRepository, notificationsService } = buildService();
+        vi.mocked(reservationRepository.getPendingCheckoutForUpdate).mockResolvedValue({
+            id: 7,
+            stripe_session_id: "cs_guest",
+            reservation_token: "reservation-token",
+            user_id: null,
+            guest_email: "buyer@example.com",
+            guest_name: "Buyer Name",
+            guest_phone: "+84123456789",
+            guest_order_token_hash: "a".repeat(64),
+            cart_json: JSON.stringify([{ product_id: 4, quantity: 2, price: 10, product_name: "Widget" }]),
+            total_price: "20.00",
+            discount: "2.00",
+            shipping_address: "123 Main St",
+            status: "PENDING",
+            expires_at: "2099-09-06T01:30:00.000Z",
+            created_at: "2026-09-06T01:00:00.000Z",
+            consumed_at: null,
+        });
+
+        await service.finalizeReservedCheckout("cs_guest", "pi_guest");
+
+        const orderInsert = tx.query.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO orders"));
+        expect(orderInsert?.[0]).toContain("guest_email");
+        expect(orderInsert?.[1]).toEqual(expect.arrayContaining([
+            null,
+            "buyer@example.com",
+            "Buyer Name",
+            "+84123456789",
+            "a".repeat(64),
+        ]));
+        expect(tx.query).not.toHaveBeenCalledWith(expect.stringContaining("UPDATE carts SET done"), expect.anything());
+        expect(notificationsService.notifyOrderPlaced).not.toHaveBeenCalled();
+    });
+
     it("rejects a delayed completion after the database grace window", async () => {
         const { service, tx, reservationRepository } = buildService();
         vi.mocked(reservationRepository.getPendingCheckoutForUpdate).mockResolvedValue({
@@ -151,5 +187,15 @@ describe("reserved checkout finalization", () => {
 
         await expect(service.finalizeReservedCheckout("cs_123", "pi_123")).rejects.toMatchObject({ statusCode: 409 });
         expect(reservationRepository.getReservationItems).not.toHaveBeenCalled();
+    });
+
+    it("rejects released reservations and returns null when the session is missing", async () => {
+        const released = buildService("RELEASED");
+        await expect(released.service.finalizeReservedCheckout("cs_123", "pi_123")).rejects.toMatchObject({ statusCode: 409 });
+
+        const missing = buildService();
+        vi.mocked(missing.reservationRepository.getPendingCheckoutForUpdate).mockResolvedValue(null);
+        await expect(missing.service.finalizeReservedCheckout("cs_missing", "pi_missing")).resolves.toBeNull();
+        expect(missing.reservationRepository.getReservationItems).not.toHaveBeenCalled();
     });
 });

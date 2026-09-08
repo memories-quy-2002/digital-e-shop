@@ -95,6 +95,24 @@ describe("StripeWebhookController", () => {
         expect(res.json).toHaveBeenCalledWith({ received: true, success: true, requestId: "unknown" });
     });
 
+    it("passes a live-shaped completed session payment intent to the shared finalizer", async () => {
+        const rawBuffer = Buffer.from('{"type":"checkout.session.completed"}');
+        const req = {
+            headers: { "stripe-signature": "sig" },
+            rawBody: rawBuffer,
+        } as never;
+        const res = mockRes();
+        const session = { id: "cs_guest_live", payment_intent: { id: "pi_guest_live" } };
+        stripeService.constructWebhookEvent.mockReturnValue({
+            type: "checkout.session.completed",
+            data: { object: session },
+        });
+
+        await controller.handleStripeWebhook(req, res as never);
+
+        expect(ordersStripeService.handleCheckoutSessionCompleted).toHaveBeenCalledWith(session);
+    });
+
     it("returns 400 when signature verification throws", async () => {
         const req = {
             headers: { "stripe-signature": "bad-sig" },

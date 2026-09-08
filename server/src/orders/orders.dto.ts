@@ -13,6 +13,7 @@ export type GuestShippingDto = {
 };
 
 export type GuestPaymentMethod = "cash" | "bank_transfer" | "payos";
+export type GuestStripePaymentMethod = "card" | "stripe";
 
 export type GuestPurchasePayload = {
     cart: GuestCartItemInput[];
@@ -20,6 +21,19 @@ export type GuestPurchasePayload = {
     shipping: GuestShippingDto;
     discountCode?: string;
     paymentMethod: GuestPaymentMethod;
+};
+
+export type GuestCheckoutSessionPayload = {
+    cart: GuestCartItemInput[];
+    contact: GuestContactDto;
+    shipping: GuestShippingDto;
+    discountCode?: string;
+    paymentMethod: GuestStripePaymentMethod;
+};
+
+export type GuestSessionLookupPayload = {
+    sessionId: string;
+    guestOrderToken: string;
 };
 
 export type GuestOrderLookupPayload = {

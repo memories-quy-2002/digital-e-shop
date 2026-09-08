@@ -884,6 +884,37 @@ export class NestOrdersService {
         };
     }
 
+    async getGuestOrderBySessionId(sessionId: string, guestOrderToken: string): Promise<GuestSafeOrderDetail> {
+        const normalizedSessionId = String(sessionId || "").trim();
+        const normalizedToken = String(guestOrderToken || "").trim();
+        if (!normalizedSessionId || !normalizedToken) {
+            throw createCheckoutError("Order not ready yet", 404);
+        }
+
+        const pending = await this.getPendingCheckoutBySessionId(normalizedSessionId);
+        if (pending) {
+            if (pending.user_id !== null || !matchesGuestOrderToken(normalizedToken, pending.guest_order_token_hash)) {
+                throw createCheckoutError("Order not ready yet", 404);
+            }
+            const order = await this.getOrderByStripeSessionId(normalizedSessionId);
+            if (!order || order.user_id !== null) {
+                throw createCheckoutError("Order not ready yet", 404);
+            }
+            return this.lookupGuestOrder(order.id, normalizedToken);
+        }
+
+        const identity = await new Promise<GuestOrderIdentityRow | null>((resolve, reject) => {
+            this.ordersRepository.getGuestOrderIdentityBySessionId(normalizedSessionId, (error: Error | null, rows: GuestOrderIdentityRow[]) => {
+                if (error) return reject(error);
+                resolve(rows?.[0] || null);
+            });
+        });
+        if (!identity || !matchesGuestOrderToken(normalizedToken, identity.guest_order_token_hash)) {
+            throw createCheckoutError("Order not ready yet", 404);
+        }
+        return this.lookupGuestOrder(identity.id, normalizedToken);
+    }
+
     async finalizeReservedCheckout(
         stripeSessionId: string,
         stripePaymentIntentId: string | null,
@@ -950,9 +981,17 @@ export class NestOrdersService {
             }
 
             const orderResult = await tx.query<InsertResult>(
-                "INSERT INTO orders (user_id, total_price, discount, shipping_address, payment_method, stripe_checkout_session_id, stripe_payment_intent_id, date_added) VALUES (?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())",
+                `INSERT INTO orders
+                    (user_id, guest_email, guest_name, guest_phone, guest_order_token_hash,
+                     total_price, discount, shipping_address, payment_method, stripe_checkout_session_id,
+                     stripe_payment_intent_id, date_added)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
                 [
                     pending.user_id,
+                    pending.guest_email,
+                    pending.guest_name,
+                    pending.guest_phone,
+                    pending.guest_order_token_hash,
                     Number(pending.total_price),
                     Number(pending.discount),
                     pending.shipping_address,
@@ -1026,7 +1065,9 @@ export class NestOrdersService {
                 });
             }
             await this.inventoryService.createMovementsInTransaction(tx, inventoryMovements);
-            await tx.query("UPDATE carts SET done = 1 WHERE user_id = ? AND done = 0", [pending.user_id]);
+            if (pending.user_id) {
+                await tx.query("UPDATE carts SET done = 1 WHERE user_id = ? AND done = 0", [pending.user_id]);
+            }
 
             const consumedRows = await this.checkoutReservationRepository.consumeReservation(tx, pending.id);
             if (consumedRows !== 1) {
