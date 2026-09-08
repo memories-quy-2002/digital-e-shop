@@ -5,8 +5,8 @@ export type GuestCartStorageItem = {
     quantity: number;
 };
 
-const MAX_GUEST_CART_ITEMS = 50;
-const MAX_GUEST_CART_QUANTITY = 99;
+export const MAX_GUEST_CART_ITEMS = 50;
+export const MAX_GUEST_CART_QUANTITY = 99;
 
 const isValidItem = (value: unknown): value is GuestCartStorageItem => {
     if (!value || typeof value !== "object") return false;
@@ -103,6 +103,12 @@ export const removeGuestCartItem = (productId: number): GuestCartStorageItem[] =
     const items = readGuestCart().filter((item) => item.productId !== productId);
     writeGuestCart(items);
     return items;
+};
+
+export const replaceGuestCart = (items: GuestCartStorageItem[]): GuestCartStorageItem[] => {
+    const nextItems = sanitizeItems(items);
+    writeGuestCart(nextItems);
+    return nextItems;
 };
 
 export const clearGuestCart = () => writeGuestCart([]);

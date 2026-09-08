@@ -57,6 +57,21 @@ describe("guest cart storage", () => {
         });
     });
 
+    it("coalesces duplicate products and bounds their combined quantity", () => {
+        localStorage.setItem(GUEST_CART_STORAGE_KEY, JSON.stringify({
+            items: [
+                { productId: 18, quantity: 70 },
+                { productId: 18, quantity: 70 },
+                { productId: 22, quantity: 2 },
+            ],
+        }));
+
+        expect(readGuestCart()).toEqual([
+            { productId: 18, quantity: 99 },
+            { productId: 22, quantity: 2 },
+        ]);
+    });
+
     it("returns an empty cart when local storage is unavailable", () => {
         vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
             throw new Error("Storage disabled");

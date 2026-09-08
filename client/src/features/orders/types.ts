@@ -84,6 +84,12 @@ export type GuestCartPreview = {
     totalPrice: number;
 };
 
+export type CustomerCartValidation = {
+    valid: boolean;
+    cartItems: CheckoutCartItem[];
+    issues: CartValidationIssue[];
+};
+
 const normalizeOptionalSalePrice = (value: unknown) => {
     if (value === null || value === undefined || value === "") {
         return null;

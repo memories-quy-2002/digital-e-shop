@@ -1,5 +1,8 @@
 import http from "../../lib/http";
 import {
+    type CartValidationIssue,
+    type CustomerCartValidation,
+    type CheckoutCartItem,
     normalizeCheckoutCartItems,
     type CustomerOrder,
     type CustomerOrderDetail,
@@ -8,6 +11,36 @@ import {
 } from "./types";
 
 export type { CustomerOrder, CustomerOrderDetail } from "./types";
+
+const normalizeCartItems = (items: unknown): CheckoutCartItem[] =>
+    normalizeCheckoutCartItems(Array.isArray(items) ? items : []);
+
+export async function fetchCustomerCart(uid: string): Promise<CheckoutCartItem[]> {
+    const response = await http.get(`/api/cart/${uid}`);
+    return normalizeCartItems(response.data.cartItems);
+}
+
+export async function updateCustomerCartItem(uid: string, cartItemId: number, quantity: number): Promise<void> {
+    await http.put("/api/cart/", { uid, cartItemId, quantity });
+}
+
+export async function removeCustomerCartItem(cartItemId: number): Promise<void> {
+    await http.delete("/api/cart/", { data: { cartItemId } });
+}
+
+export async function validateCustomerCart(uid: string): Promise<CustomerCartValidation> {
+    const response = await http.get(`/api/cart/${uid}/validation`);
+    return {
+        valid: response.data.valid === true,
+        cartItems: normalizeCartItems(response.data.cartItems),
+        issues: (response.data.issues || []) as CartValidationIssue[],
+    };
+}
+
+export async function applyCustomerDiscount(code: string, price: number): Promise<{ newPrice: number }> {
+    const response = await http.post("/api/orders/discount", { discountCode: code, price });
+    return { newPrice: Number(response.data.newPrice) };
+}
 
 export async function fetchCustomerOrders(uid: string): Promise<CustomerOrder[]> {
     const response = await http.get(`/api/orders/user/${uid}`);
@@ -49,6 +82,13 @@ export async function previewGuestCart(
     });
     return {
         ...response.data,
-        cartItems: normalizeCheckoutCartItems(response.data.cartItems),
+        cartItems: normalizeCartItems(response.data.cartItems),
+        issues: response.data.issues || [],
+        promotion: response.data.promotion || {
+            code: null,
+            valid: false,
+            discount: 0,
+            discountPercent: null,
+        },
     } as GuestCartPreview;
 }
