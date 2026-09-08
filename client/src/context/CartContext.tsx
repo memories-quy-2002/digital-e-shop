@@ -12,8 +12,7 @@ import {
 } from "../features/orders/api";
 import {
     addGuestCartItem,
-    clearGuestCart,
-    MAX_GUEST_CART_QUANTITY,
+    normalizeCartQuantity,
     readGuestCart,
     removeGuestCartItem,
     replaceGuestCart,
@@ -41,6 +40,12 @@ type CartMergeResult = {
 type CartMutation =
     | { type: "remove"; cartItemId: number }
     | { type: "updateQuantity"; cartItemId: number; quantity: number };
+
+type CartSourceSnapshot = {
+    source: string;
+    uid: string | null;
+    generation: number;
+};
 
 interface CartContextValue {
     items: CheckoutCartItem[];
@@ -117,8 +122,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isLoading, setIsLoading] = useState(true);
     const [isRemovingItem, setIsRemovingItem] = useState(false);
     const [pendingRemoveItem, setPendingRemoveItem] = useState<CheckoutCartItem | null>(null);
-    const sourceRef = useRef(source);
+    const sourceRef = useRef<CartSourceSnapshot>({ source, uid, generation: 0 });
     const requestIdRef = useRef(0);
+    const mergePromiseRef = useRef<Promise<CartMergeResult> | null>(null);
+
+    const isCurrentSource = useCallback((candidate: CartSourceSnapshot) => {
+        const active = sourceRef.current;
+        return active.generation === candidate.generation
+            && active.source === candidate.source
+            && active.uid === candidate.uid;
+    }, []);
 
     const setReadyState = useCallback((nextItems: CheckoutCartItem[], nextIssues: CartValidationIssue[] = []) => {
         const normalizedItems = normalizeContextItems(nextItems);
@@ -141,8 +154,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setError(null);
     }, []);
 
-    const refreshGuestCart = useCallback(async (requestedDiscountCode?: string | null): Promise<GuestCartPreview | null> => {
+    const refreshGuestCart = useCallback(async (
+        requestedDiscountCode?: string | null,
+        expectedSource: CartSourceSnapshot = sourceRef.current,
+    ): Promise<GuestCartPreview | null> => {
+        const requestId = ++requestIdRef.current;
+        const isActiveRequest = () => isCurrentSource(expectedSource) && requestId === requestIdRef.current;
         const localItems = readGuestCart();
+        if (!isActiveRequest()) return null;
         setGuestItems(localItems);
         if (localItems.length === 0) {
             setItems([]);
@@ -156,92 +175,108 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return null;
         }
 
-        const requestId = ++requestIdRef.current;
         setIsLoading(true);
         setStatus("loading");
         try {
             const preview = await previewGuestCart(localItems, requestedDiscountCode || undefined);
-            if (sourceRef.current !== "guest" || requestId !== requestIdRef.current) return preview;
+            if (!isActiveRequest()) return null;
             applyGuestPreview(preview);
             return preview;
         } catch {
-            if (sourceRef.current === "guest" && requestId === requestIdRef.current) {
+            if (isActiveRequest()) {
                 setStatus("error");
                 setError("Unable to load cart right now.");
                 setIsLoading(false);
             }
             return null;
         } finally {
-            if (sourceRef.current === "guest" && requestId === requestIdRef.current) setIsLoading(false);
+            if (isActiveRequest()) setIsLoading(false);
         }
-    }, [applyGuestPreview]);
+    }, [applyGuestPreview, isCurrentSource]);
 
     const fetchCart = useCallback(async (requestedDiscountCode?: string | null) => {
-        const currentSource = uid ? `user:${uid}` : "guest";
-        sourceRef.current = currentSource;
-        const requestId = ++requestIdRef.current;
-        setIsLoading(true);
-        setStatus("loading");
-        setError(null);
-
-        if (!uid) {
-            await refreshGuestCart(requestedDiscountCode);
+        const expectedSource = sourceRef.current;
+        if (!expectedSource.uid) {
+            await refreshGuestCart(requestedDiscountCode, expectedSource);
             return;
         }
 
+        const requestId = ++requestIdRef.current;
+        const isActiveRequest = () => isCurrentSource(expectedSource) && requestId === requestIdRef.current;
+        setIsLoading(true);
+        setStatus("loading");
+        setError(null);
         try {
-            const nextItems = await fetchCustomerCart(uid);
-            if (sourceRef.current !== currentSource || requestId !== requestIdRef.current) return;
+            const nextItems = await fetchCustomerCart(expectedSource.uid);
+            if (!isActiveRequest()) return;
             setGuestItems(readGuestCart());
             setReadyState(nextItems);
         } catch (cartError) {
-            if (sourceRef.current !== currentSource || requestId !== requestIdRef.current) return;
+            if (!isActiveRequest()) return;
             setStatus("error");
             setError("Unable to load cart items.");
             addToast("Cart", getErrorMessage(cartError, "Unable to load cart items."));
         } finally {
-            if (sourceRef.current === currentSource && requestId === requestIdRef.current) setIsLoading(false);
+            if (isActiveRequest()) setIsLoading(false);
         }
-    }, [addToast, refreshGuestCart, setReadyState, uid]);
+    }, [addToast, isCurrentSource, refreshGuestCart, setReadyState]);
 
     const addItem = useCallback(async (productId: number, quantity = 1) => {
-        const boundedQuantity = Math.min(MAX_GUEST_CART_QUANTITY, Math.max(1, Math.floor(quantity)));
-        if (!Number.isSafeInteger(productId) || productId <= 0) return;
+        const normalizedQuantity = normalizeCartQuantity(quantity);
+        const expectedSource = sourceRef.current;
+        if (normalizedQuantity === null || !Number.isSafeInteger(productId) || productId <= 0) return;
         try {
-            if (uid) {
-                await addItemsToCustomerCart(uid, [{ productId, quantity: boundedQuantity, stock: boundedQuantity }]);
+            if (expectedSource.uid) {
+                await addItemsToCustomerCart(expectedSource.uid, [{
+                    productId,
+                    quantity: normalizedQuantity,
+                    stock: normalizedQuantity,
+                }]);
+                if (!isCurrentSource(expectedSource)) return;
                 await fetchCart();
                 return;
             }
-            addGuestCartItem({ productId, quantity: boundedQuantity });
-            await refreshGuestCart(discountCode);
+            addGuestCartItem({ productId, quantity: normalizedQuantity });
+            if (!isCurrentSource(expectedSource)) return;
+            await refreshGuestCart(discountCode, expectedSource);
         } catch (cartError) {
+            if (!isCurrentSource(expectedSource)) return;
             setStatus("error");
             setError("Unable to update cart right now.");
             addToast("Cart", getErrorMessage(cartError, "Unable to update cart right now."));
         }
-    }, [addToast, discountCode, fetchCart, refreshGuestCart, uid]);
+    }, [addToast, discountCode, fetchCart, isCurrentSource, refreshGuestCart]);
 
     const updateQuantity = useCallback(async (itemId: number, quantity: number) => {
-        const boundedQuantity = Math.min(MAX_GUEST_CART_QUANTITY, Math.max(1, Math.floor(quantity)));
-        if (uid) {
-            setItems((current) => applyOptimisticMutation(current, { type: "updateQuantity", cartItemId: itemId, quantity: boundedQuantity }));
+        const normalizedQuantity = normalizeCartQuantity(quantity);
+        const expectedSource = sourceRef.current;
+        if (normalizedQuantity === null || !isCurrentSource(expectedSource)) return;
+        if (expectedSource.uid) {
+            setItems((current) => applyOptimisticMutation(current, {
+                type: "updateQuantity",
+                cartItemId: itemId,
+                quantity: normalizedQuantity,
+            }));
             try {
-                await updateCustomerCartItem(uid, itemId, boundedQuantity);
+                await updateCustomerCartItem(expectedSource.uid, itemId, normalizedQuantity);
+                if (!isCurrentSource(expectedSource)) return;
                 await fetchCart();
             } catch (cartError) {
+                if (!isCurrentSource(expectedSource)) return;
                 setError("Unable to save the quantity change.");
                 setStatus("error");
                 addToast("Cart", getErrorMessage(cartError, "Unable to save the quantity change."));
-                await fetchCart();
+                if (isCurrentSource(expectedSource)) await fetchCart();
             }
             return;
         }
+
         const item = items.find((cartItem) => cartItem.cartItemId === itemId || cartItem.productId === itemId);
         if (!item) return;
-        updateGuestCartItem(item.productId, boundedQuantity);
-        await refreshGuestCart(discountCode);
-    }, [addToast, discountCode, fetchCart, items, refreshGuestCart, uid]);
+        updateGuestCartItem(item.productId, normalizedQuantity);
+        if (!isCurrentSource(expectedSource)) return;
+        await refreshGuestCart(discountCode, expectedSource);
+    }, [addToast, discountCode, fetchCart, isCurrentSource, items, refreshGuestCart]);
 
     const removeItem = useCallback((item: CheckoutCartItem) => setPendingRemoveItem(item), []);
     const cancelRemoveItem = useCallback(() => setPendingRemoveItem(null), []);
@@ -249,31 +284,39 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const confirmRemoveItem = useCallback(async () => {
         if (!pendingRemoveItem) return;
         const item = pendingRemoveItem;
+        const expectedSource = sourceRef.current;
         setPendingRemoveItem(null);
         setIsRemovingItem(true);
         try {
-            if (uid) {
+            if (expectedSource.uid) {
                 await removeCustomerCartItem(item.cartItemId);
+                if (!isCurrentSource(expectedSource)) return;
                 await fetchCart();
             } else {
                 removeGuestCartItem(item.productId);
-                await refreshGuestCart(discountCode);
+                if (!isCurrentSource(expectedSource)) return;
+                await refreshGuestCart(discountCode, expectedSource);
             }
-            addToast("Remove Cart item", "Item removed from cart successfully");
+            if (isCurrentSource(expectedSource)) addToast("Remove Cart item", "Item removed from cart successfully");
         } catch (cartError) {
+            if (!isCurrentSource(expectedSource)) return;
             setStatus("error");
             setError("Unable to remove item from cart.");
             addToast("Remove Cart item", getErrorMessage(cartError, "Unable to remove item from cart."));
         } finally {
-            setIsRemovingItem(false);
+            if (isCurrentSource(expectedSource)) setIsRemovingItem(false);
         }
-    }, [addToast, discountCode, fetchCart, pendingRemoveItem, refreshGuestCart, uid]);
+    }, [addToast, discountCode, fetchCart, isCurrentSource, pendingRemoveItem, refreshGuestCart]);
 
     const applyDiscount = useCallback(async (code: string, price: number): Promise<DiscountResult> => {
         const normalizedCode = code.trim();
+        const expectedSource = sourceRef.current;
         try {
-            if (!uid) {
-                const preview = await refreshGuestCart(normalizedCode);
+            if (!expectedSource.uid) {
+                const preview = await refreshGuestCart(normalizedCode, expectedSource);
+                if (!isCurrentSource(expectedSource)) {
+                    return { status: "error", title: "Applying Coupon", message: "Cart source changed." };
+                }
                 if (preview?.promotion?.valid) {
                     return { status: "success", title: "Applying Coupon", message: "Coupon has been applied successfully" };
                 }
@@ -282,10 +325,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 return { status: "error", title: "Applying Coupon", message: preview?.promotion?.message || "Discount code not found" };
             }
             const response = await applyCustomerDiscount(normalizedCode, price);
+            if (!isCurrentSource(expectedSource)) {
+                return { status: "error", title: "Applying Coupon", message: "Cart source changed." };
+            }
             setDiscount(price - response.newPrice);
             setDiscountCode(normalizedCode);
             return { status: "success", title: "Applying Coupon", message: "Coupon has been applied successfully" };
         } catch (discountError) {
+            if (!isCurrentSource(expectedSource)) {
+                return { status: "error", title: "Applying Coupon", message: "Cart source changed." };
+            }
             setDiscount(0);
             setDiscountCode(null);
             const statusCode = discountError && typeof discountError === "object" && "response" in discountError
@@ -301,19 +350,22 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                       : "Unable to apply coupon right now.",
             };
         }
-    }, [refreshGuestCart, uid]);
+    }, [isCurrentSource, refreshGuestCart]);
 
     const validateBeforeCheckout = useCallback(async () => {
-        if (!uid) {
-            const preview = await refreshGuestCart(discountCode);
-            return preview?.valid === true && (preview.issues || []).length === 0;
+        const expectedSource = sourceRef.current;
+        if (!expectedSource.uid) {
+            const preview = await refreshGuestCart(discountCode, expectedSource);
+            return isCurrentSource(expectedSource) && preview?.valid === true && (preview.issues || []).length === 0;
         }
         try {
             setIsLoading(true);
-            const validation = await validateCustomerCart(uid);
+            const validation = await validateCustomerCart(expectedSource.uid);
+            if (!isCurrentSource(expectedSource)) return false;
             setReadyState(validation.cartItems, validation.issues);
             return validation.valid && validation.issues.length === 0;
         } catch (validationError) {
+            if (!isCurrentSource(expectedSource)) return false;
             const response = validationError && typeof validationError === "object" && "response" in validationError
                 ? (validationError as { response?: { data?: { issues?: CartValidationIssue[]; cartItems?: CheckoutCartItem[] } } }).response
                 : undefined;
@@ -325,64 +377,101 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             addToast("Checkout blocked", getCartValidationMessage(issues));
             return false;
         } finally {
-            setIsLoading(false);
+            if (isCurrentSource(expectedSource)) setIsLoading(false);
         }
-    }, [addToast, discountCode, refreshGuestCart, setReadyState, uid]);
+    }, [addToast, discountCode, isCurrentSource, refreshGuestCart, setReadyState]);
 
     const mergeGuestCart = useCallback(async (): Promise<CartMergeResult> => {
+        if (mergePromiseRef.current) return mergePromiseRef.current;
+        const expectedSource = sourceRef.current;
         const pendingItems = readGuestCart();
-        if (!uid || pendingItems.length === 0) {
+        if (!expectedSource.uid || pendingItems.length === 0) {
             return { accepted: [], rejected: pendingItems, complete: pendingItems.length === 0 };
         }
-        setMergeStatus("loading");
-        const accepted: GuestCartStorageItem[] = [];
-        const rejected: GuestCartStorageItem[] = [];
-        for (const item of pendingItems) {
+
+        const runMerge = async (): Promise<CartMergeResult> => {
+            const accepted: GuestCartStorageItem[] = [];
+            const rejected: GuestCartStorageItem[] = [];
             try {
-                await addItemsToCustomerCart(uid, [{ ...item, stock: item.quantity }]);
-                accepted.push(item);
+                if (!isCurrentSource(expectedSource)) return { accepted, rejected: pendingItems, complete: false };
+                setMergeStatus("loading");
+                for (const item of pendingItems) {
+                    if (!isCurrentSource(expectedSource)) return { accepted, rejected, complete: false };
+                    try {
+                        await addItemsToCustomerCart(expectedSource.uid!, [{ ...item, stock: item.quantity }]);
+                        if (!isCurrentSource(expectedSource)) return { accepted, rejected, complete: false };
+                        accepted.push(item);
+                    } catch {
+                        if (!isCurrentSource(expectedSource)) return { accepted, rejected, complete: false };
+                        rejected.push(item);
+                    }
+                }
+
+                if (!isCurrentSource(expectedSource)) return { accepted, rejected, complete: false };
+                const currentItems = readGuestCart();
+                const remainingItems = currentItems.filter((currentItem) =>
+                    !accepted.some((acceptedItem) =>
+                        acceptedItem.productId === currentItem.productId && acceptedItem.quantity === currentItem.quantity,
+                    ),
+                );
+                replaceGuestCart(remainingItems);
+                setGuestItems(remainingItems);
+                if (rejected.length === 0) {
+                    setMergeStatus("complete");
+                    setError(null);
+                } else {
+                    setMergeStatus("partial");
+                }
+                await fetchCart();
+                if (!isCurrentSource(expectedSource)) return { accepted, rejected, complete: false };
+                if (rejected.length > 0) setError("Some guest cart items could not be merged. Retry to continue.");
+                return { accepted, rejected, complete: rejected.length === 0 };
             } catch {
-                rejected.push(item);
+                if (isCurrentSource(expectedSource)) {
+                    setMergeStatus("error");
+                    setError("Unable to merge guest cart right now.");
+                }
+                return { accepted, rejected, complete: false };
             }
-        }
-        if (rejected.length === 0) {
-            clearGuestCart();
-            setGuestItems([]);
-            setMergeStatus("complete");
-        } else {
-            replaceGuestCart(rejected);
-            setGuestItems(rejected);
-            setMergeStatus("partial");
-        }
-        await fetchCart();
-        if (rejected.length > 0) setError("Some guest cart items could not be merged. Retry to continue.");
-        return { accepted, rejected, complete: rejected.length === 0 };
-    }, [fetchCart, uid]);
+        };
+
+        const mergePromise = runMerge();
+        mergePromiseRef.current = mergePromise;
+        void mergePromise.finally(() => {
+            if (mergePromiseRef.current === mergePromise) mergePromiseRef.current = null;
+        });
+        return mergePromise;
+    }, [fetchCart, isCurrentSource]);
 
     const onValidationRefresh = useCallback((nextCart: CheckoutCartItem[], issues: CartValidationIssue[]) => {
         setReadyState(nextCart, issues);
     }, [setReadyState]);
 
     useEffect(() => {
-        sourceRef.current = source;
+        const nextSource: CartSourceSnapshot = {
+            source,
+            uid,
+            generation: sourceRef.current.generation + 1,
+        };
+        sourceRef.current = nextSource;
+        requestIdRef.current += 1;
+        mergePromiseRef.current = null;
         setItems([]);
         setTotalPrice(0);
+        setDiscount(0);
+        setDiscountCode(null);
         setValidationIssues([]);
         setError(null);
         setGuestItems(readGuestCart());
         setMergeStatus("idle");
+        setPendingRemoveItem(null);
+        setIsRemovingItem(false);
         if (authLoading) {
             setIsLoading(true);
             setStatus("loading");
             return;
         }
-        if (!uid) {
-            setDiscount(0);
-            setDiscountCode(null);
-            void fetchCart(null);
-            return;
-        }
-        void fetchCart();
+        void fetchCart(null);
     }, [authLoading, fetchCart, source, uid]);
 
     return (

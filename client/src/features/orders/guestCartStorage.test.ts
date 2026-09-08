@@ -25,10 +25,18 @@ describe("guest cart storage", () => {
 
     it("replaces a matching quantity and removes requested products", () => {
         addGuestCartItem({ productId: 18, quantity: 1 });
-        updateGuestCartItem(18, 4);
+        updateGuestCartItem(18, 4.9);
         removeGuestCartItem(18);
 
         expect(readGuestCart()).toEqual([]);
+    });
+
+    it("floors finite quantities and ignores non-finite additions", () => {
+        addGuestCartItem({ productId: 18, quantity: 2.9 });
+        updateGuestCartItem(18, 4.9);
+        addGuestCartItem({ productId: 22, quantity: Number.NaN });
+
+        expect(readGuestCart()).toEqual([{ productId: 18, quantity: 4 }]);
     });
 
     it("clears the persisted guest cart", () => {

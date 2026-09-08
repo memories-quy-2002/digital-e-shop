@@ -105,4 +105,12 @@ describe("orders API", () => {
         expect(http.get).toHaveBeenNthCalledWith(2, "/api/cart/user-1/validation");
         expect(http.post).toHaveBeenLastCalledWith("/api/orders/discount", { discountCode: "SAVE10", price: 100 });
     });
+
+    it("normalizes finite authenticated quantities and skips non-finite writes", async () => {
+        await updateCustomerCartItem("user-1", 7, 3.9);
+        await updateCustomerCartItem("user-1", 7, Number.NaN);
+
+        expect(http.put).toHaveBeenCalledTimes(1);
+        expect(http.put).toHaveBeenCalledWith("/api/cart/", { uid: "user-1", cartItemId: 7, quantity: 3 });
+    });
 });

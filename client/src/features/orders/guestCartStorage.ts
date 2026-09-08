@@ -8,14 +8,19 @@ export type GuestCartStorageItem = {
 export const MAX_GUEST_CART_ITEMS = 50;
 export const MAX_GUEST_CART_QUANTITY = 99;
 
+export const normalizeCartQuantity = (value: number): number | null => {
+    if (!Number.isFinite(value)) return null;
+    return Math.min(MAX_GUEST_CART_QUANTITY, Math.max(1, Math.floor(value)));
+};
+
 const isValidItem = (value: unknown): value is GuestCartStorageItem => {
     if (!value || typeof value !== "object") return false;
     const item = value as GuestCartStorageItem;
     return Number.isSafeInteger(item.productId)
         && item.productId > 0
-        && Number.isSafeInteger(item.quantity)
+        && Number.isFinite(item.quantity)
         && item.quantity > 0
-        && item.quantity <= MAX_GUEST_CART_QUANTITY;
+        && normalizeCartQuantity(item.quantity) !== null;
 };
 
 const getStorage = (): Storage | null => {
@@ -31,7 +36,7 @@ const sanitizeItems = (value: unknown): GuestCartStorageItem[] => {
     const quantities = new Map<number, number>();
     for (const item of value) {
         if (!isValidItem(item)) continue;
-        const quantity = (quantities.get(item.productId) || 0) + item.quantity;
+        const quantity = (quantities.get(item.productId) || 0) + normalizeCartQuantity(item.quantity)!;
         quantities.set(item.productId, Math.min(quantity, MAX_GUEST_CART_QUANTITY));
     }
     return Array.from(quantities, ([productId, quantity]) => ({ productId, quantity })).slice(0, MAX_GUEST_CART_ITEMS);
@@ -76,24 +81,28 @@ export const readGuestCart = (): GuestCartStorageItem[] => {
 };
 
 export const addGuestCartItem = (item: GuestCartStorageItem): GuestCartStorageItem[] => {
-    if (!isValidItem(item)) return readGuestCart();
+    const quantity = normalizeCartQuantity(item.quantity);
+    if (!Number.isSafeInteger(item.productId) || item.productId <= 0 || quantity === null || item.quantity <= 0) {
+        return readGuestCart();
+    }
     const items = readGuestCart();
     const existing = items.find((entry) => entry.productId === item.productId);
     if (existing) {
-        existing.quantity = Math.min(existing.quantity + item.quantity, MAX_GUEST_CART_QUANTITY);
+        existing.quantity = Math.min(existing.quantity + quantity, MAX_GUEST_CART_QUANTITY);
     } else if (items.length < MAX_GUEST_CART_ITEMS) {
-        items.push({ productId: item.productId, quantity: item.quantity });
+        items.push({ productId: item.productId, quantity });
     }
     writeGuestCart(items);
     return items;
 };
 
 export const updateGuestCartItem = (productId: number, quantity: number): GuestCartStorageItem[] => {
-    if (!Number.isSafeInteger(productId) || productId <= 0 || !Number.isSafeInteger(quantity) || quantity <= 0) {
+    const normalizedQuantity = normalizeCartQuantity(quantity);
+    if (!Number.isSafeInteger(productId) || productId <= 0 || normalizedQuantity === null || quantity <= 0) {
         return removeGuestCartItem(productId);
     }
     const items = readGuestCart().map((item) => item.productId === productId
-        ? { ...item, quantity: Math.min(quantity, MAX_GUEST_CART_QUANTITY) }
+        ? { ...item, quantity: normalizedQuantity }
         : item);
     writeGuestCart(items);
     return items;

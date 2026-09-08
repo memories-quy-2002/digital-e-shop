@@ -1,4 +1,5 @@
 import http from "../../lib/http";
+import { normalizeCartQuantity } from "./guestCartStorage";
 import {
     type CartValidationIssue,
     type CustomerCartValidation,
@@ -21,7 +22,9 @@ export async function fetchCustomerCart(uid: string): Promise<CheckoutCartItem[]
 }
 
 export async function updateCustomerCartItem(uid: string, cartItemId: number, quantity: number): Promise<void> {
-    await http.put("/api/cart/", { uid, cartItemId, quantity });
+    const normalizedQuantity = normalizeCartQuantity(quantity);
+    if (normalizedQuantity === null) return;
+    await http.put("/api/cart/", { uid, cartItemId, quantity: normalizedQuantity });
 }
 
 export async function removeCustomerCartItem(cartItemId: number): Promise<void> {
@@ -62,13 +65,11 @@ export async function addItemsToCustomerCart(
     items: Array<{ productId: number; quantity: number; stock: number }>,
 ): Promise<void> {
     await Promise.all(
-        items.map((item) =>
-            http.post("/api/cart/", {
-                uid,
-                pid: item.productId,
-                quantity: Math.min(item.quantity, item.stock),
-            }),
-        ),
+        items.map((item) => {
+            const quantity = normalizeCartQuantity(Math.min(item.quantity, item.stock));
+            if (quantity === null) return Promise.resolve();
+            return http.post("/api/cart/", { uid, pid: item.productId, quantity });
+        }),
     );
 }
 
