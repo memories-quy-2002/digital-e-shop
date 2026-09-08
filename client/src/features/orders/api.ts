@@ -7,8 +7,13 @@ import {
     normalizeCheckoutCartItems,
     type CustomerOrder,
     type CustomerOrderDetail,
+    type GuestCheckoutSessionRequest,
+    type GuestCheckoutSessionResponse,
     type GuestCartItemInput,
+    type GuestOrderDetail,
     type GuestCartPreview,
+    type GuestPurchaseRequest,
+    type GuestPurchaseResponse,
 } from "./types";
 
 export type { CustomerOrder, CustomerOrderDetail } from "./types";
@@ -92,4 +97,29 @@ export async function previewGuestCart(
             discountPercent: null,
         },
     } as GuestCartPreview;
+}
+
+export async function createGuestPurchase(payload: GuestPurchaseRequest): Promise<GuestPurchaseResponse> {
+    const response = await http.post("/api/orders/guest/purchase", payload);
+    return response.data as GuestPurchaseResponse;
+}
+
+export async function createGuestCheckoutSession(
+    payload: GuestCheckoutSessionRequest,
+): Promise<GuestCheckoutSessionResponse> {
+    const response = await http.post("/api/orders/guest/checkout-session", payload);
+    return response.data as GuestCheckoutSessionResponse;
+}
+
+export async function lookupGuestOrder(orderId: number, guestOrderToken: string): Promise<GuestOrderDetail> {
+    const response = await http.post("/api/orders/guest/lookup", { orderId, guestOrderToken });
+    return response.data.order as GuestOrderDetail;
+}
+
+export async function fetchGuestOrderBySession(
+    sessionId: string,
+    guestOrderToken: string,
+): Promise<GuestOrderDetail> {
+    const response = await http.post("/api/orders/guest/by-session", { sessionId, guestOrderToken });
+    return response.data.order as GuestOrderDetail;
 }

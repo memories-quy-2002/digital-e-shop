@@ -152,6 +152,72 @@
         }
     }
 
+    &__guest-access {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 0.9fr);
+        gap: 1.25rem;
+        align-items: end;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+        border: 1px solid #bfdbfe;
+        border-radius: 20px;
+        background: #eff6ff;
+
+        h2 {
+            margin: 0.35rem 0;
+            color: #172554;
+            font-size: 1.25rem;
+        }
+
+        p {
+            margin: 0;
+            color: #1e3a8a;
+            line-height: 1.55;
+        }
+    }
+
+    &__guest-access__eyebrow {
+        color: #1d4ed8;
+        font-size: 0.78rem;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    &__guest-access__fields {
+        display: grid;
+        gap: 0.65rem;
+
+        label {
+            display: grid;
+            gap: 0.25rem;
+            color: #1e3a8a;
+            font-size: 0.78rem;
+            font-weight: 800;
+        }
+
+        input {
+            width: 100%;
+            min-height: 2.6rem;
+            padding: 0.6rem 0.7rem;
+            border: 1px solid #93c5fd;
+            border-radius: 10px;
+            background: #fff;
+            color: #172554;
+            font: inherit;
+        }
+
+        button {
+            min-height: 2.6rem;
+            border: 0;
+            border-radius: 10px;
+            background: #1d4ed8;
+            color: #fff;
+            font-weight: 800;
+            cursor: pointer;
+        }
+    }
+
     &__workflow {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -316,6 +382,10 @@
         }
 
         &__hero__title-row {
+            grid-template-columns: 1fr;
+        }
+
+        &__guest-access {
             grid-template-columns: 1fr;
         }
 

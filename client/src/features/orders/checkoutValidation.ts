@@ -4,6 +4,7 @@ export type CheckoutValidationFields = {
     last_name: string;
     address: string;
     city: string;
+    country: string | null;
     payment_method: string | null | undefined;
 };
 
@@ -29,6 +30,7 @@ export const validateCheckoutForm = (fields: CheckoutValidationFields): string[]
     if (!fields.last_name.trim()) errors.push("Last name is required");
     if (!fields.address.trim()) errors.push("Shipping address is required");
     if (!fields.city.trim()) errors.push("City is required");
+    if (!fields.country?.trim()) errors.push("Country is required");
     if (!fields.payment_method) errors.push("Please select a payment method");
 
     return errors;

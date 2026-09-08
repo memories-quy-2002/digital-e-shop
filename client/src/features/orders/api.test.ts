@@ -3,7 +3,11 @@ import http from "../../lib/http";
 import {
     applyCustomerDiscount,
     cancelCustomerOrder,
+    createGuestCheckoutSession,
+    createGuestPurchase,
+    fetchGuestOrderBySession,
     fetchCustomerCart,
+    lookupGuestOrder,
     previewGuestCart,
     removeCustomerCartItem,
     updateCustomerCartItem,
@@ -112,5 +116,57 @@ describe("orders API", () => {
 
         expect(http.put).toHaveBeenCalledTimes(1);
         expect(http.put).toHaveBeenCalledWith("/api/cart/", { uid: "user-1", cartItemId: 7, quantity: 3 });
+    });
+
+    it("sends guest purchase data without client prices or totals", async () => {
+        vi.mocked(http.post).mockResolvedValueOnce({
+            data: {
+                orderId: 42,
+                order: { id: 42, date_added: "2026-09-08T10:00:00.000Z", total_price: 180, discount: 20 },
+                guestOrderToken: "raw-token",
+                paymentMethod: "cash",
+            },
+        } as never);
+
+        await expect(createGuestPurchase({
+            cart: [{ productId: 10, quantity: 2 }],
+            contact: { email: "guest@example.com", name: "Guest Buyer" },
+            shipping: { address: "1 Main Street", city: "HCMC", country: "VN" },
+            discountCode: "SAVE20",
+            paymentMethod: "cash",
+        })).resolves.toMatchObject({ orderId: 42, guestOrderToken: "raw-token" });
+
+        expect(http.post).toHaveBeenCalledWith("/api/orders/guest/purchase", {
+            cart: [{ productId: 10, quantity: 2 }],
+            contact: { email: "guest@example.com", name: "Guest Buyer" },
+            shipping: { address: "1 Main Street", city: "HCMC", country: "VN" },
+            discountCode: "SAVE20",
+            paymentMethod: "cash",
+        });
+    });
+
+    it("keeps guest Stripe and lookup contracts token-protected", async () => {
+        vi.mocked(http.post)
+            .mockResolvedValueOnce({ data: { url: "https://checkout.test/session", guestOrderToken: "stripe-token" } } as never)
+            .mockResolvedValueOnce({ data: { order: { id: 42, items: [] } } } as never)
+            .mockResolvedValueOnce({ data: { order: { id: 42, items: [] } } } as never);
+
+        await expect(createGuestCheckoutSession({
+            cart: [{ productId: 10, quantity: 1 }],
+            contact: { email: "guest@example.com", name: "Guest Buyer" },
+            shipping: { address: "1 Main Street", city: "HCMC", country: "VN" },
+            paymentMethod: "card",
+        })).resolves.toEqual({ url: "https://checkout.test/session", guestOrderToken: "stripe-token" });
+        await lookupGuestOrder(42, "lookup-token");
+        await fetchGuestOrderBySession("cs_test", "session-token");
+
+        expect(http.post).toHaveBeenNthCalledWith(2, "/api/orders/guest/lookup", {
+            orderId: 42,
+            guestOrderToken: "lookup-token",
+        });
+        expect(http.post).toHaveBeenNthCalledWith(3, "/api/orders/guest/by-session", {
+            sessionId: "cs_test",
+            guestOrderToken: "session-token",
+        });
     });
 });

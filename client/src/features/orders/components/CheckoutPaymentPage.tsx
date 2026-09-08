@@ -9,12 +9,22 @@ import http from "../../../lib/http";
 import { toUtcIsoString } from "../../../utils/dateTime";
 import { CustomerAddress, fetchCustomerAddresses } from "../../users/api";
 import {
+    createGuestCheckoutSession,
+    createGuestPurchase,
+} from "../api";
+import {
     CartValidationIssue,
     CheckoutCartItem,
     getCartValidationMessage,
     normalizeCheckoutCartItems,
 } from "../types";
-import { maskPhoneNumber } from "../pages/checkoutSuccessStorage";
+import { clearGuestCart } from "../guestCartStorage";
+import {
+    clearPendingCheckout,
+    maskPhoneNumber,
+    writeCheckoutSuccess,
+    writePendingCheckout,
+} from "../pages/checkoutSuccessStorage";
 import { normalizeCheckoutEmail, validateCheckoutEmail, validateCheckoutForm } from "../checkoutValidation";
 
 interface CheckoutForm {
@@ -153,7 +163,7 @@ const CheckoutPaymentPage = ({
     };
 
     const validateCartStock = useCallback(async (): Promise<CheckoutCartItem[] | null> => {
-        if (!uid) return null;
+        if (!uid) return cartRef.current.length > 0 ? cartRef.current : null;
         try {
             setIsValidatingCart(true);
             const response = await http.get(`/api/cart/${uid}/validation`);
@@ -190,11 +200,6 @@ const CheckoutPaymentPage = ({
             setErrors(validationErrors);
             return;
         }
-        if (!uid) {
-            setErrors(["You must be logged in to complete checkout."]);
-            addToast("Checkout", "Please login to complete checkout.");
-            return;
-        }
         if (validationIssues.length > 0) {
             const message = getCartValidationMessage(validationIssues);
             setErrors([message]);
@@ -212,31 +217,95 @@ const CheckoutPaymentPage = ({
                 (sum, item) => sum + (item.sale_price ?? item.price) * item.quantity,
                 0,
             );
+            const normalizedName = `${formCheckout.first_name} ${formCheckout.last_name}`.trim();
+            const guestCart = latestCart.map(({ productId, quantity }) => ({ productId, quantity }));
+            const guestContact = {
+                email: normalizedEmail,
+                name: normalizedName,
+                ...(formCheckout.phone_number?.trim() ? { phone: formCheckout.phone_number.trim() } : {}),
+            };
+            const guestShipping = {
+                address: formCheckout.address.trim(),
+                city: formCheckout.city.trim(),
+                country: formCheckout.country?.trim() || "",
+            };
 
             if (formCheckout.payment_method === "card") {
-                sessionStorage.setItem(
-                    "checkoutPending",
-                    JSON.stringify({
-                        totalPrice: latestTotalPrice,
-                        discount,
-                        subtotal: latestTotalPrice - discount,
-                        itemsCount: latestCart.reduce((sum, item) => sum + item.quantity, 0),
-                        email: normalizedEmail,
-                        name: `${formCheckout.first_name} ${formCheckout.last_name}`.trim(),
-                        address: formCheckout.address,
-                        city: formCheckout.city,
-                        country: formCheckout.country || "",
-                        phone: formCheckout.phone_number ? maskPhoneNumber(formCheckout.phone_number) : "",
-                    }),
-                );
-                const sessionResponse = await http.post(`/api/orders/checkout-session/${uid}`, {
-                    cart: latestCart,
+                const pendingCheckout = {
                     totalPrice: latestTotalPrice,
                     discount,
-                    discountCode: discountCode || undefined,
-                    shippingAddress: formCheckout.address,
+                    subtotal: latestTotalPrice - discount,
+                    itemsCount: latestCart.reduce((sum, item) => sum + item.quantity, 0),
+                    email: normalizedEmail,
+                    name: normalizedName,
+                    address: formCheckout.address,
+                    city: formCheckout.city,
+                    country: formCheckout.country || "",
+                    phone: formCheckout.phone_number ? maskPhoneNumber(formCheckout.phone_number) : "",
+                };
+                const sessionResponse = uid
+                    ? await http.post(`/api/orders/checkout-session/${uid}`, {
+                        cart: latestCart,
+                        totalPrice: latestTotalPrice,
+                        discount,
+                        discountCode: discountCode || undefined,
+                        shippingAddress: formCheckout.address,
+                    })
+                    : await createGuestCheckoutSession({
+                        cart: guestCart,
+                        contact: guestContact,
+                        shipping: guestShipping,
+                        discountCode: discountCode || undefined,
+                        paymentMethod: "card",
+                    });
+                const checkoutUrl = "url" in sessionResponse ? sessionResponse.url : sessionResponse.data?.url;
+                const guestOrderToken = "guestOrderToken" in sessionResponse
+                    ? sessionResponse.guestOrderToken
+                    : undefined;
+                writePendingCheckout({
+                    ...pendingCheckout,
+                    ...(guestOrderToken ? { guestOrderToken } : {}),
                 });
-                if (sessionResponse.data?.url) window.location.href = sessionResponse.data.url;
+                if (checkoutUrl) {
+                    window.location.href = checkoutUrl;
+                    return;
+                }
+                setErrors(["Checkout did not return a payment URL. Please try again."]);
+                return;
+            }
+
+            if (!uid) {
+                const response = await createGuestPurchase({
+                    cart: guestCart,
+                    contact: guestContact,
+                    shipping: guestShipping,
+                    discountCode: discountCode || undefined,
+                    paymentMethod: formCheckout.payment_method,
+                });
+                const orderTotal = Number(response.order?.total_price);
+                const orderDiscount = Number(response.order?.discount);
+                const resolvedTotal = Number.isFinite(orderTotal) ? orderTotal : latestTotalPrice;
+                const resolvedDiscount = Number.isFinite(orderDiscount) ? orderDiscount : discount;
+                const payload = {
+                    orderId: String(response.orderId || response.order?.id),
+                    totalPrice: resolvedTotal,
+                    discount: resolvedDiscount,
+                    subtotal: Math.max(0, resolvedTotal - resolvedDiscount),
+                    itemsCount: latestCart.reduce((sum, item) => sum + item.quantity, 0),
+                    placedAt: response.order?.date_added || toUtcIsoString(),
+                    paymentMethod: formCheckout.payment_method,
+                    email: normalizedEmail,
+                    name: normalizedName,
+                    address: formCheckout.address,
+                    city: formCheckout.city,
+                    country: formCheckout.country || "",
+                    phone: formCheckout.phone_number ? maskPhoneNumber(formCheckout.phone_number) : "",
+                    guestOrderToken: response.guestOrderToken,
+                } as const;
+                writeCheckoutSuccess(payload);
+                clearPendingCheckout();
+                clearGuestCart();
+                navigate("/checkout-success");
                 return;
             }
 
@@ -269,7 +338,7 @@ const CheckoutPaymentPage = ({
                     country: formCheckout.country || "",
                     phone: formCheckout.phone_number ? maskPhoneNumber(formCheckout.phone_number) : "",
                 };
-                sessionStorage.setItem("checkoutSuccess", JSON.stringify(payload));
+                writeCheckoutSuccess(payload);
                 navigate("/checkout-success", { state: { checkoutSuccess: payloadSensitive } });
             }
         } catch (err: unknown) {

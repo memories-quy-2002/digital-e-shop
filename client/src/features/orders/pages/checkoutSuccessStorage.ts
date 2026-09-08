@@ -12,6 +12,7 @@ export type CheckoutSuccessData = {
     city?: string;
     country?: string;
     phone?: string;
+    guestOrderToken?: string;
 };
 
 export type PendingCheckoutData = Omit<CheckoutSuccessData, "orderId" | "placedAt" | "paymentMethod">;
@@ -45,6 +46,18 @@ export function readCheckoutSuccess() {
     return readStoredJson<CheckoutSuccessData>("checkoutSuccess");
 }
 
+export function writeCheckoutSuccess(data: CheckoutSuccessData) {
+    sessionStorage.setItem("checkoutSuccess", JSON.stringify(data));
+}
+
 export function readPendingCheckout() {
     return readStoredJson<PendingCheckoutData>("checkoutPending", { clearOnError: true });
+}
+
+export function writePendingCheckout(data: PendingCheckoutData) {
+    sessionStorage.setItem("checkoutPending", JSON.stringify(data));
+}
+
+export function clearPendingCheckout() {
+    sessionStorage.removeItem("checkoutPending");
 }

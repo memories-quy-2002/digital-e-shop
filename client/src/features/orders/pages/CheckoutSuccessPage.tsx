@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
+import { useCart } from "../../../context/CartContext";
 import {
     ArrowRightIcon,
     BoxSeamIcon,
@@ -14,50 +15,93 @@ import Layout from "../../../components/layout/Layout";
 import "../../../styles/features/orders/_checkout-success.scss";
 import { formatUtcDateTime } from "../../../utils/dateTime";
 import http from "../../../lib/http";
-import { readCheckoutSuccess, readPendingCheckout, type CheckoutSuccessData } from "./checkoutSuccessStorage";
+import { fetchGuestOrderBySession } from "../api";
+import { clearGuestCart } from "../guestCartStorage";
+import {
+    clearPendingCheckout,
+    readCheckoutSuccess,
+    readPendingCheckout,
+    maskPhoneNumber,
+    type CheckoutSuccessData,
+} from "./checkoutSuccessStorage";
+
+const parseShippingAddress = (value: string | null | undefined) => {
+    if (!value) return { address: "", city: "", country: "" };
+    try {
+        const parsed = JSON.parse(value) as { address?: string; city?: string; country?: string };
+        return {
+            address: parsed.address || "",
+            city: parsed.city || "",
+            country: parsed.country || "",
+        };
+    } catch {
+        return { address: value, city: "", country: "" };
+    }
+};
 
 const CheckoutSuccessPage = () => {
     const { userData, loading } = useAuth();
+    const { fetchCart } = useCart();
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const sessionId = searchParams.get("session_id");
     const routeData = (location.state as { checkoutSuccess?: CheckoutSuccessData } | null)?.checkoutSuccess || null;
 
     const orderData = useMemo(() => readCheckoutSuccess(), []);
+    const pendingCheckout = useMemo(() => readPendingCheckout(), []);
+    const guestOrderToken = orderData?.guestOrderToken || pendingCheckout?.guestOrderToken;
 
     useEffect(() => {
         if (orderData) {
             sessionStorage.removeItem("checkoutSuccess");
         }
-    }, [orderData]);
+        if (orderData?.guestOrderToken) {
+            clearGuestCart();
+            void fetchCart();
+        }
+    }, [fetchCart, orderData]);
 
     const [polledOrder, setPolledOrder] = useState<CheckoutSuccessData | null>(null);
     const [pollingTimedOut, setPollingTimedOut] = useState(false);
+    const [copyStatus, setCopyStatus] = useState("Copy access token");
 
     const pollForOrder = useCallback(async (id: string) => {
-        const pending = readPendingCheckout();
+        const pending = pendingCheckout;
 
         for (let attempt = 0; attempt < 7; attempt += 1) {
             try {
-                const response = await http.get(`/api/orders/by-session/${id}`);
-                const order = response.data?.order;
+                const order = guestOrderToken
+                    ? await fetchGuestOrderBySession(id, guestOrderToken)
+                    : (await http.get(`/api/orders/by-session/${id}`)).data?.order;
                 if (order?.id) {
+                    const shipping = parseShippingAddress(order.shipping_address);
+                    const totalPrice = guestOrderToken ? Number(order.total_price) || 0 : pending?.totalPrice ?? 0;
+                    const discount = guestOrderToken ? Number(order.discount) || 0 : pending?.discount ?? 0;
                     setPolledOrder({
                         orderId: String(order.id),
-                        totalPrice: pending?.totalPrice ?? 0,
-                        discount: pending?.discount ?? 0,
-                        subtotal: pending?.subtotal ?? pending?.totalPrice ?? 0,
-                        itemsCount: pending?.itemsCount ?? 0,
+                        totalPrice,
+                        discount,
+                        subtotal: guestOrderToken ? Math.max(0, totalPrice - discount) : pending?.subtotal ?? totalPrice,
+                        itemsCount: guestOrderToken
+                            ? order.items.reduce((sum: number, item: { quantity?: number }) => sum + Number(item.quantity || 0), 0)
+                            : pending?.itemsCount ?? 0,
                         placedAt: order.date_added,
-                        paymentMethod: "card",
-                        email: pending?.email,
-                        name: pending?.name,
-                        address: pending?.address,
-                        city: pending?.city,
-                        country: pending?.country,
-                        phone: pending?.phone,
+                        paymentMethod: guestOrderToken ? order.payment_method as CheckoutSuccessData["paymentMethod"] : "card",
+                        email: guestOrderToken ? order.guest_email || undefined : pending?.email,
+                        name: guestOrderToken ? order.guest_name || undefined : pending?.name,
+                        address: guestOrderToken ? shipping.address : pending?.address,
+                        city: guestOrderToken ? shipping.city : pending?.city,
+                        country: guestOrderToken ? shipping.country : pending?.country,
+                        phone: guestOrderToken
+                            ? order.guest_phone ? maskPhoneNumber(order.guest_phone) : ""
+                            : pending?.phone,
+                        ...(guestOrderToken ? { guestOrderToken } : {}),
                     });
-                    sessionStorage.removeItem("checkoutPending");
+                    if (guestOrderToken) {
+                        clearGuestCart();
+                        void fetchCart();
+                    }
+                    clearPendingCheckout();
                     return;
                 }
             } catch {
@@ -66,7 +110,7 @@ const CheckoutSuccessPage = () => {
             await new Promise((resolve) => setTimeout(resolve, 1500));
         }
         setPollingTimedOut(true);
-    }, []);
+    }, [fetchCart, guestOrderToken, pendingCheckout]);
 
     useEffect(() => {
         if (sessionId && !routeData && !orderData) {
@@ -75,6 +119,7 @@ const CheckoutSuccessPage = () => {
     }, [orderData, pollForOrder, routeData, sessionId]);
 
     const combinedData = routeData || orderData || polledOrder;
+    const isGuestOrder = Boolean(combinedData?.guestOrderToken || guestOrderToken);
     const paymentLabel =
         combinedData?.paymentMethod === "bank_transfer"
             ? "Bank transfer"
@@ -82,7 +127,7 @@ const CheckoutSuccessPage = () => {
               ? "Cash on delivery"
               : combinedData?.paymentMethod === "payos"
                 ? "PayOS (VND)"
-              : combinedData?.paymentMethod === "card"
+              : combinedData?.paymentMethod === "card" || combinedData?.paymentMethod === "stripe"
                 ? "Card"
                 : "Payment method pending";
     const summaryCards = [
@@ -91,6 +136,15 @@ const CheckoutSuccessPage = () => {
         { label: "Discount", value: `$${(combinedData?.discount ?? 0).toFixed(2)}` },
         { label: "Items", value: `${combinedData?.itemsCount ?? 0}` },
     ];
+    const copyGuestToken = async () => {
+        if (!combinedData?.guestOrderToken) return;
+        try {
+            await navigator.clipboard.writeText(combinedData.guestOrderToken);
+            setCopyStatus("Copied");
+        } catch {
+            setCopyStatus("Copy failed");
+        }
+    };
 
     return (
         <Layout>
@@ -108,7 +162,7 @@ const CheckoutSuccessPage = () => {
                 {sessionId && !combinedData && pollingTimedOut ? (
                     <div className="checkout__alert">
                         Payment received — we&apos;re finalizing your order. Check{" "}
-                        <Link to="/orders">My Orders</Link> shortly if it doesn&apos;t appear here.
+                        {isGuestOrder ? <Link to="/guest-order">Guest order lookup</Link> : <Link to="/orders">My Orders</Link>} shortly if it doesn&apos;t appear here.
                     </div>
                 ) : null}
                 <article className="success__hero">
@@ -151,6 +205,27 @@ const CheckoutSuccessPage = () => {
                     ))}
                 </section>
 
+                {isGuestOrder && combinedData?.guestOrderToken ? (
+                    <section className="success__guest-access" aria-label="Guest order access">
+                        <div>
+                            <span className="success__guest-access__eyebrow">Guest order access</span>
+                            <h2>Save these details to track your order</h2>
+                            <p>Anyone with both values can view this order, so keep the access token private.</p>
+                        </div>
+                        <div className="success__guest-access__fields">
+                            <label>
+                                <span>Order ID</span>
+                                <input readOnly value={combinedData.orderId} aria-label="Order ID" />
+                            </label>
+                            <label>
+                                <span>Access token</span>
+                                <input readOnly value={combinedData.guestOrderToken} aria-label="Guest order access token" />
+                            </label>
+                            <button type="button" onClick={() => void copyGuestToken}>{copyStatus}</button>
+                        </div>
+                    </section>
+                ) : null}
+
                 <section className="success__workflow" aria-label="What happens next">
                     <article>
                         <span>
@@ -164,7 +239,11 @@ const CheckoutSuccessPage = () => {
                             <EnvelopeIcon size={18} />
                         </span>
                         <strong>Confirmation details</strong>
-                        <p>Order updates will be sent to {combinedData?.email || userData?.email || "your email"}.</p>
+                        <p>
+                            {isGuestOrder
+                                ? "Keep your order ID and access token below to check this order later."
+                                : `Order updates will be sent to ${combinedData?.email || userData?.email || "your email"}.`}
+                        </p>
                     </article>
                     <article>
                         <span>
@@ -243,8 +322,8 @@ const CheckoutSuccessPage = () => {
                     <Link to="/" className="success__action success__action--primary">
                         Continue shopping <ArrowRightIcon size={18} />
                     </Link>
-                    <Link to="/orders" className="success__action success__action--secondary">
-                        View order status
+                    <Link to={isGuestOrder ? "/guest-order" : "/orders"} className="success__action success__action--secondary">
+                        {isGuestOrder ? "Look up guest order" : "View order status"}
                     </Link>
                 </div>
             </main>

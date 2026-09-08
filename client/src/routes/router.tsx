@@ -18,6 +18,7 @@ const SupportPage = lazy(() => import("../pages/SupportPage"));
 const AdminSupportPage = lazy(() => import("../features/admin/pages/AdminSupportPage"));
 const CartPage = lazy(() => import("../features/orders/pages/CartPage"));
 const CheckoutSuccessPage = lazy(() => import("../features/orders/pages/CheckoutSuccessPage"));
+const GuestOrderLookupPage = lazy(() => import("../features/orders/pages/GuestOrderLookupPage"));
 const OrderHistoryPage = lazy(() => import("../features/orders/pages/OrderHistoryPage"));
 const CustomerAccountPage = lazy(() => import("../features/users/pages/CustomerAccountPage"));
 const AddressBookPage = lazy(() => import("../features/users/pages/AddressBookPage"));
@@ -30,7 +31,6 @@ const AdminAccountPage = lazy(() => import("../features/admin/pages/AdminAccount
 const AdminPromotionsPage = lazy(() => import("../features/admin/pages/AdminPromotionsPage"));
 const AdminAddProductPage = lazy(() => import("../features/admin/pages/AdminAddProductPage"));
 
-const ProtectedCheckoutSuccessPage = withSessionCheck(CheckoutSuccessPage);
 const ProtectedCustomerAccountPage = withSessionCheck(CustomerAccountPage);
 const ProtectedOrderHistoryPage = withSessionCheck(OrderHistoryPage);
 const ProtectedAddressBookPage = withSessionCheck(AddressBookPage);
@@ -55,13 +55,14 @@ const AppRouter = () => {
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/product" element={<ProductPage />} />
                 <Route path="/cart" element={<CartPage />} />
+                <Route path="/guest-order" element={<GuestOrderLookupPage />} />
                 <Route path="/about-us" element={<AboutUsPage />} />
                 <Route path="/contact-us" element={<ContactUsPage />} />
                 <Route path="/wishlist" element={<ProtectedWishlistPage />} />
                 <Route path="/shops" element={<ShopsPage />} />
                 <Route path="/news" element={<NewsPage />} />
                 <Route path="/support" element={<SupportPage />} />
-                <Route path="/checkout-success" element={<ProtectedCheckoutSuccessPage />} />
+                <Route path="/checkout-success" element={<CheckoutSuccessPage />} />
                 <Route path="/account" element={<ProtectedCustomerAccountPage />} />
                 <Route path="/orders" element={<ProtectedOrderHistoryPage />} />
                 <Route path="/addresses" element={<ProtectedAddressBookPage />} />
