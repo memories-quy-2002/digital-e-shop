@@ -40,7 +40,7 @@ Task tracker:
 - [ ] 8. Admin compatibility and Wiki documentation
 - [ ] 9. Full verification and manual browser smoke checks
 
-### 1. Add the guest order identity and database foundation
+### Task 1: Add the guest order identity and database foundation
 
 **Files:**
 
@@ -68,7 +68,7 @@ Task tracker:
 
 **Commit:** feat(server): add guest order identity foundation
 
-### 2. Implement the authoritative guest cart preview
+### Task 2: Implement the authoritative guest cart preview
 
 **Files:**
 
@@ -95,7 +95,7 @@ Task tracker:
 
 **Commit:** feat: add authoritative guest cart preview
 
-### 3. Add transactional guest purchase for non-Stripe methods
+### Task 3: Add transactional guest purchase for non-Stripe methods
 
 **Files:**
 
@@ -124,7 +124,7 @@ Task tracker:
 
 **Commit:** feat(server): support transactional guest purchase
 
-### 4. Extend Stripe/Card reservations and webhook finalization
+### Task 4: Extend Stripe/Card reservations and webhook finalization
 
 **Files:**
 
@@ -151,7 +151,7 @@ Task tracker:
 
 **Commit:** feat(server): support guest Stripe checkout
 
-### 5. Make the client cart context dual-source and merge-safe
+### Task 5: Make the client cart context dual-source and merge-safe
 
 **Files:**
 
@@ -177,7 +177,7 @@ Task tracker:
 
 **Commit:** feat(client): add dual-source cart state
 
-### 6. Enable guest add-to-cart and make the cart route public
+### Task 6: Enable guest add-to-cart and make the cart route public
 
 **Files:**
 
@@ -201,7 +201,7 @@ Task tracker:
 
 **Commit:** feat(client): allow guest cart additions
 
-### 7. Build guest checkout, public success, and order lookup UI
+### Task 7: Build guest checkout, public success, and order lookup UI
 
 **Files:**
 
@@ -229,7 +229,7 @@ Task tracker:
 
 **Commit:** feat(client): add guest checkout and order lookup
 
-### 8. Preserve admin compatibility and document the new contract
+### Task 8: Preserve admin compatibility and document the new contract
 
 **Files:**
 
@@ -254,7 +254,7 @@ Task tracker:
 
 **Commit:** docs: document guest cart and checkout architecture
 
-### 9. Run the complete verification and manual browser smoke checks
+### Task 9: Run the complete verification and manual browser smoke checks
 
 **Files:** No source changes are expected unless a verification result identifies a concrete defect. Keep any fix scoped to the failing task and add a regression test.
 
