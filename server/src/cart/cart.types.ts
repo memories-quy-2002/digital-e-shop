@@ -1,4 +1,5 @@
 import type { CartCheckoutItem } from "./cart.dto";
+import type { GuestCartItemInput, GuestCartPreviewInput } from "./cart.dto";
 
 export type CartItemRow = {
     id?: number;
@@ -65,4 +66,18 @@ export type CheckoutValidationResult = CartValidationResult & {
     authoritativeTotalPrice: number;
 };
 
-export type { CartCheckoutItem };
+export type GuestCartPromotionPreview = {
+    code: string | null;
+    valid: boolean;
+    discount: number;
+    discountPercent: number | null;
+    message?: string;
+};
+
+export type GuestCartPreviewResult = CartValidationResult & {
+    merchandiseTotal: number;
+    promotion: GuestCartPromotionPreview;
+    totalPrice: number;
+};
+
+export type { CartCheckoutItem, GuestCartItemInput, GuestCartPreviewInput };

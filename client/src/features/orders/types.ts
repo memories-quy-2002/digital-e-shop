@@ -62,6 +62,28 @@ export type CartValidationIssue = {
     reason: "unavailable" | "out_of_stock" | "insufficient_stock";
 };
 
+export type GuestCartItemInput = {
+    productId: number;
+    quantity: number;
+};
+
+export type GuestCartPromotionPreview = {
+    code: string | null;
+    valid: boolean;
+    discount: number;
+    discountPercent: number | null;
+    message?: string;
+};
+
+export type GuestCartPreview = {
+    valid: boolean;
+    cartItems: CheckoutCartItem[];
+    issues: CartValidationIssue[];
+    merchandiseTotal: number;
+    promotion: GuestCartPromotionPreview;
+    totalPrice: number;
+};
+
 const normalizeOptionalSalePrice = (value: unknown) => {
     if (value === null || value === undefined || value === "") {
         return null;

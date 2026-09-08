@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import http from "../../lib/http";
-import { cancelCustomerOrder } from "./api";
+import { cancelCustomerOrder, previewGuestCart } from "./api";
 
 vi.mock("../../lib/http", () => ({
     default: {
@@ -24,5 +24,18 @@ describe("orders API", () => {
         await cancelCustomerOrder(42);
 
         expect(http.post).toHaveBeenCalledWith("/api/orders/42/cancel", {});
+    });
+
+    it("uses the shared HTTP client for an authoritative guest cart preview", async () => {
+        vi.mocked(http.post).mockResolvedValueOnce({
+            data: { valid: true, cartItems: [], issues: [], merchandiseTotal: 80, promotion: {}, totalPrice: 80 },
+        } as never);
+
+        await expect(previewGuestCart([{ productId: 10, quantity: 1 }], "SAVE10")).resolves.toMatchObject({ totalPrice: 80 });
+
+        expect(http.post).toHaveBeenCalledWith("/api/cart/guest/preview", {
+            items: [{ productId: 10, quantity: 1 }],
+            discountCode: "SAVE10",
+        });
     });
 });

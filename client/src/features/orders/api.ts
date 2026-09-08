@@ -1,5 +1,5 @@
 import http from "../../lib/http";
-import type { CustomerOrder, CustomerOrderDetail } from "./types";
+import type { CustomerOrder, CustomerOrderDetail, GuestCartItemInput, GuestCartPreview } from "./types";
 
 export type { CustomerOrder, CustomerOrderDetail } from "./types";
 
@@ -31,4 +31,15 @@ export async function addItemsToCustomerCart(
             }),
         ),
     );
+}
+
+export async function previewGuestCart(
+    items: GuestCartItemInput[],
+    discountCode?: string,
+): Promise<GuestCartPreview> {
+    const response = await http.post("/api/cart/guest/preview", {
+        items,
+        ...(discountCode ? { discountCode } : {}),
+    });
+    return response.data as GuestCartPreview;
 }
