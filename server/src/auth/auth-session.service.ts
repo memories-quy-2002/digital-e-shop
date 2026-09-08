@@ -4,6 +4,7 @@ import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { env } from "#src/config/env.config";
 import { UsersRepository } from "../users/users.repository";
 import type { UserRow } from "../users/users.types";
+import { toPublicUser } from "../users/user-public";
 import { AuthRepository } from "./auth.repository";
 import type { AuthSessionPayload } from "./auth.types";
 
@@ -67,7 +68,7 @@ export class AuthSessionService {
         await this.persistAccessToken(user, accessToken);
 
         return {
-            user,
+            user: toPublicUser(user),
             token: accessToken,
             sessionId,
             refreshToken: rawRefreshToken,
