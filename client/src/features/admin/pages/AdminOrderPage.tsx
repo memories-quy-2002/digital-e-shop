@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Modal, Table } from "../../../components/ui/legacy";
 import ReactPaginate from "react-paginate";
 import type { AdminOrder as Order, AdminOrderDetail as OrderDetail } from "../../../types/order";
@@ -10,6 +10,8 @@ import { CheckCircleIcon, XCircleIcon } from "../../../components/common/Icons";
 import { Helmet } from "react-helmet";
 import { formatUtcDate, formatUtcDateTime, toUtcIsoString } from "../../../utils/dateTime";
 import { fetchAllOrders, fetchOrderDetail, updateOrderStatus, bulkUpdateOrderStatus } from "../api";
+import AdminStatusPanel from "../components/AdminStatusPanel";
+import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
 
 const ITEMS_PER_PAGE = 8;
 
@@ -78,20 +80,29 @@ const AdminOrderPage = () => {
     const [showBulkConfirm, setShowBulkConfirm] = useState(false);
     const [bulkTarget, setBulkTarget] = useState<1 | 2 | null>(null);
     const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [hasLoaded, setHasLoaded] = useState(false);
+    const [loadError, setLoadError] = useState<AdminRequestError | null>(null);
+    const hasLoadedRef = useRef(false);
     const { addToast } = useToast();
 
-    useEffect(() => {
-        const loadOrders = async () => {
-            try {
-                const orders = await fetchAllOrders();
+    const loadOrders = React.useCallback(async () => {
+        try {
+            setIsLoading(true);
+            setLoadError(null);
+            const orders = await fetchAllOrders();
                 setOrders((orders || []).map(normalizeOrder));
-            } catch {
-                addToast("Orders", "Unable to load orders.");
-            }
-        };
-
-        loadOrders();
+            setHasLoaded(true);
+            hasLoadedRef.current = true;
+        } catch (error) {
+            setLoadError(getAdminRequestError(error));
+            if (hasLoadedRef.current) addToast("Orders", "Refresh failed. Showing the latest saved orders.");
+        } finally {
+            setIsLoading(false);
+        }
     }, [addToast]);
+
+    useEffect(() => { loadOrders(); }, [loadOrders]);
 
     const filteredOrders = useMemo(() => {
         const lowerSearchTerm = searchTerm.trim().toLowerCase();
@@ -340,6 +351,7 @@ const AdminOrderPage = () => {
                         </p>
                     </div>
                     <div className="admin__page__actions">
+                        <button type="button" className="admin__button admin__button--ghost" onClick={loadOrders}>Refresh</button>
                         <button type="button" className="admin__button admin__button--primary" onClick={exportOrdersCsv}>
                             Export orders CSV
                         </button>
@@ -463,6 +475,11 @@ const AdminOrderPage = () => {
                         </div>
                     ) : null}
                     <div className="admin__card__body admin__list-shell">
+                        {loadError && !hasLoaded ? <AdminStatusPanel variant="error" title={loadError.title} description={loadError.message} onRetry={loadOrders} /> : null}
+                        {isLoading && !hasLoaded ? <AdminStatusPanel variant="loading" title="Loading orders" description="Fetching the latest orders." /> : null}
+                        {loadError && hasLoaded ? <AdminStatusPanel variant="error" title="Refresh failed" description={loadError.message} onRetry={loadOrders} retryLabel="Retry refresh" /> : null}
+                        {!isLoading && !loadError && hasLoaded && filteredOrders.length === 0 ? <AdminStatusPanel variant="empty" title="No orders found" description="No orders match the current filters." /> : null}
+                        {(!loadError || hasLoaded) && !(isLoading && !hasLoaded) ? <>
                         <div className="admin__table-wrap">
                         <Table responsive hover borderless className="admin__table">
                             <thead>
@@ -617,6 +634,7 @@ const AdminOrderPage = () => {
                                 renderOnZeroPageCount={null}
                             />
                         </div>
+                        </> : null}
                     </div>
                 </section>
 

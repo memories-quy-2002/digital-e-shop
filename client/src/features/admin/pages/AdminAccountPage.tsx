@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useEffect, useMemo, useState } from "react";
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Modal, Table } from "../../../components/ui/legacy";
 import ReactPaginate from "react-paginate";
 import { Role } from "../../../types/user";
@@ -8,6 +8,8 @@ import AdminWorkflowSteps from "../../../components/common/admin/AdminWorkflowSt
 import { Helmet } from "react-helmet";
 import { useToast } from "../../../context/ToastContext";
 import { fetchAllUsers, updateAccount, fetchCustomerProfile } from "../api";
+import AdminStatusPanel from "../components/AdminStatusPanel";
+import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
 
 const ITEMS_PER_PAGE = 8;
 
@@ -35,31 +37,41 @@ const AdminAccountPage = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedProfile, setSelectedProfile] = useState<CustomerProfile | null>(null);
     const [showProfile, setShowProfile] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [hasLoaded, setHasLoaded] = useState(false);
+    const [loadError, setLoadError] = useState<AdminRequestError | null>(null);
+    const hasLoadedRef = useRef(false);
     const { addToast } = useToast();
     const deferredSearchTerm = useDeferredValue(searchTerm);
 
-    useEffect(() => {
-        const loadUsers = async () => {
-            try {
-                const users = await fetchAllUsers();
+    const loadUsers = React.useCallback(async () => {
+        try {
+            setIsLoading(true);
+            setLoadError(null);
+            const users = await fetchAllUsers();
                 const newAccounts: Account[] = (users || []).map((account: any) => ({
                     ...account,
                     status: account.status || "Active",
                     order_count: Number(account.order_count) || 0,
                     created_at: new Date(account.created_at),
                 }));
-                setAccounts(
+            setAccounts(
                     newAccounts.sort(
                         (a: Account, b: Account) =>
                             new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
                     ),
-                );
-            } catch {
-                addToast("Accounts", "Unable to load accounts.");
-            }
-        };
-        loadUsers();
+            );
+            setHasLoaded(true);
+            hasLoadedRef.current = true;
+        } catch (error) {
+            setLoadError(getAdminRequestError(error));
+            if (hasLoadedRef.current) addToast("Accounts", "Refresh failed. Showing the latest saved accounts.");
+        } finally {
+            setIsLoading(false);
+        }
     }, [addToast]);
+
+    useEffect(() => { loadUsers(); }, [loadUsers]);
 
     const filteredAccounts = useMemo(() => {
         const lowerSearchTerm = deferredSearchTerm.trim().toLowerCase();
@@ -163,6 +175,7 @@ const AdminAccountPage = () => {
                         </p>
                     </div>
                     <div className="admin__page__actions">
+                        <button type="button" className="admin__button admin__button--ghost" onClick={loadUsers}>Refresh</button>
                         <button type="button" className="admin__button admin__button--primary" onClick={exportAccountsCsv}>
                             Export customers CSV
                         </button>
@@ -222,6 +235,11 @@ const AdminAccountPage = () => {
                         </div>
                     </div>
                     <div className="admin__card__body admin__list-shell">
+                        {loadError && !hasLoaded ? <AdminStatusPanel variant="error" title={loadError.title} description={loadError.message} onRetry={loadUsers} /> : null}
+                        {isLoading && !hasLoaded ? <AdminStatusPanel variant="loading" title="Loading accounts" description="Fetching the latest customer accounts." /> : null}
+                        {loadError && hasLoaded ? <AdminStatusPanel variant="error" title="Refresh failed" description={loadError.message} onRetry={loadUsers} retryLabel="Retry refresh" /> : null}
+                        {!isLoading && !loadError && hasLoaded && filteredAccounts.length === 0 ? <AdminStatusPanel variant="empty" title="No accounts found" description="No accounts match the current search." /> : null}
+                        {(!loadError || hasLoaded) && !(isLoading && !hasLoaded) ? <>
                         <div className="admin__table-wrap">
                         <Table responsive hover borderless className="admin__table">
                             <thead>
@@ -321,6 +339,7 @@ const AdminAccountPage = () => {
                                 renderOnZeroPageCount={null}
                             />
                         </div>
+                        </> : null}
                     </div>
                 </section>
 

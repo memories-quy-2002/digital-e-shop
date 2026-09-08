@@ -1,8 +1,17 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { MemoryRouter, useLocation } from "react-router-dom";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import AppRouter from "./router";
+import { Role, type UserData } from "../types/user";
+
+const authState = vi.hoisted(() => ({
+    value: { loading: false, userData: null as UserData },
+}));
+
+vi.mock("../context/AuthContext", () => ({
+    useAuth: () => ({ ...authState.value, setUserData: vi.fn() }),
+}));
 
 vi.mock("../features/auth/components/withSessionCheck", () => ({
     default: (Component: React.ComponentType) => (props: Record<string, unknown>) => (
@@ -31,6 +40,51 @@ vi.mock("../features/users/pages/CustomerAccountPage", () => ({
 vi.mock("../pages/WishlistPage", () => ({
     default: () => <div data-testid="wishlist-page">Wishlist page</div>,
 }));
+
+vi.mock("../features/admin/pages/AdminDashboard", () => ({
+    default: () => <div data-testid="admin-dashboard-page">Admin dashboard</div>,
+}));
+
+vi.mock("../features/admin/pages/AdminNotificationsPage", () => ({ default: () => <div>Admin notifications</div> }));
+vi.mock("../features/admin/pages/AdminSupportPage", () => ({ default: () => <div>Admin support</div> }));
+vi.mock("../features/admin/pages/AdminProductPage", () => ({ default: () => <div>Admin products</div> }));
+vi.mock("../features/admin/pages/AdminOrderPage", () => ({ default: () => <div>Admin orders</div> }));
+vi.mock("../features/admin/pages/AdminAccountPage", () => ({ default: () => <div>Admin accounts</div> }));
+vi.mock("../features/admin/pages/AdminPromotionsPage", () => ({ default: () => <div>Admin promotions</div> }));
+vi.mock("../features/admin/pages/AdminAddProductPage", () => ({ default: () => <div>Admin add product</div> }));
+
+vi.mock("../features/auth/pages/LoginPage", () => ({
+    default: () => {
+        const location = useLocation();
+        return <div data-testid="login-location">{location.pathname + location.search}</div>;
+    },
+}));
+
+const adminPaths = [
+    "/admin",
+    "/admin/notifications",
+    "/admin/support",
+    "/admin/products",
+    "/admin/orders",
+    "/admin/accounts",
+    "/admin/promotions",
+    "/admin/add",
+] as const;
+
+const buildUser = (role: Role): NonNullable<UserData> => ({
+    id: "user-1",
+    email: "user@example.com",
+    username: "user",
+    first_name: "Test",
+    last_name: "User",
+    role,
+    created_at: new Date("2026-01-01"),
+    last_login: new Date("2026-01-01"),
+});
+
+beforeEach(() => {
+    authState.value = { loading: false, userData: null };
+});
 
 describe("cart routing", () => {
     it("renders /cart without the protected route wrapper", async () => {
@@ -85,5 +139,42 @@ describe("cart routing", () => {
 
         expect(await screen.findByTestId("public-guest-order-page")).toBeInTheDocument();
         expect(screen.queryByTestId("protected-route")).not.toBeInTheDocument();
+    });
+});
+
+describe("admin routing", () => {
+    it.each(adminPaths)("blocks anonymous access to %s", async (path) => {
+        render(
+            <MemoryRouter initialEntries={[path]}>
+                <AppRouter />
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByTestId("login-location")).toHaveTextContent(
+            "/login?redirect=" + encodeURIComponent(path),
+        );
+    });
+
+    it("blocks a Customer from Admin pages", async () => {
+        authState.value = { loading: false, userData: buildUser(Role.Customer) };
+        render(
+            <MemoryRouter initialEntries={["/admin/orders"]}>
+                <AppRouter />
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
+    });
+
+    it("keeps the forbidden route public", async () => {
+        render(
+            <MemoryRouter initialEntries={["/403"]}>
+                <AppRouter />
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "Go to home" })).toHaveAttribute("href", "/");
+        expect(screen.getByRole("link", { name: "Go to account" })).toHaveAttribute("href", "/account");
     });
 });

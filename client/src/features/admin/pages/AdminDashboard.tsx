@@ -20,6 +20,12 @@ import {
     fetchAdminUsers,
     fetchOrderItems,
 } from "../api";
+import {
+    displayDashboardValue,
+    getDashboardUpdateLabel,
+    initialDashboardAvailability,
+    type DashboardAvailability,
+} from "../utils/dashboardAvailability";
 
 interface CardProps {
     title: string;
@@ -322,6 +328,7 @@ const AdminDashboard = () => {
     const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary | null>(null);
     const [loading, setLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+    const [availability, setAvailability] = useState<DashboardAvailability>(initialDashboardAvailability);
     const { addToast } = useToast();
 
     const fetchDashboardData = useCallback(async (showToast = false) => {
@@ -336,38 +343,45 @@ const AdminDashboard = () => {
                 fetchOrderItems(1, 120),
             ]);
 
-            let loadedSections = 0;
-            let analyticsLoaded = false;
+            const results = {
+                analytics: analyticsResult,
+                products: productResult,
+                orders: orderResult,
+                users: userResult,
+                orderItems: orderItemResult,
+            };
+            const loadedSections = Object.values(results).filter((result) => result.status === "fulfilled").length;
+            const nextAvailability: DashboardAvailability = {
+                analytics: analyticsResult.status === "fulfilled" ? "success" : "error",
+                products: productResult.status === "fulfilled" ? "success" : "error",
+                orders: orderResult.status === "fulfilled" ? "success" : "error",
+                users: userResult.status === "fulfilled" ? "success" : "error",
+                orderItems: orderItemResult.status === "fulfilled" ? "success" : "error",
+            };
+
+            setAvailability(nextAvailability);
 
             if (analyticsResult.status === "fulfilled") {
                 const raw = analyticsResult.value?.summary && typeof analyticsResult.value.summary === "object"
                     ? analyticsResult.value.summary
                     : analyticsResult.value;
                 setAnalyticsSummary(raw);
-                analyticsLoaded = !!raw;
-                loadedSections += raw ? 1 : 0;
-            } else {
-                setAnalyticsSummary(null);
             }
 
             if (productResult.status === "fulfilled") {
                 setProducts(productResult.value || []);
-                loadedSections += 1;
             }
 
             if (orderResult.status === "fulfilled") {
                 setOrders((orderResult.value || []).map(normalizeOrder));
-                loadedSections += 1;
             }
 
             if (userResult.status === "fulfilled") {
                 setUsers((userResult.value || []).map(normalizeUser));
-                loadedSections += 1;
             }
 
             if (orderItemResult.status === "fulfilled") {
                 setOrderItems((orderItemResult.value || []).map(normalizeOrderItem));
-                loadedSections += 1;
             }
 
             if (loadedSections === 0) {
@@ -376,14 +390,14 @@ const AdminDashboard = () => {
             }
 
             setLastUpdated(new Date());
-            if (!analyticsLoaded && showToast) {
+            if (nextAvailability.analytics === "error" && showToast) {
                 addToast("Dashboard analytics", "Core dashboard loaded, but analytics summary is unavailable.");
             }
 
             if (showToast) {
                 addToast(
                     "Dashboard refresh",
-                    loadedSections >= 4 ? "Dashboard data refreshed." : "Dashboard loaded with partial data.",
+                    loadedSections === 5 ? "Dashboard data refreshed." : "Dashboard loaded with partial data.",
                 );
             }
         } catch {
@@ -403,34 +417,34 @@ const AdminDashboard = () => {
         return () => window.clearInterval(refreshTimer);
     }, [fetchDashboardData]);
 
-    const monthlyTrends = useMemo(() => buildMonthlyTrends(orders, orderItems), [orders, orderItems]);
-    const topRevenueProducts = useMemo(() => getTopRevenueProducts(orderItems), [orderItems]);
-    const dailyActivity = useMemo(() => buildDailyActivity(orders), [orders]);
-    const paymentMix = useMemo(() => buildPaymentMix(orders), [orders]);
-    const statusMix = useMemo(() => buildStatusMix(orders), [orders]);
-    const categoryRevenue = useMemo(() => buildCategoryRevenue(products, orderItems), [products, orderItems]);
-    const stockRisk = useMemo(() => buildStockRisk(products), [products]);
+    const monthlyTrends = useMemo(() => (availability.orders === "success" && availability.orderItems === "success" ? buildMonthlyTrends(orders, orderItems) : []), [availability.orders, availability.orderItems, orders, orderItems]);
+    const topRevenueProducts = useMemo(() => (availability.orderItems === "success" ? getTopRevenueProducts(orderItems) : []), [availability.orderItems, orderItems]);
+    const dailyActivity = useMemo(() => (availability.orders === "success" ? buildDailyActivity(orders) : []), [availability.orders, orders]);
+    const paymentMix = useMemo(() => (availability.orders === "success" ? buildPaymentMix(orders) : []), [availability.orders, orders]);
+    const statusMix = useMemo(() => (availability.orders === "success" ? buildStatusMix(orders) : []), [availability.orders, orders]);
+    const categoryRevenue = useMemo(() => (availability.products === "success" && availability.orderItems === "success" ? buildCategoryRevenue(products, orderItems) : []), [availability.products, availability.orderItems, products, orderItems]);
+    const stockRisk = useMemo(() => (availability.products === "success" ? buildStockRisk(products) : []), [availability.products, products]);
     const analyticsTrend = useMemo(
         () =>
-            (analyticsSummary?.charts?.revenueTrend || analyticsSummary?.revenueTrend || []).map((point: any) => ({
+            (availability.analytics === "success" ? analyticsSummary?.charts?.revenueTrend || analyticsSummary?.revenueTrend || [] : []).map((point: any) => ({
                 name: formatUtcDay(new Date(`${point.date}T00:00:00Z`)),
                 revenue: Number(point.netRevenue ?? point.revenue) || 0,
                 orders: Number(point.orders) || 0,
             })),
-        [analyticsSummary],
+        [analyticsSummary, availability.analytics],
     );
     const analyticsCategoryRevenue = useMemo(
         () =>
-            (analyticsSummary?.charts?.categoryPerformance || analyticsSummary?.categoryRevenue || []).map((point: any) => ({
+            (availability.analytics === "success" ? analyticsSummary?.charts?.categoryPerformance || analyticsSummary?.categoryRevenue || [] : []).map((point: any) => ({
                 name: point.name,
                 value: Number(point.revenue ?? point.value) || 0,
                 units: Number(point.units) || 0,
             })),
-        [analyticsSummary],
+        [analyticsSummary, availability.analytics],
     );
     const analyticsPaymentMix = useMemo(
         () =>
-            (analyticsSummary?.charts?.paymentMethods || []).map((point: any) => ({
+            (availability.analytics === "success" ? analyticsSummary?.charts?.paymentMethods || [] : []).map((point: any) => ({
                 name: point.name === "bank_transfer"
                     ? "Bank transfer"
                     : point.name === "cash"
@@ -442,29 +456,40 @@ const AdminDashboard = () => {
                           : "Unknown",
                 value: Number(point.value) || 0,
             })),
-        [analyticsSummary],
+        [analyticsSummary, availability.analytics],
     );
     const analyticsStatusMix = useMemo(
         () =>
-            (analyticsSummary?.charts?.orderStatusBreakdown || []).map((point: any) => ({
+            (availability.analytics === "success" ? analyticsSummary?.charts?.orderStatusBreakdown || [] : []).map((point: any) => ({
                 name: point.name,
                 value: Number(point.value) || 0,
             })),
-        [analyticsSummary],
+        [analyticsSummary, availability.analytics],
     );
     const analyticsInventoryRisk = useMemo(
         () =>
-            (analyticsSummary?.operations?.inventoryRisk || analyticsSummary?.inventoryRisk || []).map((point: any) => ({
+            (availability.analytics === "success" ? analyticsSummary?.operations?.inventoryRisk || analyticsSummary?.inventoryRisk || [] : []).map((point: any) => ({
                 name: point.name,
                 value: Number(point.stock) || 0,
                 stock: Number(point.stock) || 0,
             })),
-        [analyticsSummary],
+        [analyticsSummary, availability.analytics],
     );
 
     const thisMonth = monthlyTrends[5] || { name: "", sales: 0, revenue: 0 };
     const previousMonth = monthlyTrends[4] || { name: "", sales: 0, revenue: 0 };
-    const hasAnalyticsKpis = Boolean(analyticsSummary?.kpis);
+    const analyticsKpiStatus = availability.analytics === "error" && analyticsSummary === null
+        ? "success"
+        : availability.analytics;
+    const hasAnalyticsKpis = availability.analytics === "success" && Boolean(analyticsSummary?.kpis);
+    const getKpiStatus = (sourceStatus: "loading" | "success" | "error") =>
+        sourceStatus === "error" || (analyticsSummary !== null && availability.analytics === "error")
+            ? "error"
+            : sourceStatus;
+    const productsKpiStatus = getKpiStatus(availability.products);
+    const usersKpiStatus = getKpiStatus(availability.users);
+    const ordersKpiStatus = getKpiStatus(availability.orders);
+    const revenueKpiStatus = analyticsSummary ? analyticsKpiStatus : availability.orders;
 
     const salesPercentageChange = useMemo(
         () => calculatePercentageChange(thisMonth.sales, previousMonth.sales),
@@ -476,22 +501,30 @@ const AdminDashboard = () => {
     );
 
     const dashboardStats = useMemo(() => {
-        const pendingOrders = Number(analyticsSummary?.kpis?.orders?.pending) || orders.filter((order) => order.status === 0).length;
-        const completedOrders = Number(analyticsSummary?.kpis?.orders?.completed) || orders.filter((order) => order.status === 1).length;
-        const cancelledOrders = Number(analyticsSummary?.kpis?.orders?.cancelled) || orders.filter((order) => order.status === 2).length;
-        const bankTransferOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Bank transfer")?.value || orders.filter((order) => order.payment_method === "bank_transfer").length;
-        const cashOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Cash")?.value || orders.filter((order) => order.payment_method === "cash").length;
-        const payosOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "PayOS")?.value || orders.filter((order) => order.payment_method === "payos").length;
-        const stripeOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Stripe")?.value || orders.filter((order) => order.payment_method === "stripe" || order.payment_method === "card").length;
-        const totalRevenue = Number(analyticsSummary?.kpis?.revenue?.net) || orders.reduce((sum, order) => sum + getNetRevenue(order), 0);
-        const lowStockProducts = (analyticsSummary?.operations?.inventoryRisk || [])
+        const pendingOrders = availability.analytics === "success" && analyticsSummary?.kpis?.orders?.pending !== undefined
+            ? Number(analyticsSummary.kpis.orders.pending)
+            : orders.filter((order) => order.status === 0).length;
+        const completedOrders = availability.analytics === "success" && analyticsSummary?.kpis?.orders?.completed !== undefined
+            ? Number(analyticsSummary.kpis.orders.completed)
+            : orders.filter((order) => order.status === 1).length;
+        const cancelledOrders = availability.analytics === "success" && analyticsSummary?.kpis?.orders?.cancelled !== undefined
+            ? Number(analyticsSummary.kpis.orders.cancelled)
+            : orders.filter((order) => order.status === 2).length;
+        const bankTransferOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Bank transfer")?.value ?? orders.filter((order) => order.payment_method === "bank_transfer").length;
+        const cashOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Cash")?.value ?? orders.filter((order) => order.payment_method === "cash").length;
+        const payosOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "PayOS")?.value ?? orders.filter((order) => order.payment_method === "payos").length;
+        const stripeOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Stripe")?.value ?? orders.filter((order) => order.payment_method === "stripe" || order.payment_method === "card").length;
+        const totalRevenue = availability.analytics === "success" && analyticsSummary?.kpis?.revenue?.net !== undefined
+            ? Number(analyticsSummary.kpis.revenue.net)
+            : orders.reduce((sum, order) => sum + getNetRevenue(order), 0);
+        const lowStockProducts = (availability.analytics === "success" ? analyticsSummary?.operations?.inventoryRisk || [] : [])
             .filter((product: any) => Number(product.stock) <= 5)
             .sort((a: any, b: any) => Number(a.stock) - Number(b.stock))
             .slice(0, 5);
-        const fallbackLowStockProducts = products
+        const fallbackLowStockProducts = availability.products === "success" ? products
             .filter((product) => product.stock <= 5)
             .sort((a, b) => a.stock - b.stock)
-            .slice(0, 5);
+            .slice(0, 5) : [];
         const latestOrders = [...orders]
             .sort((a, b) => new Date(b.date_added).getTime() - new Date(a.date_added).getTime())
             .slice(0, 5);
@@ -512,61 +545,95 @@ const AdminDashboard = () => {
             latestOrders,
             latestUsers,
         };
-    }, [analyticsPaymentMix, analyticsSummary, orders, products, users]);
+    }, [analyticsPaymentMix, analyticsSummary, availability.analytics, availability.products, orders, products, users]);
 
     const handleDownloadReport = () => {
+        const reportKpisAvailable = availability.analytics === "success";
+        const reportActiveProducts = reportKpisAvailable && availability.products === "success"
+            ? analyticsSummary?.kpis?.inventory?.totalProducts ?? products.length
+            : "Unavailable";
+        const reportRegisteredUsers = reportKpisAvailable && availability.users === "success"
+            ? analyticsSummary?.kpis?.customers?.total ?? users.length
+            : "Unavailable";
+        const reportOrdersTracked = reportKpisAvailable && availability.orders === "success"
+            ? analyticsSummary?.kpis?.orders?.total ?? orders.length
+            : "Unavailable";
+        const reportSalesAvailable = reportKpisAvailable && availability.orders === "success" && availability.orderItems === "success";
+        const reportSales = reportSalesAvailable ? thisMonth.sales : "Unavailable";
+        const reportRevenue = reportSalesAvailable ? formatCurrency(thisMonth.revenue) : "Unavailable";
+        const reportPreviousSales = reportSalesAvailable ? previousMonth.sales : "Unavailable";
+        const reportPreviousRevenue = reportSalesAvailable ? formatCurrency(previousMonth.revenue) : "Unavailable";
+        const reportSalesChange = reportSalesAvailable ? `${salesPercentageChange.toFixed(2)}%` : "Unavailable";
+        const reportRevenueChange = reportSalesAvailable ? `${revenuePercentageChange.toFixed(2)}%` : "Unavailable";
+        const reportOrderPipelineAvailable = reportKpisAvailable && availability.orders === "success";
+        const reportPendingOrders = reportOrderPipelineAvailable ? dashboardStats.pendingOrders : "Unavailable";
+        const reportCompletedOrders = reportOrderPipelineAvailable ? dashboardStats.completedOrders : "Unavailable";
+        const reportCancelledOrders = reportOrderPipelineAvailable ? dashboardStats.cancelledOrders : "Unavailable";
+        const reportPaymentMixAvailable = reportKpisAvailable && availability.orders === "success";
+        const reportTopProductsAvailable = availability.orderItems === "success";
+        const reportLowStockAvailable = availability.products === "success";
+        const reportLatestOrdersAvailable = availability.orders === "success";
+        const reportLatestUsersAvailable = availability.users === "success";
         const text = [
             "DIGITAL-E OPERATIONS REPORT",
             `Generated at: ${formatReportDate()}`,
             "",
             "OVERVIEW",
-            `- Orders tracked: ${orders.length}`,
-            `- Active products: ${analyticsSummary?.kpis?.inventory?.totalProducts ?? products.length}`,
-            `- Registered users: ${analyticsSummary?.kpis?.customers?.total ?? users.length}`,
-            `- Sales this month: ${thisMonth.sales}`,
-            `- Revenue this month: ${formatCurrency(thisMonth.revenue)}`,
+            `- Orders tracked: ${reportOrdersTracked}`,
+            `- Active products: ${reportActiveProducts}`,
+            `- Registered users: ${reportRegisteredUsers}`,
+            `- Sales this month: ${reportSales}`,
+            `- Revenue this month: ${reportRevenue}`,
             "",
             "MOMENTUM",
-            `- Sales change vs last month: ${salesPercentageChange.toFixed(2)}% (${previousMonth.sales} -> ${thisMonth.sales})`,
-            `- Revenue change vs last month: ${revenuePercentageChange.toFixed(2)}% (${formatCurrency(previousMonth.revenue)} -> ${formatCurrency(thisMonth.revenue)})`,
+            `- Sales change vs last month: ${reportSalesChange} (${reportPreviousSales} -> ${reportSales})`,
+            `- Revenue change vs last month: ${reportRevenueChange} (${reportPreviousRevenue} -> ${reportRevenue})`,
             "",
             "ORDER PIPELINE",
-            `- Pending orders: ${dashboardStats.pendingOrders}`,
-            `- Completed orders: ${dashboardStats.completedOrders}`,
-            `- Cancelled orders: ${dashboardStats.cancelledOrders}`,
+            `- Pending orders: ${reportPendingOrders}`,
+            `- Completed orders: ${reportCompletedOrders}`,
+            `- Cancelled orders: ${reportCancelledOrders}`,
             "",
             "PAYMENT MIX",
-            `- Bank transfer orders: ${dashboardStats.bankTransferOrders}`,
-            `- Cash orders: ${dashboardStats.cashOrders}`,
+            `- Bank transfer orders: ${reportPaymentMixAvailable ? dashboardStats.bankTransferOrders : "Unavailable"}`,
+            `- Cash orders: ${reportPaymentMixAvailable ? dashboardStats.cashOrders : "Unavailable"}`,
             "",
             "TOP REVENUE PRODUCTS",
-            ...topRevenueProducts.slice(0, 5).map((product, index) => {
-                return `${index + 1}. ${product.name} | Sales: ${product.sales} | Revenue: ${formatCurrency(product.revenue)}`;
-            }),
+            ...(reportTopProductsAvailable
+                ? topRevenueProducts.slice(0, 5).map((product, index) => {
+                      return `${index + 1}. ${product.name} | Sales: ${product.sales} | Revenue: ${formatCurrency(product.revenue)}`;
+                  })
+                : ["- Unavailable"]),
             "",
             "LOW STOCK WATCHLIST",
-            ...(dashboardStats.lowStockProducts.length > 0
-                ? dashboardStats.lowStockProducts.map(
+            ...(!reportLowStockAvailable
+                ? ["- Unavailable"]
+                : dashboardStats.lowStockProducts.length > 0
+                  ? dashboardStats.lowStockProducts.map(
                       (product: any, index: number) => `${index + 1}. ${product.name} | Remaining stock: ${product.stock}`,
-                  )
-                : ["- No products are currently below the low-stock threshold."]),
+                    )
+                  : ["- No products are currently below the low-stock threshold."]),
             "",
             "LATEST ORDERS",
-            ...(dashboardStats.latestOrders.length > 0
-                ? dashboardStats.latestOrders.map((order) => {
+            ...(!reportLatestOrdersAvailable
+                ? ["- Unavailable"]
+                : dashboardStats.latestOrders.length > 0
+                  ? dashboardStats.latestOrders.map((order) => {
                       return `- Order #${order.id} | ${getOrderStatusLabel(order.status)} | ${formatCurrency(getNetRevenue(order))} | ${formatReportDate(
                           new Date(order.date_added),
                       )}`;
-                  })
-                : ["- No recent orders found."]),
+                    })
+                  : ["- No recent orders found."]),
             "",
             "NEWEST CUSTOMERS",
-            ...(dashboardStats.latestUsers.length > 0
-                ? dashboardStats.latestUsers.map((user) => {
+            ...(!reportLatestUsersAvailable
+                ? ["- Unavailable"]
+                : dashboardStats.latestUsers.length > 0
+                  ? dashboardStats.latestUsers.map((user) => {
                       const name = [user.first_name, user.last_name].filter(Boolean).join(" ").trim() || user.username;
                       return `- ${name} | ${user.email} | Joined ${formatReportDate(new Date(user.created_at))}`;
-                  })
-                : ["- No recent users found."]),
+                    })
+                  : ["- No recent users found."]),
             "",
         ].join("\n");
 
@@ -598,7 +665,7 @@ const AdminDashboard = () => {
                     <div className="admin__dashboard__hero__actions">
                         <span className="admin__dashboard__live">
                             <i />
-                            {loading ? "Refreshing" : `Updated ${lastUpdated ? lastUpdated.toLocaleTimeString("en-GB") : "now"}`}
+                            {loading ? "Refreshing" : `${getDashboardUpdateLabel(availability)}${lastUpdated ? ` ${lastUpdated.toLocaleTimeString("en-GB")}` : ""}`}
                         </span>
                         <button
                             type="button"
@@ -617,32 +684,32 @@ const AdminDashboard = () => {
                 <section className="admin__dashboard__summary">
                     <div className="admin__dashboard__summary-card">
                         <span>Sales</span>
-                        <strong>{thisMonth.sales}</strong>
+                        <strong>{displayDashboardValue(availability.orders === "success" && availability.orderItems === "success" ? "success" : "error", thisMonth.sales)}</strong>
                         <p>{thisMonth.name || "Current month"}</p>
                     </div>
                     <div className="admin__dashboard__summary-card">
                         <span>Revenue</span>
-                        <strong>{formatCurrency(thisMonth.revenue)}</strong>
+                        <strong>{displayDashboardValue(revenueKpiStatus, formatCurrency(thisMonth.revenue))}</strong>
                         <p>Net after discounts</p>
                     </div>
                     <div className="admin__dashboard__summary-card">
                         <span>Products</span>
-                        <strong>{analyticsSummary?.kpis?.inventory?.totalProducts ?? products.length}</strong>
+                        <strong>{displayDashboardValue(productsKpiStatus, analyticsSummary?.kpis?.inventory?.totalProducts ?? products.length)}</strong>
                         <p>Active listings</p>
                     </div>
                     <div className="admin__dashboard__summary-card">
                         <span>Users</span>
-                        <strong>{analyticsSummary?.kpis?.customers?.total ?? users.length}</strong>
+                        <strong>{displayDashboardValue(usersKpiStatus, analyticsSummary?.kpis?.customers?.total ?? users.length)}</strong>
                         <p>Registered accounts</p>
                     </div>
                     <div className="admin__dashboard__summary-card">
                         <span>Orders</span>
-                        <strong>{analyticsSummary?.kpis?.orders?.total ?? orders.length}</strong>
+                        <strong>{displayDashboardValue(ordersKpiStatus, analyticsSummary?.kpis?.orders?.total ?? orders.length)}</strong>
                         <p>{hasAnalyticsKpis ? "All recorded orders" : "Loaded orders snapshot"}</p>
                     </div>
                     <div className="admin__dashboard__summary-card">
                         <span>Top product</span>
-                        <strong>{topRevenueProducts[0]?.name || "N/A"}</strong>
+                        <strong>{displayDashboardValue(availability.orderItems, topRevenueProducts[0]?.name || "N/A")}</strong>
                         <p>{hasAnalyticsKpis ? "Highest revenue earner" : "Top item from loaded sales rows"}</p>
                     </div>
                 </section>
@@ -650,7 +717,7 @@ const AdminDashboard = () => {
                 <section className="admin__dashboard__metrics">
                     <Card
                         title="Sales"
-                        value={thisMonth.sales}
+                        value={displayDashboardValue(availability.orders === "success" && availability.orderItems === "success" ? "success" : "error", thisMonth.sales)}
                         description="Units sold this month"
                         accent="purple"
                         percentage={salesPercentageChange}
@@ -658,7 +725,7 @@ const AdminDashboard = () => {
                     />
                     <Card
                         title="Revenue"
-                        value={formatCurrency(thisMonth.revenue)}
+                        value={displayDashboardValue(revenueKpiStatus, formatCurrency(thisMonth.revenue))}
                         description="Net revenue this month"
                         accent="blue"
                         percentage={revenuePercentageChange}
@@ -666,14 +733,14 @@ const AdminDashboard = () => {
                     />
                     <Card
                         title="Products"
-                        value={analyticsSummary?.kpis?.inventory?.totalProducts ?? products.length}
+                        value={displayDashboardValue(productsKpiStatus, analyticsSummary?.kpis?.inventory?.totalProducts ?? products.length)}
                         description="Live items in catalog"
                         accent="green"
                         icon={<BoxSeamIcon />}
                     />
                     <Card
                         title="Users"
-                        value={analyticsSummary?.kpis?.customers?.total ?? users.length}
+                        value={displayDashboardValue(usersKpiStatus, analyticsSummary?.kpis?.customers?.total ?? users.length)}
                         description="Registered customer accounts"
                         accent="teal"
                         icon={<PersonIcon />}
@@ -681,7 +748,8 @@ const AdminDashboard = () => {
                 </section>
 
                 <Suspense fallback={<DashboardChartsFallback />}>
-                    <AdminDashboardCharts
+                        <AdminDashboardCharts
+                        availability={availability}
                         analyticsSummary={analyticsSummary}
                         analyticsTrend={analyticsTrend}
                         dailyActivity={dailyActivity}

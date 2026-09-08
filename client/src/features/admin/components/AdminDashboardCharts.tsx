@@ -17,6 +17,7 @@ import {
     YAxis,
 } from "recharts";
 import { CheckCircleIcon, PersonIcon } from "../../../components/common/Icons";
+import type { DashboardAvailability } from "../utils/dashboardAvailability";
 
 type ChartDatum = {
     name: string;
@@ -95,6 +96,7 @@ type DashboardStats = {
 };
 
 type AdminDashboardChartsProps = {
+    availability: DashboardAvailability;
     analyticsSummary: AnalyticsSummaryLike | null;
     analyticsTrend: Array<{ name: string; revenue: number; orders: number }>;
     dailyActivity: ChartDatum[];
@@ -120,7 +122,15 @@ const CHART_COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed", "#0
 
 const getNetRevenue = (order: DashboardOrder) => Math.max(order.total_price - order.discount, 0);
 
+const DashboardUnavailable = ({ section }: { section: string }) => (
+    <div className="admin__chart-body" role="status">
+        <strong>{section} unavailable</strong>
+        <p>This section could not be loaded. Refresh to try again.</p>
+    </div>
+);
+
 const AdminDashboardCharts = ({
+    availability,
     analyticsSummary,
     analyticsTrend,
     dailyActivity,
@@ -141,9 +151,17 @@ const AdminDashboardCharts = ({
     formatReportDate,
     getOrderStatusLabel,
 }: AdminDashboardChartsProps) => {
+    const analyticsKpisUnavailable = availability.analytics === "error" && analyticsSummary !== null;
+
     return (
         <>
-            {analyticsSummary ? (
+            {availability.analytics === "error" ? (
+                <section className="admin__dashboard__analysis">
+                    <div className="admin__card">
+                        <DashboardUnavailable section="Analytics" />
+                    </div>
+                </section>
+            ) : analyticsSummary ? (
                 <section className="admin__dashboard__analysis">
                     <div className="admin__card">
                         <div className="admin__card__header">
@@ -244,6 +262,13 @@ const AdminDashboardCharts = ({
                 </section>
             ) : null}
 
+            {availability.orders === "error" ? (
+                <section className="admin__dashboard__realtime">
+                    <div className="admin__card admin__card--wide">
+                        <DashboardUnavailable section="Order activity" />
+                    </div>
+                </section>
+            ) : (
             <section className="admin__dashboard__realtime">
                 <div className="admin__card admin__card--wide">
                     <div className="admin__card__header">
@@ -355,6 +380,7 @@ const AdminDashboardCharts = ({
                     </div>
                 </div>
             </section>
+            )}
 
             <section className="admin__dashboard__highlights">
                 <div className="admin__card">
@@ -365,22 +391,22 @@ const AdminDashboardCharts = ({
                     <div className="admin__dashboard__insights">
                         <div className="admin__dashboard__insight">
                             <span>Pending orders</span>
-                            <strong>{dashboardStats.pendingOrders}</strong>
+                            <strong>{availability.orders === "error" || analyticsKpisUnavailable ? "Unavailable" : dashboardStats.pendingOrders}</strong>
                             <p>Orders still waiting for action.</p>
                         </div>
                         <div className="admin__dashboard__insight">
                             <span>Completed orders</span>
-                            <strong>{dashboardStats.completedOrders}</strong>
+                            <strong>{availability.orders === "error" || analyticsKpisUnavailable ? "Unavailable" : dashboardStats.completedOrders}</strong>
                             <p>Orders already fulfilled successfully.</p>
                         </div>
                         <div className="admin__dashboard__insight">
                             <span>Low stock watch</span>
-                            <strong>{dashboardStats.lowStockProducts.length}</strong>
+                            <strong>{availability.products === "error" ? "Unavailable" : dashboardStats.lowStockProducts.length}</strong>
                             <p>Products with 5 or fewer units left.</p>
                         </div>
                         <div className="admin__dashboard__insight">
                             <span>Total revenue</span>
-                            <strong>{formatCurrency(dashboardStats.totalRevenue)}</strong>
+                            <strong>{availability.orders === "error" || analyticsKpisUnavailable ? "Unavailable" : formatCurrency(dashboardStats.totalRevenue)}</strong>
                             <p>All-time net revenue from completed purchases.</p>
                         </div>
                     </div>
@@ -392,6 +418,11 @@ const AdminDashboardCharts = ({
                         <span>Newest orders and customers</span>
                     </div>
                     <div className="admin__dashboard__activity">
+                        {availability.orders === "error" || availability.users === "error" ? (
+                            <DashboardUnavailable section="Recent activity" />
+                        ) : null}
+                        {availability.orders !== "error" && availability.users !== "error" ? (
+                            <>
                         {dashboardStats.latestOrders.slice(0, 3).map((order) => (
                             <div key={`order-${order.id}`} className="admin__dashboard__activity__item">
                                 <div className="admin__dashboard__activity__icon">
@@ -421,10 +452,19 @@ const AdminDashboardCharts = ({
                                 </div>
                             );
                         })}
+                            </>
+                        ) : null}
                     </div>
                 </div>
             </section>
 
+            {availability.orders === "error" ? (
+                <section className="admin__dashboard__charts">
+                    <div className="admin__card admin__card--wide">
+                        <DashboardUnavailable section="Sales and revenue charts" />
+                    </div>
+                </section>
+            ) : (
             <section className="admin__dashboard__charts">
                 <div className="admin__card">
                     <div className="admin__card__header">
@@ -461,7 +501,18 @@ const AdminDashboardCharts = ({
                     </div>
                 </div>
             </section>
+            )}
 
+            {availability.products === "error" ? (
+                <section className="admin__dashboard__analysis">
+                    <div className="admin__card">
+                        <DashboardUnavailable section="Category analytics" />
+                    </div>
+                    <div className="admin__card">
+                        <DashboardUnavailable section="Inventory risk" />
+                    </div>
+                </section>
+            ) : (
             <section className="admin__dashboard__analysis">
                 <div className="admin__card">
                     <div className="admin__card__header">
@@ -469,6 +520,7 @@ const AdminDashboardCharts = ({
                         <span>Top performing product groups</span>
                     </div>
                     <div className="admin__card__body admin__chart-body">
+                        {availability.orderItems === "error" ? <DashboardUnavailable section="Category analytics" /> : (
                         <ResponsiveContainer width="100%" height={300}>
                             <BarChart
                                 data={analyticsCategoryRevenue.length > 0 ? analyticsCategoryRevenue : categoryRevenue}
@@ -489,6 +541,7 @@ const AdminDashboardCharts = ({
                                 <Bar dataKey="value" fill="#2563eb" radius={[0, 8, 8, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
+                        )}
                     </div>
                 </div>
 
@@ -517,7 +570,13 @@ const AdminDashboardCharts = ({
                     </div>
                 </div>
             </section>
+            )}
 
+            {availability.orderItems === "error" ? (
+                <section className="admin__card">
+                    <DashboardUnavailable section="Best-selling products" />
+                </section>
+            ) : (
             <section className="admin__card">
                 <div className="admin__card__header">
                     <h3>Top 10 best-selling products</h3>
@@ -548,6 +607,7 @@ const AdminDashboardCharts = ({
                     </Table>
                 </div>
             </section>
+            )}
         </>
     );
 };

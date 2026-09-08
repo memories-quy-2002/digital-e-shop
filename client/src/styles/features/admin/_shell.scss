@@ -36,6 +36,11 @@
 .admin__dashboard__hero__action--secondary, .admin__button--ghost { border: 1px solid var(--de-color-border-strong) !important; background: transparent !important; color: var(--de-color-text-soft) !important; }
 .admin__card__header, .admin__card__body, .admin__list-shell, .admin__list-toolbar, .admin__filters { border-color: var(--de-color-border) !important; background: var(--de-color-surface) !important; color: var(--de-color-text) !important; }
 .admin__table { color: var(--de-color-text) !important; } .admin__table th { border-bottom-color: var(--de-color-border-strong) !important; color: var(--de-color-text-muted) !important; font-family: var(--de-font-family-mono); font-size: 0.67rem; text-transform: uppercase; } .admin__table td { border-bottom-color: var(--de-color-border) !important; color: var(--de-color-text-soft) !important; } .admin__table tbody tr:hover { background: var(--de-color-surface-hover) !important; }
+.admin__status-panel { display: grid; gap: 0.45rem; padding: 1.25rem; border: 1px solid var(--de-color-border); border-radius: var(--de-radius-sm); background: var(--de-color-surface); color: var(--de-color-text-soft); }
+.admin__status-panel strong { color: var(--de-color-text); }
+.admin__status-panel p { margin: 0; color: var(--de-color-text-muted); }
+.admin__status-panel--error { border-color: var(--de-color-danger, #d65b5b); }
+.admin__status-panel--empty { border-style: dashed; }
 .admin__pill--success { background: var(--de-color-success-soft) !important; color: var(--de-color-success-strong) !important; } .admin__pill--danger { background: var(--de-color-danger-soft) !important; color: var(--de-color-danger-strong) !important; } .admin__pill--warning { background: var(--de-color-warning-soft) !important; color: var(--de-color-warning-strong) !important; } .admin__pill--info { background: var(--de-color-info-soft) !important; color: var(--de-color-info-strong) !important; }
 .admin input, .admin textarea, .admin select { border-color: var(--de-color-border-strong) !important; border-radius: 4px !important; background: var(--de-color-bg-muted) !important; color: var(--de-color-text) !important; }
 

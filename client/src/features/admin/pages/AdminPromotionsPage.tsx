@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Table } from "../../../components/ui/legacy";
 import AdminLayout from "../../../components/layout/AdminLayout";
 import AdminWorkflowSteps from "../../../components/common/admin/AdminWorkflowSteps";
@@ -6,6 +6,8 @@ import { Helmet } from "react-helmet";
 import { useToast } from "../../../context/ToastContext";
 import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
 import { fetchPromotions, createPromotion, updatePromotion, deletePromotion } from "../api";
+import AdminStatusPanel from "../components/AdminStatusPanel";
+import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
 
 type Promotion = {
     id: number;
@@ -64,19 +66,29 @@ const AdminPromotionsPage = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [pendingDeactivatePromotion, setPendingDeactivatePromotion] = useState<Promotion | null>(null);
     const [isDeactivating, setIsDeactivating] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [hasLoaded, setHasLoaded] = useState(false);
+    const [loadError, setLoadError] = useState<AdminRequestError | null>(null);
+    const hasLoadedRef = useRef(false);
     const { addToast } = useToast();
 
-    useEffect(() => {
-        const loadPromotions = async () => {
-            try {
-                const data = await fetchPromotions();
+    const loadPromotions = React.useCallback(async () => {
+        try {
+            setIsLoading(true);
+            setLoadError(null);
+            const data = await fetchPromotions();
                 setPromotions((data || []).map(normalizePromotion));
-            } catch {
-                addToast("Promotions", "Unable to load promotions.");
-            }
-        };
-        loadPromotions();
-    }, []);
+            setHasLoaded(true);
+            hasLoadedRef.current = true;
+        } catch (error) {
+            setLoadError(getAdminRequestError(error));
+            if (hasLoadedRef.current) addToast("Promotions", "Refresh failed. Showing the latest saved promotions.");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [addToast]);
+
+    useEffect(() => { loadPromotions(); }, [loadPromotions]);
 
     const filteredPromotions = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
@@ -168,6 +180,9 @@ const AdminPromotionsPage = () => {
                         <p className="admin__page__subtitle">
                             Create discount codes, schedule campaigns, and control minimum order rules.
                         </p>
+                    </div>
+                    <div className="admin__page__actions">
+                        <button type="button" className="admin__button admin__button--ghost" onClick={loadPromotions}>Refresh</button>
                     </div>
                 </header>
 
@@ -291,6 +306,11 @@ const AdminPromotionsPage = () => {
                         </div>
                     </div>
                     <div className="admin__card__body admin__list-shell">
+                        {loadError && !hasLoaded ? <AdminStatusPanel variant="error" title={loadError.title} description={loadError.message} onRetry={loadPromotions} /> : null}
+                        {isLoading && !hasLoaded ? <AdminStatusPanel variant="loading" title="Loading promotions" description="Fetching the latest discount rules." /> : null}
+                        {loadError && hasLoaded ? <AdminStatusPanel variant="error" title="Refresh failed" description={loadError.message} onRetry={loadPromotions} retryLabel="Retry refresh" /> : null}
+                        {!isLoading && !loadError && hasLoaded && filteredPromotions.length === 0 ? <AdminStatusPanel variant="empty" title="No promotions found" description="No promotion codes match the current search." /> : null}
+                        {(!loadError || hasLoaded) && !(isLoading && !hasLoaded) ? <>
                         <div className="admin__table-wrap">
                         <Table responsive hover borderless className="admin__table">
                             <thead>
@@ -341,6 +361,7 @@ const AdminPromotionsPage = () => {
                             </tbody>
                         </Table>
                         </div>
+                        </> : null}
                     </div>
                 </section>
                 <ConfirmActionModal

@@ -5,6 +5,8 @@ import { useToast } from "../../../context/ToastContext";
 import { formatUtcDateTime } from "../../../utils/dateTime";
 import { BellFillIcon, BoxSeamIcon, CartIcon, CashStackIcon, PersonIcon } from "../../../components/common/Icons";
 import AdminLayout from "../../../components/layout/AdminLayout";
+import AdminStatusPanel from "../components/AdminStatusPanel";
+import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
 import { fetchAdminAlerts, type AdminAlert } from "../api";
 
 type NotificationType = "order" | "inventory" | "payment" | "customer" | "support";
@@ -31,15 +33,20 @@ const AdminNotificationsPage = () => {
     const [activeType, setActiveType] = useState<"all" | NotificationType>("all");
     const [searchTerm, setSearchTerm] = useState("");
     const [isLoading, setIsLoading] = useState(true);
+    const [hasLoaded, setHasLoaded] = useState(false);
+    const [loadError, setLoadError] = useState<AdminRequestError | null>(null);
     const deferredSearchTerm = useDeferredValue(searchTerm);
 
     const loadNotifications = async () => {
         try {
             setIsLoading(true);
+            setLoadError(null);
             const { alerts } = await fetchAdminAlerts();
             setServerAlerts(alerts);
-        } catch {
-            addToast("Notifications", "Unable to load admin notifications.");
+            setHasLoaded(true);
+        } catch (error) {
+            setLoadError(getAdminRequestError(error));
+            if (hasLoaded) addToast("Notifications", "Refresh failed. Showing the latest saved notifications.");
         } finally {
             setIsLoading(false);
         }
@@ -159,7 +166,14 @@ const AdminNotificationsPage = () => {
                         </div>
                     </div>
                     <div className="admin__notifications-list">
-                        {isLoading ? (
+                        {loadError && !hasLoaded ? (
+                            <AdminStatusPanel
+                                variant="error"
+                                title={loadError.title}
+                                description={loadError.message}
+                                onRetry={loadNotifications}
+                            />
+                        ) : isLoading && !hasLoaded ? (
                             Array.from({ length: 4 }, (_, index) => (
                                 <article key={`notification-skeleton-${index}`} className="admin__notification admin__notification--loading" aria-hidden="true">
                                     <div className="admin__notification__icon admin__skeleton" />
@@ -219,6 +233,15 @@ const AdminNotificationsPage = () => {
                                 </span>
                             </div>
                         )}
+                        {loadError && hasLoaded ? (
+                            <AdminStatusPanel
+                                variant="error"
+                                title="Refresh failed"
+                                description={loadError.message}
+                                onRetry={loadNotifications}
+                                retryLabel="Retry refresh"
+                            />
+                        ) : null}
                     </div>
                 </section>
             </main>

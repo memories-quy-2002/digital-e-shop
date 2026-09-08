@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Form, Modal, Table } from "../../../components/ui/legacy";
 import ReactPaginate from "react-paginate";
 import { useNavigate } from "react-router-dom";
@@ -16,6 +16,8 @@ import {
     updateProductInventory,
     fetchInventoryMovements,
 } from "../api";
+import AdminStatusPanel from "../components/AdminStatusPanel";
+import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
 import {
     createProductAttributeRow,
     productAttributeRowsToInputs,
@@ -207,30 +209,44 @@ const AdminProductPage = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [restockValues, setRestockValues] = useState<Record<number, string>>({});
     const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>([]);
+    const [productsLoaded, setProductsLoaded] = useState(false);
+    const [productsError, setProductsError] = useState<AdminRequestError | null>(null);
+    const [movementsLoaded, setMovementsLoaded] = useState(false);
+    const [inventoryMovementsError, setInventoryMovementsError] = useState<AdminRequestError | null>(null);
+    const productsLoadedRef = useRef(false);
+    const movementsLoadedRef = useRef(false);
     const { addToast } = useToast();
 
-    useEffect(() => {
-        const loadProducts = async () => {
-            try {
-                const products = await fetchAllProducts();
+    const loadProducts = React.useCallback(async () => {
+        try {
+            setProductsError(null);
+            const products = await fetchAllProducts();
                 setProducts(products.map(normalizeProduct).sort((a, b) => a.id - b.id));
-            } catch {
-                addToast("Products", "Unable to load products.");
-            }
-        };
+            setProductsLoaded(true);
+            productsLoadedRef.current = true;
+        } catch (error) {
+            setProductsError(getAdminRequestError(error));
+            if (productsLoadedRef.current) addToast("Products", "Refresh failed. Showing the latest saved products.");
+        }
+    }, [addToast]);
 
-        const loadMovements = async () => {
-            try {
-                const movements = await fetchInventoryMovements(12);
+    const loadMovements = React.useCallback(async () => {
+        try {
+            setInventoryMovementsError(null);
+            const movements = await fetchInventoryMovements(12);
                 setInventoryMovements(movements);
-            } catch {
-                setInventoryMovements([]);
-            }
-        };
+            setMovementsLoaded(true);
+            movementsLoadedRef.current = true;
+        } catch (error) {
+            setInventoryMovementsError(getAdminRequestError(error));
+            if (movementsLoadedRef.current) addToast("Inventory movements", "Refresh failed. Showing the latest saved movements.");
+        }
+    }, [addToast]);
 
+    useEffect(() => {
         loadProducts();
         loadMovements();
-    }, [addToast]);
+    }, [loadMovements, loadProducts]);
 
     const filteredProducts = useMemo(() => {
         const lowerSearchTerm = searchTerm.trim().toLowerCase();
@@ -392,7 +408,7 @@ const AdminProductPage = () => {
             setProducts((currentProducts) =>
                 currentProducts.map((product) => (product.id === updatedProduct.id ? updatedProduct : product)),
             );
-            setInventoryMovements(await fetchInventoryMovements(12));
+            await loadMovements();
             addToast("Update product", `${updatedProduct.name} has been updated.`);
             handleClose();
         } catch {
@@ -439,7 +455,7 @@ const AdminProductPage = () => {
                 currentProducts.map((item) => (item.id === updatedProduct.id ? updatedProduct : item)),
             );
             setRestockValues((current) => ({ ...current, [product.id]: "" }));
-            setInventoryMovements(await fetchInventoryMovements(12));
+            await loadMovements();
             addToast("Inventory", `${updatedProduct.name} stock updated.`);
         } catch {
             addToast("Inventory", "Unable to update stock.");
@@ -521,7 +537,10 @@ const AdminProductPage = () => {
                         </div>
                     </div>
                     <div className="admin__card__body admin__list-shell">
-                        <div className="admin__table-wrap">
+                        {inventoryMovementsError && !movementsLoaded ? <AdminStatusPanel variant="error" title="Inventory movements unavailable" description={inventoryMovementsError.message} onRetry={loadMovements} /> : null}
+                        {!inventoryMovementsError && !movementsLoaded ? <AdminStatusPanel variant="loading" title="Loading inventory movements" description="Fetching recent stock adjustments." /> : null}
+                        {inventoryMovementsError && movementsLoaded ? <AdminStatusPanel variant="error" title="Inventory movement refresh failed" description={inventoryMovementsError.message} onRetry={loadMovements} retryLabel="Retry refresh" /> : null}
+                        {(!inventoryMovementsError || movementsLoaded) ? <div className="admin__table-wrap">
                         <Table responsive hover borderless className="admin__table">
                             <thead>
                                 <tr>
@@ -556,14 +575,14 @@ const AdminProductPage = () => {
                                             <td>{movement.note || "-"}</td>
                                         </tr>
                                     ))
-                                ) : (
+                                ) : !inventoryMovementsError && movementsLoaded ? (
                                     <tr>
                                         <td colSpan={6}>No inventory movements recorded yet.</td>
                                     </tr>
-                                )}
+                                ) : null}
                             </tbody>
                         </Table>
-                        </div>
+                        </div> : null}
                     </div>
                 </section>
 
@@ -679,6 +698,10 @@ const AdminProductPage = () => {
                         </div>
                     </div>
                     <div className="admin__card__body admin__list-shell">
+                        {productsError && !productsLoaded ? <AdminStatusPanel variant="error" title={productsError.title} description={productsError.message} onRetry={loadProducts} /> : null}
+                        {!productsError && !productsLoaded ? <AdminStatusPanel variant="loading" title="Loading products" description="Fetching the latest catalog." /> : null}
+                        {productsError && productsLoaded ? <AdminStatusPanel variant="error" title="Product refresh failed" description={productsError.message} onRetry={loadProducts} retryLabel="Retry refresh" /> : null}
+                        {(!productsError || productsLoaded) ? <>
                         <div className="admin__table-wrap">
                         <Table responsive hover borderless className="admin__table">
                             <thead>
@@ -726,6 +749,7 @@ const AdminProductPage = () => {
                                 renderOnZeroPageCount={null}
                             />
                         </div>
+                        </> : null}
                         <Modal
                             show={show}
                             onHide={handleClose}

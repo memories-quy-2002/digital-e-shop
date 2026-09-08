@@ -10,6 +10,8 @@ import { signOutFirebaseUser } from "../../services/firebase";
 import { useAuth } from "../../context/AuthContext";
 import { formatUtcDateTime } from "../../utils/dateTime";
 import { fetchAdminAlerts, type AdminAlert } from "../../features/admin/api";
+import AdminStatusPanel from "../../features/admin/components/AdminStatusPanel";
+import { getAdminRequestError, type AdminRequestError } from "../../features/admin/utils/adminRequestError";
 
 const cookies = new Cookies();
 const POLL_INTERVAL = 60000;
@@ -72,6 +74,8 @@ const AdminHeader = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [showNotifications, setShowNotifications] = useState(false);
     const [activities, setActivities] = useState<AdminActivity[]>([]);
+    const [activityStatus, setActivityStatus] = useState<"loading" | "success" | "error">("loading");
+    const [activityError, setActivityError] = useState<AdminRequestError | null>(null);
 
     const displayName = useMemo(
         () => getDisplayName(userData?.username, userData?.first_name, userData?.last_name),
@@ -81,10 +85,15 @@ const AdminHeader = () => {
 
     const syncActivityFeed = React.useCallback(
         async (isInitialLoad = false) => {
+            setActivityStatus("loading");
+            setActivityError(null);
             try {
                 const { alerts } = await fetchAdminAlerts();
                 setActivities(alerts.slice(0, 8));
-            } catch {
+                setActivityStatus("success");
+            } catch (error) {
+                setActivityError(getAdminRequestError(error));
+                setActivityStatus("error");
                 if (!isInitialLoad) {
                     addToast("Admin notifications", "Activity sync failed. Showing the latest saved feed.");
                 }
@@ -206,23 +215,46 @@ const AdminHeader = () => {
                                 </button>
                             </div>
                             <div className="admin__layout__main__header__notifications__list">
-                                {activities.length > 0 ? (
-                                    activities.map((activity) => (
-                                        <article
-                                            key={activity.id}
-                                            className={`admin__layout__main__header__notifications__item admin__layout__main__header__notifications__item--${activity.type}`}
-                                        >
-                                            <div>
-                                                <strong>{activity.title}</strong>
-                                                <p>{activity.description}</p>
-                                            </div>
-                                            <span>{formatUtcDateTime(activity.createdAt)}</span>
-                                        </article>
-                                    ))
+                                {activityStatus === "error" && activities.length === 0 ? (
+                                    <AdminStatusPanel
+                                        variant="error"
+                                        title={activityError?.title || "Activity feed unavailable"}
+                                        description={activityError?.message || "Try again to load the activity feed."}
+                                        onRetry={() => syncActivityFeed(false)}
+                                        retryLabel="Retry activity feed"
+                                    />
+                                ) : activityStatus === "loading" && activities.length === 0 ? (
+                                    <AdminStatusPanel variant="loading" title="Loading activity feed" description="Fetching the latest store events." />
                                 ) : (
-                                    <p className="admin__layout__main__header__notifications__empty">
-                                        No new notifications right now.
-                                    </p>
+                                    <>
+                                        {activityStatus === "error" ? (
+                                            <AdminStatusPanel
+                                                variant="error"
+                                                title="Activity refresh failed"
+                                                description={activityError?.message || "Try again to refresh the activity feed."}
+                                                onRetry={() => syncActivityFeed(false)}
+                                                retryLabel="Retry activity feed"
+                                            />
+                                        ) : null}
+                                        {activities.length > 0 ? (
+                                            activities.map((activity) => (
+                                                <article
+                                                    key={activity.id}
+                                                    className={`admin__layout__main__header__notifications__item admin__layout__main__header__notifications__item--${activity.type}`}
+                                                >
+                                                    <div>
+                                                        <strong>{activity.title}</strong>
+                                                        <p>{activity.description}</p>
+                                                    </div>
+                                                    <span>{formatUtcDateTime(activity.createdAt)}</span>
+                                                </article>
+                                            ))
+                                        ) : (
+                                            <p className="admin__layout__main__header__notifications__empty">
+                                                No new notifications right now.
+                                            </p>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         </div>

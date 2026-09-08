@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet";
 import AdminLayout from "../../../components/layout/AdminLayout";
+import AdminStatusPanel from "../components/AdminStatusPanel";
+import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
 import { useToast } from "../../../context/ToastContext";
 import { fetchSupportTickets, updateSupportTicket, type SupportTicket } from "../../support/api";
 
@@ -18,14 +20,19 @@ const AdminSupportPage = () => {
     const [tickets, setTickets] = useState<SupportTicket[]>([]);
     const [statusFilter, setStatusFilter] = useState("");
     const [isLoading, setIsLoading] = useState(true);
+    const [hasLoaded, setHasLoaded] = useState(false);
+    const [loadError, setLoadError] = useState<AdminRequestError | null>(null);
     const [updatingId, setUpdatingId] = useState<number | null>(null);
 
     const loadTickets = async () => {
         try {
             setIsLoading(true);
+            setLoadError(null);
             setTickets(await fetchSupportTickets(statusFilter || undefined));
-        } catch {
-            addToast("Support", "Unable to load support tickets.");
+            setHasLoaded(true);
+        } catch (error) {
+            setLoadError(getAdminRequestError(error));
+            if (hasLoaded) addToast("Support", "Refresh failed. Showing the latest saved tickets.");
         } finally {
             setIsLoading(false);
         }
@@ -81,9 +88,15 @@ const AdminSupportPage = () => {
                 </section>
 
                 <section className="admin__card">
-                    {isLoading ? <p>Loading support tickets...</p> : null}
-                    {!isLoading && tickets.length === 0 ? <p>No support tickets match this filter.</p> : null}
-                    <div className="admin__table-wrap">
+                    {loadError && !hasLoaded ? (
+                        <AdminStatusPanel variant="error" title={loadError.title} description={loadError.message} onRetry={loadTickets} />
+                    ) : null}
+                    {isLoading && !hasLoaded ? <AdminStatusPanel variant="loading" title="Loading support tickets" description="Fetching the latest customer requests." /> : null}
+                    {loadError && hasLoaded ? (
+                        <AdminStatusPanel variant="error" title="Refresh failed" description={loadError.message} onRetry={loadTickets} retryLabel="Retry refresh" />
+                    ) : null}
+                    {!isLoading && !loadError && hasLoaded && tickets.length === 0 ? <AdminStatusPanel variant="empty" title="No support tickets match this filter" description="There are no tickets in the selected status." /> : null}
+                    {(!loadError || hasLoaded) && !(isLoading && !hasLoaded) ? <div className="admin__table-wrap">
                         <table className="admin__table">
                             <thead>
                                 <tr><th>Ticket</th><th>Customer / order</th><th>Status</th><th>Priority</th><th>Created</th></tr>
@@ -122,7 +135,7 @@ const AdminSupportPage = () => {
                                 ))}
                             </tbody>
                         </table>
-                    </div>
+                    </div> : null}
                 </section>
             </main>
         </AdminLayout>
