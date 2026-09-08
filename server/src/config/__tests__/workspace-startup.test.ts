@@ -12,13 +12,14 @@ const readPackage = (packagePath: string) => JSON.parse(fs.readFileSync(packageP
 describe("independent package startup", () => {
     it("prepares Prisma before server development and startup", () => {
         const packageJson = readPackage(serverPackagePath);
+        const pnpmCommand = "corepack pnpm@12.3.4";
 
-        expect(packageJson.scripts?.predev).toBe("pnpm prisma:prepare");
+        expect(packageJson.scripts?.predev).toBe(`${pnpmCommand} prisma:prepare`);
         expect(packageJson.scripts?.prestart).toBe(
-            "pnpm prisma:prepare && pnpm build:compile",
+            `${pnpmCommand} prisma:prepare && ${pnpmCommand} build:compile`,
         );
         expect(packageJson.scripts?.["prisma:prepare"]).toBe(
-            "pnpm prisma:generate && pnpm prisma:migrate:deploy",
+            `${pnpmCommand} prisma:generate && ${pnpmCommand} prisma:migrate:deploy`,
         );
     });
 
