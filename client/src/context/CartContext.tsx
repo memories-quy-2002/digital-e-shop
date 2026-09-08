@@ -64,7 +64,7 @@ interface CartContextValue {
     isRemovingItem: boolean;
     pendingRemoveItem: CheckoutCartItem | null;
     fetchCart: () => Promise<void>;
-    addItem: (productId: number, quantity?: number) => Promise<void>;
+    addItem: (productId: number, quantity?: number) => Promise<boolean>;
     updateQuantity: (itemId: number, quantity: number) => Promise<void>;
     removeItem: (item: CheckoutCartItem) => void;
     confirmRemoveItem: () => Promise<void>;
@@ -221,10 +221,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [addToast, isCurrentSource, refreshGuestCart, setReadyState]);
 
-    const addItem = useCallback(async (productId: number, quantity = 1) => {
+    const addItem = useCallback(async (productId: number, quantity = 1): Promise<boolean> => {
         const normalizedQuantity = normalizeCartQuantity(quantity);
         const expectedSource = sourceRef.current;
-        if (normalizedQuantity === null || !Number.isSafeInteger(productId) || productId <= 0) return;
+        if (normalizedQuantity === null || !Number.isSafeInteger(productId) || productId <= 0) return false;
         try {
             if (expectedSource.uid) {
                 await addItemsToCustomerCart(expectedSource.uid, [{
@@ -232,18 +232,20 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     quantity: normalizedQuantity,
                     stock: normalizedQuantity,
                 }]);
-                if (!isCurrentSource(expectedSource)) return;
+                if (!isCurrentSource(expectedSource)) return false;
                 await fetchCart();
-                return;
+                return true;
             }
             addGuestCartItem({ productId, quantity: normalizedQuantity });
-            if (!isCurrentSource(expectedSource)) return;
-            await refreshGuestCart(discountCode, expectedSource);
+            if (!isCurrentSource(expectedSource)) return false;
+            const preview = await refreshGuestCart(discountCode, expectedSource);
+            return preview !== null;
         } catch (cartError) {
-            if (!isCurrentSource(expectedSource)) return;
+            if (!isCurrentSource(expectedSource)) return false;
             setStatus("error");
             setError("Unable to update cart right now.");
             addToast("Cart", getErrorMessage(cartError, "Unable to update cart right now."));
+            return false;
         }
     }, [addToast, discountCode, fetchCart, isCurrentSource, refreshGuestCart]);
 

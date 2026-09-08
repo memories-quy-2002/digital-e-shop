@@ -30,7 +30,6 @@ const AdminAccountPage = lazy(() => import("../features/admin/pages/AdminAccount
 const AdminPromotionsPage = lazy(() => import("../features/admin/pages/AdminPromotionsPage"));
 const AdminAddProductPage = lazy(() => import("../features/admin/pages/AdminAddProductPage"));
 
-const ProtectedCartPage = withSessionCheck(CartPage);
 const ProtectedCheckoutSuccessPage = withSessionCheck(CheckoutSuccessPage);
 const ProtectedCustomerAccountPage = withSessionCheck(CustomerAccountPage);
 const ProtectedOrderHistoryPage = withSessionCheck(OrderHistoryPage);
@@ -55,7 +54,7 @@ const AppRouter = () => {
                 <Route path="/signup" element={<SignupPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/product" element={<ProductPage />} />
-                <Route path="/cart" element={<ProtectedCartPage />} />
+                <Route path="/cart" element={<CartPage />} />
                 <Route path="/about-us" element={<AboutUsPage />} />
                 <Route path="/contact-us" element={<ContactUsPage />} />
                 <Route path="/wishlist" element={<ProtectedWishlistPage />} />

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useOptimistic, useState } from "react";
 import ReactPaginate from "react-paginate";
 import axios from "../../api/axios";
+import { useCart } from "../../context/CartContext";
 import { useToast } from "../../context/ToastContext";
 import { Product } from "../../utils/interface";
 import ShopsItem from "./ShopsItem";
@@ -51,6 +52,7 @@ const PaginatedItems = ({
     onPageChange,
 }: PaginatedProps) => {
     const { addToast } = useToast();
+    const { addItem } = useCart();
     const [baseWishlist, setBaseWishlist] = useState<Item[]>([]);
     const [pendingWishlistIds, setPendingWishlistIds] = useState<number[]>([]);
     const [itemOffset, setItemOffset] = useState(0);
@@ -172,12 +174,7 @@ const PaginatedItems = ({
         }
     }, [addToast]);
 
-    const handleAddingCart = useCallback(async (user_id: string, product_id: number) => {
-        if (uid === "") {
-            addToast("Login required", "You need to login to use this feature.");
-            return;
-        }
-
+    const handleAddingCart = useCallback(async (_user_id: string, product_id: number) => {
         try {
             const product = productById.get(product_id);
             const stock = product ? (product.available_stock ?? product.stock) : 0;
@@ -185,18 +182,13 @@ const PaginatedItems = ({
                 addToast("Out of stock", "This product is out of stock.");
                 return;
             }
-            const response = await axios.post("/api/cart/", {
-                uid: user_id,
-                pid: product_id,
-                quantity: 1,
-            });
-            if (response.status === 200) {
+            if (await addItem(product_id, 1)) {
                 addToast("Add cart item", "Product added to cart successfully");
             }
         } catch {
             addToast("Add cart item", "Unable to add item to cart.");
         }
-    }, [addToast, productById, uid]);
+    }, [addItem, addToast, productById]);
 
     const handlePageClick = useCallback((event: { selected: number }) => {
         if (serverSide && onPageChange) {

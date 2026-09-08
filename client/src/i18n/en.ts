@@ -143,6 +143,9 @@ const en = {
         stockLeft: (count: number) => `${count} left`,
         decreaseQty: "Decrease quantity",
         increaseQty: "Increase quantity",
+        loadErrorTitle: "We could not load your cart",
+        loadError: "Your cart could not be refreshed. Please try again.",
+        retry: "Retry",
     },
     footer: {
         brandTagline:

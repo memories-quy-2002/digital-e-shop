@@ -278,14 +278,6 @@ export async function submitReview(
     });
 }
 
-export async function addToCart(uid: string, productId: number, quantity: number): Promise<void> {
-    await http.post("/api/cart/", {
-        uid,
-        pid: productId,
-        quantity,
-    });
-}
-
 export async function addToWishlist(uid: string, productId: number): Promise<any> {
     const response = await http.post("/api/wishlist/", { uid, pid: productId });
     return response.data;

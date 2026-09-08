@@ -12,6 +12,7 @@ import { ArrowLeftIcon, ArrowRightIcon } from "../components/common/Icons";
 import Layout from "../components/layout/Layout";
 import axios from "../api/axios";
 import { useAuth } from "../context/AuthContext";
+import { useCart } from "../context/CartContext";
 import { useToast } from "../context/ToastContext";
 import { fetchProduct } from "../features/products/api";
 import "../styles/pages/_home.scss";
@@ -114,6 +115,7 @@ const HomePage = () => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const { userData, loading } = useAuth();
     const uid = userData?.id || null;
+    const { addItem } = useCart();
     const { addToast } = useToast();
     const { items: recentlyViewed, track: trackRecentlyViewed, prune: pruneRecentlyViewed } = useRecentlyViewed();
     const [isRecentlyViewedValidated, setIsRecentlyViewedValidated] = useState(false);
@@ -225,24 +227,15 @@ const HomePage = () => {
         }
     }, [addToast, applyOptimisticWishlist, pendingWishlistIdSet, products, uid, wishlistIdSet]);
 
-    const handleAddingCart = useCallback(async (user_id: string, product_id: number) => {
-        if (!uid) {
-            addToast("Login required", "You need to login to use this feature.");
-            return;
-        }
+    const handleAddingCart = useCallback(async (_user_id: string, product_id: number) => {
         try {
-            const response = await axios.post("/api/cart/", {
-                uid: user_id,
-                pid: product_id,
-                quantity: 1,
-            });
-            if (response.status === 200) {
+            if (await addItem(product_id, 1)) {
                 addToast("Add cart item", "Product added to cart successfully");
             }
         } catch {
             addToast("Add cart item", "Unable to add item to cart.");
         }
-    }, [addToast, uid]);
+    }, [addItem, addToast]);
 
     useEffect(() => {
         const interval = setInterval(() => {

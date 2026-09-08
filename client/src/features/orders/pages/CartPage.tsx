@@ -28,6 +28,8 @@ const CartPage = () => {
         discountCode,
         subtotal,
         validationIssues,
+        status: cartStatus,
+        error: cartError,
         isLoading: isCartLoading,
         isRemovingItem,
         pendingRemoveItem,
@@ -37,6 +39,7 @@ const CartPage = () => {
         cancelRemoveItem,
         applyDiscount,
         validateBeforeCheckout,
+        fetchCart,
         onValidationRefresh,
     } = useCart();
     const [show, setShow] = useState<boolean>(false);
@@ -168,6 +171,22 @@ const CartPage = () => {
         );
     }
 
+    if (cartStatus === "error" && cart.length === 0) {
+        return (
+            <Layout>
+                <Container fluid className="cart app-page">
+                    <div className="cart__state cart__state--error" role="alert" aria-live="assertive">
+                        <strong>{t("cart.loadErrorTitle")}</strong>
+                        <p>{cartError || t("cart.loadError")}</p>
+                        <button type="button" onClick={() => void fetchCart()} disabled={isCartLoading}>
+                            {t("cart.retry")}
+                        </button>
+                    </div>
+                </Container>
+            </Layout>
+        );
+    }
+
     return (
         <Layout>
             <Helmet>
@@ -175,6 +194,15 @@ const CartPage = () => {
                 <meta name="description" content="Review your items, update quantities, and proceed to checkout." />
             </Helmet>
             <Container fluid className="cart app-page">
+                {cartStatus === "error" ? (
+                    <div className="cart__state cart__state--error" role="alert" aria-live="assertive">
+                        <strong>{t("cart.loadErrorTitle")}</strong>
+                        <p>{cartError || t("cart.loadError")}</p>
+                        <button type="button" onClick={() => void fetchCart()} disabled={isCartLoading}>
+                            {t("cart.retry")}
+                        </button>
+                    </div>
+                ) : null}
                 {isPayment ? (
                     <CheckoutPaymentPage
                         setIsPayment={setIsPayment}

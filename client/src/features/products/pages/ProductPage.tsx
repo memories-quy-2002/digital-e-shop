@@ -8,6 +8,7 @@ import {
 import ImageLightbox from "../../../components/common/ImageLightbox";
 import Layout from "../../../components/layout/Layout";
 import { useAuth } from "../../../context/AuthContext";
+import { useCart } from "../../../context/CartContext";
 import { useToast } from "../../../context/ToastContext";
 import productPlaceholder from "../../../assets/images/product_placeholder.jpg";
 import NoPage from "../../../pages/NotFoundPage";
@@ -31,7 +32,6 @@ import {
     fetchWishlist,
     fetchReviews,
     submitReview,
-    addToCart,
     addToWishlist,
     removeFromWishlist,
 } from "../api";
@@ -72,6 +72,7 @@ const ProductPage = () => {
     const url = new URLSearchParams(location.search);
     const { addToast } = useToast();
     const { userData } = useAuth();
+    const { addItem } = useCart();
     const uid = userData?.id || "";
     const productId = url.get("id");
     const pid = productId !== null ? parseInt(productId) : 0;
@@ -322,22 +323,18 @@ const ProductPage = () => {
         setRatingScore(rating);
     };
 
-    const handleAddingCart = async (user_id: string, product: Product) => {
-        if (uid === "") {
-            addToast("Login required", "You need to login to use this feature.");
+    const handleAddingCart = async (_user_id: string, product: Product) => {
+        if (availableStock === 0) {
+            addToast("Out of stock", "The product is out of stock.");
             return;
-        } else {
-            if (availableStock === 0) {
-                addToast("Out of stock", "The product is out of stock.");
-                return;
-            } else if (quantity === 0) {
-                addToast("Invalid action", "The quantity should be non-zero to complete the action.");
-                return;
-            }
+        } else if (quantity === 0) {
+            addToast("Invalid action", "The quantity should be non-zero to complete the action.");
+            return;
         }
         try {
-            await addToCart(user_id, product.id, quantity);
-            addToast("Add cart item", "Product added to cart successfully.");
+            if (await addItem(product.id, quantity)) {
+                addToast("Add cart item", "Product added to cart successfully.");
+            }
         } catch {
             addToast("Add cart item", "Unable to add item to cart.");
         }
@@ -620,13 +617,7 @@ const ProductPage = () => {
                                 <button
                                     className="product-page__button product-page__button--primary"
                                     type="button"
-                                    onClick={() => {
-                                        if (uid) {
-                                            handleAddingCart(uid, productDetail);
-                                        } else {
-                                            addToast("Login required", "You need to login to use this feature.");
-                                        }
-                                    }}
+                                    onClick={() => handleAddingCart(uid, productDetail)}
                                     disabled={availableStock <= 0}
                                 >
                                     {t("product.addToCart")}

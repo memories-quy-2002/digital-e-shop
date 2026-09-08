@@ -145,6 +145,9 @@ const vi: Dictionary = {
         stockLeft: (count: number) => `Còn ${count}`,
         decreaseQty: "Giảm số lượng",
         increaseQty: "Tăng số lượng",
+        loadErrorTitle: "Không thể tải giỏ hàng",
+        loadError: "Không thể cập nhật giỏ hàng. Vui lòng thử lại.",
+        retry: "Thử lại",
     },
     footer: {
         brandTagline:

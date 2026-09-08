@@ -150,6 +150,45 @@
         }
     }
 
+    &__state {
+        display: grid;
+        gap: 0.75rem;
+        max-width: 720px;
+        margin: 2rem auto;
+        padding: 2.5rem;
+        border: 1px solid var(--de-color-border);
+        border-radius: 18px;
+        background: var(--de-color-surface-strong);
+        text-align: center;
+        box-shadow: var(--de-shadow-sm);
+
+        strong {
+            color: var(--de-color-text);
+            font-size: 1.2rem;
+        }
+
+        p {
+            margin: 0;
+            color: var(--de-color-text-muted);
+        }
+
+        button {
+            justify-self: center;
+            margin-top: 0.5rem;
+            padding: 0.65rem 1.25rem;
+            border: 0;
+            border-radius: 999px;
+            background: var(--de-color-signal);
+            color: var(--de-color-on-strong);
+            font-weight: 700;
+        }
+    }
+
+    &__state--error {
+        border-color: var(--de-color-danger);
+        background: var(--de-color-danger-soft);
+    }
+
     &__actions {
         display: flex;
         flex-wrap: wrap;

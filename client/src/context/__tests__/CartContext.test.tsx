@@ -97,6 +97,17 @@ const Probe = () => {
 
 const renderCart = () => render(<CartProvider><Probe /></CartProvider>);
 
+const AddResultProbe = () => {
+    const cart = useCart();
+    const [result, setResult] = React.useState("");
+    return (
+        <div>
+            <button onClick={async () => setResult(String(await cart.addItem(10, 1)))}>add-result</button>
+            <span data-testid="add-result">{result}</span>
+        </div>
+    );
+};
+
 describe("CartContext dual-source state", () => {
     beforeEach(() => {
         clearGuestCart();
@@ -153,6 +164,16 @@ describe("CartContext dual-source state", () => {
         fireEvent.click(screen.getByText("update"));
         await waitFor(() => expect(readGuestCart()).toEqual([{ productId: 10, quantity: 3 }]));
         expect(mocks.previewGuestCart.mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it("reports a failed guest add so callers do not show false success feedback", async () => {
+        mocks.previewGuestCart.mockRejectedValueOnce(new Error("preview unavailable"));
+
+        render(<CartProvider><AddResultProbe /></CartProvider>);
+
+        fireEvent.click(screen.getByText("add-result"));
+
+        await waitFor(() => expect(screen.getByTestId("add-result")).toHaveTextContent("false"));
     });
 
     it("removes a guest item through the confirmed context flow", async () => {
