@@ -29,3 +29,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-07 - Codex - Moved transient Toasts to a portal-mounted fixed viewport outside the Header/app layout, capped the visible queue at three, and added responsive safe-area/reduced-motion behavior with regression coverage.
 - 2026-09-08 - Codex - Removed redundant root pnpm package metadata and kept client/server dependency resolution in their package-local lockfiles and workspace policies.
 - 2026-09-08 - Codex - Removed inactive Google OAuth and SearchAPI runtime references, dependencies, templates, and OpenAPI entries while retaining nullable legacy provider columns for schema compatibility.
+- 2026-09-08 - Codex - Added a protected main-push Prisma production migration gate and a manual, backup-confirmed full demo reset workflow that reloads the committed legacy baseline, applies forward migrations, runs the demo seed, and verifies relational counts.

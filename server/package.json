@@ -34,6 +34,7 @@
         "prisma:migrate:resolve": "prisma migrate resolve --config prisma.config.ts",
         "prisma:seed": "prisma db seed --config prisma.config.ts",
         "prisma:studio": "prisma studio --config prisma.config.ts",
+        "demo:reset": "node src/database/seeders/resetDemoDatabase.js",
         "demo:verify": "node src/database/seeders/verifyDemo.js",
         "seed:mock": "node src/database/seeders/seedMockOrdersReviews.js",
         "docker:up": "wsl -d Ubuntu -- bash -c \"cd /mnt/e/Code/digital-e-shop/server && docker compose --env-file .env.docker up -d\"",
@@ -97,6 +98,8 @@
         "zod": "^4.5.4"
     },
     "devDependencies": {
+        "@commitlint/cli": "^21.2.2",
+        "@commitlint/config-conventional": "^21.2.2",
         "@eslint/js": "^10.0.1",
         "@nestjs/testing": "^11.2.3",
         "@types/cookie-parser": "^1.4.10",

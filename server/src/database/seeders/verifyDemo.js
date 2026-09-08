@@ -5,12 +5,34 @@ require("dotenv").config({
 });
 
 const mysql = require("mysql2/promise");
-const { assertLocalDatabaseTarget } = require("../../config/database-target");
+const {
+    assertExplicitDemoSeedTarget,
+    assertLocalDatabaseTarget,
+    DESTRUCTIVE_DEMO_SEED_MODE,
+} = require("../../config/database-target");
 const { DEMO_SEED_PLAN, validateDemoSeedPlan } = require("./demoSeedData");
 
 const DEMO_ORDER_SESSION_PREFIX = "digital-e-demo-order-";
 const DEMO_NOTIFICATION_PREFIX = "Demo";
 const DEMO_MOVEMENT_PREFIX = "Digital-E demo seed";
+
+const assertDemoSeedTarget = () => {
+    if (process.env.DEMO_SEED_MODE === DESTRUCTIVE_DEMO_SEED_MODE) {
+        assertExplicitDemoSeedTarget({
+            dbHost: process.env.DB_HOST,
+            databaseUrl: process.env.DATABASE_URL,
+            mode: process.env.DEMO_SEED_MODE,
+            confirmation: process.env.DEMO_SEED_CONFIRMATION,
+            allowRemoteDatabase: process.env.ALLOW_DESTRUCTIVE_DEMO_SEED === "true",
+        });
+        return;
+    }
+
+    assertLocalDatabaseTarget({
+        dbHost: process.env.DB_HOST,
+        databaseUrl: process.env.DATABASE_URL,
+    });
+};
 
 const query = (connection, sql, params = []) => connection.query(sql, params).then(([rows]) => rows);
 const firstCount = (rows) => Number(rows[0]?.count || 0);
@@ -258,10 +280,7 @@ const verify = async (connection) => {
 };
 
 const main = async () => {
-    assertLocalDatabaseTarget({
-        dbHost: process.env.DB_HOST,
-        databaseUrl: process.env.DATABASE_URL,
-    });
+    assertDemoSeedTarget();
 
     const pool = mysql.createPool({
         host: process.env.DB_HOST,

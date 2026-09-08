@@ -9,7 +9,9 @@ The long-term knowledge base for the Digital-E e-commerce system. Readable in Ob
 The local MySQL demo seed creates and verifies a linked multi-table graph with
 28 catalog products, each using a unique HTTPS stock image URL. The seed stays
 non-destructive for normal reruns; Docker reset is an explicit local-only
-operation.
+operation. A separately protected, manual GitHub Actions workflow can rebuild
+the selected production database from the committed legacy baseline before
+running the same demo seed and verifier.
 
 Checkout follows the dark technical storefront language with a progress rail,
 scoped payment/shipping panels, and normalized client-side email validation.

@@ -6,7 +6,11 @@ require("dotenv").config({
 
 const bcrypt = require("bcryptjs");
 const mysql = require("mysql2/promise");
-const { assertLocalDatabaseTarget } = require("../../config/database-target");
+const {
+    assertExplicitDemoSeedTarget,
+    assertLocalDatabaseTarget,
+    DESTRUCTIVE_DEMO_SEED_MODE,
+} = require("../../config/database-target");
 const { DEMO_PASSWORD, DEMO_SEED_PLAN, validateDemoSeedPlan } = require("./demoSeedData");
 
 const LOOKUP_TABLES = new Set(["categories", "brands"]);
@@ -15,6 +19,24 @@ const DEMO_ORDER_SESSION_PREFIX = "digital-e-demo-order-";
 const DEMO_NOTIFICATION_PREFIX = "Demo";
 const DEMO_MOVEMENT_PREFIX = "Digital-E demo seed";
 const LEGACY_PRODUCT_NAME_PATTERNS = ["%e2e%", "%demo%"];
+
+const assertDemoSeedTarget = () => {
+    if (process.env.DEMO_SEED_MODE === DESTRUCTIVE_DEMO_SEED_MODE) {
+        assertExplicitDemoSeedTarget({
+            dbHost: process.env.DB_HOST,
+            databaseUrl: process.env.DATABASE_URL,
+            mode: process.env.DEMO_SEED_MODE,
+            confirmation: process.env.DEMO_SEED_CONFIRMATION,
+            allowRemoteDatabase: process.env.ALLOW_DESTRUCTIVE_DEMO_SEED === "true",
+        });
+        return;
+    }
+
+    assertLocalDatabaseTarget({
+        dbHost: process.env.DB_HOST,
+        databaseUrl: process.env.DATABASE_URL,
+    });
+};
 
 const roundMoney = (value) => Number(Number(value).toFixed(2));
 
@@ -444,10 +466,7 @@ const seedDiscounts = async (connection, plan) => {
 
 const main = async () => {
     const summary = validateDemoSeedPlan(DEMO_SEED_PLAN);
-    assertLocalDatabaseTarget({
-        dbHost: process.env.DB_HOST,
-        databaseUrl: process.env.DATABASE_URL,
-    });
+    assertDemoSeedTarget();
 
     const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
     const pool = mysql.createPool({
