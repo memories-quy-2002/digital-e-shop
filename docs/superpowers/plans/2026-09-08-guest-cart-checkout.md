@@ -28,7 +28,7 @@
 
 ## Implementation Tasks
 
-Task tracker (updated 2026-09-08; Task 9 remains the final verification gate):
+Task tracker (updated 2026-09-08; all implementation and verification tasks complete):
 
 - [x] 1. Guest order identity and database foundation
 - [x] 2. Authoritative guest cart preview
@@ -38,7 +38,7 @@ Task tracker (updated 2026-09-08; Task 9 remains the final verification gate):
 - [x] 6. Guest add-to-cart and public cart route
 - [x] 7. Guest checkout, success, and order lookup UI
 - [x] 8. Admin compatibility and Wiki documentation
-- [ ] 9. Full verification and manual browser smoke checks
+- [x] 9. Full verification and manual browser smoke checks
 
 ### Task 1: Add the guest order identity and database foundation
 
@@ -289,6 +289,15 @@ Task tracker (updated 2026-09-08; Task 9 remains the final verification gate):
 - Confirm no raw guest token or payment secret appears in logs, API responses other than creation, browser URL, or persisted cart state.
 - Confirm the migration is present and validated but has not been run against production.
 - Confirm the branch remains feature/guest-cart-checkout and no push or merge into main was performed.
+
+**Verification notes (2026-09-08):**
+
+- Local Docker MySQL is healthy on port `3307`; the baseline plus forward migrations were applied locally, Prisma reports no pending migrations, and the idempotent demo seed/verification completed with zero orphan or mismatch records. No remote or production database was used.
+- Server typecheck, build, and lint pass; the full unit suite passes with `57/57` test files and `253/253` tests under the local test environment with `PAYOS_USD_TO_VND_RATE=25000`. The focused reservation and Stripe webhook suite passes with `3/3` files and `18/18` tests, including live-shaped completion, signature validation, and idempotency coverage.
+- Client typecheck, lint, and build pass under Node `24.20.0` and pnpm `12.3.4`; lint reports 51 existing `no-explicit-any` warnings but zero errors. The full Vitest suite passes with `48/48` test files and `237/237` tests, including the guest-cart merge regression test. `client/src/features/auth/authRedirect.ts` now avoids the `no-control-regex` violation while preserving control-character rejection. `client/scripts/build.mjs` cleans `dist` when permitted and safely falls back to Vite `emptyOutDir=false` when the local Windows ACL returns `EPERM`.
+- Playwright smoke passes for signed-out home/catalog/product detail add-to-cart, public `/cart` refresh persistence, desktop `1440x900` and mobile `390x844` layouts, guest price/stock preview, and wishlist login guard. The browser quantity control clamps an attempted quantity of `999` to the available `17`; server/UI tests cover the actionable `insufficient_stock` and stock-race paths.
+- Playwright completed cash, bank transfer, PayOS mock, and Card mock checkout locally. Guest orders `#230`–`#233` reached success; cash order `#230` was retrieved through `/guest-order` using its one-time token. Card mock redirect/finalization returned through `checkout-success?session_id=...`. No local HTTP webhook harness is exposed, so repeated webhook-shaped completion was verified through the focused Stripe controller tests rather than an unsigned manual request.
+- After login, Playwright verified guest-cart merge: the account cart received the guest item, the guest localStorage entry was removed, and the merge prompt disappeared. Signed-in customer cart/review checkout, order history, wishlist, and admin order list/detail/status update also remained usable.
 
 ## Completion Criteria
 

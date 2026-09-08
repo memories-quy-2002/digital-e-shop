@@ -31,3 +31,6 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-08 - Codex - Removed inactive Google OAuth and SearchAPI runtime references, dependencies, templates, and OpenAPI entries while retaining nullable legacy provider columns for schema compatibility.
 - 2026-09-08 - Codex - Added a protected main-push Prisma production migration gate and a manual, backup-confirmed full demo reset workflow that reloads the committed legacy baseline, applies forward migrations, runs the demo seed, and verifies relational counts.
 - 2026-09-08 - Codex - Documented guest cart persistence, token-protected guest checkout and lookup, nullable order identity, and admin compatibility boundaries.
+- 2026-09-08 - Codex - Hardened local startup verification with pnpm 12-compatible server scripts, idempotent Prisma generation metadata, and a Vite cache outside node_modules.
+- 2026-09-08 - Codex - Verified guest cart and checkout end-to-end against local Docker MySQL with Playwright, and added the signed-in guest-cart merge prompt discovered during smoke testing.
+- 2026-09-08 - Codex - Completed Task 9 verification under Node 24.20.0 and pnpm 12.3.4; added a Windows-safe client build fallback and removed the auth redirect lint blocker without changing redirect validation behavior.

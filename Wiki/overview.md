@@ -8,6 +8,9 @@ Back to [[index]].
 - pnpm `12.3.4` declared by both package manifests and CI.
 - Production client builds require `VITE_API_BASE_URL`.
 - Production server startup validates database, auth, and origin environment variables.
+- Server Prisma preparation is idempotent when the generated client matches the
+  schema and Prisma version; Vite keeps its development cache in `client/.vite`
+  so dependency optimization does not contend with `node_modules`.
 
 ## Purpose
 
