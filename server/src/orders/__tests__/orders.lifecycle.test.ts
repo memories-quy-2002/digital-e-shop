@@ -54,7 +54,7 @@ function buildService({ paidStripe = false } = {}) {
         }
         if (sql.includes("FROM order_items")) return [{ product_id: 4, quantity: 2 }];
         if (sql.includes("FROM products")) return [{ id: 4, stock: 5 }];
-        if (sql.startsWith("UPDATE orders")) {
+        if (sql.trimStart().startsWith("UPDATE orders")) {
             orderStatus = 2;
             return { affectedRows: 1 };
         }
