@@ -45,7 +45,7 @@ Task tracker:
 **Files:**
 
 - Modify server/src/database/prisma/schema.prisma.
-- Add server/src/database/migrations/20260908100000_guest_checkout/migration.sql.
+- Add server/src/database/prisma/migrations/20260908100000_guest_checkout/migration.sql. This is the active migration directory configured by server/prisma.config.ts.
 - Add server/src/orders/guest-order-token.ts and server/src/orders/__tests__/guest-order-token.test.ts, following the existing auth-session token hashing pattern.
 - Modify server/src/orders/orders.types.ts, server/src/orders/checkout-reservation.repository.ts, server/src/orders/checkout-reservation.service.ts, and the promotion types/repository that currently require a user ID.
 

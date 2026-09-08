@@ -158,6 +158,7 @@ Admin order queries use left joins and display the guest contact snapshot when n
 
 Create an additive Prisma/MySQL migration named 20260908100000_guest_checkout:
 
+- Place it under server/src/database/prisma/migrations because server/prisma.config.ts points Prisma migration commands to that directory.
 - Make orders.user_id nullable.
 - Add nullable orders.guest_email, orders.guest_name, orders.guest_phone, and unique nullable orders.guest_order_token_hash.
 - Make pending_checkouts.user_id nullable.
