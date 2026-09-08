@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
 import { env } from "#src/config/env.config";
 import { logger } from "#src/shared/utils/logger";
 import type { CartCheckoutItem } from "../cart/cart.dto";
@@ -136,8 +137,12 @@ export class NestOrdersStripeService {
         }
 
         if (env.paymentProviderMode === "mock") {
-            const mockSessionId = `mock_stripe_${reservation.reservationToken}`;
-            const mockPaymentIntentId = `mock_pi_${reservation.reservationToken}`;
+            const mockSessionId = identity.kind === "guest"
+                ? `mock_stripe_${randomUUID()}`
+                : `mock_stripe_${reservation.reservationToken}`;
+            const mockPaymentIntentId = identity.kind === "guest"
+                ? `mock_pi_${randomUUID()}`
+                : `mock_pi_${reservation.reservationToken}`;
             try {
                 await this.checkoutReservationService.attachStripeSession(reservation.reservationToken, mockSessionId);
                 const order = await this.ordersService.finalizeReservedCheckout(mockSessionId, mockPaymentIntentId);
@@ -153,13 +158,9 @@ export class NestOrdersStripeService {
 
         let session;
         try {
-            const metadata = identity.kind === "authenticated"
-                ? { uid: identity.userId, reservationToken: reservation.reservationToken }
-                : { reservationToken: reservation.reservationToken };
             session = await this.stripeService.createCheckoutSession({
                 mode: "payment",
                 expires_at: stripeExpiresAt,
-                client_reference_id: reservation.reservationToken,
                 payment_method_types: ["card"],
                 line_items: [{
                     price_data: {
@@ -171,7 +172,12 @@ export class NestOrdersStripeService {
                 }],
                 success_url: `${env.clientUrl}/checkout-success?session_id={CHECKOUT_SESSION_ID}`,
                 cancel_url: `${env.clientUrl}/cart`,
-                metadata,
+                ...(identity.kind === "authenticated"
+                    ? {
+                        client_reference_id: reservation.reservationToken,
+                        metadata: { uid: identity.userId, reservationToken: reservation.reservationToken },
+                    }
+                    : {}),
             });
         } catch (err) {
             await this.checkoutReservationService.releaseReservation(reservation.reservationToken, "stripe_session_create_failed").catch((releaseErr) => {

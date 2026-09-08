@@ -194,16 +194,22 @@ describe("createCheckoutSession", () => {
         vi.mocked(ordersService.finalizeReservedCheckout).mockResolvedValue({ id: 12, date_added: "2026-09-06T01:00:00.000Z" });
 
         const result = await service.createGuestCheckoutSession(guestPayload as never);
+        const mockSessionId = vi.mocked(checkoutReservationService.attachStripeSession).mock.calls[0][1];
+        const mockPaymentIntentId = vi.mocked(ordersService.finalizeReservedCheckout).mock.calls[0][1];
 
         expect(result).toEqual(expect.objectContaining({
-            url: "http://localhost:5173/checkout-success?session_id=mock_stripe_reservation-token",
+            url: expect.stringMatching(/^http:\/\/localhost:5173\/checkout-success\?session_id=mock_stripe_[0-9a-f-]+$/),
             guestOrderToken: expect.any(String),
         }));
         expect(result.guestOrderToken).toMatch(/^[A-Za-z0-9_-]{40,}$/);
         expect(hashGuestOrderToken(result.guestOrderToken)).toMatch(/^[a-f0-9]{64}$/);
+        expect(result.url).not.toContain(result.guestOrderToken);
+        expect(result.url).not.toContain("reservation-token");
+        expect(mockSessionId).not.toContain("reservation-token");
+        expect(mockPaymentIntentId).not.toContain("reservation-token");
         expect(ordersService.finalizeReservedCheckout).toHaveBeenCalledWith(
-            "mock_stripe_reservation-token",
-            "mock_pi_reservation-token",
+            mockSessionId,
+            mockPaymentIntentId,
         );
     });
 
@@ -230,8 +236,10 @@ describe("createCheckoutSession", () => {
 
         expect(result.url).toBe("https://checkout.stripe.test/guest");
         const stripeParams = vi.mocked(stripeService.createCheckoutSession).mock.calls[0][0] as never;
-        expect(stripeParams.metadata).toEqual({ reservationToken: "reservation-token" });
+        expect(stripeParams.client_reference_id).toBeUndefined();
+        expect(stripeParams.metadata).toBeUndefined();
         expect(JSON.stringify(stripeParams)).not.toContain(result.guestOrderToken);
+        expect(JSON.stringify(stripeParams)).not.toContain("reservation-token");
         expect(JSON.stringify(stripeParams)).not.toContain("buyer@example.com");
     });
 });
