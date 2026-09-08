@@ -6,6 +6,9 @@ import ProductCard from "../ProductCard";
 const product = {
     id: 190,
     name: "Demo Intel Core Ultra Kit",
+    sku: "INTEL-DEMO-190",
+    manufacturerPartNumber: null,
+    warrantyMonths: null,
     category: "PC",
     brand: "Intel",
     price: 449,
@@ -35,5 +38,24 @@ describe("ProductCard", () => {
         expect(screen.getByRole("link", { name: product.name })).toHaveAttribute("href", "/product?id=190");
         expect(screen.getByRole("button", { name: "Add to wishlist" })).toHaveAttribute("aria-pressed", "false");
         expect(screen.getByRole("button", { name: /Add to cart/i })).toBeEnabled();
+    });
+
+    it("keeps the product media full-width without a hover border treatment", () => {
+        render(
+            <MemoryRouter>
+                <ProductCard
+                    product={product}
+                    uid=""
+                    isWishlist={false}
+                    onToggleWishlist={vi.fn()}
+                    onAddingCart={vi.fn()}
+                />
+            </MemoryRouter>,
+        );
+
+        const media = screen.getByTestId("product-card-image");
+
+        expect(media).toHaveClass("w-full", "max-w-none");
+        expect(media).not.toHaveClass("group-hover:border-electric");
     });
 });

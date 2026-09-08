@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+vi.mock("../orders/orders.stripe.service", () => ({ NestOrdersStripeService: class {} }));
+vi.mock("./stripe.service", () => ({ StripeService: class {} }));
 import { StripeWebhookController } from "./stripeWebhook.controller";
 import type { NestOrdersStripeService } from "../orders/orders.stripe.service";
+import type { StripeService } from "./stripe.service";
 
-const { stripeClient, logger } = vi.hoisted(() => ({
-    stripeClient: { webhooks: { constructEvent: vi.fn() } },
+const { logger } = vi.hoisted(() => ({
     logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn(), debug: vi.fn() },
 }));
 
-vi.mock("#src/config/stripe.config", () => ({ stripeClient }));
 vi.mock("#src/shared/utils/logger", () => ({ logger }));
 
 function mockResponse() {
@@ -23,13 +24,17 @@ describe("Stripe checkout webhook flow", () => {
 
     it("verifies the raw body and returns a canonical success response", async () => {
         const ordersStripeService = { handleCheckoutSessionCompleted: vi.fn() };
-        const controller = new StripeWebhookController(ordersStripeService as unknown as NestOrdersStripeService);
+        const stripeService = { constructWebhookEvent: vi.fn() };
+        const controller = new StripeWebhookController(
+            ordersStripeService as unknown as NestOrdersStripeService,
+            stripeService as unknown as StripeService,
+        );
         const rawBody = Buffer.from('{"type":"checkout.session.completed"}');
         const response = mockResponse();
-        vi.mocked(stripeClient.webhooks.constructEvent).mockReturnValue({
+        stripeService.constructWebhookEvent.mockReturnValue({
             type: "checkout.session.completed",
             data: { object: { id: "cs_flow_1" } },
-        } as never);
+        });
 
         await controller.handleStripeWebhook({
             requestId: "stripe-1",
@@ -37,7 +42,7 @@ describe("Stripe checkout webhook flow", () => {
             rawBody,
         } as never, response as never);
 
-        expect(stripeClient.webhooks.constructEvent).toHaveBeenCalledWith(rawBody, "sig", expect.any(String));
+        expect(stripeService.constructWebhookEvent).toHaveBeenCalledWith(rawBody, "sig");
         expect(ordersStripeService.handleCheckoutSessionCompleted).toHaveBeenCalledWith({ id: "cs_flow_1" });
         expect(response.json).toHaveBeenCalledWith({
             received: true,
@@ -47,7 +52,10 @@ describe("Stripe checkout webhook flow", () => {
     });
 
     it("returns a canonical client error when the Stripe signature is missing", async () => {
-        const controller = new StripeWebhookController({} as NestOrdersStripeService);
+        const controller = new StripeWebhookController(
+            {} as NestOrdersStripeService,
+            {} as StripeService,
+        );
         const response = mockResponse();
 
         await controller.handleStripeWebhook({ requestId: "stripe-2", headers: {} } as never, response as never);
@@ -60,5 +68,31 @@ describe("Stripe checkout webhook flow", () => {
             code: "STRIPE_SIGNATURE_MISSING",
             requestId: "stripe-2",
         });
+    });
+
+    it("routes checkout.session.expired to reservation cleanup", async () => {
+        const ordersStripeService = {
+            handleCheckoutSessionCompleted: vi.fn(),
+            handleCheckoutSessionExpired: vi.fn(),
+        };
+        const stripeService = { constructWebhookEvent: vi.fn() };
+        const controller = new StripeWebhookController(
+            ordersStripeService as unknown as NestOrdersStripeService,
+            stripeService as unknown as StripeService,
+        );
+        const response = mockResponse();
+        stripeService.constructWebhookEvent.mockReturnValue({
+            type: "checkout.session.expired",
+            data: { object: { id: "cs_flow_expired" } },
+        });
+
+        await controller.handleStripeWebhook({
+            requestId: "stripe-3",
+            headers: { "stripe-signature": "sig" },
+            rawBody: Buffer.from('{"type":"checkout.session.expired"}'),
+        } as never, response as never);
+
+        expect(ordersStripeService.handleCheckoutSessionExpired).toHaveBeenCalledWith({ id: "cs_flow_expired" });
+        expect(response.status).toHaveBeenCalledWith(200);
     });
 });

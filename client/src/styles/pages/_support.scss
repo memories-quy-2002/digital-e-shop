@@ -111,16 +111,15 @@
             font-weight: 800;
         }
 
-        button {
+        a {
             width: fit-content;
             margin-top: 1rem;
-            border: none;
             border-radius: 999px;
             background: var(--info-ink);
             color: var(--de-color-on-accent);
             padding: 0.72rem 1rem;
             font-weight: 900;
-            cursor: pointer;
+            text-decoration: none;
         }
     }
 

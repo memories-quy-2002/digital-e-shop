@@ -52,6 +52,7 @@ export async function fetchCustomerNotifications(
     };
 }
 
-export async function markAllCustomerNotificationsRead(uid: string): Promise<void> {
-    await http.post(`/api/users/${uid}/notifications/read-all`);
+export async function markAllCustomerNotificationsRead(uid: string): Promise<{ updated: number }> {
+    const response = await http.post(`/api/users/${uid}/notifications/read-all`);
+    return { updated: Number(response.data?.result?.updated) || 0 };
 }

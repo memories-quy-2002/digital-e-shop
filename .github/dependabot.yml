@@ -1,16 +1,9 @@
 version: 2
 updates:
-  # This repository uses a pnpm workspace with one root pnpm-lock.yaml.
-  # Keep Dependabot at the workspace root so dependency PRs update package.json
-  # files and the shared lockfile together. Separate /client and /server jobs can
-  # leave pnpm-lock.yaml stale, which breaks Vercel's frozen-lockfile install.
-  #
-  # Routine patch/minor updates are grouped into one weekly PR. Major updates are
-  # intentionally excluded from the group so Dependabot opens them as standalone
-  # PRs for explicit compatibility review. The open PR limit stays at 1 to keep
-  # dependency churn low and force sequential review.
+  # Client and server own independent manifests and lockfiles. Keep their
+  # dependency updates separate so each package can be installed standalone.
   - package-ecosystem: "npm"
-    directory: "/"
+    directory: "/client"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -19,47 +12,65 @@ updates:
     open-pull-requests-limit: 1
     versioning-strategy: "increase"
     commit-message:
-      # Dependabot adds the dependency scope when include=scope. Using only
-      # "chore" here produces Conventional Commit titles such as
-      # "chore(deps): bump ..." instead of "chore(deps)(deps): ...".
       prefix: "chore"
       include: "scope"
     labels:
       - "dependencies"
       - "dependabot"
     groups:
-      routine-dependency-updates:
+      routine-client-dependency-updates:
         patterns:
           - "*"
         update-types:
           - "minor"
           - "patch"
-    # Framework majors need manual migration review (breaking API/behavior
-    # changes); keep these on their current major until a dedicated migration is
-    # planned. TypeScript 7 is ignored specifically because it currently breaks
-    # the repo's tsconfig and typescript-eslint toolchain; TS 6 patch/minor
-    # updates remain eligible for the routine group.
     ignore:
       - dependency-name: "typescript"
         versions:
           - ">=7.0.0 <8.0.0"
-      - dependency-name: "express"
-        update-types: ["version-update:semver-major"]
       - dependency-name: "react"
         update-types: ["version-update:semver-major"]
       - dependency-name: "react-dom"
         update-types: ["version-update:semver-major"]
       - dependency-name: "react-router-dom"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "npm"
+    directory: "/server"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "Asia/Ho_Chi_Minh"
+    open-pull-requests-limit: 1
+    versioning-strategy: "increase"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "dependabot"
+    groups:
+      routine-server-dependency-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      - dependency-name: "typescript"
+        versions:
+          - ">=7.0.0 <8.0.0"
+      - dependency-name: "express"
+        update-types: ["version-update:semver-major"]
       - dependency-name: "@prisma/client"
         update-types: ["version-update:semver-major"]
       - dependency-name: "prisma"
         update-types: ["version-update:semver-major"]
-      - dependency-name: "vite"
-        update-types: ["version-update:semver-major"]
 
-  # Separate ecosystem (Dependabot can't group across ecosystems into one PR),
-  # capped at 1 open PR to keep CI/dependency review noise low.
+  # Separate ecosystem (Dependabot cannot group across ecosystems into one PR).
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

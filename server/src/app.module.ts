@@ -18,6 +18,8 @@ import { AuthModule } from "./auth/auth.module";
 import { StripeWebhookModule } from "./stripe/stripeWebhook.module";
 import { AllExceptionsFilter } from "./filters/all-exceptions.filter";
 import { RequestLoggerInterceptor } from "./interceptors/request-logger.interceptor";
+import { SupportModule } from "./support/support.module";
+import { AdminAlertsModule } from "./admin-alerts/admin-alerts.module";
 
 @Module({
     imports: [
@@ -37,6 +39,8 @@ import { RequestLoggerInterceptor } from "./interceptors/request-logger.intercep
         AnalyticsModule,
         BlobModule,
         StripeWebhookModule,
+        SupportModule,
+        AdminAlertsModule,
     ],
     providers: [
         { provide: APP_FILTER, useClass: AllExceptionsFilter },

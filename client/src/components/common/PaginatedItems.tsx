@@ -180,7 +180,7 @@ const PaginatedItems = ({
 
         try {
             const product = productById.get(product_id);
-            const stock = product ? product.stock : 0;
+            const stock = product ? (product.available_stock ?? product.stock) : 0;
             if (stock <= 0) {
                 addToast("Out of stock", "This product is out of stock.");
                 return;
@@ -277,13 +277,13 @@ const PaginatedItems = ({
                 <div className="shops__pagination-wrap">
                     <ReactPaginate
                         className="shops__pagination"
-                        pageClassName="pagination__item"
-                        pageLinkClassName="pagination__link"
-                        previousClassName="pagination__item"
-                        nextClassName="pagination__item"
-                        breakClassName="pagination__item"
-                        activeClassName="selected"
-                        disabledClassName="disabled"
+                        pageClassName="shops__pagination__item"
+                        pageLinkClassName="shops__pagination__link"
+                        previousClassName="shops__pagination__item shops__pagination__item--edge shops__pagination__item--previous"
+                        nextClassName="shops__pagination__item shops__pagination__item--edge shops__pagination__item--next"
+                        breakClassName="shops__pagination__item shops__pagination__item--break"
+                        activeClassName="shops__pagination__item--active"
+                        disabledClassName="shops__pagination__item--disabled"
                         breakLabel="..."
                         nextLabel="Next"
                         onPageChange={handlePageClick}

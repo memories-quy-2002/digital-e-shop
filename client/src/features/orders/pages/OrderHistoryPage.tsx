@@ -10,7 +10,7 @@ import { useToast } from "../../../context/ToastContext";
 import "../../../styles/features/orders/_order-history.scss";
 import { formatUtcDate, formatUtcDateTime } from "../../../utils/dateTime";
 import CustomerAccountShell from "../../users/components/CustomerAccountShell";
-import { addItemsToCustomerCart, fetchCustomerOrderDetail, fetchCustomerOrders } from "../api";
+import { addItemsToCustomerCart, cancelCustomerOrder, fetchCustomerOrderDetail, fetchCustomerOrders } from "../api";
 import type { CustomerOrder, CustomerOrderDetail, CustomerOrderTimelineEvent } from "../types";
 
 const getStatusLabel = (status: number) => {
@@ -22,10 +22,20 @@ const getStatusLabel = (status: number) => {
 const getPaymentLabel = (payment?: CustomerOrder["payment_method"]) => {
     if (payment === "bank_transfer") return "Bank transfer";
     if (payment === "cash") return "Cash on delivery";
+    if (payment === "payos") return "PayOS (VND)";
+    if (payment === "stripe" || payment === "card") return "Stripe card";
     return "Not recorded";
 };
 
 const formatCurrency = (value: number) => `$${Number(value || 0).toFixed(2)}`;
+const formatPaymentAmount = (value: number | null | undefined, currency?: string | null) => {
+    if (value === null || value === undefined || !currency) return null;
+    return new Intl.NumberFormat(currency === "VND" ? "vi-VN" : "en-US", {
+        style: "currency",
+        currency,
+        maximumFractionDigits: currency === "VND" ? 0 : 2,
+    }).format(Number(value) || 0);
+};
 const ORDER_PAGE_SIZE = 8;
 
 const OrderHistoryPage = () => {
@@ -39,6 +49,7 @@ const OrderHistoryPage = () => {
     const [orderDetail, setOrderDetail] = useState<CustomerOrderDetail | null>(null);
     const [loadingDetail, setLoadingDetail] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
+    const [isCanceling, setIsCanceling] = useState(false);
 
     useEffect(() => {
         const fetchOrders = async () => {
@@ -142,6 +153,27 @@ const OrderHistoryPage = () => {
         }
     };
 
+    const handleCancel = async () => {
+        if (!orderDetail || orderDetail.status !== 0 || isCanceling) return;
+
+        try {
+            setIsCanceling(true);
+            const canceledOrder = await cancelCustomerOrder(orderDetail.id);
+            if (canceledOrder) {
+                setOrders((current) => current.map((order) => order.id === canceledOrder.id ? { ...order, ...canceledOrder } : order));
+                setOrderDetail(await fetchCustomerOrderDetail(orderDetail.id));
+            }
+            addToast("Order canceled", "Your pending order was canceled and inventory was released.");
+        } catch (error: unknown) {
+            const message = error && typeof error === "object" && "response" in error
+                ? String((error as { response?: { data?: { msg?: string } } }).response?.data?.msg || "Unable to cancel this order.")
+                : "Unable to cancel this order.";
+            addToast("Order cancellation", message);
+        } finally {
+            setIsCanceling(false);
+        }
+    };
+
     if (isLoadingOrders) {
         return (
             <Layout>
@@ -158,7 +190,9 @@ const OrderHistoryPage = () => {
             </Helmet>
             <main className="order-history">
                 <CustomerAccountShell
+                    eyebrow="PURCHASE LOG"
                     title="Order history"
+                    description="Track recent purchases, review payment details, and reorder items that are still available."
                 />
 
                 <section className="order-history__summary" aria-label="Order history summary">
@@ -268,10 +302,17 @@ const OrderHistoryPage = () => {
                                             <h2>Order #{orderDetail.id}</h2>
                                             <p>{formatUtcDateTime(orderDetail.date_added)}</p>
                                         </div>
-                                        <button type="button" onClick={handleReorder}>
-                                            <CartIcon size={18} />
-                                            Reorder
-                                        </button>
+                                        <div className="order-history__detail-actions">
+                                            <button type="button" onClick={handleReorder}>
+                                                <CartIcon size={18} />
+                                                Reorder
+                                            </button>
+                                            {orderDetail.status === 0 ? (
+                                                <button type="button" className="order-history__cancel" onClick={handleCancel} disabled={isCanceling}>
+                                                    {isCanceling ? "Canceling..." : "Cancel order"}
+                                                </button>
+                                            ) : null}
+                                        </div>
                                     </div>
 
                                     <div className="order-history__meta">
@@ -286,6 +327,9 @@ const OrderHistoryPage = () => {
                                                     Math.max(orderDetail.total_price - orderDetail.discount, 0),
                                                 )}
                                             </strong>
+                                            {formatPaymentAmount(orderDetail.payment_amount, orderDetail.payment_currency) ? (
+                                                <small>{formatPaymentAmount(orderDetail.payment_amount, orderDetail.payment_currency)} settlement amount</small>
+                                            ) : null}
                                         </div>
                                         <div className="order-history__meta-card">
                                             <span>Address</span>

@@ -9,6 +9,10 @@ export const orderStatusSchema = z.object({
     status: z.coerce.number().int().refine((value) => [0, 1, 2].includes(value), "Status is required"),
 });
 
+export const cancelOrderSchema = z.object({
+    reason: z.string().trim().max(500, "Cancellation reason is too long").optional(),
+});
+
 export const purchaseSchema = z.object({
     totalPrice: nonNegativeNumber("Total price"),
     cart: z.array(
@@ -24,7 +28,7 @@ export const purchaseSchema = z.object({
     discount: nonNegativeNumber("Discount").default(0),
     discountCode: optionalDiscountCode,
     shippingAddress: requiredText("Shipping address"),
-    paymentMethod: z.enum(["bank_transfer", "cash"], { error: "Unsupported payment method" }),
+    paymentMethod: z.enum(["bank_transfer", "cash", "payos", "stripe", "card"], { error: "Unsupported payment method" }),
 });
 
 export const checkoutSessionSchema = z.object({

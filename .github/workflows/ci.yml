@@ -17,30 +17,53 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
+    env:
+      VITE_API_BASE_URL: https://e-commerce-express-server-app.vercel.app
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-
+        with:
+          version: 12.3.4
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version: 24.20.0
           cache: 'pnpm'
-
+          cache-dependency-path: client/pnpm-lock.yaml
       - name: Install dependencies
+        working-directory: client
         run: pnpm install --frozen-lockfile
-
       - name: Typecheck
-        run: pnpm --filter client exec tsc --noEmit
-
+        working-directory: client
+        run: pnpm exec tsc --noEmit
       - name: Lint
-        run: pnpm --filter client lint
-
+        working-directory: client
+        run: pnpm lint
       - name: Test
-        run: pnpm --filter client test -- --run
-
+        working-directory: client
+        run: pnpm test -- --run
       - name: Build
-        run: pnpm --filter client build
+        working-directory: client
+        run: pnpm build
+      - name: Verify client preview
+        working-directory: client
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vite preview --host 127.0.0.1 --port 4173 > preview.log 2>&1 &
+          preview_pid=$!
+          cleanup() {
+            kill "$preview_pid" 2>/dev/null || true
+            wait "$preview_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:4173/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat preview.log
+          exit 1
 
   server:
     runs-on: ubuntu-24.04
@@ -73,17 +96,17 @@ jobs:
       CSRF_SECRET: ci-csrf-secret
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-
+        with:
+          version: 12.3.4
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version: 24.20.0
           cache: 'pnpm'
-
+          cache-dependency-path: server/pnpm-lock.yaml
       - name: Install dependencies
+        working-directory: server
         run: pnpm install --frozen-lockfile
-
       - name: Verify MySQL connectivity
         working-directory: server
         run: |
@@ -100,26 +123,18 @@ jobs:
                 process.exit(1);
               });
           '
-
-      # The Prisma baseline is intentionally metadata-only because raw MySQL
-      # repositories still own the legacy schema. Recreate that checked-in
-      # baseline, record the metadata-only migration, then apply the tracked
-      # Prisma migrations.
       - name: Load legacy MySQL baseline
         working-directory: server
         run: |
           node <<'NODE'
           const fs = require("node:fs");
           const mysql = require("mysql2/promise");
-
           const files = [
             "src/database/migrations/defaultdb_2026-06-01_142319.sql",
             "src/database/migrations/2026-07-07-add-stripe-payment-support.sql",
           ];
-
           const stripGlobalGtidStatement = (sql) =>
             sql.replace(/SET @@GLOBAL\.GTID_PURGED=.*?;\s*/s, "");
-
           (async () => {
             const connection = await mysql.createConnection({
               host: "127.0.0.1",
@@ -129,13 +144,11 @@ jobs:
               database: process.env.DB_NAME,
               multipleStatements: true,
             });
-
             try {
               for (const file of files) {
                 const sql = stripGlobalGtidStatement(fs.readFileSync(file, "utf8"));
                 await connection.query(sql);
               }
-              console.log("Legacy MySQL baseline and pre-Prisma Stripe schema loaded");
             } finally {
               await connection.end();
             }
@@ -144,27 +157,69 @@ jobs:
             process.exit(1);
           });
           NODE
-
       - name: Record Prisma legacy baseline
-        run: pnpm --filter server prisma:migrate:resolve --applied 0_init
-
+        working-directory: server
+        run: pnpm prisma:migrate:resolve --applied 0_init
       - name: Apply Prisma migrations
-        run: pnpm --filter server prisma:migrate:deploy
-
+        working-directory: server
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm prisma:migrate:deploy 2>&1 | tee prisma-migrate.log
+      - name: Upload Prisma migration diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prisma-migration-diagnostics
+          path: server/prisma-migrate.log
       - name: Verify Prisma migration status
-        run: pnpm --filter server prisma:migrate:status
-
+        working-directory: server
+        run: pnpm prisma:migrate:status
       - name: Typecheck
-        run: pnpm --filter server typecheck
-
+        working-directory: server
+        run: pnpm typecheck
       - name: Lint
-        run: pnpm --filter server lint
-
+        working-directory: server
+        run: pnpm lint
       - name: Test
-        run: pnpm --filter server test -- --run
-
+        working-directory: server
+        run: pnpm test -- --run
       - name: Integration tests
-        run: pnpm --filter server test:integration
-
-      - name: Build
-        run: pnpm --filter server build
+        working-directory: server
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm test:integration 2>&1 | tee integration-tests.log
+      - name: Upload integration test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-diagnostics
+          path: server/integration-tests.log
+      - name: Build exactly as Vercel function builder
+        working-directory: server/api
+        run: pnpm run vercel-build
+      - name: Verify server health
+        working-directory: server
+        env:
+          NODE_ENV: test
+          CLIENT_URL: http://localhost:5173
+          SERVER_URL: http://localhost:4000
+        shell: bash
+        run: |
+          set -euo pipefail
+          node dist/src/server.js > server-smoke.log 2>&1 &
+          server_pid=$!
+          cleanup() {
+            kill "$server_pid" 2>/dev/null || true
+            wait "$server_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:4000/api/health > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat server-smoke.log
+          exit 1

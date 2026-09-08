@@ -2,12 +2,19 @@
 
 The long-term knowledge base for the Digital-E e-commerce system. Readable in Obsidian; maintained by humans and AI agents. For agent rules, see [AGENTS.md](../AGENTS.md). For human guides, see [docs/](../docs/).
 
-**Project summary:** Digital-E is a full-stack e-commerce platform for electronic components and devices, built as a pnpm workspace with a React 19 + Vite storefront/admin (`client/`) and a NestJS + TypeScript API (`server/`, migrated from Express 5 — see [[0002-nestjs-migration]]) backed primarily by MySQL with a partial Prisma layer.
+**Project summary:** Digital-E is a full-stack e-commerce platform for electronic components and devices, built as two independent pnpm packages: a React 19 + Vite storefront/admin (`client/`) and a NestJS + TypeScript API (`server/`, migrated from Express 5 — see [[0002-nestjs-migration]]) backed primarily by MySQL with a partial Prisma layer.
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-09-07
 
-The local MySQL demo seed creates and verifies a linked multi-table graph
-without truncating the database.
+The local MySQL demo seed creates and verifies a linked multi-table graph with
+28 catalog products, each using a unique HTTPS stock image URL. The seed stays
+non-destructive for normal reruns; Docker reset is an explicit local-only
+operation.
+
+Checkout follows the dark technical storefront language with a progress rail,
+scoped payment/shipping panels, and normalized client-side email validation.
+Transient Toasts use a portal-mounted viewport outside the app shell, while
+contextual validation stays next to the action that needs attention.
 
 ## Core pages
 
@@ -16,6 +23,8 @@ without truncating the database.
 - [[overview]] — purpose, stack, modules, commands, assumptions.
 - [[architecture]] — folder structure, frontend/backend/database boundaries, risks.
 - [[log]] — append-only wiki/AI-maintenance change log.
+- [[0003-payment-ledger-and-usd-canonical-currency]] — payment providers, USD canonical amounts, and PayOS VND quotes.
+- [[order-lifecycle-and-support]] — cancellation, review eligibility, and support-ticket rules.
 
 ## Catalog
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { BellIcon, BoxSeamIcon, CartIcon, CashStackIcon, PersonIcon, SpeedometerIcon } from "../common/Icons";
+import { BellIcon, BoxSeamIcon, CartIcon, CashStackIcon, PersonIcon, SpeedometerIcon, TelephoneIcon } from "../common/Icons";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
@@ -10,6 +10,7 @@ const adminNavItems = [
     { label: "Promotions", path: "/admin/promotions", match: "promotions", icon: <CashStackIcon size={20} /> },
     { label: "Accounts", path: "/admin/accounts", match: "accounts", icon: <PersonIcon size={20} /> },
     { label: "Notifications", path: "/admin/notifications", match: "notifications", icon: <BellIcon size={20} /> },
+    { label: "Support", path: "/admin/support", match: "support", icon: <TelephoneIcon size={20} /> },
 ];
 
 const getDisplayName = (username?: string, firstName?: string | null, lastName?: string | null) => {

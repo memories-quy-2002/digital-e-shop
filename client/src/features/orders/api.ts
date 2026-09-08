@@ -13,6 +13,11 @@ export async function fetchCustomerOrderDetail(orderId: number): Promise<Custome
     return response.data.order || null;
 }
 
+export async function cancelCustomerOrder(orderId: number, reason?: string): Promise<CustomerOrder | null> {
+    const response = await http.post(`/api/orders/${orderId}/cancel`, reason ? { reason } : {});
+    return response.data.order || null;
+}
+
 export async function addItemsToCustomerCart(
     uid: string,
     items: Array<{ productId: number; quantity: number; stock: number }>,

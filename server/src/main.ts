@@ -2,6 +2,7 @@ import "reflect-metadata";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
+import type { INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import { isAllowedOrigin } from "#src/config/cors.config";
@@ -17,15 +18,7 @@ const openapiSpec = JSON.parse(
 
 let cachedApp: Awaited<ReturnType<typeof NestFactory.create>> | null = null;
 
-async function bootstrap() {
-    if (cachedApp) {
-        return cachedApp;
-    }
-
-    const app = await NestFactory.create(AppModule, {
-        rawBody: true,
-    });
-
+export async function configureHttpApp<T extends INestApplication>(app: T): Promise<T> {
     const expressApp = app.getHttpAdapter().getInstance();
 
     expressApp.use(requestIdMiddleware);
@@ -39,7 +32,7 @@ async function bootstrap() {
             }
         },
         credentials: true,
-        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
         exposedHeaders: ["X-Request-Id"],
     }));
@@ -61,6 +54,20 @@ async function bootstrap() {
     app.setGlobalPrefix("api");
 
     await app.init();
+
+    return app;
+}
+
+async function bootstrap() {
+    if (cachedApp) {
+        return cachedApp;
+    }
+
+    const app = await NestFactory.create(AppModule, {
+        rawBody: true,
+    });
+
+    await configureHttpApp(app);
 
     cachedApp = app;
     return app;

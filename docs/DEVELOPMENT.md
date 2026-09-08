@@ -1,29 +1,35 @@
 # Development Guide
 
+## Runtime Versions
+
+Use Node.js `24.20.0` and pnpm `12.3.4`. The repository pins the Node version
+in `.node-version`; both package manifests pin the pnpm version.
+
 ## Install
 
-Install dependencies from the repository root:
+Install each application independently:
 
 ```powershell
-pnpm install
+pnpm --dir client install
+pnpm --dir server install
 ```
 
-The root lockfile resolves both `client` and `server`.
+`client/pnpm-lock.yaml` and `server/pnpm-lock.yaml` are independent. The root
+directory intentionally has no `package.json`, pnpm workspace, lockfile, or
+`node_modules`.
 
 ## Run Locally
 
-Run both apps:
+Run each app in its own terminal:
 
 ```powershell
-pnpm dev
+pnpm --dir server dev
+pnpm --dir client dev
 ```
 
-Run one package:
-
-```powershell
-pnpm --filter client start
-pnpm --filter server dev
-```
+Before the server starts, its lifecycle runs `prisma:generate` followed by
+`prisma migrate deploy`, then compiles and starts the localhost watcher. The
+same Prisma preparation and compile step runs before `pnpm --dir server start`.
 
 Default URLs:
 
@@ -34,10 +40,22 @@ Default URLs:
 ## Environment
 
 The server needs a configured `server/.env` for database, auth, CORS, and
-deployment-specific values. Do not commit `.env` files.
+deployment-specific values. In production, `DATABASE_URL`, `DB_HOST`,
+`DB_USER`, `DB_NAME`, `JWT_SECRET_KEY`, `JWT_REFRESH_SECRET_KEY`,
+`CSRF_SECRET`, `CLIENT_URL`, and `SERVER_URL` are required; startup fails
+clearly when any are missing. Do not commit `.env` files.
+
+The server loads `server/.env.<mode>.local`, `server/.env.local`,
+`server/.env.<mode>`, and finally `server/.env` in that order. Use
+`server/.env.docker` for the local Docker database helpers; it points to the
+same `127.0.0.1:3307` MySQL mapping and local API origins.
 
 The client should use the existing API configuration pattern instead of hard
-coding environment-specific URLs inside page components.
+coding environment-specific URLs inside page components. Development defaults
+to `http://localhost:4000`; production builds require `VITE_API_BASE_URL` to be
+set explicitly. Vite reads the local fallback from `client/.env` and allows
+`client/.env.local` or mode-specific files to override it. The client Vercel
+project must provide the production API URL externally.
 
 ## Frontend Guidelines
 

@@ -3,6 +3,7 @@ import pool from "#src/config/database.config";
 const prisma = require("#src/database/prisma/client");
 import type { CountRow, IdNameRow, UpdateResult } from "#src/shared/interfaces/domain";
 import type { ProductEditorRow, ProductFacetValueRow, ProductPriceBoundsRow } from "./products.types";
+import type { AttributeFilter } from "./product-attributes.types";
 
 type ProductInsertRecord = {
     name: string;
@@ -11,6 +12,9 @@ type ProductInsertRecord = {
     categoryId: number;
     brandId: number;
     specifications?: string;
+    sku: string;
+    manufacturerPartNumber?: string | null;
+    warrantyMonths?: number | null;
     price: number;
     inventory: number;
 };
@@ -21,6 +25,9 @@ type ProductUpdateRecord = {
     categoryId: number;
     brandId: number;
     specifications?: string;
+    sku: string;
+    manufacturerPartNumber?: string | null;
+    warrantyMonths?: number | null;
     price: number;
     salePrice?: number | null;
     stock: number;
@@ -33,6 +40,7 @@ type ProductListFilters = {
     minPrice?: number;
     maxPrice?: number;
     sortBy?: "relevance" | "price-asc" | "price-desc" | "rating-desc" | "newest";
+    attributeFilters?: AttributeFilter[];
 };
 
 const productRatingJoin = `
@@ -48,11 +56,39 @@ const productRatingSelect = `
     COALESCE(review_summary.reviews, 0) AS reviews
 `;
 
+const productAttributesSelect = (productAlias: string) => `
+    COALESCE((
+        SELECT JSON_OBJECTAGG(
+            pa.attribute_key,
+            JSON_OBJECT(
+                'label', pa.label,
+                'type', pa.value_type,
+                'value', IF(pa.value_type = 'number', pa.number_value, pa.text_value),
+                'unit', pa.unit,
+                'filterable', pa.filterable
+            )
+        )
+        FROM product_attributes pa
+        WHERE pa.product_id = ${productAlias}.id
+    ), JSON_OBJECT()) AS attributes
+`;
+
+const productAvailabilityJoin = `
+    LEFT JOIN (
+        SELECT ir.product_id, SUM(ir.quantity) AS reserved_quantity
+        FROM inventory_reservations ir
+        JOIN pending_checkouts pc ON pc.id = ir.pending_checkout_id
+        WHERE pc.status = 'PENDING' AND pc.expires_at > UTC_TIMESTAMP()
+        GROUP BY ir.product_id
+    ) active_reservations ON active_reservations.product_id = products.id
+`;
+
 const productBaseFrom = `
     FROM products
     JOIN categories ON categories.id = products.category_id
     JOIN brands ON brands.id = products.brand_id
     ${productRatingJoin}
+    ${productAvailabilityJoin}
 `;
 
 const getProductListWhere = (filters: ProductListFilters = {}) => {
@@ -91,6 +127,36 @@ const getProductListWhere = (filters: ProductListFilters = {}) => {
     if (typeof filters.maxPrice === "number" && Number.isFinite(filters.maxPrice)) {
         conditions.push("COALESCE(products.sale_price, products.price) <= ?");
         params.push(filters.maxPrice);
+    }
+
+    for (const filter of filters.attributeFilters || []) {
+        if ("textValues" in filter && filter.textValues.length > 0) {
+            conditions.push(`EXISTS (
+                SELECT 1
+                FROM product_attributes pa
+                WHERE pa.product_id = products.id
+                  AND pa.attribute_key = ?
+                  AND pa.value_type = 'text'
+                  AND pa.filterable = 1
+                  AND pa.text_value IN (${filter.textValues.map(() => "?").join(", ")})
+            )`);
+            params.push(filter.key, ...filter.textValues);
+        }
+
+        if ("min" in filter && Number.isFinite(filter.min)) {
+            conditions.push(`EXISTS (
+                SELECT 1
+                FROM product_attributes pa
+                WHERE pa.product_id = products.id
+                  AND pa.attribute_key = ?
+                  AND pa.value_type = 'number'
+                  AND pa.filterable = 1
+                  AND pa.number_value >= ?
+                  ${typeof filter.max === "number" && Number.isFinite(filter.max) ? "AND pa.number_value <= ?" : ""}
+            )`);
+            params.push(filter.key, filter.min);
+            if (typeof filter.max === "number" && Number.isFinite(filter.max)) params.push(filter.max);
+        }
     }
 
     return { normalizedTerm, whereClause: `WHERE ${conditions.join(" AND ")}`, params };
@@ -150,8 +216,8 @@ export class NestProductsRepository {
     insertProduct(product: ProductInsertRecord): Promise<UpdateResult> {
         return new Promise((resolve, reject) => {
             pool.query(
-                `INSERT INTO products (name, description, main_image, category_id, brand_id, specifications, price, stock)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO products (name, description, main_image, category_id, brand_id, specifications, sku, manufacturer_part_number, warranty_months, price, stock)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     product.name,
                     product.description,
@@ -159,6 +225,9 @@ export class NestProductsRepository {
                     product.categoryId,
                     product.brandId,
                     product.specifications,
+                    product.sku,
+                    product.manufacturerPartNumber,
+                    product.warrantyMonths,
                     product.price,
                     product.inventory,
                 ],
@@ -210,12 +279,14 @@ export class NestProductsRepository {
         return new Promise((resolve, reject) => {
             pool.query(
                 `SELECT products.id, products.name, description, categories.name AS category,
-                    brands.name AS brand, price, sale_price, stock, main_image,
-                    specifications, ${productRatingSelect}
+                    brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, price, sale_price, stock,
+                    GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
+                    specifications, ${productAttributesSelect("products")}, ${productRatingSelect}
                 FROM products
                 JOIN categories ON categories.id = products.category_id
                 JOIN brands ON brands.id = products.brand_id
                 ${productRatingJoin}
+                ${productAvailabilityJoin}
                 WHERE products.id = ? AND products.stock >= 0`,
                 [pid],
                 (err: Error | null, rows: ProductEditorRow[]) => {
@@ -230,8 +301,9 @@ export class NestProductsRepository {
         return new Promise((resolve, reject) => {
             pool.query(
                 `SELECT products.id, products.name, description, categories.name AS category,
-                    brands.name AS brand, price, sale_price, stock, main_image,
-                    specifications, ${productRatingSelect}
+                    brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, price, sale_price, stock,
+                    GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
+                    specifications, ${productAttributesSelect("products")}, ${productRatingSelect}
                 ${productBaseFrom}
                 WHERE products.stock >= 0
                 ORDER BY products.id DESC`,
@@ -247,8 +319,9 @@ export class NestProductsRepository {
         return new Promise((resolve, reject) => {
             pool.query(
                 `SELECT products.id, products.name, description, categories.name AS category,
-                    brands.name AS brand, price, sale_price, stock, main_image,
-                    specifications, ${productRatingSelect}
+                    brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, price, sale_price, stock,
+                    GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
+                    specifications, ${productAttributesSelect("products")}, ${productRatingSelect}
                 ${productBaseFrom}
                 WHERE products.stock >= 0
                 ORDER BY products.id DESC
@@ -270,8 +343,9 @@ export class NestProductsRepository {
         return new Promise((resolve, reject) => {
             pool.query(
                 `SELECT products.id, products.name, description, categories.name AS category,
-                    brands.name AS brand, price, sale_price, stock, main_image,
-                    specifications, ${productRatingSelect}
+                    brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, price, sale_price, stock,
+                    GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
+                    specifications, ${productAttributesSelect("products")}, ${productRatingSelect}
                 ${productBaseFrom}
                 ${whereClause}
                 ${orderByClause}
@@ -430,6 +504,9 @@ export class NestProductsRepository {
                 p.id,
                 p.name,
                 p.description,
+                p.sku,
+                p.manufacturer_part_number,
+                p.warranty_months,
                 categories.name AS category,
                 brands.name AS brand,
                 p.price,
@@ -437,6 +514,7 @@ export class NestProductsRepository {
                 p.stock,
                 p.main_image,
                 p.specifications,
+                ${productAttributesSelect("p")},
                 COALESCE(review_summary.rating, 0) AS rating,
                 COALESCE(review_summary.reviews, 0) AS reviews
             FROM products p
@@ -492,6 +570,9 @@ export class NestProductsRepository {
                 p.id,
                 p.name,
                 p.description,
+                p.sku,
+                p.manufacturer_part_number,
+                p.warranty_months,
                 c.name AS category,
                 b.name AS brand,
                 p.price,
@@ -499,6 +580,7 @@ export class NestProductsRepository {
                 p.stock,
                 p.main_image,
                 p.specifications,
+                ${productAttributesSelect("p")},
                 COALESCE(review_summary.rating, 0) AS rating,
                 COALESCE(review_summary.reviews, 0) AS reviews
             FROM products p

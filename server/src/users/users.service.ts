@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { UsersRepository } from "./users.repository";
 import type { UpdateUserAdminInput } from "./users.dto";
+import { toPublicUser } from "./user-public";
 
 @Injectable()
 export class NestUsersService {
@@ -9,15 +10,15 @@ export class NestUsersService {
     async getUserById(uid: string) {
         const user = await this.usersRepository.findById(uid);
         if (!user) throw new NotFoundException({ msg: "User not found" });
-        return user;
+        return toPublicUser(user);
     }
 
     async getAllUsers() {
-        return this.usersRepository.getAll();
+        return (await this.usersRepository.getAll()).map(toPublicUser);
     }
 
     async getAllUsersPaginated(limit: number, offset: number) {
-        return this.usersRepository.getPaginated(limit, offset);
+        return (await this.usersRepository.getPaginated(limit, offset)).map(toPublicUser);
     }
 
     async getUsersCount() {

@@ -6,6 +6,7 @@ import { AuthGuard } from "../auth.guard";
 import type { NestConfigService } from "../../config/nest-config.service";
 import type { NestAuthService } from "../../auth/auth.service";
 import type { UsersRepository } from "../../users/users.repository";
+import type { AuthRepository } from "../../auth/auth.repository";
 
 vi.mock("jsonwebtoken", () => ({
     default: { verify: vi.fn() },
@@ -21,7 +22,8 @@ function buildGuard() {
     const config = { get: vi.fn().mockReturnValue("secret") } as unknown as NestConfigService;
     const authService = { verifySessionToken: vi.fn() } as unknown as NestAuthService;
     const usersRepository = { findById: vi.fn() } as unknown as UsersRepository;
-    return { guard: new AuthGuard(config, authService, usersRepository), authService, usersRepository };
+    const authRepository = { getActiveSessionById: vi.fn() } as unknown as AuthRepository;
+    return { guard: new AuthGuard(config, authService, usersRepository, authRepository), authService, usersRepository, authRepository };
 }
 
 describe("AuthGuard", () => {
@@ -61,25 +63,57 @@ describe("AuthGuard", () => {
     });
 
     it("attaches req.user and returns true on a valid session + token", async () => {
-        const { guard, authService } = buildGuard();
+        const { guard, authService, authRepository, usersRepository } = buildGuard();
         vi.mocked(authService.verifySessionToken).mockResolvedValue({ valid: true });
-        vi.mocked(jwt.verify).mockReturnValue({ id: "1", role: "customer" } as never);
-        const req: Record<string, unknown> = { cookies: { accessToken: "good-token" } };
+        vi.mocked(jwt.verify).mockReturnValue({ id: "1", role: "customer", sid: 42 } as never);
+        vi.mocked(authRepository.getActiveSessionById).mockResolvedValue({ user_id: "1" } as never);
+        vi.mocked(usersRepository.findById).mockResolvedValue({ id: "1", role: "Admin", status: "Active" } as never);
+        const req: Record<string, unknown> = { cookies: { accessToken: "good-token", session: "42" } };
         const context = buildContext(req);
 
         await expect(guard.canActivate(context)).resolves.toBe(true);
-        expect(req.user).toEqual({ id: "1", role: "customer" });
+        expect(req.user).toEqual({ id: "1", role: "Admin", sid: 42 });
     });
 
-    it("backfills the role from usersRepository when the JWT payload has no role", async () => {
-        const { guard, authService, usersRepository } = buildGuard();
+    it("rejects an access token whose sid does not match the session cookie", async () => {
+        const { guard, authService } = buildGuard();
         vi.mocked(authService.verifySessionToken).mockResolvedValue({ valid: true });
-        vi.mocked(jwt.verify).mockReturnValue({ id: "1" } as never);
-        vi.mocked(usersRepository.findById).mockResolvedValue({ role: "admin" } as never);
-        const req: Record<string, unknown> = { cookies: { accessToken: "good-token" } };
+        vi.mocked(jwt.verify).mockReturnValue({ id: "1", sid: 42 } as never);
+        const req: Record<string, unknown> = { cookies: { accessToken: "good-token", session: "43" } };
         const context = buildContext(req);
 
-        await expect(guard.canActivate(context)).resolves.toBe(true);
-        expect(req.user).toEqual({ id: "1", role: "admin" });
+        await expect(guard.canActivate(context)).rejects.toMatchObject({
+            response: { msg: "Session mismatch" },
+            status: 401,
+        });
+    });
+
+    it("rejects an access token when its database session is no longer active", async () => {
+        const { guard, authService, authRepository } = buildGuard();
+        vi.mocked(authService.verifySessionToken).mockResolvedValue({ valid: true });
+        vi.mocked(jwt.verify).mockReturnValue({ id: "1", sid: 42 } as never);
+        vi.mocked(authRepository.getActiveSessionById).mockResolvedValue(null);
+        const req: Record<string, unknown> = { cookies: { accessToken: "good-token", session: "42" } };
+        const context = buildContext(req);
+
+        await expect(guard.canActivate(context)).rejects.toMatchObject({
+            response: { msg: "Session invalid or expired" },
+            status: 401,
+        });
+    });
+
+    it("loads the live user role and rejects suspended users", async () => {
+        const { guard, authService, authRepository, usersRepository } = buildGuard();
+        vi.mocked(authService.verifySessionToken).mockResolvedValue({ valid: true });
+        vi.mocked(jwt.verify).mockReturnValue({ id: "1", role: "Admin", sid: 42 } as never);
+        vi.mocked(authRepository.getActiveSessionById).mockResolvedValue({ user_id: "1" } as never);
+        vi.mocked(usersRepository.findById).mockResolvedValue({ id: "1", role: "Customer", status: "Suspended" } as never);
+        const req: Record<string, unknown> = { cookies: { accessToken: "good-token", session: "42" } };
+        const context = buildContext(req);
+
+        await expect(guard.canActivate(context)).rejects.toMatchObject({
+            response: { msg: "Account is suspended" },
+            status: 401,
+        });
     });
 });

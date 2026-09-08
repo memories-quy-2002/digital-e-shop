@@ -78,6 +78,9 @@ const ProductPage = () => {
     const [productDetail, setProductDetail] = useState<Product>({
         id: 0,
         name: "",
+        sku: "",
+        manufacturerPartNumber: null,
+        warrantyMonths: null,
         category: "",
         brand: "",
         price: 0,
@@ -86,9 +89,11 @@ const ProductPage = () => {
         reviews: 0,
         main_image: "",
         stock: 0,
+        available_stock: 0,
         description: "",
         specifications: "",
     });
+    const availableStock = productDetail.available_stock ?? productDetail.stock;
     const [isLoadingProduct, setIsLoadingProduct] = useState(true);
     const [productLoadError, setProductLoadError] = useState(false);
     const [relevantProducts, setRelevantProducts] = useState<Product[]>([]);
@@ -308,8 +313,8 @@ const ProductPage = () => {
     };
 
     const handleIncrease = () => {
-        if (productDetail.stock > 0) {
-            setQuantity((value) => Math.min(productDetail.stock, value + 1));
+        if (availableStock > 0) {
+            setQuantity((value) => Math.min(availableStock, value + 1));
         }
     };
 
@@ -322,7 +327,7 @@ const ProductPage = () => {
             addToast("Login required", "You need to login to use this feature.");
             return;
         } else {
-            if (productDetail.stock === 0) {
+            if (availableStock === 0) {
                 addToast("Out of stock", "The product is out of stock.");
                 return;
             } else if (quantity === 0) {
@@ -451,8 +456,8 @@ const ProductPage = () => {
         {
             label: t("product.stockLabel"),
             value:
-                productDetail.stock > 0
-                    ? t("product.stockValueIn", productDetail.stock)
+                availableStock > 0
+                    ? t("product.stockValueIn", availableStock)
                     : t("product.stockValueOut"),
         },
     ];
@@ -482,7 +487,10 @@ const ProductPage = () => {
                                     : t("product.singleImage")}
                             </strong>
                         </div>
-                        <div className="product-page__gallery-main">
+                        <div
+                            className="product-page__gallery-main product-page__gallery-main--fixed"
+                            data-testid="product-gallery-main"
+                        >
                             {activeImageUrl ? (
                                 <button
                                     type="button"
@@ -574,10 +582,12 @@ const ProductPage = () => {
 
                         <div className="product-page__purchase-card">
                             <div className="product-page__actions">
-                                <label className="product-page__quantity-field" htmlFor="quantity">
-                                    <span>{t("product.quantity")}</span>
+                                <div className="product-page__quantity-field" data-testid="product-quantity-field">
+                                    <label className="product-page__quantity-label" htmlFor="quantity">
+                                        {t("product.quantity")}
+                                    </label>
                                     <div className="product-page__quantity">
-                                        <button type="button" onClick={handleDecrease} disabled={productDetail.stock <= 0}>
+                                        <button type="button" onClick={handleDecrease} disabled={availableStock <= 0}>
                                             -
                                         </button>
                                         <input
@@ -585,28 +595,28 @@ const ProductPage = () => {
                                             name="quantity"
                                             id="quantity"
                                             min={1}
-                                            max={productDetail.stock}
+                                            max={availableStock}
                                             value={quantity}
                                             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                                                 setQuantity(() => {
                                                     const raw = Number(e.target.value);
                                                     const safe = Number.isFinite(raw) ? raw : 1;
-                                                    const max = productDetail.stock > 0 ? productDetail.stock : 1;
+                                                    const max = availableStock > 0 ? availableStock : 1;
                                                     return Math.max(1, Math.min(max, safe));
                                                 })
                                             }
-                                            disabled={productDetail.stock <= 0}
+                                            disabled={availableStock <= 0}
                                         />
-                                        <button type="button" onClick={handleIncrease} disabled={productDetail.stock <= 0}>
+                                        <button type="button" onClick={handleIncrease} disabled={availableStock <= 0}>
                                             +
                                         </button>
                                     </div>
-                                    <small>
-                                        {productDetail.stock > 0
-                                            ? t("product.stockIn", productDetail.stock)
+                                    <span className="product-page__availability" data-testid="product-availability" role="status">
+                                        {availableStock > 0
+                                            ? t("product.stockIn", availableStock)
                                             : t("product.stockOut")}
-                                    </small>
-                                </label>
+                                    </span>
+                                </div>
                                 <button
                                     className="product-page__button product-page__button--primary"
                                     type="button"
@@ -617,7 +627,7 @@ const ProductPage = () => {
                                             addToast("Login required", "You need to login to use this feature.");
                                         }
                                     }}
-                                    disabled={productDetail.stock <= 0}
+                                    disabled={availableStock <= 0}
                                 >
                                     {t("product.addToCart")}
                                 </button>
@@ -642,7 +652,19 @@ const ProductPage = () => {
                     </div>
                 </section>
 
-                <div className="product-page__tabs">
+                <section className="product-page__recommendations-shell" data-testid="product-recommendations-shell">
+                    <div className="product-page__recommendations-head">
+                        <h2 className="product-page__recommendations-title">
+                            {t("product.recommendationsTitle")}
+                        </h2>
+                        <Link to="/shops" className="product-page__recommendations-link">
+                            {t("product.browseCatalog")}
+                        </Link>
+                    </div>
+                    <RecommendedProduct relevantProducts={relevantProducts} />
+                </section>
+
+                <div className="product-page__tabs" data-testid="product-tabs">
                     <div className="product-page__tabs-nav">
                         <button
                             type="button"
@@ -720,8 +742,8 @@ const ProductPage = () => {
 
                     <Activity mode={toggle ? "visible" : "hidden"}>
                         <div className="product-page__reviews">
-                            <div className="product-page__reviews-card">
-                                <section className="product-page__reviews-summary">
+                            <div className="product-page__reviews-card" data-testid="product-reviews-card">
+                                <section className="product-page__reviews-summary" data-testid="product-reviews-summary">
                                     <div className="product-page__reviews-score">
                                         <strong>{formatProductRating(displayedRating)}</strong>
                                         <span>{ratingStar(displayedRating, "#FFCC4A", 20)}</span>
@@ -795,7 +817,7 @@ const ProductPage = () => {
                                     </form>
                                 )}
 
-                                <section className="product-page__reviews-list">
+                                <section className="product-page__reviews-list" data-testid="product-reviews-list">
                                     <div className="product-page__reviews-list-header">
                                         <h2>{t("product.reviewsTitle")}</h2>
                                         <span>{t("product.reviewsVisible", optimisticReviews.length)}</span>
@@ -833,18 +855,6 @@ const ProductPage = () => {
                         </div>
                     </Activity>
                 </div>
-
-                <section className="product-page__recommendations-shell">
-                    <div className="product-page__recommendations-head">
-                        <h2 className="product-page__recommendations-title">
-                            {t("product.recommendationsTitle")}
-                        </h2>
-                        <Link to="/shops" className="product-page__recommendations-link">
-                            {t("product.browseCatalog")}
-                        </Link>
-                    </div>
-                    <RecommendedProduct relevantProducts={relevantProducts} />
-                </section>
 
                 <ImageLightbox
                     show={isLightboxOpen}

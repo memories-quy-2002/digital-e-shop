@@ -27,7 +27,7 @@ const vi: Dictionary = {
             support: "Hỗ trợ",
             contact: "Liên hệ",
         },
-        searchPlaceholder: "Tìm laptop, điện thoại, loa và nhiều hơn nữa",
+        searchPlaceholder: "Tìm sản phẩm",
         searchMobilePlaceholder: "Tìm sản phẩm",
         searchEmpty: "Nhập nội dung để tìm kiếm.",
         searchNoResults: "Chưa có sản phẩm phù hợp.",

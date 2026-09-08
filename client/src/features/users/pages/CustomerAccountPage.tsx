@@ -19,6 +19,7 @@ import {
     fetchCustomerNotifications,
 } from "../api";
 import { CustomerOrder, fetchCustomerOrders } from "../../orders/api";
+import { sendFirebaseEmailVerification } from "../../../services/firebase";
 
 const formatCurrency = (value: number) => `$${Number(value || 0).toFixed(2)}`;
 
@@ -44,6 +45,20 @@ const CustomerAccountPage = () => {
     const [notifications, setNotifications] = useState<CustomerNotification[]>([]);
     const [unreadNotifications, setUnreadNotifications] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [isSendingVerification, setIsSendingVerification] = useState(false);
+
+    const resendVerification = async () => {
+        if (isSendingVerification) return;
+        try {
+            setIsSendingVerification(true);
+            await sendFirebaseEmailVerification();
+            addToast("Verify your email", "A new verification link has been sent.");
+        } catch {
+            addToast("Verify your email", "Please sign in again before requesting a new verification link.");
+        } finally {
+            setIsSendingVerification(false);
+        }
+    };
 
     useEffect(() => {
         const loadAccount = async () => {
@@ -87,7 +102,11 @@ const CustomerAccountPage = () => {
                 <meta name="description" content="Review your account, orders, saved addresses, and notifications." />
             </Helmet>
             <main className="customer-account-page">
-                <CustomerAccountShell title="My account" />
+                <CustomerAccountShell
+                    eyebrow="YOUR DIGITAL-E"
+                    title="My account"
+                    description="A quick view of your purchases, delivery details, and account activity."
+                />
 
                 {loading ? (
                     <>
@@ -142,6 +161,9 @@ const CustomerAccountPage = () => {
                                 </span>
                                 <h2>{getDisplayName(customer)}</h2>
                                 <p>{customer?.email || userData?.email || "No email available"}</p>
+                                <button type="button" onClick={resendVerification} disabled={isSendingVerification}>
+                                    {isSendingVerification ? "Sending verification..." : "Resend verification email"}
+                                </button>
                                 <small>Last active {customer?.last_login ? formatUtcDateTime(customer.last_login) : "recently"}</small>
                             </div>
 

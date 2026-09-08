@@ -40,12 +40,31 @@ export class CartRepository {
                 ci.id AS cart_item_id,
                 p.id AS product_id,
                 p.name AS product_name,
+                p.sku,
+                p.manufacturer_part_number,
+                p.warranty_months,
                 b.name AS brand,
                 c.name AS category,
                 p.price,
                 p.sale_price,
                 p.stock,
+                GREATEST(p.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock,
                 p.main_image,
+                p.specifications,
+                COALESCE((
+                    SELECT JSON_OBJECTAGG(
+                        pa.attribute_key,
+                        JSON_OBJECT(
+                            'label', pa.label,
+                            'type', pa.value_type,
+                            'value', IF(pa.value_type = 'number', pa.number_value, pa.text_value),
+                            'unit', pa.unit,
+                            'filterable', pa.filterable
+                        )
+                    )
+                    FROM product_attributes pa
+                    WHERE pa.product_id = p.id
+                ), JSON_OBJECT()) AS attributes,
                 ci.quantity
             FROM
                 cart_items ci
@@ -55,6 +74,13 @@ export class CartRepository {
                 p.brand_id = b.id
             JOIN categories c ON
                 p.category_id = c.id
+            LEFT JOIN (
+                SELECT ir.product_id, SUM(ir.quantity) AS reserved_quantity
+                FROM inventory_reservations ir
+                JOIN pending_checkouts pc ON pc.id = ir.pending_checkout_id
+                WHERE pc.status = 'PENDING' AND pc.expires_at > UTC_TIMESTAMP()
+                GROUP BY ir.product_id
+            ) active_reservations ON active_reservations.product_id = p.id
             WHERE ci.cart_id = ? AND p.stock >= 0;  `,
             [cartId],
             callback,
@@ -67,17 +93,43 @@ export class CartRepository {
                 ci.id AS cart_item_id,
                 ci.product_id,
                 p.name AS product_name,
+                p.sku,
+                p.manufacturer_part_number,
+                p.warranty_months,
                 b.name AS brand,
                 c.name AS category,
                 p.price,
                 p.sale_price,
                 p.stock,
+                GREATEST(p.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock,
                 p.main_image,
+                p.specifications,
+                COALESCE((
+                    SELECT JSON_OBJECTAGG(
+                        pa.attribute_key,
+                        JSON_OBJECT(
+                            'label', pa.label,
+                            'type', pa.value_type,
+                            'value', IF(pa.value_type = 'number', pa.number_value, pa.text_value),
+                            'unit', pa.unit,
+                            'filterable', pa.filterable
+                        )
+                    )
+                    FROM product_attributes pa
+                    WHERE pa.product_id = p.id
+                ), JSON_OBJECT()) AS attributes,
                 ci.quantity
             FROM cart_items ci
             LEFT JOIN products p ON p.id = ci.product_id
             LEFT JOIN brands b ON b.id = p.brand_id
             LEFT JOIN categories c ON c.id = p.category_id
+            LEFT JOIN (
+                SELECT ir.product_id, SUM(ir.quantity) AS reserved_quantity
+                FROM inventory_reservations ir
+                JOIN pending_checkouts pc ON pc.id = ir.pending_checkout_id
+                WHERE pc.status = 'PENDING' AND pc.expires_at > UTC_TIMESTAMP()
+                GROUP BY ir.product_id
+            ) active_reservations ON active_reservations.product_id = p.id
             WHERE ci.cart_id = ?`,
             [cartId],
             callback,
@@ -90,9 +142,16 @@ export class CartRepository {
 
     getCartItemStock(cartItemId: number, callback: QueryCallback<CartItemRow[]>) {
         pool.query(
-            `SELECT p.stock
+            `SELECT GREATEST(p.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock
             FROM cart_items ci
             JOIN products p ON p.id = ci.product_id
+            LEFT JOIN (
+                SELECT ir.product_id, SUM(ir.quantity) AS reserved_quantity
+                FROM inventory_reservations ir
+                JOIN pending_checkouts pc ON pc.id = ir.pending_checkout_id
+                WHERE pc.status = 'PENDING' AND pc.expires_at > UTC_TIMESTAMP()
+                GROUP BY ir.product_id
+            ) active_reservations ON active_reservations.product_id = p.id
             WHERE ci.id = ?`,
             [cartItemId],
             callback,

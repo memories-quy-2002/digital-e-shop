@@ -1,12 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { HttpException } from "@nestjs/common";
+vi.mock("../orders.service", () => ({ NestOrdersService: class {} }));
+vi.mock("../orders.stripe.service", () => ({ NestOrdersStripeService: class {} }));
 import { OrdersController } from "../orders.controller";
 import type { NestOrdersService } from "../orders.service";
 import type { NestOrdersStripeService } from "../orders.stripe.service";
-
-vi.mock("#src/config/stripe.config", () => ({
-    stripeClient: { checkout: { sessions: { create: vi.fn() } } },
-}));
 
 vi.mock("#src/shared/utils/logger", () => ({
     logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn(), debug: vi.fn() },

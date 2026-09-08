@@ -5,10 +5,11 @@ import { Helmet } from "react-helmet";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import authImage from "../../../assets/images/background_form.jpg";
 import { useToast } from "../../../context/ToastContext";
-import { createFirebaseUser, signInWithFirebaseEmail } from "../../../services/firebase";
+import { createFirebaseUser, sendFirebaseEmailVerification, signInWithFirebaseEmail } from "../../../services/firebase";
 import "../../../styles/features/auth/_signup.scss";
 import { PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../../../utils/images";
 import { Role } from "../../../types/user";
+import type { UserCredential } from "firebase/auth";
 import SocialAuthButtons from "../components/SocialAuthButtons";
 import { getSocialAuthMessage } from "../utils/socialAuth";
 import { EyeIcon, EyeOffIcon } from "../../../components/common/Icons";
@@ -19,7 +20,6 @@ interface User {
     email: string;
     password: string;
     confirm: string;
-    role: Role;
 }
 
 const SignupPage = () => {
@@ -31,7 +31,6 @@ const SignupPage = () => {
         email: "",
         password: "",
         confirm: "",
-        role: Role.Customer,
     });
     const [errors, setErrors] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -128,11 +127,6 @@ const SignupPage = () => {
         }
     };
 
-    const handleChangeRadio = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const selectedRole = event.target.value as Role;
-        setUser({ ...user, role: selectedRole });
-    };
-
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         const errorsList = validateForm();
@@ -144,23 +138,28 @@ const SignupPage = () => {
 
         setIsSubmitting(true);
         try {
-            let uid = "";
+            let userCredential: UserCredential;
             try {
-                const userCredential = await createFirebaseUser(user.email, user.password);
-                uid = userCredential.user.uid;
+                userCredential = await createFirebaseUser(user.email, user.password);
             } catch (err: unknown) {
                 const error = err as { code?: string };
                 if (error.code === "auth/email-already-in-use") {
-                    const userCredential = await signInWithFirebaseEmail(user.email, user.password);
-                    uid = userCredential.user.uid;
+                    userCredential = await signInWithFirebaseEmail(user.email, user.password);
                 } else {
                     throw err;
                 }
             }
 
-            await registerUser(user, uid);
+            const idToken = await userCredential.user.getIdToken(true);
+            await registerUser({ username: user.username }, idToken);
             addToast("Signup", "Account created successfully.");
-            navigate(user.role === Role.Customer ? "/" : "/admin");
+            try {
+                await sendFirebaseEmailVerification();
+                addToast("Verify your email", "We sent a verification link to your inbox.");
+            } catch {
+                addToast("Verify your email", "Your account is ready. You can resend verification from your account page.");
+            }
+            navigate("/");
         } catch (err: unknown) {
             if (err instanceof AxiosError) {
                 const status = err.response?.status;
@@ -210,7 +209,7 @@ const SignupPage = () => {
                 </aside>
                 <main className="signup__form">
                     <h1 className="signup__form__title">Create account</h1>
-                    <SocialAuthButtons intent="signup" role={user.role} disabled={user.role === Role.Admin} />
+                    <SocialAuthButtons intent="signup" role={Role.Customer} />
                     <Form className="signup__form__container" onSubmit={handleSubmit} name="signup-form" aria-label="signup-form">
                         <Form.Group className="signup__form__container__group mb-3" controlId="formBasicUserName">
                             <Form.Label>Username</Form.Label>
@@ -291,24 +290,6 @@ const SignupPage = () => {
                             </div>
                             {fieldErrors.confirm ? <Form.Text className="signup__field-error">{fieldErrors.confirm}</Form.Text> : null}
                         </Form.Group>
-                        <Form.Group className="signup__form__container__group signup__role">
-                            <Form.Label>Signup as</Form.Label>
-                            <div className="signup__role__options">
-                                {[Role.Customer, Role.Admin].map((role) => (
-                                    <label key={role} className={user.role === role ? "active" : ""}>
-                                        <input
-                                            type="radio"
-                                            name="signup-role"
-                                            value={role}
-                                            checked={user.role === role}
-                                            onChange={handleChangeRadio}
-                                        />
-                                        {role}
-                                    </label>
-                                ))}
-                            </div>
-                        </Form.Group>
-
                         {fieldErrors.general ? (
                             <div className="signup__form__errors" aria-live="polite">
                                 <div>{fieldErrors.general}</div>

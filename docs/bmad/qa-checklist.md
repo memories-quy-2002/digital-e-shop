@@ -14,14 +14,14 @@ Run those relevant to the touched surface (see [AGENTS.md](../../AGENTS.md) → 
 
 ```powershell
 # Frontend
-client\node_modules\.bin\tsc.cmd -p client\tsconfig.json --noEmit
-pnpm --filter client build
-pnpm --filter client lint
+pnpm --dir client exec tsc -p tsconfig.json --noEmit
+pnpm --dir client build
+pnpm --dir client lint
 
 # Backend
-pnpm --filter server typecheck
-pnpm --filter server build
-pnpm --filter server lint
+pnpm --dir server typecheck
+pnpm --dir server build
+pnpm --dir server lint
 ```
 
 - [ ] Relevant checks pass (note any that couldn't run, and why).

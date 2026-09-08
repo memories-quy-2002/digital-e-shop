@@ -1,7 +1,7 @@
 import { Injectable, ForbiddenException, SetMetadata } from "@nestjs/common";
 import type { CanActivate, ExecutionContext } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import type { Request } from "express";
+import type { Request } from "express-serve-static-core";
 
 const normalizeRole = (role?: string | null) => (role ? String(role).toLowerCase() : "");
 

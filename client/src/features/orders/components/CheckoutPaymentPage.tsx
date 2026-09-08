@@ -15,6 +15,7 @@ import {
     normalizeCheckoutCartItems,
 } from "../types";
 import { maskPhoneNumber } from "../pages/checkoutSuccessStorage";
+import { normalizeCheckoutEmail, validateCheckoutEmail, validateCheckoutForm } from "../checkoutValidation";
 
 interface CheckoutForm {
     email: string;
@@ -24,7 +25,7 @@ interface CheckoutForm {
     city: string;
     country: string | null;
     phone_number: string | null;
-    payment_method: "bank_transfer" | "cash" | "card";
+    payment_method: "bank_transfer" | "cash" | "payos" | "card";
 }
 
 type CheckoutPaymentProps = {
@@ -66,6 +67,7 @@ const CheckoutPaymentPage = ({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
     const [isValidatingCart, setIsValidatingCart] = useState(false);
+    const [isEmailTouched, setIsEmailTouched] = useState(false);
     const cartRef = useRef(cart);
 
     const applyValidationPayload = useCallback(
@@ -86,9 +88,10 @@ const CheckoutPaymentPage = ({
     );
 
     const paymentOptions = [
-        { value: "bank_transfer" as const, title: "Bank transfer", icon: <BankIcon size={22} /> },
-        { value: "cash" as const, title: "Cash on delivery", icon: <CashStackIcon size={22} /> },
-        { value: "card" as const, title: "Card", icon: <ShieldIcon size={22} /> },
+        { value: "bank_transfer" as const, title: "Bank transfer", description: "Manual confirmation", icon: <BankIcon size={22} /> },
+        { value: "cash" as const, title: "Cash on delivery", description: "Pay when it arrives", icon: <CashStackIcon size={22} /> },
+        { value: "payos" as const, title: "PayOS (VND)", description: "Whole-number VND quote", icon: <CashStackIcon size={22} /> },
+        { value: "card" as const, title: "Card", description: "Secure Stripe redirect", icon: <ShieldIcon size={22} /> },
     ];
 
     const selectedPayment = paymentOptions.find((option) => option.value === formCheckout.payment_method) || paymentOptions[0];
@@ -128,22 +131,12 @@ const CheckoutPaymentPage = ({
         }));
     }, [defaultAddress, formCheckout.address]);
 
-    const validateForm = (): string[] => {
-        const errorsList: string[] = [];
-        const emailPattern = /^([A-Za-z0-9_\-.])+@([A-Za-z0-9_\-.])+\.([A-Za-z]{2,4})$/;
-        if (!formCheckout.email) errorsList.push("Email is required");
-        else if (!formCheckout.email.match(emailPattern)) errorsList.push("Invalid email format");
-        if (!formCheckout.first_name.trim()) errorsList.push("First name is required");
-        if (!formCheckout.last_name.trim()) errorsList.push("Last name is required");
-        if (!formCheckout.address.trim()) errorsList.push("Shipping address is required");
-        if (!formCheckout.city.trim()) errorsList.push("City is required");
-        if (!formCheckout.payment_method) errorsList.push("Please select a payment method");
-        return errorsList;
-    };
+    const emailError = validateCheckoutEmail(formCheckout.email);
+    const showEmailError = isEmailTouched && Boolean(emailError);
 
     const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = event.target;
-        setFormCheckout({ ...formCheckout, [name]: value });
+        setFormCheckout((current) => ({ ...current, [name]: value }));
     };
 
     const applySavedAddress = (address: SavedAddress) => {
@@ -191,7 +184,8 @@ const CheckoutPaymentPage = ({
 
     const handlePurchase = async () => {
         setErrors([]);
-        const validationErrors = validateForm();
+        setIsEmailTouched(true);
+        const validationErrors = validateCheckoutForm(formCheckout);
         if (validationErrors.length > 0) {
             setErrors(validationErrors);
             return;
@@ -213,6 +207,7 @@ const CheckoutPaymentPage = ({
 
         try {
             setIsSubmitting(true);
+            const normalizedEmail = normalizeCheckoutEmail(formCheckout.email);
             const latestTotalPrice = latestCart.reduce(
                 (sum, item) => sum + (item.sale_price ?? item.price) * item.quantity,
                 0,
@@ -226,7 +221,7 @@ const CheckoutPaymentPage = ({
                         discount,
                         subtotal: latestTotalPrice - discount,
                         itemsCount: latestCart.reduce((sum, item) => sum + item.quantity, 0),
-                        email: formCheckout.email,
+                        email: normalizedEmail,
                         name: `${formCheckout.first_name} ${formCheckout.last_name}`.trim(),
                         address: formCheckout.address,
                         city: formCheckout.city,
@@ -267,7 +262,7 @@ const CheckoutPaymentPage = ({
                 };
                 const payloadSensitive = {
                     ...payload,
-                    email: formCheckout.email,
+                    email: normalizedEmail,
                     name: `${formCheckout.first_name} ${formCheckout.last_name}`.trim(),
                     address: formCheckout.address,
                     city: formCheckout.city,
@@ -313,8 +308,17 @@ const CheckoutPaymentPage = ({
                 <meta name="description" content="Complete your purchase securely and confirm shipping details." />
             </Helmet>
             <div className="checkout__hero">
-                <button className="checkout__back" onClick={() => setIsPayment(false)}>Back to cart</button>
-                <div className="checkout__hero__content"><h1>Checkout</h1></div>
+                <button type="button" className="checkout__back" onClick={() => setIsPayment(false)}>Back to cart</button>
+                <div className="checkout__hero__content">
+                    <p className="checkout__hero__eyebrow">ORDER // SECURE CHECKOUT</p>
+                    <h1>Checkout</h1>
+                    <p>Confirm your delivery details, choose a payment rail, and place your electronics order.</p>
+                    <ol className="checkout__progress" aria-label="Checkout progress">
+                        <li className="checkout__progress__step is-complete"><span>01</span>Cart</li>
+                        <li className="checkout__progress__step is-complete"><span>02</span>Shipping</li>
+                        <li className="checkout__progress__step is-active" aria-current="step"><span>03</span>Payment</li>
+                    </ol>
+                </div>
                 <div className="checkout__hero__meta">
                     <div><strong>{itemsCount}</strong><span>Items</span></div>
                     <div><strong>${(totalPrice - discount).toFixed(2)}</strong><span>Total due</span></div>
@@ -342,11 +346,25 @@ const CheckoutPaymentPage = ({
                     ) : null}
 
                     <div className="checkout__card">
-                        <div className="checkout__card__header"><h2>Contact</h2></div>
+                        <div className="checkout__card__header"><h2><span>01</span>Contact</h2><p>Where should we send order updates?</p></div>
                         <Form>
                             <Form.Group className="mb-3" controlId="formBasicEmail">
-                                <Form.Label>Email address</Form.Label>
-                                <Form.Control type="email" name="email" placeholder="name@email.com" required value={formCheckout.email} onChange={handleInputChange} />
+                                <Form.Label htmlFor="checkout-email">Email address</Form.Label>
+                                <Form.Control
+                                    id="checkout-email"
+                                    type="email"
+                                    name="email"
+                                    placeholder="name@email.com"
+                                    autoComplete="email"
+                                    inputMode="email"
+                                    required
+                                    value={formCheckout.email}
+                                    onChange={handleInputChange}
+                                    onBlur={() => setIsEmailTouched(true)}
+                                    aria-invalid={showEmailError}
+                                    aria-describedby={showEmailError ? "checkout-email-error" : undefined}
+                                />
+                                {showEmailError ? <small id="checkout-email-error" className="checkout__field-error">{emailError}</small> : null}
                             </Form.Group>
                             <Form.Group className="mb-3" controlId="formBasicCheckbox">
                                 <Form.Check type="checkbox" label="Keep me up to date with new products and sales" />
@@ -355,7 +373,7 @@ const CheckoutPaymentPage = ({
                     </div>
 
                     <div className="checkout__card">
-                        <div className="checkout__card__header"><h2>Shipping</h2></div>
+                        <div className="checkout__card__header"><h2><span>02</span>Shipping</h2><p>Use a saved address or enter a new delivery point.</p></div>
                         {savedAddresses.length > 0 ? (
                             <div className="checkout__saved-addresses">
                                 {savedAddresses.map((address) => (
@@ -369,44 +387,44 @@ const CheckoutPaymentPage = ({
                             <div className="checkout__field-grid">
                                 <div className="checkout__field">
                                     <Form.Group className="mb-3" controlId="formFirstName">
-                                        <Form.Label>First name</Form.Label>
-                                        <Form.Control type="text" name="first_name" placeholder="First name" required value={formCheckout.first_name} onChange={handleInputChange} />
+                                        <Form.Label htmlFor="checkout-first-name">First name</Form.Label>
+                                        <Form.Control id="checkout-first-name" type="text" name="first_name" placeholder="First name" autoComplete="given-name" required value={formCheckout.first_name} onChange={handleInputChange} />
                                     </Form.Group>
                                 </div>
                                 <div className="checkout__field">
                                     <Form.Group className="mb-3" controlId="formLastName">
-                                        <Form.Label>Last name</Form.Label>
-                                        <Form.Control type="text" name="last_name" placeholder="Last name" required value={formCheckout.last_name} onChange={handleInputChange} />
+                                        <Form.Label htmlFor="checkout-last-name">Last name</Form.Label>
+                                        <Form.Control id="checkout-last-name" type="text" name="last_name" placeholder="Last name" autoComplete="family-name" required value={formCheckout.last_name} onChange={handleInputChange} />
                                     </Form.Group>
                                 </div>
                             </div>
                             <Form.Group className="mb-3" controlId="formShippingAddress">
-                                <Form.Label>Shipping address</Form.Label>
-                                <Form.Control type="text" name="address" placeholder="Street address" required value={formCheckout.address} onChange={handleInputChange} />
+                                <Form.Label htmlFor="checkout-address">Shipping address</Form.Label>
+                                <Form.Control id="checkout-address" type="text" name="address" placeholder="Street address" autoComplete="street-address" required value={formCheckout.address} onChange={handleInputChange} />
                             </Form.Group>
                             <div className="checkout__field-grid">
                                 <div className="checkout__field">
                                     <Form.Group className="mb-3" controlId="formCity">
-                                        <Form.Label>City</Form.Label>
-                                        <Form.Control type="text" name="city" placeholder="City" required value={formCheckout.city} onChange={handleInputChange} />
+                                        <Form.Label htmlFor="checkout-city">City</Form.Label>
+                                        <Form.Control id="checkout-city" type="text" name="city" placeholder="City" autoComplete="address-level2" required value={formCheckout.city} onChange={handleInputChange} />
                                     </Form.Group>
                                 </div>
                                 <div className="checkout__field">
                                     <Form.Group className="mb-3" controlId="formCountry">
-                                        <Form.Label>Country</Form.Label>
-                                        <Form.Control type="text" name="country" placeholder="Country" value={formCheckout.country || ""} onChange={handleInputChange} />
+                                        <Form.Label htmlFor="checkout-country">Country</Form.Label>
+                                        <Form.Control id="checkout-country" type="text" name="country" placeholder="Country" autoComplete="country-name" value={formCheckout.country || ""} onChange={handleInputChange} />
                                     </Form.Group>
                                 </div>
                             </div>
                             <Form.Group className="mb-3" controlId="formPhoneNumber">
-                                <Form.Label>Phone number</Form.Label>
-                                <Form.Control type="tel" name="phone_number" placeholder="Phone number" value={formCheckout.phone_number || ""} onChange={handleInputChange} />
+                                <Form.Label htmlFor="checkout-phone">Phone number</Form.Label>
+                                <Form.Control id="checkout-phone" type="tel" name="phone_number" placeholder="Phone number" autoComplete="tel" value={formCheckout.phone_number || ""} onChange={handleInputChange} />
                             </Form.Group>
                         </Form>
                     </div>
 
                     <div className="checkout__card">
-                        <div className="checkout__card__header"><h2>Payment</h2></div>
+                        <div className="checkout__card__header"><h2><span>03</span>Payment</h2><p>Select the payment rail that works for you.</p></div>
                         <Form className="checkout__payment">
                             <div className="checkout__payment__methods" role="radiogroup" aria-label="Payment method">
                                 {paymentOptions.map((option) => (
@@ -414,11 +432,11 @@ const CheckoutPaymentPage = ({
                                         <input type="radio" id={`payment-${option.value}`} name="payment_method" value={option.value} checked={formCheckout.payment_method === option.value} onChange={handleInputChange} />
                                         <span className="checkout__payment__method__check"><CheckCircleIcon size={18} /></span>
                                         <span className="checkout__payment__method__icon">{option.icon}</span>
-                                        <span className="checkout__payment__method__content"><strong>{option.title}</strong></span>
+                                        <span className="checkout__payment__method__content"><strong>{option.title}</strong><small>{option.description}</small></span>
                                     </label>
                                 ))}
                             </div>
-                            <div className="checkout__payment__selected"><strong>{selectedPayment.title}</strong></div>
+                            <div className="checkout__payment__selected"><span>Selected method</span><strong>{selectedPayment.title}</strong></div>
                             {formCheckout.payment_method === "bank_transfer" ? (
                                 <div className="checkout__payment__details">
                                     <h3>Bank transfer instructions</h3>
@@ -429,6 +447,20 @@ const CheckoutPaymentPage = ({
                                         <div><span>Reference</span><strong>Use your order ID after checkout</strong></div>
                                     </div>
                                     <p>We&apos;ll confirm the transfer and start processing your order as soon as the payment arrives.</p>
+                                </div>
+                            ) : formCheckout.payment_method === "payos" ? (
+                                <div className="checkout__payment__details">
+                                    <h3>PayOS payment</h3>
+                                    <p>
+                                        The order total is kept as USD internally and quoted as a whole-number VND amount for PayOS.
+                                        The final VND quote is recorded with your order using the server exchange rate.
+                                    </p>
+                                    <p>This demo uses a symbolic PayOS payment reference. No live payment is charged.</p>
+                                </div>
+                            ) : formCheckout.payment_method === "card" ? (
+                                <div className="checkout__payment__details">
+                                    <h3>Stripe card payment</h3>
+                                    <p>You will be redirected to Stripe Checkout to complete this payment securely.</p>
                                 </div>
                             ) : (
                                 <div className="checkout__payment__details">
@@ -443,6 +475,7 @@ const CheckoutPaymentPage = ({
 
                 <aside className="checkout__summary">
                     <div className="checkout__summary__card">
+                        <p className="checkout__summary__eyebrow">ORDER MANIFEST</p>
                         <h2>Order summary</h2>
                         <div className="checkout__summary__badge"><ShieldIcon size={16} /><span>Stock and pricing are rechecked before the order is placed.</span></div>
                         <div className="checkout__summary__list">

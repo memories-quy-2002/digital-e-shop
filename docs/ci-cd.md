@@ -8,14 +8,16 @@ merge through a pull request.
 
 ### `.github/workflows/ci.yml`
 
-The client job runs on Ubuntu 24.04 with Node.js 24 and performs frozen pnpm
-installation, TypeScript typecheck, lint, Vitest unit tests, and a production
-build.
+The client job runs on Ubuntu 24.04 with Node.js 24.20.0 and pnpm 12.3.4. It
+performs frozen pnpm installation, TypeScript typecheck, lint, Vitest unit
+tests, a production build with an explicit `VITE_API_BASE_URL`, and an HTTP
+smoke check against the Vite preview.
 
 The server job runs against a disposable MySQL 8.4 service and performs the
 same code-quality checks plus MySQL connectivity verification, legacy
 schema/bootstrap loading, the pre-Prisma Stripe schema change, Prisma deploy
-and status checks, MySQL-backed integration tests, and the server build.
+and status checks, MySQL-backed integration tests, the server build, and an
+HTTP smoke check against `/api/health`.
 
 The Prisma history is intentionally partial. `0_init` is a metadata-only
 baseline because raw MySQL repositories still own legacy tables. Consequently,
@@ -47,18 +49,15 @@ cannot provide that gate, add a narrowly scoped deployment workflow with the
 Vercel project IDs and production token stored in GitHub Environment secrets;
 do not put those values in source control.
 
-The server project's `server/vercel.json` pins Vercel's dependency install to
-`corepack pnpm@11.5.3 install --frozen-lockfile`. This keeps Vercel aligned with
-the workspace lockfile and preserves the root `pnpm-workspace.yaml` overrides.
-Without this override, older Vercel projects can infer pnpm 9 from lockfile
-version `9.0`, which rejects the current override configuration before the
-application build starts.
+The server project's `server/vercel.json` installs from the server project root
+with `pnpm install --frozen-lockfile` and builds with `pnpm run build`. The
+server's `pnpm-lock.yaml` and package-local `pnpm-workspace.yaml` own its
+dependency resolution and approved build-script policy. The client has the
+same independent package boundary under `client/`.
 
-The root `package.json` mirrors those same overrides under its `pnpm` field as
-a compatibility bridge for Vercel's native serverless API builder, which may
-still run its own pnpm 9 install after the configured install command. pnpm 11
-ignores that legacy field; `pnpm-workspace.yaml` remains the canonical override
-configuration, so both install phases resolve the same security-pinned versions.
+The client Vercel project must define `VITE_API_BASE_URL` in its environment.
+This variable is intentionally required for production builds so previews do
+not silently target the production API.
 
 Vercel `READY` is not an application-health check. After every production
 deployment, run both smoke checks:
@@ -79,11 +78,14 @@ CI uses disposable values only:
 - MySQL is an isolated service created for the job;
 - CI database credentials and JWT/CSRF values are test literals;
 - normal pull-request jobs do not receive production credentials; and
-- Copilot setup uses a placeholder `DATABASE_URL` and does not read a MySQL
-  secret.
+- repository automation uses placeholder local values where a real database
+  connection is unnecessary.
 
 Production credentials belong only in Vercel/GitHub environment secret stores.
 Never commit `.env` files, database URLs, access tokens, or signing secrets.
+The production server also requires `DATABASE_URL`, `DB_HOST`, `DB_USER`,
+`DB_NAME`, `JWT_SECRET_KEY`, `JWT_REFRESH_SECRET_KEY`, `CSRF_SECRET`,
+`CLIENT_URL`, and `SERVER_URL` at runtime.
 
 ## Database target isolation
 
@@ -101,17 +103,19 @@ schema with:
 ```powershell
 Copy-Item server/.env.example server/.env
 Copy-Item server/.env.docker.example server/.env.docker
-pnpm --filter server docker:setup
+pnpm --dir server docker:setup
 ```
 
 If `server/.env` currently contains a remote Aiven or production target,
 replace its database variables with the local values before starting the
-server. The application runtime, Prisma CLI configuration, Prisma runtime
-URL helper, and mock seed command reject remote database targets outside
-production. The mock seed is local-only even when `NODE_ENV=production` is
-set accidentally. Prisma's schema-only `generate` command is exempt because
-it does not connect to a database and runs during dependency installation;
-database-connecting Prisma commands remain guarded.
+server. If remote development is intentional, set
+`ALLOW_REMOTE_DATABASE=true` explicitly; the application runtime, Prisma CLI
+configuration, and Prisma runtime URL helper then allow that target. The mock
+seed remains local-only even when `ALLOW_REMOTE_DATABASE=true` or
+`NODE_ENV=production` is set accidentally. Prisma's schema-only `generate`
+command is exempt because it does not connect to a database and runs during
+dependency installation; database-connecting Prisma commands remain guarded
+unless remote access is explicitly opted in.
 
 The local setup imports the checked-in legacy dump and historical Stripe SQL,
 records the metadata-only `0_init` migration as applied, then runs
@@ -121,29 +125,39 @@ credentials only after backup, target verification, and release approval.
 
 ## Local parity
 
-Install from the workspace root with the committed lockfile:
+Install each package from its own directory and lockfile:
 
 ```bash
-pnpm install --frozen-lockfile
+pnpm --dir client install --frozen-lockfile
+pnpm --dir server install --frozen-lockfile
 ```
 
 Run the application checks:
 
 ```bash
-pnpm --filter client exec tsc --noEmit
-pnpm --filter client lint
-pnpm --filter client test -- --run
-pnpm --filter client build
+pnpm --dir client exec tsc --noEmit
+pnpm --dir client lint
+pnpm --dir client test -- --run
+pnpm --dir client build
 
-pnpm --filter server typecheck
-pnpm --filter server lint
-pnpm --filter server test -- --run
-pnpm --filter server prisma:migrate:resolve --applied 0_init
-pnpm --filter server prisma:migrate:deploy
-pnpm --filter server prisma:migrate:status
-pnpm --filter server test:integration
-pnpm --filter server build
+pnpm --dir server typecheck
+pnpm --dir server lint
+pnpm --dir server test -- --run
+pnpm --dir server prisma:migrate:resolve --applied 0_init
+pnpm --dir server prisma:migrate:deploy
+pnpm --dir server prisma:migrate:status
+pnpm --dir server test:integration
+pnpm --dir server build
 ```
+
+`pnpm --dir server dev` and `pnpm --dir server start` first run Prisma Client
+generation and `prisma migrate deploy`; startup stops if either step fails. Use
+`pnpm --dir server prisma:migrate` only to create an intentional development
+migration. There is no root `pnpm start`, `pnpm dev`, or `pnpm install` command.
+
+CI does not run browser E2E. It starts the built server and Vite preview only
+long enough to verify the HTTP health/page responses, then terminates both
+processes.
 
 `test:integration` requires a disposable MySQL database and the server
 connection variables (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`,

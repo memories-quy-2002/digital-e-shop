@@ -21,12 +21,13 @@ const verify = async (connection) => {
     const userIds = DEMO_SEED_PLAN.users.map((user) => user.id);
     const productNames = DEMO_SEED_PLAN.products.map((product) => product.name);
     const productIds = (await query(connection, "SELECT id FROM products WHERE name IN (?)", [productNames])).map((row) => Number(row.id));
-    const [users, categories, brands, products, productImages, carts, cartItems, orders, orderItems, reviews, wishlists, addresses, notifications, sessions, discounts, inventoryMovements, statusEvents] = await Promise.all([
+    const [users, categories, brands, products, productImages, legacyProducts, carts, cartItems, orders, orderItems, reviews, wishlists, addresses, notifications, sessions, discounts, inventoryMovements, statusEvents] = await Promise.all([
         query(connection, "SELECT COUNT(*) AS count FROM users WHERE id IN (?)", [userIds]),
         query(connection, "SELECT COUNT(DISTINCT c.name) AS count FROM categories c WHERE c.name IN (?)", [DEMO_SEED_PLAN.categories]),
         query(connection, "SELECT COUNT(DISTINCT b.name) AS count FROM brands b WHERE b.name IN (?)", [DEMO_SEED_PLAN.brands]),
         query(connection, "SELECT COUNT(*) AS count FROM products WHERE name IN (?)", [productNames]),
         query(connection, "SELECT COUNT(*) AS count FROM products WHERE name IN (?) AND main_image IS NOT NULL AND main_image <> ''", [productNames]),
+        query(connection, "SELECT COUNT(*) AS count FROM products WHERE LOWER(name) LIKE ? OR LOWER(name) LIKE ?", ["%e2e%", "%demo%"]),
         query(connection, "SELECT COUNT(*) AS count FROM carts WHERE user_id IN (?)", [userIds]),
         query(
             connection,
@@ -191,6 +192,7 @@ const verify = async (connection) => {
         brands: firstCount(brands),
         products: firstCount(products),
         productImages: firstCount(productImages),
+        legacyProducts: firstCount(legacyProducts),
         carts: firstCount(carts),
         cartItems: firstCount(cartItems),
         orders: firstCount(orders),
@@ -222,6 +224,7 @@ const verify = async (connection) => {
         brands: 16,
         products: 28,
         productImages: 28,
+        legacyProducts: 0,
         carts: 4,
         cartItems: 13,
         orders: 8,

@@ -4,6 +4,7 @@ export type PurchasePayload = {
     totalPrice: number;
     cart: CartCheckoutItem[];
     discount: number;
+    discountCode?: string;
     shippingAddress: string;
     paymentMethod: string;
 };

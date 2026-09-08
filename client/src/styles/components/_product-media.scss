@@ -1,0 +1,33 @@
+.de-product-media {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    overflow: hidden;
+    background: var(--de-color-bg-muted);
+
+    img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+
+    &--catalog {
+        max-width: none;
+        aspect-ratio: 1;
+        padding: 0.75rem;
+        border: 1px solid var(--de-color-border);
+        border-radius: var(--de-radius-xs);
+        cursor: pointer;
+        appearance: none;
+    }
+
+    &--compact {
+        width: 84px;
+        height: 84px;
+        flex: 0 0 84px;
+        padding: 0.4rem;
+        border: 1px solid var(--de-color-border);
+        border-radius: var(--de-radius-xs);
+    }
+}

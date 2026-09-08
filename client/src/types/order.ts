@@ -8,15 +8,18 @@ export type AdminOrder = {
     total_price: number;
     discount: number;
     shipping_address: string;
-    payment_method?: "bank_transfer" | "cash";
+    payment_method?: "bank_transfer" | "cash" | "payos" | "stripe" | "card" | string;
 };
 
 export type AdminOrderDetail = AdminOrder & {
     items: Array<{
         productId: number;
+        sku?: string | null;
         productName: string;
         brand: string;
         category: string;
+        warrantyMonths?: number | null;
+        specifications?: Record<string, unknown> | string | null;
         price: number;
         sale_price: number | null;
         quantity: number;

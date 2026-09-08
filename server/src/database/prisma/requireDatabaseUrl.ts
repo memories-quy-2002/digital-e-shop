@@ -11,6 +11,7 @@ export function requireDatabaseUrl() {
         nodeEnv: process.env.NODE_ENV || "development",
         dbHost: process.env.DB_HOST,
         databaseUrl,
+        allowRemoteDatabase: process.env.ALLOW_REMOTE_DATABASE === "true",
     });
 
     return databaseUrl;

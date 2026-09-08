@@ -7,6 +7,7 @@ const HomePage = lazy(() => import("../pages/HomePage"));
 const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
 const LoginPage = lazy(() => import("../features/auth/pages/LoginPage"));
 const SignupPage = lazy(() => import("../features/auth/pages/SignupPage"));
+const ForgotPasswordPage = lazy(() => import("../features/auth/pages/ForgotPasswordPage"));
 const ProductPage = lazy(() => import("../features/products/pages/ProductPage"));
 const WishlistPage = lazy(() => import("../pages/WishlistPage"));
 const ShopsPage = lazy(() => import("../pages/ShopsPage"));
@@ -14,6 +15,7 @@ const AboutUsPage = lazy(() => import("../pages/AboutUsPage"));
 const ContactUsPage = lazy(() => import("../pages/ContactUsPage"));
 const NewsPage = lazy(() => import("../pages/NewsPage"));
 const SupportPage = lazy(() => import("../pages/SupportPage"));
+const AdminSupportPage = lazy(() => import("../features/admin/pages/AdminSupportPage"));
 const CartPage = lazy(() => import("../features/orders/pages/CartPage"));
 const CheckoutSuccessPage = lazy(() => import("../features/orders/pages/CheckoutSuccessPage"));
 const OrderHistoryPage = lazy(() => import("../features/orders/pages/OrderHistoryPage"));
@@ -37,6 +39,7 @@ const ProtectedCustomerNotificationsPage = withSessionCheck(CustomerNotification
 const ProtectedWishlistPage = withSessionCheck(WishlistPage);
 const ProtectedAdminDashboard = withSessionCheck(AdminDashboard);
 const ProtectedAdminNotificationsPage = withSessionCheck(AdminNotificationsPage);
+const ProtectedAdminSupportPage = withSessionCheck(AdminSupportPage);
 const ProtectedAdminProductPage = withSessionCheck(AdminProductPage);
 const ProtectedAdminAccountPage = withSessionCheck(AdminAccountPage);
 const ProtectedAdminOrderPage = withSessionCheck(AdminOrderPage);
@@ -50,6 +53,7 @@ const AppRouter = () => {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/product" element={<ProductPage />} />
                 <Route path="/cart" element={<ProtectedCartPage />} />
                 <Route path="/about-us" element={<AboutUsPage />} />
@@ -65,6 +69,7 @@ const AppRouter = () => {
                 <Route path="/notifications" element={<ProtectedCustomerNotificationsPage />} />
                 <Route path="/admin" element={<ProtectedAdminDashboard />} />
                 <Route path="/admin/notifications" element={<ProtectedAdminNotificationsPage />} />
+                <Route path="/admin/support" element={<ProtectedAdminSupportPage />} />
                 <Route path="/admin/products" element={<ProtectedAdminProductPage />} />
                 <Route path="/admin/orders" element={<ProtectedAdminOrderPage />} />
                 <Route path="/admin/accounts" element={<ProtectedAdminAccountPage />} />

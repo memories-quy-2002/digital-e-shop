@@ -6,7 +6,7 @@ import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestOrdersService } from "./orders.service";
 import { NestOrdersStripeService } from "./orders.stripe.service";
 import { calculatePromotionDiscount } from "./orders.pricing";
-import { orderStatusSchema, purchaseSchema, checkoutSessionSchema, applyDiscountSchema } from "./orders.validator";
+import { orderStatusSchema, purchaseSchema, checkoutSessionSchema, applyDiscountSchema, cancelOrderSchema } from "./orders.validator";
 
 type AuthenticatedRequest = Request & {
     user?: { id?: string | number; role?: string };
@@ -167,6 +167,25 @@ export class OrdersController {
         }
     }
 
+    @Post(":oid/cancel")
+    @HttpCode(200)
+    @UseGuards(AuthGuard, RolesGuard)
+    async cancelOrder(
+        @Param("oid") oid: string,
+        @Req() req: AuthenticatedRequest,
+        @Body(new ZodValidationPipe(cancelOrderSchema)) body: { reason?: string },
+    ) {
+        try {
+            const actorId = String(req.user?.id || "");
+            const admin = String(req.user?.role || "").toLowerCase() === "admin";
+            const order = await this.ordersService.cancelOrder(Number(oid), actorId, admin, body.reason);
+            return { order, msg: "Order has been canceled successfully" };
+        } catch (err) {
+            if (err instanceof HttpException) throw err;
+            throw toHttpException(err as Error, "Unable to cancel order");
+        }
+    }
+
     @Post("/purchase/:uid")
     @HttpCode(201)
     @UseGuards(AuthGuard, RolesGuard)
@@ -187,7 +206,7 @@ export class OrdersController {
         if (!cart || cart.length === 0) {
             throw new HttpException({ msg: "Cart cannot be empty" }, 400);
         }
-        if (!["bank_transfer", "cash"].includes(paymentMethod)) {
+        if (!["bank_transfer", "cash", "payos", "stripe", "card"].includes(paymentMethod)) {
             throw new HttpException({ msg: "Unsupported payment method" }, 400);
         }
 
@@ -201,6 +220,7 @@ export class OrdersController {
                 totalPrice,
                 cart,
                 discount,
+                discountCode,
                 shippingAddress,
                 paymentMethod,
             });

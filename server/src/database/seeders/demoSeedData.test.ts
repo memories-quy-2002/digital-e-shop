@@ -48,6 +48,38 @@ describe("Digital-E demo seed graph", () => {
         expect(() => validateDemoSeedPlan(invalidPlan)).toThrow("missing a main image");
     });
 
+    it("uses a unique remote image for every catalog product", () => {
+        const imageUrls = DEMO_SEED_PLAN.products.map((product: { mainImage: string }) => product.mainImage);
+
+        expect(new Set(imageUrls).size).toBe(DEMO_SEED_PLAN.products.length);
+        expect(imageUrls.every((url: string) => /^https:\/\/images\.unsplash\.com\/photo-/.test(url))).toBe(true);
+    });
+
+    it("rejects E2E or Demo labels from catalog product names", () => {
+        const originalProductName = DEMO_SEED_PLAN.products[0].name;
+        const renamedProduct = "Demo Camera Fixture";
+        const renameReference = (item: { productName: string }) =>
+            item.productName === originalProductName ? { ...item, productName: renamedProduct } : item;
+        const invalidPlan = {
+            ...DEMO_SEED_PLAN,
+            products: DEMO_SEED_PLAN.products.map((product: Record<string, unknown>, index: number) =>
+                index === 0 ? { ...product, name: renamedProduct } : product,
+            ),
+            carts: DEMO_SEED_PLAN.carts.map((cart: { items: { productName: string }[] }) => ({
+                ...cart,
+                items: cart.items.map(renameReference),
+            })),
+            orders: DEMO_SEED_PLAN.orders.map((order: { items: { productName: string }[] }) => ({
+                ...order,
+                items: order.items.map(renameReference),
+            })),
+            reviews: DEMO_SEED_PLAN.reviews.map(renameReference),
+            wishlists: DEMO_SEED_PLAN.wishlists.map(renameReference),
+        };
+
+        expect(() => validateDemoSeedPlan(invalidPlan)).toThrow("reserved fixture label");
+    });
+
     it("requires both admin and customer accounts", () => {
         const invalidPlan = {
             ...DEMO_SEED_PLAN,

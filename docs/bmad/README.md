@@ -2,7 +2,7 @@
 
 A minimal product-and-engineering process for Digital-E. Keep it light: a solo dev or small team should never drown in process. Roles are **hats one person (or one AI agent) wears**, not separate people. Produce only the artifacts a task actually needs.
 
-See also: [AGENTS.md](../../AGENTS.md) → "BMAD lightweight workflow" and "Superpowers execution workflow", and [CLAUDE.md](../../CLAUDE.md).
+See also: [AGENTS.md](../../AGENTS.md) → "BMAD lightweight workflow" and "Superpowers execution workflow".
 
 ## When to use BMAD
 
@@ -43,7 +43,7 @@ Skip it — just run the Superpowers steps — for:
 6. **QA** — run `qa-checklist.md` plus the verification commands; confirm acceptance criteria.
 7. **Wiki** — update `Wiki/` for any architecture / API / schema / business-logic change; append to `Wiki/log.md`.
 
-## How Claude Code applies this
+## How to apply this
 
 - Default to the Superpowers loop for everything. Layer BMAD on **only** when the task meets the "when to use" bar above.
 - Wear the roles in sequence within a single session; don't spawn process for its own sake.

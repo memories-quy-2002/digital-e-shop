@@ -80,6 +80,8 @@ const CheckoutSuccessPage = () => {
             ? "Bank transfer"
             : combinedData?.paymentMethod === "cash"
               ? "Cash on delivery"
+              : combinedData?.paymentMethod === "payos"
+                ? "PayOS (VND)"
               : combinedData?.paymentMethod === "card"
                 ? "Card"
                 : "Payment method pending";
