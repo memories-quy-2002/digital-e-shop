@@ -6,6 +6,7 @@ import { env } from "#src/config/env.config";
 import { checkPassword, hashPassword } from "#src/utils/hashPassword";
 import { UsersRepository } from "../users/users.repository";
 import type { UserRow } from "../users/users.types";
+import { toPublicUser } from "../users/user-public";
 import type { RegisterUserInput } from "./auth.dto";
 import type { AuthSessionPayload, JwtPayload, SocialAuthProfile } from "./auth.types";
 import { AuthRepository } from "./auth.repository";
@@ -200,7 +201,7 @@ export class NestAuthService {
             throw new NotFoundException({ msg: "User not found" });
         }
 
-        return user;
+        return toPublicUser(user);
     }
 
     async requireAuthenticatedUser(req: Request) {
