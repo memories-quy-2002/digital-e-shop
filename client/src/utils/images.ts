@@ -26,6 +26,9 @@ export const normalizeProductImageName = (name?: string | null) => {
 };
 
 export const getProductImageUrl = (imageName?: string | null) => {
+    if (imageName && /^https?:\/\//i.test(imageName)) {
+        return imageName;
+    }
     const normalized = normalizeProductImageName(imageName);
     return normalized ? `${PRODUCT_IMAGE_BASE_URL}/${normalized}.jpg` : "";
 };

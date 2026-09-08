@@ -146,10 +146,10 @@ Do not make product code edits unless explicitly assigned.
 Do not run write-heavy tests against real or shared data.
 
 Prefer relevant commands:
-- pnpm --filter client build
-- pnpm --filter server typecheck
-- pnpm --filter server build
-- pnpm --filter server lint
+- pnpm --dir client build
+- pnpm --dir server typecheck
+- pnpm --dir server build
+- pnpm --dir server lint
 - server read-only k6 scripts only when requested
 
 Return:

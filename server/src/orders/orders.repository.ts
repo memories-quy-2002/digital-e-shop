@@ -77,12 +77,20 @@ export class OrdersRepository {
         o.discount,
         o.status,
         o.shipping_address,
-        o.payment_method
+        o.payment_method,
+        o.currency,
+        p.status AS payment_status,
+        p.amount AS payment_amount,
+        p.currency AS payment_currency,
+        p.simulated AS payment_simulated
     `;
 
     private readonly orderUserJoin = `
         FROM orders o
         LEFT JOIN users u ON u.id = o.user_id
+        LEFT JOIN order_payments p ON p.id = (
+            SELECT p2.id FROM order_payments p2 WHERE p2.order_id = o.id ORDER BY p2.id DESC LIMIT 1
+        )
     `;
 
     getOrders(callback: QueryCallback<OrderSummaryRow[]>) {
@@ -113,6 +121,10 @@ export class OrdersRepository {
         this.query(
             `SELECT
                 o.*,
+                op.status AS payment_status,
+                op.amount AS payment_amount,
+                op.currency AS payment_currency,
+                op.simulated AS payment_simulated,
                 COALESCE(u.username, o.user_id) AS customer_name,
                 u.email AS customer_email,
                 DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added,
@@ -120,15 +132,21 @@ export class OrdersRepository {
                 oi.product_id,
                 oi.quantity,
                 oi.total_price AS item_total_price,
-                p.name AS product_name,
-                p.price,
-                p.sale_price,
+                COALESCE(oi.sku_snapshot, p.sku) AS sku,
+                COALESCE(oi.product_name_snapshot, p.name) AS product_name,
+                COALESCE(oi.unit_price_snapshot, p.sale_price, p.price) AS price,
+                CASE WHEN oi.unit_price_snapshot IS NOT NULL THEN NULL ELSE p.sale_price END AS sale_price,
                 p.stock,
-                p.main_image,
-                c.name AS category,
-                b.name AS brand
+                COALESCE(oi.image_snapshot, p.main_image) AS main_image,
+                COALESCE(oi.category_snapshot, c.name) AS category,
+                COALESCE(oi.brand_snapshot, b.name) AS brand,
+                COALESCE(oi.warranty_months_snapshot, p.warranty_months) AS warranty_months,
+                COALESCE(oi.specifications_snapshot, p.specifications) AS specifications
             FROM orders o
             LEFT JOIN users u ON u.id = o.user_id
+            LEFT JOIN order_payments op ON op.id = (
+                SELECT op2.id FROM order_payments op2 WHERE op2.order_id = o.id ORDER BY op2.id DESC LIMIT 1
+            )
             LEFT JOIN order_items oi ON oi.order_id = o.id
             LEFT JOIN products p ON p.id = oi.product_id
             LEFT JOIN categories c ON c.id = p.category_id
@@ -206,27 +224,10 @@ export class OrdersRepository {
         this.promotionsRepository.getActivePromotionByCode(discountCode, callback);
     }
 
-    insertPendingCheckout(
-        input: {
-            stripeSessionId: string;
-            userId: string;
-            cartJson: string;
-            totalPrice: number;
-            discount: number;
-            shippingAddress: string;
-        },
-        callback: QueryCallback<InsertResult>,
-    ) {
-        this.query(
-            "INSERT INTO pending_checkouts (stripe_session_id, user_id, cart_json, total_price, discount, shipping_address) VALUES (?, ?, ?, ?, ?, ?)",
-            [input.stripeSessionId, input.userId, input.cartJson, input.totalPrice, input.discount, input.shippingAddress],
-            callback,
-        );
-    }
-
     getPendingCheckoutBySessionId(stripeSessionId: string, callback: QueryCallback<PendingCheckoutRow[]>) {
         this.query(
-            `SELECT id, stripe_session_id, user_id, cart_json, total_price, discount, shipping_address, created_at, consumed_at
+            `SELECT id, stripe_session_id, reservation_token, user_id, cart_json, total_price, discount,
+                    shipping_address, status, expires_at, discount_id, created_at, consumed_at
             FROM pending_checkouts WHERE stripe_session_id = ? LIMIT 1`,
             [stripeSessionId],
             callback,
@@ -234,7 +235,11 @@ export class OrdersRepository {
     }
 
     markPendingCheckoutConsumed(stripeSessionId: string, callback: QueryCallback<UpdateResult>) {
-        this.query("UPDATE pending_checkouts SET consumed_at = UTC_TIMESTAMP() WHERE stripe_session_id = ?", [stripeSessionId], callback);
+        this.query(
+            "UPDATE pending_checkouts SET status = 'CONSUMED', consumed_at = UTC_TIMESTAMP() WHERE stripe_session_id = ? AND status = 'PENDING'",
+            [stripeSessionId],
+            callback,
+        );
     }
 
     getOrderByStripeSessionId(stripeSessionId: string, callback: QueryCallback<OrderBySessionRow[]>) {

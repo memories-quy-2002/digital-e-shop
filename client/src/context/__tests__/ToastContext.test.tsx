@@ -105,6 +105,36 @@ describe("ToastContext", () => {
         expect(screen.getByTestId("tones").textContent).toBe("success,info,error");
     });
 
+    it("keeps all notifications in one global notification rail", () => {
+        renderWithProvider();
+        act(() => {
+            screen.getByText("add-success").click();
+            screen.getByText("add-info").click();
+            screen.getByText("add-error").click();
+        });
+
+        const rails = document.querySelectorAll(".app-toast");
+        expect(rails).toHaveLength(1);
+        expect(rails[0].parentElement).toBe(document.body);
+        expect(rails[0]).toHaveClass("app-toast--open");
+        expect(rails[0].querySelectorAll("[data-toast]")).toHaveLength(3);
+        expect(screen.getByText("Information")).toBeInTheDocument();
+        expect(screen.getByText("Action needed")).toBeInTheDocument();
+    });
+
+    it("caps the visible notification queue at three toasts", () => {
+        renderWithProvider();
+        act(() => {
+            screen.getByText("add-success").click();
+            screen.getByText("add-info").click();
+            screen.getByText("add-error").click();
+            screen.getByText("add-success").click();
+        });
+
+        expect(screen.getByTestId("count").textContent).toBe("3");
+        expect(document.querySelectorAll("[data-toast]")).toHaveLength(3);
+    });
+
     it("removes a toast by id", () => {
         renderWithProvider();
         act(() => {

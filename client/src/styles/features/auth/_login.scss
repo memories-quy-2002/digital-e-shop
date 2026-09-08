@@ -110,7 +110,7 @@
         &__content {
             position: relative;
             z-index: 2;
-            color: var(--de-color-on-accent);
+            color: var(--de-color-on-strong);
             max-width: 24rem;
             min-width: 0;
         }
@@ -189,6 +189,30 @@
 
         &__container {
             width: 100%;
+
+            > label {
+                display: block;
+                margin-bottom: 0.45rem;
+                color: var(--de-color-text-soft);
+                font-weight: 700;
+            }
+
+            > input {
+                width: 100%;
+                min-height: 44px;
+                margin-bottom: 1rem;
+                border: 1px solid var(--de-color-border-strong);
+                border-radius: 12px;
+                background: var(--de-color-surface);
+                color: var(--de-color-text);
+                padding: 0.7rem 0.9rem;
+                outline: none;
+
+                &:focus {
+                    border-color: var(--de-color-primary-emphasis);
+                    box-shadow: 0 0 0 3px var(--de-color-primary-emphasis-soft);
+                }
+            }
         }
 
         &__container__group {

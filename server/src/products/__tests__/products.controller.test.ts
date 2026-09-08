@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { resolve } from "node:path";
+vi.mock("../products.service", () => ({ NestProductsService: class {} }));
+vi.mock("../products.repository", () => ({ NestProductsRepository: class {} }));
 import { resolveProductImagePath } from "../products.controller";
 
 describe("resolveProductImagePath", () => {

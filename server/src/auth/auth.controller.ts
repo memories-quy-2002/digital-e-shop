@@ -1,8 +1,8 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from "@nestjs/common";
 import type { Request, Response } from "express";
-import { isProduction } from "#src/config/env.config";
+import { env, isProduction } from "#src/config/env.config";
 import { NestAuthService } from "./auth.service";
-import { registerUserSchema, userLoginSchema } from "./auth.validator";
+import { registerUserSchema, userLoginSchema, type UserLoginInput } from "./auth.validator";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import type { AuthSessionPayload } from "./auth.types";
 import { buildErrorResponse, buildSuccessResponse, requestIdFrom } from "#src/shared/http/api-response";
@@ -21,18 +21,18 @@ const withMaxAge = (maxAge: number) => ({
 });
 
 const setAuthCookies = (res: Response, payload: AuthSessionPayload, rememberMe: boolean) => {
-    const sessionCookieOptions = rememberMe ? withMaxAge(THIRTY_DAYS) : baseCookieOptions;
-
-    res.cookie("session", payload.sessionId, sessionCookieOptions);
+    res.cookie("session", payload.sessionId, baseCookieOptions);
     res.cookie(
         "userInfo",
         JSON.stringify({ uid: payload.user.id, token: payload.token }),
-        rememberMe ? withMaxAge(THIRTY_DAYS) : baseCookieOptions,
+        baseCookieOptions,
     );
-    res.cookie("accessToken", payload.token, rememberMe ? withMaxAge(THIRTY_DAYS) : baseCookieOptions);
+    res.cookie("accessToken", payload.token, baseCookieOptions);
 
-    if (rememberMe && payload.refreshToken) {
-        res.cookie("refreshToken", payload.refreshToken, withMaxAge(THIRTY_DAYS));
+    if (payload.refreshToken) {
+        res.cookie("refreshToken", payload.refreshToken, rememberMe ? withMaxAge(THIRTY_DAYS) : baseCookieOptions);
+    } else {
+        res.clearCookie("refreshToken", baseCookieOptions);
     }
 };
 
@@ -67,19 +67,17 @@ export class NestAuthController {
     @Post("register")
     @HttpCode(HttpStatus.OK)
     async registerUser(
-        @Body(new ZodValidationPipe(registerUserSchema)) body: { uid: string; user: { username: string; email: string; password: string; role: string } },
+        @Body(new ZodValidationPipe(registerUserSchema)) body: { idToken: string; user: { username: string } },
         @Req() req: Request,
         @Res() res: Response,
     ) {
-        const { uid, user } = body;
-        const { uid: newUid, token, sessionId } = await this.authService.registerUser(uid, user);
-
-        res.cookie("session", sessionId, withMaxAge(THIRTY_DAYS));
-        res.cookie("userInfo", JSON.stringify({ uid: newUid, token }), withMaxAge(THIRTY_DAYS));
-        res.cookie("accessToken", token, withMaxAge(THIRTY_DAYS));
+        const { idToken, user } = body;
+        const sessionPayload = await this.authService.registerUser(idToken, user);
+        const { user: createdUser, token } = sessionPayload;
+        setAuthCookies(res, sessionPayload, false);
 
         return res.status(200).json(buildSuccessResponse(
-            { uid: newUid, token, msg: "User created successfully" },
+            { uid: createdUser.id, token, msg: "User created successfully" },
             requestIdFrom(req),
         ));
     }
@@ -87,12 +85,25 @@ export class NestAuthController {
     @Post("login")
     @HttpCode(HttpStatus.OK)
     async userLogin(
-        @Body(new ZodValidationPipe(userLoginSchema)) body: { uid: string; role?: string; rememberMe?: boolean },
+        @Body(new ZodValidationPipe(userLoginSchema)) body: UserLoginInput,
         @Req() req: Request,
         @Res() res: Response,
     ) {
-        const { uid, role, rememberMe } = body;
-        const { user, token: accessToken, sessionId, refreshToken } = await this.authService.loginUser(uid, role, rememberMe);
+        const rememberMe = body.rememberMe;
+        let sessionPayload: AuthSessionPayload;
+
+        if ("email" in body) {
+            if (env.authProvider !== "local") {
+                throw new BadRequestException({ msg: "Firebase login requires an ID token" });
+            }
+            sessionPayload = await this.authService.loginWithPassword(body.email, body.password, rememberMe);
+        } else {
+            if (env.authProvider !== "firebase") {
+                throw new BadRequestException({ msg: "Local login requires email and password" });
+            }
+            sessionPayload = await this.authService.loginUser(body.idToken, rememberMe);
+        }
+        const { user, token: accessToken, sessionId, refreshToken } = sessionPayload;
         setAuthCookies(res, { user, token: accessToken, sessionId, refreshToken }, Boolean(rememberMe));
 
         return res.status(200).json(buildSuccessResponse({
@@ -106,22 +117,29 @@ export class NestAuthController {
     @HttpCode(HttpStatus.OK)
     async userRefreshToken(@Req() req: Request, @Res() res: Response) {
         const refreshTokenCookie = req.cookies.refreshToken;
-        if (!refreshTokenCookie) {
+        const sessionId = req.cookies.session;
+        if (!refreshTokenCookie || !sessionId) {
             return res.status(401).json(buildErrorResponse({
                 statusCode: 401,
                 code: "UNAUTHORIZED",
-                message: "No refresh token",
+                message: !refreshTokenCookie ? "No refresh token" : "No session",
                 requestId: requestIdFrom(req),
             }));
         }
 
         try {
-            const newAccessToken = await this.authService.refreshToken(refreshTokenCookie);
+            const rotated = await this.authService.refreshToken(sessionId, refreshTokenCookie);
+            res.cookie("accessToken", rotated.accessToken, baseCookieOptions);
+            res.cookie(
+                "refreshToken",
+                rotated.refreshToken,
+                rotated.rememberMe ? withMaxAge(THIRTY_DAYS) : baseCookieOptions,
+            );
             return res.status(200).json(buildSuccessResponse({
-                token: newAccessToken,
                 msg: "Token refreshed successfully",
             }, requestIdFrom(req)));
         } catch {
+            res.clearCookie("refreshToken", baseCookieOptions);
             return res.status(403).json(buildErrorResponse({
                 statusCode: 403,
                 code: "INVALID_REFRESH_TOKEN",

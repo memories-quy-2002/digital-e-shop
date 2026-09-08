@@ -105,6 +105,6 @@ function Toast({ children, onClose, delay = 3000, autohide = false, className }:
 Toast.Header = function ToastHeader({ children, closeButton = false, className }: { children?: React.ReactNode; closeButton?: boolean; className?: string }) { return <div className={cn("flex items-center gap-3", className)}>{children}{closeButton ? <button type="button" className="ml-auto text-muted-foreground hover:text-foreground" aria-label="Close" onClick={(event) => { const toast = event.currentTarget.closest("[data-toast]"); toast?.dispatchEvent(new CustomEvent("de-toast-close")); }}>×</button> : null}</div>; };
 Toast.Body = function ToastBody({ children, className }: { children?: React.ReactNode; className?: string }) { return <div className={cn("mt-2 text-sm text-muted-foreground", className)}>{children}</div>; };
 
-function ToastContainer({ children, className }: { children?: React.ReactNode; className?: string; position?: string }) { return <div className={cn("pointer-events-none fixed z-[140] grid gap-3 [&>*]:pointer-events-auto", className)}>{children}</div>; }
+function ToastContainer({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement>) { return <div {...props} className={cn("pointer-events-none fixed z-[140] grid gap-3 [&>*]:pointer-events-auto", className)}>{children}</div>; }
 
 export { Button, Modal, Form, Table, Container, Toast, ToastContainer };

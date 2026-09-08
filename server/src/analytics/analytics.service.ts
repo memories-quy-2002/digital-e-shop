@@ -23,6 +23,12 @@ const COMPARISON_DAYS = 30;
 const LOW_STOCK_THRESHOLD = 5;
 
 type QueryParams = Array<string | number | null>;
+type PromotionPerformanceRow = {
+    discount_id: number;
+    discount_code: string;
+    redemption_count: number | string;
+    discount_total: number | string;
+};
 
 const toNumber = (value: unknown) => Number(value) || 0;
 const toNullableNumber = (value: unknown) => {
@@ -119,6 +125,7 @@ export class NestAnalyticsService {
             paymentMethodRows,
             promotionCatalogRows,
             discountOrderRows,
+            promotionPerformanceRows,
         ] = await Promise.all([
             safeQuery<OverviewRow>(
                 `SELECT
@@ -247,6 +254,19 @@ export class NestAnalyticsService {
                 [],
                 [{} as DiscountOrderRow],
             ),
+            safeQuery<PromotionPerformanceRow>(
+                `SELECT
+                    d.id AS discount_id,
+                    d.discount_code,
+                    COUNT(DISTINCT dr.order_id) AS redemption_count,
+                    COALESCE(SUM(o.discount), 0) AS discount_total
+                 FROM discount_redemptions dr
+                 JOIN discounts d ON d.id = dr.discount_id
+                 JOIN orders o ON o.id = dr.order_id AND o.status <> 2
+                 WHERE dr.status = 'CONSUMED' AND dr.order_id IS NOT NULL
+                 GROUP BY d.id, d.discount_code
+                 ORDER BY redemption_count DESC, discount_total DESC`,
+            ),
         ]);
 
         const overview = (overviewRows[0] || {}) as OverviewRow;
@@ -298,6 +318,12 @@ export class NestAnalyticsService {
             expiresAt: row.expires_at || null,
             usageLimit: toNullableNumber(row.usage_limit),
         }));
+        const promotionPerformance = new Map(
+            promotionPerformanceRows.map((row) => [Number(row.discount_id), {
+                discountGiven: toNumber(row.discount_total),
+                estimatedOrders: toNumber(row.redemption_count),
+            }]),
+        );
 
         const currentNetRevenue = toNumber(overview.current_period_revenue);
         const previousNetRevenue = toNumber(overview.previous_period_revenue);
@@ -366,8 +392,13 @@ export class NestAnalyticsService {
                     discountedOrders: toNumber(discountOrders.discounted_orders),
                     totalDiscountGiven: toNumber(discountOrders.total_discount_given),
                     discountedRevenue: toNumber(discountOrders.discounted_revenue),
-                    attachedCodesTracked: false,
+                    attachedCodesTracked: true,
                     configured: promotionCatalog,
+                    performance: promotionCatalog.map((promotion) => ({
+                        ...promotion,
+                        discountGiven: roundTo(promotionPerformance.get(promotion.id)?.discountGiven || 0),
+                        estimatedOrders: promotionPerformance.get(promotion.id)?.estimatedOrders || 0,
+                    })),
                 },
             },
         };
@@ -394,11 +425,11 @@ export class NestAnalyticsService {
             })),
             customerSegments: summary.charts.customerSegments,
             inventoryRisk: summary.operations.inventoryRisk,
-            promotionPerformance: summary.operations.promotions.configured.map((promotion) => ({
+            promotionPerformance: summary.operations.promotions.performance.map((promotion) => ({
                 name: promotion.code,
                 discount_percent: promotion.discountPercent,
-                discount_given: 0,
-                estimated_orders: 0,
+                discount_given: promotion.discountGiven,
+                estimated_orders: promotion.estimatedOrders,
                 active: promotion.active,
                 starts_at: promotion.startsAt,
                 expires_at: promotion.expiresAt,

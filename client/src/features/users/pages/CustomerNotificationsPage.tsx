@@ -16,15 +16,20 @@ const CustomerNotificationsPage = () => {
     const uid = userData?.id || "";
     const { addToast } = useToast();
     const [notifications, setNotifications] = useState<CustomerNotification[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
     const unreadCount = notifications.filter((notification) => !notification.is_read).length;
 
     const loadNotifications = async () => {
         if (!uid) return;
         try {
+            setIsLoading(true);
             const response = await fetchCustomerNotifications(uid, 50);
             setNotifications(response.notifications);
         } catch {
             addToast("Notifications", "Unable to load notifications.");
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -33,14 +38,21 @@ const CustomerNotificationsPage = () => {
     }, [uid]);
 
     const markAllRead = async () => {
-        if (!uid) return;
+        if (!uid || isMarkingAllRead || unreadCount === 0) return;
         try {
-            await markAllCustomerNotificationsRead(uid);
+            setIsMarkingAllRead(true);
+            const result = await markAllCustomerNotificationsRead(uid);
             setNotifications((current) =>
                 current.map((item) => ({ ...item, is_read: true, read_at: item.read_at || new Date().toISOString() })),
             );
+            addToast(
+                "Notifications",
+                result.updated > 0 ? "All notifications marked as read." : "There were no unread notifications.",
+            );
         } catch {
             addToast("Notifications", "Unable to update notifications.");
+        } finally {
+            setIsMarkingAllRead(false);
         }
     };
 
@@ -51,9 +63,17 @@ const CustomerNotificationsPage = () => {
                 <meta name="description" content="Review customer account and order notifications." />
             </Helmet>
             <main className="customer-notifications">
-                <CustomerAccountShell title="Notifications" actions={
-                        <button type="button" onClick={markAllRead} disabled={unreadCount === 0}>
-                            Mark all read
+                <CustomerAccountShell
+                    eyebrow="ACCOUNT SIGNALS"
+                    title="Notifications"
+                    description="Keep order updates, delivery changes, and account reminders in one clear queue."
+                    actions={
+                        <button
+                            type="button"
+                            onClick={markAllRead}
+                            disabled={unreadCount === 0 || isMarkingAllRead}
+                        >
+                            {isMarkingAllRead ? "Updating..." : "Mark all read"}
                         </button>
                     }
                 />
@@ -84,7 +104,10 @@ const CustomerNotificationsPage = () => {
                     </div>
                 </section>
 
-                <section className="customer-notifications__list-shell">
+                <section
+                    className="customer-notifications__list-shell"
+                    aria-busy={isLoading || isMarkingAllRead}
+                >
                     <div className="customer-notifications__list-header">
                         <div>
                             <h2>Notification history</h2>
@@ -98,7 +121,19 @@ const CustomerNotificationsPage = () => {
                     </div>
 
                     <div className="customer-notifications__list">
-                    {notifications.length > 0 ? (
+                    {isLoading ? (
+                        Array.from({ length: 3 }, (_, index) => (
+                            <article
+                                key={`notification-loading-${index}`}
+                                className="customer-notifications__skeleton-card"
+                                aria-hidden="true"
+                            >
+                                <span />
+                                <span />
+                                <span />
+                            </article>
+                        ))
+                    ) : notifications.length > 0 ? (
                         notifications.map((notification) => (
                             <article key={notification.id} className={notification.is_read ? "" : "is-unread"}>
                                 <div>

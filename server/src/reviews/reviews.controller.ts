@@ -67,8 +67,11 @@ export class ReviewsController {
         try {
             return await this.reviewsService.addReview(uid, pid, rating, safeComment);
         } catch (err) {
-            const error = err as Error;
-            throw new HttpException({ msg: "Internal server error", error: error.message }, 500);
+            const error = err as Error & { statusCode?: number };
+            throw new HttpException(
+                { msg: error.statusCode ? error.message : "Internal server error", ...(error.statusCode ? {} : { error: error.message }) },
+                error.statusCode || 500,
+            );
         }
     }
 }

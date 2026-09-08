@@ -27,6 +27,17 @@ export class StripeService {
         return this.getClient().checkout.sessions.expire(sessionId);
     }
 
+    refundPayment(paymentIntentId: string, amountCents?: number, idempotencyKey?: string) {
+        const params = {
+            payment_intent: paymentIntentId,
+            ...(amountCents === undefined ? {} : { amount: amountCents }),
+        };
+        if (idempotencyKey) {
+            return this.getClient().refunds.create(params, { idempotencyKey });
+        }
+        return this.getClient().refunds.create(params);
+    }
+
     constructWebhookEvent(payload: Buffer, signature: string): Stripe.Event {
         return this.getClient().webhooks.constructEvent(payload, signature, env.stripeWebhookSecret);
     }

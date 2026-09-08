@@ -3,18 +3,23 @@ import jwt from "jsonwebtoken";
 import type { Request } from "express";
 import { Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { env } from "#src/config/env.config";
-import { hashPassword } from "#src/utils/hashPassword";
+import { checkPassword, hashPassword } from "#src/utils/hashPassword";
 import { UsersRepository } from "../users/users.repository";
 import type { UserRow } from "../users/users.types";
+import { toPublicUser } from "../users/user-public";
 import type { RegisterUserInput } from "./auth.dto";
 import type { AuthSessionPayload, JwtPayload, SocialAuthProfile } from "./auth.types";
 import { AuthRepository } from "./auth.repository";
+import { AuthSessionService } from "./auth-session.service";
+import { FirebaseAdminAuthService } from "./firebase-admin.service";
 
 @Injectable()
 export class NestAuthService {
     constructor(
         private readonly authRepository: AuthRepository,
         private readonly usersRepository: UsersRepository,
+        private readonly firebaseAdminAuthService: FirebaseAdminAuthService,
+        private readonly authSessionService: AuthSessionService,
     ) {}
 
     async startSession(userId: string) {
@@ -30,10 +35,13 @@ export class NestAuthService {
         }
 
         try {
-            jwt.verify(accessToken, env.jwtSecret);
-            const session = await this.authRepository.getSessionById(sessionId);
+            const payload = jwt.verify(accessToken, env.jwtSecret) as Partial<JwtPayload>;
+            if (!payload.sid || String(payload.sid) !== String(sessionId)) {
+                return { valid: false, message: "Session mismatch" };
+            }
+            const session = await this.authRepository.getActiveSessionById(sessionId);
 
-            if (!session) {
+            if (!session || String(session.user_id) !== String(payload.id)) {
                 return { valid: false, message: "Session not found" };
             }
 
@@ -54,23 +62,8 @@ export class NestAuthService {
         return { sessionEnd };
     }
 
-    private async issueLoginSession(user: UserRow, rememberMe?: boolean): Promise<AuthSessionPayload> {
-        const payload = { id: user.id, email: user.email, role: user.role } as JwtPayload;
-        const accessToken = jwt.sign(payload, env.jwtSecret, {
-            expiresIn: rememberMe ? "30d" : "15m",
-        });
-
-        await this.usersRepository.updateUserToken(user.id, accessToken);
-
-        let refreshToken = null;
-        if (rememberMe) {
-            refreshToken = jwt.sign(payload, env.jwtRefreshSecret, {
-                expiresIn: "30d",
-            });
-        }
-
-        const sessionId = await this.startSession(user.id);
-        return { user, token: accessToken, sessionId, refreshToken };
+    private async issueLoginSession(user: UserRow, rememberMe = false): Promise<AuthSessionPayload> {
+        return this.authSessionService.issue(user, rememberMe);
     }
 
     private buildSocialUsername(profile: SocialAuthProfile) {
@@ -105,31 +98,56 @@ export class NestAuthService {
         return created;
     }
 
-    async registerUser(uid: string, userData: RegisterUserInput) {
-        const hashedPassword = await hashPassword(userData.password);
-        await this.usersRepository.createUser(uid, userData.username, userData.email, hashedPassword, userData.role);
+    async registerUser(idToken: string, input: RegisterUserInput): Promise<AuthSessionPayload> {
+        const identity = await this.firebaseAdminAuthService.verifyIdToken(idToken);
+        const existing = await this.usersRepository.findById(identity.uid);
+        if (existing && existing.email?.toLowerCase() !== identity.email) {
+            throw new UnauthorizedException({ msg: "Account is not registered" });
+        }
+        if (existing?.status === "Suspended") {
+            throw new UnauthorizedException({ msg: "Account is suspended" });
+        }
+        if (existing) return this.issueLoginSession(existing, false);
 
-        const token = jwt.sign(
-            { id: uid, email: userData.email, role: userData.role },
-            env.jwtSecret,
-            { expiresIn: "30d" },
+        const placeholderPassword = await hashPassword(crypto.randomBytes(32).toString("hex"));
+        await this.usersRepository.createUser(
+            identity.uid,
+            input.username,
+            identity.email,
+            placeholderPassword,
+            "Customer",
         );
 
-        await this.usersRepository.updateUserToken(uid, token);
-        const sessionId = await this.startSession(uid);
-        return { uid, token, sessionId };
+        const created = await this.usersRepository.findById(identity.uid);
+        if (!created) throw new NotFoundException({ msg: "Unable to create user" });
+        return this.issueLoginSession(created, false);
     }
 
-    async loginUser(uid: string, role?: string, rememberMe?: boolean) {
-        const user = await this.usersRepository.findById(uid);
-        if (!user) throw new Error("Invalid username, password, or role");
-
-        if (role && user.role !== role) {
-            throw new Error("Invalid username, password, or role");
+    async loginUser(idToken: string, rememberMe = false) {
+        const identity = await this.firebaseAdminAuthService.verifyIdToken(idToken);
+        const user = await this.usersRepository.findById(identity.uid);
+        if (!user || user.email?.toLowerCase() !== identity.email) {
+            throw new UnauthorizedException({ msg: "Account is not registered" });
+        }
+        if (user.status === "Suspended") {
+            throw new UnauthorizedException({ msg: "Account is suspended" });
         }
 
+        return this.issueLoginSession(user, rememberMe);
+    }
+
+    async loginWithPassword(email: string, password: string, rememberMe = false) {
+        const normalizedEmail = email.trim().toLowerCase();
+        const user = await this.usersRepository.findByEmail(normalizedEmail);
+        const storedPassword = user?.password;
+        const passwordMatches =
+            typeof storedPassword === "string" && Boolean(await checkPassword(password, storedPassword));
+
+        if (!user || !passwordMatches) {
+            throw new UnauthorizedException({ msg: "Invalid email or password" });
+        }
         if (user.status === "Suspended") {
-            throw new Error("Account is suspended");
+            throw new UnauthorizedException({ msg: "Account is suspended" });
         }
 
         return this.issueLoginSession(user, rememberMe);
@@ -162,20 +180,8 @@ export class NestAuthService {
         return this.issueLoginSession(await this.createSocialUser(profile), false);
     }
 
-    async refreshToken(oldRefreshToken: string): Promise<string> {
-        return new Promise((resolve, reject) => {
-            jwt.verify(oldRefreshToken, env.jwtRefreshSecret, (err, payload) => {
-                if (err) return reject(err);
-                const parsedPayload = payload as JwtPayload;
-                const newAccess = jwt.sign(
-                    { id: parsedPayload.id, email: parsedPayload.email, role: parsedPayload.role },
-                    env.jwtSecret,
-                    { expiresIn: "15m" },
-                );
-
-                resolve(newAccess);
-            });
-        });
+    async refreshToken(sessionId: number | string, rawRefreshToken: string) {
+        return this.authSessionService.rotate(sessionId, rawRefreshToken);
     }
 
     async getCurrentUser(accessToken?: string, sessionId?: string) {
@@ -195,7 +201,7 @@ export class NestAuthService {
             throw new NotFoundException({ msg: "User not found" });
         }
 
-        return user;
+        return toPublicUser(user);
     }
 
     async requireAuthenticatedUser(req: Request) {

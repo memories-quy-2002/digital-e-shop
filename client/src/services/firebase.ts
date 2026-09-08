@@ -40,6 +40,21 @@ export const createFirebaseUser = async (email: string, password: string): Promi
     return createUserWithEmailAndPassword(auth, email, password);
 };
 
+export const sendFirebasePasswordReset = async (email: string): Promise<void> => {
+    const auth = await getFirebaseAuth();
+    const { sendPasswordResetEmail } = await import("firebase/auth");
+    await sendPasswordResetEmail(auth, email);
+};
+
+export const sendFirebaseEmailVerification = async (): Promise<void> => {
+    const auth = await getFirebaseAuth();
+    const { sendEmailVerification } = await import("firebase/auth");
+    if (!auth.currentUser) {
+        throw new Error("No signed-in Firebase user");
+    }
+    await sendEmailVerification(auth.currentUser);
+};
+
 export const signOutFirebaseUser = async (): Promise<void> => {
     const auth = await getFirebaseAuth();
     const { signOut } = await import("firebase/auth");

@@ -1,6 +1,9 @@
 export interface Product {
     id: number;
     name: string;
+    sku: string;
+    manufacturerPartNumber: string | null;
+    warrantyMonths: number | null;
     category: string;
     brand: string;
     price: number;
@@ -9,6 +12,7 @@ export interface Product {
     reviews: number;
     main_image: string | null;
     stock: number;
+    available_stock?: number;
     description: string;
     specifications: string | null;
 }

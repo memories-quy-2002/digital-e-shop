@@ -19,6 +19,6 @@ Then:
    - **Backend** — add tests only if introducing a harness deliberately; otherwise verify changed flows via targeted runtime checks and keep logic isolated enough to test later.
    - **Performance** — k6 for read-only paths only, unless a cloned test DB exists.
 5. Do not change production behavior to make tests pass — fix the test or flag a real bug.
-6. Run `pnpm --filter client test` (and typecheck) to confirm the suite passes.
+6. Run `pnpm --dir client test` (and typecheck) to confirm the suite passes.
 7. Update `Wiki/` only if testing revealed a behavior/contract worth recording.
 8. Summarize: tests added, what they cover, results, and any gaps left untested.

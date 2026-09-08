@@ -8,6 +8,23 @@ const toUtcIsoSecondString = (value: Date) => value.toISOString().replace(/\.\d{
 
 @Injectable()
 export class ReviewsRepository {
+    hasCompletedPurchase(uid: string, pid: number): Promise<boolean> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                `SELECT 1 AS eligible
+                 FROM orders o
+                 JOIN order_items oi ON oi.order_id = o.id
+                 WHERE o.user_id = ? AND oi.product_id = ? AND o.status = 1
+                 LIMIT 1`,
+                [uid, pid],
+                (error: Error | null, rows: Array<{ eligible?: number }> = []) => {
+                    if (error) return reject(error);
+                    resolve(rows.length > 0);
+                },
+            );
+        });
+    }
+
     getReviewByUserAndProduct(uid: string, pid: number, callback: QueryCallback<ReviewRow[]>) {
         pool.query("SELECT id FROM reviews WHERE user_id = ? AND product_id = ? LIMIT 1", [uid, pid], callback);
     }
@@ -43,7 +60,7 @@ export class ReviewsRepository {
                      FROM orders o
                      JOIN order_items oi ON oi.order_id = o.id
                      WHERE oi.product_id = ?
-                     AND o.status <> 2
+                     AND o.status = 1
                      AND o.user_id IN (${userIds.map(() => "?").join(",")})`,
                     pid,
                     ...userIds,
@@ -86,7 +103,7 @@ export class ReviewsRepository {
                      FROM orders o
                      JOIN order_items oi ON oi.order_id = o.id
                      WHERE oi.product_id = ?
-                     AND o.status <> 2
+                     AND o.status = 1
                      AND o.user_id IN (${userIds.map(() => "?").join(",")})`,
                     pid,
                     ...userIds,

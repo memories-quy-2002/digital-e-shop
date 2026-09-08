@@ -1,5 +1,6 @@
 export const LOCAL_API_BASE_URL = "http://localhost:4000";
-export const PRODUCTION_API_BASE_URL = "https://e-commerce-express-server-app.vercel.app";
+
+export type AuthProvider = "local" | "firebase";
 
 type ApiBaseUrlOptions = {
     configuredUrl?: string;
@@ -25,7 +26,29 @@ export const resolveApiBaseUrl = ({ configuredUrl, isProduction = import.meta.en
         return normalizedUrl && isLocalApiUrl(normalizedUrl) ? normalizedUrl : LOCAL_API_BASE_URL;
     }
 
-    return normalizedUrl || PRODUCTION_API_BASE_URL;
+    if (!normalizedUrl) {
+        throw new Error("VITE_API_BASE_URL is required for production builds");
+    }
+
+    return normalizedUrl;
+};
+
+type AuthProviderOptions = {
+    configuredProvider?: string;
+    isProduction?: boolean;
+};
+
+export const resolveAuthProvider = ({
+    configuredProvider,
+    isProduction = import.meta.env.PROD,
+}: AuthProviderOptions = {}): AuthProvider => {
+    if (isProduction) {
+        return "firebase";
+    }
+
+    return configuredProvider?.trim().toLowerCase() === "firebase" ? "firebase" : "local";
 };
 
 export const API_BASE_URL = resolveApiBaseUrl({ configuredUrl: import.meta.env.VITE_API_BASE_URL });
+export const AUTH_PROVIDER = resolveAuthProvider({ configuredProvider: import.meta.env.VITE_AUTH_PROVIDER });
+export const isLocalAuth = AUTH_PROVIDER === "local";

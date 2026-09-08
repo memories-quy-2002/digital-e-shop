@@ -38,6 +38,11 @@ describe("getProductImageUrl", () => {
         expect(getProductImageUrl("samsung-tv")).toBe(`${PRODUCT_IMAGE_BASE_URL}/samsung-tv.jpg`);
     });
 
+    it("preserves an external product image URL", () => {
+        const url = "https://images.unsplash.com/photo-1593642702821-c8da6771f0c6?auto=format&fit=crop&w=900&q=80";
+        expect(getProductImageUrl(url)).toBe(url);
+    });
+
     it("returns empty string for null/undefined", () => {
         expect(getProductImageUrl(null)).toBe("");
         expect(getProductImageUrl(undefined)).toBe("");

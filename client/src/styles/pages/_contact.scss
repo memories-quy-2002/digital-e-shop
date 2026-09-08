@@ -9,7 +9,7 @@
         background:
             radial-gradient(circle at top right, rgba(191, 219, 254, 0.24), transparent 30%),
             linear-gradient(135deg, #0f172a, #1e293b 62%, #0f4cc9 120%);
-        color: var(--de-color-on-accent);
+        color: #ffffff;
         box-shadow: var(--de-shadow-md);
 
         @media (min-width: 980px) {
@@ -18,7 +18,7 @@
             padding: 3rem;
         }
         h1 {
-            color: var(--de-color-on-accent);
+            color: #ffffff;
         }
     }
 
@@ -29,7 +29,7 @@
         h1 {
             max-width: 13ch;
             margin: 0;
-            color: var(--de-color-on-accent);
+            color: #ffffff;
             font-size: clamp(2.3rem, 5vw, 4.6rem);
             line-height: 1.03;
         }
@@ -66,8 +66,19 @@
         strong {
             display: block;
             margin-top: 0.35rem;
-            color: var(--de-color-on-accent);
+            color: #ffffff;
             line-height: 1.4;
+        }
+    }
+
+    &__hero .info-page__actions .contact__hero__action--ghost {
+        border-color: rgba(255, 255, 255, 0.28);
+        background: rgba(17, 20, 22, 0.18);
+        color: #ffffff;
+
+        &:hover {
+            border-color: var(--de-color-electric);
+            color: #ffffff;
         }
     }
 
@@ -155,13 +166,21 @@
         }
 
         &__button {
-            border: none;
+            border: 1px solid var(--de-color-signal);
             border-radius: 999px;
-            background: var(--de-gradient-accent);
-            color: var(--de-color-on-accent);
+            background: var(--de-color-signal);
+            color: #ffffff;
             padding: 0.8rem 1.2rem;
             font-weight: 900;
             box-shadow: var(--de-shadow-primary-soft);
+            cursor: pointer;
+            transition: background-color var(--de-transition-fast), border-color var(--de-transition-fast), transform var(--de-transition-fast);
+
+            &:hover {
+                border-color: #f07a55;
+                background: #f07a55;
+                transform: translateY(-1px);
+            }
         }
     }
 

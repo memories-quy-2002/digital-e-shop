@@ -13,11 +13,11 @@ import SocialAuthButtons from "../components/SocialAuthButtons";
 import { getSocialAuthMessage } from "../utils/socialAuth";
 import { EyeIcon, EyeOffIcon } from "../../../components/common/Icons";
 import { loginUser } from "../api";
+import { isLocalAuth } from "../../../lib/env";
 
 interface User {
     email: string;
     password: string;
-    role: Role;
 }
 
 const LoginPage = () => {
@@ -27,7 +27,6 @@ const LoginPage = () => {
     const [user, setUser] = useState<User>({
         email: "",
         password: "",
-        role: Role.Customer,
     });
     const { setUserData } = useAuth();
     const [rememberMe, setRememberMe] = useState<boolean>(false);
@@ -70,7 +69,7 @@ const LoginPage = () => {
 
     const validateForm = (): string[] => {
         const errorsList: string[] = [];
-        const emailPattern = /^([A-Za-z0-9_\-.])+@([A-Za-z0-9_\-.])+\.([A-Za-z]{2,4})$/;
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
         if (!user.email) {
             errorsList.push("Email is required");
         } else if (!user.email.match(emailPattern)) {
@@ -90,11 +89,6 @@ const LoginPage = () => {
         }
     };
 
-    const handleChangeRadio = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const selectedRole = event.target.value as Role;
-        setUser({ ...user, role: selectedRole });
-    };
-
     const handleChangeCheckbox = () => {
         setRememberMe((current) => !current);
     };
@@ -110,12 +104,17 @@ const LoginPage = () => {
 
         setIsSubmitting(true);
         try {
-            const userCredential = await signInWithFirebaseEmail(user.email, user.password);
-            const uid = userCredential.user.uid;
-            const userDataResult = await loginUser(uid, user.role, rememberMe);
+            let userDataResult;
+            if (isLocalAuth) {
+                userDataResult = await loginUser({ email: user.email.trim(), password: user.password }, rememberMe);
+            } else {
+                const userCredential = await signInWithFirebaseEmail(user.email, user.password);
+                const idToken = await userCredential.user.getIdToken(true);
+                userDataResult = await loginUser({ idToken }, rememberMe);
+            }
             setUserData(userDataResult);
             addToast("Login", "You have been logon successfully");
-            navigate(user.role === Role.Admin ? "/admin" : "/");
+            navigate(userDataResult?.role === Role.Admin ? "/admin" : "/");
         } catch (err: unknown) {
             if (err && typeof err === "object" && "response" in err) {
                 const axiosError = err as { response: { status: number; data: { msg: string } } };
@@ -161,7 +160,7 @@ const LoginPage = () => {
                 </aside>
                 <main className="login__form">
                     <h1 className="login__form__title">Welcome back</h1>
-                    <SocialAuthButtons intent="login" role={user.role} disabled={user.role === Role.Admin} />
+                    <SocialAuthButtons intent="login" role={Role.Customer} />
                     <Form className="login__form__container" onSubmit={handleSubmit} name="login-form" aria-label="login-form">
                         <Form.Group className="login__form__container__group mb-3" controlId="formBasicUserName">
                             <Form.Label>Email</Form.Label>
@@ -202,33 +201,19 @@ const LoginPage = () => {
                             {fieldErrors.password ? <Form.Text className="login__field-error">{fieldErrors.password}</Form.Text> : null}
                         </Form.Group>
 
-                        <Form.Group className="login__form__container__group login__role">
-                            <Form.Label>Login as</Form.Label>
-                            <div className="login__role__options">
-                                {[Role.Customer, Role.Admin].map((role) => (
-                                    <label key={role} className={user.role === role ? "active" : ""}>
-                                        <input
-                                            type="radio"
-                                            name="login-role"
-                                            value={role}
-                                            checked={user.role === role}
-                                            onChange={handleChangeRadio}
-                                        />
-                                        {role}
-                                    </label>
-                                ))}
-                            </div>
-                        </Form.Group>
                         <Form.Group className="login__form__container__group mb-3" controlId="formBasicCheckbox">
                             <Form.Check
                                 inline
                                 type="checkbox"
-                                name="signup-role"
+                                name="remember-me"
                                 checked={rememberMe === true}
                                 onChange={handleChangeCheckbox}
                                 label="Remember me"
                             />
                         </Form.Group>
+                        <div className="login__form__switch login__form__forgot">
+                            <Link to="/forgot-password">Forgot password?</Link>
+                        </div>
                         {fieldErrors.general ? (
                             <div className="login__form__errors" aria-live="polite">
                                 <div>{fieldErrors.general}</div>

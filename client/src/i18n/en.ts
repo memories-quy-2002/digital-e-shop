@@ -25,7 +25,7 @@ const en = {
             support: "Support",
             contact: "Contact",
         },
-        searchPlaceholder: "Search laptops, phones, speakers, and more",
+        searchPlaceholder: "Search products",
         searchMobilePlaceholder: "Search products",
         searchEmpty: "Type something to search.",
         searchNoResults: "No matching products yet.",

@@ -2,7 +2,8 @@
 
 ## Project overview
 
-Digital-E is a pnpm workspace for a full-stack e-commerce system focused on electronics and components.
+Digital-E is a full-stack e-commerce system with independent pnpm packages for
+the client and server, focused on electronics and components.
 
 It has two deployable applications:
 
@@ -54,7 +55,7 @@ For broad tasks that benefit from delegation, also read `docs/CODEX_ORCHESTRATIO
 
 ### Tooling and deployment
 
-- pnpm workspace (`packageManager: pnpm@11.3.0`)
+- Independent pnpm packages (`packageManager: pnpm@12.3.4` in `client/` and `server/`); no root workspace
 - ESLint flat config in both packages
 - Prettier installed
 - Vercel config in both `client/vercel.json` and `server/vercel.json`
@@ -106,30 +107,33 @@ digital-e-shop/
 
 Use pnpm only. Do not add npm or yarn lockfiles.
 
-From the repository root:
+Use Node.js `24.20.0` and pnpm `12.3.4`. The repository pins the Node
+version in `.node-version`; each package manifest also pins pnpm.
+
+Install each package independently from the repository root:
 
 ```powershell
-pnpm install
-pnpm start
+pnpm --dir client install
+pnpm --dir server install
 ```
 
-Workspace development:
+Run the applications independently:
 
 ```powershell
-pnpm --filter server dev
-pnpm --filter client start
+pnpm --dir server dev
+pnpm --dir client dev
 ```
 
 Package-specific build and checks:
 
 ```powershell
-pnpm --filter client build
-pnpm --filter client lint
-pnpm --filter client test
+pnpm --dir client build
+pnpm --dir client lint
+pnpm --dir client test
 
-pnpm --filter server build
-pnpm --filter server typecheck
-pnpm --filter server lint
+pnpm --dir server build
+pnpm --dir server typecheck
+pnpm --dir server lint
 ```
 
 Direct frontend typecheck used in current workflows:
@@ -141,24 +145,24 @@ client\node_modules\.bin\tsc.cmd -p client\tsconfig.json --noEmit
 Prisma and DB-related commands currently available:
 
 ```powershell
-pnpm --filter server prisma:generate
-pnpm --filter server prisma:migrate
-pnpm --filter server seed:mock
+pnpm --dir server prisma:generate
+pnpm --dir server prisma:migrate
+pnpm --dir server seed:mock
 ```
 
 Performance scripts:
 
 ```powershell
-pnpm --filter server perf:readonly
-pnpm --filter server perf:admin-readonly
-pnpm --filter server perf:customer-readonly
+pnpm --dir server perf:readonly
+pnpm --dir server perf:admin-readonly
+pnpm --dir server perf:customer-readonly
 ```
 
 Production start points:
 
 ```powershell
-pnpm --filter server start
-pnpm --filter client preview
+pnpm --dir server start
+pnpm --dir client preview
 ```
 
 Local defaults:
@@ -169,7 +173,9 @@ Local defaults:
 
 ## Environment variables
 
-There is no committed `.env.example` in this repo. The list below is inferred from source usage and scripts. Use placeholders, not real secrets.
+Tracked environment templates are available at `client/.env.example`,
+`server/.env.example`, and `server/.env.docker.example`. Use placeholders, not
+real secrets.
 
 ### Server
 
@@ -215,11 +221,9 @@ MOCK_REVIEW_COUNT=<seed-review-count>
 
 ### Client
 
-The client currently has no environment variables in use.
-
-Notes:
-
-- API base URL is currently hard-coded in `client/src/lib/env.ts`, not environment-driven.
+The client reads `VITE_API_BASE_URL` from Vite environment variables. Development
+defaults to `http://localhost:4000`; production builds require the variable to
+be set explicitly.
 - Firebase web config is currently embedded in source, not sourced from env.
 - Images are served from Vercel Blob (`PRODUCT_IMAGE_BASE_URL` in `client/src/utils/images.ts`), not Cloudinary — an unused Cloudinary image-transform path was removed from that file.
 
@@ -349,13 +353,13 @@ Current test reality:
 Use these checks by default:
 
 ```powershell
-client\node_modules\.bin\tsc.cmd -p client\tsconfig.json --noEmit
-pnpm --filter client build
-pnpm --filter client test
+pnpm --dir client exec tsc -p tsconfig.json --noEmit
+pnpm --dir client build
+pnpm --dir client test
 
-pnpm --filter server typecheck
-pnpm --filter server build
-pnpm --filter server lint
+pnpm --dir server typecheck
+pnpm --dir server build
+pnpm --dir server lint
 ```
 
 Add targeted tests for new work where practical:
@@ -377,19 +381,19 @@ Current workflow:
 - Generate Prisma client:
 
 ```powershell
-pnpm --filter server prisma:generate
+pnpm --dir server prisma:generate
 ```
 
 - Apply Prisma dev migration if you are intentionally using Prisma migrations:
 
 ```powershell
-pnpm --filter server prisma:migrate
+pnpm --dir server prisma:migrate
 ```
 
 - Mock data seed currently available:
 
 ```powershell
-pnpm --filter server seed:mock
+pnpm --dir server seed:mock
 ```
 
 Safe schema-change rules:
@@ -484,15 +488,15 @@ Run the checks relevant to the surface you changed. Doc-only changes need no bui
 
 ```powershell
 # Frontend
-client\node_modules\.bin\tsc.cmd -p client\tsconfig.json --noEmit
-pnpm --filter client build
-pnpm --filter client lint
-pnpm --filter client test    # Vitest configured; no test files committed yet
+pnpm --dir client exec tsc -p tsconfig.json --noEmit
+pnpm --dir client build
+pnpm --dir client lint
+pnpm --dir client test    # Vitest configured; no test files committed yet
 
 # Backend
-pnpm --filter server typecheck
-pnpm --filter server build
-pnpm --filter server lint
+pnpm --dir server typecheck
+pnpm --dir server build
+pnpm --dir server lint
 ```
 
 Always state which commands you ran and their result in the final summary.
@@ -557,11 +561,11 @@ Templates live in `docs/bmad/`. Produce only the artifacts the task actually nee
 These are directly observable from the current repo:
 
 - No committed `.env.example` or `.env.sample` file exists.
-- Root `package.json` defines `pnpm dev` as `pnpm --filter client dev`, but `client/package.json` has no `dev` script; the active Vite script is `start`.
+- Client and server are independently installable; `pnpm --dir client dev` runs Vite, while `pnpm --dir server dev` prepares Prisma before compiling and watching the API.
 - Client has both Vitest/Jest-related dependencies and config fragments, but no discovered frontend test files.
 - Server has no unit/integration test suite; only k6 read-only performance scripts are present.
 - Prisma schema exists, but there is still no checked-in Prisma migration history from `prisma migrate`.
-- A root workspace lockfile coexists with nested `client/pnpm-lock.yaml` and `server/pnpm-lock.yaml`, which can drift.
+- `client/pnpm-lock.yaml` and `server/pnpm-lock.yaml` are independent lockfiles and must be updated from their owning package directories.
 - `client/src/lib/env.ts` hard-codes the production API base URL instead of reading from env.
 - The backend now has both a feature-based architecture and some compatibility-era wrapper patterns; not every feature validator/type file is fully independent yet.
 - Backend response payload shapes are inconsistent across routes (`msg` vs `error` and route-specific data keys), so callers must preserve route-local contracts carefully.

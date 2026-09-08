@@ -4,6 +4,7 @@ import ToastProvider from "../context/ToastContext";
 import { AuthProvider } from "../context/AuthContext";
 import { CartProvider } from "../context/CartContext";
 import { LocaleProvider } from "../context/LocaleContext";
+import ThemeSync from "../components/common/ThemeSync";
 
 type AppProvidersProps = {
     children: ReactNode;
@@ -73,6 +74,7 @@ const AppProviders = ({ children }: AppProvidersProps) => {
                 <ToastProvider>
                     <CartProvider>
                         <BrowserRouter>
+                            <ThemeSync />
                             {children}
                             <Observability />
                         </BrowserRouter>

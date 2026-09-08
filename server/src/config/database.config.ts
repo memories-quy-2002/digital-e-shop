@@ -44,6 +44,7 @@ const pool = mysql.createPool({
     database: env.dbName,
     port: env.dbPort,
     ssl: resolveSslConfig(),
+    timezone: "Z",
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,

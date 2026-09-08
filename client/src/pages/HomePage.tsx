@@ -13,6 +13,7 @@ import Layout from "../components/layout/Layout";
 import axios from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { fetchProduct } from "../features/products/api";
 import "../styles/pages/_home.scss";
 import { Product } from "../utils/interface";
 import { HERO_IMAGE_WIDTHS, THUMBNAIL_IMAGE_WIDTHS, getResponsiveImageSource, normalizeProductImageName } from "../utils/images";
@@ -114,7 +115,8 @@ const HomePage = () => {
     const { userData, loading } = useAuth();
     const uid = userData?.id || null;
     const { addToast } = useToast();
-    const { items: recentlyViewed, track: trackRecentlyViewed } = useRecentlyViewed();
+    const { items: recentlyViewed, track: trackRecentlyViewed, prune: pruneRecentlyViewed } = useRecentlyViewed();
+    const [isRecentlyViewedValidated, setIsRecentlyViewedValidated] = useState(false);
     const [optimisticWishlist, applyOptimisticWishlist] = useOptimistic(
         wishlist,
         (currentWishlist: Wishlist[], mutation: WishlistMutation) => applyWishlistMutation(currentWishlist, mutation),
@@ -249,6 +251,45 @@ const HomePage = () => {
 
         return () => clearInterval(interval);
     }, [advanceSlide]);
+
+    useEffect(() => {
+        let isActive = true;
+
+        if (recentlyViewed.length === 0) {
+            setIsRecentlyViewedValidated(true);
+            return () => {
+                isActive = false;
+            };
+        }
+
+        setIsRecentlyViewedValidated(false);
+
+        const validateRecentlyViewed = async () => {
+            const validationResults = await Promise.all(
+                recentlyViewed.map(async (item) => {
+                    try {
+                        return { id: item.id, exists: Boolean(await fetchProduct(item.id)) };
+                    } catch {
+                        // Keep cached entries when the catalog check is unavailable.
+                        return { id: item.id, exists: true };
+                    }
+                }),
+            );
+
+            if (!isActive) {
+                return;
+            }
+
+            pruneRecentlyViewed(new Set(validationResults.filter((result) => result.exists).map((result) => result.id)));
+            setIsRecentlyViewedValidated(true);
+        };
+
+        validateRecentlyViewed();
+
+        return () => {
+            isActive = false;
+        };
+    }, [pruneRecentlyViewed, recentlyViewed]);
 
     useEffect(() => {
         const fetchProducts = async () => {
@@ -539,7 +580,7 @@ const HomePage = () => {
                 </section>
 
                 <RecentlyViewedStrip
-                    items={recentlyViewed}
+                    items={isRecentlyViewedValidated ? recentlyViewed : []}
                     onSelect={(productId) => {
                         const candidate =
                             displayedProducts.find((p) => p.id === productId) ??

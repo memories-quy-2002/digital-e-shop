@@ -67,7 +67,7 @@ const DEMO_SEED_PLAN = {
             price: 1599,
             salePrice: 1399,
             stock: 40,
-            mainImage: "dell-xps-13-oled-9320",
+            mainImage: "https://images.unsplash.com/photo-1593642702821-c8da6771f0c6?auto=format&fit=crop&w=900&q=80",
             specifications: "13.4-inch OLED, Intel Core i7, 16GB RAM, 512GB SSD, Windows 11",
         },
         {
@@ -78,7 +78,7 @@ const DEMO_SEED_PLAN = {
             price: 999,
             salePrice: 899,
             stock: 50,
-            mainImage: "samsung-galaxy-s24",
+            mainImage: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=900&q=80",
             specifications: "6.2-inch AMOLED, 128GB storage, 8GB RAM, 5G, Android 14",
         },
         {
@@ -89,7 +89,7 @@ const DEMO_SEED_PLAN = {
             price: 129.99,
             salePrice: 99.99,
             stock: 60,
-            mainImage: "logitech-mx-keys-mini",
+            mainImage: "https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=900&q=80",
             specifications: "Bluetooth, backlit keys, multi-device pairing, USB-C charging",
         },
         {
@@ -100,7 +100,7 @@ const DEMO_SEED_PLAN = {
             price: 399,
             salePrice: 349,
             stock: 45,
-            mainImage: "sony-wh-ch720n",
+            mainImage: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=900&q=80",
             specifications: "Active noise cancellation, Bluetooth, 35-hour battery, built-in microphone",
         },
         {
@@ -111,7 +111,7 @@ const DEMO_SEED_PLAN = {
             price: 1599,
             salePrice: 1499,
             stock: 25,
-            mainImage: "apple-studio-display",
+            mainImage: "https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&w=900&q=80",
             specifications: "27-inch 5K Retina display, 600 nits, 12MP camera, USB-C Thunderbolt",
         },
         {
@@ -122,7 +122,7 @@ const DEMO_SEED_PLAN = {
             price: 699,
             salePrice: 649,
             stock: 30,
-            mainImage: "nvidia-rtx-4070-super",
+            mainImage: "https://images.unsplash.com/photo-1591488320449-011701bb6704?auto=format&fit=crop&w=900&q=80",
             specifications: "12GB GDDR6X, ray tracing, DLSS 3, PCIe 4.0, triple-display output",
         },
         {
@@ -133,7 +133,7 @@ const DEMO_SEED_PLAN = {
             price: 429,
             salePrice: 379,
             stock: 35,
-            mainImage: "asus-tuf-gaming-vg27aq",
+            mainImage: "https://images.unsplash.com/photo-1593305841991-05c297ba4575?auto=format&fit=crop&w=900&q=80",
             specifications: "27-inch QHD IPS, 165Hz, 1ms response time, Adaptive-Sync, DisplayPort",
         },
         {
@@ -144,7 +144,7 @@ const DEMO_SEED_PLAN = {
             price: 449,
             salePrice: 419,
             stock: 40,
-            mainImage: "intel-core-i7-14700k",
+            mainImage: "https://images.unsplash.com/photo-1555617981-dac3880eac6e?auto=format&fit=crop&w=900&q=80",
             specifications: "20 cores, up to 5.6GHz, LGA1700 socket, integrated graphics",
         },
         {
@@ -155,7 +155,7 @@ const DEMO_SEED_PLAN = {
             price: 1299,
             salePrice: 1099,
             stock: 32,
-            mainImage: "dell-latitude-7450",
+            mainImage: "https://images.unsplash.com/photo-1541807084-5c52b6b3adef?auto=format&fit=crop&w=900&q=80",
             specifications: "14-inch display, Intel Core i7, 16GB RAM, 512GB SSD, Windows 11 Pro",
         },
         {
@@ -166,7 +166,7 @@ const DEMO_SEED_PLAN = {
             price: 1199,
             salePrice: 999,
             stock: 28,
-            mainImage: "asus-zenbook-14-oled",
+            mainImage: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=900&q=80",
             specifications: "14-inch OLED, Intel Core i5, 16GB RAM, 512GB SSD, Wi-Fi 6E",
         },
         {
@@ -177,7 +177,7 @@ const DEMO_SEED_PLAN = {
             price: 2499,
             salePrice: 2299,
             stock: 18,
-            mainImage: "apple-macbook-pro-m3",
+            mainImage: "https://images.unsplash.com/photo-1531297484001-80022131f5a1?auto=format&fit=crop&w=900&q=80",
             specifications: "14-inch Liquid Retina XDR, Apple M3, 16GB unified memory, 512GB SSD",
         },
         {
@@ -188,7 +188,7 @@ const DEMO_SEED_PLAN = {
             price: 2399,
             salePrice: 2199,
             stock: 20,
-            mainImage: "microsoft-surface-laptop-studio-2",
+            mainImage: "https://images.unsplash.com/photo-1603302576837-37561b2e2302?auto=format&fit=crop&w=900&q=80",
             specifications: "14.4-inch PixelSense touch, Intel Core i7, 32GB RAM, 1TB SSD",
         },
         {
@@ -199,7 +199,7 @@ const DEMO_SEED_PLAN = {
             price: 899,
             salePrice: 829,
             stock: 36,
-            mainImage: "google-pixel-9",
+            mainImage: "https://images.unsplash.com/photo-1567581935884-3349723552ca?auto=format&fit=crop&w=900&q=80",
             specifications: "6.3-inch OLED, 128GB storage, 8GB RAM, 5G, Android 14",
         },
         {
@@ -210,7 +210,7 @@ const DEMO_SEED_PLAN = {
             price: 899,
             salePrice: 849,
             stock: 42,
-            mainImage: "apple-iphone-15",
+            mainImage: "https://images.unsplash.com/photo-1556656793-08538906a9f8?auto=format&fit=crop&w=900&q=80",
             specifications: "6.1-inch Super Retina display, 128GB storage, A16 Bionic, USB-C",
         },
         {
@@ -221,7 +221,7 @@ const DEMO_SEED_PLAN = {
             price: 399,
             salePrice: 349,
             stock: 46,
-            mainImage: "samsung-galaxy-a55",
+            mainImage: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=900&q=80",
             specifications: "6.5-inch AMOLED, 128GB storage, 6GB RAM, 5G, Android 14",
         },
         {
@@ -232,7 +232,7 @@ const DEMO_SEED_PLAN = {
             price: 999,
             salePrice: 899,
             stock: 24,
-            mainImage: "dell-ultrasharp-34",
+            mainImage: "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?auto=format&fit=crop&w=900&q=80",
             specifications: "34-inch UWQHD, 60Hz, USB-C, height-adjustable stand",
         },
         {
@@ -243,7 +243,7 @@ const DEMO_SEED_PLAN = {
             price: 699,
             salePrice: 599,
             stock: 22,
-            mainImage: "samsung-odyssey-g7-27",
+            mainImage: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=900&q=80",
             specifications: "27-inch QHD, 240Hz, 1ms response time, curved VA panel",
         },
         {
@@ -254,7 +254,7 @@ const DEMO_SEED_PLAN = {
             price: 899,
             salePrice: 799,
             stock: 26,
-            mainImage: "lg-ultrafine-32-4k",
+            mainImage: "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=900&q=80",
             specifications: "32-inch 4K UHD, HDR, USB-C, 60Hz refresh rate",
         },
         {
@@ -265,7 +265,7 @@ const DEMO_SEED_PLAN = {
             price: 109,
             salePrice: 89,
             stock: 45,
-            mainImage: "logitech-mx-master-3s",
+            mainImage: "https://images.unsplash.com/photo-1527814050087-3793815479db?auto=format&fit=crop&w=900&q=80",
             specifications: "Bluetooth, USB-C, 8,000 DPI, quiet clicks, multi-device pairing",
         },
         {
@@ -276,7 +276,7 @@ const DEMO_SEED_PLAN = {
             price: 159,
             salePrice: 139,
             stock: 29,
-            mainImage: "logitech-g-pro-x-superlight-2",
+            mainImage: "https://images.unsplash.com/photo-1563298723-dcfebaa392e3?auto=format&fit=crop&w=900&q=80",
             specifications: "63g, 2.4GHz wireless, USB-C, high-precision sensor",
         },
         {
@@ -287,7 +287,7 @@ const DEMO_SEED_PLAN = {
             price: 699,
             salePrice: 649,
             stock: 27,
-            mainImage: "intel-nuc-13-pro",
+            mainImage: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=900&q=80",
             specifications: "Intel Core i7, 16GB RAM, 512GB SSD, Wi-Fi 6E, compact chassis",
         },
         {
@@ -298,7 +298,7 @@ const DEMO_SEED_PLAN = {
             price: 499,
             salePrice: 459,
             stock: 30,
-            mainImage: "amd-ryzen-9-7900x",
+            mainImage: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=900&q=80",
             specifications: "12 cores, 24 threads, up to 5.6GHz, AM5 socket",
         },
         {
@@ -309,7 +309,7 @@ const DEMO_SEED_PLAN = {
             price: 2499,
             salePrice: 2299,
             stock: 16,
-            mainImage: "hp-omen-45l",
+            mainImage: "https://images.unsplash.com/photo-1542751110-97427bbecf20?auto=format&fit=crop&w=900&q=80",
             specifications: "Intel Core i9, RTX 4080, 32GB RAM, 1TB SSD, Windows 11",
         },
         {
@@ -320,7 +320,7 @@ const DEMO_SEED_PLAN = {
             price: 429,
             salePrice: 399,
             stock: 27,
-            mainImage: "bose-quietcomfort-ultra",
+            mainImage: "https://images.unsplash.com/photo-1578319439584-104c94d37305?auto=format&fit=crop&w=900&q=80",
             specifications: "Active noise cancellation, spatial audio, Bluetooth, 24-hour battery",
         },
         {
@@ -331,7 +331,7 @@ const DEMO_SEED_PLAN = {
             price: 179,
             salePrice: 149,
             stock: 34,
-            mainImage: "jbl-charge-5",
+            mainImage: "https://images.unsplash.com/photo-1588508065123-287b28e013da?auto=format&fit=crop&w=900&q=80",
             specifications: "IP67, Bluetooth, 20-hour battery, USB-C charging",
         },
         {
@@ -342,7 +342,7 @@ const DEMO_SEED_PLAN = {
             price: 899,
             salePrice: 829,
             stock: 21,
-            mainImage: "amd-radeon-rx-7900-xt",
+            mainImage: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=900&q=80",
             specifications: "20GB GDDR6, ray acceleration, PCIe 4.0, 4K-ready output",
         },
         {
@@ -353,7 +353,7 @@ const DEMO_SEED_PLAN = {
             price: 499,
             salePrice: 469,
             stock: 25,
-            mainImage: "sony-playstation-5-slim",
+            mainImage: "https://images.unsplash.com/photo-1486401899868-0e435ed85128?auto=format&fit=crop&w=900&q=80",
             specifications: "1TB SSD, 4K gaming, ray tracing, Wi-Fi 6, wireless controller",
         },
         {
@@ -364,7 +364,7 @@ const DEMO_SEED_PLAN = {
             price: 1499,
             salePrice: 1399,
             stock: 19,
-            mainImage: "canon-eos-r8",
+            mainImage: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=900&q=80",
             specifications: "24MP full-frame sensor, 4K video, RF mount, dual-pixel autofocus",
         },
     ],
@@ -687,6 +687,9 @@ const validateDemoSeedPlan = (plan = DEMO_SEED_PLAN) => {
     const brands = new Set(plan.brands);
 
     plan.products.forEach((product) => {
+        if (/\b(?:e2e|demo)\b/i.test(product.name)) {
+            throw new Error(`Demo seed plan contains a reserved fixture label in product name: ${product.name}`);
+        }
         if (!categories.has(product.categoryName)) {
             throw new Error(`Demo seed plan references an unknown category: ${product.categoryName}`);
         }

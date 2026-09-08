@@ -22,6 +22,7 @@ const WishlistItem = ({ item, selected, onSelect, onMoveToCart, onRemoveWishlist
     const navigate = useNavigate();
     const imageUrl = product.main_image ? product.main_image.replace(".jpg", "") : null;
     const activePrice = product.sale_price ?? product.price;
+    const availableStock = product.available_stock ?? product.stock;
     const hasSale = product.sale_price !== null && product.sale_price < product.price;
 
     return (
@@ -45,7 +46,7 @@ const WishlistItem = ({ item, selected, onSelect, onMoveToCart, onRemoveWishlist
                 <div className="wishlist__row__product__info">
                     <strong>{product.name}</strong>
                     <span>{product.brand} | {product.category}</span>
-                    <small>{product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}</small>
+                    <small>{availableStock > 0 ? `${availableStock} in stock` : "Out of stock"}</small>
                 </div>
             </div>
 
@@ -54,12 +55,12 @@ const WishlistItem = ({ item, selected, onSelect, onMoveToCart, onRemoveWishlist
                 {hasSale ? <span>Sale from ${product.price.toFixed(2)}</span> : <span>No sale change</span>}
             </div>
 
-            <span className={product.stock > 0 ? "wishlist__stock is-in" : "wishlist__stock is-out"}>
-                {product.stock > 0 ? "Available" : "Unavailable"}
+            <span className={availableStock > 0 ? "wishlist__stock is-in" : "wishlist__stock is-out"}>
+                {availableStock > 0 ? "Available" : "Unavailable"}
             </span>
 
             <div className="wishlist__row__actions">
-                <button type="button" onClick={() => onMoveToCart(product)} disabled={product.stock <= 0}>
+                <button type="button" onClick={() => onMoveToCart(product)} disabled={availableStock <= 0}>
                     <CartIcon size={17} />
                     Move to cart
                 </button>

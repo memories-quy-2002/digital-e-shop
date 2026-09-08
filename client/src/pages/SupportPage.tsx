@@ -20,18 +20,21 @@ const SupportPage: React.FC = () => {
             text: "Fast help for product questions, checkout issues, delivery updates, and returns.",
             detail: "Average response: 3 minutes",
             action: "Start chat",
+            href: "/contact-us",
         },
         {
             title: "Email support",
             text: "Send details, screenshots, order IDs, or warranty documents for deeper help.",
             detail: "support@digital-e.com",
             action: "Send email",
+            href: "mailto:support@digital-e.com",
         },
         {
             title: "Hotline",
             text: "Speak with a support agent when delivery, payment, or account access needs urgent attention.",
             detail: "+84 123 456 789",
             action: "Call now",
+            href: "tel:+84123456789",
         },
     ];
 
@@ -115,7 +118,7 @@ const SupportPage: React.FC = () => {
                                 <h3>{channel.title}</h3>
                                 <p>{channel.text}</p>
                                 <span>{channel.detail}</span>
-                                <button type="button">{channel.action}</button>
+                                <a href={channel.href}>{channel.action}</a>
                             </article>
                         ))}
                     </div>

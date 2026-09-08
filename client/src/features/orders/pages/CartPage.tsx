@@ -51,11 +51,12 @@ const CartPage = () => {
         if (!item) return;
 
         const requestedQuantity = Math.max(1, parseInt(event.target.value, 10) || 1);
-        const newQuantity = Math.min(requestedQuantity, item.stock);
-        if (requestedQuantity > item.stock) {
+        const availableStock = item.available_stock ?? item.stock;
+        const newQuantity = Math.min(requestedQuantity, availableStock);
+        if (requestedQuantity > availableStock) {
             addToast(
                 t("cart.outOfStock"),
-                `${t("cart.insufficientStock", item.stock).replace(/[.!]?$/, "")} (${item.productName}).`,
+                `${t("cart.insufficientStock", availableStock).replace(/[.!]?$/, "")} (${item.productName}).`,
             );
         }
 
@@ -65,26 +66,27 @@ const CartPage = () => {
     const localValidationIssues: CartValidationIssue[] = useMemo(
         () =>
             cart.flatMap((item): CartValidationIssue[] => {
-                if (item.stock <= 0) {
+                const availableStock = item.available_stock ?? item.stock;
+                if (availableStock <= 0) {
                     return [
                         {
                             cartItemId: item.cartItemId,
                             productId: item.productId,
                             productName: item.productName,
                             requestedQuantity: item.quantity,
-                            availableStock: item.stock,
+                            availableStock,
                             reason: "out_of_stock",
                         },
                     ];
                 }
-                if (item.quantity > item.stock) {
+                if (item.quantity > availableStock) {
                     return [
                         {
                             cartItemId: item.cartItemId,
                             productId: item.productId,
                             productName: item.productName,
                             requestedQuantity: item.quantity,
-                            availableStock: item.stock,
+                            availableStock,
                             reason: "insufficient_stock",
                         },
                     ];

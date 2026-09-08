@@ -107,7 +107,7 @@ export const purchaseSchema = z.object({
     ).min(1, "Cart cannot be empty"),
     discount: nonNegativeNumber("Discount").default(0),
     shippingAddress: requiredText("Shipping address"),
-    paymentMethod: z.enum(["bank_transfer", "cash"], { error: "Unsupported payment method" }),
+    paymentMethod: z.enum(["bank_transfer", "cash", "payos", "stripe", "card"], { error: "Unsupported payment method" }),
 });
 
 export const applyDiscountSchema = z.object({
@@ -121,6 +121,9 @@ export const productCreateSchema = z.object({
     category: requiredText("Category"),
     brand: requiredText("Brand"),
     specifications: z.string().trim().optional().default(""),
+    sku: z.string().trim().max(64, "SKU cannot exceed 64 characters").optional(),
+    manufacturerPartNumber: z.string().trim().max(128, "Manufacturer part number cannot exceed 128 characters").optional(),
+    warrantyMonths: z.coerce.number({ error: "Warranty must be a number" }).int("Warranty must be a whole number").nonnegative("Warranty cannot be negative").nullable().optional(),
     price: nonNegativeNumber("Price"),
     inventory: z.coerce.number({ error: "Inventory must be a number" }).int("Inventory must be a whole number").nonnegative("Inventory cannot be negative"),
     imageUrl: z.string().trim().optional(),
@@ -132,6 +135,9 @@ export const productUpdateSchema = z.object({
     category: requiredText("Category").optional(),
     brand: requiredText("Brand").optional(),
     specifications: z.string().trim().optional(),
+    sku: requiredText("SKU").max(64, "SKU cannot exceed 64 characters"),
+    manufacturerPartNumber: z.string().trim().max(128, "Manufacturer part number cannot exceed 128 characters").nullable().optional(),
+    warrantyMonths: z.coerce.number({ error: "Warranty must be a number" }).int("Warranty must be a whole number").nonnegative("Warranty cannot be negative").nullable().optional(),
     price: nonNegativeNumber("Price").optional(),
     salePrice: z.union([nonNegativeNumber("Sale price"), z.literal(""), z.null(), z.undefined()]).optional(),
     stock: z.coerce.number({ error: "Stock must be a number" }).int("Stock must be a whole number").nonnegative("Stock cannot be negative").optional(),

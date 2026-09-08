@@ -7,10 +7,12 @@ to review.
 
 1. Pull the latest `master`.
 2. Create a focused branch.
-3. Install dependencies from the repository root:
+3. Select Node.js `24.20.0` and pnpm `12.3.4`.
+4. Install dependencies for each application:
 
 ```powershell
-pnpm install
+pnpm --dir client install
+pnpm --dir server install
 ```
 
 ## Branch Naming
@@ -33,7 +35,7 @@ feat(customer): add address book
 fix(promotions): support discounts schema
 docs: update setup guide
 test(performance): add read-only customer checks
-chore(deps): update workspace packages
+chore(deps): update package dependencies
 ```
 
 Common commit types:
@@ -47,18 +49,19 @@ Common commit types:
 
 ## Development Workflow
 
-Run both apps from the root:
+Run each package independently in a separate terminal:
 
 ```powershell
-pnpm dev
+pnpm --dir server dev
+pnpm --dir client dev
 ```
 
-Or run each package separately:
+The server lifecycle runs Prisma generate and `prisma migrate deploy` before
+starting development or the compiled server. Use `pnpm --dir server
+prisma:migrate` only when intentionally creating a new development migration.
 
-```powershell
-pnpm --filter server dev
-pnpm --filter client start
-```
+Production client builds require an explicit `VITE_API_BASE_URL`; configure it
+in the client deployment environment.
 
 Default local URLs:
 

@@ -45,6 +45,21 @@ type AnalyticsSummaryLike = {
         out_of_stock?: number;
         customers?: number;
     };
+    operations?: {
+        promotions?: {
+            discountedOrders?: number;
+            totalDiscountGiven?: number;
+            discountedRevenue?: number;
+            performance?: Array<{
+                id: number;
+                code: string;
+                discountPercent: number;
+                discountGiven: number;
+                estimatedOrders: number;
+                active: boolean;
+            }>;
+        };
+    };
 };
 
 type TopRevenueProduct = {
@@ -188,6 +203,42 @@ const AdminDashboardCharts = ({
                                     <Area type="monotone" dataKey="orders" stroke="#16a34a" fill="#dcfce7" strokeWidth={3} />
                                 </AreaChart>
                             </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    <div className="admin__card">
+                        <div className="admin__card__header">
+                            <div>
+                                <h3>Promotion performance</h3>
+                                <span>Consumed redemptions and discounts from the database</span>
+                            </div>
+                        </div>
+                        <div className="admin__dashboard__insights">
+                            <div className="admin__dashboard__insight">
+                                <span>Discounted orders</span>
+                                <strong>{analyticsSummary.operations?.promotions?.discountedOrders ?? 0}</strong>
+                                <p>Orders with a recorded discount.</p>
+                            </div>
+                            <div className="admin__dashboard__insight">
+                                <span>Discount given</span>
+                                <strong>{formatCurrency(analyticsSummary.operations?.promotions?.totalDiscountGiven ?? 0)}</strong>
+                                <p>USD canonical reporting amount.</p>
+                            </div>
+                        </div>
+                        <div className="admin__card__body">
+                            <Table responsive hover borderless>
+                                <thead><tr><th>Code</th><th>Orders</th><th>Discount given</th><th>Status</th></tr></thead>
+                                <tbody>
+                                    {(analyticsSummary.operations?.promotions?.performance || []).map((promotion) => (
+                                        <tr key={promotion.id}>
+                                            <td>{promotion.code}</td>
+                                            <td>{promotion.estimatedOrders}</td>
+                                            <td>{formatCurrency(promotion.discountGiven)}</td>
+                                            <td>{promotion.active ? "Active" : "Inactive"}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </Table>
                         </div>
                     </div>
                 </section>

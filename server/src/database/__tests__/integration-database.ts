@@ -44,9 +44,9 @@ export async function createTestUser(label: string): Promise<TestUser> {
 export async function createTestProduct(label: string, stock = 10): Promise<number> {
     const [result] = await integrationPool.execute<ResultSetHeader>(
         `INSERT INTO products
-            (name, description, category_id, brand_id, price, sale_price, stock, main_image, specifications, created_at, updated_at)
-        VALUES (?, ?, 1, 1, 10.00, NULL, ?, NULL, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP())`,
-        [`${integrationPrefix}-product-${label}`, "Integration test product", stock],
+            (name, description, category_id, brand_id, sku, price, sale_price, stock, main_image, specifications, created_at, updated_at)
+        VALUES (?, ?, 1, 1, ?, 10.00, NULL, ?, NULL, NULL, UTC_TIMESTAMP(), UTC_TIMESTAMP())`,
+        [`${integrationPrefix}-product-${label}`, "Integration test product", `${integrationPrefix}-${label}`.slice(0, 64), stock],
     );
 
     return Number(result.insertId);
@@ -69,12 +69,27 @@ export async function createTestPendingCheckout(
     cart: unknown[],
     totalPrice = 10,
 ): Promise<void> {
-    await integrationPool.execute(
+    const [result] = await integrationPool.execute<ResultSetHeader>(
         `INSERT INTO pending_checkouts
-            (stripe_session_id, user_id, cart_json, total_price, discount, shipping_address)
-        VALUES (?, ?, ?, ?, 0, 'Integration test address')`,
+            (stripe_session_id, reservation_token, user_id, cart_json, total_price, discount, shipping_address, status, expires_at)
+        VALUES (?, UUID(), ?, ?, ?, 0, 'Integration test address', 'PENDING', DATE_ADD(UTC_TIMESTAMP(), INTERVAL 35 MINUTE))`,
         [stripeSessionId, userId, JSON.stringify(cart), totalPrice],
     );
+    const quantities = new Map<number, number>();
+    for (const item of cart as Array<{ product_id: number; quantity: number }>) {
+        quantities.set(item.product_id, (quantities.get(item.product_id) || 0) + item.quantity);
+    }
+    const reservationValues = [...quantities.entries()].map(([productId, quantity]) => [
+        result.insertId,
+        productId,
+        quantity,
+    ]);
+    if (reservationValues.length > 0) {
+        await integrationPool.query(
+            `INSERT INTO inventory_reservations (pending_checkout_id, product_id, quantity) VALUES ?`,
+            [reservationValues],
+        );
+    }
 }
 
 async function ignoreMissingTable(operation: () => Promise<unknown>): Promise<void> {
@@ -97,9 +112,30 @@ export async function cleanupTestData(): Promise<void> {
         [userPattern, productPattern],
     ));
     await ignoreMissingTable(() => integrationPool.execute(
+        `DELETE FROM inventory_reservations
+        WHERE pending_checkout_id IN (SELECT id FROM pending_checkouts WHERE user_id LIKE ?)`,
+        [userPattern],
+    ));
+    await ignoreMissingTable(() => integrationPool.execute(
+        `DELETE FROM discount_redemptions
+        WHERE pending_checkout_id IN (SELECT id FROM pending_checkouts WHERE user_id LIKE ?)
+           OR order_id IN (SELECT id FROM orders WHERE user_id LIKE ?)`,
+        [userPattern, userPattern],
+    ));
+    await ignoreMissingTable(() => integrationPool.execute(
         `DELETE FROM order_status_events
         WHERE actor_id LIKE ? OR order_id IN (SELECT id FROM orders WHERE user_id LIKE ?)`,
         [userPattern, userPattern],
+    ));
+    await ignoreMissingTable(() => integrationPool.execute(
+        `DELETE FROM support_tickets
+        WHERE user_id LIKE ? OR order_id IN (SELECT id FROM orders WHERE user_id LIKE ?)`,
+        [userPattern, userPattern],
+    ));
+    await ignoreMissingTable(() => integrationPool.execute(
+        `DELETE FROM order_payments
+        WHERE order_id IN (SELECT id FROM orders WHERE user_id LIKE ?)`,
+        [userPattern],
     ));
     await integrationPool.execute(
         "DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id LIKE ?)",
