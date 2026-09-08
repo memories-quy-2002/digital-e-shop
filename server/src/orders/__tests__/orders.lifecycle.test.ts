@@ -41,6 +41,7 @@ function buildService({ paidStripe = false } = {}) {
     }) };
 
     tx.query.mockImplementation(async (sql: string) => {
+        const normalizedSql = sql.trimStart();
         if (sql.includes("SELECT id, user_id, status, total_price")) {
             return [{ id: 9, user_id: "user-1", status: orderStatus, total_price: 50, discount: 0 }];
         }
@@ -49,12 +50,12 @@ function buildService({ paidStripe = false } = {}) {
                 ? [{ id: 3, provider: "stripe", status: "paid", provider_payment_id: "pi_9", amount: 50, currency: "USD" }]
                 : [];
         }
-        if (sql.includes("inventory_restored_at")) {
+        if (normalizedSql.startsWith("SELECT") && sql.includes("inventory_restored_at")) {
             return [{ user_id: "user-1", status: orderStatus, inventory_restored_at: null }];
         }
         if (sql.includes("FROM order_items")) return [{ product_id: 4, quantity: 2 }];
         if (sql.includes("FROM products")) return [{ id: 4, stock: 5 }];
-        if (sql.trimStart().startsWith("UPDATE orders")) {
+        if (normalizedSql.startsWith("UPDATE orders")) {
             orderStatus = 2;
             return { affectedRows: 1 };
         }
