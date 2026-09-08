@@ -168,7 +168,7 @@ jobs:
           pnpm prisma:migrate:deploy 2>&1 | tee prisma-migrate.log
       - name: Upload Prisma migration diagnostics
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: prisma-migration-diagnostics
           path: server/prisma-migrate.log
@@ -192,7 +192,7 @@ jobs:
           pnpm test:integration 2>&1 | tee integration-tests.log
       - name: Upload integration test diagnostics
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: integration-test-diagnostics
           path: server/integration-tests.log

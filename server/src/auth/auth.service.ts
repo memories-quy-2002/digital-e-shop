@@ -8,7 +8,7 @@ import { UsersRepository } from "../users/users.repository";
 import type { UserRow } from "../users/users.types";
 import { toPublicUser } from "../users/user-public";
 import type { RegisterUserInput } from "./auth.dto";
-import type { AuthSessionPayload, JwtPayload, SocialAuthProfile } from "./auth.types";
+import type { AuthSessionPayload, JwtPayload } from "./auth.types";
 import { AuthRepository } from "./auth.repository";
 import { AuthSessionService } from "./auth-session.service";
 import { FirebaseAdminAuthService } from "./firebase-admin.service";
@@ -66,38 +66,6 @@ export class NestAuthService {
         return this.authSessionService.issue(user, rememberMe);
     }
 
-    private buildSocialUsername(profile: SocialAuthProfile) {
-        const baseName = profile.displayName || profile.firstName || profile.email.split("@")[0] || "customer";
-        const normalizedBase = baseName
-            .toLowerCase()
-            .replace(/[^a-z0-9._-]+/g, "-")
-            .replace(/^-+|-+$/g, "")
-            .slice(0, 8) || "customer".slice(0, 8);
-        const suffix = profile.providerId.slice(-6).toLowerCase();
-
-        return `g${normalizedBase}${suffix}`.slice(0, 16);
-    }
-
-    private async createSocialUser(profile: SocialAuthProfile) {
-        const uid = crypto.randomUUID();
-        const placeholderPassword = await hashPassword(crypto.randomBytes(24).toString("hex"));
-        const username = this.buildSocialUsername(profile);
-
-        await this.usersRepository.createSocialUser(
-            uid,
-            username,
-            profile.email,
-            placeholderPassword,
-            "Customer",
-            profile.provider,
-            profile.providerId,
-        );
-
-        const created = await this.usersRepository.findById(uid);
-        if (!created) throw new NotFoundException("Unable to create social account");
-        return created;
-    }
-
     async registerUser(idToken: string, input: RegisterUserInput): Promise<AuthSessionPayload> {
         const identity = await this.firebaseAdminAuthService.verifyIdToken(idToken);
         const existing = await this.usersRepository.findById(identity.uid);
@@ -151,33 +119,6 @@ export class NestAuthService {
         }
 
         return this.issueLoginSession(user, rememberMe);
-    }
-
-    async loginWithSocialProfile(profile: SocialAuthProfile) {
-        const socialUser = await this.usersRepository.findBySocialProvider(profile.provider, profile.providerId);
-        if (socialUser) {
-            if (socialUser.status === "Suspended") {
-                throw new Error("Account is suspended");
-            }
-            if (socialUser.role === "Admin") {
-                throw new Error("Admin accounts must use email login");
-            }
-
-            return this.issueLoginSession(socialUser, false);
-        }
-
-        const existingUser = await this.usersRepository.findByEmail(profile.email);
-        if (existingUser) {
-            if (existingUser.status === "Suspended") {
-                throw new Error("Account is suspended");
-            }
-            if (existingUser.role === "Admin") {
-                throw new Error("Admin accounts must use email login");
-            }
-            throw new Error("An account already exists with this email. Use email login to continue.");
-        }
-
-        return this.issueLoginSession(await this.createSocialUser(profile), false);
     }
 
     async refreshToken(sessionId: number | string, rawRefreshToken: string) {

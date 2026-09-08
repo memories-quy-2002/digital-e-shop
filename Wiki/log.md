@@ -27,3 +27,5 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-07 - Codex - Added a local mock Stripe checkout path that finalizes a reserved order without contacting Stripe and returns to the local success page.
 - 2026-09-07 - Codex - Refreshed Checkout with the dark technical/electronics visual hierarchy, accessible progress/payment states, normalized email validation, and regression coverage.
 - 2026-09-07 - Codex - Moved transient Toasts to a portal-mounted fixed viewport outside the Header/app layout, capped the visible queue at three, and added responsive safe-area/reduced-motion behavior with regression coverage.
+- 2026-09-08 - Codex - Removed redundant root pnpm package metadata and kept client/server dependency resolution in their package-local lockfiles and workspace policies.
+- 2026-09-08 - Codex - Removed inactive Google OAuth and SearchAPI runtime references, dependencies, templates, and OpenAPI entries while retaining nullable legacy provider columns for schema compatibility.

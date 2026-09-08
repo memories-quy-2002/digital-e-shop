@@ -26,19 +26,6 @@ export class UsersRepository {
         });
     }
 
-    findBySocialProvider(provider: string, providerUserId: string): Promise<UserRow | null> {
-        return new Promise((resolve, reject) => {
-            pool.query(
-                "SELECT * FROM users WHERE auth_provider = ? AND provider_user_id = ? LIMIT 1",
-                [provider, providerUserId],
-                (queryErr: DbError | null, results?: UserRow[]) => {
-                    if (queryErr) return reject(queryErr);
-                    resolve(results?.[0] || null);
-                },
-            );
-        });
-    }
-
     getAll(): Promise<UserRow[]> {
         return new Promise((resolve, reject) => {
             pool.query(
@@ -140,28 +127,6 @@ export class UsersRepository {
             pool.query(
                 "INSERT INTO users (id, username, email, password, role, token) VALUES (?, ?, ?, ?, ?, '')",
                 [uid, username, email, password, role],
-                (queryErr: DbError | null) => {
-                    if (queryErr) return reject(queryErr);
-                    resolve();
-                },
-            );
-        });
-    }
-
-    createSocialUser(
-        uid: string,
-        username: string,
-        email: string,
-        password: string,
-        role: string,
-        provider: string,
-        providerUserId: string,
-    ): Promise<void> {
-        return new Promise((resolve, reject) => {
-            pool.query(
-                `INSERT INTO users (id, username, email, password, role, token, auth_provider, provider_user_id)
-                 VALUES (?, ?, ?, ?, ?, '', ?, ?)`,
-                [uid, username, email, password, role, provider, providerUserId],
                 (queryErr: DbError | null) => {
                     if (queryErr) return reject(queryErr);
                     resolve();

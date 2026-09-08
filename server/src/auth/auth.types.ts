@@ -1,15 +1,5 @@
 import type { UserRow } from "../users/users.types";
 
-export type SocialAuthProfile = {
-    provider: "google";
-    providerId: string;
-    email: string;
-    displayName?: string;
-    firstName?: string | null;
-    lastName?: string | null;
-    avatarUrl?: string | null;
-};
-
 export type JwtPayload = {
     id: string;
     email: string;

@@ -17,19 +17,29 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.3.4
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version-file: .node-version
           cache: 'pnpm'
+          cache-dependency-path: |
+            client/pnpm-lock.yaml
+            server/pnpm-lock.yaml
 
-      - name: Install dependencies
+      - name: Install client dependencies
+        working-directory: client
+        run: pnpm install --frozen-lockfile
+
+      - name: Install server dependencies
+        working-directory: server
         run: pnpm install --frozen-lockfile
 
       - name: Create client env file
         run: |
-          echo "VITE_API_URL=http://localhost:3000" > client/.env
+          echo "VITE_API_BASE_URL=http://localhost:4000" > client/.env
 
       - name: Create server env file
         run: |
@@ -38,4 +48,5 @@ jobs:
           echo "JWT_REFRESH_SECRET_KEY=test-refresh-secret-for-agent-sandbox" >> server/.env
 
       - name: Typecheck client
-        run: pnpm --filter client exec tsc --noEmit
+        working-directory: client
+        run: pnpm exec tsc --noEmit

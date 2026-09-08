@@ -20,7 +20,7 @@ Migration ran in two structural passes:
 - New backend work follows Nest conventions directly: `@Module`/`@Controller`/`@Injectable()` per feature under `server/src/<feature>/`, guards for auth (`AuthGuard`/`RolesGuard` from `server/src/guards/`), `ZodValidationPipe` for validation (Zod kept, not class-validator), `AllExceptionsFilter` for legacy-shaped error responses.
 - `AuthGuard`/`RolesGuard` depend on real DI-provided `NestAuthService`/`UsersRepository`; both are exported globally via `@Global()` on `AuthModule`/`UsersModule` (same pattern as `NestConfigModule`) so every feature module can use the guards without an explicit import.
 - Persistence is unaffected: MySQL-via-repository remains primary, Prisma remains partial (see [[0001-mysql-primary-prisma-partial]]) — this migration was explicitly scoped to not touch that.
-- **Known gap**: Google OAuth (`/auth/google`, `/auth/google/callback`) is not migrated — `@nestjs/passport` isn't installed. Follow-up task needed if Google login must be restored.
+- Google OAuth was intentionally not migrated and was removed from the active runtime on 2026-09-08; no follow-up integration is planned.
 - **Unverified risk carried forward**: true idle-then-cold serverless latency was never measured (Step 0's data was contaminated); if production cold-start turns out worse than the warm-request signal suggested, revisit the Vercel serverless hosting model.
 - Verification after both phases: `typecheck`, `build`, `lint`, and the full Vitest suite (71/71 passing across 17 files) all clean.
 
