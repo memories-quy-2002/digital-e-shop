@@ -7,6 +7,7 @@ vi.mock("../../database/transaction", () => ({
 }));
 
 import { CheckoutReservationService } from "../checkout-reservation.service";
+import { hashGuestOrderToken } from "../guest-order-token";
 
 type CheckoutState = {
     id: number;
@@ -173,7 +174,7 @@ describe("CheckoutReservationService", () => {
                     guestName: "Guest Buyer",
                     guestPhone: "+84123456789",
                 },
-                guestOrderTokenHash: "a".repeat(64),
+                guestOrderTokenHash: hashGuestOrderToken("guest-order-access-token"),
             },
         });
 
@@ -182,7 +183,7 @@ describe("CheckoutReservationService", () => {
             guestEmail: "guest@example.com",
             guestName: "Guest Buyer",
             guestPhone: "+84123456789",
-            guestOrderTokenHash: "a".repeat(64),
+            guestOrderTokenHash: hashGuestOrderToken("guest-order-access-token"),
         }));
     });
 

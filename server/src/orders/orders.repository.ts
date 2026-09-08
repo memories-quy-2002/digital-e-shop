@@ -226,7 +226,8 @@ export class OrdersRepository {
 
     getPendingCheckoutBySessionId(stripeSessionId: string, callback: QueryCallback<PendingCheckoutRow[]>) {
         this.query(
-            `SELECT id, stripe_session_id, reservation_token, user_id, cart_json, total_price, discount,
+            `SELECT id, stripe_session_id, reservation_token, user_id, guest_email, guest_name, guest_phone,
+                    guest_order_token_hash, cart_json, total_price, discount,
                     shipping_address, status, expires_at, discount_id, created_at, consumed_at
             FROM pending_checkouts WHERE stripe_session_id = ? LIMIT 1`,
             [stripeSessionId],

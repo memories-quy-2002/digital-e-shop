@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { InsertResult } from "#src/shared/interfaces/domain";
 import type { TransactionContext } from "../database/transaction";
+import { assertGuestOrderTokenHash } from "./guest-order-token";
 import type {
     CheckoutReservationItem,
     LockedProductRow,
@@ -42,6 +43,10 @@ export class CheckoutReservationRepository {
     }
 
     async insertPendingCheckout(tx: TransactionContext, input: PendingCheckoutInsertInput): Promise<InsertResult> {
+        const guestOrderTokenHash = input.guestOrderTokenHash === null
+            ? null
+            : assertGuestOrderTokenHash(input.guestOrderTokenHash);
+
         return tx.query<InsertResult>(
             `INSERT INTO pending_checkouts
                 (stripe_session_id, reservation_token, user_id, guest_email, guest_name, guest_phone, guest_order_token_hash,
@@ -54,7 +59,7 @@ export class CheckoutReservationRepository {
                 input.guestEmail,
                 input.guestName,
                 input.guestPhone,
-                input.guestOrderTokenHash,
+                guestOrderTokenHash,
                 input.cartJson,
                 input.totalPrice,
                 input.discount,

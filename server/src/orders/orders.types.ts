@@ -1,5 +1,6 @@
 import type { PurchasePayload } from "./orders.dto";
 import type { CartItemRow } from "../cart/cart.types";
+import type { GuestOrderTokenHash } from "./guest-order-token";
 
 export type OrderSummaryRow = {
     id: number;
@@ -165,7 +166,7 @@ export type GuestOrderIdentity = {
     kind: "guest";
     userId: null;
     guestContact: GuestContactSnapshot;
-    guestOrderTokenHash: string;
+    guestOrderTokenHash: GuestOrderTokenHash;
 };
 
 export type OrderIdentity = AuthenticatedOrderIdentity | GuestOrderIdentity;
@@ -190,7 +191,7 @@ export type PendingCheckoutInsertInput = {
     guestEmail: string | null;
     guestName: string | null;
     guestPhone: string | null;
-    guestOrderTokenHash: string | null;
+    guestOrderTokenHash: GuestOrderTokenHash | null;
     cartJson: string;
     totalPrice: number;
     discount: number;
