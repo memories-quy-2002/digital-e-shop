@@ -1,4 +1,4 @@
-import type { PurchasePayload } from "./orders.dto";
+import type { GuestPurchasePayload, PurchasePayload } from "./orders.dto";
 import type { CartItemRow } from "../cart/cart.types";
 import type { GuestOrderTokenHash } from "./guest-order-token";
 
@@ -151,6 +151,22 @@ export type CheckoutReservationItem = {
     quantity: number;
 };
 
+export type GuestOrderIdentityRow = {
+    id: number;
+    user_id: null;
+    guest_email: string | null;
+    guest_name: string | null;
+    guest_phone: string | null;
+    guest_order_token_hash: string | null;
+};
+
+export type GuestSafeOrderDetail = Omit<OrderDetail, "user_id" | "customer_name" | "customer_email" | "items"> & {
+    guest_email: string | null;
+    guest_name: string | null;
+    guest_phone: string | null;
+    items: Array<Omit<OrderDetail["items"][number], "id">>;
+};
+
 export type GuestContactSnapshot = {
     guestEmail: string;
     guestName: string;
@@ -220,3 +236,4 @@ export type OrderBySessionRow = {
 };
 
 export type { PurchasePayload };
+export type { GuestPurchasePayload };

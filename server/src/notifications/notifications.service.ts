@@ -40,7 +40,8 @@ export class NestNotificationsService {
         return { updated: result.affectedRows || 0 };
     }
 
-    notifyOrderPlaced(uid: string, orderId: number, total: number): void {
+    notifyOrderPlaced(uid: string | null, orderId: number, total: number): void {
+        if (!uid) return;
         this.notificationsRepository.createNotification({
             userId: uid,
             type: "order",
@@ -50,7 +51,8 @@ export class NestNotificationsService {
         });
     }
 
-    notifyOrderStatus(uid: string, orderId: number, status: number): void {
+    notifyOrderStatus(uid: string | null, orderId: number, status: number): void {
+        if (!uid) return;
         const label = statusLabel(status);
         this.notificationsRepository.createNotification({
             userId: uid,

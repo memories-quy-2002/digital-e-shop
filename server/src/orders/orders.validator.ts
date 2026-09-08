@@ -4,6 +4,24 @@ const requiredText = (field: string) => z.string({ error: `${field} is required`
 const positiveInt = (field: string) => z.coerce.number({ error: `${field} must be a number` }).int(`${field} must be a whole number`).positive(`${field} must be greater than zero`);
 const nonNegativeNumber = (field: string) => z.coerce.number({ error: `${field} must be a number` }).nonnegative(`${field} cannot be negative`);
 const optionalDiscountCode = z.string().trim().min(1, "Discount code cannot be empty").max(50, "Discount code is too long").optional();
+const guestPositiveInt = (field: string) => z.number({ error: `${field} must be a number` }).int(`${field} must be a whole number`).positive(`${field} must be greater than zero`);
+const guestRequiredText = (field: string, max: number) => z.string({ error: `${field} is required` }).trim().min(1, `${field} is required`).max(max, `${field} is too long`);
+const guestCartItemSchema = z.object({
+    productId: guestPositiveInt("Product id"),
+    quantity: guestPositiveInt("Quantity").max(99, "Quantity must not exceed 99"),
+}).strict();
+
+const guestContactSchema = z.object({
+    email: z.email("Email must be valid"),
+    name: guestRequiredText("Recipient name", 160),
+    phone: z.string().trim().max(40, "Phone number is too long").transform((value) => value || null).optional(),
+}).strict();
+
+const guestShippingSchema = z.object({
+    address: guestRequiredText("Address", 1000),
+    city: guestRequiredText("City", 160),
+    country: guestRequiredText("Country", 160),
+}).strict();
 
 export const orderStatusSchema = z.object({
     status: z.coerce.number().int().refine((value) => [0, 1, 2].includes(value), "Status is required"),
@@ -50,3 +68,29 @@ export const applyDiscountSchema = z.object({
     discountCode: requiredText("Discount code"),
     price: nonNegativeNumber("Price"),
 });
+
+export const guestPurchaseSchema = z.object({
+    cart: z.array(guestCartItemSchema).min(1, "Cart cannot be empty").max(50, "Cart must not contain more than 50 items"),
+    contact: guestContactSchema,
+    shipping: guestShippingSchema,
+    discountCode: optionalDiscountCode.transform((value) => value?.toUpperCase()),
+    paymentMethod: z.enum(["bank_transfer", "cash", "payos"], { error: "Unsupported payment method" }),
+}).strict().superRefine((data, context) => {
+    const quantities = new Map<number, number>();
+    data.cart.forEach((item, index) => {
+        const totalQuantity = (quantities.get(item.productId) || 0) + item.quantity;
+        quantities.set(item.productId, totalQuantity);
+        if (totalQuantity > 99) {
+            context.addIssue({
+                code: "custom",
+                path: ["cart", index, "quantity"],
+                message: "Combined quantity for a product must not exceed 99",
+            });
+        }
+    });
+});
+
+export const guestOrderLookupSchema = z.object({
+    orderId: guestPositiveInt("Order id"),
+    guestOrderToken: z.string().trim().min(1, "Guest order token is required").max(256, "Guest order token is too long"),
+}).strict();

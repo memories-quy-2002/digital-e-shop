@@ -10,6 +10,19 @@ import { OrdersRepository } from "../orders.repository";
 import { CheckoutReservationRepository } from "../checkout-reservation.repository";
 
 describe("pending checkout repositories", () => {
+    it("loads guest identity by order ID without exposing another user's order", () => {
+        const repository = new OrdersRepository({} as never);
+        const callback = vi.fn();
+
+        repository.getGuestOrderIdentity(91, callback);
+
+        const [queryConfig, queryParams, queryCallback] = poolQuery.mock.calls[0];
+        expect(queryConfig.sql).toContain("user_id IS NULL");
+        expect(queryConfig.sql).toContain("guest_order_token_hash");
+        expect(queryParams).toEqual([91]);
+        expect(queryCallback).toBe(callback);
+    });
+
     it("selects every guest identity field when loading a pending checkout by session", () => {
         const repository = new OrdersRepository({} as never);
         const callback = vi.fn();
