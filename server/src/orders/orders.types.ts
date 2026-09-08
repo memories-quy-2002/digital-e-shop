@@ -8,11 +8,15 @@ export type OrderSummaryRow = {
     guest_email?: string | null;
     guest_name?: string | null;
     guest_phone?: string | null;
+    customer_name?: string | null;
+    customer_email?: string | null;
     guest_order_token_hash?: string | null;
     status: number;
     total_price: number;
     discount: number;
     date_added: string;
+    shipping_address?: string | null;
+    payment_method?: string | null;
     currency?: string;
     inventory_restored_at?: string | Date | null;
     cancellation_reason?: string | null;
@@ -37,8 +41,8 @@ export type LockedProductRow = {
 };
 
 export type OrderDetailRow = OrderSummaryRow & {
-    customer_name?: string;
-    customer_email?: string;
+    customer_name?: string | null;
+    customer_email?: string | null;
     shipping_address?: string;
     payment_method?: string;
     currency?: string;
@@ -69,8 +73,8 @@ export type OrderDetail = {
     guest_email?: string | null;
     guest_name?: string | null;
     guest_phone?: string | null;
-    customer_name?: string;
-    customer_email?: string;
+    customer_name?: string | null;
+    customer_email?: string | null;
     status: number;
     total_price: number;
     discount: number;

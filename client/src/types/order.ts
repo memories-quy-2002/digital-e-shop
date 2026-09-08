@@ -1,13 +1,16 @@
 export type AdminOrder = {
     id: number;
     date_added: Date;
-    user_id: string;
-    customer_name?: string;
-    customer_email?: string;
+    user_id: string | null;
+    guest_email?: string | null;
+    guest_name?: string | null;
+    guest_phone?: string | null;
+    customer_name?: string | null;
+    customer_email?: string | null;
     status: number;
     total_price: number;
     discount: number;
-    shipping_address: string;
+    shipping_address?: string | null;
     payment_method?: "bank_transfer" | "cash" | "payos" | "stripe" | "card" | string;
 };
 

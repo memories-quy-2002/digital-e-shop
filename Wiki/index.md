@@ -28,6 +28,9 @@ contextual validation stays next to the action that needs attention.
 - [[0003-payment-ledger-and-usd-canonical-currency]] — payment providers, USD canonical amounts, and PayOS VND quotes.
 - [[order-lifecycle-and-support]] — cancellation, review eligibility, and support-ticket rules.
 
+- [[guest-checkout]] - guest cart persistence, authoritative checkout, and token-protected lookup.
+- [[0004-guest-cart-and-checkout]] - accepted guest access model and security boundaries.
+
 ## Catalog
 
 ### Entities (`entities/`)

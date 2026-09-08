@@ -42,11 +42,27 @@ const getStatusLabel = (status: number) => {
 
 const getNetRevenue = (order: Order) => Math.max(order.total_price - order.discount, 0);
 
-const getShortId = (value: string) => (value.length > 14 ? `${value.slice(0, 10)}...` : value);
+const getShortId = (value: string | null | undefined) => {
+    if (!value) return "Guest checkout";
+    return value.length > 14 ? `${value.slice(0, 10)}...` : value;
+};
 
-const getCustomerName = (order: Order) => order.customer_name || getShortId(order.user_id);
+const getCustomerName = (order: Order) => order.guest_name || order.customer_name || getShortId(order.user_id);
 
-const getCustomerMeta = (order: Order) => order.customer_email || order.user_id;
+const getCustomerMeta = (order: Order) =>
+    [order.guest_email || order.customer_email, !order.user_id ? order.guest_phone : null]
+        .filter(Boolean)
+        .join(" · ") || getShortId(order.user_id);
+
+const getShippingAddress = (value: string | null | undefined) => {
+    if (!value) return "No address";
+    try {
+        const parsed = JSON.parse(value) as { address?: string; city?: string; country?: string };
+        return [parsed.address, parsed.city, parsed.country].filter(Boolean).join(", ") || "No address";
+    } catch {
+        return value;
+    }
+};
 
 const getItemSubtotal = (price: number, quantity: number) => price * quantity;
 
@@ -101,7 +117,8 @@ const AdminOrderPage = () => {
             return (
                 order.id.toString().includes(lowerSearchTerm) ||
                 (order.shipping_address || "").toLowerCase().includes(lowerSearchTerm) ||
-                order.user_id.toLowerCase().includes(lowerSearchTerm) ||
+                String(order.user_id || "").toLowerCase().includes(lowerSearchTerm) ||
+                (order.guest_phone || "").toLowerCase().includes(lowerSearchTerm) ||
                 (order.customer_name || "").toLowerCase().includes(lowerSearchTerm) ||
                 (order.customer_email || "").toLowerCase().includes(lowerSearchTerm) ||
                 getPaymentMethodLabel(order.payment_method).toLowerCase().includes(lowerSearchTerm) ||
@@ -274,6 +291,7 @@ const AdminOrderPage = () => {
                 "customer_name",
                 "customer_email",
                 "user_id",
+                "guest_phone",
                 "date_added",
                 "payment_method",
                 "status",
@@ -286,14 +304,15 @@ const AdminOrderPage = () => {
                 String(order.id),
                 getCustomerName(order),
                 order.customer_email || "",
-                order.user_id,
+                order.user_id || "",
+                order.guest_phone || "",
                 toUtcIsoString(order.date_added),
                 getPaymentMethodLabel(order.payment_method),
                 getStatusLabel(order.status),
                 order.total_price.toFixed(2),
                 order.discount.toFixed(2),
                 getNetRevenue(order).toFixed(2),
-                order.shipping_address || "",
+                getShippingAddress(order.shipping_address),
             ]),
         ];
         const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -494,9 +513,9 @@ const AdminOrderPage = () => {
                                         </td>
                                         <td width="260px">
                                             <div className="admin__table__stack">
-                                                <strong title={order.user_id}>{getCustomerName(order)}</strong>
+                                                <strong title={order.user_id || "Guest checkout"}>{getCustomerName(order)}</strong>
                                                 <span>{getCustomerMeta(order)}</span>
-                                                <small>{order.shipping_address || "No address"}</small>
+                                                <small>{getShippingAddress(order.shipping_address)}</small>
                                             </div>
                                         </td>
                                         <td width="180px">
@@ -671,7 +690,7 @@ const AdminOrderPage = () => {
                                     </div>
                                     <div className="admin__order-detail__address">
                                     <span>Shipping address</span>
-                                    <strong>{selectedOrder.shipping_address || "Not recorded"}</strong>
+                                    <strong>{getShippingAddress(selectedOrder.shipping_address)}</strong>
                                     </div>
                                 </section>
                                 <section className="admin__detail-section">

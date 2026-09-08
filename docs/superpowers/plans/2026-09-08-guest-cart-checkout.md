@@ -28,16 +28,16 @@
 
 ## Implementation Tasks
 
-Task tracker:
+Task tracker (updated 2026-09-08; Task 9 remains the final verification gate):
 
-- [ ] 1. Guest order identity and database foundation
-- [ ] 2. Authoritative guest cart preview
-- [ ] 3. Transactional guest purchase for non-Stripe methods
-- [ ] 4. Stripe/Card reservations and webhook finalization
-- [ ] 5. Dual-source client cart context and merge behavior
-- [ ] 6. Guest add-to-cart and public cart route
-- [ ] 7. Guest checkout, success, and order lookup UI
-- [ ] 8. Admin compatibility and Wiki documentation
+- [x] 1. Guest order identity and database foundation
+- [x] 2. Authoritative guest cart preview
+- [x] 3. Transactional guest purchase for non-Stripe methods
+- [x] 4. Stripe/Card reservations and webhook finalization
+- [x] 5. Dual-source client cart context and merge behavior
+- [x] 6. Guest add-to-cart and public cart route
+- [x] 7. Guest checkout, success, and order lookup UI
+- [x] 8. Admin compatibility and Wiki documentation
 - [ ] 9. Full verification and manual browser smoke checks
 
 ### Task 1: Add the guest order identity and database foundation

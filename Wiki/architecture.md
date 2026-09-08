@@ -93,6 +93,19 @@ client preview and `/api/health` instead of browser E2E.
 - Keep table/column names aligned with the existing dump/schema. Prefer additive, reviewable changes; update all affected layers (repository, service, validator, types, Prisma) together.
 - **Build assets**: non-`.ts` runtime files (`docs/openapi.json`, `database/ca.pem`) are not emitted by `tsc`; `server/scripts/copy-assets.mjs` (wired into `build`/`vercel-build`) copies them into `dist/` so `pnpm start` resolves them.
 
+### Guest cart and checkout
+
+- Guest cart persistence is client-only and stores product IDs plus quantities;
+  the server preview and final checkout transaction remain authoritative for
+  prices, stock, promotions, and totals. See [[guest-checkout]].
+- Guest orders use a nullable `user_id` and validated contact snapshot. The raw
+  guest token is returned only at creation, kept in active `sessionStorage`,
+  and represented in the database by a SHA-256 hash.
+- Public guest routes do not weaken CSRF, validation, rate limits, or
+  transaction boundaries. Authenticated customer history remains scoped by
+  user ID, while admin order queries use left joins and never return token
+  material. See [[0004-guest-cart-and-checkout]].
+
 ### CI/CD
 
 - `.github/workflows/ci.yml` keeps client and server checks separate. The

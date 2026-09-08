@@ -22,7 +22,7 @@ export async function fetchAdminOrders(page = 1, limit = 80): Promise<AdminOrder
     return response.data.orders || [];
 }
 
-export async function fetchAllOrders(): Promise<any[]> {
+export async function fetchAllOrders(): Promise<AdminOrder[]> {
     const response = await http.get("/api/orders");
     return response.data.orders || [];
 }

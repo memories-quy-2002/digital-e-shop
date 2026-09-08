@@ -10,6 +10,21 @@ import { OrdersRepository } from "../orders.repository";
 import { CheckoutReservationRepository } from "../checkout-reservation.repository";
 
 describe("pending checkout repositories", () => {
+    it("selects guest contact fields for admin order summaries without token material", () => {
+        poolQuery.mockClear();
+        const repository = new OrdersRepository({} as never);
+        const callback = vi.fn();
+
+        repository.getOrders(callback);
+
+        const [queryConfig] = poolQuery.mock.calls[0];
+        expect(queryConfig.sql).toContain("o.guest_email");
+        expect(queryConfig.sql).toContain("o.guest_name");
+        expect(queryConfig.sql).toContain("o.guest_phone");
+        expect(queryConfig.sql).toContain("LEFT JOIN users u");
+        expect(queryConfig.sql).not.toContain("guest_order_token_hash");
+    });
+
     it("loads guest identity by order ID without exposing another user's order", () => {
         const repository = new OrdersRepository({} as never);
         const callback = vi.fn();
