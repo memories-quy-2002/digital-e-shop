@@ -4,23 +4,23 @@ Full project rules live in [AGENTS.md](../AGENTS.md) — read it first. This fil
 short summary for Copilot code review / chat; if the two ever disagree, `AGENTS.md` wins.
 
 ## Project overview
-E-commerce website selling electronic devices and components. pnpm workspace with two packages:
+E-commerce website selling electronic devices and components. Two independent pnpm packages:
 - `client/` — React 19 + Vite + TypeScript (strict) + SCSS frontend
-- `server/` — Express 5 backend, MySQL primary data store, partial Prisma adoption, JWT + Google OAuth auth
+- `server/` — Express 5 backend, MySQL primary data store, partial Prisma adoption, JWT + local/Firebase auth
 
-Database: MySQL, hosted on Aiven. Package manager: **pnpm only** — never add npm/yarn lockfiles. Deployment: Vercel. CI/CD: GitHub Actions.
+Database: MySQL, hosted on Aiven. Package manager: **pnpm 12.3.4 only** — never add npm/yarn lockfiles. Deployment: Vercel. CI/CD: GitHub Actions.
 
 ## Setup & commands
-- Install dependencies: `pnpm install`
-- Run both dev servers: `pnpm dev` (root)
-- Run client dev server: `pnpm --filter client start`
-- Run server dev: `pnpm --filter server dev`
-- Typecheck client: `pnpm --filter client exec tsc --noEmit`
-- Typecheck server: `pnpm --filter server typecheck`
-- Build client: `pnpm --filter client build`
-- Build server: `pnpm --filter server build`
-- Lint: `pnpm --filter client lint` / `pnpm --filter server lint`
-- Tests: `pnpm --filter client test` (Vitest configured; no test files committed yet)
+- Install client dependencies: `pnpm --dir client install`
+- Install server dependencies: `pnpm --dir server install`
+- Run client dev server: `pnpm --dir client start`
+- Run server dev: `pnpm --dir server dev`
+- Typecheck client: `pnpm --dir client exec tsc --noEmit`
+- Typecheck server: `pnpm --dir server typecheck`
+- Build client: `pnpm --dir client build`
+- Build server: `pnpm --dir server build`
+- Lint: `pnpm --dir client lint` / `pnpm --dir server lint`
+- Tests: `pnpm --dir client test` / `pnpm --dir server test` (Vitest configured)
 
 ## Coding conventions
 - Use TypeScript strictly on the client — avoid `any`, prefer explicit types/interfaces. Server TS is looser (`strict: false`); match the existing local style in touched files rather than tightening repo-wide.

@@ -24,7 +24,7 @@
     ],
     "tags": [
         { "name": "Health", "description": "Service health and CSRF token" },
-        { "name": "Auth", "description": "Login, register, refresh, logout, Google OAuth, session" },
+        { "name": "Auth", "description": "Login, register, refresh, logout, and session" },
         { "name": "Users", "description": "Customer profiles, current user, admin user management" },
         { "name": "Addresses", "description": "Customer shipping address book" },
         { "name": "Notifications", "description": "Customer notification center" },
@@ -336,40 +336,6 @@
             }
         },
 
-        "/api/users/auth/google": {
-            "get": {
-                "tags": ["Auth"],
-                "summary": "Start Google OAuth flow",
-                "description": "Redirects the browser to Google to begin the OAuth login flow.",
-                "responses": {
-                    "302": { "description": "Redirect to Google" }
-                }
-            }
-        },
-        "/api/users/auth/google/callback": {
-            "get": {
-                "tags": ["Auth"],
-                "summary": "Google OAuth callback",
-                "description": "Completes the Google OAuth flow and sets auth cookies.",
-                "responses": {
-                    "200": {
-                        "description": "Login successful",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "msg": { "type": "string" },
-                                        "userData": { "$ref": "#/components/schemas/User" }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "401": { "$ref": "#/components/responses/Error" }
-                }
-            }
-        },
         "/api/users/session/check": {
             "get": {
                 "tags": ["Auth"],

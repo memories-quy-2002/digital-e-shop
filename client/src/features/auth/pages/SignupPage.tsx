@@ -1,17 +1,14 @@
 import { AxiosError } from "axios";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Form } from "../../../components/ui/legacy";
 import { Helmet } from "react-helmet";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import authImage from "../../../assets/images/background_form.jpg";
 import { useToast } from "../../../context/ToastContext";
 import { createFirebaseUser, sendFirebaseEmailVerification, signInWithFirebaseEmail } from "../../../services/firebase";
 import "../../../styles/features/auth/_signup.scss";
 import { PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../../../utils/images";
-import { Role } from "../../../types/user";
 import type { UserCredential } from "firebase/auth";
-import SocialAuthButtons from "../components/SocialAuthButtons";
-import { getSocialAuthMessage } from "../utils/socialAuth";
 import { EyeIcon, EyeOffIcon } from "../../../components/common/Icons";
 import { registerUser } from "../api";
 
@@ -24,7 +21,6 @@ interface User {
 
 const SignupPage = () => {
     const navigate = useNavigate();
-    const [searchParams, setSearchParams] = useSearchParams();
     const { addToast } = useToast();
     const [user, setUser] = useState<User>({
         username: "",
@@ -74,19 +70,6 @@ const SignupPage = () => {
             !isSubmitting,
         [isSubmitting, user.confirm, user.email, user.password, user.username],
     );
-
-    useEffect(() => {
-        const message = getSocialAuthMessage(searchParams.get("socialAuth"));
-        if (!message) {
-            return;
-        }
-
-        setErrors([message]);
-        addToast("Social signup", message);
-        const nextParams = new URLSearchParams(searchParams);
-        nextParams.delete("socialAuth");
-        setSearchParams(nextParams, { replace: true });
-    }, [addToast, searchParams, setSearchParams]);
 
     const validateForm = (): string[] => {
         const errorsList: string[] = [];
@@ -209,7 +192,6 @@ const SignupPage = () => {
                 </aside>
                 <main className="signup__form">
                     <h1 className="signup__form__title">Create account</h1>
-                    <SocialAuthButtons intent="signup" role={Role.Customer} />
                     <Form className="signup__form__container" onSubmit={handleSubmit} name="signup-form" aria-label="signup-form">
                         <Form.Group className="signup__form__container__group mb-3" controlId="formBasicUserName">
                             <Form.Label>Username</Form.Label>

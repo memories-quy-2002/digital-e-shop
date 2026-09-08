@@ -424,16 +424,6 @@ export type UserRow = {
     [key: string]: unknown;
 };
 
-export type SocialAuthProfile = {
-    provider: "google";
-    providerId: string;
-    email: string;
-    displayName?: string;
-    firstName?: string | null;
-    lastName?: string | null;
-    avatarUrl?: string | null;
-};
-
 export type CustomerProfileRow = UserRow & {
     order_count?: number;
     total_spent?: number;

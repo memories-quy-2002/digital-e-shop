@@ -50,9 +50,11 @@ digital-e-shop/
 
 `client/` and `server/` are independent pnpm package roots. Each owns its
 `package.json`, lockfile, package-local pnpm policy, and `node_modules`; the
-repository root intentionally has no package manifest, workspace file, lockfile,
-or installed dependencies. The E2E/Playwright project was removed, so CI now
-validates only the two application packages and server-side integration tests.
+repository root is a non-package container with no package manifest, workspace
+file, lockfile, or installed dependencies. There is no supported root install,
+filter, start, or dev command. The E2E/Playwright project was removed, so CI
+now validates only the two application packages and server-side integration
+tests.
 
 The shared runtime is pinned to Node.js `24.20.0` in `.node-version` and pnpm
 `12.3.4` in both package manifests and CI setup. Production client builds
@@ -79,7 +81,7 @@ client preview and `/api/health` instead of browser E2E.
 - CSRF (`csrf-csrf` double-submit-cookie) is Nest middleware (`middleware/csrf.middleware.ts`) applied globally via `MiddlewareConsumer.forRoutes("*")` with the same login/register/refresh exclusions as before. Stripe webhook signature verification reads `req.rawBody` (populated by the `rawBody: true` bootstrap option), not `req.body` — Nest's global body parser always runs first and would otherwise have already parsed the payload to JSON.
 - Route aliases (`/api/user` + `/api/users`) implemented via Nest array-path controllers (`@Controller(['users', 'user'])`); note there is no *bare* (`/users` without `/api`) mount — the client only ever calls `/api/*`.
 - **Global `/api` prefix**: `main.ts` calls `app.setGlobalPrefix("api")` before `app.init()`. All feature controllers use bare paths (`@Controller("products")`, `@Controller("cart")`, etc.) and rely on the global prefix to become `/api/products`, `/api/cart`, etc. — matching every client call in `client/src/**/api.ts`. The 3 controllers that need a fixed external path independent of the prefix convention (`HealthController`, `NestAuthController`, `StripeWebhookController`) must NOT hardcode `api/` themselves, or the prefix doubles to `/api/api/...`; `CsrfExclude` paths in `AuthModule`'s `MiddlewareConsumer.exclude(...)` are matched *after* the global prefix is applied, so they're written without the `api/` segment too. **When migrating/adding a controller, never hardcode `api/` in `@Controller(...)` — the global prefix supplies it.** (Migration bug found 2026-07-08: only 3 of 15 controllers had gained the `api/` prefix during the Nest migration; the other 12 — including `products`, `cart`, `orders`, `wishlist` — had no `/api` mount at all, so every client request 404'd until `setGlobalPrefix` was added.)
-- **Known gap**: Google OAuth (`/auth/google`, `/auth/google/callback`) is not migrated — `@nestjs/passport` isn't installed. See the migration spec's "Known gaps" section.
+- Google OAuth was intentionally removed because it was not part of the current NestJS runtime. Authentication uses local development login or Firebase ID-token verification in production.
 - The admin inventory-movements route is covered by an authorization regression and currently matches the client contract at `GET /api/products/admin/inventory-movements`; older notes that described a `/api/inventory-movements` mismatch are stale.
 
 ### Database

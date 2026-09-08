@@ -26,9 +26,10 @@ Run the verification commands relevant to the surface you changed (see AGENTS.md
 
 ## This project at a glance
 
-- pnpm workspace: `client/` (React 19 + Vite + TS) and `server/` (Express 5 + TS, MySQL primary, partial Prisma).
-- Package manager: **pnpm only** — never add npm/yarn lockfiles.
-- Default dev: `pnpm dev` (root) or `pnpm --filter server dev` + `pnpm --filter client start`.
+- Independent pnpm packages: `client/` (React 19 + Vite + TS) and `server/` (Express 5 + TS, MySQL primary, partial Prisma).
+- Package manager: **pnpm 12.3.4 only** — never add npm/yarn lockfiles.
+- Install independently: `pnpm --dir client install` and `pnpm --dir server install`.
+- Default dev: `pnpm --dir server dev` + `pnpm --dir client start` in separate terminals.
 - Frontend TS is `strict: true`; server TS is looser — preserve local style in touched files.
 
 ## Reusable task prompts

@@ -45,7 +45,6 @@ For broad tasks that benefit from delegation, also read `docs/CODEX_ORCHESTRATIO
 - MySQL via `mysql`
 - Prisma `6.9.0` and `@prisma/client`
 - Zod validation
-- Passport + Google OAuth 2.0
 - `csrf-csrf`
 - `jsonwebtoken`
 - `express-rate-limit`
@@ -203,17 +202,11 @@ SERVER_URL=http://localhost:4000
 Optional or feature-specific:
 
 ```env
-GOOGLE_CLIENT_ID=<google-oauth-client-id>
-GOOGLE_CLIENT_SECRET=<google-oauth-client-secret>
-GOOGLE_CALLBACK_URL=http://localhost:4000/api/users/auth/google/callback
-
 BLOB_READ_WRITE_TOKEN=<vercel-blob-token>
 
 DB_QUERY_LOG=false
 DB_QUERY_LOG_THRESHOLD_MS=200
 DB_EXPLAIN_SLOW=false
-
-SEARCHAPI_KEY=<searchapi-key>
 
 MOCK_ORDER_COUNT=<seed-order-count>
 MOCK_REVIEW_COUNT=<seed-review-count>

@@ -19,7 +19,7 @@ Digital-E is a full-stack e-commerce system for selling electronic components an
 | --- | --- |
 | Package management | Independent pnpm packages (`pnpm@12.3.4`) — **pnpm only**, no root workspace or npm/yarn |
 | Frontend (`client/`) | React 19.2, React Router DOM 7, Vite 8, TypeScript (`strict: true`), SCSS/Sass, React Bootstrap, Axios, Firebase client auth, Recharts, Vitest |
-| Backend (`server/`) | Node.js, NestJS on Express 5.2, TypeScript (`strict: false`), MySQL (`mysql`/`mysql2`), Prisma 7 (partial), Zod, Passport + Google OAuth, `csrf-csrf`, `jsonwebtoken`, `express-rate-limit`, `multer`, Sharp, `@vercel/blob`, Pino logging |
+| Backend (`server/`) | Node.js, NestJS on Express 5.2, TypeScript (`strict: false`), MySQL (`mysql`/`mysql2`), Prisma 7 (partial), Zod, `csrf-csrf`, `jsonwebtoken`, `express-rate-limit`, `multer`, Sharp, `@vercel/blob`, Pino logging |
 | Deployment | Vercel (`client/vercel.json`, `server/vercel.json`), k6 read-only perf scripts |
 
 ## High-level modules
