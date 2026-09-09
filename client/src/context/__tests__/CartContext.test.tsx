@@ -91,6 +91,24 @@ const Probe = () => {
             <button onClick={() => void cart.applyDiscount("SAVE10", 200)}>discount</button>
             <button onClick={() => void cart.mergeGuestCart()}>merge</button>
             <button onClick={() => void cart.fetchCart()}>refresh</button>
+            <button onClick={() => cart.clearCart()}>clear</button>
+        </div>
+    );
+};
+
+const FetchCartIdentityProbe = () => {
+    const cart = useCart();
+    const firstFetchCart = React.useRef(cart.fetchCart);
+    const [changed, setChanged] = React.useState(false);
+
+    React.useEffect(() => {
+        if (firstFetchCart.current !== cart.fetchCart) setChanged(true);
+    }, [cart.fetchCart]);
+
+    return (
+        <div>
+            <span data-testid="fetch-cart-identity">{String(changed)}</span>
+            <button onClick={() => cart.onValidationRefresh([], [])}>rerender-cart</button>
         </div>
     );
 };
@@ -212,6 +230,18 @@ describe("CartContext dual-source state", () => {
         expect(screen.getByTestId("status")).toHaveTextContent("empty");
     });
 
+    it("clears the active guest cart immediately after checkout confirmation", async () => {
+        addGuestCartItem({ productId: 10, quantity: 2 });
+        renderCart();
+        await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("ready"));
+
+        fireEvent.click(screen.getByText("clear"));
+
+        await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("empty"));
+        expect(screen.getByTestId("items")).toHaveTextContent("0");
+        expect(readGuestCart()).toEqual([]);
+    });
+
     it("surfaces authoritative guest validation issues as a non-empty state", async () => {
         addGuestCartItem({ productId: 10, quantity: 2 });
         mocks.previewGuestCart.mockResolvedValueOnce(preview({
@@ -300,6 +330,14 @@ describe("CartContext dual-source state", () => {
         fireEvent.click(screen.getByText("update"));
         await waitFor(() => expect(mocks.updateCustomerCartItem).toHaveBeenCalledWith("user-1", 7, 3));
         expect(readGuestCart()).toEqual([]);
+    });
+
+    it("keeps the context fetchCart callback stable across cart state updates", async () => {
+        render(<CartProvider><FetchCartIdentityProbe /></CartProvider>);
+
+        fireEvent.click(screen.getByText("rerender-cart"));
+
+        await waitFor(() => expect(screen.getByTestId("fetch-cart-identity")).toHaveTextContent("false"));
     });
 
     it("reports an authenticated add as failed when the cart refresh fails", async () => {

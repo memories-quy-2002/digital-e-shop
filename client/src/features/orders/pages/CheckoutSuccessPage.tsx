@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Helmet } from "react-helmet";
+import { Helmet } from "react-helmet-async";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { useCart } from "../../../context/CartContext";
@@ -16,7 +16,7 @@ import "../../../styles/features/orders/_checkout-success.scss";
 import { formatUtcDateTime } from "../../../utils/dateTime";
 import http from "../../../lib/http";
 import { fetchGuestOrderBySession } from "../api";
-import { clearGuestCart } from "../guestCartStorage";
+import { parseShippingAddress } from "../shippingAddress";
 import {
     clearPendingCheckout,
     readCheckoutSuccess,
@@ -25,23 +25,9 @@ import {
     type CheckoutSuccessData,
 } from "./checkoutSuccessStorage";
 
-const parseShippingAddress = (value: string | null | undefined) => {
-    if (!value) return { address: "", city: "", country: "" };
-    try {
-        const parsed = JSON.parse(value) as { address?: string; city?: string; country?: string };
-        return {
-            address: parsed.address || "",
-            city: parsed.city || "",
-            country: parsed.country || "",
-        };
-    } catch {
-        return { address: value, city: "", country: "" };
-    }
-};
-
 const CheckoutSuccessPage = () => {
     const { userData, loading } = useAuth();
-    const { fetchCart } = useCart();
+    const { clearCart, fetchCart } = useCart();
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const sessionId = searchParams.get("session_id");
@@ -52,14 +38,13 @@ const CheckoutSuccessPage = () => {
     const guestOrderToken = orderData?.guestOrderToken || pendingCheckout?.guestOrderToken;
 
     useEffect(() => {
-        if (orderData) {
-            sessionStorage.removeItem("checkoutSuccess");
-        }
-        if (orderData?.guestOrderToken) {
-            clearGuestCart();
-            void fetchCart();
-        }
-    }, [fetchCart, orderData]);
+        const confirmedCheckout = routeData || orderData;
+        if (loading || !confirmedCheckout) return;
+
+        sessionStorage.removeItem("checkoutSuccess");
+        clearCart();
+        void fetchCart();
+    }, [clearCart, fetchCart, loading, orderData, routeData]);
 
     const [polledOrder, setPolledOrder] = useState<CheckoutSuccessData | null>(null);
     const [pollingTimedOut, setPollingTimedOut] = useState(false);
@@ -97,10 +82,8 @@ const CheckoutSuccessPage = () => {
                             : pending?.phone,
                         ...(guestOrderToken ? { guestOrderToken } : {}),
                     });
-                    if (guestOrderToken) {
-                        clearGuestCart();
-                        void fetchCart();
-                    }
+                    clearCart();
+                    void fetchCart();
                     clearPendingCheckout();
                     return;
                 }
@@ -110,13 +93,13 @@ const CheckoutSuccessPage = () => {
             await new Promise((resolve) => setTimeout(resolve, 1500));
         }
         setPollingTimedOut(true);
-    }, [fetchCart, guestOrderToken, pendingCheckout]);
+    }, [clearCart, fetchCart, guestOrderToken, pendingCheckout]);
 
     useEffect(() => {
-        if (sessionId && !routeData && !orderData) {
+        if (sessionId && !routeData && !orderData && !loading) {
             pollForOrder(sessionId);
         }
-    }, [orderData, pollForOrder, routeData, sessionId]);
+    }, [loading, orderData, pollForOrder, routeData, sessionId]);
 
     const combinedData = routeData || orderData || polledOrder;
     const isGuestOrder = Boolean(combinedData?.guestOrderToken || guestOrderToken);

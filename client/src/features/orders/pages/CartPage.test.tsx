@@ -85,7 +85,7 @@ vi.mock("../components/CheckoutPaymentPage", () => ({
     default: () => null,
 }));
 
-vi.mock("react-helmet", () => ({
+vi.mock("react-helmet-async", () => ({
     Helmet: () => null,
 }));
 

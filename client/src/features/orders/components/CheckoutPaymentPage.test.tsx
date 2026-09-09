@@ -9,6 +9,10 @@ const mocks = vi.hoisted(() => ({
     toast: { addToast: vi.fn() },
     guestPurchase: vi.fn(),
     guestSession: vi.fn(),
+    customerAddresses: vi.fn(),
+    customerOrders: vi.fn(),
+    httpGet: vi.fn(),
+    httpPost: vi.fn(),
 }));
 
 vi.mock("../../../context/AuthContext", () => ({ useAuth: () => mocks.auth }));
@@ -16,10 +20,11 @@ vi.mock("../../../context/ToastContext", () => ({ useToast: () => mocks.toast })
 vi.mock("../api", () => ({
     createGuestPurchase: mocks.guestPurchase,
     createGuestCheckoutSession: mocks.guestSession,
+    fetchCustomerOrders: mocks.customerOrders,
 }));
-vi.mock("../../../lib/http", () => ({ default: { get: vi.fn(), post: vi.fn() } }));
-vi.mock("../../users/api", () => ({ fetchCustomerAddresses: vi.fn() }));
-vi.mock("react-helmet", () => ({ Helmet: () => null }));
+vi.mock("../../../lib/http", () => ({ default: { get: mocks.httpGet, post: mocks.httpPost } }));
+vi.mock("../../users/api", () => ({ fetchCustomerAddresses: mocks.customerAddresses }));
+vi.mock("react-helmet-async", () => ({ Helmet: () => null }));
 
 const cart = [{
     cartItemId: 0,
@@ -65,6 +70,8 @@ describe("CheckoutPaymentPage guest checkout", () => {
         sessionStorage.clear();
         mocks.auth.userData = null;
         mocks.auth.loading = false;
+        mocks.customerAddresses.mockResolvedValue([]);
+        mocks.customerOrders.mockResolvedValue([]);
         mocks.guestPurchase.mockResolvedValue({
             orderId: 42,
             order: { id: 42, date_added: "2026-09-08T10:00:00.000Z", total_price: 160, discount: 0 },
@@ -110,5 +117,60 @@ describe("CheckoutPaymentPage guest checkout", () => {
             guestOrderToken: "stripe-token",
             email: "guest@example.com",
         });
+    });
+
+    it("shows a clickable recent order address when no saved address is available", async () => {
+        mocks.auth.userData = { id: "user-1" };
+        mocks.customerOrders.mockResolvedValue([{
+            id: 42,
+            date_added: "2026-09-08T10:00:00.000Z",
+            status: 1,
+            total_price: 160,
+            discount: 0,
+            shipping_address: JSON.stringify({ address: "42 Nguyen Hue", city: "HCMC", country: "VN" }),
+        }]);
+
+        renderCheckout();
+
+        const recommendation = await screen.findByRole("button", { name: /use address from order #42/i });
+        fireEvent.click(recommendation);
+
+        expect(screen.getByLabelText("Shipping address")).toHaveValue("42 Nguyen Hue");
+        expect(screen.getByLabelText("City")).toHaveValue("HCMC");
+        expect(screen.getByLabelText("Country")).toHaveValue("VN");
+    });
+
+    it("stores the complete authenticated shipping snapshot and preserves the order flow", async () => {
+        mocks.auth.userData = { id: "user-1" };
+        mocks.httpGet.mockResolvedValue({
+            status: 200,
+            data: { valid: true, cartItems: [{
+                cart_item_id: 7,
+                product_id: 10,
+                product_name: "Widget",
+                category: "Components",
+                brand: "Digital-E",
+                price: 100,
+                sale_price: 80,
+                main_image: "widget.jpg",
+                quantity: 2,
+                stock: 5,
+                available_stock: 5,
+            }] },
+        });
+        mocks.httpPost.mockResolvedValue({
+            status: 201,
+            data: { order: { id: 44, date_added: "2026-09-09T10:00:00.000Z" } },
+        });
+
+        renderCheckout();
+        fillRequiredFields();
+        fireEvent.click(screen.getByDisplayValue("cash"));
+        await waitFor(() => expect(screen.getByRole("button", { name: "Place order" })).toBeEnabled());
+        fireEvent.click(screen.getByRole("button", { name: "Place order" }));
+
+        await waitFor(() => expect(mocks.httpPost).toHaveBeenCalledWith("/api/orders/purchase/user-1", expect.objectContaining({
+            shippingAddress: JSON.stringify({ address: "1 Main Street", city: "HCMC", country: "VN" }),
+        })));
     });
 });

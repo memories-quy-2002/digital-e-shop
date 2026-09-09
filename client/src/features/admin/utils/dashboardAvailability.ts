@@ -1,4 +1,4 @@
-export type DashboardSectionKey = "analytics" | "products" | "orders" | "users" | "orderItems";
+export type DashboardSectionKey = "analytics" | "products" | "orders" | "users" | "orderItems" | "alerts";
 export type DashboardSectionStatus = "loading" | "success" | "error";
 export type DashboardAvailability = Record<DashboardSectionKey, DashboardSectionStatus>;
 
@@ -8,6 +8,7 @@ export const initialDashboardAvailability: DashboardAvailability = {
     orders: "loading",
     users: "loading",
     orderItems: "loading",
+    alerts: "loading",
 };
 
 export function displayDashboardValue<T>(status: DashboardSectionStatus, value: T): T | "Unavailable" {

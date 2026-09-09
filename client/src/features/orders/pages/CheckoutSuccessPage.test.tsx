@@ -6,19 +6,20 @@ import CheckoutSuccessPage from "./CheckoutSuccessPage";
 
 const mocks = vi.hoisted(() => ({
     auth: { userData: null as { username?: string; email?: string } | null, loading: false },
+    clearCart: vi.fn(),
     fetchCart: vi.fn(),
     fetchGuestOrderBySession: vi.fn(),
     httpGet: vi.fn(),
 }));
 
 vi.mock("../../../context/AuthContext", () => ({ useAuth: () => mocks.auth }));
-vi.mock("../../../context/CartContext", () => ({ useCart: () => ({ fetchCart: mocks.fetchCart }) }));
+vi.mock("../../../context/CartContext", () => ({ useCart: () => ({ clearCart: mocks.clearCart, fetchCart: mocks.fetchCart }) }));
 vi.mock("../api", () => ({ fetchGuestOrderBySession: mocks.fetchGuestOrderBySession }));
 vi.mock("../../../lib/http", () => ({ default: { get: mocks.httpGet } }));
 vi.mock("../../../components/layout/Layout", () => ({
     default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
-vi.mock("react-helmet", () => ({ Helmet: () => null }));
+vi.mock("react-helmet-async", () => ({ Helmet: () => null }));
 
 describe("CheckoutSuccessPage guest flow", () => {
     beforeEach(() => {
@@ -27,6 +28,7 @@ describe("CheckoutSuccessPage guest flow", () => {
         localStorage.clear();
         mocks.auth.userData = null;
         mocks.auth.loading = false;
+        mocks.clearCart.mockReset();
         mocks.fetchCart.mockResolvedValue(true);
     });
 
@@ -54,6 +56,7 @@ describe("CheckoutSuccessPage guest flow", () => {
         expect(screen.getByRole("link", { name: /look up guest order/i })).toHaveAttribute("href", "/guest-order");
         expect(screen.queryByText(/Order updates will be sent/)).not.toBeInTheDocument();
         await waitFor(() => expect(mocks.fetchCart).toHaveBeenCalled());
+        expect(mocks.clearCart).toHaveBeenCalled();
     });
 
     it("finalizes a guest Stripe session through the token-protected endpoint", async () => {
@@ -89,5 +92,28 @@ describe("CheckoutSuccessPage guest flow", () => {
         expect(await screen.findByDisplayValue("stripe-token")).toBeInTheDocument();
         expect(mocks.httpGet).not.toHaveBeenCalled();
         expect(mocks.fetchCart).toHaveBeenCalled();
+        expect(mocks.clearCart).toHaveBeenCalled();
+    });
+
+    it("refreshes an authenticated cart after an order is confirmed", async () => {
+        mocks.auth.userData = { username: "Demo User", email: "demo@example.com" };
+        sessionStorage.setItem("checkoutSuccess", JSON.stringify({
+            orderId: "44",
+            totalPrice: 160,
+            discount: 0,
+            subtotal: 160,
+            itemsCount: 2,
+            placedAt: "2026-09-09T10:00:00.000Z",
+            paymentMethod: "cash",
+        }));
+
+        render(
+            <MemoryRouter initialEntries={["/checkout-success"]}>
+                <CheckoutSuccessPage />
+            </MemoryRouter>,
+        );
+
+        await waitFor(() => expect(mocks.fetchCart).toHaveBeenCalled());
+        expect(mocks.clearCart).toHaveBeenCalled();
     });
 });

@@ -123,7 +123,7 @@ export type GuestOrderDetail = {
     status: number;
     total_price: number;
     discount: number;
-    shipping_address: string;
+    shipping_address?: string | null;
     payment_method?: string | null;
     currency?: string | null;
     payment_status?: string | null;

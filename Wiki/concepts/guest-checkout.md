@@ -12,8 +12,10 @@
 4. Immediate methods return an order ID and raw token once. Card checkout
    returns the provider URL and token; the success page uses the token-protected
    session lookup after redirect.
-5. The client clears the guest cart only after successful purchase or confirmed
-   Stripe finalization, then refreshes shared cart state.
+5. The client clears the active cart after a successful purchase or confirmed
+   Stripe finalization, then refreshes shared cart state. Authenticated checkout
+   stores the shipping snapshot so Admin order detail can render the full
+   destination; checkout can also suggest unique addresses from prior orders.
 
 ## Boundaries
 

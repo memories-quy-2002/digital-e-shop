@@ -45,7 +45,6 @@ vi.mock("../features/admin/pages/AdminDashboard", () => ({
     default: () => <div data-testid="admin-dashboard-page">Admin dashboard</div>,
 }));
 
-vi.mock("../features/admin/pages/AdminNotificationsPage", () => ({ default: () => <div>Admin notifications</div> }));
 vi.mock("../features/admin/pages/AdminSupportPage", () => ({ default: () => <div>Admin support</div> }));
 vi.mock("../features/admin/pages/AdminProductPage", () => ({ default: () => <div>Admin products</div> }));
 vi.mock("../features/admin/pages/AdminOrderPage", () => ({ default: () => <div>Admin orders</div> }));
@@ -164,6 +163,17 @@ describe("admin routing", () => {
         );
 
         expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
+    });
+
+    it("redirects the retired admin notifications route to the dashboard", async () => {
+        authState.value = { loading: false, userData: buildUser(Role.Admin) };
+        render(
+            <MemoryRouter initialEntries={["/admin/notifications"]}>
+                <AppRouter />
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByTestId("admin-dashboard-page")).toBeInTheDocument();
     });
 
     it("keeps the forbidden route public", async () => {

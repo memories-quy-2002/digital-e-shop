@@ -16,6 +16,7 @@ import {
     readGuestCart,
     removeGuestCartItem,
     replaceGuestCart,
+    clearGuestCart,
     updateGuestCartItem,
     type GuestCartStorageItem,
 } from "../features/orders/guestCartStorage";
@@ -64,6 +65,7 @@ interface CartContextValue {
     isRemovingItem: boolean;
     pendingRemoveItem: CheckoutCartItem | null;
     fetchCart: () => Promise<boolean>;
+    clearCart: () => void;
     addItem: (productId: number, quantity?: number) => Promise<boolean>;
     updateQuantity: (itemId: number, quantity: number) => Promise<void>;
     removeItem: (item: CheckoutCartItem) => void;
@@ -222,6 +224,29 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (isActiveRequest()) setIsLoading(false);
         }
     }, [addToast, isCurrentSource, refreshGuestCart, setReadyState]);
+
+    const clearCart = useCallback(() => {
+        requestIdRef.current += 1;
+        setItems([]);
+        setTotalPrice(0);
+        setDiscount(0);
+        setDiscountCode(null);
+        setValidationIssues([]);
+        setError(null);
+        setStatus("empty");
+        setIsLoading(false);
+        setPendingRemoveItem(null);
+        setIsRemovingItem(false);
+
+        if (!sourceRef.current.uid) {
+            clearGuestCart();
+            setGuestItems([]);
+        } else {
+            setGuestItems(readGuestCart());
+        }
+    }, []);
+
+    const fetchCartForContext = useCallback(() => fetchCart(), [fetchCart]);
 
     const addItem = useCallback(async (productId: number, quantity = 1): Promise<boolean> => {
         const normalizedQuantity = normalizeCartQuantity(quantity);
@@ -506,7 +531,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 isLoading,
                 isRemovingItem,
                 pendingRemoveItem,
-                fetchCart: () => fetchCart(),
+                fetchCart: fetchCartForContext,
+                clearCart,
                 addItem,
                 updateQuantity,
                 removeItem,

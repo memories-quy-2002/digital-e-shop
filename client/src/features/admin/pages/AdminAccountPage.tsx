@@ -4,16 +4,14 @@ import ReactPaginate from "react-paginate";
 import { Role } from "../../../types/user";
 import type { AdminAccount as Account, AdminCustomerProfile as CustomerProfile } from "../../../types/order";
 import AdminLayout from "../../../components/layout/AdminLayout";
-import AdminWorkflowSteps from "../../../components/common/admin/AdminWorkflowSteps";
-import { Helmet } from "react-helmet";
+import { Helmet } from "react-helmet-async";
 import { useToast } from "../../../context/ToastContext";
 import { fetchAllUsers, updateAccount, fetchCustomerProfile } from "../api";
 import AdminStatusPanel from "../components/AdminStatusPanel";
+import AdminTableScrollHint from "../components/AdminTableScrollHint";
 import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
 
 const ITEMS_PER_PAGE = 8;
-
-const accountWorkflowSteps = ["Search across all users", "Review customer profile", "Update role or status"];
 
 const formatCurrency = (value: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value || 0);
@@ -169,7 +167,7 @@ const AdminAccountPage = () => {
                 <header className="admin__page__header">
                     <div>
                         <span className="admin__page__eyebrow">Users</span>
-                        <h2 className="admin__page__title">Accounts</h2>
+                        <h1 className="admin__page__title">Accounts</h1>
                         <p className="admin__page__subtitle">
                             Search every customer, review order counts, and adjust access status.
                         </p>
@@ -200,8 +198,6 @@ const AdminAccountPage = () => {
                     </div>
                 </section>
 
-                <AdminWorkflowSteps steps={accountWorkflowSteps} />
-
                 <section className="admin__card">
                     <div className="admin__card__header admin__card__header--stacked">
                         <div>
@@ -210,11 +206,14 @@ const AdminAccountPage = () => {
                         </div>
                         <div className="admin__list-toolbar">
                             <div className="admin__filters">
+                                <label className="admin__sr-only" htmlFor="account-search">
+                                    Search accounts
+                                </label>
                                 <input
-                                    type="text"
+                                    type="search"
                                     name="account-search"
                                     id="account-search"
-                                    placeholder="Search all users by name, email, role, or status"
+                                    placeholder="Search all users by name, email, role, or status…"
                                     value={searchTerm}
                                     onChange={(event) => {
                                         setSearchTerm(event.target.value);
@@ -239,14 +238,13 @@ const AdminAccountPage = () => {
                         {isLoading && !hasLoaded ? <AdminStatusPanel variant="loading" title="Loading accounts" description="Fetching the latest customer accounts." /> : null}
                         {loadError && hasLoaded ? <AdminStatusPanel variant="error" title="Refresh failed" description={loadError.message} onRetry={loadUsers} retryLabel="Retry refresh" /> : null}
                         {!isLoading && !loadError && hasLoaded && filteredAccounts.length === 0 ? <AdminStatusPanel variant="empty" title="No accounts found" description="No accounts match the current search." /> : null}
-                        {(!loadError || hasLoaded) && !(isLoading && !hasLoaded) ? <>
-                        <div className="admin__table-wrap">
-                        <Table responsive hover borderless className="admin__table">
+                        {(!loadError || hasLoaded) && !(isLoading && !hasLoaded) && filteredAccounts.length > 0 ? <>
+                        <AdminTableScrollHint label="Account list">
+                        <Table responsive={false} hover borderless className="admin__table admin__table--accounts">
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>User</th>
-                                    <th>Email</th>
+                                    <th>Account</th>
                                     <th>Orders</th>
                                     <th>Role</th>
                                     <th>Status</th>
@@ -257,22 +255,18 @@ const AdminAccountPage = () => {
                             <tbody>
                                 {currentAccounts.map((account, index) => (
                                     <tr key={account.id}>
-                                        <td width="50px">{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</td>
-                                        <td width="260px">
+                                        <td className="admin__table__index">{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</td>
+                                        <td className="admin__table__account-cell">
                                             <div className="admin__table__stack">
                                                 <strong>{getDisplayName(account)}</strong>
-                                                <span>@{account.username}</span>
+                                                <span translate="no">@{account.username}</span>
+                                                <small translate="no">{account.email}</small>
                                             </div>
                                         </td>
-                                        <td width="240px">
-                                            <div className="admin__table__stack admin__table__stack--compact">
-                                                <strong>{account.email}</strong>
-                                            </div>
-                                        </td>
-                                        <td width="100px">
+                                        <td className="admin__table__orders">
                                             <span className="admin__table__value">{account.order_count || 0}</span>
                                         </td>
-                                        <td width="150px">
+                                        <td className="admin__table__role" data-label="Role">
                                             <select
                                                 className="admin__table__select"
                                                 value={account.role}
@@ -284,7 +278,7 @@ const AdminAccountPage = () => {
                                                 <option value={Role.Admin}>Admin</option>
                                             </select>
                                         </td>
-                                        <td width="150px">
+                                        <td className="admin__table__status" data-label="Status">
                                             <select
                                                 className="admin__table__select"
                                                 value={account.status || "Active"}
@@ -300,15 +294,15 @@ const AdminAccountPage = () => {
                                                 <option value="Suspended">Suspended</option>
                                             </select>
                                         </td>
-                                        <td width="150px">
+                                        <td className="admin__table__date">
                                             <span className="admin__table__value">
                                                 {new Date(account.created_at).toLocaleDateString("en-GB")}
                                             </span>
                                         </td>
-                                        <td width="120px">
+                                        <td className="admin__table__account-action" data-label="Actions">
                                             <button
                                                 type="button"
-                                                className="admin__button admin__button--ghost"
+                                                className="admin__button admin__button--ghost admin__button--compact"
                                                 onClick={() => handleOpenProfile(account)}
                                             >
                                                 Profile
@@ -318,8 +312,8 @@ const AdminAccountPage = () => {
                                 ))}
                             </tbody>
                         </Table>
-                        </div>
-                        <div className="admin__table__pagination">
+                        </AdminTableScrollHint>
+                        {pageCount > 1 ? <div className="admin__table__pagination">
                             <ReactPaginate
                                 className="shops__container__main__pagination__items"
                                 pageClassName="pagination__item"
@@ -329,7 +323,7 @@ const AdminAccountPage = () => {
                                 breakClassName="pagination__item"
                                 activeClassName="selected"
                                 disabledClassName="disabled"
-                                breakLabel="..."
+                                breakLabel="…"
                                 nextLabel="Next"
                                 onPageChange={(event) => setCurrentPage(event.selected + 1)}
                                 pageRangeDisplayed={5}
@@ -338,7 +332,7 @@ const AdminAccountPage = () => {
                                 forcePage={Math.max(currentPage - 1, 0)}
                                 renderOnZeroPageCount={null}
                             />
-                        </div>
+                        </div> : null}
                         </> : null}
                     </div>
                 </section>

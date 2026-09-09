@@ -1,16 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Form } from "../../../components/ui/legacy";
-import { Helmet } from "react-helmet";
+import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
 import { BankIcon, CashStackIcon, CheckCircleIcon, ShieldIcon } from "../../../components/common/Icons";
 import http from "../../../lib/http";
 import { toUtcIsoString } from "../../../utils/dateTime";
-import { CustomerAddress, fetchCustomerAddresses } from "../../users/api";
+import { fetchCustomerAddresses } from "../../users/api";
+import type { CustomerAddress } from "../../users/api";
 import {
     createGuestCheckoutSession,
     createGuestPurchase,
+    fetchCustomerOrders,
 } from "../api";
 import {
     CartValidationIssue,
@@ -26,6 +28,12 @@ import {
     writePendingCheckout,
 } from "../pages/checkoutSuccessStorage";
 import { normalizeCheckoutEmail, validateCheckoutEmail, validateCheckoutForm } from "../checkoutValidation";
+import {
+    formatShippingAddress,
+    getRecentOrderAddresses,
+    serializeShippingAddress,
+    type RecentOrderAddress,
+} from "../shippingAddress";
 
 interface CheckoutForm {
     email: string;
@@ -76,6 +84,7 @@ const CheckoutPaymentPage = ({
     const [errors, setErrors] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+    const [recentOrderAddresses, setRecentOrderAddresses] = useState<RecentOrderAddress[]>([]);
     const [isValidatingCart, setIsValidatingCart] = useState(false);
     const [isEmailTouched, setIsEmailTouched] = useState(false);
     const cartRef = useRef(cart);
@@ -112,15 +121,30 @@ const CheckoutPaymentPage = ({
     }, [cart]);
 
     useEffect(() => {
-        const loadAddresses = async () => {
-            if (!uid) return;
-            try {
-                setSavedAddresses(await fetchCustomerAddresses(uid));
-            } catch {
-                setSavedAddresses([]);
-            }
+        let isActive = true;
+
+        if (!uid) {
+            setSavedAddresses([]);
+            setRecentOrderAddresses([]);
+            return () => {
+                isActive = false;
+            };
+        }
+
+        const loadAddressSources = async () => {
+            const [addresses, orders] = await Promise.all([
+                fetchCustomerAddresses(uid).catch(() => []),
+                fetchCustomerOrders(uid).catch(() => []),
+            ]);
+            if (!isActive) return;
+            setSavedAddresses(addresses || []);
+            setRecentOrderAddresses(getRecentOrderAddresses(orders || []));
         };
-        loadAddresses();
+
+        void loadAddressSources();
+        return () => {
+            isActive = false;
+        };
     }, [uid]);
 
     useEffect(() => {
@@ -159,6 +183,15 @@ const CheckoutPaymentPage = ({
             city: address.city || "",
             country: address.country || "",
             phone_number: address.phone_number || "",
+        }));
+    };
+
+    const applyRecentOrderAddress = (address: RecentOrderAddress) => {
+        setFormCheckout((current) => ({
+            ...current,
+            address: address.address,
+            city: address.city,
+            country: address.country,
         }));
     };
 
@@ -249,7 +282,7 @@ const CheckoutPaymentPage = ({
                         totalPrice: latestTotalPrice,
                         discount,
                         discountCode: discountCode || undefined,
-                        shippingAddress: formCheckout.address,
+                        shippingAddress: serializeShippingAddress(guestShipping),
                     })
                     : await createGuestCheckoutSession({
                         cart: guestCart,
@@ -314,7 +347,7 @@ const CheckoutPaymentPage = ({
                 totalPrice: latestTotalPrice,
                 discount,
                 discountCode: discountCode || undefined,
-                shippingAddress: formCheckout.address,
+                shippingAddress: serializeShippingAddress(guestShipping),
                 paymentMethod: formCheckout.payment_method,
             });
             if (response.status === 201) {
@@ -450,6 +483,27 @@ const CheckoutPaymentPage = ({
                                         <strong>{address.label}</strong><span>{address.address_line}</span>{address.is_default ? <em>Default</em> : null}
                                     </button>
                                 ))}
+                            </div>
+                        ) : null}
+                        {!formCheckout.address.trim() && recentOrderAddresses.length > 0 ? (
+                            <div className="checkout__address-recommendations" aria-live="polite">
+                                <div className="checkout__address-recommendations__header">
+                                    <strong>Use a recent shipping address?</strong>
+                                    <span>Choose an address from a previous order to fill the form.</span>
+                                </div>
+                                <div className="checkout__address-recommendations__list">
+                                    {recentOrderAddresses.map((address) => (
+                                        <button
+                                            key={`${address.orderId}-${address.address}-${address.city}`}
+                                            type="button"
+                                            aria-label={`Use address from order #${address.orderId}`}
+                                            onClick={() => applyRecentOrderAddress(address)}
+                                        >
+                                            <strong>Order #{address.orderId}</strong>
+                                            <span>{formatShippingAddress(address)}</span>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         ) : null}
                         <Form>

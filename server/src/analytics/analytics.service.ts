@@ -4,6 +4,7 @@ import pool from "#src/config/database.config";
 import { logger } from "#src/shared/utils/logger";
 import { parseBody } from "#src/shared/validation/requestSchemas";
 import { analyticsSummaryQuerySchema } from "./analytics.validator";
+import { resolveAnalyticsRange } from "./analytics-range";
 import type {
     AnalyticsRecord,
     CategoryPerformanceRow,
@@ -18,8 +19,6 @@ import type {
 
 const query = util.promisify(pool.query).bind(pool);
 
-const TREND_DAYS = 14;
-const COMPARISON_DAYS = 30;
 const LOW_STOCK_THRESHOLD = 5;
 
 type QueryParams = Array<string | number | null>;
@@ -79,7 +78,7 @@ const safeQuery = async <T extends AnalyticsRecord = AnalyticsRecord>(sql: strin
     }
 };
 
-const mapRevenueTrend = (rows: RevenueTrendRow[]) => {
+const mapRevenueTrend = (rows: RevenueTrendRow[], trendDays: number) => {
     const byDate = new Map(
         rows.map((row) => [
             String(row.date || ""),
@@ -94,7 +93,7 @@ const mapRevenueTrend = (rows: RevenueTrendRow[]) => {
         ]),
     );
 
-    return buildTrendWindow(TREND_DAYS).map((date) => {
+    return buildTrendWindow(trendDays).map((date) => {
         const point = byDate.get(date);
 
         if (point) {
@@ -115,7 +114,9 @@ const mapRevenueTrend = (rows: RevenueTrendRow[]) => {
 @Injectable()
 export class NestAnalyticsService {
     async getAnalyticsSummary(rawQuery: Record<string, unknown>) {
-        parseBody(analyticsSummaryQuerySchema, rawQuery);
+        const queryParams = parseBody(analyticsSummaryQuerySchema, rawQuery);
+        const range = resolveAnalyticsRange(queryParams);
+        const comparisonDays = range.days;
         const [
             overviewRows,
             revenueTrendRows,
@@ -147,7 +148,7 @@ export class NestAnalyticsService {
                     (SELECT COUNT(*) FROM products WHERE stock = 0) AS out_of_stock,
                     (SELECT COUNT(*) FROM products WHERE stock > 0 AND stock <= ?) AS low_stock
                 FROM orders`,
-                [COMPARISON_DAYS, COMPARISON_DAYS, COMPARISON_DAYS, COMPARISON_DAYS * 2, COMPARISON_DAYS, COMPARISON_DAYS * 2, LOW_STOCK_THRESHOLD],
+                [comparisonDays, comparisonDays, comparisonDays, comparisonDays * 2, comparisonDays, comparisonDays * 2, LOW_STOCK_THRESHOLD],
                 [{} as OverviewRow],
             ),
             safeQuery<RevenueTrendRow>(
@@ -162,7 +163,7 @@ export class NestAnalyticsService {
                 WHERE o.date_added >= UTC_DATE() - INTERVAL ? DAY
                 GROUP BY DATE_FORMAT(o.date_added, '%Y-%m-%d')
                 ORDER BY date`,
-                [TREND_DAYS - 1],
+                [range.days - 1],
             ),
             safeQuery<CategoryPerformanceRow>(
                 `SELECT
@@ -175,9 +176,11 @@ export class NestAnalyticsService {
                 JOIN products p ON p.id = oi.product_id
                 JOIN categories c ON c.id = p.category_id
                 WHERE o.status <> 2
+                    AND o.date_added >= UTC_DATE() - INTERVAL ? DAY
                 GROUP BY c.id, c.name
                 ORDER BY revenue DESC
                 LIMIT 8`,
+                [range.days],
             ),
             safeQuery<CustomerSegmentRow>(
                 `SELECT
@@ -228,8 +231,10 @@ export class NestAnalyticsService {
                     COUNT(*) AS value,
                     COALESCE(SUM(CASE WHEN status <> 2 THEN total_price - discount ELSE 0 END), 0) AS revenue
                 FROM orders
+                WHERE date_added >= UTC_DATE() - INTERVAL ? DAY
                 GROUP BY COALESCE(NULLIF(payment_method, ''), 'unknown')
                 ORDER BY value DESC, revenue DESC`,
+                [range.days],
             ),
             safeQuery<PromotionCatalogRow>(
                 `SELECT
@@ -250,8 +255,9 @@ export class NestAnalyticsService {
                     COALESCE(SUM(discount), 0) AS total_discount_given,
                     COALESCE(SUM(total_price - discount), 0) AS discounted_revenue
                 FROM orders
-                WHERE status <> 2 AND discount > 0`,
-                [],
+                WHERE status <> 2 AND discount > 0
+                    AND date_added >= UTC_DATE() - INTERVAL ? DAY`,
+                [range.days],
                 [{} as DiscountOrderRow],
             ),
             safeQuery<PromotionPerformanceRow>(
@@ -264,14 +270,16 @@ export class NestAnalyticsService {
                  JOIN discounts d ON d.id = dr.discount_id
                  JOIN orders o ON o.id = dr.order_id AND o.status <> 2
                  WHERE dr.status = 'CONSUMED' AND dr.order_id IS NOT NULL
+                    AND o.date_added >= UTC_DATE() - INTERVAL ? DAY
                  GROUP BY d.id, d.discount_code
                  ORDER BY redemption_count DESC, discount_total DESC`,
+                [range.days],
             ),
         ]);
 
         const overview = (overviewRows[0] || {}) as OverviewRow;
         const discountOrders = (discountOrderRows[0] || {}) as DiscountOrderRow;
-        const revenueTrend = mapRevenueTrend(revenueTrendRows);
+        const revenueTrend = mapRevenueTrend(revenueTrendRows, range.days);
         const totalCategoryRevenue = categoryPerformanceRows.reduce((sum, row) => sum + toNumber(row.revenue), 0);
         const statusBreakdown = [
             { name: "Pending", value: toNumber(overview.pending_orders) },
@@ -338,8 +346,9 @@ export class NestAnalyticsService {
             generatedAt: new Date().toISOString(),
             currency: "USD",
             windows: {
-                trendDays: TREND_DAYS,
-                comparisonDays: COMPARISON_DAYS,
+                range: range.key,
+                trendDays: range.days,
+                comparisonDays: range.days,
             },
             kpis: {
                 orders: {

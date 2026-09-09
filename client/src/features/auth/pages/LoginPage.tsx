@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Form } from "../../../components/ui/legacy";
-import { Helmet } from "react-helmet";
+import { Helmet } from "react-helmet-async";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import authImage from "../../../assets/images/background_form.jpg";
 import { useAuth } from "../../../context/AuthContext";

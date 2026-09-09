@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import withSessionCheck from "../features/auth/components/withSessionCheck";
 import RequireAdmin from "../features/auth/components/RequireAdmin";
 import LoadingScreen from "../components/common/LoadingScreen";
@@ -26,7 +26,6 @@ const CustomerAccountPage = lazy(() => import("../features/users/pages/CustomerA
 const AddressBookPage = lazy(() => import("../features/users/pages/AddressBookPage"));
 const CustomerNotificationsPage = lazy(() => import("../features/users/pages/CustomerNotificationsPage"));
 const AdminDashboard = lazy(() => import("../features/admin/pages/AdminDashboard"));
-const AdminNotificationsPage = lazy(() => import("../features/admin/pages/AdminNotificationsPage"));
 const AdminProductPage = lazy(() => import("../features/admin/pages/AdminProductPage"));
 const AdminOrderPage = lazy(() => import("../features/admin/pages/AdminOrderPage"));
 const AdminAccountPage = lazy(() => import("../features/admin/pages/AdminAccountPage"));
@@ -74,7 +73,7 @@ const AppRouter = () => {
                     path="/admin/notifications"
                     element={
                         <RequireAdmin>
-                            <AdminNotificationsPage />
+                            <Navigate to="/admin" replace />
                         </RequireAdmin>
                     }
                 />

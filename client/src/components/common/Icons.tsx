@@ -245,6 +245,14 @@ export const BellFillIcon = (props: IconProps) => (
     </FillSvg>
 );
 
+export const MenuIcon = (props: IconProps) => (
+    <Svg {...props}>
+        <path d="M4 6h16" />
+        <path d="M4 12h16" />
+        <path d="M4 18h16" />
+    </Svg>
+);
+
 export const BoxArrowRightIcon = (props: IconProps) => (
     <Svg {...props}>
         <path d="M10 17l5-5-5-5" />

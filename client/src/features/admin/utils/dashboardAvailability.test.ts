@@ -21,6 +21,7 @@ describe("dashboard availability", () => {
             orders: "error",
             users: "success",
             orderItems: "success",
+            alerts: "success",
         };
 
         expect(getDashboardUpdateLabel(availability)).toBe("Partially updated");

@@ -3,22 +3,29 @@ import { Button, Modal, Table } from "../../../components/ui/legacy";
 import ReactPaginate from "react-paginate";
 import type { AdminOrder as Order, AdminOrderDetail as OrderDetail } from "../../../types/order";
 import AdminLayout from "../../../components/layout/AdminLayout";
-import AdminWorkflowSteps from "../../../components/common/admin/AdminWorkflowSteps";
 import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
 import { useToast } from "../../../context/ToastContext";
 import { CheckCircleIcon, XCircleIcon } from "../../../components/common/Icons";
-import { Helmet } from "react-helmet";
+import { MoreHorizontal } from "lucide-react";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "../../../components/ui/dropdown-menu";
+import { Helmet } from "react-helmet-async";
 import { formatUtcDate, formatUtcDateTime, toUtcIsoString } from "../../../utils/dateTime";
 import { fetchAllOrders, fetchOrderDetail, updateOrderStatus, bulkUpdateOrderStatus } from "../api";
 import AdminStatusPanel from "../components/AdminStatusPanel";
+import AdminTableScrollHint from "../components/AdminTableScrollHint";
 import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
+import { formatShippingAddress } from "../../orders/shippingAddress";
 
 const ITEMS_PER_PAGE = 8;
 
 type StatusFilter = "all" | "pending" | "done" | "canceled";
 type PaymentFilter = "all" | "bank_transfer" | "cash" | "payos" | "stripe" | "none";
-
-const orderWorkflowSteps = ["Review pending orders", "Open detail before changing status", "Mark done or cancel"];
 
 const normalizeOrder = (order: any): Order => ({
     ...order,
@@ -56,15 +63,7 @@ const getCustomerMeta = (order: Order) =>
         .filter(Boolean)
         .join(" · ") || getShortId(order.user_id);
 
-const getShippingAddress = (value: string | null | undefined) => {
-    if (!value) return "No address";
-    try {
-        const parsed = JSON.parse(value) as { address?: string; city?: string; country?: string };
-        return [parsed.address, parsed.city, parsed.country].filter(Boolean).join(", ") || "No address";
-    } catch {
-        return value;
-    }
-};
+const getShippingAddress = (value: string | null | undefined) => formatShippingAddress(value) || "No address";
 
 const getItemSubtotal = (price: number, quantity: number) => price * quantity;
 
@@ -345,7 +344,7 @@ const AdminOrderPage = () => {
                 <header className="admin__page__header">
                     <div>
                         <span className="admin__page__eyebrow">Operations</span>
-                        <h2 className="admin__page__title">Orders</h2>
+                        <h1 className="admin__page__title">Orders</h1>
                         <p className="admin__page__subtitle">
                             Monitor the full order pipeline, keep tabs on payment mix, and resolve pending deliveries.
                         </p>
@@ -391,8 +390,6 @@ const AdminOrderPage = () => {
                     </div>
                 </section>
 
-                <AdminWorkflowSteps steps={orderWorkflowSteps} />
-
                 <section className="admin__card">
                     <div className="admin__card__header admin__card__header--stacked">
                         <div>
@@ -401,11 +398,14 @@ const AdminOrderPage = () => {
                         </div>
                         <div className="admin__list-toolbar">
                             <div className="admin__order-toolbar">
+                                <label className="admin__sr-only" htmlFor="order-search">
+                                    Search orders
+                                </label>
                                 <input
-                                    type="text"
+                                    type="search"
                                     name="order-search"
                                     id="order-search"
-                                    placeholder="Search by order ID, customer, email, address, payment, or status"
+                                    placeholder="Search by order ID, customer, email, address, payment, or status…"
                                     value={searchTerm}
                                     onChange={(event) => {
                                         setSearchTerm(event.target.value);
@@ -479,9 +479,9 @@ const AdminOrderPage = () => {
                         {isLoading && !hasLoaded ? <AdminStatusPanel variant="loading" title="Loading orders" description="Fetching the latest orders." /> : null}
                         {loadError && hasLoaded ? <AdminStatusPanel variant="error" title="Refresh failed" description={loadError.message} onRetry={loadOrders} retryLabel="Retry refresh" /> : null}
                         {!isLoading && !loadError && hasLoaded && filteredOrders.length === 0 ? <AdminStatusPanel variant="empty" title="No orders found" description="No orders match the current filters." /> : null}
-                        {(!loadError || hasLoaded) && !(isLoading && !hasLoaded) ? <>
-                        <div className="admin__table-wrap">
-                        <Table responsive hover borderless className="admin__table">
+                        {(!loadError || hasLoaded) && !(isLoading && !hasLoaded) && filteredOrders.length > 0 ? <>
+                        <AdminTableScrollHint label="Order list">
+                        <Table responsive={false} hover borderless className="admin__table admin__table--orders">
                             <thead>
                                 <tr>
                                     <th style={{ width: "40px" }}>
@@ -567,54 +567,56 @@ const AdminOrderPage = () => {
                                                 {getStatusLabel(order.status)}
                                             </span>
                                         </td>
-                                        <td width="100px">
-                                            {order.status === 0 ? (
-                                                <div className="admin__table__actions">
-                                                    <button
-                                                        type="button"
-                                                        className="admin__button admin__button--ghost admin__icon-button"
-                                                        onClick={() => handleOpenDetail(order.id)}
-                                                    >
-                                                        View
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="admin__button admin__button--danger admin__button--compact"
-                                                        data-testid="cancelBtn"
-                                                        aria-label={`Cancel order ${order.id}`}
-                                                        onClick={() => handleChangeStatus(2, order.id)}
-                                                    >
-                                                        <XCircleIcon size={22} />
-                                                        <span>Cancel</span>
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="admin__button admin__button--success admin__button--compact"
-                                                        data-testid="doneBtn"
-                                                        aria-label={`Mark order ${order.id} as done`}
-                                                        onClick={() => handleChangeStatus(1, order.id)}
-                                                    >
-                                                        <CheckCircleIcon size={22} />
-                                                        <span>Done</span>
-                                                    </button>
-                                                </div>
-                                            ) : (
+                                        <td className="admin__table__actions-cell">
+                                            <div className="admin__table__actions admin__table__actions--order">
                                                 <button
                                                     type="button"
-                                                    className="admin__button admin__button--ghost admin__icon-button"
+                                                    className="admin__button admin__button--ghost admin__button--compact admin__table__view-action"
                                                     onClick={() => handleOpenDetail(order.id)}
                                                 >
                                                     View
                                                 </button>
-                                            )}
+                                                {order.status === 0 ? (
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <button
+                                                                type="button"
+                                                                className="admin__table__action-menu-trigger"
+                                                                aria-label={`More actions for order ${order.id}`}
+                                                            >
+                                                                <MoreHorizontal size={18} aria-hidden="true" />
+                                                            </button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end" className="admin__dropdown-menu">
+                                                            <DropdownMenuGroup>
+                                                                <DropdownMenuItem
+                                                                    data-testid="doneBtn"
+                                                                    onSelect={() => handleChangeStatus(1, order.id)}
+                                                                >
+                                                                    <CheckCircleIcon size={16} aria-hidden="true" />
+                                                                    Mark done
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem
+                                                                    data-testid="cancelBtn"
+                                                                    variant="destructive"
+                                                                    onSelect={() => handleChangeStatus(2, order.id)}
+                                                                >
+                                                                    <XCircleIcon size={16} aria-hidden="true" />
+                                                                    Cancel order
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuGroup>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                ) : null}
+                                            </div>
                                         </td>
                                     </tr>
                                     );
                                 })}
                             </tbody>
                         </Table>
-                        </div>
-                        <div className="admin__table__pagination">
+                        </AdminTableScrollHint>
+                        {pageCount > 1 ? <div className="admin__table__pagination">
                             <ReactPaginate
                                 className="shops__container__main__pagination__items"
                                 pageClassName="pagination__item"
@@ -624,7 +626,7 @@ const AdminOrderPage = () => {
                                 breakClassName="pagination__item"
                                 activeClassName="selected"
                                 disabledClassName="disabled"
-                                breakLabel="..."
+                                breakLabel="…"
                                 nextLabel="Next"
                                 onPageChange={handlePageClick}
                                 pageRangeDisplayed={5}
@@ -633,7 +635,7 @@ const AdminOrderPage = () => {
                                 forcePage={Math.max(currentPage - 1, 0)}
                                 renderOnZeroPageCount={null}
                             />
-                        </div>
+                        </div> : null}
                         </> : null}
                     </div>
                 </section>

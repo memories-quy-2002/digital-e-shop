@@ -7,7 +7,7 @@ import { LocaleProvider } from "../../context/LocaleContext";
 
 const mocks = vi.hoisted(() => ({
     auth: {
-        userData: null as { id: string } | null,
+        userData: null as { id: string; role?: "Admin" | "Customer"; username?: string } | null,
         loading: false,
         setUserData: vi.fn(),
     },
@@ -108,5 +108,31 @@ describe("Header cart navigation", () => {
         fireEvent.click(screen.getByRole("button", { name: "Wishlist" }));
         expect(screen.getByTestId("location")).toHaveTextContent("/");
         expect(mocks.toast.addToast).toHaveBeenCalledWith("Login required", "You need to login to use this feature");
+    });
+
+    it("shows admins a desktop shortcut back to the admin panel", () => {
+        mocks.auth.userData = { id: "admin-1", role: "Admin", username: "demo_admin" };
+        renderHeader();
+
+        fireEvent.click(screen.getByRole("button", { name: "Open profile menu" }));
+        fireEvent.click(screen.getByRole("button", { name: "Back to Admin" }));
+
+        expect(screen.getByTestId("location")).toHaveTextContent("/admin");
+    });
+
+    it("shows the same admin shortcut in the mobile menu and hides it for customers", () => {
+        mocks.auth.userData = { id: "admin-1", role: "Admin", username: "demo_admin" };
+        renderHeader();
+
+        fireEvent.click(screen.getByRole("button", { name: "Toggle menu" }));
+        fireEvent.click(screen.getByRole("button", { name: "Back to Admin" }));
+        expect(screen.getByTestId("location")).toHaveTextContent("/admin");
+
+        cleanup();
+        mocks.auth.userData = { id: "customer-1", role: "Customer", username: "demo_customer" };
+        renderHeader();
+
+        fireEvent.click(screen.getByRole("button", { name: "Open profile menu" }));
+        expect(screen.queryByRole("button", { name: "Back to Admin" })).toBeNull();
     });
 });

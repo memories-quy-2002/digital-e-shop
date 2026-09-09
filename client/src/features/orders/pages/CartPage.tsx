@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { Button, Container, Modal } from "../../../components/ui/legacy";
-import { Helmet } from "react-helmet";
+import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import AsideCart from "../../../components/common/AsideCart";
 import CartItem from "../../../components/common/CartItem";

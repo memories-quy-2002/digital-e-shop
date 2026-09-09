@@ -1,7 +1,6 @@
 import React from "react";
-import { BellIcon, BoxSeamIcon, CartIcon, CashStackIcon, PersonIcon, SpeedometerIcon, TelephoneIcon } from "../common/Icons";
-import { useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import { ArrowLeftIcon, ArrowRightIcon, BoxSeamIcon, CartIcon, CashStackIcon, PersonIcon, SpeedometerIcon, TelephoneIcon } from "../common/Icons";
+import { NavLink } from "react-router-dom";
 
 const adminNavItems = [
     { label: "Dashboard", path: "/admin", match: "dashboard", icon: <SpeedometerIcon size={20} /> },
@@ -9,71 +8,69 @@ const adminNavItems = [
     { label: "Products", path: "/admin/products", match: "products", icon: <BoxSeamIcon size={20} /> },
     { label: "Promotions", path: "/admin/promotions", match: "promotions", icon: <CashStackIcon size={20} /> },
     { label: "Accounts", path: "/admin/accounts", match: "accounts", icon: <PersonIcon size={20} /> },
-    { label: "Notifications", path: "/admin/notifications", match: "notifications", icon: <BellIcon size={20} /> },
     { label: "Support", path: "/admin/support", match: "support", icon: <TelephoneIcon size={20} /> },
 ];
 
-const getDisplayName = (username?: string, firstName?: string | null, lastName?: string | null) => {
-    const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
-    return fullName || username || "Anonymous";
+type AdminSidebarProps = {
+    isOpen?: boolean;
+    isCollapsed?: boolean;
+    onClose?: () => void;
+    onToggleCollapsed?: () => void;
 };
 
-const getInitials = (username?: string, firstName?: string | null, lastName?: string | null) => {
-    const displayName = getDisplayName(username, firstName, lastName);
-    return displayName
-        .split(" ")
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((part) => part[0]?.toUpperCase() || "")
-        .join("");
-};
-
-const AdminSidebar = () => {
-    const navigate = useNavigate();
-    const location = useLocation();
-    const paramItem = location.pathname.split("/admin/")[1];
-    const { userData, loading } = useAuth();
-    const displayName = getDisplayName(userData?.username, userData?.first_name, userData?.last_name);
-    const initials = getInitials(userData?.username, userData?.first_name, userData?.last_name);
-
+const AdminSidebar = ({ isOpen = false, isCollapsed = false, onClose, onToggleCollapsed }: AdminSidebarProps) => {
     return (
-        <aside className="admin__layout__sidebar">
-            {/* Logo / Brand */}
-            <section className="admin__layout__sidebar__title">
-                <p className="admin__layout__sidebar__title__brand">DIGITAL-E</p>
-                <span className="admin__layout__sidebar__title__tag">Admin Panel</span>
-            </section>
-
-            {/* User Info */}
-            <section className="admin__layout__sidebar__information">
-                <div
-                    className="admin__layout__sidebar__information__avatar"
-                    aria-label={`${displayName} avatar`}
-                    title={displayName}
+        <aside
+            id="admin-navigation"
+            className={`admin__layout__sidebar${isOpen ? " is-open" : ""}${isCollapsed ? " is-collapsed" : ""}`}
+            aria-label="Admin navigation panel"
+        >
+            <div className="admin__layout__sidebar__header">
+                {/* Logo / Brand */}
+                <section className="admin__layout__sidebar__title">
+                    <p className="admin__layout__sidebar__title__brand">
+                        <span role="img" aria-label="Digital-E">
+                            <span className="admin__layout__sidebar__title__brand__full" aria-hidden="true">
+                                DIGITAL-E
+                            </span>
+                            <span className="admin__layout__sidebar__title__brand__collapsed" aria-hidden="true">
+                                DE
+                            </span>
+                        </span>
+                    </p>
+                    <span className="admin__layout__sidebar__title__tag">Admin Panel</span>
+                </section>
+                <button
+                    type="button"
+                    className="admin__layout__sidebar__collapse"
+                    onClick={onToggleCollapsed}
+                    aria-controls="admin-navigation"
+                    aria-expanded={!isCollapsed}
+                    aria-label={isCollapsed ? "Expand admin navigation" : "Collapse admin navigation"}
+                    title={isCollapsed ? "Expand navigation" : "Collapse navigation"}
                 >
-                    {initials}
-                </div>
-                <div className="admin__layout__sidebar__information__user">
-                    <strong>{userData && !loading ? displayName : "Anonymous"}</strong>
-                    <span>{userData && !loading ? userData.email : "anonymous@example.com"}</span>
-                </div>
-            </section>
+                    {isCollapsed ? <ArrowRightIcon size={18} /> : <ArrowLeftIcon size={18} />}
+                    <span>{isCollapsed ? "Expand" : "Collapse"}</span>
+                </button>
+            </div>
 
             {/* Navigation */}
-            <nav className="admin__layout__sidebar__navigation">
+            <nav className="admin__layout__sidebar__navigation" aria-label="Admin navigation">
                 <span className="admin__layout__sidebar__navigation__caption">Workspace</span>
                 {adminNavItems.map((item) => (
-                    <button
-                        type="button"
+                    <NavLink
                         key={item.path}
-                        onClick={() => navigate(item.path)}
-                        className={`admin__layout__sidebar__navigation__item ${
-                            paramItem === item.match || (!paramItem && item.match === "dashboard") ? "active" : ""
-                        }`}
+                        to={item.path}
+                        end={item.match === "dashboard"}
+                        onClick={onClose}
+                        className={({ isActive }) =>
+                            `admin__layout__sidebar__navigation__item${isActive ? " active" : ""}`
+                        }
+                        title={isCollapsed ? item.label : undefined}
                     >
                         <span className="admin__layout__sidebar__navigation__icon">{item.icon}</span>
                         <span className="admin__layout__sidebar__navigation__label">{item.label}</span>
-                    </button>
+                    </NavLink>
                 ))}
             </nav>
         </aside>

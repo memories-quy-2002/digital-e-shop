@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Helmet } from "react-helmet";
+import { Helmet } from "react-helmet-async";
 import { useSearchParams } from "react-router-dom";
 import { CartIcon } from "../../../components/common/Icons";
 import EmptyState from "../../../components/common/EmptyState";
@@ -12,6 +12,7 @@ import { formatUtcDate, formatUtcDateTime } from "../../../utils/dateTime";
 import CustomerAccountShell from "../../users/components/CustomerAccountShell";
 import { addItemsToCustomerCart, cancelCustomerOrder, fetchCustomerOrderDetail, fetchCustomerOrders } from "../api";
 import type { CustomerOrder, CustomerOrderDetail, CustomerOrderTimelineEvent } from "../types";
+import { formatShippingAddress } from "../shippingAddress";
 
 const getStatusLabel = (status: number) => {
     if (status === 1) return "Done";
@@ -333,7 +334,7 @@ const OrderHistoryPage = () => {
                                         </div>
                                         <div className="order-history__meta-card">
                                             <span>Address</span>
-                                            <strong>{orderDetail.shipping_address || "Not recorded"}</strong>
+                                            <strong>{formatShippingAddress(orderDetail.shipping_address) || "Not recorded"}</strong>
                                         </div>
                                     </div>
 

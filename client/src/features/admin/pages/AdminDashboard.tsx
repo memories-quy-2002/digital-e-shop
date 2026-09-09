@@ -1,40 +1,31 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import {
-    ArrowDownIcon,
-    ArrowUpIcon,
-    BoxSeamIcon,
-    CartIcon,
-    CashStackIcon,
-    PersonIcon,
-} from "../../../components/common/Icons";
+import { useSearchParams } from "react-router-dom";
 import type { Product } from "../../../types/product";
 import type { AdminOrder as Order, AdminOrderItem as OrderItem } from "../../../types/order";
 import { formatUtcDateTime } from "../../../utils/dateTime";
 import AdminLayout from "../../../components/layout/AdminLayout";
-import { Helmet } from "react-helmet";
+import { Helmet } from "react-helmet-async";
 import { useToast } from "../../../context/ToastContext";
 import {
     fetchAnalyticsSummary,
+    fetchAdminAlerts,
     fetchAdminProducts,
     fetchAdminOrders,
     fetchAdminUsers,
     fetchOrderItems,
+    type AdminAlert,
 } from "../api";
+import AdminDashboardAttention from "../components/AdminDashboardAttention";
 import {
-    displayDashboardValue,
     getDashboardUpdateLabel,
     initialDashboardAvailability,
     type DashboardAvailability,
 } from "../utils/dashboardAvailability";
-
-interface CardProps {
-    title: string;
-    value: number | string;
-    description: string;
-    accent: "purple" | "blue" | "green" | "teal";
-    percentage?: number;
-    icon: React.ReactNode;
-}
+import AdminDashboardHeader from "../components/AdminDashboardHeader";
+import AdminDashboardKpiGrid, { type AdminDashboardKpi } from "../components/AdminDashboardKpiGrid";
+import AdminDashboardOperations from "../components/AdminDashboardOperations";
+import { groupAdminAlerts } from "../utils/dashboardAlerts";
+import { getDashboardRangeLabel, parseDashboardRange, type DashboardRange } from "../utils/dashboardRange";
 
 type TrendPoint = {
     name: string;
@@ -155,33 +146,6 @@ const getTopRevenueProducts = (orderItems: OrderItem[]) => {
     return Object.values(revenueMap).sort((a, b) => b.revenue - a.revenue);
 };
 
-const buildDailyActivity = (orders: Order[]): ChartDatum[] => {
-    const dailyMap = new Map<string, ChartDatum>();
-    const currentDate = new Date();
-
-    for (let i = 6; i >= 0; i--) {
-        const date = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), currentDate.getUTCDate() - i));
-        const key = date.toISOString().slice(0, 10);
-        const label = formatUtcDay(date);
-        dailyMap.set(key, { name: label, value: 0, orders: 0, revenue: 0 });
-    }
-
-    orders.forEach((order) => {
-        const key = new Date(order.date_added).toISOString().slice(0, 10);
-        const entry = dailyMap.get(key);
-
-        if (!entry) {
-            return;
-        }
-
-        entry.orders = (entry.orders || 0) + 1;
-        entry.value = entry.orders;
-        entry.revenue = Number(((entry.revenue || 0) + getNetRevenue(order)).toFixed(2));
-    });
-
-    return Array.from(dailyMap.values());
-};
-
 const buildPaymentMix = (orders: Order[]): ChartDatum[] => [
     {
         name: "Bank transfer",
@@ -226,16 +190,6 @@ const buildCategoryRevenue = (products: Product[], orderItems: OrderItem[]): Cha
         .slice(0, 7);
 };
 
-const buildStockRisk = (products: Product[]): ChartDatum[] =>
-    [...products]
-        .sort((a, b) => a.stock - b.stock)
-        .slice(0, 8)
-        .map((product) => ({
-            name: product.name,
-            value: product.stock,
-            stock: product.stock,
-        }));
-
 const getOrderStatusLabel = (status: number) => {
     switch (status) {
         case 0:
@@ -255,31 +209,6 @@ const calculatePercentageChange = (currentValue: number, previousValue: number):
     }
 
     return ((currentValue - previousValue) / previousValue) * 100;
-};
-
-const Card: React.FC<CardProps> = ({ title, value, description, accent, percentage, icon }) => {
-    const trendUp = percentage !== undefined && percentage >= 0;
-
-    return (
-        <div className={`admin__metric-card admin__metric-card--${accent}`}>
-            <div className="admin__metric-card__header">
-                <div className="admin__metric-card__icon">{icon}</div>
-                <div className="admin__metric-card__title">
-                    <span>{title}</span>
-                    <strong>{value}</strong>
-                </div>
-            </div>
-            <div className="admin__metric-card__footer">
-                <p>{description}</p>
-                {percentage !== undefined ? (
-                    <span className={trendUp ? "trend-up" : "trend-down"}>
-                        {trendUp ? <ArrowUpIcon /> : <ArrowDownIcon />}
-                        {Math.abs(percentage).toFixed(2)}%
-                    </span>
-                ) : null}
-            </div>
-        </div>
-    );
 };
 
 const DashboardChartsFallback = () => (
@@ -321,11 +250,14 @@ const DashboardChartsFallback = () => (
 );
 
 const AdminDashboard = () => {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const range = parseDashboardRange(searchParams.get("range"));
     const [products, setProducts] = useState<Product[]>([]);
     const [orders, setOrders] = useState<Order[]>([]);
     const [users, setUsers] = useState<Array<{ id: string; email: string; username: string; first_name: string | null; last_name: string | null; role: string; created_at: Date }>>([]);
     const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
     const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary | null>(null);
+    const [alerts, setAlerts] = useState<AdminAlert[]>([]);
     const [loading, setLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [availability, setAvailability] = useState<DashboardAvailability>(initialDashboardAvailability);
@@ -335,12 +267,13 @@ const AdminDashboard = () => {
         try {
             setLoading(true);
 
-            const [analyticsResult, productResult, orderResult, userResult, orderItemResult] = await Promise.allSettled([
-                fetchAnalyticsSummary(),
+            const [analyticsResult, productResult, orderResult, userResult, orderItemResult, alertsResult] = await Promise.allSettled([
+                fetchAnalyticsSummary(range),
                 fetchAdminProducts(1, 60),
                 fetchAdminOrders(1, 80),
                 fetchAdminUsers(1, 80),
                 fetchOrderItems(1, 120),
+                fetchAdminAlerts(),
             ]);
 
             const results = {
@@ -349,6 +282,7 @@ const AdminDashboard = () => {
                 orders: orderResult,
                 users: userResult,
                 orderItems: orderItemResult,
+                alerts: alertsResult,
             };
             const loadedSections = Object.values(results).filter((result) => result.status === "fulfilled").length;
             const nextAvailability: DashboardAvailability = {
@@ -357,6 +291,7 @@ const AdminDashboard = () => {
                 orders: orderResult.status === "fulfilled" ? "success" : "error",
                 users: userResult.status === "fulfilled" ? "success" : "error",
                 orderItems: orderItemResult.status === "fulfilled" ? "success" : "error",
+                alerts: alertsResult.status === "fulfilled" ? "success" : "error",
             };
 
             setAvailability(nextAvailability);
@@ -384,6 +319,10 @@ const AdminDashboard = () => {
                 setOrderItems((orderItemResult.value || []).map(normalizeOrderItem));
             }
 
+            if (alertsResult.status === "fulfilled") {
+                setAlerts(alertsResult.value.alerts || []);
+            }
+
             if (loadedSections === 0) {
                 addToast("Dashboard", "Unable to load dashboard data.");
                 return;
@@ -397,7 +336,7 @@ const AdminDashboard = () => {
             if (showToast) {
                 addToast(
                     "Dashboard refresh",
-                    loadedSections === 5 ? "Dashboard data refreshed." : "Dashboard loaded with partial data.",
+                    loadedSections === 6 ? "Dashboard data refreshed." : "Dashboard loaded with partial data.",
                 );
             }
         } catch {
@@ -405,7 +344,11 @@ const AdminDashboard = () => {
         } finally {
             setLoading(false);
         }
-    }, [addToast]);
+    }, [addToast, range]);
+
+    const handleRangeChange = useCallback((nextRange: DashboardRange) => {
+        setSearchParams({ range: nextRange }, { replace: true });
+    }, [setSearchParams]);
 
     useEffect(() => {
         fetchDashboardData();
@@ -419,11 +362,9 @@ const AdminDashboard = () => {
 
     const monthlyTrends = useMemo(() => (availability.orders === "success" && availability.orderItems === "success" ? buildMonthlyTrends(orders, orderItems) : []), [availability.orders, availability.orderItems, orders, orderItems]);
     const topRevenueProducts = useMemo(() => (availability.orderItems === "success" ? getTopRevenueProducts(orderItems) : []), [availability.orderItems, orderItems]);
-    const dailyActivity = useMemo(() => (availability.orders === "success" ? buildDailyActivity(orders) : []), [availability.orders, orders]);
     const paymentMix = useMemo(() => (availability.orders === "success" ? buildPaymentMix(orders) : []), [availability.orders, orders]);
     const statusMix = useMemo(() => (availability.orders === "success" ? buildStatusMix(orders) : []), [availability.orders, orders]);
     const categoryRevenue = useMemo(() => (availability.products === "success" && availability.orderItems === "success" ? buildCategoryRevenue(products, orderItems) : []), [availability.products, availability.orderItems, products, orderItems]);
-    const stockRisk = useMemo(() => (availability.products === "success" ? buildStockRisk(products) : []), [availability.products, products]);
     const analyticsTrend = useMemo(
         () =>
             (availability.analytics === "success" ? analyticsSummary?.charts?.revenueTrend || analyticsSummary?.revenueTrend || [] : []).map((point: any) => ({
@@ -466,39 +407,36 @@ const AdminDashboard = () => {
             })),
         [analyticsSummary, availability.analytics],
     );
-    const analyticsInventoryRisk = useMemo(
-        () =>
-            (availability.analytics === "success" ? analyticsSummary?.operations?.inventoryRisk || analyticsSummary?.inventoryRisk || [] : []).map((point: any) => ({
-                name: point.name,
-                value: Number(point.stock) || 0,
-                stock: Number(point.stock) || 0,
-            })),
-        [analyticsSummary, availability.analytics],
-    );
-
-    const thisMonth = monthlyTrends[5] || { name: "", sales: 0, revenue: 0 };
-    const previousMonth = monthlyTrends[4] || { name: "", sales: 0, revenue: 0 };
-    const analyticsKpiStatus = availability.analytics === "error" && analyticsSummary === null
-        ? "success"
-        : availability.analytics;
     const hasAnalyticsKpis = availability.analytics === "success" && Boolean(analyticsSummary?.kpis);
-    const getKpiStatus = (sourceStatus: "loading" | "success" | "error") =>
-        sourceStatus === "error" || (analyticsSummary !== null && availability.analytics === "error")
-            ? "error"
-            : sourceStatus;
-    const productsKpiStatus = getKpiStatus(availability.products);
-    const usersKpiStatus = getKpiStatus(availability.users);
-    const ordersKpiStatus = getKpiStatus(availability.orders);
-    const revenueKpiStatus = analyticsSummary ? analyticsKpiStatus : availability.orders;
+    const rangeLabel = getDashboardRangeLabel(range);
+    const alertGroups = useMemo(
+        () => (availability.alerts === "success" ? groupAdminAlerts(alerts) : []),
+        [alerts, availability.alerts],
+    );
 
-    const salesPercentageChange = useMemo(
-        () => calculatePercentageChange(thisMonth.sales, previousMonth.sales),
-        [thisMonth.sales, previousMonth.sales],
-    );
-    const revenuePercentageChange = useMemo(
-        () => calculatePercentageChange(thisMonth.revenue, previousMonth.revenue),
-        [thisMonth.revenue, previousMonth.revenue],
-    );
+    const selectedPeriodMetrics = useMemo(() => {
+        const revenueComparison = analyticsSummary?.kpis?.revenue?.comparison;
+        const orderComparison = analyticsSummary?.kpis?.orders?.comparison;
+        const trendRevenue = analyticsTrend.reduce((sum: number, point: ChartDatum) => sum + (point.revenue || 0), 0);
+        const trendOrders = analyticsTrend.reduce((sum: number, point: ChartDatum) => sum + (point.orders || 0), 0);
+        const currentRevenue = revenueComparison?.current !== undefined ? Number(revenueComparison.current) : trendRevenue;
+        const previousRevenue = revenueComparison?.previous !== undefined ? Number(revenueComparison.previous) : 0;
+        const currentOrders = orderComparison?.current !== undefined ? Number(orderComparison.current) : trendOrders;
+        const previousOrders = orderComparison?.previous !== undefined ? Number(orderComparison.previous) : 0;
+
+        return {
+            currentRevenue,
+            previousRevenue,
+            currentOrders,
+            previousOrders,
+            revenueDelta: revenueComparison?.deltaPercent !== undefined
+                ? Number(revenueComparison.deltaPercent)
+                : calculatePercentageChange(currentRevenue, previousRevenue),
+            ordersDelta: orderComparison?.deltaPercent !== undefined
+                ? Number(orderComparison.deltaPercent)
+                : calculatePercentageChange(currentOrders, previousOrders),
+        };
+    }, [analyticsSummary, analyticsTrend]);
 
     const dashboardStats = useMemo(() => {
         const pendingOrders = availability.analytics === "success" && analyticsSummary?.kpis?.orders?.pending !== undefined
@@ -547,6 +485,37 @@ const AdminDashboard = () => {
         };
     }, [analyticsPaymentMix, analyticsSummary, availability.analytics, availability.products, orders, products, users]);
 
+    const primaryKpis = useMemo<AdminDashboardKpi[]>(() => [
+        {
+            label: "Net revenue",
+            value: formatCurrency(selectedPeriodMetrics.currentRevenue),
+            description: `${rangeLabel} · after discounts`,
+            status: availability.analytics,
+            delta: { value: selectedPeriodMetrics.revenueDelta },
+        },
+        {
+            label: "Orders",
+            value: analyticsSummary?.kpis?.orders?.total ?? orders.length,
+            description: "All recorded orders",
+            status: availability.analytics,
+            delta: { value: selectedPeriodMetrics.ordersDelta },
+        },
+        {
+            label: "Pending orders",
+            value: dashboardStats.pendingOrders,
+            description: "Awaiting action",
+            status: availability.analytics === "success" ? "success" : availability.orders,
+            href: "/admin/orders",
+        },
+        {
+            label: "Low stock",
+            value: analyticsSummary?.kpis?.inventory?.lowStock ?? dashboardStats.lowStockProducts.length,
+            description: "At or below stock threshold",
+            status: availability.analytics === "success" ? "success" : availability.products,
+            href: "/admin/products",
+        },
+    ], [analyticsSummary, availability.analytics, availability.orders, availability.products, dashboardStats.lowStockProducts.length, dashboardStats.pendingOrders, orders.length, rangeLabel, selectedPeriodMetrics]);
+
     const handleDownloadReport = () => {
         const reportKpisAvailable = availability.analytics === "success";
         const reportActiveProducts = reportKpisAvailable && availability.products === "success"
@@ -558,13 +527,13 @@ const AdminDashboard = () => {
         const reportOrdersTracked = reportKpisAvailable && availability.orders === "success"
             ? analyticsSummary?.kpis?.orders?.total ?? orders.length
             : "Unavailable";
-        const reportSalesAvailable = reportKpisAvailable && availability.orders === "success" && availability.orderItems === "success";
-        const reportSales = reportSalesAvailable ? thisMonth.sales : "Unavailable";
-        const reportRevenue = reportSalesAvailable ? formatCurrency(thisMonth.revenue) : "Unavailable";
-        const reportPreviousSales = reportSalesAvailable ? previousMonth.sales : "Unavailable";
-        const reportPreviousRevenue = reportSalesAvailable ? formatCurrency(previousMonth.revenue) : "Unavailable";
-        const reportSalesChange = reportSalesAvailable ? `${salesPercentageChange.toFixed(2)}%` : "Unavailable";
-        const reportRevenueChange = reportSalesAvailable ? `${revenuePercentageChange.toFixed(2)}%` : "Unavailable";
+        const reportPeriodAvailable = reportKpisAvailable;
+        const reportOrders = reportPeriodAvailable ? selectedPeriodMetrics.currentOrders : "Unavailable";
+        const reportRevenue = reportPeriodAvailable ? formatCurrency(selectedPeriodMetrics.currentRevenue) : "Unavailable";
+        const reportPreviousOrders = reportPeriodAvailable ? selectedPeriodMetrics.previousOrders : "Unavailable";
+        const reportPreviousRevenue = reportPeriodAvailable ? formatCurrency(selectedPeriodMetrics.previousRevenue) : "Unavailable";
+        const reportOrdersChange = reportPeriodAvailable ? `${selectedPeriodMetrics.ordersDelta.toFixed(2)}%` : "Unavailable";
+        const reportRevenueChange = reportPeriodAvailable ? `${selectedPeriodMetrics.revenueDelta.toFixed(2)}%` : "Unavailable";
         const reportOrderPipelineAvailable = reportKpisAvailable && availability.orders === "success";
         const reportPendingOrders = reportOrderPipelineAvailable ? dashboardStats.pendingOrders : "Unavailable";
         const reportCompletedOrders = reportOrderPipelineAvailable ? dashboardStats.completedOrders : "Unavailable";
@@ -582,12 +551,12 @@ const AdminDashboard = () => {
             `- Orders tracked: ${reportOrdersTracked}`,
             `- Active products: ${reportActiveProducts}`,
             `- Registered users: ${reportRegisteredUsers}`,
-            `- Sales this month: ${reportSales}`,
-            `- Revenue this month: ${reportRevenue}`,
+            `- Orders (${rangeLabel}): ${reportOrders}`,
+            `- Revenue (${rangeLabel}): ${reportRevenue}`,
             "",
             "MOMENTUM",
-            `- Sales change vs last month: ${reportSalesChange} (${reportPreviousSales} -> ${reportSales})`,
-            `- Revenue change vs last month: ${reportRevenueChange} (${reportPreviousRevenue} -> ${reportRevenue})`,
+            `- Orders change vs previous period: ${reportOrdersChange} (${reportPreviousOrders} -> ${reportOrders})`,
+            `- Revenue change vs previous period: ${reportRevenueChange} (${reportPreviousRevenue} -> ${reportRevenue})`,
             "",
             "ORDER PIPELINE",
             `- Pending orders: ${reportPendingOrders}`,
@@ -653,122 +622,50 @@ const AdminDashboard = () => {
                 <meta name="description" content="Overview of store performance and key metrics." />
             </Helmet>
             <main className="admin__page admin__page--dashboard">
-                <section className="admin__dashboard__hero">
-                    <div>
-                        <span className="admin__dashboard__hero__eyebrow">Store performance</span>
-                        <h2 className="admin__dashboard__hero__title">Admin Dashboard</h2>
-                        <p className="admin__dashboard__hero__subtitle">
-                            Real-time store signals for sales, revenue, fulfillment, inventory risk, and customer
-                            activity across the whole store.
-                        </p>
-                    </div>
-                    <div className="admin__dashboard__hero__actions">
-                        <span className="admin__dashboard__live">
-                            <i />
-                            {loading ? "Refreshing" : `${getDashboardUpdateLabel(availability)}${lastUpdated ? ` ${lastUpdated.toLocaleTimeString("en-GB")}` : ""}`}
-                        </span>
-                        <button
-                            type="button"
-                            className="admin__dashboard__hero__action admin__dashboard__hero__action--secondary"
-                            onClick={() => fetchDashboardData(true)}
-                            disabled={loading}
-                        >
-                            Refresh
-                        </button>
-                        <button className="admin__dashboard__hero__action" onClick={handleDownloadReport}>
-                            Download Detailed Report
-                        </button>
-                    </div>
-                </section>
-
-                <section className="admin__dashboard__summary">
-                    <div className="admin__dashboard__summary-card">
-                        <span>Sales</span>
-                        <strong>{displayDashboardValue(availability.orders === "success" && availability.orderItems === "success" ? "success" : "error", thisMonth.sales)}</strong>
-                        <p>{thisMonth.name || "Current month"}</p>
-                    </div>
-                    <div className="admin__dashboard__summary-card">
-                        <span>Revenue</span>
-                        <strong>{displayDashboardValue(revenueKpiStatus, formatCurrency(thisMonth.revenue))}</strong>
-                        <p>Net after discounts</p>
-                    </div>
-                    <div className="admin__dashboard__summary-card">
-                        <span>Products</span>
-                        <strong>{displayDashboardValue(productsKpiStatus, analyticsSummary?.kpis?.inventory?.totalProducts ?? products.length)}</strong>
-                        <p>Active listings</p>
-                    </div>
-                    <div className="admin__dashboard__summary-card">
-                        <span>Users</span>
-                        <strong>{displayDashboardValue(usersKpiStatus, analyticsSummary?.kpis?.customers?.total ?? users.length)}</strong>
-                        <p>Registered accounts</p>
-                    </div>
-                    <div className="admin__dashboard__summary-card">
-                        <span>Orders</span>
-                        <strong>{displayDashboardValue(ordersKpiStatus, analyticsSummary?.kpis?.orders?.total ?? orders.length)}</strong>
-                        <p>{hasAnalyticsKpis ? "All recorded orders" : "Loaded orders snapshot"}</p>
-                    </div>
-                    <div className="admin__dashboard__summary-card">
-                        <span>Top product</span>
-                        <strong>{displayDashboardValue(availability.orderItems, topRevenueProducts[0]?.name || "N/A")}</strong>
-                        <p>{hasAnalyticsKpis ? "Highest revenue earner" : "Top item from loaded sales rows"}</p>
-                    </div>
-                </section>
-
-                <section className="admin__dashboard__metrics">
-                    <Card
-                        title="Sales"
-                        value={displayDashboardValue(availability.orders === "success" && availability.orderItems === "success" ? "success" : "error", thisMonth.sales)}
-                        description="Units sold this month"
-                        accent="purple"
-                        percentage={salesPercentageChange}
-                        icon={<CartIcon />}
-                    />
-                    <Card
-                        title="Revenue"
-                        value={displayDashboardValue(revenueKpiStatus, formatCurrency(thisMonth.revenue))}
-                        description="Net revenue this month"
-                        accent="blue"
-                        percentage={revenuePercentageChange}
-                        icon={<CashStackIcon />}
-                    />
-                    <Card
-                        title="Products"
-                        value={displayDashboardValue(productsKpiStatus, analyticsSummary?.kpis?.inventory?.totalProducts ?? products.length)}
-                        description="Live items in catalog"
-                        accent="green"
-                        icon={<BoxSeamIcon />}
-                    />
-                    <Card
-                        title="Users"
-                        value={displayDashboardValue(usersKpiStatus, analyticsSummary?.kpis?.customers?.total ?? users.length)}
-                        description="Registered customer accounts"
-                        accent="teal"
-                        icon={<PersonIcon />}
-                    />
-                </section>
+                <AdminDashboardHeader
+                    range={range}
+                    onRangeChange={handleRangeChange}
+                    loading={loading}
+                    updateLabel={getDashboardUpdateLabel(availability)}
+                    lastUpdated={lastUpdated ? lastUpdated.toLocaleTimeString("en-GB") : null}
+                    onRefresh={() => fetchDashboardData(true)}
+                    onDownloadReport={handleDownloadReport}
+                />
+                <AdminDashboardAttention
+                    status={availability.alerts}
+                    groups={alertGroups}
+                    onRetry={() => fetchDashboardData(true)}
+                />
+                <AdminDashboardKpiGrid kpis={primaryKpis} />
+                <AdminDashboardOperations
+                    pendingOrders={orders.filter((order) => order.status === 0).slice(0, 5)}
+                    lowStockProducts={dashboardStats.lowStockProducts}
+                    ordersStatus={availability.orders}
+                    productsStatus={availability.products}
+                    formatCurrency={formatCurrency}
+                    formatReportDate={formatReportDate}
+                    onRetry={() => fetchDashboardData(true)}
+                />
 
                 <Suspense fallback={<DashboardChartsFallback />}>
-                        <AdminDashboardCharts
+                    <AdminDashboardCharts
                         availability={availability}
                         analyticsSummary={analyticsSummary}
                         analyticsTrend={analyticsTrend}
-                        dailyActivity={dailyActivity}
                         analyticsPaymentMix={analyticsPaymentMix}
                         paymentMix={paymentMix}
                         analyticsStatusMix={analyticsStatusMix}
                         statusMix={statusMix}
                         dashboardStats={dashboardStats}
-                        loading={loading}
                         monthlyTrends={monthlyTrends}
                         analyticsCategoryRevenue={analyticsCategoryRevenue}
                         categoryRevenue={categoryRevenue}
-                        analyticsInventoryRisk={analyticsInventoryRisk}
-                        stockRisk={stockRisk}
                         topRevenueProducts={topRevenueProducts}
                         hasAnalyticsKpis={hasAnalyticsKpis}
                         formatCurrency={formatCurrency}
                         formatReportDate={formatReportDate}
                         getOrderStatusLabel={getOrderStatusLabel}
+                        rangeLabel={rangeLabel}
                     />
                 </Suspense>
             </main>

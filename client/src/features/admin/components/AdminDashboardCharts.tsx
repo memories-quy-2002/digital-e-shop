@@ -1,5 +1,6 @@
 import React from "react";
 import { Table } from "../../../components/ui/legacy";
+import { Badge } from "../../../components/ui/badge";
 import {
     Area,
     AreaChart,
@@ -17,6 +18,7 @@ import {
     YAxis,
 } from "recharts";
 import { CheckCircleIcon, PersonIcon } from "../../../components/common/Icons";
+import AdminTableScrollHint from "./AdminTableScrollHint";
 import type { DashboardAvailability } from "../utils/dashboardAvailability";
 
 type ChartDatum = {
@@ -99,23 +101,20 @@ type AdminDashboardChartsProps = {
     availability: DashboardAvailability;
     analyticsSummary: AnalyticsSummaryLike | null;
     analyticsTrend: Array<{ name: string; revenue: number; orders: number }>;
-    dailyActivity: ChartDatum[];
     analyticsPaymentMix: ChartDatum[];
     paymentMix: ChartDatum[];
     analyticsStatusMix: ChartDatum[];
     statusMix: ChartDatum[];
     dashboardStats: DashboardStats;
-    loading: boolean;
     monthlyTrends: Array<{ name: string; sales: number; revenue: number }>;
     analyticsCategoryRevenue: Array<{ name: string; value: number; units?: number }>;
     categoryRevenue: ChartDatum[];
-    analyticsInventoryRisk: ChartDatum[];
-    stockRisk: ChartDatum[];
     topRevenueProducts: TopRevenueProduct[];
     hasAnalyticsKpis: boolean;
     formatCurrency: (value: number) => string;
     formatReportDate: (date?: Date) => string;
     getOrderStatusLabel: (status: number) => string;
+    rangeLabel: string;
 };
 
 const CHART_COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2"];
@@ -133,28 +132,25 @@ const AdminDashboardCharts = ({
     availability,
     analyticsSummary,
     analyticsTrend,
-    dailyActivity,
     analyticsPaymentMix,
     paymentMix,
     analyticsStatusMix,
     statusMix,
     dashboardStats,
-    loading,
     monthlyTrends,
     analyticsCategoryRevenue,
     categoryRevenue,
-    analyticsInventoryRisk,
-    stockRisk,
     topRevenueProducts,
     hasAnalyticsKpis,
     formatCurrency,
     formatReportDate,
     getOrderStatusLabel,
+    rangeLabel,
 }: AdminDashboardChartsProps) => {
-    const analyticsKpisUnavailable = availability.analytics === "error" && analyticsSummary !== null;
+    const promotionPerformance = analyticsSummary?.operations?.promotions?.performance || [];
 
     return (
-        <>
+        <div className="admin__dashboard__secondary">
             {availability.analytics === "error" ? (
                 <section className="admin__dashboard__analysis">
                     <div className="admin__card">
@@ -162,7 +158,7 @@ const AdminDashboardCharts = ({
                     </div>
                 </section>
             ) : analyticsSummary ? (
-                <section className="admin__dashboard__analysis">
+                <section className="admin__dashboard__analysis admin__dashboard__analysis--overview">
                     <div className="admin__card">
                         <div className="admin__card__header">
                             <div>
@@ -202,8 +198,8 @@ const AdminDashboardCharts = ({
 
                     <div className="admin__card">
                         <div className="admin__card__header">
-                            <h3>14-day revenue pulse</h3>
-                            <span>Orders and revenue</span>
+                            <h3>{rangeLabel} revenue pulse</h3>
+                            <span>Orders and revenue for the selected period</span>
                         </div>
                         <div className="admin__card__body admin__chart-body">
                             <ResponsiveContainer width="100%" height={260}>
@@ -224,88 +220,60 @@ const AdminDashboardCharts = ({
                         </div>
                     </div>
 
-                    <div className="admin__card">
+                    <div className="admin__card admin__dashboard__promotion-performance">
                         <div className="admin__card__header">
                             <div>
                                 <h3>Promotion performance</h3>
-                                <span>Consumed redemptions and discounts from the database</span>
+                                <span>Redemptions, discount cost, and status by code · {rangeLabel}</span>
                             </div>
                         </div>
                         <div className="admin__dashboard__insights">
                             <div className="admin__dashboard__insight">
                                 <span>Discounted orders</span>
                                 <strong>{analyticsSummary.operations?.promotions?.discountedOrders ?? 0}</strong>
-                                <p>Orders with a recorded discount.</p>
+                                <p>Orders that used a promotion.</p>
                             </div>
                             <div className="admin__dashboard__insight">
                                 <span>Discount given</span>
                                 <strong>{formatCurrency(analyticsSummary.operations?.promotions?.totalDiscountGiven ?? 0)}</strong>
-                                <p>USD canonical reporting amount.</p>
+                                <p>Total discount granted in USD.</p>
                             </div>
                         </div>
                         <div className="admin__card__body">
-                            <Table responsive hover borderless>
+                            <AdminTableScrollHint label="Promotion performance table">
+                            <Table responsive={false} hover borderless className="admin__table admin__table--dashboard admin__table--dashboard-promotion">
+                                <caption className="admin__sr-only">Promotion performance by code for {rangeLabel}</caption>
                                 <thead><tr><th>Code</th><th>Orders</th><th>Discount given</th><th>Status</th></tr></thead>
                                 <tbody>
-                                    {(analyticsSummary.operations?.promotions?.performance || []).map((promotion) => (
+                                    {promotionPerformance.length > 0 ? promotionPerformance.map((promotion) => (
                                         <tr key={promotion.id}>
-                                            <td>{promotion.code}</td>
-                                            <td>{promotion.estimatedOrders}</td>
-                                            <td>{formatCurrency(promotion.discountGiven)}</td>
-                                            <td>{promotion.active ? "Active" : "Inactive"}</td>
+                                            <td className="admin__dashboard__promotion-code">{promotion.code}</td>
+                                            <td className="admin__table__numeric">{promotion.estimatedOrders}</td>
+                                            <td className="admin__table__numeric">{formatCurrency(promotion.discountGiven)}</td>
+                                            <td>
+                                                <Badge variant={promotion.active ? "default" : "secondary"}>
+                                                    {promotion.active ? "Active" : "Inactive"}
+                                                </Badge>
+                                            </td>
                                         </tr>
-                                    ))}
+                                    )) : (
+                                        <tr>
+                                            <td colSpan={4}>
+                                                <div className="admin__dashboard__table-empty">
+                                                    No promotion activity recorded for this period.
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </Table>
+                            </AdminTableScrollHint>
                         </div>
                     </div>
                 </section>
             ) : null}
 
-            {availability.orders === "error" ? (
-                <section className="admin__dashboard__realtime">
-                    <div className="admin__card admin__card--wide">
-                        <DashboardUnavailable section="Order activity" />
-                    </div>
-                </section>
-            ) : (
             <section className="admin__dashboard__realtime">
-                <div className="admin__card admin__card--wide">
-                    <div className="admin__card__header">
-                        <div>
-                            <h3>Live order activity</h3>
-                            <span>Revenue and order count across the last 7 days</span>
-                        </div>
-                    </div>
-                    <div className="admin__card__body admin__chart-body">
-                        <ResponsiveContainer width="100%" height={300}>
-                            <AreaChart data={dailyActivity}>
-                                <defs>
-                                    <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0.02} />
-                                    </linearGradient>
-                                    <linearGradient id="ordersFill" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#16a34a" stopOpacity={0.25} />
-                                        <stop offset="95%" stopColor="#16a34a" stopOpacity={0.02} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                <XAxis dataKey="name" tickLine={false} axisLine={false} />
-                                <YAxis tickLine={false} axisLine={false} />
-                                <Tooltip
-                                    formatter={(value: any, name: any) => [
-                                        name === "revenue" ? formatCurrency(Number(value || 0)) : Number(value || 0),
-                                        name === "revenue" ? "Revenue" : "Orders",
-                                    ]}
-                                />
-                                <Area type="monotone" dataKey="revenue" stroke="#2563eb" strokeWidth={3} fill="url(#revenueFill)" />
-                                <Area type="monotone" dataKey="orders" stroke="#16a34a" strokeWidth={3} fill="url(#ordersFill)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
                 <div className="admin__dashboard__mix-grid">
                     <div className="admin__card">
                         <div className="admin__card__header">
@@ -380,38 +348,8 @@ const AdminDashboardCharts = ({
                     </div>
                 </div>
             </section>
-            )}
 
-            <section className="admin__dashboard__highlights">
-                <div className="admin__card">
-                    <div className="admin__card__header">
-                        <h3>Operations health</h3>
-                        <span>{loading ? "Loading..." : "Live snapshot"}</span>
-                    </div>
-                    <div className="admin__dashboard__insights">
-                        <div className="admin__dashboard__insight">
-                            <span>Pending orders</span>
-                            <strong>{availability.orders === "error" || analyticsKpisUnavailable ? "Unavailable" : dashboardStats.pendingOrders}</strong>
-                            <p>Orders still waiting for action.</p>
-                        </div>
-                        <div className="admin__dashboard__insight">
-                            <span>Completed orders</span>
-                            <strong>{availability.orders === "error" || analyticsKpisUnavailable ? "Unavailable" : dashboardStats.completedOrders}</strong>
-                            <p>Orders already fulfilled successfully.</p>
-                        </div>
-                        <div className="admin__dashboard__insight">
-                            <span>Low stock watch</span>
-                            <strong>{availability.products === "error" ? "Unavailable" : dashboardStats.lowStockProducts.length}</strong>
-                            <p>Products with 5 or fewer units left.</p>
-                        </div>
-                        <div className="admin__dashboard__insight">
-                            <span>Total revenue</span>
-                            <strong>{availability.orders === "error" || analyticsKpisUnavailable ? "Unavailable" : formatCurrency(dashboardStats.totalRevenue)}</strong>
-                            <p>All-time net revenue from completed purchases.</p>
-                        </div>
-                    </div>
-                </div>
-
+            <section className="admin__dashboard__activity-grid">
                 <div className="admin__card">
                     <div className="admin__card__header">
                         <h3>Recent activity</h3>
@@ -483,23 +421,6 @@ const AdminDashboardCharts = ({
                         </ResponsiveContainer>
                     </div>
                 </div>
-                <div className="admin__card">
-                    <div className="admin__card__header">
-                        <h3>Revenue trend</h3>
-                        <span>Last 6 months</span>
-                    </div>
-                    <div className="admin__card__body">
-                        <ResponsiveContainer width="100%" height={260}>
-                            <LineChart data={monthlyTrends}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                <XAxis dataKey="name" tickLine={false} axisLine={false} />
-                                <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
-                                <Tooltip formatter={(value: any) => [formatCurrency(Number(value || 0)), "Revenue"]} />
-                                <Line type="monotone" dataKey="revenue" stroke="#0ea5e9" strokeWidth={3} dot={false} />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
             </section>
             )}
 
@@ -507,9 +428,6 @@ const AdminDashboardCharts = ({
                 <section className="admin__dashboard__analysis">
                     <div className="admin__card">
                         <DashboardUnavailable section="Category analytics" />
-                    </div>
-                    <div className="admin__card">
-                        <DashboardUnavailable section="Inventory risk" />
                     </div>
                 </section>
             ) : (
@@ -545,30 +463,6 @@ const AdminDashboardCharts = ({
                     </div>
                 </div>
 
-                <div className="admin__card">
-                    <div className="admin__card__header">
-                        <h3>Inventory risk</h3>
-                        <span>Lowest stock items</span>
-                    </div>
-                    <div className="admin__card__body admin__chart-body">
-                        <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={analyticsInventoryRisk.length > 0 ? analyticsInventoryRisk : stockRisk} layout="vertical" margin={{ left: 18 }}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                                <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} />
-                                <YAxis
-                                    type="category"
-                                    dataKey="name"
-                                    tickLine={false}
-                                    axisLine={false}
-                                    width={120}
-                                    tickFormatter={(value) => String(value).slice(0, 18)}
-                                />
-                                <Tooltip formatter={(value: any) => [Number(value || 0), "Stock"]} />
-                                <Bar dataKey="stock" fill="#f59e0b" radius={[0, 8, 8, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
             </section>
             )}
 
@@ -583,7 +477,8 @@ const AdminDashboardCharts = ({
                     <span>{hasAnalyticsKpis ? "Loaded order-item coverage" : "Loaded order-item snapshot"}</span>
                 </div>
                 <div className="admin__card__body">
-                    <Table responsive hover borderless>
+                    <AdminTableScrollHint label="Best-selling products table">
+                    <Table responsive={false} hover borderless className="admin__table admin__table--dashboard">
                         <thead>
                             <tr>
                                 <th>#</th>
@@ -605,10 +500,11 @@ const AdminDashboardCharts = ({
                             ))}
                         </tbody>
                     </Table>
+                    </AdminTableScrollHint>
                 </div>
             </section>
             )}
-        </>
+        </div>
     );
 };
 

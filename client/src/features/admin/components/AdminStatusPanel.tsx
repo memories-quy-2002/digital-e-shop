@@ -14,8 +14,8 @@ type AdminStatusPanelProps = {
 const AdminStatusPanel = ({ variant, title, description, onRetry, retryLabel = "Retry", children }: AdminStatusPanelProps) => (
     <div
         className={`admin__status-panel admin__status-panel--${variant}`}
-        role={variant === "error" ? "alert" : undefined}
-        aria-live={variant === "loading" ? "polite" : undefined}
+        role={variant === "error" ? "alert" : "status"}
+        aria-live={variant === "error" ? "assertive" : "polite"}
     >
         <strong>{title}</strong>
         <p>{description}</p>

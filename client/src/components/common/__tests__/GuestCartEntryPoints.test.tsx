@@ -123,7 +123,7 @@ vi.mock("../../../features/products/components/RecommendedProduct", () => ({
     default: () => <div data-testid="mock-recommended-product" />,
 }));
 
-vi.mock("react-helmet", () => ({
+vi.mock("react-helmet-async", () => ({
     Helmet: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 

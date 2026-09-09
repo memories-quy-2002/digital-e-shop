@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Helmet } from "react-helmet";
+import { Helmet } from "react-helmet-async";
 import { Link, useSearchParams } from "react-router-dom";
 import Layout from "../../../components/layout/Layout";
 import { ArrowRightIcon, SearchIcon } from "../../../components/common/Icons";
@@ -7,22 +7,9 @@ import { formatUtcDateTime } from "../../../utils/dateTime";
 import { lookupGuestOrder } from "../api";
 import type { GuestOrderDetail } from "../types";
 import { maskPhoneNumber } from "./checkoutSuccessStorage";
+import { parseShippingAddress } from "../shippingAddress";
 import "../../../styles/features/orders/_guest-order.scss";
 import { useT } from "../../../hooks/useT";
-
-const parseShippingAddress = (value: string | null | undefined) => {
-    if (!value) return { address: "-", city: "", country: "" };
-    try {
-        const parsed = JSON.parse(value) as { address?: string; city?: string; country?: string };
-        return {
-            address: parsed.address || "-",
-            city: parsed.city || "",
-            country: parsed.country || "",
-        };
-    } catch {
-        return { address: value, city: "", country: "" };
-    }
-};
 
 const getErrorMessage = (error: unknown, fallback: string) => {
     if (error && typeof error === "object" && "response" in error) {
@@ -157,7 +144,7 @@ const GuestOrderLookupPage = () => {
                         <div className="guest-order__details">
                             <article>
                                 <h3>{t("guestOrder.shipping")}</h3>
-                                <p>{shipping.address}</p>
+                                <p>{shipping.address || "-"}</p>
                                 <p>{[shipping.city, shipping.country].filter(Boolean).join(", ") || "-"}</p>
                                 <p>{order.guest_phone ? maskPhoneNumber(order.guest_phone) : "-"}</p>
                             </article>

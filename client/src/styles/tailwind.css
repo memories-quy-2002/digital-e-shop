@@ -62,6 +62,11 @@
     --de-color-text-muted: #879492;
     --de-color-text-faint: #64706e;
     --de-color-text-inverse: #111416;
+    --de-color-chrome: #111416;
+    --de-color-chrome-surface: #1c2429;
+    --de-color-chrome-text: #f2efe8;
+    --de-color-chrome-muted: #879492;
+    --de-color-chrome-border: rgba(231, 227, 218, 0.18);
     --de-color-primary: #b6d546;
     --de-color-signal: #e4663d;
     --de-color-electric: #4c8dff;
