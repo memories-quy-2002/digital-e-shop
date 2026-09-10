@@ -100,7 +100,7 @@ describe("CheckoutPaymentPage guest checkout", () => {
         expect(mocks.guestPurchase.mock.calls[0][0]).not.toHaveProperty("cart[0].price");
     });
 
-    it("creates a guest card session with the raw access token kept in pending session storage", async () => {
+    it("stores the raw guest access token without persisting guest PII", async () => {
         mocks.guestSession.mockResolvedValue({ url: "", guestOrderToken: "stripe-token" });
         renderCheckout();
         fillRequiredFields();
@@ -113,10 +113,14 @@ describe("CheckoutPaymentPage guest checkout", () => {
             shipping: { address: "1 Main Street", city: "HCMC", country: "VN" },
             paymentMethod: "card",
         }));
-        expect(JSON.parse(sessionStorage.getItem("checkoutPending") || "{}")).toMatchObject({
-            guestOrderToken: "stripe-token",
-            email: "guest@example.com",
-        });
+        const pendingCheckout = JSON.parse(sessionStorage.getItem("checkoutPending") || "{}");
+        expect(pendingCheckout).toMatchObject({ guestOrderToken: "stripe-token" });
+        expect(pendingCheckout).not.toHaveProperty("email");
+        expect(pendingCheckout).not.toHaveProperty("name");
+        expect(pendingCheckout).not.toHaveProperty("address");
+        expect(pendingCheckout).not.toHaveProperty("city");
+        expect(pendingCheckout).not.toHaveProperty("country");
+        expect(pendingCheckout).not.toHaveProperty("phone");
     });
 
     it("shows a clickable recent order address when no saved address is available", async () => {
