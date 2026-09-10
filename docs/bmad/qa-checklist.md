@@ -15,11 +15,14 @@ Run those relevant to the touched surface (see [AGENTS.md](../../AGENTS.md) → 
 ```powershell
 # Frontend
 pnpm --dir client exec tsc -p tsconfig.json --noEmit
+pnpm --dir client test -- --run
 pnpm --dir client build
 pnpm --dir client lint
 
 # Backend
 pnpm --dir server typecheck
+pnpm --dir server test -- --run
+pnpm --dir server test:integration  # requires the configured MySQL integration DB
 pnpm --dir server build
 pnpm --dir server lint
 ```
@@ -30,7 +33,7 @@ pnpm --dir server lint
 
 - [ ] API response shapes preserved (route-local `msg`/`error`/data keys) unless change was requested.
 - [ ] Write payloads validated (Zod) before persistence.
-- [ ] `requireAuth` / `requireAdmin` / `requireOwnerOrAdmin` enforced where applicable.
+- [ ] `AuthGuard`, `RolesGuard`, and `OwnerParam` enforce authentication, roles, and ownership where applicable.
 - [ ] CSRF flow intact; login/register/refresh exceptions not broadened.
 - [ ] No secrets, tokens, cookies, or PII logged or committed.
 
@@ -38,6 +41,7 @@ pnpm --dir server lint
 
 - [ ] Schema changes applied across all layers (repository, service, validator, types, Prisma).
 - [ ] Multi-table flows (checkout, inventory, timeline, addresses, notifications) verified.
+- [ ] Guest checkout still revalidates price, stock, promotions, and totals server-side; raw guest tokens are not logged or returned in admin payloads.
 
 ## Scope & quality
 

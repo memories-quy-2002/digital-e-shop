@@ -1,6 +1,7 @@
 # ADR 0003: Payment ledger with USD canonical currency
 
-Back to [[index]]. Related: [[architecture]], [[0001-mysql-primary-prisma-partial]].
+Back to [[index]]. Status: **Accepted, implemented**. Current-state refresh:
+2026-09-10. Related: [[architecture]], [[0001-mysql-primary-prisma-partial]].
 
 ## Decision
 

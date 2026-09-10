@@ -1,82 +1,51 @@
-# Code of Conduct
+# Code of conduct
 
-## Our Commitment
+Digital-E is an engineering and learning project. Contributors work on commerce flows that handle accounts, orders, addresses, payments, inventory, and admin operations. Every project space must support respectful, practical, and safe collaboration.
 
-Digital-E is a learning and engineering project. Everyone participating in the
-project should be able to collaborate in a respectful, practical, and safe
-environment.
-
-We are committed to keeping project spaces free from harassment, personal
-attacks, and abusive behavior.
-
-## Expected Behavior
+## Expected behavior
 
 Participants are expected to:
 
-- Communicate respectfully and constructively.
-- Focus feedback on code, design, documentation, and technical decisions.
-- Be clear about assumptions, risks, and tradeoffs.
-- Accept useful criticism and respond professionally.
-- Give credit for ideas, reports, and contributions.
-- Respect project maintainers' decisions about scope and priorities.
+- Communicate respectfully and assume good faith
+- Focus feedback on code, design, documentation, tests, and technical decisions
+- Explain evidence, assumptions, risks, and tradeoffs
+- Give credit for ideas, reports, and contributions
+- Protect credentials, personal data, and private project information
+- Accept review feedback professionally and keep disagreements specific
+- Respect maintainer decisions about scope, safety, and release priorities
 
-## Unacceptable Behavior
+## Unacceptable behavior
 
 Unacceptable behavior includes:
 
-- Harassment, intimidation, threats, or abusive language.
-- Personal attacks or insults.
-- Discrimination based on identity, background, experience level, or beliefs.
-- Sexualized language or unwanted sexual attention.
-- Publishing private information without explicit permission.
-- Trolling, repeated disruption, or bad-faith arguments.
-- Misusing project spaces to spam, advertise, or promote unrelated content.
-- Retaliation against someone who reports a concern.
+- Harassment, intimidation, threats, discrimination, or personal attacks
+- Sexualized language or unwanted sexual attention
+- Publishing private information without permission
+- Retaliation against someone who raises a concern
+- Trolling, repeated disruption, bad-faith arguments, or deliberate derailment
+- Spam, unrelated advertising, or abuse of project infrastructure
+- Sharing secrets, customer data, tokens, cookies, or private logs in public spaces
 
 ## Scope
 
-This code of conduct applies in all project spaces, including:
+This policy applies to GitHub issues, pull requests, discussions, reviews, commit messages, documentation, project channels, and other public or private communication connected to Digital-E. It also applies when someone represents the project in another space.
 
-- GitHub issues, pull requests, discussions, and comments.
-- Commit messages and code review.
-- Project documentation.
-- Any public or private communication connected to the project.
+## Reporting concerns
 
-It also applies when someone represents the project in another space.
+Contact the repository maintainers through a private GitHub channel. Do not publish a sensitive conduct report in an issue or pull request. For a suspected security vulnerability, follow [SECURITY.md](./SECURITY.md) instead.
 
-## Reporting
+Include the following when it is safe to do so:
 
-If you experience or observe unacceptable behavior, contact the repository owner
-or maintainer through a private channel.
+- What happened
+- Where and when it happened
+- Who was involved
+- Links, screenshots, or relevant context
+- Any immediate safety or participation concern
 
-Include relevant information when possible:
-
-- What happened.
-- Where it happened.
-- When it happened.
-- Who was involved.
-- Links, screenshots, or other context.
-
-Do not publish sensitive personal information publicly when reporting.
+Do not include unnecessary personal information in a report.
 
 ## Enforcement
 
-Maintainers may take action that is appropriate to the situation, including:
+Maintainers may ask for clarification, request a behavior change, remove content, close an issue or pull request, limit participation, or block an account. The response depends on the behavior, its impact, the available evidence, and the need to keep the project safe and productive.
 
-- Asking for clarification.
-- Removing comments or content.
-- Requesting a change in behavior.
-- Closing issues or pull requests.
-- Temporarily limiting participation.
-- Permanently blocking a participant from the project.
-
-Enforcement decisions should be based on the behavior, its impact, and the
-project's need for a productive collaboration environment.
-
-## Good-Faith Participation
-
-Disagreement is normal in software projects. Strong technical feedback is
-allowed when it remains specific, respectful, and useful.
-
-The goal is not to avoid critique. The goal is to make critique actionable and
-keep collaboration focused on improving the system.
+Reports are handled privately when possible. Retaliation against a good-faith report is not acceptable.

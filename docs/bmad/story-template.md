@@ -1,4 +1,4 @@
-# Story — <short title>
+# Story - <short title>
 
 A small, independently shippable and verifiable unit of work.
 
@@ -24,7 +24,7 @@ Links to PRD, relevant files, and `Wiki/` pages. Known gotchas.
 
 - [ ] Implemented with the smallest safe change.
 - [ ] Acceptance criteria met.
-- [ ] Verification commands run (typecheck / build / lint for the touched surface).
+- [ ] Verification commands run from the owning package (`pnpm --dir client ...` or `pnpm --dir server ...`): typecheck / test / build / lint as relevant.
 - [ ] API contracts, auth/CSRF/ownership preserved (or change explicitly approved).
 - [ ] Tests added where practical.
 - [ ] `Wiki/` updated if architecture / API / schema / business logic changed; `Wiki/log.md` appended.

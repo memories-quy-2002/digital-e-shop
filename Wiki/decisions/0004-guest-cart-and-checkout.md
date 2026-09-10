@@ -1,5 +1,7 @@
 # ADR 0004: Guest cart and checkout access model
 
+Back to [[index]]. Related: [[guest-checkout]], [[architecture]].
+
 **Status:** Accepted
 **Date:** 2026-09-08
 
@@ -36,3 +38,7 @@ delivery provider, or a second persistent cart database.
 
 Apply the additive guest migration before using the endpoints. Do not reset,
 seed, or migrate a production database as feature validation.
+
+The current route surface is documented in [docs/API.md](../../docs/API.md):
+guest preview/purchase/lookup and guest checkout-session operations are public
+but remain validation-, CSRF-, rate-limit-, and transaction-protected.

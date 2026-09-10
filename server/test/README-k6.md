@@ -1,196 +1,90 @@
-# k6 Performance Tests
+# k6 performance tests
 
-These tests are designed to be safe for the current database. All scripts only send `GET` requests.
+The scripts in this directory send read-only `GET` requests. Use them against the isolated local Docker database, a disposable CI database, or an explicitly approved test deployment. Do not use production data for write or high-volume testing.
 
-## 1. Install k6
+## Install k6
 
-On Windows, use one of these:
+On Windows, install k6 with one of these commands:
 
 ```powershell
 winget install k6 --source winget
-```
-
-or:
-
-```powershell
 choco install k6
 ```
 
-Verify:
+Verify the installation:
 
 ```powershell
 k6 version
 ```
 
-## 2. Local database with Docker
+## Prepare the local API
 
-To avoid stressing the production Aiven Cloud database, run a local MySQL with Docker:
-
-### 2a. Start Docker services
+From the repository root:
 
 ```powershell
-pnpm docker:up
+Copy-Item server/.env.example server/.env
+Copy-Item server/.env.docker.example server/.env.docker
+pnpm --dir server docker:setup
+pnpm --dir server dev
 ```
 
-This starts:
-- **MySQL 8.0** on `localhost:3307` (database: `defaultdb`, user: `root`, password: `digital_e_root`)
+The local API uses `http://localhost:4000`. The Docker database uses MySQL at `127.0.0.1:3307`, database `digital_e_shop_local`, and the `digital_e_shop_local_mysql_data` volume.
 
-### 2b. Import the schema and base data
+## Available scripts
+
+| Script | Command | Coverage |
+| --- | --- | --- |
+| `performance-test.js` | `pnpm --dir server perf:readonly` | Health, CSRF, catalog listing, product detail, reviews, search, and facets |
+| `k6-catalog-test.js` | `pnpm --dir server perf:catalog` | Public catalog listing, detail, search, facets, recommendations, related products, reviews, CSRF, and Blob health |
+| `k6-admin-readonly.js` | `pnpm --dir server perf:admin-readonly` | Admin orders, order items, users, profiles, analytics, inventory movements, and promotions |
+| `k6-customer-readonly.js` | `pnpm --dir server perf:customer-readonly` | Customer orders, addresses, and notifications |
+| `k6-auth-readonly.js` | `pnpm --dir server perf:auth-readonly` | Authenticated profile, orders, cart, validation, wishlist, addresses, and notifications |
+
+Run a public test:
 
 ```powershell
-pnpm docker:import
+pnpm --dir server perf:readonly
 ```
 
-Imports the SQL dump from `src/database/migrations/` into the Docker MySQL container.
-
-### 2c. Seed mock data (orders + reviews)
+Override the target or product when the script supports it:
 
 ```powershell
-pnpm docker:seed
+$env:BASE_URL="http://localhost:4000"
+$env:PRODUCT_ID="1"
+pnpm --dir server perf:readonly
 ```
 
-Creates 50 mock orders and 50 mock reviews (configurable via env).
-
-### 2d. One-command setup
-
-```powershell
-pnpm docker:setup
-```
-
-Runs `up` + `import` + `seed` in sequence.
-
-### 2e. Stop and clean up
-
-```powershell
-pnpm docker:down
-```
-
-Stops containers. Add `-v` to also destroy volumes:
-
-```powershell
-docker compose down -v
-```
-
-## 3. Start the backend
-
-### 3a. Against Docker (local) database
-
-Point the server to the Docker MySQL by copying the Docker env file:
-
-```powershell
-copy .env.docker .env
-pnpm serve:ts
-```
-
-### 3b. Against production database
-
-```powershell
-pnpm serve:ts
-```
-
-The default test expects the API at `http://localhost:4000`.
-
-## 4. Test scripts
-
-| Script | Command | Description |
-|--------|---------|-------------|
-| `performance-test.js` | `pnpm perf:readonly` | Public read-only: health, CSRF, catalog listing, product detail, reviews, search, facets |
-| `k6-catalog-test.js` | `pnpm perf:catalog` | Heavy-load catalog test: all public endpoints (listing, detail, search, facets, recommendations, related products, reviews, CSRF, blob health) |
-| `k6-admin-readonly.js` | `pnpm perf:admin-readonly` | Admin read-only: orders, order items, users, user profiles, analytics, inventory summary, inventory movements, promotions |
-| `k6-customer-readonly.js` | `pnpm perf:customer-readonly` | Customer read-only: order history, addresses, notifications |
-| `k6-auth-readonly.js` | `pnpm perf:auth-readonly` | Authenticated user read-only: profile, orders, cart, cart validation, wishlist, addresses, notifications |
-
-### 4a. Public read-only (light load)
-
-```powershell
-k6 run test/performance-test.js
-```
-
-For another API URL:
-
-```powershell
-$env:BASE_URL="http://localhost:4000"; k6 run test/performance-test.js
-```
-
-To focus on one product detail/review page:
-
-```powershell
-$env:PRODUCT_ID="1"; k6 run test/performance-test.js
-```
-
-### 4b. Catalog heavy-load test
-
-Ramps to 30 VUs over 4 minutes. Tests all public catalog surface:
-
-```powershell
-k6 run test/k6-catalog-test.js
-```
-
-With custom target product:
-
-```powershell
-$env:PRODUCT_ID="1"; k6 run test/k6-catalog-test.js
-```
-
-### 4c. Admin read-only test
-
-Requires an authenticated admin cookie from your browser:
+Admin, customer, and authenticated-user scenarios require a current cookie. Set `USER_ID` for scripts that read a user-scoped route:
 
 ```powershell
 $env:COOKIE="session=...; accessToken=..."
-k6 run test/k6-admin-readonly.js
+$env:USER_ID="your_user_id"
+pnpm --dir server perf:customer-readonly
 ```
 
-### 4d. Customer read-only test
+## Read the result
 
-Reads customer order history, saved addresses, and notifications:
+Review these metrics:
 
-```powershell
-$env:USER_ID="your-user-id"
-$env:COOKIE="session=...; accessToken=..."
-k6 run test/k6-customer-readonly.js
-```
+- `checks`: expected status and response-body assertions
+- `http_req_failed`: failed request rate
+- `http_req_duration`: response-time distribution
+- `p(95)`: the response-time value below which 95% of requests completed
+- Endpoint-specific trends recorded by each script
 
-### 4e. Auth read-only test
+A low response time with failed checks can indicate an authorization failure, wrong response shape, missing data, or a route error.
 
-Reads all authenticated user endpoints including profile, cart, wishlist, cart validation, orders, addresses, notifications. Requires a user session:
+## Database safety
 
-```powershell
-$env:USER_ID="your-user-id"
-$env:COOKIE="session=...; accessToken=..."
-k6 run test/k6-auth-readonly.js
-```
+Do not include these operations in a real-data performance run:
 
-## 5. Read the result
+- Checkout or order creation
+- Cart writes
+- Review creation
+- Address creation or updates
+- Notification mutations
+- Product updates or deletion
+- Promotion creation or updates
+- Admin status or inventory updates
 
-Important metrics:
-
-- `http_req_duration`: total response time.
-- `http_req_failed`: failed request rate.
-- `checks`: pass rate for expected status/body checks.
-- `p(95)`: 95% of requests were faster than this value.
-- Custom trends: each test script records endpoint-specific duration trends for granular analysis.
-
-Thresholds by script:
-
-| Script | p(95) max | Fail rate max | Check rate min |
-|--------|----------|---------------|----------------|
-| `performance-test.js` | 1200ms | 5% | 95% |
-| `k6-catalog-test.js` | 1200ms | 5% | 95% |
-| `k6-admin-readonly.js` | 1500ms | 5% | 95% |
-| `k6-customer-readonly.js` | 1500ms | 5% | 95% |
-| `k6-auth-readonly.js` | 1500ms | 5% | 95% |
-
-## 6. Keep it database-safe
-
-Do not include these routes in a real database performance test unless you use a test database:
-
-- `POST /api/orders/purchase/:uid`
-- `POST /api/reviews`
-- `POST /api/cart`
-- `POST /api/users/:id/addresses`
-- `POST /api/users/:id/notifications/read-all`
-- `PUT /api/products/:id`
-- `DELETE /api/products`
-
-Use a cloned test database if you want to measure checkout, reviews, cart writes, or admin updates.
+Use a cloned database for write-heavy performance work. Keep demo reset and migration commands outside a performance run.

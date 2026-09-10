@@ -1,123 +1,122 @@
-# Contributing
+# Contributing to Digital-E
 
-Thanks for improving Digital-E. This guide keeps changes consistent and easier
-to review.
+This guide explains how to prepare a change, work within the current client and server boundaries, verify it, and submit a reviewable pull request.
 
-## Before You Start
+## Before you start
 
-1. Pull the latest `master`.
-2. Create a focused branch.
-3. Select Node.js `24.20.0` and pnpm `12.3.4`.
-4. Install dependencies for each application:
+Use Node.js `24.20.0` and pnpm `12.3.4`. The repository has one long-lived branch, `main`; do not push directly to it.
+
+Create a focused branch from `main`, then install each package independently:
 
 ```powershell
+git switch main
+git pull --ff-only origin main
+git switch -c feature/your-change
+
 pnpm --dir client install
 pnpm --dir server install
 ```
 
-## Branch Naming
+Use `bugfix/your-change` for a non-urgent fix and `hotfix/your-change` for an urgent production fix. Preserve unrelated working-tree changes and do not add a root package, workspace, or lockfile.
 
-Use a short, descriptive branch name:
+## Understand the boundaries
 
-```text
-feature/customer-notifications
-fix/promotion-create-error
-docs/readme-refresh
-test/k6-readonly-orders
+Client domain code belongs under `client/src/features/<domain>/`. Shared client infrastructure belongs under `client/src/lib`, `client/src/context`, `client/src/components`, or `client/src/utils`. Reuse `client/src/lib/http.ts` and existing feature API modules for HTTP calls.
+
+Server features are Nest modules under `server/src/<feature>/`. Keep controllers focused on request parsing and response formatting, services responsible for business rules and cross-table coordination, and repositories responsible for SQL or Prisma persistence. Put request validation in feature validators or shared Zod schemas.
+
+Preserve route-local response keys such as `msg`, `error`, `products`, `orders`, `order`, `pagination`, and `userData`. Preserve cookie sessions, CSRF behavior, route aliases, `AuthGuard`, `RolesGuard`, and ownership checks unless the change explicitly updates the contract.
+
+## Local development
+
+Copy the tracked environment templates and initialize the isolated database when a database-backed flow is needed:
+
+```powershell
+Copy-Item client/.env.example client/.env.local
+Copy-Item server/.env.example server/.env
+Copy-Item server/.env.docker.example server/.env.docker
+
+pnpm --dir server docker:setup
 ```
 
-## Commit Messages
-
-Use Conventional Commit messages:
-
-```text
-feat(customer): add address book
-fix(promotions): support discounts schema
-docs: update setup guide
-test(performance): add read-only customer checks
-chore(deps): update package dependencies
-```
-
-Common commit types:
-
-- `feat`: user-facing or admin-facing feature.
-- `fix`: bug fix.
-- `docs`: documentation-only change.
-- `test`: tests or test tooling.
-- `refactor`: code structure change without behavior change.
-- `chore`: maintenance, dependencies, or tooling.
-
-## Development Workflow
-
-Run each package independently in a separate terminal:
+Run the applications independently:
 
 ```powershell
 pnpm --dir server dev
 pnpm --dir client dev
 ```
 
-The server lifecycle runs Prisma generate and `prisma migrate deploy` before
-starting development or the compiled server. Use `pnpm --dir server
-prisma:migrate` only when intentionally creating a new development migration.
+The server lifecycle generates Prisma Client, applies pending forward migrations, compiles the application, and starts the watcher. Use `pnpm --dir server prisma:migrate` only when intentionally creating a local development migration. Use reviewed `prisma:migrate:deploy` for deployment. Never run `prisma migrate reset` against a data-bearing database.
 
-Production client builds require an explicit `VITE_API_BASE_URL`; configure it
-in the client deployment environment.
+## Branches and commits
 
-Default local URLs:
+Use a short branch name such as:
 
-- Client: `http://localhost:5173`
-- Server: `http://localhost:4000`
-- Health check: `http://localhost:4000/api/health`
+```text
+feature/guest-order-history
+bugfix/admin-order-export
+hotfix/csrf-cookie-regression
+```
 
-## Pull Request Checklist
+Use Conventional Commit messages:
+
+```text
+feat(orders): add guest order lookup
+fix(auth): reject suspended refresh sessions
+docs: refresh local setup guide
+test(client): cover checkout validation
+chore(deps): update package dependencies
+```
+
+Common types are `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, and `ci`. Keep each commit focused and stage exact paths.
+
+## Pull request checklist
 
 Before opening a pull request:
 
-- Keep the change focused on one feature, fix, or documentation update.
-- Do not include unrelated formatting or generated files.
-- Verify customer and admin flows touched by the change.
-- Document schema assumptions when a backend change depends on table shape.
-- Use read-only performance tests unless you are using a cloned test database.
+- Explain the user or operator impact
+- List changed files and any API, schema, environment, or migration assumptions
+- Add or update focused tests where the behavior is logic-heavy
+- Verify loading, empty, error, success, responsive, and accessibility states for UI changes
+- Include screenshots for substantial visual changes
+- Confirm that no secrets, `.env` files, cookies, tokens, generated bundles, or unrelated formatting are included
+- Update `Wiki/` for architecture, API, schema, or core business-logic changes
+- State verification results and any command that could not run
 
-Recommended checks:
-
-```powershell
-client\node_modules\.bin\tsc.cmd -p client\tsconfig.json --noEmit
-cd client
-.\node_modules\.bin\vite.cmd build
-```
-
-For backend changes, run syntax checks against changed files:
+Run the checks relevant to the changed package:
 
 ```powershell
-cd server
-node --check src\app.js
-node --check src\routes\userRoutes.js
-node --check src\routes\productRoutes.js
+# Client
+pnpm --dir client exec tsc -p tsconfig.json --noEmit
+pnpm --dir client lint
+pnpm --dir client test -- --run
+pnpm --dir client build
+
+# Server
+pnpm --dir server typecheck
+pnpm --dir server lint
+pnpm --dir server test -- --run
+pnpm --dir server build
 ```
 
-## Database Safety
+Run `pnpm --dir server test:integration` only with a disposable MySQL database. Run read-only k6 scripts for read performance checks. Use a cloned database for write-heavy performance testing.
 
-The local database may contain development data. Avoid destructive changes in
-normal feature branches.
+## Database and seed safety
 
-- Prefer soft-delete behavior for products.
-- Keep performance tests read-only unless using a cloned test database.
-- Do not run checkout, review creation, cart writes, promotion writes, or admin
-  updates against production data.
-- Document any new table or column requirement in the related PR.
+Local development uses `digital_e_shop_local` at `127.0.0.1:3307`. Database target guards reject remote targets by default. The normal demo seed is transactional and idempotent for deterministic demo-owned rows; `demo:reset` is destructive and requires explicit safeguards.
 
-## Code Style
+When adding a schema change, update the Prisma schema, reviewed forward migration, repository, service, validator, types, seed or verifier behavior, and relevant documentation. The legacy MySQL dump remains the baseline for existing tables, while new schema changes belong under `server/src/database/prisma/migrations/`.
 
-- Follow existing React, SCSS, Express, service, model, and controller patterns.
-- Keep UI changes responsive and verify important desktop and mobile states.
-- Keep backend route logic thin; place business rules in services and SQL access
-  in models.
-- Avoid large unrelated refactors inside feature work.
+Do not run checkout, review creation, cart writes, promotion writes, notification mutations, product updates, or admin updates against production or shared data.
 
-## Security
+## Security expectations
 
-- Never commit secrets, cookies, access tokens, database dumps, or `.env` files.
-- Unsafe backend requests must follow the existing CSRF token flow.
-- Admin-only endpoints must enforce role checks.
-- Report suspected credential exposure immediately and rotate affected secrets.
+- Never commit secrets, credentials, cookies, access tokens, private keys, database dumps, or `.env` files
+- Validate every write payload before persistence
+- Keep unsafe requests inside the existing CSRF flow
+- Enforce role and ownership checks before business logic
+- Use parameterized SQL and keep SQL inside repositories
+- Do not log secrets, cookies, access tokens, passwords, or unnecessary personal data
+- Report suspected credential exposure privately and rotate affected secrets
+
+For reporting vulnerabilities, follow [SECURITY.md](./SECURITY.md). For collaboration behavior, follow [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).

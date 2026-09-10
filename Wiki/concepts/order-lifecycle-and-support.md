@@ -16,6 +16,14 @@ A user can create or update a product review only when a Done order contains tha
 
 Customer support submissions are stored in `support_tickets`. Customers can create and view their own tickets; admins can view and update all tickets. The API keeps the existing auth, CSRF, rate-limit, ownership, and role boundaries.
 
+The current routes are:
+
+- `POST /api/support/tickets` and `GET /api/support/tickets` for customers
+- `PATCH /api/support/tickets/:id` for admins
+
+Ticket state belongs to the database record; a client-only success toast is not
+the source of truth.
+
 ## Deferred work
 
 Product comparison is deliberately deferred to a later phase so the order/payment and customer-support flows can stabilize first.

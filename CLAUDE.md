@@ -1,37 +1,52 @@
 # CLAUDE.md
 
-Instructions for Claude Code working in this repository. This file is intentionally short — the authoritative project rules live in [AGENTS.md](./AGENTS.md).
+This file gives Claude Code a short entry point. The authoritative project rules live in [AGENTS.md](./AGENTS.md).
 
-## Read order (before doing work)
+## Read order
 
-1. **[AGENTS.md](./AGENTS.md)** — tech stack, coding conventions, architecture rules, testing, security, Git workflow, Superpowers/Wiki/BMAD rules. This is the source of truth.
-2. **[Wiki/index.md](./Wiki/index.md)** — the project knowledge base. Read it before any major change, and follow links into `Wiki/architecture.md` and the relevant `entities/`, `concepts/`, and `decisions/` pages.
+1. Read [AGENTS.md](./AGENTS.md) for coding, testing, security, Git, Wiki, and workflow rules
+2. Read [Wiki/index.md](./Wiki/index.md), then follow the relevant architecture, concept, entity, and decision links
+3. Read the maintained guide for the surface you will change under [docs/](./docs/)
 
-If `AGENTS.md` and this file ever disagree, `AGENTS.md` wins.
+If this file and `AGENTS.md` disagree, `AGENTS.md` wins.
 
-## How to work
+## Project at a glance
 
-- **Use the Superpowers execution workflow** (see AGENTS.md → "Superpowers execution workflow"): inspect → clarify assumptions → plan → implement → test → review → summarize. Scale the ceremony to the task size.
-- **Apply BMAD only when the task size requires it** (see AGENTS.md → "BMAD lightweight workflow"). Multi-file features, schema/contract changes, or work touching checkout, auth, inventory, or admin authorization warrant it. Typo fixes, copy tweaks, and single-function bug fixes do not.
-- **Keep changes small and reviewable.** Make the smallest safe change. Match surrounding style. Do not rewrite unrelated code or change runtime behavior unasked.
-- **Preserve contracts.** API response shapes, auth/CSRF/CORS behavior, route aliases, and role/ownership checks must not change unless explicitly requested.
+- `client/` is an independent React 19, Vite 8, TypeScript, Tailwind CSS, Radix UI, and SCSS package
+- `server/` is an independent NestJS 11 API on the Express 5 adapter
+- MySQL is the primary runtime database; Prisma 7 is a partial, forward-migration-owned layer
+- The current server source tree uses feature directories such as `auth`, `cart`, `orders`, `payments`, `products`, `support`, and `users`
+- The package manager is pnpm `12.3.4`; the runtime is Node.js `24.20.0`
+- Run client and server commands with `pnpm --dir client ...` and `pnpm --dir server ...`
+- The client and server both have Vitest coverage; server integration tests require a disposable MySQL database
 
-## Wiki maintenance
+## Working rules
 
-After any meaningful change to **architecture, an API contract, the database schema, or core business logic**, update the affected `Wiki/` page in the same task, bump the "Last updated" date in `Wiki/index.md`, and append a one-line entry to `Wiki/log.md`. Use Obsidian wikilinks (`[[page-name]]`). See AGENTS.md → "LLM Wiki maintenance rules".
+- Inspect source, package scripts, environment templates, and current Wiki notes before editing
+- Keep API response keys, cookie sessions, CSRF behavior, route aliases, role checks, and ownership checks stable unless the task explicitly changes them
+- Keep SQL and Prisma persistence inside server repositories, business rules in services, and request parsing in controllers and validators
+- Use existing client HTTP helpers, contexts, feature API modules, and UI primitives
+- Preserve unrelated worktree changes and avoid adding root orchestration or unnecessary dependencies
+- Update maintained documentation when architecture, API contracts, schema, business rules, commands, or security boundaries change
 
-## Before the final response
+## Verification
 
-Run the verification commands relevant to the surface you changed (see AGENTS.md → "Verification commands"). Doc-only changes need no build. Report what you ran and the result; name any command you could not run and why.
+Run the checks relevant to the changed package and report exact results:
 
-## This project at a glance
+```powershell
+pnpm --dir client exec tsc -p tsconfig.json --noEmit
+pnpm --dir client lint
+pnpm --dir client test -- --run
+pnpm --dir client build
 
-- Independent pnpm packages: `client/` (React 19 + Vite + TS) and `server/` (Express 5 + TS, MySQL primary, partial Prisma).
-- Package manager: **pnpm 12.3.4 only** — never add npm/yarn lockfiles.
-- Install independently: `pnpm --dir client install` and `pnpm --dir server install`.
-- Default dev: `pnpm --dir server dev` + `pnpm --dir client start` in separate terminals.
-- Frontend TS is `strict: true`; server TS is looser — preserve local style in touched files.
+pnpm --dir server typecheck
+pnpm --dir server lint
+pnpm --dir server test -- --run
+pnpm --dir server build
+```
 
-## Reusable task prompts
+Use `pnpm --dir server test:integration` only with the isolated local or CI database. Doc-only changes do not require a package build, but run `git diff --check` and verify links and stale references.
 
-Starter prompts for common task types live in [docs/ai-prompts/](./docs/ai-prompts/): `feature.md`, `bugfix.md`, `refactor.md`, `test.md`, `wiki-ingest.md`.
+## Reusable prompts
+
+Common task prompts live in [docs/ai-prompts/](./docs/ai-prompts/). The durable project knowledge base lives in [Wiki/](./Wiki/).

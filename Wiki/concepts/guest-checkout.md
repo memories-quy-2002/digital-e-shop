@@ -1,5 +1,7 @@
 # Guest checkout
 
+Back to [[index]]. Related: [[0004-guest-cart-and-checkout]], [[architecture]].
+
 ## Flow
 
 1. The browser stores only product IDs and quantities in the versioned guest
@@ -16,6 +18,11 @@
    Stripe finalization, then refreshes shared cart state. Authenticated checkout
    stores the shipping snapshot so Admin order detail can render the full
    destination; checkout can also suggest unique addresses from prior orders.
+
+Immediate checkout can use the local symbolic provider path in development;
+that path finalizes the reserved order without calling Stripe. Production
+payment-provider behavior remains behind the payment boundary and is not
+implied by the guest access model.
 
 ## Boundaries
 

@@ -1,93 +1,120 @@
-# Development Guide
+# Development guide
 
-## Runtime Versions
+Use this guide to run Digital-E locally, understand package boundaries, and make changes that preserve current contracts.
 
-Use Node.js `24.20.0` and pnpm `12.3.4`. The repository pins the Node version
-in `.node-version`; both package manifests pin the pnpm version.
+## Runtime and package versions
 
-## Install
+- Node.js `24.20.0`, selected by `.node-version`
+- pnpm `12.3.4`, declared by the client and server manifests
+- Client package root: `client/`
+- Server package root: `server/`
 
-Install each application independently:
+The repository root intentionally has no `package.json`, pnpm workspace, lockfile, or installed dependencies. Each package owns its own manifest, lockfile, workspace policy, scripts, and `node_modules` directory.
+
+## Install dependencies
+
+Run installs independently:
 
 ```powershell
 pnpm --dir client install
 pnpm --dir server install
 ```
 
-`client/pnpm-lock.yaml` and `server/pnpm-lock.yaml` are independent. The root
-directory intentionally has no `package.json`, pnpm workspace, lockfile, or
-`node_modules`.
+Use `--frozen-lockfile` in CI or when you need to prove that the manifest and lockfile match.
 
-## Run Locally
+## Configure local environment files
 
-Run each app in its own terminal:
+Copy the tracked templates:
+
+```powershell
+Copy-Item client/.env.example client/.env.local
+Copy-Item server/.env.example server/.env
+Copy-Item server/.env.docker.example server/.env.docker
+```
+
+The server loads a configured `DIGITAL_E_ENV_FILE` first, then `.env.<mode>.local`, `.env.local`, `.env.<mode>`, `.env`, and the current working directory fallback. Production validates database, JWT, refresh, CSRF, client-origin, and server-origin variables before startup.
+
+The client reads `VITE_API_BASE_URL`. Development uses `http://localhost:4000` when no override is supplied. Production builds require an explicit API base URL. Do not put `/api` in the client variable because request modules add that prefix.
+
+## Prepare the local database
+
+The supported local database is the Docker MySQL service at `127.0.0.1:3307` with database `digital_e_shop_local` and volume `digital_e_shop_local_mysql_data`.
+
+Run the protected local setup:
+
+```powershell
+pnpm --dir server docker:setup
+```
+
+This command starts MySQL, imports the legacy SQL baseline and historical Stripe SQL, records the metadata-only Prisma `0_init` marker, deploys forward migrations, runs the deterministic demo seed, and verifies relational counts and orphan links.
+
+Run individual operations when needed:
+
+```powershell
+pnpm --dir server docker:up
+pnpm --dir server docker:import
+pnpm --dir server docker:migrate
+pnpm --dir server docker:seed
+pnpm --dir server docker:verify
+pnpm --dir server docker:down
+```
+
+`demo:reset` and the manual GitHub demo-reset workflow are destructive. Use them only with the documented confirmation and backup safeguards. Do not bypass database-target guards for a remote or production target.
+
+## Run the applications
+
+Use separate terminals:
 
 ```powershell
 pnpm --dir server dev
 pnpm --dir client dev
 ```
 
-Before the server starts, its lifecycle runs `prisma:generate` followed by
-`prisma migrate deploy`, then compiles and starts the localhost watcher. The
-same Prisma preparation and compile step runs before `pnpm --dir server start`.
+The server `predev` lifecycle generates Prisma Client and runs `prisma migrate deploy` before compiling. The client Vite cache lives in `client/.vite`. Production start and Vercel builds use the compiled server output and copied runtime assets.
 
-Default URLs:
+Default local URLs:
 
 - Client: `http://localhost:5173`
 - Server: `http://localhost:4000`
 - Health: `http://localhost:4000/api/health`
+- Scalar API reference: `http://localhost:4000/docs`
 
-## Environment
+## Frontend boundaries
 
-The server needs a configured `server/.env` for database, auth, CORS, and
-deployment-specific values. In production, `DATABASE_URL`, `DB_HOST`,
-`DB_USER`, `DB_NAME`, `JWT_SECRET_KEY`, `JWT_REFRESH_SECRET_KEY`,
-`CSRF_SECRET`, `CLIENT_URL`, and `SERVER_URL` are required; startup fails
-clearly when any are missing. Do not commit `.env` files.
+- Put domain-owned pages, API calls, types, utilities, and tests under `client/src/features/<domain>/`
+- Put generic route pages under `client/src/pages/`
+- Reuse `client/src/lib/http.ts` for credentials, CSRF, base URLs, and request errors
+- Reuse contexts for auth, cart, Toast, and shared state
+- Keep loading, empty, error, success, responsive, and accessible states explicit
+- Reuse Radix-based UI components and existing Tailwind or SCSS tokens before creating new primitives
 
-The server loads `server/.env.<mode>.local`, `server/.env.local`,
-`server/.env.<mode>`, and finally `server/.env` in that order. Use
-`server/.env.docker` for the local Docker database helpers; it points to the
-same `127.0.0.1:3307` MySQL mapping and local API origins.
+## Backend boundaries
 
-The client should use the existing API configuration pattern instead of hard
-coding environment-specific URLs inside page components. Development defaults
-to `http://localhost:4000`; production builds require `VITE_API_BASE_URL` to be
-set explicitly. Vite reads the local fallback from `client/.env` and allows
-`client/.env.local` or mode-specific files to override it. The client Vercel
-project must provide the production API URL externally.
+- Add a feature under `server/src/<feature>/` with a Nest module and feature-owned classes
+- Keep controllers focused on request parsing and response formatting
+- Put business rules and multi-table orchestration in services
+- Keep parameterized SQL and Prisma access in repositories
+- Validate writes with feature-local or shared Zod schemas
+- Apply `AuthGuard`, `RolesGuard`, and `OwnerParam` before protected business logic
+- Preserve route-local response shapes and compatibility aliases
 
-## Frontend Guidelines
+## Database changes
 
-- Keep page components focused on rendering and user interaction.
-- Reuse context and API helpers for shared state and network behavior.
-- Keep responsive layout checks in mind for header, footer, admin tables,
-  filters, product cards, checkout, and cart flows.
-- Prefer clear loading, empty, error, and success states for data-driven pages.
+MySQL remains the runtime source for most repositories. Prisma is partial and uses `server/src/database/prisma/migrations/` for new forward changes. The legacy files under `server/src/database/migrations/` are bootstrap history, not a second location for pending migrations.
 
-## Backend Guidelines
+Use these commands from the repository root:
 
-- Routes define HTTP shape.
-- Controllers parse request data and return responses.
-- Services hold business rules.
-- Models hold SQL and schema-specific behavior.
+```powershell
+pnpm --dir server prisma:generate
+pnpm --dir server prisma:validate
+pnpm --dir server prisma:migrate
+pnpm --dir server prisma:migrate:deploy
+pnpm --dir server prisma:migrate:status
+pnpm --dir server prisma:seed
+```
 
-Avoid direct SQL in controllers. If a feature touches multiple tables, keep the
-orchestration in a service.
+Use `prisma:migrate` only for intentional local migration development. Use reviewed `prisma:migrate:deploy` for shared or production rollout after backup and target verification. Never use `prisma migrate reset` against a data-bearing database.
 
-## Database Guidelines
+## Pull requests
 
-- Use `discounts` for promotion data.
-- Use `carts` for cart data.
-- Derive product ratings from `reviews`.
-- Prefer soft deletes for products.
-- Record inventory movements whenever stock changes.
-
-## Pull Requests
-
-Use small, reviewable commits with Conventional Commit messages. Include:
-
-- Summary of user-facing changes.
-- Backend or schema assumptions.
-- Verification commands and results.
-- Screenshots for substantial UI changes when possible.
+Use small Conventional Commit changes. A pull request should explain behavior, changed files, schema or environment assumptions, verification results, screenshots for substantial UI work, and remaining risks. Update the [Wiki](../Wiki/index.md) when architecture, API contracts, schema, or core business rules change.

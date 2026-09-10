@@ -1,51 +1,75 @@
-# Copilot Instructions — digital-e-shop
+# Copilot instructions for Digital-E
 
-Full project rules live in [AGENTS.md](../AGENTS.md) — read it first. This file is a
-short summary for Copilot code review / chat; if the two ever disagree, `AGENTS.md` wins.
+Read [AGENTS.md](../AGENTS.md) first. It is the source of truth for project rules. Use [Wiki/index.md](../Wiki/index.md) and the maintained guides under [docs/](../docs/) for current architecture and workflow details.
 
 ## Project overview
-E-commerce website selling electronic devices and components. Two independent pnpm packages:
-- `client/` — React 19 + Vite + TypeScript (strict) + SCSS frontend
-- `server/` — Express 5 backend, MySQL primary data store, partial Prisma adoption, JWT + local/Firebase auth
 
-Database: MySQL, hosted on Aiven. Package manager: **pnpm 12.3.4 only** — never add npm/yarn lockfiles. Deployment: Vercel. CI/CD: GitHub Actions.
+Digital-E is an electronics commerce platform with two independent pnpm packages:
 
-## Setup & commands
-- Install client dependencies: `pnpm --dir client install`
-- Install server dependencies: `pnpm --dir server install`
-- Run client dev server: `pnpm --dir client start`
-- Run server dev: `pnpm --dir server dev`
-- Typecheck client: `pnpm --dir client exec tsc --noEmit`
-- Typecheck server: `pnpm --dir server typecheck`
-- Build client: `pnpm --dir client build`
-- Build server: `pnpm --dir server build`
-- Lint: `pnpm --dir client lint` / `pnpm --dir server lint`
-- Tests: `pnpm --dir client test` / `pnpm --dir server test` (Vitest configured)
+- `client/`: React 19, Vite 8, TypeScript, Tailwind CSS, Radix UI, and SCSS
+- `server/`: NestJS 11 on the Express 5 adapter, TypeScript, MySQL, and partial Prisma ownership
 
-## Coding conventions
-- Use TypeScript strictly on the client — avoid `any`, prefer explicit types/interfaces. Server TS is looser (`strict: false`); match the existing local style in touched files rather than tightening repo-wide.
-- Follow existing SCSS module/BEM structure for styling; don't introduce a new CSS-in-JS approach.
-- Keep API route handlers thin — request parsing/response formatting only. Push business rules into services and table access into repositories (`routes -> controller -> service -> repository`).
-- Match existing file/folder naming conventions already used in `client/src` and `server/src` rather than introducing new patterns.
-- Preserve existing API response shapes (`msg`, `error`, route-specific data keys) — don't "clean up" a contract unless explicitly asked.
+Use Node.js `24.20.0` and pnpm `12.3.4`. The package-local lockfiles and workspace policies are independent. The applications deploy separately to Vercel, and GitHub Actions validates both packages.
 
-## Security-sensitive areas — flag issues here first
-- **JWT auth**: token generation, expiry, and refresh logic. Watch for missing expiry checks, weak secrets, or tokens leaking into logs/responses.
-- **CSRF**: unsafe requests must keep the existing CSRF flow. Login/register/refresh are intentionally exempt — flag any change that broadens that exemption.
-- **Database queries**: all MySQL queries must be parameterized. Flag any string-concatenated or template-literal SQL, and review any `$queryRawUnsafe` usage carefully.
-- **Input validation**: flag any API route accepting user input (especially checkout/order/payment-adjacent routes) that lacks Zod validation before persistence.
-- **AuthZ**: customer endpoints must check ownership; admin endpoints must enforce `requireAdmin` before business logic. Flag any bypass of `requireAuth`, `requireAdmin`, or `requireOwnerOrAdmin`.
-- **Secrets**: flag any hardcoded API keys, DB credentials, or JWT secrets committed directly in code.
-- **CORS config**: this project has had prior CORS/routing issues on Vercel — flag changes to CORS/middleware config that look overly permissive (e.g. wildcard origins) or that could break existing client-server routing.
+## Setup and commands
 
-## What NOT to flag
-- Minor SCSS style preferences that don't affect functionality.
-- Formatting-only differences already handled by existing lint/format tooling.
-- Missing tests in areas that have no test harness today (see AGENTS.md "Testing instructions") — suggest adding one instead of blocking on it.
+```powershell
+pnpm --dir client install
+pnpm --dir server install
+
+pnpm --dir server dev
+pnpm --dir client dev
+
+pnpm --dir client exec tsc -p tsconfig.json --noEmit
+pnpm --dir client lint
+pnpm --dir client test -- --run
+pnpm --dir client build
+
+pnpm --dir server typecheck
+pnpm --dir server lint
+pnpm --dir server test -- --run
+pnpm --dir server build
+```
+
+Use the isolated Docker MySQL database for database-backed checks:
+
+```powershell
+pnpm --dir server docker:setup
+pnpm --dir server test:integration
+pnpm --dir server demo:verify
+```
+
+## Coding boundaries
+
+- Put domain client code under `client/src/features/<domain>/`
+- Reuse `client/src/lib/http.ts`, feature API modules, contexts, and existing UI primitives
+- Put backend features under `server/src/<feature>/`
+- Keep Nest controllers focused on request parsing and response formatting
+- Keep business rules and cross-table coordination in services
+- Keep parameterized SQL and Prisma persistence in repositories
+- Validate writes with Zod before persistence
+- Preserve route-local response keys, cookie sessions, CSRF behavior, route aliases, and current auth contracts
+
+## Security-sensitive areas
+
+- `AuthGuard`, `RolesGuard`, and `OwnerParam` enforce session, role, and ownership boundaries
+- Unsafe requests use the existing CSRF middleware; login, registration, and refresh keep their explicit exclusions
+- Production authentication verifies Firebase identity before issuing the server's cookie-backed session
+- Refresh sessions are hashed, rotated, revocable, and checked against the active user
+- Guest checkout stores only product IDs and quantities in the client cart; the database stores only a hash of the raw guest token
+- All SQL must be parameterized; do not add string-built queries or unsafe raw SQL without review
+- Do not log passwords, tokens, cookies, secrets, or unnecessary personal data
+- Do not commit credentials, `.env` files, database dumps, or private keys
+- Preserve database-target guards, migration safety, rate limits, and webhook idempotency
+
+## What reviewers should verify
+
+- Customer routes enforce ownership, and admin routes enforce the `admin` role before business logic
+- Checkout, inventory, payment, timeline, notification, support, and guest lookup changes preserve transaction and idempotency boundaries
+- API responses retain their existing `msg`, `error`, and route-specific data keys unless the contract change is explicit
+- UI changes retain loading, empty, error, success, responsive, keyboard, and focus states
+- Tests and documentation match the changed behavior
 
 ## Git workflow
-The GitHub remote currently has a single long-lived branch: `main` (also serving as the deployed/production branch). A `dev` → `main` → `production` flow ran previously but those branches were merged and deleted — don't assume `dev` or `production` exist; verify with the remote if unsure. Branch new work (`feature/`, `bugfix/`, `hotfix/`) from `main` and PR back into it. Never push directly to `main`.
 
-## Notes for reviewers (human or Copilot)
-- This is a solo-maintained personal/portfolio project — prioritize correctness, security, and clarity over enterprise-scale patterns (e.g. don't suggest full microservices restructuring).
-- Do not add dependencies without a concrete need; keep lockfile churn minimal and prefer patch/minor updates unless a larger change is explicitly requested.
+The remote has one long-lived branch, `main`. Branch new work as `feature/`, `bugfix/`, or `hotfix/` and merge through a pull request. Never push directly to `main`.

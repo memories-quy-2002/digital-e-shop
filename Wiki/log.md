@@ -36,3 +36,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-08 - Codex - Verified guest cart and checkout end-to-end against local Docker MySQL with Playwright, and added the signed-in guest-cart merge prompt discovered during smoke testing.
 - 2026-09-08 - Codex - Completed Task 9 verification under Node 24.20.0 and pnpm 12.3.4; added a Windows-safe client build fallback and removed the auth redirect lint blocker without changing redirect validation behavior.
 - 2026-09-09 - Codex - Preserved structured shipping snapshots for Admin order detail, cleared the active cart after confirmed checkout, and added one-click prior-order address suggestions.
+- 2026-09-10 - Codex - Refreshed maintained project docs, policies, guides, Wiki pages, ADRs, prompts, and templates against the current independent client/server NestJS runtime; historical plans and specs were preserved.

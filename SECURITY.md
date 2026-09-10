@@ -1,98 +1,90 @@
-# Security Policy
+# Security policy
 
-Digital-E handles customer accounts, orders, addresses, promotions, and admin
-operations. Security issues should be reported privately so they can be fixed
-before details are shared publicly.
+Digital-E processes customer accounts, orders, addresses, payment state, inventory, and admin operations. Report suspected vulnerabilities privately so maintainers can investigate before details become public.
 
-## Supported Versions
+## Supported versions
 
-Security fixes are prioritized for the current `master` branch.
+The current `main` branch is the supported development and release line. Older branches and forks do not receive project-level security fixes.
 
 | Version | Supported |
 | --- | --- |
-| Current `master` | Yes |
-| Older branches or forks | No |
+| `main` | Yes |
+| Older branches and forks | No |
 
-## Reporting a Vulnerability
+## Report a vulnerability
 
-Do not open a public GitHub issue for a suspected vulnerability.
+Do not open a public issue or pull request for a suspected vulnerability. Contact the repository maintainers through a private channel or use GitHub private vulnerability reporting when it is enabled for the repository.
 
-Report security issues by contacting the repository owner directly through a
-private channel, or by using GitHub private vulnerability reporting if it is
-enabled for this repository.
+Include enough detail to reproduce and assess the issue:
 
-Include as much detail as possible:
+- Affected route, page, module, dependency, or configuration
+- Preconditions and required account role
+- Reproduction steps and a minimal proof of concept
+- Expected and actual behavior
+- Security impact and affected data or operations
+- Relevant request, response, screenshot, or sanitized log excerpt
+- Suggested mitigation, if known
 
-- Affected area, route, page, or file.
-- Steps to reproduce.
-- Expected behavior and actual behavior.
-- Required account role, if any.
-- Example request, response, screenshot, or log excerpt.
-- Potential impact.
-- Suggested fix, if known.
+Remove production secrets, real customer data, access tokens, cookies, database URLs, and private keys before sending a report. If a report exposes data that is not yours, stop testing and tell the maintainers what was accessed.
 
-Do not include real customer data, production secrets, access tokens, cookies,
-or database dumps in the report.
+## Response targets
 
-## Response Targets
+The project uses these targets for initial triage. They are targets, not guarantees:
 
-The project aims to follow these response targets:
-
-| Severity | First response | Target fix window |
+| Severity | Initial response | Target fix window |
 | --- | --- | --- |
 | Critical | 48 hours | 7 days |
 | High | 72 hours | 14 days |
 | Medium | 7 days | 30 days |
 | Low | 14 days | Best effort |
 
-These are targets, not guarantees. Fix timing depends on reproducibility, scope,
-and release risk.
+Timing depends on reproducibility, affected surface, release risk, and the availability of a safe fix.
 
-## Security Scope
+## Security scope
 
-In scope:
+Reports are in scope when they demonstrate a practical impact in the application or its release process, including:
 
-- Authentication and authorization bypasses.
-- Admin-only route exposure.
-- Customer data exposure across accounts.
-- SQL injection.
-- Cross-site scripting.
-- CSRF bypasses on unsafe requests.
-- Promotion, checkout, order, payment method, or inventory logic abuse.
-- Sensitive data leakage in logs, responses, or client bundles.
-- Dependency vulnerabilities with a practical exploit path.
+- Authentication or authorization bypasses
+- Admin route exposure or cross-account customer data access
+- JWT, cookie, refresh-session, CSRF, or guest-order-token weaknesses
+- SQL injection, path traversal, file upload abuse, or cross-site scripting
+- Checkout, payment, promotion, inventory, reservation, or order-state manipulation
+- Sensitive data leakage in API responses, logs, bundles, artifacts, or configuration
+- Dependency or GitHub Actions vulnerabilities with an applicable exploit path
+- Database target isolation or migration safety bypasses
 
-Out of scope:
+The following are out of scope unless they demonstrate a concrete application impact:
 
-- Social engineering.
-- Denial-of-service testing against shared or production infrastructure.
-- Vulnerabilities requiring physical access to a developer machine.
-- Reports based only on missing security headers without a demonstrated impact.
-- Automated scanner output without reproduction steps or impact explanation.
+- Social engineering, phishing, or credential stuffing
+- Denial-of-service testing against shared or production infrastructure
+- Physical access to a developer machine
+- Scanner output without reproduction steps or impact analysis
+- Missing security headers without a demonstrated exploit
 
-## Safe Testing Rules
+## Safe testing rules
 
-- Use local development or an approved test environment.
-- Do not modify, delete, export, or exfiltrate real user data.
-- Do not run destructive or high-volume tests against shared infrastructure.
-- Do not attempt credential stuffing, phishing, or social engineering.
-- Stop testing and report immediately if you access data that is not yours.
+Use local development or an approved test environment. The supported local database is the Docker MySQL service at `127.0.0.1:3307`; do not test against a remote development or production database unless the maintainers explicitly approve it.
 
-## Project Security Practices
+- Do not modify, delete, export, or exfiltrate real user data
+- Do not use high-volume or destructive testing against shared infrastructure
+- Do not attempt phishing, credential stuffing, or social engineering
+- Use the local demo accounts only with the local demo database
+- Stop immediately if a test reaches data that is not yours
 
-Contributors should preserve these practices:
+## Security controls to preserve
 
-- Keep unsafe requests behind the existing CSRF flow.
-- Enforce role checks on admin endpoints.
-- Validate resource ownership for customer routes.
-- Keep secrets out of source control.
-- Avoid logging access tokens, cookies, passwords, or personal data.
-- Use parameterized SQL queries instead of string-built SQL.
-- Prefer soft-delete behavior for products and audit-sensitive records.
-- Run dependency checks and review security alerts before release.
+Contributors must preserve the controls implemented in the current codebase:
 
-## Disclosure
+- Production authentication verifies Firebase identity before the server issues its own session; local development can use the configured local provider
+- Access and refresh tokens use cookie-backed, database-aware sessions; refresh sessions are hashed, rotated, and revocable
+- `AuthGuard`, `RolesGuard`, and `OwnerParam` enforce authentication, role, and ownership boundaries
+- Unsafe requests use the double-submit CSRF middleware; login, registration, and refresh keep their explicit exclusions
+- Zod validates write payloads before persistence, and repositories use parameterized database access
+- Guest checkout stores only product IDs and quantities in the guest cart; prices and stock come from the server, while the database stores only a hash of the raw guest order token
+- Sensitive rate limits use Redis in production when `REDIS_URL` is configured, with process-local fallback otherwise
+- New schema changes use reviewed forward Prisma migrations, and database-target guards protect local operations
+- Logs use request correlation and must not contain secrets, tokens, cookies, passwords, or unnecessary personal data
 
-Please allow maintainers reasonable time to investigate and fix confirmed
-issues before public disclosure. Coordinated disclosure helps protect users and
-keeps fixes traceable.
+## Coordinated disclosure
+
+Give maintainers reasonable time to validate, fix, and release a confirmed issue before public disclosure. Coordinated disclosure helps protect users and keeps the fix traceable.

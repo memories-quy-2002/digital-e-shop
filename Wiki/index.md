@@ -1,58 +1,59 @@
 # Digital-E Wiki
 
-The long-term knowledge base for the Digital-E e-commerce system. Readable in Obsidian; maintained by humans and AI agents. For agent rules, see [AGENTS.md](../AGENTS.md). For human guides, see [docs/](../docs/).
+This Wiki records durable Digital-E understanding for maintainers and AI agents. Use [AGENTS.md](../AGENTS.md) for repository rules and [docs/](../docs/) for task-oriented human guides.
 
-**Project summary:** Digital-E is a full-stack e-commerce platform for electronic components and devices, built as two independent pnpm packages: a React 19 + Vite storefront/admin (`client/`) and a NestJS + TypeScript API (`server/`, migrated from Express 5 — see [[0002-nestjs-migration]]) backed primarily by MySQL with a partial Prisma layer.
+**Project summary:** Digital-E is an electronics commerce platform built from two independent pnpm packages: a React 19 and Vite storefront/admin client in `client/`, and a NestJS 11 API on the Express 5 adapter in `server/`. MySQL remains the primary runtime database, while Prisma 7 owns a partial forward-migration layer.
 
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-10
 
-The local MySQL demo seed creates and verifies a linked multi-table graph with
-28 catalog products, each using a unique HTTPS stock image URL. The seed stays
-non-destructive for normal reruns; Docker reset is an explicit local-only
-operation. A separately protected, manual GitHub Actions workflow can rebuild
-the selected production database from the committed legacy baseline before
-running the same demo seed and verifier.
+The current implementation includes authenticated and guest carts, server-authoritative checkout, Stripe and local mock payment paths, order reservations and payment ledgers, catalog attributes and snapshots, customer support tickets, admin analytics, operational alerts, and database-backed demo verification.
 
-Checkout follows the dark technical storefront language with a progress rail,
-scoped payment/shipping panels, and normalized client-side email validation.
-Transient Toasts use a portal-mounted viewport outside the app shell, while
-contextual validation stays next to the action that needs attention.
-Successful checkout clears the active cart, preserves a structured shipping
-snapshot for order detail, and offers prior order addresses as one-click
-checkout suggestions.
+The local demo seed creates a linked graph with 28 products across 8 categories and 16 brands. It verifies image URLs, order totals, reviews, wishlists, addresses, notifications, sessions, discounts, inventory movements, and orphan relationships. Normal seeding is guarded and non-destructive for demo-owned rows; full reset is an explicit local or protected production workflow.
 
-## Core pages
+## Start here
 
-- [CI/CD guide](../docs/ci-cd.md) — validation workflows, migration gates, deployment checks, and rollback.
+- [[overview]]: purpose, stack, package commands, environment, and current assumptions
+- [[architecture]]: client, server, database, authentication, checkout, deployment, and CI boundaries
+- [[guest-checkout]]: browser cart, authoritative preview, guest checkout, token-protected lookup, and cart merge
+- [[order-lifecycle-and-support]]: order state transitions, review eligibility, and support-ticket ownership
+- [[0001-mysql-primary-prisma-partial]]: MySQL and partial Prisma ownership
+- [[0002-nestjs-migration]]: accepted NestJS migration and current server structure
+- [[0003-payment-ledger-and-usd-canonical-currency]]: USD canonical amounts and provider settlement values
+- [[0004-guest-cart-and-checkout]]: accepted guest access model and security boundary
+- [[log]]: append-only Wiki maintenance history
 
-- [[overview]] — purpose, stack, modules, commands, assumptions.
-- [[architecture]] — folder structure, frontend/backend/database boundaries, risks.
-- [[log]] — append-only wiki/AI-maintenance change log.
-- [[0003-payment-ledger-and-usd-canonical-currency]] — payment providers, USD canonical amounts, and PayOS VND quotes.
-- [[order-lifecycle-and-support]] — cancellation, review eligibility, and support-ticket rules.
+## Related guides
 
-- [[guest-checkout]] - guest cart persistence, authoritative checkout, and token-protected lookup.
-- [[0004-guest-cart-and-checkout]] - accepted guest access model and security boundaries.
+- [Root README](../README.md): setup and project overview
+- [Architecture guide](../docs/ARCHITECTURE.md): current implementation boundaries
+- [API guide](../docs/API.md): route groups and API conventions
+- [Development guide](../docs/DEVELOPMENT.md): environment and local workflow
+- [Testing guide](../docs/TESTING.md): package, integration, smoke, and k6 checks
+- [CI/CD guide](../docs/ci-cd.md): CI, migration gates, deployment, and reset safety
+- [Prisma workflow](../server/README.prisma.md): schema ownership and demo database operations
 
-## Catalog
+## Wiki catalog
 
-### Entities (`entities/`)
-Domain objects and their relationships. Add a page per entity as it is documented (e.g. `Product`, `Order`, `Cart`, `User`, `Discount`, `Review`, `Address`, `Notification`).
+### Entities
 
-### Concepts (`concepts/`)
-Cross-cutting concepts (e.g. `auth-and-csrf`, `validation`, `inventory-movement`, `api-response-shapes`).
+Domain objects and their relationships belong under `entities/`. Add a page when a domain object needs durable explanation, such as Product, Order, Cart, User, Discount, Review, Address, or Notification.
 
-### Decisions (`decisions/`)
-Lightweight ADRs — one decision per file. See [[0001-mysql-primary-prisma-partial]], [[0002-nestjs-migration]].
+### Concepts
 
-### Sources (`sources/`)
-Notes distilled from specific source files or external docs.
+Cross-cutting behavior belongs under `concepts/`, such as authentication, validation, inventory movement, API response shapes, guest checkout, and order lifecycle.
 
-### Synthesis (`synthesis/`)
-Higher-level summaries tying several pages together.
+### Decisions
 
-## How to use this wiki
+Accepted architectural decisions belong under `decisions/`, one decision per file. Preserve historical context and add a current-status note when implementation changes.
 
-- Read this page before any major change, then follow links into the relevant pages.
-- After meaningful architecture / API / database / business-logic changes, update the affected page, bump **Last updated** above, and append a line to [[log]].
-- Link pages with Obsidian wikilinks: `[[page-name]]` (no `.md`).
+### Sources and synthesis
+
+Use `sources/` for notes derived from a specific source file or external reference. Use `synthesis/` for summaries that connect several Wiki pages.
+
+## Maintenance rules
+
+- Read this page before a major change and follow links into the relevant pages
+- Update the affected Wiki page when architecture, API contracts, schema, or core business rules change
+- Bump **Last updated** on this page and append one line to [[log]] for meaningful updates
+- Use Obsidian wikilinks such as `[[page-name]]` for Wiki-to-Wiki links
+- Keep completed plans and specs under `docs/superpowers/` as historical records; update maintained guides instead of rewriting past execution history

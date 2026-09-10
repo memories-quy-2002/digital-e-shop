@@ -49,3 +49,17 @@ Skip it — just run the Superpowers steps — for:
 - Wear the roles in sequence within a single session; don't spawn process for its own sake.
 - Prefer a handful of bullets over filling every template field. Templates are checklists, not forms that must be completed.
 - Always finish with verification commands and a summary of changed files + risks.
+
+## Current repository shape
+
+- `client/` and `server/` are independent pnpm package roots; run commands with
+  `pnpm --dir client ...` or `pnpm --dir server ...`.
+- Client domain work belongs under `client/src/features/<domain>/`.
+- Backend feature work belongs under `server/src/<feature>/` as Nest modules with
+  controllers, services, repositories, validators, and focused tests.
+- MySQL is the primary runtime database. Prisma 7 is a partial forward-
+  migration layer, so schema work must account for both repository SQL and
+  reviewed Prisma migrations.
+- For current verification commands, use [AGENTS.md](../../AGENTS.md) and
+  [docs/TESTING.md](../TESTING.md); do not copy commands from completed
+  historical plans.

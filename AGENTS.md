@@ -8,12 +8,15 @@ the client and server, focused on electronics and components.
 It has two deployable applications:
 
 - `client/`: a React 19 + Vite storefront and admin UI.
-- `server/`: an Express 5 API serving catalog, cart, checkout, account, admin, and analytics flows.
+- `server/`: a NestJS 11 API on the Express 5 adapter serving catalog, cart,
+  checkout, account, admin, support, and analytics flows.
 
 High-level architecture:
 
 - Frontend: React Router pages, feature-scoped UI modules, React context for auth/cart/toast, Axios for API calls, SCSS for styling.
-- Backend: feature-based Express API with `modules/<feature>/routes -> controller -> service -> repository`, plus shared `core`, `config`, `database`, and `shared` layers.
+- Backend: feature-based NestJS API with `@Module`/controller/service/repository
+  boundaries under `server/src/<feature>/`, plus shared guards, pipes,
+  filters, middleware, config, database, payments, and shared layers.
 - Data access: primary runtime access is still MySQL through feature repositories; Prisma is present and used in a limited subset of repository reads, not as the dominant persistence abstraction.
 
 For broad tasks that benefit from delegation, also read `docs/CODEX_ORCHESTRATION.md`.
@@ -28,11 +31,12 @@ For broad tasks that benefit from delegation, also read `docs/CODEX_ORCHESTRATIO
 
 ### Frontend
 
-- React `19.2.6`
-- React Router DOM `7.16.0`
-- Vite `8.0.14`
+- React `19.2.8`
+- React Router DOM `7.18.3`
+- Vite `8.2.2`
+- TypeScript `6.0.3`
+- Tailwind CSS `4.3.3` with Radix UI primitives
 - SCSS / Sass
-- React Bootstrap
 - Axios
 - Firebase client auth
 - Recharts
@@ -41,9 +45,9 @@ For broad tasks that benefit from delegation, also read `docs/CODEX_ORCHESTRATIO
 
 ### Backend
 
-- Express `5.2.1`
-- MySQL via `mysql`
-- Prisma `6.9.0` and `@prisma/client`
+- NestJS `11.2.3` on Express `5.2.1`
+- MySQL via `mysql` and `mysql2`
+- Prisma `7.10.0` and `@prisma/client` (partial persistence/migration layer)
 - Zod validation
 - `csrf-csrf`
 - `jsonwebtoken`
@@ -87,10 +91,17 @@ digital-e-shop/
       config/       Typed env, CORS, and database config
       core/         Base classes, app errors, middleware, response helpers
       database/     Prisma client/schema, migrations, and seeders
-      modules/      Feature-owned routes/controllers/services/repositories/validators/dtos/types
+      <feature>/    Feature-owned Nest modules/controllers/services/repositories/validators/dtos/types
+      guards/       AuthGuard, RolesGuard, and ownership metadata
+      pipes/        Zod validation pipe
+      filters/      Exception handling and compatibility response envelope
+      interceptors/ Request correlation and access logging
+      middleware/   CSRF, rate-limit, and request-id middleware
+      payments/     Provider boundary and payment ledger types
       shared/       Shared constants, interfaces, validation helpers, and utilities
       utils/        Narrow backend utilities still shared across modules
-      app.ts        Express composition root
+      app.module.ts Nest composition root
+      main.ts       Nest bootstrap for local and serverless entrypoints
       server.ts     Local process bootstrap
     test/           Read-only k6 scripts
 
@@ -252,20 +263,23 @@ be set explicitly.
 
 ### Validation
 
-- New write-path validation should use Zod in `server/src/validation/requestSchemas.ts` or a nearby validation module if that file becomes too large.
+- New write-path validation should use Zod in the owning `server/src/<feature>/*.validator.ts` file, or a nearby shared validation module if a contract is genuinely cross-feature.
 - Parse and validate request payloads before persistence.
 - Do not trust client-provided IDs; pair validation with ownership or role checks.
 
 ### Logging
 
-- Logging is currently console-based.
-- `requestLogger` logs requests outside production.
+- Logging is Pino-based with request correlation IDs; local development also
+  uses readable access output where configured.
+- Request logging records method, URL, status, duration, and request ID without
+  secrets or personal data.
 - DB slow query logging can be enabled with env flags.
 - Do not introduce noisy logs on hot paths. Avoid logging secrets, cookies, tokens, or personal data.
 
 ### Database access
 
-- Primary data access lives in `server/src/modules/*/*.repository.ts`.
+- Primary data access lives in `server/src/<feature>/*.repository.ts` as
+  injectable Nest providers.
 - Prefer existing MySQL model patterns for most changes.
 - Prisma exists but is only partially adopted. Do not assume a full Prisma migration.
 - Keep SQL and schema-aware persistence in repositories, not controllers.
@@ -295,7 +309,7 @@ be set explicitly.
 - Keep controllers thin.
 - Put cross-table orchestration in services.
 - Keep SQL and persistence details in repositories.
-  - Enforce `requireAuth`, `requireAdmin`, and `requireOwnerOrAdmin` consistently.
+  - Enforce `AuthGuard`, `RolesGuard`, and `OwnerParam` consistently.
 
 ## Architecture rules
 
@@ -314,17 +328,20 @@ When adding or changing features:
 
 ### Backend
 
-- Add or extend routes in `server/src/modules/<feature>/<feature>.routes.ts`.
+- Add or extend controllers in `server/src/<feature>/<feature>.controller.ts` and
+  register the feature module through `server/src/app.module.ts` when needed.
 - Put request parsing and response formatting in feature controllers.
 - Put business rules and multi-repository coordination in feature services.
 - Put table-specific reads/writes in feature repositories.
-- Put feature-local request schemas in `server/src/modules/<feature>/<feature>.validator.ts`.
+- Put feature-local request schemas in `server/src/<feature>/<feature>.validator.ts`.
 - Put shared request/domain types in `server/src/shared/interfaces`.
 - Put cross-cutting helpers in `server/src/shared`, `server/src/core`, or `server/src/config`.
 
 ### Data and auth rules
 
-- API routes are mounted under `/api`, with fallback aliases without `/api` for serverless environments.
+- API routes are mounted under `/api` by `main.ts`'s global prefix. Preserve
+  documented singular/plural route aliases; do not add a general bare-path
+  fallback without verifying the serverless contract.
 - Unsafe requests must preserve the existing CSRF flow.
 - Login, register, and refresh are intentionally excluded from CSRF protection; do not broaden those exceptions.
 - Customer endpoints must validate ownership.
@@ -340,8 +357,9 @@ When adding or changing features:
 
 Current test reality:
 
-- Client has a Vitest config and Testing Library dependencies, but there are no discovered `*.test.*` or `*.spec.*` files under `client/src`.
-- Server has no unit/integration test suite in `server/src`; current automated verification is mainly typecheck/lint/build plus read-only k6 scripts.
+- Client has Vitest and Testing Library coverage for focused UI/logic paths.
+- Server has a Vitest unit suite, an opt-in MySQL-backed integration suite, and
+  read-only k6 performance scripts.
 
 Use these checks by default:
 
@@ -367,7 +385,8 @@ If you cannot run a relevant command, say so explicitly in the final report.
 
 - Prisma schema lives at `server/src/database/prisma/schema.prisma`.
 - The checked-in SQL dump baseline lives under `server/src/database/migrations/`.
-- The operational runtime still relies mainly on feature repositories in `server/src/modules/*/*.repository.ts`.
+- The operational runtime still relies mainly on feature repositories in
+  `server/src/<feature>/*.repository.ts`.
 
 Current workflow:
 
@@ -402,7 +421,7 @@ Safe schema-change rules:
 - Never commit secrets, `.env` files, tokens, private cookies, or production credentials.
 - Validate all write payloads before persistence.
 - Preserve auth, CSRF, CORS, and role/ownership checks.
-- Do not bypass `requireAuth`, `requireAdmin`, or `requireOwnerOrAdmin` for convenience.
+- Do not bypass `AuthGuard`, `RolesGuard`, or `OwnerParam` for convenience.
 - Avoid unsafe SQL construction. If raw SQL is required, parameterize it whenever possible and review any `$queryRawUnsafe` usage carefully.
 - Preserve existing API contracts unless a contract change is explicitly requested.
 - Be cautious in performance-sensitive paths:
@@ -484,10 +503,12 @@ Run the checks relevant to the surface you changed. Doc-only changes need no bui
 pnpm --dir client exec tsc -p tsconfig.json --noEmit
 pnpm --dir client build
 pnpm --dir client lint
-pnpm --dir client test    # Vitest configured; no test files committed yet
+pnpm --dir client test -- --run
 
 # Backend
 pnpm --dir server typecheck
+pnpm --dir server test -- --run
+pnpm --dir server test:integration
 pnpm --dir server build
 pnpm --dir server lint
 ```
@@ -553,12 +574,17 @@ Templates live in `docs/bmad/`. Produce only the artifacts the task actually nee
 
 These are directly observable from the current repo:
 
-- No committed `.env.example` or `.env.sample` file exists.
+- Tracked environment templates exist at `client/.env.example`,
+  `server/.env.example`, and `server/.env.docker.example`; they contain
+  placeholders only and must not be replaced with real secrets.
 - Client and server are independently installable; `pnpm --dir client dev` runs Vite, while `pnpm --dir server dev` prepares Prisma before compiling and watching the API.
-- Client has both Vitest/Jest-related dependencies and config fragments, but no discovered frontend test files.
-- Server has no unit/integration test suite; only k6 read-only performance scripts are present.
-- Prisma schema exists, but there is still no checked-in Prisma migration history from `prisma migrate`.
+- Client and server each have package-local Vitest configuration and tests; the
+  server integration suite requires an isolated MySQL target.
+- Prisma schema and a checked-in forward migration history exist, but the
+  initial `0_init` migration is metadata-only because the legacy SQL dump is
+  still the baseline.
 - `client/pnpm-lock.yaml` and `server/pnpm-lock.yaml` are independent lockfiles and must be updated from their owning package directories.
-- `client/src/lib/env.ts` hard-codes the production API base URL instead of reading from env.
+- `client/src/lib/env.ts` requires an explicit production API base URL and uses
+  localhost only for development defaults.
 - The backend now has both a feature-based architecture and some compatibility-era wrapper patterns; not every feature validator/type file is fully independent yet.
 - Backend response payload shapes are inconsistent across routes (`msg` vs `error` and route-specific data keys), so callers must preserve route-local contracts carefully.

@@ -17,19 +17,19 @@ Use a 4-agent orchestrator-worker pattern:
 
 2. Backend Agent
    - Owns backend-only investigation or implementation.
-   - Scope: `server/src/routes`, `server/src/controllers`, `server/src/services`, `server/src/models`, `server/src/middlewares`, `server/src/validation`, `server/src/types`.
-   - Focus: auth, CSRF, ownership checks, request validation, SQL boundaries, error handling, TypeScript types, and route contracts.
+   - Scope: `server/src/<feature>`, `server/src/guards`, `server/src/pipes`, `server/src/filters`, `server/src/interceptors`, `server/src/middleware`, `server/src/config`, and `server/src/shared`.
+   - Focus: auth guards, CSRF, ownership checks, Zod validation, repository/SQL boundaries, error handling, TypeScript types, and route contracts.
    - Must not edit client files.
 
 3. Frontend Agent
    - Owns frontend-only investigation or implementation.
-   - Scope: `client/src/api`, `client/src/components`, `client/src/context`, `client/src/routes`, `client/src/styles`, `client/src/utils`.
-   - Focus: React behavior, loading/empty/error states, mobile layout, SCSS maintainability, accessibility basics, and API helper reuse.
+   - Scope: `client/src/features`, `client/src/api`, `client/src/components`, `client/src/context`, `client/src/lib`, `client/src/routes`, `client/src/styles`, and `client/src/utils`.
+   - Focus: React behavior, loading/empty/error states, responsive layout, Tailwind/Radix/SCSS maintainability, accessibility basics, and API helper reuse.
    - Must not edit server files.
 
 4. Verification Agent
    - Owns targeted checks that can run independently.
-   - Scope: typecheck, build, lint, read-only k6 scripts, route smoke checks, and focused regression review.
+   - Scope: package-local typecheck, build, lint, Vitest, read-only k6 scripts, HTTP smoke checks, and focused regression review.
    - Must not run write-heavy performance tests against shared data.
    - Must report exact commands, pass/fail status, and environment limitations.
 
@@ -105,7 +105,7 @@ Goal: Investigate or implement only the backend slice of this task.
 Scope: server files only.
 Do not edit client files.
 Preserve auth, CSRF, ownership checks, route contracts, and database schema.
-Keep controllers thin and SQL inside models.
+Keep controllers thin and SQL inside repositories.
 
 Return:
 - Status
@@ -124,7 +124,7 @@ Role: Frontend Agent.
 Goal: Investigate or implement only the frontend slice of this task.
 Scope: client files only.
 Do not edit server files.
-Use existing API helpers, context providers, React Router patterns, and SCSS structure.
+Use existing API helpers, context providers, React Router patterns, Tailwind/Radix primitives, and SCSS structure.
 Preserve cookie and CSRF request behavior.
 
 Return:
@@ -146,8 +146,12 @@ Do not make product code edits unless explicitly assigned.
 Do not run write-heavy tests against real or shared data.
 
 Prefer relevant commands:
+- pnpm --dir client exec tsc -p tsconfig.json --noEmit
+- pnpm --dir client test -- --run
 - pnpm --dir client build
+- pnpm --dir client lint
 - pnpm --dir server typecheck
+- pnpm --dir server test -- --run
 - pnpm --dir server build
 - pnpm --dir server lint
 - server read-only k6 scripts only when requested
@@ -173,7 +177,7 @@ For normal feature work:
 
 For broad full-stack tasks:
 
-1. Backend Agent handles backend API/service/model validation.
+1. Backend Agent handles backend API/service/repository validation.
 2. Frontend Agent handles UI/API integration.
 3. Verification Agent runs checks after the main integration step.
 4. Main Agent owns final merge decisions and prevents conflicting edits.

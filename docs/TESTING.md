@@ -1,84 +1,99 @@
-# Testing Guide
+# Testing guide
 
-## Recommended Local Checks
+Digital-E uses package-local TypeScript, lint, Vitest, build, MySQL integration, HTTP smoke, and read-only k6 checks. Choose checks from the surface you changed and report any unavailable environment explicitly.
 
-Frontend type check:
+## Client checks
+
+Run from the repository root:
 
 ```powershell
-client\node_modules\.bin\tsc.cmd -p client\tsconfig.json --noEmit
+pnpm --dir client exec tsc -p tsconfig.json --noEmit
+pnpm --dir client lint
+pnpm --dir client test -- --run
+pnpm --dir client build
 ```
 
-Frontend production build:
+Client tests use Vitest with a `jsdom` environment and Testing Library. Place focused tests next to the feature or component they cover. Test route guards, API request contracts, loading and error states, checkout validation, cart source transitions, and responsive interaction behavior when those surfaces change.
+
+## Server checks
+
+Run the package-local checks:
 
 ```powershell
-cd client
-.\node_modules\.bin\vite.cmd build
+pnpm --dir server typecheck
+pnpm --dir server lint
+pnpm --dir server test -- --run
+pnpm --dir server build
 ```
 
-Backend syntax checks for changed files:
+The default server Vitest configuration includes `src/**/*.{test,spec}.ts` and excludes integration files. The suite covers guards, validators, controllers, services, repositories, checkout reservations, guest order tokens, seed invariants, response contracts, and security boundaries.
+
+## MySQL integration checks
+
+Integration tests use `vitest.integration.config.ts` and require a disposable MySQL database with `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, and `DATABASE_URL` configured:
 
 ```powershell
-cd server
-node --check src\app.js
-node --check src\routes\userRoutes.js
-node --check src\routes\productRoutes.js
+pnpm --dir server test:integration
 ```
 
-Add more `node --check` commands for any service, model, controller, or route
-you change.
+Use the isolated Docker database or a CI database. Do not point integration tests at a shared or production target. The CI server job loads the legacy SQL baseline, records the metadata-only `0_init` migration, deploys forward migrations, runs the integration suite, and exercises the demo reset on disposable data.
 
-## k6 Performance Tests
+## Database and migration checks
 
-The current k6 tests are intended to avoid database mutations.
-
-Public read-only test:
+Use these checks when changing schema, repositories, seeders, or multi-table flows:
 
 ```powershell
-cd server
-k6 run test/performance-test.js
+pnpm --dir server prisma:validate
+pnpm --dir server prisma:migrate:status
+pnpm --dir server demo:verify
 ```
 
-Admin read-only test:
+Checkout, inventory, payment, order timeline, notification, support, guest lookup, and promotion changes need focused tests for ownership, validation, transaction boundaries, idempotency, and failure behavior.
+
+## HTTP smoke checks
+
+CI starts the built client preview and compiled server long enough to verify:
+
+```text
+GET http://127.0.0.1:4173/
+GET http://127.0.0.1:4000/api/health
+```
+
+These checks prove that the artifacts start and respond. They do not replace browser verification or authenticated flow checks.
+
+## Read-only k6 tests
+
+The scripts under `server/test/` send `GET` requests only:
 
 ```powershell
-cd server
+pnpm --dir server perf:readonly
+pnpm --dir server perf:catalog
+pnpm --dir server perf:admin-readonly
+pnpm --dir server perf:customer-readonly
+pnpm --dir server perf:auth-readonly
+```
+
+Admin and customer scenarios need a session cookie and, where configured by the script, a user ID:
+
+```powershell
 $env:COOKIE="session=...; accessToken=..."
-k6 run test/k6-admin-readonly.js
+$env:USER_ID="your_user_id"
+pnpm --dir server perf:customer-readonly
 ```
 
-Customer read-only test:
+Review `checks`, `http_req_failed`, `http_req_duration`, and `p(95)`. A low response time with failed checks can indicate an authorization failure, wrong response shape, missing data, or a route error.
 
-```powershell
-cd server
-$env:USER_ID="your-user-id"
-$env:COOKIE="session=...; accessToken=..."
-k6 run test/k6-customer-readonly.js
-```
+## Write safety
 
-## Reading k6 Results
+Do not run these operations against production or shared data during performance testing:
 
-Focus on:
+- Checkout or order creation
+- Cart writes
+- Review creation
+- Address creation or updates
+- Notification mutations
+- Product updates or deletion
+- Promotion creation or updates
+- Admin status or inventory updates
 
-- `checks`: expected status and response body checks.
-- `http_req_failed`: failed HTTP request rate.
-- `http_req_duration`: response time distribution.
-- `p(95)`: response time that 95% of requests were faster than.
-
-A fast `p(95)` with many failed checks usually means the API is responding
-quickly but with wrong status codes, missing data, auth failures, or route
-errors.
-
-## Database Safety
-
-Do not run write-heavy performance tests against real or shared data. These
-actions can mutate the database:
-
-- Checkout and order creation.
-- Cart writes.
-- Review creation.
-- Address creation or updates.
-- Notification read/write actions.
-- Product updates or deletes.
-- Promotion creation or updates.
-
-Use a cloned test database when measuring write workflows.
+Use a cloned test database for write-heavy performance work. Keep local demo reset and production migration operations behind their explicit safeguards.

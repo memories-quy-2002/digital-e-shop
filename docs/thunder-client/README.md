@@ -1,22 +1,23 @@
 # Thunder Client import
 
-This folder contains a Postman v2.1 collection that Thunder Client can import directly.
+This directory contains a Postman v2.1 collection that Thunder Client can import for the documented API subset. Use the live Scalar reference at `http://localhost:4000/docs` and [API.md](../API.md) as the source of truth for current routes, including guest checkout and support tickets.
 
-Files:
+## Import the collection
 
-- `digital-e-shop.postman_collection.json`
+1. Open Thunder Client's **Collections** tab
+2. Open the collection menu and select **Import**
+3. Select `digital-e-shop.postman_collection.json`
+4. Set the collection base URL to the running server, usually `http://localhost:4000`
 
-Import steps in Thunder Client:
+## Authentication and CSRF
 
-1. Open the `Collections` tab.
-2. Open the collection menu and choose `Import`.
-3. Select `digital-e-shop.postman_collection.json`.
+Most write routes require a cookie-backed session and the CSRF header:
 
-Notes:
+- Log in through `POST /api/users/login` or register through `POST /api/users/register`
+- Request `GET /api/users/csrf`
+- Keep the returned `csrfToken` cookie
+- Send the token in `X-CSRF-Token` for unsafe requests
 
-- Thunder Client documents that it supports importing `Postman 2.1.0` collections.
-- Most write routes in this API require both:
-  - a valid session cookie from login or social auth
-  - `X-CSRF-Token`
-- Run `Get CSRF Token` first, then copy the returned `csrfToken` into the collection variable if you are not chaining it automatically.
-- Admin-only routes will still require an authenticated admin session.
+Admin routes require an authenticated admin session. Customer routes also enforce ownership. The collection does not replace the server's guards or response contracts.
+
+Do not paste production cookies, tokens, or secrets into a committed collection or public issue.

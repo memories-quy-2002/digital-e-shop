@@ -1,4 +1,4 @@
-# PRD — <feature name>
+# PRD - <feature name>
 
 Keep it short. Delete sections that don't apply. For small work, a few bullets per section is enough.
 
@@ -13,10 +13,10 @@ What user/operator problem are we solving, and why now?
 ## Scope
 
 **In scope:**
-- …
+- ...
 
 **Out of scope:**
-- …
+- ...
 
 ## Users / personas
 
@@ -28,15 +28,16 @@ Who is affected (customer, admin)?
 
 ## Acceptance criteria
 
-- [ ] …
-- [ ] …
+- [ ] ...
+- [ ] ...
 
 ## Affected surface
 
-- Frontend modules: `client/src/features/<domain>/…`
-- Backend modules: `server/src/modules/<feature>/…`
-- Database tables / Prisma: …
-- API contracts touched (preserve unless explicitly changing): …
+- Frontend modules: `client/src/features/<domain>/...`
+- Backend modules: `server/src/<feature>/...` (Nest controller/service/repository)
+- Guards/pipes/middleware: `server/src/guards`, `pipes`, `middleware`, or `config` as applicable.
+- Database tables / Prisma migrations: ...
+- API contracts touched (preserve unless explicitly changing): ...
 
 ## Risks & constraints
 

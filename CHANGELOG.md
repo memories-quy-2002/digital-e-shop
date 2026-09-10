@@ -1,81 +1,55 @@
 # Changelog
 
-All notable changes to Digital-E are documented in this file.
-
-This project follows Conventional Commit-style change grouping. Dates use
-`YYYY-MM-DD`.
+This file records notable Digital-E changes. Dates use `YYYY-MM-DD`, and entries follow the repository's Conventional Commit categories.
 
 ## [Unreleased]
 
 ### Added
 
-- Local Docker MySQL 8 development environment (`docker-compose.yml`, import
-  and seed scripts, `docker:*` pnpm scripts) so contributors can run the
-  database locally instead of depending on the remote Aiven instance.
-- Committed `server/.env.example` documenting server environment variables
-  with placeholder values.
-- Read-only k6 performance scenarios for catalog and auth endpoints.
-- Continuous integration workflow (`ci.yml`) running typecheck, lint, test,
-  and build for the client and server on every push and pull request to
-  `main`, enforced by branch protection.
-- Server unit test suite (Vitest) covering cart validation, overselling
-  detection, cart-tampering/price-drift detection, and inventory movement
-  mapping, wired into the `server` CI job so failing tests block merges.
+- Guest cart persistence with server-authoritative preview, guest checkout, token-protected order lookup, and signed-in cart merge handling
+- Guest-order contact and shipping snapshots with admin order compatibility
+- Admin operations dashboard with range-aware analytics, operational queues, alerts, support tickets, and explicit loading, empty, and error states
+- One-click prior-order address suggestions after checkout and structured shipping snapshots in order detail views
+- Guarded production Prisma migration execution and manual backup-confirmed demo database reset workflow
+- Local Docker MySQL setup, relational demo seed verification, and database-backed CI checks
 
 ### Changed
 
-- "Relevant products" are now computed directly in MySQL with co-purchase
-  weighting, replacing the previous MongoDB-backed lookup. The `mongodb`
-  dependency and `MONGO_URI` configuration were removed.
-- Dependabot now opens a single grouped pull request per ecosystem (npm and
-  GitHub Actions), corrected to the valid `npm` ecosystem for the pnpm
-  workspace, with major-version bumps of framework dependencies ignored.
-- Pinned an explicit pnpm `minimumReleaseAge` supply-chain policy so
-  frozen-lockfile installs pass deterministically in CI.
-- Client image handling now serves images directly from Vercel Blob; the
-  unused Cloudinary transform path and its environment variable were removed.
-- Upgraded Prisma from 6 to 7. The partial Prisma layer now uses the rust-free
-  `prisma-client` generator with a MySQL-compatible driver adapter, and the
-  database connection URL moved from the schema to a new `prisma.config.ts`.
-  MySQL remains the primary persistence layer.
-- The MySQL pool now supports TLS: set `DB_SSL=true` (with the bundled CA, or
-  `DB_SSL_CA_PATH`) to connect over verified SSL to managed providers such as
-  Aiven, while local and Docker connections stay plaintext.
-- Server build now copies non-TypeScript runtime assets (`openapi.json`, the
-  database CA) into `dist/` so `pnpm start` and Vercel builds resolve them.
-- Product and inventory read endpoints no longer use the removed Redis response
-  cache layer; the related invalidation helpers and Redis benchmark references
-  were dropped in the same change.
+- Client and server now run as independent pnpm packages with Node.js `24.20.0` and pnpm `12.3.4`
+- The server uses the flattened NestJS feature layout under `server/src/<feature>/`, with controllers, services, repositories, validators, and module wiring in each feature
+- MySQL remains the primary runtime persistence layer; Prisma 7 owns the partial forward-migration layer and does not replace legacy repository access
+- Authentication uses environment-bound local development login or server-verified Firebase identity in production, followed by cookie-backed JWT sessions
+- Checkout reserves inventory before finalization, consumes reservations idempotently, and keeps USD as the canonical order amount while storing provider settlement details
+- Product catalog data includes stable SKU/MPN identity, typed attributes, inventory movement records, and immutable order-item snapshots
+- Transient Toasts render through a portal-mounted viewport with a maximum of three visible messages and responsive safe-area behavior
+- Inactive Google OAuth, SearchAPI, MongoDB, Cloudinary transform, and Redis response-cache paths were removed from the active runtime
 
-### Planned
+### Security
 
-- Add broader automated coverage for customer checkout, admin reporting, and
-  promotion workflows.
-- Expand performance tests against a cloned test database for write-heavy
-  scenarios.
-- Improve accessibility coverage for storefront and admin UI flows.
+- CSRF, role, ownership, request validation, session rotation, guest-token hashing, path validation, rate limiting, migration guards, and immutable GitHub Action pins are documented and covered by focused tests
+- Production and shared database operations now require explicit environment boundaries and forward migration checks
+
+### Documentation
+
+- Refreshed the root guides, API and architecture references, CI/CD notes, Wiki, contribution policies, and development templates against the current codebase
 
 ## [2026-05-15]
 
 ### Added
 
-- Customer address book with saved addresses, default address handling, and
-  checkout address selection.
-- Customer notification center with unread status support.
-- Order tracking timeline for customers and admins.
-- Inventory movement log for admin product operations and stock deductions.
-- Read-only k6 performance tests for public, customer, and admin endpoints.
-- Project documentation covering architecture, APIs, development, and testing.
+- Customer address book with saved addresses, default address handling, and checkout address selection
+- Customer notification center with unread status support
+- Order tracking timeline for customers and admins
+- Inventory movement log for admin product operations and stock deductions
+- Read-only k6 performance tests for public, customer, and admin endpoints
+- Project documentation covering architecture, APIs, development, and testing
 
 ### Changed
 
-- Refreshed storefront informational pages, including News, About, Support,
-  Footer, and Home content.
-- Updated the root README with current setup, feature, and verification notes.
-- Updated workspace package versions and related lockfile entries.
+- Refreshed storefront informational pages, including News, About, Support, Footer, and Home content
+- Updated workspace package versions and related lockfile entries
 
 ### Fixed
 
-- Promotion creation now works with the current `discounts` table schema.
-- Product ratings and review counts are treated as derived review data instead
-  of product table columns.
+- Promotion creation now works with the current `discounts` table schema
+- Product ratings and review counts are derived from the `reviews` table

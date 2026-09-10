@@ -1,4 +1,4 @@
-# Architecture Note — <feature name>
+# Architecture Note - <feature name>
 
 Use only when a change is architecturally non-trivial. For a single decision, prefer a one-file ADR in [Wiki/decisions/](../../Wiki/decisions/) instead.
 
@@ -8,17 +8,22 @@ What is changing and why. Link the PRD and relevant [[architecture]] / [[overvie
 
 ## Approach
 
-How it fits the existing structure (`modules/<feature>` layering, feature folders, shared types). Prefer reusing existing patterns over new abstractions.
+How it fits the existing structure (`server/src/<feature>/` Nest modules,
+feature folders, shared types). Prefer reusing existing patterns over new
+abstractions. Keep `client/` and `server/` package boundaries independent.
 
 ## Components & boundaries
 
 - Frontend: which features/pages/components/api wrappers.
-- Backend: which routes → controller → service → repository, validators, shared types.
-- Data: tables, queries, Prisma schema touches.
+- Backend: which Nest module/controller/service/repository, validators, guards,
+  pipes, and shared types.
+- Data: tables, queries, Prisma schema and forward migration touches.
 
 ## Data flow
 
-Request → validation → service orchestration → repository → response shape. Note auth/CSRF/ownership checkpoints.
+Request -> middleware/guard -> Zod validation -> service orchestration ->
+repository -> response shape. Note auth, CSRF, ownership, transaction, and
+payment checkpoints.
 
 ## Contracts
 
