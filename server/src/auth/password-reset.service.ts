@@ -37,7 +37,12 @@ export class PasswordResetService {
 
             if (isFirebase) {
                 resetUrl = await this.firebaseAdminAuthService.generatePasswordResetLink(normalizedEmail);
-                tokenHash = hashToken(resetUrl);
+                // Firebase owns the reset token lifecycle. We only need an opaque,
+                // non-secret delivery identifier for the Resend idempotency key.
+                // Do not hash the Firebase reset URL: static analysis can correctly
+                // treat provider reset links as credential material, and there is no
+                // persistence/security reason to derive our identifier from it.
+                tokenHash = crypto.randomBytes(32).toString("hex");
             } else {
                 const rawToken = crypto.randomBytes(32).toString("base64url");
                 tokenHash = hashToken(rawToken);
