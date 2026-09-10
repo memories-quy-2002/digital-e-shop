@@ -100,7 +100,7 @@ describe("PasswordResetService", () => {
         expect(resendEmailService.sendPasswordReset).not.toHaveBeenCalled();
     });
 
-    it("uses a server-generated Firebase reset link for Firebase accounts", async () => {
+    it("uses a server-generated Firebase reset link and an independent delivery key", async () => {
         env.authProvider = "firebase";
         usersRepository.findByEmail.mockResolvedValue({
             id: "firebase-1",
@@ -109,7 +109,8 @@ describe("PasswordResetService", () => {
             auth_provider: "firebase",
             status: "Active",
         });
-        firebaseAdminAuthService.generatePasswordResetLink.mockResolvedValue("https://firebase.test/reset?oobCode=code");
+        const resetUrl = "https://firebase.test/reset?oobCode=code";
+        firebaseAdminAuthService.generatePasswordResetLink.mockResolvedValue(resetUrl);
         const service = new PasswordResetService(
             usersRepository as never,
             authRepository as never,
@@ -122,8 +123,11 @@ describe("PasswordResetService", () => {
         expect(firebaseAdminAuthService.generatePasswordResetLink).toHaveBeenCalledWith("firebase@example.com");
         expect(usersRepository.setPasswordResetToken).not.toHaveBeenCalled();
         expect(resendEmailService.sendPasswordReset).toHaveBeenCalledWith(expect.objectContaining({
-            resetUrl: "https://firebase.test/reset?oobCode=code",
+            resetUrl,
+            tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/),
         }));
+        const emailInput = resendEmailService.sendPasswordReset.mock.calls[0][0];
+        expect(emailInput.tokenHash).not.toBe(resetUrl);
     });
 
     it("changes a local password, revokes sessions, and sends a security notice", async () => {
