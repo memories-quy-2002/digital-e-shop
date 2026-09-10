@@ -21,6 +21,7 @@ import AdminStatusPanel from "../components/AdminStatusPanel";
 import AdminTableScrollHint from "../components/AdminTableScrollHint";
 import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
 import { formatShippingAddress } from "../../orders/shippingAddress";
+import { formatCurrency } from "../../../utils/currency";
 
 const ITEMS_PER_PAGE = 8;
 
@@ -319,9 +320,9 @@ const AdminOrderPage = () => {
                 toUtcIsoString(order.date_added),
                 getPaymentMethodLabel(order.payment_method),
                 getStatusLabel(order.status),
-                order.total_price.toFixed(2),
-                order.discount.toFixed(2),
-                getNetRevenue(order).toFixed(2),
+                formatCurrency(order.total_price),
+                formatCurrency(order.discount),
+                formatCurrency(getNetRevenue(order)),
                 getShippingAddress(order.shipping_address),
             ]),
         ];
@@ -385,7 +386,7 @@ const AdminOrderPage = () => {
                     </div>
                     <div className="admin__summary-card">
                         <span>Net revenue</span>
-                        <strong>${orderStats.revenue.toFixed(2)}</strong>
+                        <strong>{formatCurrency(orderStats.revenue)}</strong>
                         <p>Total after discounts</p>
                     </div>
                 </section>
@@ -550,8 +551,8 @@ const AdminOrderPage = () => {
                                         </td>
                                         <td width="160px">
                                             <div className="admin__table__stack">
-                                                <strong>${getNetRevenue(order).toFixed(2)}</strong>
-                                                <span>Discount ${order.discount.toFixed(2)}</span>
+                                                <strong>{formatCurrency(getNetRevenue(order))}</strong>
+                                                <span>Discount {formatCurrency(order.discount)}</span>
                                             </div>
                                         </td>
                                         <td width="150px">
@@ -676,8 +677,8 @@ const AdminOrderPage = () => {
                                     </div>
                                     <div>
                                         <span>Total</span>
-                                        <strong>${getNetRevenue(selectedOrder).toFixed(2)}</strong>
-                                        <small>Discount ${selectedOrder.discount.toFixed(2)}</small>
+                                        <strong>{formatCurrency(getNetRevenue(selectedOrder))}</strong>
+                                        <small>Discount {formatCurrency(selectedOrder.discount)}</small>
                                     </div>
                                     <div>
                                         <span>Payment</span>
@@ -733,9 +734,9 @@ const AdminOrderPage = () => {
                                                 <small>Product #{item.productId}</small>
                                             </div>
                                             <div className="admin__order-detail__item-row__pricing">
-                                                <strong>${getItemSubtotal(item.sale_price ?? item.price, item.quantity).toFixed(2)}</strong>
+                                                <strong>{formatCurrency(getItemSubtotal(item.sale_price ?? item.price, item.quantity))}</strong>
                                                 <span>
-                                                    {item.quantity} x ${(item.sale_price ?? item.price).toFixed(2)}
+                                                    {item.quantity} x {formatCurrency(item.sale_price ?? item.price)}
                                                 </span>
                                             </div>
                                         </div>

@@ -11,6 +11,9 @@ Back to [[index]].
 - Production client builds require `VITE_API_BASE_URL`.
 - Production server startup validates database, authentication, and origin
   configuration before serving requests.
+- Local authentication defaults to email/password; production resolves to
+  Firebase. New sessions can be unverified, with checkout and review writes
+  gated by server-owned email verification.
 
 ## Purpose
 
@@ -30,7 +33,7 @@ authenticated checkout, and an admin operations dashboard.
 ## High-level modules
 
 - **Frontend** - domain UI and API wrappers live under
-  `client/src/features/` (`admin`, `auth`, `orders`, `products`, `support`,
+  `client/src/features/` (`admin`, `auth`, `marketing`, `orders`, `products`, `support`,
   `users`). Generic pages live in `client/src/pages/`; shared state and HTTP
   infrastructure live in `client/src/context`, `client/src/lib`, and shared
   components.
@@ -112,6 +115,9 @@ and branch protection remain repository/deployment settings.
 - Guest checkout uses a browser-local cart and a one-time raw token whose
   SHA-256 hash is stored server-side; server preview and checkout remain
   authoritative for price, stock, promotions, and totals.
+- Password reset, confirmed email change, and marketing subscription flows use
+  the shared Resend boundary; raw reset/email-change/unsubscribe tokens are
+  transient browser-link values and only their hashes are persisted.
 - Client and server each have Vitest coverage; the server also has an opt-in
   MySQL-backed integration suite and read-only k6 scripts.
 - `Wiki/` records current understanding and decisions; completed plans and

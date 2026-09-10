@@ -26,6 +26,7 @@ import AdminDashboardKpiGrid, { type AdminDashboardKpi } from "../components/Adm
 import AdminDashboardOperations from "../components/AdminDashboardOperations";
 import { groupAdminAlerts } from "../utils/dashboardAlerts";
 import { getDashboardRangeLabel, parseDashboardRange, type DashboardRange } from "../utils/dashboardRange";
+import { formatCurrency } from "../../../utils/currency";
 
 type TrendPoint = {
     name: string;
@@ -44,13 +45,6 @@ type ChartDatum = {
 type AnalyticsSummary = Record<string, any>;
 
 const AdminDashboardCharts = React.lazy(() => import("../components/AdminDashboardCharts"));
-
-const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        maximumFractionDigits: 2,
-    }).format(value || 0);
 
 const formatReportDate = (date = new Date()) => formatUtcDateTime(date);
 

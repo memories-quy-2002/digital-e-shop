@@ -127,6 +127,9 @@ importers:
       '@nestjs/platform-express':
         specifier: ^11.2.3
         version: 11.2.3(@nestjs/common@11.2.3(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@10.2.2))(@nestjs/core@11.2.3)(supports-color@10.2.2)
+      '@payos/node':
+        specifier: ^2.0.5
+        version: 2.0.5
       '@prisma/adapter-mariadb':
         specifier: ^7.10.0
         version: 7.10.0
@@ -956,6 +959,9 @@ packages:
 
   '@oxc-project/types@0.148.0':
     resolution: {integrity: sha512-Nm4s/jB+4FpFsPhWGEC4h7rzksesmtnMXomo6rCMcg/b8zLQuOziRgkCS1fxDCXOlJB/6Q8oABOZ/OP6RIPj9A==}
+
+  '@payos/node@2.0.5':
+    resolution: {integrity: sha512-y2dRfqVMerbBr0gapFqNA+QwzJmhC0Hi0+IaXhOsXEOBRjIe9ZgeFqI3JBF3mXSM3YSf5HAjTAAk2XYtCvMpBQ==}
 
   '@pinojs/redact@0.4.0':
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
@@ -4618,6 +4624,8 @@ snapshots:
     optional: true
 
   '@oxc-project/types@0.148.0': {}
+
+  '@payos/node@2.0.5': {}
 
   '@pinojs/redact@0.4.0': {}
 

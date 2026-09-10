@@ -40,6 +40,8 @@ function buildService(status: string = "PENDING") {
     const productAttributesRepository = { getForProducts: vi.fn().mockResolvedValue(new Map()) };
     const timelineService = { recordTimelineEvent: vi.fn(), createTimelineEventInTransaction: vi.fn().mockResolvedValue(undefined) };
     const notificationsService = { notifyOrderPlaced: vi.fn() };
+    const emailService = { sendOrderConfirmation: vi.fn().mockResolvedValue(undefined) };
+    const usersRepository = { findById: vi.fn().mockResolvedValue({ id: "user-1", email: "customer@example.com", username: "Customer" }) };
 
     tx.query.mockImplementation(async (sql: string) => {
         if (sql.includes("FROM orders WHERE stripe_checkout_session_id")) return [];
@@ -59,15 +61,18 @@ function buildService(status: string = "PENDING") {
         reservationRepository as never,
         { consumePromotionReservation: vi.fn() } as never,
         productAttributesRepository as never,
+        undefined,
+        emailService as never,
+        usersRepository as never,
     );
-    return { service, tx, reservationRepository, inventoryService, timelineService, notificationsService, productAttributesRepository };
+    return { service, tx, reservationRepository, inventoryService, timelineService, notificationsService, productAttributesRepository, emailService, usersRepository };
 }
 
 describe("reserved checkout finalization", () => {
     beforeEach(() => vi.clearAllMocks());
 
     it("creates the order, guards stock, records movements, and consumes the reservation in one transaction", async () => {
-        const { service, tx, reservationRepository, inventoryService, timelineService, notificationsService } = buildService();
+        const { service, tx, reservationRepository, inventoryService, timelineService, notificationsService, emailService } = buildService();
 
         await expect(service.finalizeReservedCheckout("cs_123", "pi_123")).resolves.toEqual({
             id: 42,
@@ -92,6 +97,30 @@ describe("reserved checkout finalization", () => {
             actorId: "user-1",
         });
         expect(notificationsService.notifyOrderPlaced).toHaveBeenCalledWith("user-1", 42, 18);
+        expect(emailService.sendOrderConfirmation).toHaveBeenCalledWith(expect.objectContaining({
+            customerType: "authenticated",
+            orderId: 42,
+            email: "customer@example.com",
+            emailVerified: true,
+        }));
+    });
+
+    it("passes an unverified account state to the order email boundary", async () => {
+        const { service, emailService, usersRepository } = buildService();
+        usersRepository.findById.mockResolvedValue({
+            id: "user-1",
+            email: "customer@example.com",
+            username: "Customer",
+            email_verified_at: null,
+        });
+
+        await service.finalizeReservedCheckout("cs_123", "pi_123");
+
+        expect(emailService.sendOrderConfirmation).toHaveBeenCalledWith(expect.objectContaining({
+            customerType: "authenticated",
+            email: "customer@example.com",
+            emailVerified: false,
+        }));
     });
 
     it("uses current structured product attributes in the order snapshot", async () => {
@@ -109,7 +138,7 @@ describe("reserved checkout finalization", () => {
     });
 
     it("returns an already-created order without decrementing stock or sending side effects twice", async () => {
-        const { service, tx, reservationRepository, inventoryService, timelineService, notificationsService } = buildService("CONSUMED");
+        const { service, tx, reservationRepository, inventoryService, timelineService, notificationsService, emailService } = buildService("CONSUMED");
         tx.query.mockImplementation(async (sql: string) => {
             if (sql.includes("FROM orders WHERE stripe_checkout_session_id")) {
                 return [{ id: 42, date_added: "2026-09-06T01:00:00.000Z" }];
@@ -126,10 +155,11 @@ describe("reserved checkout finalization", () => {
         expect(inventoryService.createMovementsInTransaction).not.toHaveBeenCalled();
         expect(timelineService.createTimelineEventInTransaction).not.toHaveBeenCalled();
         expect(notificationsService.notifyOrderPlaced).not.toHaveBeenCalled();
+        expect(emailService.sendOrderConfirmation).not.toHaveBeenCalled();
     });
 
     it("finalizes a guest reservation with its contact snapshot and does not touch a user cart", async () => {
-        const { service, tx, reservationRepository, notificationsService } = buildService();
+        const { service, tx, reservationRepository, notificationsService, emailService } = buildService();
         vi.mocked(reservationRepository.getPendingCheckoutForUpdate).mockResolvedValue({
             id: 7,
             stripe_session_id: "cs_guest",
@@ -162,6 +192,12 @@ describe("reserved checkout finalization", () => {
         ]));
         expect(tx.query).not.toHaveBeenCalledWith(expect.stringContaining("UPDATE carts SET done"), expect.anything());
         expect(notificationsService.notifyOrderPlaced).not.toHaveBeenCalled();
+        expect(emailService.sendOrderConfirmation).toHaveBeenCalledWith(expect.objectContaining({
+            orderId: 42,
+            email: "buyer@example.com",
+            items: expect.any(Array),
+        }));
+        expect(JSON.stringify(emailService.sendOrderConfirmation.mock.calls[0][0])).not.toContain("a".repeat(64));
     });
 
     it("rejects a delayed completion after the database grace window", async () => {

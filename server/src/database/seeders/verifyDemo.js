@@ -43,8 +43,9 @@ const verify = async (connection) => {
     const userIds = DEMO_SEED_PLAN.users.map((user) => user.id);
     const productNames = DEMO_SEED_PLAN.products.map((product) => product.name);
     const productIds = (await query(connection, "SELECT id FROM products WHERE name IN (?)", [productNames])).map((row) => Number(row.id));
-    const [users, categories, brands, products, productImages, legacyProducts, carts, cartItems, orders, orderItems, reviews, wishlists, addresses, notifications, sessions, discounts, inventoryMovements, statusEvents] = await Promise.all([
+    const [users, verifiedUsers, categories, brands, products, productImages, legacyProducts, carts, cartItems, orders, orderItems, reviews, wishlists, addresses, notifications, sessions, discounts, inventoryMovements, statusEvents] = await Promise.all([
         query(connection, "SELECT COUNT(*) AS count FROM users WHERE id IN (?)", [userIds]),
+        query(connection, "SELECT COUNT(*) AS count FROM users WHERE id IN (?) AND email_verified_at IS NOT NULL", [userIds]),
         query(connection, "SELECT COUNT(DISTINCT c.name) AS count FROM categories c WHERE c.name IN (?)", [DEMO_SEED_PLAN.categories]),
         query(connection, "SELECT COUNT(DISTINCT b.name) AS count FROM brands b WHERE b.name IN (?)", [DEMO_SEED_PLAN.brands]),
         query(connection, "SELECT COUNT(*) AS count FROM products WHERE name IN (?)", [productNames]),
@@ -210,6 +211,7 @@ const verify = async (connection) => {
 
     const actual = {
         users: firstCount(users),
+        verifiedUsers: firstCount(verifiedUsers),
         categories: firstCount(categories),
         brands: firstCount(brands),
         products: firstCount(products),
@@ -242,6 +244,7 @@ const verify = async (connection) => {
 
     const expected = {
         users: 4,
+        verifiedUsers: 4,
         categories: 8,
         brands: 16,
         products: 28,

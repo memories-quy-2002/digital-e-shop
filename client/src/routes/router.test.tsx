@@ -59,6 +59,11 @@ vi.mock("../features/auth/pages/LoginPage", () => ({
     },
 }));
 
+const RouteLocationProbe = () => {
+    const location = useLocation();
+    return <span data-testid="route-location">{location.pathname + location.search + location.hash}</span>;
+};
+
 const adminPaths = [
     "/admin",
     "/admin/notifications",
@@ -106,6 +111,18 @@ describe("cart routing", () => {
 
         expect(await screen.findByTestId("protected-route")).toBeInTheDocument();
         expect(await screen.findByTestId("account-page")).toBeInTheDocument();
+    });
+
+    it("redirects the legacy customer notifications route to the account section", async () => {
+        render(
+            <MemoryRouter initialEntries={["/notifications"]}>
+                <AppRouter />
+                <RouteLocationProbe />
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByTestId("account-page")).toBeInTheDocument();
+        expect(screen.getByTestId("route-location")).toHaveTextContent("/account#notifications");
     });
 
     it("keeps wishlist routes protected", async () => {

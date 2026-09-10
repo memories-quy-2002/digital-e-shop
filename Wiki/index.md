@@ -6,7 +6,7 @@ This Wiki records durable Digital-E understanding for maintainers and AI agents.
 
 **Last updated:** 2026-09-10
 
-The current implementation includes authenticated and guest carts, server-authoritative checkout, Stripe and local mock payment paths, order reservations and payment ledgers, catalog attributes and snapshots, customer support tickets, admin analytics, operational alerts, and database-backed demo verification.
+The current implementation includes authenticated and guest carts, server-authoritative checkout, Vietnam-first PayOS payment links with VND quote snapshots and verified webhooks, optional Stripe and local mock payment paths, verified-recipient Resend customer confirmations and account notices, order reservations and payment ledgers, catalog attributes and snapshots, customer support tickets, admin analytics, operational alerts, and database-backed demo verification.
 
 The local demo seed creates a linked graph with 28 products across 8 categories and 16 brands. It verifies image URLs, order totals, reviews, wishlists, addresses, notifications, sessions, discounts, inventory movements, and orphan relationships. Normal seeding is guarded and non-destructive for demo-owned rows; full reset is an explicit local or protected production workflow.
 
@@ -14,12 +14,15 @@ The local demo seed creates a linked graph with 28 products across 8 categories 
 
 - [[overview]]: purpose, stack, package commands, environment, and current assumptions
 - [[architecture]]: client, server, database, authentication, checkout, deployment, and CI boundaries
+- [[authentication-and-email-verification]]: local/Firebase provider selection, server-owned verification, and verified-action gating
+- [[marketing-subscriptions]]: opt-in, welcome email, one-time unsubscribe, and delivery boundaries
 - [[guest-checkout]]: browser cart, authoritative preview, guest checkout, token-protected lookup, and cart merge
 - [[order-lifecycle-and-support]]: order state transitions, review eligibility, and support-ticket ownership
 - [[0001-mysql-primary-prisma-partial]]: MySQL and partial Prisma ownership
 - [[0002-nestjs-migration]]: accepted NestJS migration and current server structure
 - [[0003-payment-ledger-and-usd-canonical-currency]]: USD canonical amounts and provider settlement values
 - [[0004-guest-cart-and-checkout]]: accepted guest access model and security boundary
+- [[0005-vietnam-first-vnd-catalog-and-mock-payos]]: VND-first demo pricing and explicit local PayOS simulation
 - [[log]]: append-only Wiki maintenance history
 
 ## Related guides

@@ -4,7 +4,7 @@ export type PaymentStatus = "pending" | "paid" | "failed" | "refund_pending" | "
 
 export type PaymentQuote = {
     baseAmount: number;
-    baseCurrency: "USD";
+    baseCurrency: PaymentCurrency;
     amount: number;
     currency: PaymentCurrency;
     fxRate: number;
@@ -16,6 +16,7 @@ export type CreatePaymentInput = {
     amount: number;
     currency: PaymentCurrency;
     providerPaymentId?: string | null;
+    providerReference?: string | null;
 };
 
 export type RefundPaymentInput = {

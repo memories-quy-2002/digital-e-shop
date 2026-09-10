@@ -3,6 +3,7 @@ import type { MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { OrdersController } from "./orders.controller";
 import { NestOrdersService } from "./orders.service";
 import { NestOrdersStripeService } from "./orders.stripe.service";
+import { NestOrdersPayOSService } from "./orders.payos.service";
 import { OrdersRepository } from "./orders.repository";
 import { NestOrderTimelineService } from "./orders.timeline.service";
 import { OrderTimelineRepository } from "./orders.timeline.repository";
@@ -17,13 +18,16 @@ import { CheckoutReservationRepository } from "./checkout-reservation.repository
 import { CheckoutReservationService } from "./checkout-reservation.service";
 import { ProductsModule } from "../products/products.module";
 import { PaymentsModule } from "../payments/payments.module";
+import { EmailModule } from "../email/email.module";
+import { UsersModule } from "../users/users.module";
 
 @Module({
-    imports: [NestConfigModule, CartModule, InventoryModule, NotificationsModule, PromotionsModule, ProductsModule, PaymentsModule],
+    imports: [NestConfigModule, CartModule, InventoryModule, NotificationsModule, PromotionsModule, ProductsModule, PaymentsModule, EmailModule, UsersModule],
     controllers: [OrdersController],
     providers: [
         NestOrdersService,
         NestOrdersStripeService,
+        NestOrdersPayOSService,
         StripeService,
         CheckoutReservationRepository,
         CheckoutReservationService,
@@ -31,7 +35,7 @@ import { PaymentsModule } from "../payments/payments.module";
         NestOrderTimelineService,
         OrderTimelineRepository,
     ],
-    exports: [NestOrdersService, NestOrdersStripeService, StripeService, CheckoutReservationService],
+    exports: [NestOrdersService, NestOrdersStripeService, NestOrdersPayOSService, StripeService, CheckoutReservationService],
 })
 export class OrdersModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {

@@ -123,6 +123,12 @@ export type OrderTimelineInput = {
 export type PendingCheckoutRow = {
     id: number;
     stripe_session_id: string | null;
+    payment_provider?: string | null;
+    provider_reference?: string | null;
+    provider_order_code?: number | string | null;
+    payment_amount?: number | string | null;
+    payment_currency?: string | null;
+    payment_fx_rate?: number | string;
     reservation_token: string;
     user_id: string | null;
     guest_email: string | null;
@@ -238,6 +244,15 @@ export type CheckoutReservation = {
     };
     shippingAddress: string;
     items: CheckoutReservationItem[];
+};
+
+export type PaymentProviderAttachment = {
+    provider: "stripe" | "payos";
+    providerReference: string;
+    providerOrderCode?: number | null;
+    paymentAmount?: number | null;
+    paymentCurrency?: string | null;
+    paymentFxRate?: number;
 };
 
 export type OrderBySessionRow = {

@@ -4,6 +4,7 @@ import { Product } from "../../../utils/interface";
 import loadImage from "../../../utils/loadImage";
 import { formatProductRating, normalizeProduct } from "../../../utils/product";
 import ratingStar from "../../../utils/ratingStar";
+import { formatCurrency } from "../../../utils/currency";
 
 type RecommendedProps = {
     relevantProducts: Product[];
@@ -12,8 +13,6 @@ type RecommendedProps = {
 const RecommendedProduct = ({ relevantProducts }: RecommendedProps) => {
     const navigate = useNavigate();
     const visibleProducts = relevantProducts.slice(0, 9);
-    const formatPrice = (value: number) => `$${Number(value || 0).toFixed(2)}`;
-
     return (
         <section className="product-page__recommendations">
             <div className="product-page__recommendations-list">
@@ -47,14 +46,14 @@ const RecommendedProduct = ({ relevantProducts }: RecommendedProps) => {
                                 <p className="product-page__recommendation-name">{normalizedProduct.name}</p>
                                 {hasSale ? (
                                     <div className="product-page__recommendation-price product-page__recommendation-price--sale">
-                                        <p className="product-page__recommendation-price-sale">{formatPrice(normalizedProduct.sale_price ?? 0)}</p>
+                                        <p className="product-page__recommendation-price-sale">{formatCurrency(normalizedProduct.sale_price ?? 0)}</p>
                                         <p className="product-page__recommendation-price-original">
-                                            {formatPrice(normalizedProduct.price)}
+                                            {formatCurrency(normalizedProduct.price)}
                                         </p>
                                     </div>
                                 ) : (
                                     <div className="product-page__recommendation-price">
-                                        <p>{formatPrice(normalizedProduct.price)}</p>
+                                        <p>{formatCurrency(normalizedProduct.price)}</p>
                                     </div>
                                 )}
 

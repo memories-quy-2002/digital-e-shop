@@ -13,6 +13,7 @@ import CustomerAccountShell from "../../users/components/CustomerAccountShell";
 import { addItemsToCustomerCart, cancelCustomerOrder, fetchCustomerOrderDetail, fetchCustomerOrders } from "../api";
 import type { CustomerOrder, CustomerOrderDetail, CustomerOrderTimelineEvent } from "../types";
 import { formatShippingAddress } from "../shippingAddress";
+import { formatCurrency } from "../../../utils/currency";
 
 const getStatusLabel = (status: number) => {
     if (status === 1) return "Done";
@@ -28,7 +29,6 @@ const getPaymentLabel = (payment?: CustomerOrder["payment_method"]) => {
     return "Not recorded";
 };
 
-const formatCurrency = (value: number) => `$${Number(value || 0).toFixed(2)}`;
 const formatPaymentAmount = (value: number | null | undefined, currency?: string | null) => {
     if (value === null || value === undefined || !currency) return null;
     return new Intl.NumberFormat(currency === "VND" ? "vi-VN" : "en-US", {

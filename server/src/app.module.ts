@@ -16,10 +16,12 @@ import { AnalyticsModule } from "./analytics/analytics.module";
 import { BlobModule } from "./blob/blob.module";
 import { AuthModule } from "./auth/auth.module";
 import { StripeWebhookModule } from "./stripe/stripeWebhook.module";
+import { PayOSWebhookModule } from "./payments/payosWebhook.module";
 import { AllExceptionsFilter } from "./filters/all-exceptions.filter";
 import { RequestLoggerInterceptor } from "./interceptors/request-logger.interceptor";
 import { SupportModule } from "./support/support.module";
 import { AdminAlertsModule } from "./admin-alerts/admin-alerts.module";
+import { MarketingModule } from "./marketing/marketing.module";
 
 @Module({
     imports: [
@@ -39,8 +41,10 @@ import { AdminAlertsModule } from "./admin-alerts/admin-alerts.module";
         AnalyticsModule,
         BlobModule,
         StripeWebhookModule,
+        PayOSWebhookModule,
         SupportModule,
         AdminAlertsModule,
+        MarketingModule,
     ],
     providers: [
         { provide: APP_FILTER, useClass: AllExceptionsFilter },

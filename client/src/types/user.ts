@@ -19,6 +19,7 @@ export type UserData = {
     first_name: string | null;
     last_name: string | null;
     role: Role.Admin | Role.Customer;
+    email_verified?: boolean;
     created_at: Date;
     last_login: Date;
 } | null;

@@ -9,6 +9,7 @@ import loadImage from "../../utils/loadImage";
 import { normalizeProduct } from "../../utils/product";
 import { normalizeProductImageName } from "../../utils/images";
 import ratingStar from "../../utils/ratingStar";
+import { formatCurrency } from "../../utils/currency";
 
 export type ProductCardProps = {
     product: Product;
@@ -18,8 +19,6 @@ export type ProductCardProps = {
     onToggleWishlist: (user_id: string, product_id: number) => void;
     onAddingCart: (user_id: string, product_id: number) => void;
 };
-
-const formatPrice = (value: number) => `$${value.toFixed(2)}`;
 
 const ProductCard = ({
     product,
@@ -111,15 +110,15 @@ const ProductCard = ({
                 </div>
 
                 <div className="flex min-h-7 items-baseline gap-2 font-mono">
-                    {hasSale ? <span className="text-xs text-muted-foreground line-through">{formatPrice(normalizedProduct.price)}</span> : null}
+                    {hasSale ? <span className="text-xs text-muted-foreground line-through">{formatCurrency(normalizedProduct.price)}</span> : null}
                     <strong className={`text-lg font-bold ${hasSale ? "text-signal" : "text-foreground"}`}>
-                        {formatPrice(activePrice)}
+                        {formatCurrency(activePrice)}
                     </strong>
                 </div>
 
                 <div className="mt-auto flex items-center gap-2 border-t border-border pt-3 font-mono text-[0.65rem] text-muted-foreground">
                     <span role="img" aria-label={`${normalizedProduct.rating.toFixed(1)} star rating`} className="flex items-center gap-0.5">
-                        {ratingStar(normalizedProduct.rating, "#F4B860", 15)}
+                        {ratingStar(normalizedProduct.rating, "var(--de-color-warning)", 15)}
                     </span>
                     <span>{normalizedProduct.rating.toFixed(1)}</span>
                     <span className="ml-auto">{normalizedProduct.reviews} reviews</span>

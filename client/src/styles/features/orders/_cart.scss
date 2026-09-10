@@ -302,9 +302,9 @@
         position: absolute;
         top: 1.5rem;
         left: 1.5rem;
-        background: rgba(255, 255, 255, 0.12);
+        background: color-mix(in srgb, var(--de-color-on-strong) 12%, transparent);
         color: var(--de-color-on-strong);
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        border: 1px solid color-mix(in srgb, var(--de-color-on-strong) 20%, transparent);
         padding: 0.4rem 1rem;
         border-radius: 999px;
         font-weight: 600;
@@ -337,7 +337,7 @@
         gap: 1rem;
         align-items: center;
         justify-content: flex-start;
-        background: rgba(255, 255, 255, 0.12);
+        background: color-mix(in srgb, var(--de-color-on-strong) 12%, transparent);
         padding: 1rem 1.25rem;
         border-radius: 18px;
 
@@ -842,7 +842,7 @@
         justify-content: space-between;
         align-items: center;
         padding-top: 0.75rem;
-        border-top: 1px dashed rgba(148, 163, 184, 0.35);
+        border-top: 1px dashed var(--de-color-border-strong);
         font-size: 1.1rem;
         strong {
             color: var(--de-color-text);
@@ -1091,7 +1091,7 @@
 
     hr {
         border: none;
-        border-top: 1px solid rgba(148, 163, 184, 0.2);
+        border-top: 1px solid var(--de-color-border);
         margin: 0;
     }
 }
@@ -1180,7 +1180,7 @@
             right: 0;
             width: 38%;
             height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(76, 141, 255, 0.08));
+            background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--de-color-electric) 8%, transparent));
             pointer-events: none;
             content: "";
         }
@@ -1332,7 +1332,7 @@
         min-width: min(100%, 250px);
         border: 1px solid var(--de-color-border);
         border-radius: var(--de-radius-xs);
-        background: rgba(13, 16, 18, 0.5);
+        background: var(--de-color-surface-muted);
 
         div {
             display: grid;
@@ -1385,7 +1385,7 @@
 
     &__note {
         padding: 0.8rem 0.95rem;
-        border: 1px solid rgba(76, 141, 255, 0.3);
+        border: 1px solid color-mix(in srgb, var(--de-color-electric) 30%, transparent);
         border-left: 3px solid var(--de-color-electric);
         background: var(--de-color-info-soft);
         color: var(--de-color-info-strong);
@@ -1395,14 +1395,14 @@
         display: grid;
         gap: 0.25rem;
         padding: 0.85rem 0.95rem;
-        border: 1px solid rgba(239, 114, 82, 0.3);
+        border: 1px solid color-mix(in srgb, var(--de-color-danger) 30%, transparent);
         border-left: 3px solid var(--de-color-danger);
         background: var(--de-color-danger-soft);
         color: var(--de-color-danger-strong);
         font-weight: 700;
 
         &--warning {
-            border-color: rgba(244, 184, 96, 0.3);
+            border-color: color-mix(in srgb, var(--de-color-warning) 30%, transparent);
             border-left-color: var(--de-color-warning);
             background: var(--de-color-warning-soft);
             color: var(--de-color-warning-strong);
@@ -1560,7 +1560,7 @@
             em {
                 width: fit-content;
                 padding: 0.15rem 0.4rem;
-                border: 1px solid rgba(182, 213, 70, 0.35);
+                border: 1px solid var(--de-color-primary-soft);
                 border-radius: 3px;
                 background: var(--de-color-success-soft);
                 color: var(--de-color-success-strong);
@@ -1712,7 +1712,7 @@
                 height: 2.7rem;
                 align-items: center;
                 justify-content: center;
-                border: 1px solid rgba(76, 141, 255, 0.35);
+                border: 1px solid color-mix(in srgb, var(--de-color-electric) 35%, transparent);
                 border-radius: var(--de-radius-xs);
                 background: var(--de-color-info-soft);
                 color: var(--de-color-info-strong);
@@ -1760,7 +1760,7 @@
             display: grid;
             gap: 0.2rem;
             padding: 0.75rem 0.85rem;
-            border: 1px solid rgba(182, 213, 70, 0.32);
+            border: 1px solid var(--de-color-primary-soft);
             border-radius: var(--de-radius-xs);
             background: var(--de-color-success-soft);
 
@@ -1873,7 +1873,7 @@
             transition: background-color var(--de-transition-fast), transform var(--de-transition-fast), box-shadow var(--de-transition-fast);
 
             &:hover:not(:disabled) {
-                background: #f07a55;
+                background: var(--de-color-signal-hover);
                 transform: translateY(-1px);
                 box-shadow: var(--de-shadow-primary-soft);
             }
@@ -1901,7 +1901,7 @@
         align-items: flex-start;
         gap: 0.55rem;
         padding: 0.7rem 0.75rem;
-        border: 1px solid rgba(76, 141, 255, 0.28);
+        border: 1px solid color-mix(in srgb, var(--de-color-electric) 28%, transparent);
         border-radius: var(--de-radius-xs);
         background: var(--de-color-info-soft);
         color: var(--de-color-info-strong);
@@ -2037,7 +2037,7 @@
 
 .cart-summary__pricing-row--total {
     padding-top: 0.5rem;
-    border-top: 1px dashed rgba(148, 163, 184, 0.4);
+    border-top: 1px dashed var(--de-color-border-strong);
 
     strong {
         font-size: 1.2rem;
@@ -2130,7 +2130,7 @@
     .modal-content {
         border: none;
         border-radius: 20px;
-        box-shadow: 0 25px 50px rgba(23, 35, 52, 0.2);
+        box-shadow: var(--de-shadow-md);
         overflow: hidden;
     }
 

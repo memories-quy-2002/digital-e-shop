@@ -24,6 +24,7 @@ import {
 } from "../../../utils/images";
 import { parseProductDetails } from "../../../utils/productDetails";
 import { formatProductRating } from "../../../utils/product";
+import { formatCurrency } from "../../../utils/currency";
 import ratingStar from "../../../utils/ratingStar";
 import RecommendedProduct from "../components/RecommendedProduct";
 import {
@@ -64,8 +65,6 @@ const applyWishlistMutation = (wishlist: Wishlist[], mutation: WishlistMutation)
 const initialReviewActionState: ReviewActionState = {
     status: "idle",
 };
-
-const formatCurrency = (value: number) => `$${Number(value || 0).toFixed(2)}`;
 
 const ProductPage = () => {
     const location = useLocation();
@@ -739,7 +738,7 @@ const ProductPage = () => {
                                 <section className="product-page__reviews-summary" data-testid="product-reviews-summary">
                                     <div className="product-page__reviews-score">
                                         <strong>{formatProductRating(displayedRating)}</strong>
-                                        <span>{ratingStar(displayedRating, "#FFCC4A", 20)}</span>
+                                        <span>{ratingStar(displayedRating, "var(--de-color-warning)", 20)}</span>
                                         <p>{t("product.reviewsCount", displayedReviewCount)}</p>
                                     </div>
                                     <div className="product-page__reviews-bars">
@@ -781,9 +780,9 @@ const ProductPage = () => {
                                                     aria-label={t("product.rateStars", rating)}
                                                 >
                                                     {rating <= ratingScore ? (
-                                                        <StarFillIcon size={22} color="#FFCC4A" />
+                                                        <StarFillIcon size={22} color="var(--de-color-warning)" />
                                                     ) : (
-                                                        <StarIcon size={22} data-testid="reviewStar" color="#FFCC4A" />
+                                                        <StarIcon size={22} data-testid="reviewStar" color="var(--de-color-warning)" />
                                                     )}
                                                 </button>
                                             ))}
@@ -832,7 +831,7 @@ const ProductPage = () => {
                                                         <small>{formatUtcDate(review.created_at)}</small>
                                                     </div>
                                                     <div className="product-page__reviews-item-stars">
-                                                        {ratingStar(review.rating, "#FFCC4A", 18)}
+                                                        {ratingStar(review.rating, "var(--de-color-warning)", 18)}
                                                     </div>
                                                     <p>{review.reviewText}</p>
                                                 </article>

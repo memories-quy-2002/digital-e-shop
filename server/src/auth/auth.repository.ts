@@ -96,4 +96,21 @@ export class AuthRepository {
             );
         });
     }
+
+    revokeAllSessions(userId: string): Promise<UpdateResult> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                `UPDATE customer_sessions
+                 SET revoked_at = UTC_TIMESTAMP(),
+                     session_end = COALESCE(session_end, UTC_TIMESTAMP())
+                 WHERE user_id = ?
+                   AND revoked_at IS NULL`,
+                [userId],
+                (err: DbError | null, result?: UpdateResult) => {
+                    if (err) return reject(err);
+                    resolve(result || { affectedRows: 0 });
+                },
+            );
+        });
+    }
 }

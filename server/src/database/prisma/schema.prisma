@@ -10,27 +10,54 @@ datasource db {
 }
 
 model User {
-  id             String   @id @db.VarChar(255)
-  username       String   @db.VarChar(16)
-  email          String   @db.VarChar(255)
-  password       String   @db.VarChar(255)
-  role           String   @db.VarChar(16)
-  token          String   @db.Text
-  authProvider   String?  @map("auth_provider") @db.VarChar(32)
-  providerUserId String?  @map("provider_user_id") @db.VarChar(255)
-  firstName      String?  @map("first_name") @db.Text
-  lastName       String?  @map("last_name") @db.Text
-  status         String   @default("Active") @db.VarChar(20)
-  createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(0)
-  lastLogin      DateTime @default(now()) @map("last_login") @db.DateTime(0)
+  id                         String    @id @db.VarChar(255)
+  username                   String    @db.VarChar(16)
+  email                      String    @db.VarChar(255)
+  password                   String    @db.VarChar(255)
+  role                       String    @db.VarChar(16)
+  token                      String    @db.Text
+  authProvider               String?   @map("auth_provider") @db.VarChar(32)
+  providerUserId             String?   @map("provider_user_id") @db.VarChar(255)
+  emailVerifiedAt            DateTime? @map("email_verified_at") @db.DateTime(0)
+  emailVerificationTokenHash String?   @map("email_verification_token_hash") @db.Char(64)
+  emailVerificationExpiresAt DateTime? @map("email_verification_expires_at") @db.DateTime(0)
+  emailVerificationSentAt    DateTime? @map("email_verification_sent_at") @db.DateTime(0)
+  passwordResetTokenHash     String?   @map("password_reset_token_hash") @db.Char(64)
+  passwordResetExpiresAt     DateTime? @map("password_reset_expires_at") @db.DateTime(0)
+  pendingEmail               String?   @map("pending_email") @db.VarChar(255)
+  emailChangeTokenHash       String?   @map("email_change_token_hash") @db.Char(64)
+  emailChangeExpiresAt       DateTime? @map("email_change_expires_at") @db.DateTime(0)
+  firstName                  String?   @map("first_name") @db.Text
+  lastName                   String?   @map("last_name") @db.Text
+  status                     String    @default("Active") @db.VarChar(20)
+  createdAt                  DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  lastLogin                  DateTime  @default(now()) @map("last_login") @db.DateTime(0)
 
-  orders           Order[]
-  carts            Cart[]
-  reviews          Review[]
-  pendingCheckouts PendingCheckout[]
-  supportTickets   SupportTicket[]
+  orders                 Order[]
+  carts                  Cart[]
+  reviews                Review[]
+  pendingCheckouts       PendingCheckout[]
+  supportTickets         SupportTicket[]
+  marketingSubscriptions MarketingSubscription[]
 
   @@map("users")
+}
+
+model MarketingSubscription {
+  id                   Int       @id @default(autoincrement())
+  email                String    @unique(map: "uq_marketing_subscriptions_email") @db.VarChar(255)
+  status               String    @default("ACTIVE") @db.VarChar(20)
+  unsubscribeTokenHash String?   @unique(map: "uq_marketing_subscriptions_unsubscribe_token_hash") @map("unsubscribe_token_hash") @db.Char(64)
+  source               String    @default("footer") @db.VarChar(40)
+  userId               String?   @map("user_id") @db.VarChar(255)
+  subscribedAt         DateTime  @default(now()) @map("subscribed_at") @db.DateTime(0)
+  unsubscribedAt       DateTime? @map("unsubscribed_at") @db.DateTime(0)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status, subscribedAt], map: "marketing_subscriptions_status_subscribed_idx")
+  @@index([userId], map: "marketing_subscriptions_user_id_idx")
+  @@map("marketing_subscriptions")
 }
 
 model AuthSession {
@@ -214,6 +241,12 @@ model Order {
 model PendingCheckout {
   id                  Int       @id @default(autoincrement())
   stripeSessionId     String?   @unique(map: "uq_pending_checkouts_session") @map("stripe_session_id") @db.VarChar(255)
+  paymentProvider     String?   @map("payment_provider") @db.VarChar(32)
+  providerReference   String?   @map("provider_reference") @db.VarChar(255)
+  providerOrderCode   BigInt?   @map("provider_order_code")
+  paymentAmount       Decimal?  @map("payment_amount") @db.Decimal(14, 2)
+  paymentCurrency     String?   @map("payment_currency") @db.Char(3)
+  paymentFxRate       Decimal   @default(1) @map("payment_fx_rate") @db.Decimal(18, 6)
   reservationToken    String    @unique(map: "uq_pending_checkouts_reservation_token") @map("reservation_token") @db.Char(36)
   userId              String?   @map("user_id") @db.VarChar(255)
   guestEmail          String?   @map("guest_email") @db.VarChar(255)
@@ -235,6 +268,8 @@ model PendingCheckout {
   inventoryReservations InventoryReservation[]
   discountRedemptions   DiscountRedemption[]
 
+  @@unique([paymentProvider, providerReference], map: "uq_pending_checkouts_provider_reference")
+  @@unique([paymentProvider, providerOrderCode], map: "uq_pending_checkouts_provider_order_code")
   @@index([status, expiresAt], map: "pending_checkouts_status_expiry_idx")
   @@index([guestEmail], map: "idx_pending_checkouts_guest_email")
   @@map("pending_checkouts")

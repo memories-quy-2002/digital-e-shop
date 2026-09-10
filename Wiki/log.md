@@ -4,6 +4,9 @@ Append-only. One line per notable project maintenance operation. Newest at the b
 
 Format: `YYYY-MM-DD — <author> — <what changed>`
 
+- 2026-09-10 — Codex — Extended Resend confirmation delivery to authenticated customers using server-authoritative email addresses and account-order links.
+- 2026-09-10 — Codex — Masked guest access tokens with explicit Reveal/Copy controls and added optional post-commit Resend confirmation emails without sending raw tokens.
+
 - 2026-09-04 — Codex — Hardened CI/CD with disposable MySQL 8.4, legacy-plus-Prisma migration validation, database integration tests, immutable GitHub Action pins, CodeQL/dependency review, automation-secret removal, and documented external Vercel/branch-protection gates in [[architecture]] and [[overview]].
 - 2026-09-04 — Codex — Isolated local MySQL from production targets with a local-only Docker database/volume, fail-fast runtime and Prisma guards, protected mock seeding, and explicit local/CI/production environment documentation.
 - 2026-09-04 — Codex — Updated CI security workflow to rely on GitHub CodeQL default setup and retain dependency review without conflicting advanced uploads.
@@ -37,3 +40,11 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-08 - Codex - Completed Task 9 verification under Node 24.20.0 and pnpm 12.3.4; added a Windows-safe client build fallback and removed the auth redirect lint blocker without changing redirect validation behavior.
 - 2026-09-09 - Codex - Preserved structured shipping snapshots for Admin order detail, cleared the active cart after confirmed checkout, and added one-click prior-order address suggestions.
 - 2026-09-10 - Codex - Refreshed maintained project docs, policies, guides, Wiki pages, ADRs, prompts, and templates against the current independent client/server NestJS runtime; historical plans and specs were preserved.
+- 2026-09-10 - Codex - Added provider-aware signup, server-owned Resend email verification, unverified-session access policy, and verified checkout/review guards.
+- 2026-09-10 - Codex - Added password-reset and email-change confirmation flows, security notices, and persisted Resend-backed marketing subscriptions with one-time unsubscribe links.
+- 2026-09-10 - Codex - Implemented Vietnam-first PayOS payment links with server-snapshotted VND quotes, provider-neutral pending checkout references, signed webhook finalization, guest/authenticated status polling, and local mock coverage.
+- 2026-09-10 - Codex - Gated customer-facing Resend delivery on email verification and marked all demo seed accounts as verified.
+- 2026-09-10 - Codex - Converted the guarded demo seed and new checkout ledger path to Vietnam-first whole-number VND, added VND storefront formatting, fixed FK-safe demo cleanup, and replaced auto-confirming mock PayOS with an explicit local simulator.
+- 2026-09-10 - Codex - Added a dedicated customer notifications page with expandable details, per-item Mark read controls, and the existing View all route from the header.
+- 2026-09-10 - Codex - Moved customer notification updates back into Account section 4; View all and the legacy notifications route now target Account#notifications.
+- 2026-09-10 - Codex - Fixed mock PayOS finalization by binding the VND currency value in the order insert and verified idempotent confirmation against local MySQL.

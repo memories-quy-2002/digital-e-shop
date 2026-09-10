@@ -88,15 +88,15 @@
         display: flex;
         align-items: flex-end;
         padding: 2rem;
-        background: var(--de-color-bg-strong);
-        color: var(--de-color-on-strong);
+        background: var(--de-color-surface-inverse);
+        color: var(--de-color-on-inverse);
 
         &::before {
             content: "";
             position: absolute;
             inset: 0;
             z-index: 1;
-            background: linear-gradient(180deg, rgba(15, 23, 42, 0.1), rgba(15, 23, 42, 0.82));
+            background: linear-gradient(180deg, color-mix(in srgb, var(--de-color-surface-inverse) 10%, transparent), color-mix(in srgb, var(--de-color-surface-inverse) 82%, transparent));
         }
 
         > img {
@@ -126,7 +126,7 @@
 
         &__content__desc {
             margin: 0;
-            color: rgba(255, 255, 255, 0.88);
+            color: color-mix(in srgb, var(--de-color-on-inverse) 88%, transparent);
             font-size: 1.05rem;
             line-height: 1.6;
         }
@@ -139,11 +139,11 @@
 
             span {
                 max-width: 100%;
-                border: 1px solid rgba(255, 255, 255, 0.24);
+                border: 1px solid color-mix(in srgb, var(--de-color-on-inverse) 24%, transparent);
                 border-radius: 999px;
                 padding: 0.4rem 0.7rem;
-                color: rgba(255, 255, 255, 0.9);
-                background: rgba(255, 255, 255, 0.08);
+                color: color-mix(in srgb, var(--de-color-on-inverse) 90%, transparent);
+                background: color-mix(in srgb, var(--de-color-on-inverse) 8%, transparent);
                 font-size: 0.84rem;
                 font-weight: 700;
                 overflow-wrap: anywhere;

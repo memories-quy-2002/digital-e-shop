@@ -6,15 +6,17 @@
 
 .admin__notifications-toolbar input {
     width: 100%;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--de-color-border-strong);
     border-radius: 12px;
     padding: 0.75rem 0.9rem;
     outline: none;
+    background: var(--de-color-bg-muted);
+    color: var(--de-color-text);
 }
 
 .admin__notifications-toolbar input:focus {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    border-color: var(--de-color-electric);
+    box-shadow: var(--de-shadow-focus);
 }
 
 .admin__notifications-tabs {
@@ -27,10 +29,10 @@
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--de-color-border);
     border-radius: 999px;
-    background: #fff;
-    color: #475569;
+    background: var(--de-color-surface);
+    color: var(--de-color-text-soft);
     padding: 0.5rem 0.85rem;
     font-weight: 800;
 }
@@ -38,21 +40,21 @@
 .admin__notifications-tabs button span {
     min-width: 1.35rem;
     border-radius: 999px;
-    background: #f1f5f9;
-    color: #64748b;
+    background: var(--de-color-surface-muted);
+    color: var(--de-color-text-muted);
     padding: 0.1rem 0.4rem;
     font-size: 0.76rem;
 }
 
 .admin__notifications-tabs button.active {
-    background: #111827;
-    border-color: #111827;
-    color: #fff;
+    background: var(--de-color-surface-inverse);
+    border-color: var(--de-color-surface-inverse);
+    color: var(--de-color-on-inverse);
 }
 
 .admin__notifications-tabs button.active span {
-    background: rgba(255, 255, 255, 0.16);
-    color: #fff;
+    background: color-mix(in srgb, var(--de-color-on-inverse) 16%, transparent);
+    color: var(--de-color-on-inverse);
 }
 
 .admin__notifications-list {
@@ -65,26 +67,26 @@
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 1rem;
     align-items: center;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--de-color-border);
     border-radius: 16px;
     padding: 1rem;
-    background: #fff;
+    background: var(--de-color-surface-strong);
 }
 
 .admin__notification--order {
-    border-left: 5px solid #2563eb;
+    border-left: 5px solid var(--de-color-electric);
 }
 
 .admin__notification--inventory {
-    border-left: 5px solid #f97316;
+    border-left: 5px solid var(--de-color-warning);
 }
 
 .admin__notification--payment {
-    border-left: 5px solid #7c3aed;
+    border-left: 5px solid var(--de-color-primary-emphasis);
 }
 
 .admin__notification--customer {
-    border-left: 5px solid #0f766e;
+    border-left: 5px solid var(--de-color-success);
 }
 
 .admin__notification__icon {
@@ -94,8 +96,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: #f8fafc;
-    color: #111827;
+    background: var(--de-color-info-soft);
+    color: var(--de-color-info-strong);
 }
 
 .admin__notification__content {
@@ -110,17 +112,17 @@
 }
 
 .admin__notification__title-row strong {
-    color: #111827;
+    color: var(--de-color-text);
 }
 
 .admin__notification__content p {
     margin: 0.25rem 0;
-    color: #64748b;
+    color: var(--de-color-text-muted);
     line-height: 1.45;
 }
 
 .admin__notification__content > span {
-    color: #94a3b8;
+    color: var(--de-color-text-faint);
     font-size: 0.82rem;
 }
 
@@ -132,20 +134,20 @@
 
 .admin__notifications-empty {
     min-height: 220px;
-    border: 1px dashed #cbd5e1;
+    border: 1px dashed var(--de-color-border-strong);
     border-radius: 16px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 0.35rem;
-    color: #64748b;
-    background: #f8fafc;
+    color: var(--de-color-text-muted);
+    background: var(--de-color-surface-muted);
     text-align: center;
 }
 
 .admin__notifications-empty strong {
-    color: #111827;
+    color: var(--de-color-text);
 }
 
 @media (max-width: 720px) {

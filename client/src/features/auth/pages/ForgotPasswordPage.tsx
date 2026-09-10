@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { sendFirebasePasswordReset } from "../../../services/firebase";
 import { useToast } from "../../../context/ToastContext";
+import { requestPasswordReset } from "../api";
 import "../../../styles/features/auth/_login.scss";
 
 const ForgotPasswordPage = () => {
@@ -15,7 +15,7 @@ const ForgotPasswordPage = () => {
         event.preventDefault();
         setIsSubmitting(true);
         try {
-            await sendFirebasePasswordReset(email.trim());
+            await requestPasswordReset(email.trim());
         } catch {
             // Keep the same public response for existing and unknown emails.
         } finally {

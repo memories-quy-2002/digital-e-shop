@@ -1,6 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import type { CustomerNotificationRow } from "./notifications.types";
 import { NotificationsRepository } from "./notifications.repository";
+import { env } from "#src/config/env.config";
+import { formatPaymentAmount } from "../payments/currency";
 
 const normalizeNotification = (notification: CustomerNotificationRow) => ({
     id: Number(notification.id),
@@ -46,7 +48,7 @@ export class NestNotificationsService {
             userId: uid,
             type: "order",
             title: `Order #${orderId} was placed`,
-            message: `Your order total is $${Number(total || 0).toFixed(2)}. We will update this timeline as the order moves forward.`,
+            message: `Your order total is ${formatPaymentAmount(Number(total || 0), env.storeCurrency)}. We will update this timeline as the order moves forward.`,
             link: `/orders?order=${orderId}`,
         });
     }

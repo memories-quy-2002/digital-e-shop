@@ -7,6 +7,7 @@ import type {
     LockedProductRow,
     PendingCheckoutRow,
     PendingCheckoutInsertInput,
+    PaymentProviderAttachment,
     ReservedQuantityRow,
 } from "./orders.types";
 
@@ -135,7 +136,9 @@ export class CheckoutReservationRepository {
         stripeSessionId: string,
     ): Promise<PendingCheckoutRow | null> {
         const rows = await tx.query<PendingCheckoutRow[]>(
-            `SELECT id, stripe_session_id, reservation_token, user_id, guest_email, guest_name, guest_phone,
+            `SELECT id, stripe_session_id, payment_provider, provider_reference, provider_order_code,
+                    payment_amount, payment_currency, payment_fx_rate,
+                    reservation_token, user_id, guest_email, guest_name, guest_phone,
                     guest_order_token_hash, cart_json, total_price, discount, shipping_address, status, expires_at,
                     discount_id, created_at, consumed_at
              FROM pending_checkouts
@@ -145,6 +148,49 @@ export class CheckoutReservationRepository {
             [stripeSessionId],
         );
         return rows[0] || null;
+    }
+
+    async getPendingCheckoutByProviderOrderCodeForUpdate(
+        tx: TransactionContext,
+        provider: string,
+        providerOrderCode: number,
+    ): Promise<PendingCheckoutRow | null> {
+        const rows = await tx.query<PendingCheckoutRow[]>(
+            `SELECT id, stripe_session_id, payment_provider, provider_reference, provider_order_code,
+                    payment_amount, payment_currency, payment_fx_rate,
+                    reservation_token, user_id, guest_email, guest_name, guest_phone,
+                    guest_order_token_hash, cart_json, total_price, discount, shipping_address, status, expires_at,
+                    discount_id, created_at, consumed_at
+             FROM pending_checkouts
+             WHERE payment_provider = ? AND provider_order_code = ?
+             LIMIT 1
+             FOR UPDATE`,
+            [provider, providerOrderCode],
+        );
+        return rows[0] || null;
+    }
+
+    async attachPaymentProvider(
+        tx: TransactionContext,
+        reservationToken: string,
+        attachment: PaymentProviderAttachment,
+    ): Promise<number> {
+        const result = await tx.query<{ affectedRows: number }>(
+            `UPDATE pending_checkouts
+             SET payment_provider = ?, provider_reference = ?, provider_order_code = ?,
+                 payment_amount = ?, payment_currency = ?, payment_fx_rate = ?
+             WHERE reservation_token = ? AND status = 'PENDING' AND expires_at > UTC_TIMESTAMP()`,
+            [
+                attachment.provider,
+                attachment.providerReference,
+                attachment.providerOrderCode ?? null,
+                attachment.paymentAmount ?? null,
+                attachment.paymentCurrency ?? null,
+                attachment.paymentFxRate ?? 1,
+                reservationToken,
+            ],
+        );
+        return result.affectedRows;
     }
 
     async getReservationItems(tx: TransactionContext, pendingCheckoutId: number): Promise<CheckoutReservationItem[]> {
@@ -174,6 +220,20 @@ export class CheckoutReservationRepository {
              SET status = 'EXPIRED'
              WHERE stripe_session_id = ? AND status = 'PENDING'`,
             [stripeSessionId],
+        );
+        return result.affectedRows;
+    }
+
+    async expireReservationByProviderOrderCode(
+        tx: TransactionContext,
+        provider: string,
+        providerOrderCode: number,
+    ): Promise<number> {
+        const result = await tx.query<{ affectedRows: number }>(
+            `UPDATE pending_checkouts
+             SET status = 'EXPIRED'
+             WHERE payment_provider = ? AND provider_order_code = ? AND status = 'PENDING'`,
+            [provider, providerOrderCode],
         );
         return result.affectedRows;
     }

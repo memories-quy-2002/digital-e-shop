@@ -98,6 +98,10 @@ export type GuestCheckoutSessionRequest = {
     paymentMethod: GuestCardPaymentMethod;
 };
 
+export type GuestPayOSCheckoutRequest = Omit<GuestCheckoutSessionRequest, "paymentMethod"> & {
+    paymentMethod: "payos";
+};
+
 export type GuestOrderItem = {
     productId: number;
     sku?: string | null;
@@ -143,6 +147,14 @@ export type GuestPurchaseResponse = {
 export type GuestCheckoutSessionResponse = {
     url: string;
     guestOrderToken: string;
+    orderCode?: number;
+    paymentLinkId?: string;
+    amount?: number;
+    currency?: string;
+};
+
+export type PayOSCheckoutResponse = Omit<GuestCheckoutSessionResponse, "guestOrderToken"> & {
+    guestOrderToken?: string;
 };
 
 export type GuestCartPromotionPreview = {

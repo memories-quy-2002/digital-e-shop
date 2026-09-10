@@ -58,7 +58,7 @@ describe("catalog product media surfaces", () => {
             </LocaleProvider>,
         );
 
-        expect(screen.getByText("$419.00")).toBeInTheDocument();
-        expect(screen.queryByText("$$419.00")).not.toBeInTheDocument();
+        expect(screen.getByText(/419\s+₫/)).toBeInTheDocument();
+        expect(screen.queryByText(/\$419/)).not.toBeInTheDocument();
     });
 });

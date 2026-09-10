@@ -45,6 +45,7 @@ Timing depends on reproducibility, affected surface, release risk, and the avail
 Reports are in scope when they demonstrate a practical impact in the application or its release process, including:
 
 - Authentication or authorization bypasses
+- Email-verification bypasses, token replay, account-enumeration, or unintended access to checkout/review actions
 - Admin route exposure or cross-account customer data access
 - JWT, cookie, refresh-session, CSRF, or guest-order-token weaknesses
 - SQL injection, path traversal, file upload abuse, or cross-site scripting
@@ -76,6 +77,13 @@ Use local development or an approved test environment. The supported local datab
 Contributors must preserve the controls implemented in the current codebase:
 
 - Production authentication verifies Firebase identity before the server issues its own session; local development can use the configured local provider
+- Registration is provider-aware, but both providers converge on server-owned sessions and server-owned email verification state
+- Verification tokens are single-use, expire after 24 hours, stored only as SHA-256 hashes, and are never logged or returned by API responses
+- Unverified sessions may browse and manage an account, but `VerifiedEmailGuard` protects authenticated checkout, Stripe checkout-session creation, and review creation
+- Verification resend responses are generic and rate-limited; Resend delivery failures do not expose raw tokens or roll back account creation
+- Password-reset requests are generic, local reset tokens are one-time SHA-256 hashes with one-hour expiry, and successful local resets revoke active sessions and send a security notice
+- Email changes remain pending until the new address confirms; old/new address notices and marketing welcome/unsubscribe links use the shared Resend boundary without logging raw tokens
+- Customer-facing Resend delivery is gated by the server-side email verification state; verification and email-change confirmation messages remain explicit ownership-verification exceptions, and guest order confirmations do not depend on account verification
 - Access and refresh tokens use cookie-backed, database-aware sessions; refresh sessions are hashed, rotated, and revocable
 - `AuthGuard`, `RolesGuard`, and `OwnerParam` enforce authentication, role, and ownership boundaries
 - Unsafe requests use the double-submit CSRF middleware; login, registration, and refresh keep their explicit exclusions

@@ -1,13 +1,15 @@
-import { Body, Controller, Get, HttpCode, HttpException, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, HttpException, Optional, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
 import type { Request } from "express";
 import { AuthGuard } from "../guards/auth.guard";
 import { OwnerParam, Roles, RolesGuard } from "../guards/roles.guard";
+import { RequireVerifiedEmail, VerifiedEmailGuard } from "../guards/verified-email.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestOrdersService } from "./orders.service";
 import { NestOrdersStripeService } from "./orders.stripe.service";
+import { NestOrdersPayOSService } from "./orders.payos.service";
 import { calculatePromotionDiscount } from "./orders.pricing";
-import type { GuestCheckoutSessionPayload, GuestOrderLookupPayload, GuestPurchasePayload, GuestSessionLookupPayload } from "./orders.dto";
-import { orderStatusSchema, purchaseSchema, checkoutSessionSchema, applyDiscountSchema, cancelOrderSchema, guestOrderLookupSchema, guestPurchaseSchema, guestCheckoutSessionSchema, guestSessionLookupSchema } from "./orders.validator";
+import type { GuestCheckoutSessionPayload, GuestOrderLookupPayload, GuestPurchasePayload, GuestPayOSCheckoutPayload, GuestPayOSOrderLookupPayload, GuestSessionLookupPayload, MockPayOSConfirmPayload } from "./orders.dto";
+import { orderStatusSchema, purchaseSchema, checkoutSessionSchema, applyDiscountSchema, cancelOrderSchema, guestOrderLookupSchema, guestPurchaseSchema, guestCheckoutSessionSchema, guestPayOSCheckoutSchema, guestPayOSOrderLookupSchema, guestSessionLookupSchema, mockPayOSConfirmSchema } from "./orders.validator";
 
 type AuthenticatedRequest = Request & {
     user?: { id?: string | number; role?: string };
@@ -28,6 +30,7 @@ export class OrdersController {
     constructor(
         private readonly ordersService: NestOrdersService,
         private readonly ordersStripeService: NestOrdersStripeService,
+        @Optional() private readonly ordersPayOSService?: NestOrdersPayOSService,
     ) {}
 
     @Get()
@@ -255,6 +258,77 @@ export class OrdersController {
         }
     }
 
+    @Post("/guest/payos-checkout-session")
+    @HttpCode(200)
+    async createGuestPayOSCheckoutSession(
+        @Body(new ZodValidationPipe(guestPayOSCheckoutSchema)) body: GuestPayOSCheckoutPayload,
+    ) {
+        try {
+            if (!this.ordersPayOSService) throw new HttpException({ msg: "PayOS checkout is not configured" }, 503);
+            const result = await this.ordersPayOSService.createGuestCheckoutSession(body);
+            return {
+                url: result.url,
+                orderCode: result.orderCode,
+                paymentLinkId: result.paymentLinkId,
+                amount: result.amount,
+                currency: result.currency,
+                guestOrderToken: result.guestOrderToken,
+                msg: "PayOS checkout session created",
+            };
+        } catch (err) {
+            const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
+            const statusCode = error.statusCode || 500;
+            throw new HttpException(
+                {
+                    msg: statusCode === 500 ? "Unable to start PayOS checkout right now" : error.message,
+                    ...(statusCode === 500 ? {} : error.details || {}),
+                },
+                statusCode,
+            );
+        }
+    }
+
+    @Post("/mock-payos/confirm")
+    @HttpCode(200)
+    async confirmMockPayOSPayment(
+        @Body(new ZodValidationPipe(mockPayOSConfirmSchema)) body: MockPayOSConfirmPayload,
+    ) {
+        try {
+            if (!this.ordersPayOSService) throw new HttpException({ msg: "PayOS checkout is not configured" }, 503);
+            const order = await this.ordersPayOSService.confirmMockPayment(body.orderCode, body.paymentLinkId, body.amount);
+            return { orderId: order.id, order, msg: "Mock PayOS payment confirmed" };
+        } catch (err) {
+            if (err instanceof HttpException) throw err;
+            const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
+            const statusCode = error.statusCode || 500;
+            throw new HttpException(
+                {
+                    msg: statusCode === 500 ? "Unable to confirm mock PayOS payment" : error.message,
+                    ...(statusCode === 500 ? {} : error.details || {}),
+                },
+                statusCode,
+            );
+        }
+    }
+
+    @Get("/by-payos-order-code/:orderCode")
+    @UseGuards(AuthGuard)
+    async getOrderByPayOSOrderCode(@Param("orderCode") orderCode: string, @Req() req: AuthenticatedRequest) {
+        try {
+            const parsedOrderCode = Number(orderCode);
+            const order = Number.isSafeInteger(parsedOrderCode) && parsedOrderCode > 0
+                ? await this.ordersService.getOrderByPayOSOrderCode(parsedOrderCode)
+                : null;
+            if (!order || !canAccessOrder(req, order.user_id)) {
+                throw new HttpException({ msg: "Order not ready yet" }, 404);
+            }
+            return { order, msg: "Order retrieved successfully" };
+        } catch (err) {
+            if (err instanceof HttpException) throw err;
+            throw toHttpException(err as Error, "Unable to retrieve order right now");
+        }
+    }
+
     @Post("/guest/by-session")
     @HttpCode(200)
     async getGuestOrderBySessionId(
@@ -276,8 +350,9 @@ export class OrdersController {
 
     @Post("/purchase/:uid")
     @HttpCode(201)
-    @UseGuards(AuthGuard, RolesGuard)
+    @UseGuards(AuthGuard, RolesGuard, VerifiedEmailGuard)
     @OwnerParam("uid")
+    @RequireVerifiedEmail()
     async makePurchase(
         @Param("uid") uid: string,
         @Body(new ZodValidationPipe(purchaseSchema)) body: {
@@ -334,8 +409,9 @@ export class OrdersController {
 
     @Post("/checkout-session/:uid")
     @HttpCode(200)
-    @UseGuards(AuthGuard, RolesGuard)
+    @UseGuards(AuthGuard, RolesGuard, VerifiedEmailGuard)
     @OwnerParam("uid")
+    @RequireVerifiedEmail()
     async createCheckoutSession(
         @Param("uid") uid: string,
         @Body(new ZodValidationPipe(checkoutSessionSchema)) body: {
@@ -357,6 +433,64 @@ export class OrdersController {
                     msg: statusCode === 500 ? "Unable to start checkout right now" : error.message,
                     ...(statusCode === 500 ? {} : error.details || {}),
                 },
+                statusCode,
+            );
+        }
+    }
+
+    @Post("/payos-checkout-session/:uid")
+    @HttpCode(200)
+    @UseGuards(AuthGuard, RolesGuard, VerifiedEmailGuard)
+    @OwnerParam("uid")
+    @RequireVerifiedEmail()
+    async createPayOSCheckoutSession(
+        @Param("uid") uid: string,
+        @Body(new ZodValidationPipe(checkoutSessionSchema)) body: {
+            totalPrice: number;
+            cart: Array<{ productId: number; quantity: number; price: number; sale_price?: number | null }>;
+            discount: number;
+            discountCode?: string;
+            shippingAddress: string;
+        },
+    ) {
+        try {
+            if (!this.ordersPayOSService) throw new HttpException({ msg: "PayOS checkout is not configured" }, 503);
+            const result = await this.ordersPayOSService.createCheckoutSession(uid, body);
+            return {
+                url: result.url,
+                orderCode: result.orderCode,
+                paymentLinkId: result.paymentLinkId,
+                amount: result.amount,
+                currency: result.currency,
+                msg: "PayOS checkout session created",
+            };
+        } catch (err) {
+            const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
+            const statusCode = error.statusCode || 500;
+            throw new HttpException(
+                {
+                    msg: statusCode === 500 ? "Unable to start PayOS checkout right now" : error.message,
+                    ...(statusCode === 500 ? {} : error.details || {}),
+                },
+                statusCode,
+            );
+        }
+    }
+
+    @Post("/guest/by-payos-order-code")
+    @HttpCode(200)
+    async getGuestOrderByPayOSOrderCode(
+        @Body(new ZodValidationPipe(guestPayOSOrderLookupSchema)) body: GuestPayOSOrderLookupPayload,
+    ) {
+        try {
+            const order = await this.ordersService.getGuestOrderByPayOSOrderCode(body.orderCode, body.guestOrderToken);
+            return { order, msg: "Guest order retrieved successfully" };
+        } catch (err) {
+            if (err instanceof HttpException) throw err;
+            const error = err as Error & { statusCode?: number };
+            const statusCode = error.statusCode || 500;
+            throw new HttpException(
+                { msg: statusCode === 500 ? "Unable to retrieve guest order right now" : error.message },
                 statusCode,
             );
         }

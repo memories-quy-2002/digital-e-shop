@@ -4,13 +4,15 @@ import { Form } from "../../../components/ui/legacy";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate } from "react-router-dom";
 import authImage from "../../../assets/images/background_form.jpg";
+import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
-import { createFirebaseUser, sendFirebaseEmailVerification, signInWithFirebaseEmail } from "../../../services/firebase";
+import { createFirebaseUser, signInWithFirebaseEmail } from "../../../services/firebase";
 import "../../../styles/features/auth/_signup.scss";
 import { PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../../../utils/images";
 import type { UserCredential } from "firebase/auth";
 import { EyeIcon, EyeOffIcon } from "../../../components/common/Icons";
 import { registerUser } from "../api";
+import { isLocalAuth } from "../../../lib/env";
 
 interface User {
     username: string;
@@ -22,6 +24,7 @@ interface User {
 const SignupPage = () => {
     const navigate = useNavigate();
     const { addToast } = useToast();
+    const { setUserData } = useAuth();
     const [user, setUser] = useState<User>({
         username: "",
         email: "",
@@ -75,8 +78,8 @@ const SignupPage = () => {
         const errorsList: string[] = [];
         const usernamePattern = /^[a-zA-Z0-9._-]{3,15}$/;
         const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-        const emailPattern = /^([A-Za-z0-9_\-.])+@([A-Za-z0-9_\-.])+\.([A-Za-z]{2,4})$/;
-        if (!user.username) {
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+        if (!user.username.trim()) {
             errorsList.push("Username is required");
         } else if (!usernamePattern.test(user.username)) {
             errorsList.push(
@@ -85,7 +88,7 @@ const SignupPage = () => {
         }
         if (!user.email) {
             errorsList.push("Email is required");
-        } else if (!user.email.match(emailPattern)) {
+        } else if (!emailPattern.test(user.email.trim())) {
             errorsList.push("Invalid email format");
         }
         if (!user.password) {
@@ -121,26 +124,39 @@ const SignupPage = () => {
 
         setIsSubmitting(true);
         try {
-            let userCredential: UserCredential;
-            try {
-                userCredential = await createFirebaseUser(user.email, user.password);
-            } catch (err: unknown) {
-                const error = err as { code?: string };
-                if (error.code === "auth/email-already-in-use") {
-                    userCredential = await signInWithFirebaseEmail(user.email, user.password);
-                } else {
-                    throw err;
-                }
-            }
+            const normalizedEmail = user.email.trim();
+            const normalizedUsername = user.username.trim();
+            const registrationResponse = isLocalAuth
+                ? await registerUser({
+                    email: normalizedEmail,
+                    password: user.password,
+                    user: { username: normalizedUsername },
+                })
+                : await (async () => {
+                    let userCredential: UserCredential;
+                    try {
+                        userCredential = await createFirebaseUser(normalizedEmail, user.password);
+                    } catch (err: unknown) {
+                        const error = err as { code?: string };
+                        if (error.code === "auth/email-already-in-use") {
+                            userCredential = await signInWithFirebaseEmail(normalizedEmail, user.password);
+                        } else {
+                            throw err;
+                        }
+                    }
 
-            const idToken = await userCredential.user.getIdToken(true);
-            await registerUser({ username: user.username }, idToken);
+                    const idToken = await userCredential.user.getIdToken(true);
+                    return registerUser({ idToken, user: { username: normalizedUsername } });
+                })();
+
+            if (registrationResponse.userData) {
+                setUserData(registrationResponse.userData);
+            }
             addToast("Signup", "Account created successfully.");
-            try {
-                await sendFirebaseEmailVerification();
+            if (registrationResponse.verification_email_sent) {
                 addToast("Verify your email", "We sent a verification link to your inbox.");
-            } catch {
-                addToast("Verify your email", "Your account is ready. You can resend verification from your account page.");
+            } else if (registrationResponse.email_verified !== true) {
+                addToast("Verify your email", "Your account is ready. You can request a new verification link from your account page.");
             }
             navigate("/");
         } catch (err: unknown) {

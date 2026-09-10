@@ -31,9 +31,24 @@ export type GuestCheckoutSessionPayload = {
     paymentMethod: GuestStripePaymentMethod;
 };
 
+export type GuestPayOSCheckoutPayload = Omit<GuestCheckoutSessionPayload, "paymentMethod"> & {
+    paymentMethod: "payos";
+};
+
 export type GuestSessionLookupPayload = {
     sessionId: string;
     guestOrderToken: string;
+};
+
+export type GuestPayOSOrderLookupPayload = {
+    orderCode: number;
+    guestOrderToken: string;
+};
+
+export type MockPayOSConfirmPayload = {
+    orderCode: number;
+    paymentLinkId: string;
+    amount: number;
 };
 
 export type GuestOrderLookupPayload = {

@@ -9,17 +9,26 @@ const mocks = vi.hoisted(() => ({
     toast: { addToast: vi.fn() },
     guestPurchase: vi.fn(),
     guestSession: vi.fn(),
+    guestPayOSSession: vi.fn(),
+    payosAuthSession: vi.fn(),
     customerAddresses: vi.fn(),
     customerOrders: vi.fn(),
     httpGet: vi.fn(),
     httpPost: vi.fn(),
+    navigate: vi.fn(),
 }));
 
 vi.mock("../../../context/AuthContext", () => ({ useAuth: () => mocks.auth }));
 vi.mock("../../../context/ToastContext", () => ({ useToast: () => mocks.toast }));
+vi.mock("react-router-dom", async () => {
+    const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
+    return { ...actual, useNavigate: () => mocks.navigate };
+});
 vi.mock("../api", () => ({
     createGuestPurchase: mocks.guestPurchase,
     createGuestCheckoutSession: mocks.guestSession,
+    createGuestPayOSCheckoutSession: mocks.guestPayOSSession,
+    createPayOSCheckoutSession: mocks.payosAuthSession,
     fetchCustomerOrders: mocks.customerOrders,
 }));
 vi.mock("../../../lib/http", () => ({ default: { get: mocks.httpGet, post: mocks.httpPost } }));
@@ -80,11 +89,7 @@ describe("CheckoutPaymentPage guest checkout", () => {
         });
     });
 
-    it.each([
-        "cash",
-        "bank_transfer",
-        "payos",
-    ] as const)("submits the guest %s purchase contract", async (paymentMethod) => {
+    it.each(["cash", "bank_transfer"] as const)("submits the guest %s purchase contract", async (paymentMethod) => {
         renderCheckout();
         fillRequiredFields();
         fireEvent.click(screen.getByDisplayValue(paymentMethod));
@@ -100,27 +105,66 @@ describe("CheckoutPaymentPage guest checkout", () => {
         expect(mocks.guestPurchase.mock.calls[0][0]).not.toHaveProperty("cart[0].price");
     });
 
-    it("stores the raw guest access token without persisting guest PII", async () => {
-        mocks.guestSession.mockResolvedValue({ url: "", guestOrderToken: "stripe-token" });
+    it("redirects guest PayOS checkout through a server-created VND payment link", async () => {
+        mocks.guestPayOSSession.mockResolvedValue({
+            url: "",
+            guestOrderToken: "payos-token",
+            orderCode: 123456,
+            amount: 4_000_000,
+            currency: "VND",
+        });
         renderCheckout();
         fillRequiredFields();
-        fireEvent.click(screen.getByDisplayValue("card"));
+        fireEvent.click(screen.getByDisplayValue("payos"));
         fireEvent.click(screen.getByRole("button", { name: "Place order" }));
 
-        await waitFor(() => expect(mocks.guestSession).toHaveBeenCalledWith({
+        await waitFor(() => expect(mocks.guestPayOSSession).toHaveBeenCalledWith({
             cart: [{ productId: 10, quantity: 2 }],
             contact: { email: "guest@example.com", name: "Guest Buyer" },
             shipping: { address: "1 Main Street", city: "HCMC", country: "VN" },
-            paymentMethod: "card",
+            paymentMethod: "payos",
         }));
-        const pendingCheckout = JSON.parse(sessionStorage.getItem("checkoutPending") || "{}");
-        expect(pendingCheckout).toMatchObject({ guestOrderToken: "stripe-token" });
-        expect(pendingCheckout).not.toHaveProperty("email");
-        expect(pendingCheckout).not.toHaveProperty("name");
-        expect(pendingCheckout).not.toHaveProperty("address");
-        expect(pendingCheckout).not.toHaveProperty("city");
-        expect(pendingCheckout).not.toHaveProperty("country");
-        expect(pendingCheckout).not.toHaveProperty("phone");
+        expect(mocks.guestPurchase).not.toHaveBeenCalled();
+        expect(JSON.parse(sessionStorage.getItem("checkoutPending") || "{}")).toMatchObject({
+            guestOrderToken: "payos-token",
+            paymentMethod: "payos",
+        });
+    });
+
+    it("passes guest contact and shipping details through route state without persisting PII", async () => {
+        renderCheckout();
+        fillRequiredFields();
+        fireEvent.click(screen.getByDisplayValue("cash"));
+        fireEvent.click(screen.getByRole("button", { name: "Place order" }));
+
+        await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith(
+            "/checkout-success",
+            expect.objectContaining({
+                state: {
+                    checkoutSuccess: expect.objectContaining({
+                        orderId: "42",
+                        email: "guest@example.com",
+                        name: "Guest Buyer",
+                        address: "1 Main Street",
+                        city: "HCMC",
+                        country: "VN",
+                        guestOrderToken: "guest-token",
+                    }),
+                },
+            }),
+        ));
+
+        const storedCheckout = JSON.parse(sessionStorage.getItem("checkoutSuccess") || "{}");
+        expect(storedCheckout).not.toHaveProperty("email");
+        expect(storedCheckout).not.toHaveProperty("name");
+        expect(storedCheckout).not.toHaveProperty("address");
+        expect(storedCheckout).not.toHaveProperty("city");
+        expect(storedCheckout).not.toHaveProperty("country");
+    });
+
+    it("does not offer the USD-only card rail for the VND storefront", () => {
+        renderCheckout();
+        expect(screen.queryByDisplayValue("card")).not.toBeInTheDocument();
     });
 
     it("shows a clickable recent order address when no saved address is available", async () => {

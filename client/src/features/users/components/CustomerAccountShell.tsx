@@ -14,10 +14,15 @@ const navItems = [
     { to: "/account", label: "Account", helper: "Overview", icon: <PersonIcon size={16} /> },
     { to: "/orders", label: "Orders", helper: "History", icon: <CartIcon size={16} /> },
     { to: "/addresses", label: "Addresses", helper: "Shipping", icon: <HouseIcon size={16} /> },
-    { to: "/notifications", label: "Notifications", helper: "Updates", icon: <BellIcon size={16} /> },
+    { to: "/account#notifications", label: "Notifications", helper: "Updates", icon: <BellIcon size={16} /> },
 ];
 
-const CustomerAccountShell = ({ eyebrow, title, description, actions }: CustomerAccountShellProps) => {
+const CustomerAccountShell = ({
+    eyebrow,
+    title,
+    description,
+    actions,
+}: CustomerAccountShellProps) => {
     const location = useLocation();
 
     return (
@@ -33,7 +38,13 @@ const CustomerAccountShell = ({ eyebrow, title, description, actions }: Customer
 
             <nav className="customer-account-shell__nav" aria-label="Customer account navigation">
                 {navItems.map((item, index) => {
-                    const isActive = location.pathname === item.to;
+                    const isNotifications = item.to === "/account#notifications";
+                    const isAccountOverview = item.to === "/account";
+                    const isActive = isNotifications
+                        ? location.pathname === "/account" && location.hash === "#notifications"
+                        : isAccountOverview
+                            ? location.pathname === "/account" && location.hash !== "#notifications"
+                            : location.pathname === item.to;
 
                     return (
                         <Link

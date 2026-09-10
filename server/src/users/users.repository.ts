@@ -26,6 +26,15 @@ export class UsersRepository {
         });
     }
 
+    findByUsername(username: string): Promise<UserRow | null> {
+        return new Promise((resolve, reject) => {
+            pool.query("SELECT * FROM users WHERE LOWER(username) = LOWER(?) LIMIT 1", [username], (queryErr: DbError | null, results?: UserRow[]) => {
+                if (queryErr) return reject(queryErr);
+                resolve(results?.[0] || null);
+            });
+        });
+    }
+
     getAll(): Promise<UserRow[]> {
         return new Promise((resolve, reject) => {
             pool.query(
@@ -130,6 +139,210 @@ export class UsersRepository {
                 (queryErr: DbError | null) => {
                     if (queryErr) return reject(queryErr);
                     resolve();
+                },
+            );
+        });
+    }
+
+    createLocalUser(uid: string, username: string, email: string, password: string, role = "Customer"): Promise<void> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                "INSERT INTO users (id, username, email, password, role, token, auth_provider, provider_user_id) VALUES (?, ?, ?, ?, ?, '', 'local', NULL)",
+                [uid, username, email, password, role],
+                (queryErr: DbError | null) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve();
+                },
+            );
+        });
+    }
+
+    updateAuthIdentity(uid: string, provider: string, providerUserId: string): Promise<UpdateResult> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                "UPDATE users SET auth_provider = ?, provider_user_id = ? WHERE id = ?",
+                [provider, providerUserId, uid],
+                (queryErr: DbError | null, result?: UpdateResult) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve(result || { affectedRows: 0 });
+                },
+            );
+        });
+    }
+
+    markEmailVerified(uid: string): Promise<UpdateResult> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                `UPDATE users
+                 SET email_verified_at = COALESCE(email_verified_at, UTC_TIMESTAMP()),
+                     email_verification_token_hash = NULL,
+                     email_verification_expires_at = NULL
+                 WHERE id = ?`,
+                [uid],
+                (queryErr: DbError | null, result?: UpdateResult) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve(result || { affectedRows: 0 });
+                },
+            );
+        });
+    }
+
+    setEmailVerificationToken(uid: string, tokenHash: string, expiresAt: Date): Promise<UpdateResult> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                `UPDATE users
+                 SET email_verification_token_hash = ?,
+                     email_verification_expires_at = ?,
+                     email_verification_sent_at = UTC_TIMESTAMP()
+                 WHERE id = ? AND email_verified_at IS NULL`,
+                [tokenHash, expiresAt, uid],
+                (queryErr: DbError | null, result?: UpdateResult) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve(result || { affectedRows: 0 });
+                },
+            );
+        });
+    }
+
+    findByVerificationTokenHash(tokenHash: string): Promise<UserRow | null> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                `SELECT * FROM users
+                 WHERE email_verification_token_hash = ?
+                   AND email_verification_expires_at > UTC_TIMESTAMP()
+                   AND email_verified_at IS NULL
+                 LIMIT 1`,
+                [tokenHash],
+                (queryErr: DbError | null, results?: UserRow[]) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve(results?.[0] || null);
+                },
+            );
+        });
+    }
+
+    consumeEmailVerificationToken(uid: string, tokenHash: string): Promise<UpdateResult> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                `UPDATE users
+                 SET email_verified_at = UTC_TIMESTAMP(),
+                     email_verification_token_hash = NULL,
+                     email_verification_expires_at = NULL
+                 WHERE id = ?
+                   AND email_verification_token_hash = ?
+                   AND email_verification_expires_at > UTC_TIMESTAMP()
+                   AND email_verified_at IS NULL`,
+                [uid, tokenHash],
+                (queryErr: DbError | null, result?: UpdateResult) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve(result || { affectedRows: 0 });
+                },
+            );
+        });
+    }
+
+    setPasswordResetToken(uid: string, tokenHash: string, expiresAt: Date): Promise<UpdateResult> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                `UPDATE users
+                 SET password_reset_token_hash = ?,
+                     password_reset_expires_at = ?
+                 WHERE id = ?`,
+                [tokenHash, expiresAt, uid],
+                (queryErr: DbError | null, result?: UpdateResult) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve(result || { affectedRows: 0 });
+                },
+            );
+        });
+    }
+
+    findByPasswordResetTokenHash(tokenHash: string): Promise<UserRow | null> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                `SELECT * FROM users
+                 WHERE password_reset_token_hash = ?
+                   AND password_reset_expires_at > UTC_TIMESTAMP()
+                 LIMIT 1`,
+                [tokenHash],
+                (queryErr: DbError | null, results?: UserRow[]) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve(results?.[0] || null);
+                },
+            );
+        });
+    }
+
+    consumePasswordResetToken(uid: string, tokenHash: string, passwordHash: string): Promise<UpdateResult> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                `UPDATE users
+                 SET password = ?,
+                     password_reset_token_hash = NULL,
+                     password_reset_expires_at = NULL
+                 WHERE id = ?
+                   AND password_reset_token_hash = ?
+                   AND password_reset_expires_at > UTC_TIMESTAMP()`,
+                [passwordHash, uid, tokenHash],
+                (queryErr: DbError | null, result?: UpdateResult) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve(result || { affectedRows: 0 });
+                },
+            );
+        });
+    }
+
+    setPendingEmailChange(uid: string, email: string, tokenHash: string, expiresAt: Date): Promise<UpdateResult> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                `UPDATE users
+                 SET pending_email = ?,
+                     email_change_token_hash = ?,
+                     email_change_expires_at = ?
+                 WHERE id = ?`,
+                [email, tokenHash, expiresAt, uid],
+                (queryErr: DbError | null, result?: UpdateResult) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve(result || { affectedRows: 0 });
+                },
+            );
+        });
+    }
+
+    findByEmailChangeTokenHash(tokenHash: string): Promise<UserRow | null> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                `SELECT * FROM users
+                 WHERE email_change_token_hash = ?
+                   AND email_change_expires_at > UTC_TIMESTAMP()
+                   AND pending_email IS NOT NULL
+                 LIMIT 1`,
+                [tokenHash],
+                (queryErr: DbError | null, results?: UserRow[]) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve(results?.[0] || null);
+                },
+            );
+        });
+    }
+
+    consumeEmailChangeToken(uid: string, tokenHash: string, email: string): Promise<UpdateResult> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                `UPDATE users
+                 SET email = ?,
+                     email_verified_at = UTC_TIMESTAMP(),
+                     pending_email = NULL,
+                     email_change_token_hash = NULL,
+                     email_change_expires_at = NULL
+                 WHERE id = ?
+                   AND pending_email = ?
+                   AND email_change_token_hash = ?
+                   AND email_change_expires_at > UTC_TIMESTAMP()`,
+                [email, uid, email, tokenHash],
+                (queryErr: DbError | null, result?: UpdateResult) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve(result || { affectedRows: 0 });
                 },
             );
         });

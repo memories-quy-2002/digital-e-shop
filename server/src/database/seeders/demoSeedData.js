@@ -1,6 +1,7 @@
 const DEMO_PASSWORD = "DemoPass123!";
 
 const DEMO_SEED_PLAN = {
+    currency: "VND",
     users: [
         {
             key: "admin",
@@ -10,6 +11,7 @@ const DEMO_SEED_PLAN = {
             firstName: "Minh",
             lastName: "Nguyen",
             role: "Admin",
+            emailVerified: true,
         },
         {
             key: "alice",
@@ -19,6 +21,7 @@ const DEMO_SEED_PLAN = {
             firstName: "Ngoc Anh",
             lastName: "Nguyen",
             role: "Customer",
+            emailVerified: true,
         },
         {
             key: "bob",
@@ -28,6 +31,7 @@ const DEMO_SEED_PLAN = {
             firstName: "Quang Huy",
             lastName: "Tran",
             role: "Customer",
+            emailVerified: true,
         },
         {
             key: "carol",
@@ -37,6 +41,7 @@ const DEMO_SEED_PLAN = {
             firstName: "Thu Ha",
             lastName: "Pham",
             role: "Customer",
+            emailVerified: true,
         },
     ],
     categories: ["Laptop", "Smartphone", "PC", "Monitor", "Headphone", "Graphics Card", "Console", "Camera"],
@@ -652,6 +657,21 @@ const DEMO_SEED_PLAN = {
     ],
 };
 
+// The catalog fixture values above are kept readable as USD-like reference
+// prices, then materialized as whole-number VND for the Vietnam-first demo.
+const DEMO_SEED_USD_TO_VND_RATE = 25_000;
+const toDemoVnd = (value) => Math.round((Number(value) * DEMO_SEED_USD_TO_VND_RATE) / 1_000) * 1_000;
+
+DEMO_SEED_PLAN.products = DEMO_SEED_PLAN.products.map((product) => ({
+    ...product,
+    price: toDemoVnd(product.price),
+    salePrice: toDemoVnd(product.salePrice),
+}));
+DEMO_SEED_PLAN.discounts = DEMO_SEED_PLAN.discounts.map((discount) => ({
+    ...discount,
+    minOrderValue: toDemoVnd(discount.minOrderValue),
+}));
+
 const ensureUnique = (values, label) => {
     const seen = new Set();
     values.forEach((value) => {
@@ -680,6 +700,9 @@ const validateDemoSeedPlan = (plan = DEMO_SEED_PLAN) => {
     if (!plan.users.some((user) => user.role === "Customer")) {
         throw new Error("Demo seed plan must include a customer account");
     }
+    if (plan.users.some((user) => user.emailVerified !== true)) {
+        throw new Error("Demo seed plan requires every account to have a verified email");
+    }
 
     const users = new Set(plan.users.map((user) => user.key));
     const products = new Set(plan.products.map((product) => product.name));
@@ -698,6 +721,9 @@ const validateDemoSeedPlan = (plan = DEMO_SEED_PLAN) => {
         }
         if (typeof product.mainImage !== "string" || product.mainImage.trim() === "") {
             throw new Error(`Demo seed plan is missing a main image: ${product.name}`);
+        }
+        if (!Number.isInteger(product.price) || !Number.isInteger(product.salePrice) || product.price <= product.salePrice) {
+            throw new Error(`Demo seed plan requires whole-number VND prices: ${product.name}`);
         }
     });
 
