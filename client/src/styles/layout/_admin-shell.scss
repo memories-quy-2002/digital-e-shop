@@ -1,8 +1,8 @@
 .admin__shell {
     min-height: 100vh;
     background:
-        radial-gradient(circle at top left, rgba(45, 81, 125, 0.08), transparent 28%),
-        linear-gradient(180deg, #f7f3eb 0%, #efe7db 100%);
+        radial-gradient(circle at top left, var(--de-color-glow-electric), transparent 28%),
+        linear-gradient(180deg, var(--de-color-bg-elevated) 0%, var(--de-color-bg) 100%);
 }
 
 .admin__layout {
@@ -20,17 +20,17 @@
     align-self: flex-start;
     flex: 0 0 280px;
     min-height: 100vh;
-    background: linear-gradient(180deg, rgba(21, 34, 53, 0.99), rgba(21, 34, 53, 0.94));
+    background: var(--de-color-surface-inverse);
     padding: 1.5rem 1.25rem;
     width: 280px;
-    border-right: 1px solid rgba(148, 163, 184, 0.12);
-    box-shadow: 18px 0 32px rgba(21, 34, 53, 0.16);
+    border-right: 1px solid var(--de-color-inverse-border);
+    box-shadow: var(--de-shadow-md);
 }
 
 .admin__layout__sidebar__title {
     margin-top: 1rem;
     text-align: left;
-    color: #fff;
+    color: var(--de-color-on-inverse);
 }
 
 .admin__layout__sidebar__title__brand {
@@ -44,7 +44,7 @@
     display: block;
     margin-top: 0.25rem;
     font-size: 0.85rem;
-    color: #b8b0a3;
+    color: color-mix(in srgb, var(--de-color-on-inverse) 68%, transparent);
 }
 
 .admin__layout__sidebar__information {
@@ -55,15 +55,15 @@
     gap: 1rem;
     padding: 0.9rem 1rem;
     border-radius: 16px;
-    background: rgba(243, 238, 228, 0.06);
-    border: 1px solid rgba(243, 238, 228, 0.1);
+    background: color-mix(in srgb, var(--de-color-on-inverse) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--de-color-on-inverse) 10%, transparent);
 }
 
 .admin__layout__sidebar__information__img {
     height: 2.5rem;
     aspect-ratio: 1/1;
     border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, 0.2);
+    border: 2px solid color-mix(in srgb, var(--de-color-on-inverse) 20%, transparent);
 }
 
 .admin__layout__sidebar__information__avatar {
@@ -74,10 +74,10 @@
     align-items: center;
     justify-content: center;
     font-weight: 800;
-    color: #eff6ff;
-    background: linear-gradient(135deg, #2d517d, #4d6c96);
-    border: 2px solid rgba(243, 238, 228, 0.2);
-    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.25);
+    color: var(--de-color-on-accent);
+    background: var(--de-color-electric);
+    border: 2px solid color-mix(in srgb, var(--de-color-on-inverse) 20%, transparent);
+    box-shadow: var(--de-shadow-info-soft);
 }
 
 .admin__layout__sidebar__information__user {
@@ -89,7 +89,7 @@
 
 .admin__layout__sidebar__information__user strong,
 .admin__layout__sidebar__information__user span {
-    color: #e4ddcf;
+    color: color-mix(in srgb, var(--de-color-on-inverse) 88%, transparent);
 }
 
 .admin__layout__sidebar__navigation {
@@ -101,7 +101,7 @@
 
 .admin__layout__sidebar__navigation__caption {
     padding: 0 0.25rem;
-    color: #b8b0a3;
+    color: color-mix(in srgb, var(--de-color-on-inverse) 68%, transparent);
     font-family: var(--de-font-family-mono);
     font-size: 0.72rem;
     font-weight: 800;
@@ -119,7 +119,7 @@
     height: 2.75rem;
     border: none;
     background-color: transparent;
-    color: #e4ddcf;
+    color: color-mix(in srgb, var(--de-color-on-inverse) 88%, transparent);
     font-size: 0.95rem;
     text-align: left;
     border-radius: 12px;
@@ -131,15 +131,15 @@
 }
 
 .admin__layout__sidebar__navigation button:hover {
-    background: rgba(243, 238, 228, 0.08);
+    background: color-mix(in srgb, var(--de-color-on-inverse) 8%, transparent);
     transform: translateX(2px);
 }
 
 .admin__layout__sidebar__navigation .active {
     font-weight: 700;
-    color: #fff;
-    background: linear-gradient(135deg, rgba(77, 108, 150, 0.26), rgba(45, 81, 125, 0.18));
-    box-shadow: inset 0 0 0 1px rgba(243, 238, 228, 0.14);
+    color: var(--de-color-on-inverse);
+    background: color-mix(in srgb, var(--de-color-electric) 26%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--de-color-on-inverse) 14%, transparent);
 }
 
 .admin__layout__main {
@@ -165,8 +165,8 @@
     justify-content: space-between;
     align-items: center;
     position: relative;
-    background: rgba(251, 248, 242, 0.92);
-    border-bottom: 1px solid rgba(99, 108, 122, 0.18);
+    background: color-mix(in srgb, var(--de-color-chrome) 94%, transparent);
+    border-bottom: 1px solid var(--de-color-chrome-border);
     padding: 1rem 1.5rem;
     gap: 1rem;
 }
@@ -187,26 +187,26 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    border: 1px solid rgba(99, 108, 122, 0.18);
-    background: rgba(255, 253, 248, 0.94);
-    color: #0f172a;
+    border: 1px solid var(--de-color-chrome-border);
+    background: var(--de-color-chrome-surface);
+    color: var(--de-color-chrome-text);
     padding: 0.5rem 0.75rem;
     border-radius: var(--de-radius-sm);
     font-size: 0.9rem;
-    box-shadow: 0 8px 18px rgba(23, 35, 52, 0.08);
+    box-shadow: var(--de-shadow-xs);
 }
 
 .admin__layout__main__header__logout {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    border: 1px solid rgba(99, 108, 122, 0.18);
-    background: rgba(255, 253, 248, 0.94);
-    color: #0f172a;
+    border: 1px solid var(--de-color-chrome-border);
+    background: var(--de-color-chrome-surface);
+    color: var(--de-color-chrome-text);
     padding: 0.5rem 0.75rem;
     border-radius: 12px;
     font-size: 0.9rem;
-    box-shadow: 0 8px 18px rgba(23, 35, 52, 0.08);
+    box-shadow: var(--de-shadow-xs);
 }
 
 .admin__layout__main__header__profile {
@@ -215,9 +215,9 @@
     gap: 0.75rem;
     padding: 0.35rem 0.8rem;
     border-radius: 999px;
-    background: rgba(255, 253, 248, 0.92);
-    border: 1px solid rgba(99, 108, 122, 0.18);
-    box-shadow: 0 8px 18px rgba(23, 35, 52, 0.08);
+    background: var(--de-color-chrome-surface);
+    border: 1px solid var(--de-color-chrome-border);
+    box-shadow: var(--de-shadow-xs);
 }
 
 .admin__layout__main__header__profile-avatar {
@@ -229,8 +229,8 @@
     justify-content: center;
     font-weight: 800;
     font-size: 0.95rem;
-    color: #eff6ff;
-    background: linear-gradient(135deg, #2563eb, #14b8a6);
+    color: var(--de-color-on-accent);
+    background: var(--de-color-electric);
 }
 
 .admin__layout__main__header__profile-copy {
@@ -240,13 +240,13 @@
 }
 
 .admin__layout__main__header__profile-copy strong {
-    color: #0f172a;
+    color: var(--de-color-chrome-text);
     font-size: 0.9rem;
     line-height: 1.1;
 }
 
 .admin__layout__main__header__profile-copy span {
-    color: #64748b;
+    color: var(--de-color-chrome-muted);
     font-size: 0.78rem;
 }
 
@@ -269,11 +269,11 @@
     display: flex;
     width: 100%;
     align-items: center;
-    background-color: rgba(255, 253, 248, 0.94);
+    background-color: var(--de-color-chrome-surface);
     padding: 0.35rem 0.45rem 0.35rem 0.8rem;
     border-radius: 14px;
-    border: 1px solid rgba(99, 108, 122, 0.18);
-    box-shadow: 0 10px 20px rgba(23, 35, 52, 0.06);
+    border: 1px solid var(--de-color-chrome-border);
+    box-shadow: var(--de-shadow-xs);
 }
 
 .admin__layout__main__header__search input[type="text"] {
@@ -289,13 +289,13 @@
 }
 
 .admin__layout__main__header__search input[type="text"]::placeholder {
-    color: #9a8f7e;
+    color: var(--de-color-chrome-muted);
 }
 
 .admin__layout__main__header__search button[type="submit"] {
-    background-color: var(--de-color-primary);
+    background-color: var(--de-color-signal);
     height: 2.25rem;
-    color: #fff;
+    color: var(--de-color-on-accent);
     padding: 0 1rem;
     border: none;
     border-radius: 6px;
@@ -304,7 +304,7 @@
 }
 
 .admin__layout__main__header__search button[type="submit"]:hover {
-    background-color: var(--de-color-primary-strong);
+    background-color: var(--de-color-signal-hover);
 }
 
 .admin__layout__main__header__notifications {
@@ -324,9 +324,9 @@
     width: 2.9rem;
     height: 2.9rem;
     border-radius: 999px;
-    background: rgba(255, 253, 248, 0.94);
-    border: 1px solid rgba(99, 108, 122, 0.18);
-    box-shadow: 0 8px 18px rgba(23, 35, 52, 0.08);
+    background: var(--de-color-chrome-surface);
+    border: 1px solid var(--de-color-chrome-border);
+    box-shadow: var(--de-shadow-xs);
 }
 
 .admin__layout__main__header__notifications__badge {
@@ -334,7 +334,7 @@
     top: -2px;
     right: -2px;
     background-color: var(--de-color-danger);
-    color: #fff;
+    color: var(--de-color-on-accent);
     border-radius: 50%;
     padding: 0.1rem 0.35rem;
     font-size: 0.7rem;
@@ -348,9 +348,9 @@
     top: calc(100% + 0.85rem);
     right: 0;
     width: min(420px, calc(100vw - 2rem));
-    background: #fffdf8;
+    background: var(--de-color-surface-strong);
     border-radius: var(--de-radius-md);
-    box-shadow: 0 22px 45px rgba(23, 35, 52, 0.18);
+    box-shadow: var(--de-shadow-md);
     padding: 1rem;
     z-index: 25;
 }
@@ -381,7 +381,7 @@
         min-height: auto;
         padding: 1rem 1rem 0.85rem;
         border-right: none;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+        border-bottom: 1px solid var(--de-color-inverse-border);
         box-shadow: none;
     }
 
@@ -504,11 +504,11 @@
 
 .admin__layout__main__header__notifications__panel-header strong {
     display: block;
-    color: #111827;
+    color: var(--de-color-text);
 }
 
 .admin__layout__main__header__notifications__panel-header span {
-    color: #6b7280;
+    color: var(--de-color-text-muted);
     font-size: 0.82rem;
 }
 
@@ -536,7 +536,7 @@
     gap: 0.85rem;
     padding: 0.85rem;
     border-radius: 14px;
-    border: 1px solid rgba(99, 108, 122, 0.18);
+    border: 1px solid var(--de-color-border);
 }
 
 .admin__layout__main__header__notifications__item strong {
@@ -553,24 +553,24 @@
 
 .admin__layout__main__header__notifications__item span {
     white-space: nowrap;
-    color: #9a8f7e;
+    color: var(--de-color-text-faint);
     font-size: 0.76rem;
 }
 
 .admin__layout__main__header__notifications__item--order {
-    background: linear-gradient(180deg, #f2ece2, #fffdf8);
+    background: linear-gradient(180deg, var(--de-color-info-soft), var(--de-color-surface-strong));
 }
 
 .admin__layout__main__header__notifications__item--user {
-    background: linear-gradient(180deg, #eef2e8, #fffdf8);
+    background: linear-gradient(180deg, var(--de-color-success-soft), var(--de-color-surface-strong));
 }
 
 .admin__layout__main__header__notifications__item--inventory {
-    background: linear-gradient(180deg, #f5ead7, #fffdf8);
+    background: linear-gradient(180deg, var(--de-color-warning-soft), var(--de-color-surface-strong));
 }
 
 .admin__layout__main__header__notifications__item--payment {
-    background: linear-gradient(180deg, #ece7e0, #fffdf8);
+    background: linear-gradient(180deg, var(--de-color-primary-emphasis-soft), var(--de-color-surface-strong));
 }
 
 .admin__layout__main__header__notifications__empty {

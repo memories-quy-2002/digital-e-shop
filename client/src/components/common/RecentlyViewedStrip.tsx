@@ -2,13 +2,12 @@ import React from "react";
 import type { RecentlyViewedEntry } from "../../hooks/useRecentlyViewed";
 import { useT } from "../../hooks/useT";
 import loadImage from "../../utils/loadImage";
+import { formatCurrency } from "../../utils/currency";
 
 type RecentlyViewedStripProps = {
     items: RecentlyViewedEntry[];
     onSelect?: (id: number) => void;
 };
-
-const formatPrice = (value: number) => `$${Number(value || 0).toFixed(2)}`;
 
 const RecentlyViewedStrip: React.FC<RecentlyViewedStripProps> = ({ items, onSelect }) => {
     const t = useT();
@@ -53,11 +52,11 @@ const RecentlyViewedStrip: React.FC<RecentlyViewedStripProps> = ({ items, onSele
                                     <span className="recently-viewed__price">
                                         {hasSale ? (
                                             <>
-                                                <em>{formatPrice(item.price)}</em>
-                                                <strong>{formatPrice(activePrice)}</strong>
+                                                <em>{formatCurrency(item.price)}</em>
+                                                <strong>{formatCurrency(activePrice)}</strong>
                                             </>
                                         ) : (
-                                            <strong>{formatPrice(activePrice)}</strong>
+                                            <strong>{formatCurrency(activePrice)}</strong>
                                         )}
                                     </span>
                                 </div>

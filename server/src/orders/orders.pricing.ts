@@ -1,4 +1,6 @@
 import type { PromotionRow } from "../promotions/promotions.types";
+import { env } from "#src/config/env.config";
+import { formatPaymentAmount } from "../payments/currency";
 import { createCheckoutError } from "./orders.service";
 
 export function calculatePromotionDiscount(promotion: PromotionRow | null, totalPrice: number): number {
@@ -7,7 +9,7 @@ export function calculatePromotionDiscount(promotion: PromotionRow | null, total
     const minOrderValue = Number(promotion.min_order_value) || 0;
     if (totalPrice < minOrderValue) {
         throw createCheckoutError(
-            `This promotion requires a minimum order of $${minOrderValue.toFixed(2)}`,
+            `This promotion requires a minimum order of ${formatPaymentAmount(minOrderValue, env.storeCurrency)}`,
             400,
         );
     }

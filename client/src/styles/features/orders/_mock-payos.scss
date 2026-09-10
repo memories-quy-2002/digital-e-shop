@@ -1,0 +1,188 @@
+.mock-payos {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 2rem 1rem 4rem;
+    background: var(--de-color-surface-muted);
+
+    &__shell {
+        width: min(100%, 34rem);
+        padding: 1.5rem;
+        border: 1px solid var(--de-color-border);
+        border-radius: 24px;
+        background: var(--de-color-surface-strong);
+        box-shadow: var(--de-shadow-md, var(--de-shadow-sm));
+    }
+
+    &__brand,
+    &__trust,
+    &__actions,
+    &__brand-mark {
+        display: flex;
+        align-items: center;
+    }
+
+    &__brand {
+        gap: 0.75rem;
+        padding-bottom: 1.25rem;
+        border-bottom: 1px solid var(--de-color-border);
+
+        strong,
+        span {
+            display: block;
+        }
+
+        strong {
+            color: var(--de-color-text);
+            font-size: 1.15rem;
+        }
+
+        span {
+            margin-top: 0.15rem;
+            color: var(--de-color-text-muted);
+            font-size: 0.8rem;
+        }
+    }
+
+    &__brand-mark {
+        width: 2.6rem;
+        height: 2.6rem;
+        justify-content: center;
+        border-radius: 14px;
+        background: var(--de-color-electric);
+        color: var(--de-color-on-strong);
+    }
+
+    &__heading {
+        padding: 2rem 0 1.25rem;
+
+        h1 {
+            margin: 0.35rem 0 0.6rem;
+            color: var(--de-color-text);
+            font-size: clamp(1.65rem, 4vw, 2.2rem);
+        }
+
+        p {
+            margin: 0;
+            color: var(--de-color-text-muted);
+            line-height: 1.6;
+        }
+    }
+
+    &__eyebrow {
+        color: var(--de-color-info-strong);
+        font-size: 0.75rem;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    &__amount {
+        display: grid;
+        gap: 0.3rem;
+        padding: 1.3rem;
+        border-radius: 18px;
+        background: var(--de-color-surface-inverse);
+        text-align: center;
+
+        span,
+        small {
+            color: var(--de-color-on-inverse);
+        }
+
+        span {
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+
+        strong {
+            color: var(--de-color-on-inverse);
+            font-size: clamp(2rem, 8vw, 3rem);
+            line-height: 1.1;
+        }
+
+        small {
+            font-size: 0.78rem;
+        }
+    }
+
+    &__details {
+        display: grid;
+        gap: 0.65rem;
+        margin: 1.25rem 0;
+
+        div {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.75rem 0.85rem;
+            border: 1px solid var(--de-color-border);
+            border-radius: 12px;
+            background: var(--de-color-surface-muted);
+        }
+
+        dt {
+            color: var(--de-color-text-muted);
+        }
+
+        dd {
+            max-width: 65%;
+            margin: 0;
+            color: var(--de-color-text);
+            font-weight: 800;
+            overflow-wrap: anywhere;
+            text-align: right;
+        }
+    }
+
+    &__trust {
+        gap: 0.55rem;
+        margin: 1rem 0;
+        color: var(--de-color-info-strong);
+        font-size: 0.82rem;
+        line-height: 1.5;
+    }
+
+    &__actions {
+        display: grid;
+        gap: 0.7rem;
+    }
+
+    &__confirm,
+    &__cancel {
+        min-height: 2.9rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        border-radius: 12px;
+        font: inherit;
+        font-weight: 800;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    &__confirm {
+        border: 0;
+        background: var(--de-color-electric);
+        color: var(--de-color-on-strong);
+
+        &:disabled {
+            cursor: wait;
+            opacity: 0.65;
+        }
+    }
+
+    &__cancel {
+        color: var(--de-color-text-muted);
+    }
+
+    &__alert {
+        padding: 0.9rem 1rem;
+        border: 1px solid var(--de-color-danger);
+        border-radius: 12px;
+        background: var(--de-color-danger-soft);
+        color: var(--de-color-danger-strong);
+        line-height: 1.5;
+    }
+}

@@ -21,7 +21,7 @@
     --color-accent: var(--de-color-electric);
     --color-accent-foreground: var(--de-color-on-strong);
     --color-destructive: var(--de-color-danger);
-    --color-destructive-foreground: #ffffff;
+    --color-destructive-foreground: var(--de-color-on-strong);
     --color-border: var(--de-color-border);
     --color-input: var(--de-color-border-strong);
     --color-ring: var(--de-color-electric);
@@ -53,8 +53,8 @@
     --de-color-on-inverse: #ffffff;
     --de-color-inverse-border: rgba(231, 227, 218, 0.28);
     --de-color-paper: #e7e3da;
-    --de-color-on-accent: #ffffff;
-    --de-color-on-strong: #ffffff;
+    --de-color-on-accent: #111416;
+    --de-color-on-strong: #111416;
     --de-color-border: rgba(231, 227, 218, 0.14);
     --de-color-border-strong: rgba(231, 227, 218, 0.28);
     --de-color-text: #f2efe8;
@@ -69,8 +69,11 @@
     --de-color-chrome-border: rgba(231, 227, 218, 0.18);
     --de-color-primary: #b6d546;
     --de-color-signal: #e4663d;
+    --de-color-signal-hover: #f07a55;
+    --de-color-signal-soft: rgba(228, 102, 61, 0.16);
     --de-color-electric: #4c8dff;
     --de-color-circuit: #b6d546;
+    --de-color-circuit-hover: #d3ec6e;
     --de-color-success: #b6d546;
     --de-color-success-strong: #d3ec6e;
     --de-color-success-soft: rgba(182, 213, 70, 0.14);
@@ -103,6 +106,11 @@
     --de-color-primary-emphasis: var(--de-color-electric);
     --de-color-primary-emphasis-soft: rgba(76, 141, 255, 0.14);
     --de-color-sky-soft: var(--de-color-info-soft);
+    --de-color-grid: rgba(231, 227, 218, 0.035);
+    --de-color-schematic-grid: rgba(231, 227, 218, 0.07);
+    --de-color-glow-electric: rgba(76, 141, 255, 0.09);
+    --de-color-glow-signal: rgba(228, 102, 61, 0.06);
+    --de-color-selection: rgba(228, 102, 61, 0.34);
     --de-gradient-hero: linear-gradient(135deg, #111416 0%, #263137 100%);
     --de-gradient-shell: none;
     --de-gradient-accent: linear-gradient(135deg, #e4663d, #f49b63);
@@ -136,7 +144,7 @@
     --de-color-on-inverse: #ffffff;
     --de-color-inverse-border: rgba(231, 227, 218, 0.28);
     --de-color-paper: #1c2429;
-    --de-color-on-accent: #111416;
+    --de-color-on-accent: #ffffff;
     --de-color-on-strong: #ffffff;
     --de-color-border: rgba(17, 20, 22, 0.14);
     --de-color-border-strong: rgba(17, 20, 22, 0.28);
@@ -145,10 +153,18 @@
     --de-color-text-muted: #657171;
     --de-color-text-faint: #89918f;
     --de-color-text-inverse: #f2efe8;
+    --de-color-chrome: #f5f2eb;
+    --de-color-chrome-surface: #ffffff;
+    --de-color-chrome-text: #1a2123;
+    --de-color-chrome-muted: #657171;
+    --de-color-chrome-border: rgba(17, 20, 22, 0.14);
     --de-color-primary: #526c18;
     --de-color-signal: #c34b2b;
+    --de-color-signal-hover: #a83f29;
+    --de-color-signal-soft: rgba(195, 75, 43, 0.14);
     --de-color-electric: #2768cf;
     --de-color-circuit: #526c18;
+    --de-color-circuit-hover: #6b8c21;
     --de-color-success: #526c18;
     --de-color-success-strong: #405511;
     --de-color-success-soft: rgba(82, 108, 24, 0.14);
@@ -158,7 +174,29 @@
     --de-color-info: #2768cf;
     --de-color-info-strong: #1d56ad;
     --de-color-info-soft: rgba(39, 104, 207, 0.12);
+    --de-color-warning: #b26f16;
+    --de-color-warning-soft: rgba(178, 111, 22, 0.14);
     --de-color-warning-strong: #9a5d14;
+    --de-color-primary-soft: rgba(82, 108, 24, 0.16);
+    --de-color-primary-tint: rgba(82, 108, 24, 0.08);
+    --de-color-primary-emphasis-soft: rgba(39, 104, 207, 0.12);
+    --de-color-grid: rgba(26, 33, 35, 0.045);
+    --de-color-schematic-grid: rgba(26, 33, 35, 0.08);
+    --de-color-glow-electric: rgba(39, 104, 207, 0.08);
+    --de-color-glow-signal: rgba(195, 75, 43, 0.05);
+    --de-color-selection: rgba(195, 75, 43, 0.22);
+    --de-gradient-hero: linear-gradient(135deg, #f5f2eb 0%, #dedbd1 100%);
+    --de-gradient-accent: linear-gradient(135deg, #c34b2b, #e07b59);
+    --de-gradient-success: linear-gradient(90deg, #405511, #526c18);
+    --de-gradient-danger: linear-gradient(90deg, #8e2b18, #b83d23);
+    --de-gradient-info: linear-gradient(90deg, #1d56ad, #2768cf);
+    --de-shadow-xs: 0 1px 2px rgba(17, 20, 22, 0.08);
+    --de-shadow-sm: 0 12px 26px rgba(17, 20, 22, 0.1);
+    --de-shadow-md: 0 18px 42px rgba(17, 20, 22, 0.14);
+    --de-shadow-focus: 0 0 0 3px rgba(39, 104, 207, 0.22);
+    --de-shadow-primary: 0 12px 22px rgba(195, 75, 43, 0.18);
+    --de-shadow-primary-soft: 0 14px 28px rgba(195, 75, 43, 0.12);
+    --de-shadow-info-soft: 0 14px 28px rgba(39, 104, 207, 0.12);
 }
 
 *,
@@ -175,7 +213,7 @@ body {
     min-width: 320px;
     margin: 0;
     background-color: var(--de-color-bg);
-    background-image: linear-gradient(rgba(231, 227, 218, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(231, 227, 218, 0.035) 1px, transparent 1px);
+    background-image: linear-gradient(var(--de-color-grid) 1px, transparent 1px), linear-gradient(90deg, var(--de-color-grid) 1px, transparent 1px);
     background-size: 32px 32px;
     color: var(--de-color-text);
     font-family: var(--de-font-family-sans);
@@ -187,7 +225,7 @@ body::before {
     position: fixed;
     z-index: -1;
     inset: 0;
-    background: radial-gradient(circle at 70% -15%, rgba(76, 141, 255, 0.09), transparent 34rem), radial-gradient(circle at 8% 30%, rgba(228, 102, 61, 0.06), transparent 26rem);
+    background: radial-gradient(circle at 70% -15%, var(--de-color-glow-electric), transparent 34rem), radial-gradient(circle at 8% 30%, var(--de-color-glow-signal), transparent 26rem);
     content: "";
     pointer-events: none;
 }
@@ -231,7 +269,7 @@ a {
 }
 
 ::selection {
-    background: rgba(228, 102, 61, 0.34);
+    background: var(--de-color-selection);
     color: var(--de-color-text);
 }
 
@@ -259,7 +297,7 @@ code,
 }
 
 .de-schematic-grid {
-    background-image: linear-gradient(rgba(231, 227, 218, 0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(231, 227, 218, 0.07) 1px, transparent 1px);
+    background-image: linear-gradient(var(--de-color-schematic-grid) 1px, transparent 1px), linear-gradient(90deg, var(--de-color-schematic-grid) 1px, transparent 1px);
     background-size: 18px 18px;
 }
 

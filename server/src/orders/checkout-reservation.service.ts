@@ -9,6 +9,7 @@ import type {
     CheckoutReservationInput,
     CheckoutReservationItem,
     OrderIdentity,
+    PaymentProviderAttachment,
 } from "./orders.types";
 
 type ReservationError = Error & {
@@ -142,12 +143,34 @@ export class CheckoutReservationService {
         });
     }
 
+    async attachPaymentProvider(reservationToken: string, attachment: PaymentProviderAttachment): Promise<void> {
+        await withTransaction(async (tx) => {
+            const affectedRows = await this.repository.attachPaymentProvider(tx, reservationToken, attachment);
+            if (affectedRows !== 1) {
+                throw createReservationError("Checkout reservation is no longer available.", 409);
+            }
+        });
+    }
+
     async expireStripeSession(stripeSessionId: string): Promise<number> {
         return withTransaction(async (tx) => {
             const pendingCheckout = await this.repository.getPendingCheckoutForUpdate(tx, stripeSessionId);
             if (!pendingCheckout) return 0;
 
             const affectedRows = await this.repository.expireReservationBySession(tx, stripeSessionId);
+            if (affectedRows === 1 && pendingCheckout.discount_id) {
+                await this.promotionsRepository.releasePromotionReservation(tx, pendingCheckout.id);
+            }
+            return affectedRows;
+        });
+    }
+
+    async expirePayOSOrder(providerOrderCode: number): Promise<number> {
+        return withTransaction(async (tx) => {
+            const pendingCheckout = await this.repository.getPendingCheckoutByProviderOrderCodeForUpdate(tx, "payos", providerOrderCode);
+            if (!pendingCheckout) return 0;
+
+            const affectedRows = await this.repository.expireReservationByProviderOrderCode(tx, "payos", providerOrderCode);
             if (affectedRows === 1 && pendingCheckout.discount_id) {
                 await this.promotionsRepository.releasePromotionReservation(tx, pendingCheckout.id);
             }

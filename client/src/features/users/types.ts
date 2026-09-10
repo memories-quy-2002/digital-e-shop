@@ -5,6 +5,7 @@ export type CustomerIdentity = {
     first_name: string | null;
     last_name: string | null;
     role: string;
+    email_verified?: boolean;
     created_at: string;
     last_login: string;
 };

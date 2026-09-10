@@ -111,6 +111,10 @@ export const guestCheckoutSessionSchema = guestCheckoutBaseSchema.extend({
     paymentMethod: z.enum(["card", "stripe"], { error: "Unsupported payment method" }),
 }).superRefine(validateGuestCartQuantities);
 
+export const guestPayOSCheckoutSchema = guestCheckoutBaseSchema.extend({
+    paymentMethod: z.literal("payos"),
+}).superRefine(validateGuestCartQuantities);
+
 export const guestOrderLookupSchema = z.object({
     orderId: guestPositiveInt("Order id"),
     guestOrderToken: z.string().trim().min(1, "Guest order token is required").max(256, "Guest order token is too long"),
@@ -119,4 +123,15 @@ export const guestOrderLookupSchema = z.object({
 export const guestSessionLookupSchema = z.object({
     sessionId: z.string().trim().min(1, "Session id is required").max(255, "Session id is too long"),
     guestOrderToken: z.string().trim().min(1, "Guest order token is required").max(256, "Guest order token is too long"),
+}).strict();
+
+export const guestPayOSOrderLookupSchema = z.object({
+    orderCode: guestPositiveInt("PayOS order code"),
+    guestOrderToken: z.string().trim().min(1, "Guest order token is required").max(256, "Guest order token is too long"),
+}).strict();
+
+export const mockPayOSConfirmSchema = z.object({
+    orderCode: guestPositiveInt("PayOS order code"),
+    paymentLinkId: z.string().trim().min(1, "PayOS payment link id is required").max(255, "PayOS payment link id is too long"),
+    amount: guestPositiveInt("Payment amount"),
 }).strict();

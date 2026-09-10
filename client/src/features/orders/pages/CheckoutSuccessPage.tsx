@@ -15,8 +15,10 @@ import Layout from "../../../components/layout/Layout";
 import "../../../styles/features/orders/_checkout-success.scss";
 import { formatUtcDateTime } from "../../../utils/dateTime";
 import http from "../../../lib/http";
-import { fetchGuestOrderBySession } from "../api";
+import { fetchGuestOrderByPayOSOrderCode, fetchGuestOrderBySession, lookupGuestOrder } from "../api";
 import { parseShippingAddress } from "../shippingAddress";
+import { formatMoney } from "../../../utils/currency";
+import type { GuestOrderDetail } from "../types";
 import {
     clearPendingCheckout,
     readCheckoutSuccess,
@@ -25,12 +27,39 @@ import {
     type CheckoutSuccessData,
 } from "./checkoutSuccessStorage";
 
+const guestOrderToCheckoutSuccess = (order: GuestOrderDetail, guestOrderToken: string): CheckoutSuccessData => {
+    const shipping = parseShippingAddress(order.shipping_address);
+    const totalPrice = Number(order.total_price) || 0;
+    const discount = Number(order.discount) || 0;
+
+    return {
+        orderId: String(order.id),
+        totalPrice,
+        discount,
+        subtotal: Math.max(0, totalPrice - discount),
+        itemsCount: order.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
+        placedAt: order.date_added,
+        currency: order.currency === "USD" ? "USD" : "VND",
+        paymentMethod: order.payment_method
+            ? order.payment_method as CheckoutSuccessData["paymentMethod"]
+            : undefined,
+        email: order.guest_email || undefined,
+        name: order.guest_name || undefined,
+        address: shipping.address,
+        city: shipping.city,
+        country: shipping.country,
+        phone: order.guest_phone ? maskPhoneNumber(order.guest_phone) : "",
+        guestOrderToken,
+    };
+};
+
 const CheckoutSuccessPage = () => {
     const { userData, loading } = useAuth();
     const { clearCart, fetchCart } = useCart();
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const sessionId = searchParams.get("session_id");
+    const payOSOrderCode = searchParams.get("payos_order_code");
     const routeData = (location.state as { checkoutSuccess?: CheckoutSuccessData } | null)?.checkoutSuccess || null;
 
     const orderData = useMemo(() => readCheckoutSuccess(), []);
@@ -49,39 +78,79 @@ const CheckoutSuccessPage = () => {
     const [polledOrder, setPolledOrder] = useState<CheckoutSuccessData | null>(null);
     const [pollingTimedOut, setPollingTimedOut] = useState(false);
     const [copyStatus, setCopyStatus] = useState("Copy access token");
+    const [showGuestToken, setShowGuestToken] = useState(false);
 
-    const pollForOrder = useCallback(async (id: string) => {
+    useEffect(() => {
+        const orderId = Number(orderData?.orderId);
+        const hasStoredContactDetails = Boolean(
+            orderData?.email
+            || orderData?.name
+            || orderData?.address
+            || orderData?.city
+            || orderData?.country
+            || orderData?.phone,
+        );
+
+        if (
+            loading
+            || routeData
+            || !orderData?.guestOrderToken
+            || hasStoredContactDetails
+            || !Number.isSafeInteger(orderId)
+            || orderId <= 0
+        ) {
+            return;
+        }
+
+        let cancelled = false;
+        const hydrateGuestOrder = async () => {
+            try {
+                const order = await lookupGuestOrder(orderId, orderData.guestOrderToken!);
+                if (!cancelled && order?.id) {
+                    setPolledOrder(guestOrderToCheckoutSuccess(order, orderData.guestOrderToken!));
+                }
+            } catch {
+                // Keep the safe summary if the token-protected lookup is unavailable.
+            }
+        };
+
+        void hydrateGuestOrder();
+        return () => {
+            cancelled = true;
+        };
+    }, [loading, orderData, routeData]);
+
+    const pollForOrder = useCallback(async (id: string, provider: "stripe" | "payos") => {
         const pending = pendingCheckout;
 
         for (let attempt = 0; attempt < 7; attempt += 1) {
             try {
-                const order = guestOrderToken
-                    ? await fetchGuestOrderBySession(id, guestOrderToken)
-                    : (await http.get(`/api/orders/by-session/${id}`)).data?.order;
+                const order = provider === "payos"
+                    ? guestOrderToken
+                        ? await fetchGuestOrderByPayOSOrderCode(Number(id), guestOrderToken)
+                        : (await http.get(`/api/orders/by-payos-order-code/${encodeURIComponent(id)}`)).data?.order
+                    : guestOrderToken
+                        ? await fetchGuestOrderBySession(id, guestOrderToken)
+                        : (await http.get(`/api/orders/by-session/${id}`)).data?.order;
                 if (order?.id) {
-                    const shipping = parseShippingAddress(order.shipping_address);
-                    const totalPrice = guestOrderToken ? Number(order.total_price) || 0 : pending?.totalPrice ?? 0;
-                    const discount = guestOrderToken ? Number(order.discount) || 0 : pending?.discount ?? 0;
-                    setPolledOrder({
-                        orderId: String(order.id),
-                        totalPrice,
-                        discount,
-                        subtotal: guestOrderToken ? Math.max(0, totalPrice - discount) : pending?.subtotal ?? totalPrice,
-                        itemsCount: guestOrderToken
-                            ? order.items.reduce((sum: number, item: { quantity?: number }) => sum + Number(item.quantity || 0), 0)
-                            : pending?.itemsCount ?? 0,
-                        placedAt: order.date_added,
-                        paymentMethod: guestOrderToken ? order.payment_method as CheckoutSuccessData["paymentMethod"] : "card",
-                        email: guestOrderToken ? order.guest_email || undefined : pending?.email,
-                        name: guestOrderToken ? order.guest_name || undefined : pending?.name,
-                        address: guestOrderToken ? shipping.address : pending?.address,
-                        city: guestOrderToken ? shipping.city : pending?.city,
-                        country: guestOrderToken ? shipping.country : pending?.country,
-                        phone: guestOrderToken
-                            ? order.guest_phone ? maskPhoneNumber(order.guest_phone) : ""
-                            : pending?.phone,
-                        ...(guestOrderToken ? { guestOrderToken } : {}),
-                    });
+                    const checkoutData = guestOrderToken
+                        ? guestOrderToCheckoutSuccess(order, guestOrderToken)
+                        : {
+                            orderId: String(order.id),
+                            totalPrice: pending?.totalPrice ?? 0,
+                            discount: pending?.discount ?? 0,
+                            subtotal: pending?.subtotal ?? pending?.totalPrice ?? 0,
+                            itemsCount: pending?.itemsCount ?? 0,
+                            placedAt: order.date_added,
+                            paymentMethod: pending?.paymentMethod || (provider === "payos" ? "payos" : "card"),
+                            email: pending?.email,
+                            name: pending?.name,
+                            address: pending?.address,
+                            city: pending?.city,
+                            country: pending?.country,
+                            phone: pending?.phone,
+                        };
+                    setPolledOrder(checkoutData);
                     clearCart();
                     void fetchCart();
                     clearPendingCheckout();
@@ -96,12 +165,14 @@ const CheckoutSuccessPage = () => {
     }, [clearCart, fetchCart, guestOrderToken, pendingCheckout]);
 
     useEffect(() => {
-        if (sessionId && !routeData && !orderData && !loading) {
-            pollForOrder(sessionId);
+        const providerReference = payOSOrderCode || sessionId;
+        const provider = payOSOrderCode ? "payos" : "stripe";
+        if (providerReference && !routeData && !orderData && !loading) {
+            pollForOrder(providerReference, provider);
         }
-    }, [loading, orderData, pollForOrder, routeData, sessionId]);
+    }, [loading, orderData, payOSOrderCode, pollForOrder, routeData, sessionId]);
 
-    const combinedData = routeData || orderData || polledOrder;
+    const combinedData = routeData || polledOrder || orderData;
     const isGuestOrder = Boolean(combinedData?.guestOrderToken || guestOrderToken);
     const paymentLabel =
         combinedData?.paymentMethod === "bank_transfer"
@@ -115,8 +186,8 @@ const CheckoutSuccessPage = () => {
                 : "Payment method pending";
     const summaryCards = [
         { label: "Order ID", value: combinedData?.orderId || "Pending" },
-        { label: "Order total", value: `$${(combinedData?.totalPrice ?? 0).toFixed(2)}` },
-        { label: "Discount", value: `$${(combinedData?.discount ?? 0).toFixed(2)}` },
+        { label: "Order total", value: formatMoney(combinedData?.totalPrice ?? 0, combinedData?.currency) },
+        { label: "Discount", value: formatMoney(combinedData?.discount ?? 0, combinedData?.currency) },
         { label: "Items", value: `${combinedData?.itemsCount ?? 0}` },
     ];
     const copyGuestToken = async () => {
@@ -139,10 +210,10 @@ const CheckoutSuccessPage = () => {
                 />
             </Helmet>
             <main className="success app-page">
-                {sessionId && !combinedData && !pollingTimedOut ? (
+                {(sessionId || payOSOrderCode) && !combinedData && !pollingTimedOut ? (
                     <div className="checkout__note">Confirming your payment...</div>
                 ) : null}
-                {sessionId && !combinedData && pollingTimedOut ? (
+                {(sessionId || payOSOrderCode) && !combinedData && pollingTimedOut ? (
                     <div className="checkout__alert">
                         Payment received — we&apos;re finalizing your order. Check{" "}
                         {isGuestOrder ? <Link to="/guest-order">Guest order lookup</Link> : <Link to="/orders">My Orders</Link>} shortly if it doesn&apos;t appear here.
@@ -202,9 +273,23 @@ const CheckoutSuccessPage = () => {
                             </label>
                             <label>
                                 <span>Access token</span>
-                                <input readOnly value={combinedData.guestOrderToken} aria-label="Guest order access token" />
+                                <input
+                                    readOnly
+                                    type={showGuestToken ? "text" : "password"}
+                                    value={combinedData.guestOrderToken}
+                                    aria-label="Guest order access token"
+                                />
                             </label>
-                            <button type="button" onClick={() => void copyGuestToken}>{copyStatus}</button>
+                            <div className="success__guest-access__actions">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowGuestToken((visible) => !visible)}
+                                    aria-pressed={showGuestToken}
+                                >
+                                    {showGuestToken ? "Hide token" : "Reveal token"}
+                                </button>
+                                <button type="button" onClick={() => void copyGuestToken()}>{copyStatus}</button>
+                            </div>
                         </div>
                     </section>
                 ) : null}
@@ -295,7 +380,7 @@ const CheckoutSuccessPage = () => {
                             </div>
                             <div>
                                 <span>Subtotal</span>
-                                <strong>${(combinedData?.subtotal ?? combinedData?.totalPrice ?? 0).toFixed(2)}</strong>
+                                <strong>{formatMoney(combinedData?.subtotal ?? combinedData?.totalPrice ?? 0, combinedData?.currency)}</strong>
                             </div>
                         </div>
                     </article>

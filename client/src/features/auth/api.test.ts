@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import http from "../../lib/http";
-import { loginUser } from "./api";
+import {
+    confirmEmailChange,
+    confirmPasswordReset,
+    loginUser,
+    requestEmailChange,
+    requestPasswordReset,
+} from "./api";
 
 vi.mock("../../lib/http", () => ({
     default: {
@@ -30,6 +36,31 @@ describe("auth API", () => {
         expect(http.post).toHaveBeenCalledWith("/api/users/login", {
             idToken: "firebase-id-token",
             rememberMe: false,
+        });
+    });
+
+    it("requests a provider-aware password reset through the server", async () => {
+        await requestPasswordReset("buyer@example.com");
+
+        expect(http.post).toHaveBeenCalledWith("/api/users/password-reset/request", {
+            email: "buyer@example.com",
+        });
+    });
+
+    it("confirms a password reset and email change through token-protected endpoints", async () => {
+        await confirmPasswordReset("reset-token", "NewPassword1!");
+        await requestEmailChange("new@example.com");
+        await confirmEmailChange("email-change-token");
+
+        expect(http.post).toHaveBeenNthCalledWith(1, "/api/users/password-reset/confirm", {
+            token: "reset-token",
+            newPassword: "NewPassword1!",
+        });
+        expect(http.post).toHaveBeenNthCalledWith(2, "/api/users/email-change/request", {
+            email: "new@example.com",
+        });
+        expect(http.post).toHaveBeenNthCalledWith(3, "/api/users/email-change/confirm", {
+            token: "email-change-token",
         });
     });
 });

@@ -18,6 +18,11 @@ const authEndpointPaths = new Set([
     "/api/users/register",
     "/api/users/refresh",
     "/api/users/logout",
+    "/api/users/password-reset/request",
+    "/api/users/password-reset/confirm",
+    "/api/users/email-change/confirm",
+    "/api/marketing/subscribe",
+    "/api/marketing/unsubscribe",
 ]);
 
 const isAuthEndpoint = (url?: string) => {

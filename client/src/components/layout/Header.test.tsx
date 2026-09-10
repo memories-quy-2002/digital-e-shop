@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
     cart: { items: [] as unknown[] },
     toast: { addToast: vi.fn() },
     axios: { get: vi.fn(), post: vi.fn() },
+    notifications: { fetchCustomerNotifications: vi.fn() },
 }));
 
 vi.mock("../../context/AuthContext", () => ({
@@ -31,7 +32,7 @@ vi.mock("../../context/ToastContext", () => ({
 vi.mock("../../api/axios", () => ({ default: mocks.axios }));
 
 vi.mock("../../features/users/api", () => ({
-    fetchCustomerNotifications: vi.fn(),
+    fetchCustomerNotifications: mocks.notifications.fetchCustomerNotifications,
 }));
 
 vi.mock("../../services/firebase", () => ({
@@ -53,7 +54,7 @@ vi.mock("../ui/sheet", () => ({
 
 const LocationProbe = () => {
     const location = useLocation();
-    return <span data-testid="location">{location.pathname}</span>;
+    return <span data-testid="location">{location.pathname + location.search + location.hash}</span>;
 };
 
 const renderHeader = () => render(
@@ -65,13 +66,52 @@ const renderHeader = () => render(
     </MemoryRouter>,
 );
 
-describe("Header cart navigation", () => {
+describe("Header navigation controls", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mocks.auth.userData = null;
         mocks.auth.loading = false;
         mocks.cart.items = [];
         mocks.axios.get.mockResolvedValue({ status: 200, data: { products: [] } });
+        mocks.notifications.fetchCustomerNotifications.mockResolvedValue({ notifications: [], unread: 0 });
+    });
+
+    it("sends a guest to login when opening notifications", () => {
+        renderHeader();
+
+        fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
+
+        expect(screen.getByTestId("location")).toHaveTextContent("/login?redirect=%2Faccount%23notifications");
+        expect(mocks.toast.addToast).not.toHaveBeenCalledWith("Login required", expect.anything());
+    });
+
+    it("opens the notification preview and navigates to the full page from View all", async () => {
+        mocks.auth.userData = { id: "customer-1", role: "Customer", username: "demo_customer" };
+        mocks.notifications.fetchCustomerNotifications.mockResolvedValue({
+            unread: 1,
+            notifications: [
+                {
+                    id: 7,
+                    type: "order",
+                    title: "Order shipped",
+                    message: "Your order is on its way.",
+                    link: "/orders?order=7",
+                    read_at: null,
+                    created_at: "2026-09-10T08:00:00.000Z",
+                    is_read: false,
+                },
+            ],
+        });
+        renderHeader();
+
+        fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
+
+        expect(await screen.findByRole("dialog", { name: "Notifications" })).toBeInTheDocument();
+        expect(await screen.findByText("Order shipped")).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole("link", { name: "View all" }));
+
+        expect(screen.getByTestId("location")).toHaveTextContent("/account#notifications");
     });
 
     it("lets a guest open the cart from the desktop control", () => {

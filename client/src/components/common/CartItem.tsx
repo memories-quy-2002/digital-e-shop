@@ -3,6 +3,7 @@ import { TrashIcon } from "./Icons";
 import loadImage from "../../utils/loadImage";
 import type { CartValidationIssue, CheckoutCartItem } from "../../features/orders/types";
 import { useT } from "../../hooks/useT";
+import { formatCurrency } from "../../utils/currency";
 
 type StockTranslator = (issue: CartValidationIssue) => string;
 
@@ -98,8 +99,8 @@ const CartItem = ({
                 {stockMessage ? <span className="cart-item__stock">{stockMessage}</span> : null}
             </div>
             <div className="cart-item__price">
-                <strong>${(productPrice * item.quantity).toFixed(2)}</strong>
-                <p>${productPrice.toFixed(2)} each</p>
+                <strong>{formatCurrency(productPrice * item.quantity)}</strong>
+                <p>{formatCurrency(productPrice)} each</p>
             </div>
             <button
                 className="cart-item__remove"

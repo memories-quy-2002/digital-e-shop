@@ -55,6 +55,18 @@ describe("Digital-E demo seed graph", () => {
         expect(imageUrls.every((url: string) => /^https:\/\/images\.unsplash\.com\/photo-/.test(url))).toBe(true);
     });
 
+    it("uses whole-number VND prices for the Vietnam-first demo catalog", () => {
+        expect(DEMO_SEED_PLAN.currency).toBe("VND");
+        expect(DEMO_SEED_PLAN.products.every((product: { price: number; salePrice: number }) =>
+            Number.isInteger(product.price)
+            && Number.isInteger(product.salePrice)
+            && product.price >= 100_000,
+        )).toBe(true);
+        expect(DEMO_SEED_PLAN.discounts.every((discount: { minOrderValue: number }) =>
+            Number.isInteger(discount.minOrderValue),
+        )).toBe(true);
+    });
+
     it("rejects E2E or Demo labels from catalog product names", () => {
         const originalProductName = DEMO_SEED_PLAN.products[0].name;
         const renamedProduct = "Demo Camera Fixture";
@@ -87,5 +99,16 @@ describe("Digital-E demo seed graph", () => {
         };
 
         expect(() => validateDemoSeedPlan(invalidPlan)).toThrow("admin account");
+    });
+
+    it("requires every demo account to be marked as email verified", () => {
+        const invalidPlan = {
+            ...DEMO_SEED_PLAN,
+            users: DEMO_SEED_PLAN.users.map((user: Record<string, unknown>, index: number) =>
+                index === 0 ? { ...user, emailVerified: false } : user,
+            ),
+        };
+
+        expect(() => validateDemoSeedPlan(invalidPlan)).toThrow("verified email");
     });
 });

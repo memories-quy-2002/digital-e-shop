@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpException, Param, Post, Query, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "../guards/auth.guard";
 import { OwnerParam, RolesGuard } from "../guards/roles.guard";
+import { RequireVerifiedEmail, VerifiedEmailGuard } from "../guards/verified-email.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestReviewsService } from "./reviews.service";
 
@@ -53,8 +54,9 @@ export class ReviewsController {
 
     @Post()
     @HttpCode(201)
-    @UseGuards(AuthGuard, RolesGuard)
+    @UseGuards(AuthGuard, RolesGuard, VerifiedEmailGuard)
     @OwnerParam("uid")
+    @RequireVerifiedEmail()
     async addReview(@Body(new ZodValidationPipe(reviewsValidator.createReviewSchema)) body: {
         uid: string;
         pid: number;

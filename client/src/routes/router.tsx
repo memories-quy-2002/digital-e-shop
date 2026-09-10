@@ -9,7 +9,11 @@ const HomePage = lazy(() => import("../pages/HomePage"));
 const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
 const LoginPage = lazy(() => import("../features/auth/pages/LoginPage"));
 const SignupPage = lazy(() => import("../features/auth/pages/SignupPage"));
+const VerifyEmailPage = lazy(() => import("../features/auth/pages/VerifyEmailPage"));
 const ForgotPasswordPage = lazy(() => import("../features/auth/pages/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("../features/auth/pages/ResetPasswordPage"));
+const ConfirmEmailChangePage = lazy(() => import("../features/auth/pages/ConfirmEmailChangePage"));
+const UnsubscribePage = lazy(() => import("../pages/UnsubscribePage"));
 const ProductPage = lazy(() => import("../features/products/pages/ProductPage"));
 const WishlistPage = lazy(() => import("../pages/WishlistPage"));
 const ShopsPage = lazy(() => import("../pages/ShopsPage"));
@@ -20,11 +24,11 @@ const SupportPage = lazy(() => import("../pages/SupportPage"));
 const AdminSupportPage = lazy(() => import("../features/admin/pages/AdminSupportPage"));
 const CartPage = lazy(() => import("../features/orders/pages/CartPage"));
 const CheckoutSuccessPage = lazy(() => import("../features/orders/pages/CheckoutSuccessPage"));
+const MockPayOSCheckoutPage = lazy(() => import("../features/orders/pages/MockPayOSCheckoutPage"));
 const GuestOrderLookupPage = lazy(() => import("../features/orders/pages/GuestOrderLookupPage"));
 const OrderHistoryPage = lazy(() => import("../features/orders/pages/OrderHistoryPage"));
 const CustomerAccountPage = lazy(() => import("../features/users/pages/CustomerAccountPage"));
 const AddressBookPage = lazy(() => import("../features/users/pages/AddressBookPage"));
-const CustomerNotificationsPage = lazy(() => import("../features/users/pages/CustomerNotificationsPage"));
 const AdminDashboard = lazy(() => import("../features/admin/pages/AdminDashboard"));
 const AdminProductPage = lazy(() => import("../features/admin/pages/AdminProductPage"));
 const AdminOrderPage = lazy(() => import("../features/admin/pages/AdminOrderPage"));
@@ -35,7 +39,6 @@ const AdminAddProductPage = lazy(() => import("../features/admin/pages/AdminAddP
 const ProtectedCustomerAccountPage = withSessionCheck(CustomerAccountPage);
 const ProtectedOrderHistoryPage = withSessionCheck(OrderHistoryPage);
 const ProtectedAddressBookPage = withSessionCheck(AddressBookPage);
-const ProtectedCustomerNotificationsPage = withSessionCheck(CustomerNotificationsPage);
 const ProtectedWishlistPage = withSessionCheck(WishlistPage);
 
 const AppRouter = () => {
@@ -45,7 +48,11 @@ const AppRouter = () => {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />
+                <Route path="/verify-email" element={<VerifyEmailPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
+                <Route path="/confirm-email-change" element={<ConfirmEmailChangePage />} />
+                <Route path="/unsubscribe" element={<UnsubscribePage />} />
                 <Route path="/product" element={<ProductPage />} />
                 <Route path="/cart" element={<CartPage />} />
                 <Route path="/guest-order" element={<GuestOrderLookupPage />} />
@@ -56,11 +63,12 @@ const AppRouter = () => {
                 <Route path="/news" element={<NewsPage />} />
                 <Route path="/support" element={<SupportPage />} />
                 <Route path="/checkout-success" element={<CheckoutSuccessPage />} />
+                <Route path="/mock-payos-checkout" element={<MockPayOSCheckoutPage />} />
                 <Route path="/403" element={<ForbiddenPage />} />
                 <Route path="/account" element={<ProtectedCustomerAccountPage />} />
                 <Route path="/orders" element={<ProtectedOrderHistoryPage />} />
                 <Route path="/addresses" element={<ProtectedAddressBookPage />} />
-                <Route path="/notifications" element={<ProtectedCustomerNotificationsPage />} />
+                <Route path="/notifications" element={<Navigate to="/account#notifications" replace />} />
                 <Route
                     path="/admin"
                     element={

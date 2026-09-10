@@ -6,6 +6,10 @@ This file records notable Digital-E changes. Dates use `YYYY-MM-DD`, and entries
 
 ### Added
 
+- Provider-aware local/Firebase signup, server-owned email verification links through Resend, generic resend handling, and verified-email gating for authenticated checkout, Stripe checkout sessions, and review creation
+- Password reset links, password-change security notices, confirmed email changes with old/new address notices, and persisted marketing subscriptions with one-time unsubscribe links
+- Optional Resend confirmation emails for successfully committed orders with a valid customer email; raw guest access tokens remain excluded from email payloads
+- Explicit Reveal and Copy controls for the masked guest order access token on checkout success
 - Guest cart persistence with server-authoritative preview, guest checkout, token-protected order lookup, and signed-in cart merge handling
 - Guest-order contact and shipping snapshots with admin order compatibility
 - Admin operations dashboard with range-aware analytics, operational queues, alerts, support tickets, and explicit loading, empty, and error states
@@ -19,6 +23,7 @@ This file records notable Digital-E changes. Dates use `YYYY-MM-DD`, and entries
 - The server uses the flattened NestJS feature layout under `server/src/<feature>/`, with controllers, services, repositories, validators, and module wiring in each feature
 - MySQL remains the primary runtime persistence layer; Prisma 7 owns the partial forward-migration layer and does not replace legacy repository access
 - Authentication uses environment-bound local development login or server-verified Firebase identity in production, followed by cookie-backed JWT sessions
+- Customer-facing Resend delivery now skips unverified account addresses while preserving verification links, email-change confirmation, guest confirmations, and verified demo seed accounts
 - Checkout reserves inventory before finalization, consumes reservations idempotently, and keeps USD as the canonical order amount while storing provider settlement details
 - Product catalog data includes stable SKU/MPN identity, typed attributes, inventory movement records, and immutable order-item snapshots
 - Transient Toasts render through a portal-mounted viewport with a maximum of three visible messages and responsive safe-area behavior

@@ -14,7 +14,7 @@ import { normalizeProduct, normalizeProducts } from "../utils/product";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { useT } from "../hooks/useT";
 
-const MAX_PRICE_RANGE: number = 5000;
+const MAX_PRICE_RANGE: number = 100_000_000;
 const ITEMS_PER_PAGE = 6;
 
 type Wishlist = {

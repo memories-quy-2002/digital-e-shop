@@ -12,7 +12,7 @@ digital-e-shop/
       app/                Bootstrap and providers
       components/         Shared common and layout UI
       context/            Auth, cart, toast, and shared client state
-      features/           admin, auth, orders, products, support, users
+      features/           admin, auth, marketing, orders, products, support, users
       lib/                HTTP client and environment helpers
       pages/              Generic route-level pages
       routes/             Router and lazy route wiring
@@ -109,6 +109,14 @@ documented singular/plural aliases where the client contract requires them.
   is returned once, kept in active browser session storage, and stored in the
   database only as a SHA-256 hash. See [[guest-checkout]] and
   [[0004-guest-cart-and-checkout]].
+- Provider-aware signup converges on the same cookie session for local and
+  Firebase modes. See [[authentication-and-email-verification]] for the
+  server-owned verification token lifecycle and the `VerifiedEmailGuard`
+  boundary around checkout and review writes.
+- Account-security and marketing messages share the Resend delivery boundary.
+  Password reset revokes sessions after a successful local reset; email changes
+  remain pending until the new address confirms; marketing unsubscribe tokens
+  are hashed and consumed once. See [[marketing-subscriptions]].
 
 ## Data and migration boundaries
 
@@ -138,14 +146,22 @@ application has not been converted to Prisma.
 - Authenticated and guest orders share the order lifecycle: Pending, Done, and
   Canceled. Pending cancellation restores inventory once and records timeline,
   movement, and notification side effects.
-- USD remains the canonical order currency. The payment ledger stores provider
-  amount/currency, FX snapshot, idempotency information, and refund state.
-  PayOS quotes are integer VND values derived from the USD base; local symbolic
-  provider modes do not call external payment APIs.
+- VND is the default catalog and new-order currency for the Vietnam-first
+  rollout. The payment ledger stores base/provider amount and currency, FX
+  snapshot, idempotency information, and refund state. PayOS receives VND
+  amounts unchanged; explicit USD-backed catalogs may still use the configured
+  USD-to-VND rate. Local mock provider modes do not call external APIs.
 - Customer reviews require a completed order containing the reviewed product.
   Support tickets are database-backed and ownership-scoped. Admin analytics
   and operational alerts query bounded operational data rather than rebuilding
   alerts from broad datasets.
+- Customer order confirmation is an optional Resend side effect after the
+  checkout transaction or Stripe reservation finalization commits. It uses the
+  server-authoritative email, never participates in order rollback, and never
+  receives the raw guest access token.
+- Password reset, email change, and marketing subscription delivery are also
+  non-transactional Resend side effects. The account/subscription state is
+  committed independently, and delivery failures are logged with safe IDs.
 
 ## CI/CD and runtime
 

@@ -1,17 +1,18 @@
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import type { Request } from "express";
-import { Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException, Optional, UnauthorizedException } from "@nestjs/common";
 import { env } from "#src/config/env.config";
 import { checkPassword, hashPassword } from "#src/utils/hashPassword";
 import { UsersRepository } from "../users/users.repository";
 import type { UserRow } from "../users/users.types";
 import { toPublicUser } from "../users/user-public";
-import type { RegisterUserInput } from "./auth.dto";
+import type { LocalRegisterUserInput, RegisterUserInput } from "./auth.dto";
 import type { AuthSessionPayload, JwtPayload } from "./auth.types";
 import { AuthRepository } from "./auth.repository";
 import { AuthSessionService } from "./auth-session.service";
 import { FirebaseAdminAuthService } from "./firebase-admin.service";
+import { EmailVerificationService } from "./email-verification.service";
 
 @Injectable()
 export class NestAuthService {
@@ -20,6 +21,7 @@ export class NestAuthService {
         private readonly usersRepository: UsersRepository,
         private readonly firebaseAdminAuthService: FirebaseAdminAuthService,
         private readonly authSessionService: AuthSessionService,
+        @Optional() private readonly emailVerificationService?: EmailVerificationService,
     ) {}
 
     async startSession(userId: string) {
@@ -66,6 +68,15 @@ export class NestAuthService {
         return this.authSessionService.issue(user, rememberMe);
     }
 
+    private async issueRegistrationSession(user: UserRow): Promise<AuthSessionPayload> {
+        const session = await this.issueLoginSession(user, false);
+        if (this.emailVerificationService) {
+            const verification = await this.emailVerificationService.createAndSend(user);
+            session.verificationEmailSent = verification.sent;
+        }
+        return session;
+    }
+
     async registerUser(idToken: string, input: RegisterUserInput): Promise<AuthSessionPayload> {
         const identity = await this.firebaseAdminAuthService.verifyIdToken(idToken);
         const existing = await this.usersRepository.findById(identity.uid);
@@ -75,7 +86,28 @@ export class NestAuthService {
         if (existing?.status === "Suspended") {
             throw new UnauthorizedException({ msg: "Account is suspended" });
         }
-        if (existing) return this.issueLoginSession(existing, false);
+        if (existing) {
+            if (identity.emailVerified && typeof this.usersRepository.markEmailVerified === "function") {
+                await this.usersRepository.markEmailVerified(identity.uid);
+            }
+            const current = identity.emailVerified && typeof this.usersRepository.findById === "function"
+                ? await this.usersRepository.findById(identity.uid)
+                : existing;
+            return this.issueRegistrationSession(current || existing);
+        }
+
+        const existingEmail = typeof this.usersRepository.findByEmail === "function"
+            ? await this.usersRepository.findByEmail(identity.email)
+            : null;
+        if (existingEmail && String(existingEmail.id) !== String(identity.uid)) {
+            throw new ConflictException({ msg: "An account already exists for this email", code: "EMAIL_IN_USE" });
+        }
+        const existingUsername = typeof this.usersRepository.findByUsername === "function"
+            ? await this.usersRepository.findByUsername(input.username)
+            : null;
+        if (existingUsername && String(existingUsername.id) !== String(identity.uid)) {
+            throw new ConflictException({ msg: "Username is already in use", code: "USERNAME_IN_USE" });
+        }
 
         const placeholderPassword = await hashPassword(crypto.randomBytes(32).toString("hex"));
         await this.usersRepository.createUser(
@@ -86,9 +118,41 @@ export class NestAuthService {
             "Customer",
         );
 
+        if (typeof this.usersRepository.updateAuthIdentity === "function") {
+            await this.usersRepository.updateAuthIdentity(identity.uid, "firebase", identity.uid);
+        }
+        if (identity.emailVerified && typeof this.usersRepository.markEmailVerified === "function") {
+            await this.usersRepository.markEmailVerified(identity.uid);
+        }
+
         const created = await this.usersRepository.findById(identity.uid);
         if (!created) throw new NotFoundException({ msg: "Unable to create user" });
-        return this.issueLoginSession(created, false);
+        return this.issueRegistrationSession(created);
+    }
+
+    async registerLocalUser(input: LocalRegisterUserInput): Promise<AuthSessionPayload> {
+        const email = input.email.trim().toLowerCase();
+        const username = input.username.trim();
+        const [existingEmail, existingUsername] = await Promise.all([
+            this.usersRepository.findByEmail(email),
+            typeof this.usersRepository.findByUsername === "function"
+                ? this.usersRepository.findByUsername(username)
+                : Promise.resolve(null),
+        ]);
+
+        if (existingEmail) {
+            throw new ConflictException({ msg: "An account already exists for this email", code: "EMAIL_IN_USE" });
+        }
+        if (existingUsername) {
+            throw new ConflictException({ msg: "Username is already in use", code: "USERNAME_IN_USE" });
+        }
+
+        const userId = crypto.randomUUID();
+        const passwordHash = await hashPassword(input.password);
+        await this.usersRepository.createLocalUser(userId, username, email, passwordHash, "Customer");
+        const created = await this.usersRepository.findById(userId);
+        if (!created) throw new NotFoundException({ msg: "Unable to create user" });
+        return this.issueRegistrationSession(created);
     }
 
     async loginUser(idToken: string, rememberMe = false) {
@@ -99,6 +163,12 @@ export class NestAuthService {
         }
         if (user.status === "Suspended") {
             throw new UnauthorizedException({ msg: "Account is suspended" });
+        }
+
+        if (identity.emailVerified && user.email_verified_at === null && typeof this.usersRepository.markEmailVerified === "function") {
+            await this.usersRepository.markEmailVerified(identity.uid);
+            const refreshed = await this.usersRepository.findById(identity.uid);
+            if (refreshed) return this.issueLoginSession(refreshed, rememberMe);
         }
 
         return this.issueLoginSession(user, rememberMe);

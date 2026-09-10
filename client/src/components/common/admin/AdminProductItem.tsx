@@ -1,6 +1,7 @@
 import React from "react";
 import { PencilIcon } from "../Icons";
 import { Product } from "../../../utils/interface";
+import { formatCurrency } from "../../../utils/currency";
 
 interface AdminProductItemProp {
     products: Product[];
@@ -18,8 +19,8 @@ const AdminProductItem = ({ products, product, handleOpen }: AdminProductItemPro
             </td>
             <td>{product.category}</td>
             <td>{product.brand}</td>
-            <td className="admin__table__number">${product.price.toFixed(2)}</td>
-            <td className="admin__table__number">{product.sale_price !== null ? `$${product.sale_price.toFixed(2)}` : "None"}</td>
+            <td className="admin__table__number">{formatCurrency(product.price)}</td>
+            <td className="admin__table__number">{product.sale_price !== null ? formatCurrency(product.sale_price) : "None"}</td>
             <td className="admin__table__number">{product.stock}</td>
             <td>
                 <div className="admin__table__actions">

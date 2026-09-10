@@ -4,6 +4,8 @@ import type { InsertResult, QueryCallback } from "#src/shared/interfaces/domain"
 import type { PromotionPayload } from "./promotions.dto";
 import type { PromotionRedemptionUserId, PromotionRow } from "./promotions.types";
 import type { TransactionContext } from "../database/transaction";
+import { env } from "#src/config/env.config";
+import { formatPaymentAmount } from "../payments/currency";
 
 type QueryParams = unknown[] | Record<string, unknown> | QueryCallback | undefined;
 
@@ -196,7 +198,7 @@ export class PromotionsRepository {
         }
         if (Number(totalPrice) < (Number(promotion.min_order_value) || 0)) {
             throw promotionUsageError(
-                `This promotion requires a minimum order of $${(Number(promotion.min_order_value) || 0).toFixed(2)}`,
+                `This promotion requires a minimum order of ${formatPaymentAmount(Number(promotion.min_order_value) || 0, env.storeCurrency)}`,
                 400,
             );
         }

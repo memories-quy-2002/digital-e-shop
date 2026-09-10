@@ -117,7 +117,14 @@ type AdminDashboardChartsProps = {
     rangeLabel: string;
 };
 
-const CHART_COLORS = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2"];
+const CHART_COLORS = [
+    "var(--de-color-electric)",
+    "var(--de-color-success)",
+    "var(--de-color-warning)",
+    "var(--de-color-danger)",
+    "var(--de-color-primary-emphasis)",
+    "var(--de-color-info)",
+];
 
 const getNetRevenue = (order: DashboardOrder) => Math.max(order.total_price - order.discount, 0);
 
@@ -204,7 +211,7 @@ const AdminDashboardCharts = ({
                         <div className="admin__card__body admin__chart-body">
                             <ResponsiveContainer width="100%" height={260}>
                                 <AreaChart data={analyticsTrend}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--de-color-border-strong)" />
                                     <XAxis dataKey="name" tickLine={false} axisLine={false} />
                                     <YAxis tickLine={false} axisLine={false} />
                                     <Tooltip
@@ -213,8 +220,8 @@ const AdminDashboardCharts = ({
                                             name === "revenue" ? "Revenue" : "Orders",
                                         ]}
                                     />
-                                    <Area type="monotone" dataKey="revenue" stroke="#2563eb" fill="#dbeafe" strokeWidth={3} />
-                                    <Area type="monotone" dataKey="orders" stroke="#16a34a" fill="#dcfce7" strokeWidth={3} />
+                                    <Area type="monotone" dataKey="revenue" stroke="var(--de-color-electric)" fill="var(--de-color-info-soft)" strokeWidth={3} />
+                                    <Area type="monotone" dataKey="orders" stroke="var(--de-color-success)" fill="var(--de-color-success-soft)" strokeWidth={3} />
                                 </AreaChart>
                             </ResponsiveContainer>
                         </div>
@@ -412,11 +419,11 @@ const AdminDashboardCharts = ({
                     <div className="admin__card__body">
                         <ResponsiveContainer width="100%" height={260}>
                             <LineChart data={monthlyTrends}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--de-color-border-strong)" />
                                 <XAxis dataKey="name" tickLine={false} axisLine={false} />
                                 <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
                                 <Tooltip formatter={(value: any) => [Number(value || 0), "Sales"]} />
-                                <Line type="monotone" dataKey="sales" stroke="#7c3aed" strokeWidth={3} dot={false} />
+                                <Line type="monotone" dataKey="sales" stroke="var(--de-color-primary-emphasis)" strokeWidth={3} dot={false} />
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
@@ -445,8 +452,8 @@ const AdminDashboardCharts = ({
                                 layout="vertical"
                                 margin={{ left: 18 }}
                             >
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                                <XAxis type="number" tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--de-color-border-strong)" />
+                                <XAxis type="number" tickLine={false} axisLine={false} tickFormatter={(value) => formatCurrency(Number(value || 0))} />
                                 <YAxis
                                     type="category"
                                     dataKey="name"
@@ -456,7 +463,7 @@ const AdminDashboardCharts = ({
                                     tickFormatter={(value) => String(value).slice(0, 18)}
                                 />
                                 <Tooltip formatter={(value: any) => [formatCurrency(Number(value || 0)), "Revenue"]} />
-                                <Bar dataKey="value" fill="#2563eb" radius={[0, 8, 8, 0]} />
+                                <Bar dataKey="value" fill="var(--de-color-electric)" radius={[0, 8, 8, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
                         )}

@@ -1,5 +1,6 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import { NestConfigService } from "../config/nest-config.service";
+import { PayOSService } from "./payos.service";
 import { StripeService } from "../stripe/stripe.service";
 import type { CreatePaymentInput, PaymentProviderResult, RefundPaymentInput } from "./payment.types";
 
@@ -8,6 +9,7 @@ export class PaymentProviderService {
     constructor(
         private readonly config: NestConfigService,
         private readonly stripeService: StripeService,
+        @Optional() private readonly payosService?: PayOSService,
     ) {}
 
     private get mode(): "mock" | "live" {
@@ -18,7 +20,7 @@ export class PaymentProviderService {
         if (this.mode === "mock") {
             return {
                 status: "pending",
-                providerReference: `mock_${input.provider}_order_${input.orderId}`,
+                providerReference: input.providerReference || `mock_${input.provider}_order_${input.orderId}`,
                 simulated: true,
             };
         }
@@ -28,12 +30,17 @@ export class PaymentProviderService {
         }
 
         if (input.provider === "payos") {
-            throw new Error("PayOS payments are not configured");
+            if (!this.payosService?.isConfigured) {
+                throw new Error("PayOS payments are not configured");
+            }
+            if (!input.providerPaymentId && !input.providerReference) {
+                throw new Error("PayOS checkout must use a payment link");
+            }
         }
 
         return {
             status: "pending",
-            providerReference: input.providerPaymentId || `${input.provider}_order_${input.orderId}`,
+            providerReference: input.providerReference || input.providerPaymentId || `${input.provider}_order_${input.orderId}`,
             simulated: false,
         };
     }

@@ -1,6 +1,7 @@
 import React, { useActionState, useEffect, useState } from "react";
 import { BankIcon, CashStackIcon, ShieldIcon } from "../common/Icons";
 import { useToast } from "../../context/ToastContext";
+import { formatCurrency } from "../../utils/currency";
 
 type AsideCartProps = {
     totalPrice: number;
@@ -107,15 +108,15 @@ const AsideCart = ({ totalPrice, discount, subtotal, applyDiscount }: AsideCartP
                 <div className="cart-summary__pricing">
                     <div className="cart-summary__pricing-row">
                         <span>Total price</span>
-                        <strong>${totalPrice.toFixed(2)}</strong>
+                        <strong>{formatCurrency(totalPrice)}</strong>
                     </div>
                     <div className="cart-summary__pricing-row">
                         <span>Discount</span>
-                        <strong className="muted">-${discount.toFixed(2)}</strong>
+                        <strong className="muted">−{formatCurrency(discount)}</strong>
                     </div>
                     <div className="cart-summary__pricing-row cart-summary__pricing-row--total">
                         <span>Subtotal</span>
-                        <strong>${subtotal.toFixed(2)}</strong>
+                        <strong>{formatCurrency(subtotal)}</strong>
                     </div>
                 </div>
                 <hr />

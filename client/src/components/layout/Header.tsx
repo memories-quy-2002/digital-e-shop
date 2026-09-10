@@ -10,6 +10,7 @@ import "../../styles/layout/_header.scss";
 import { useToast } from "../../context/ToastContext";
 import axios from "../../api/axios";
 import { fetchCustomerNotifications } from "../../features/users/api";
+import type { CustomerNotification } from "../../features/users/api";
 import { signOutFirebaseUser } from "../../services/firebase";
 import { Product } from "../../utils/interface";
 import { Sheet, SheetContent } from "../ui/sheet";
@@ -18,9 +19,12 @@ import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { getProductImageUrl, normalizeProductImageName } from "../../utils/images";
 import { useLocale } from "../../context/LocaleContext";
 import { useT } from "../../hooks/useT";
+import { formatUtcDateTime } from "../../utils/dateTime";
+import { formatCurrency } from "../../utils/currency";
 
 const RECENT_SEARCH_KEY = "digital-e:recent-searches:v1";
 const MAX_RECENT_SEARCHES = 5;
+const CUSTOMER_NOTIFICATIONS_TARGET = "/account#notifications";
 
 const primaryLinks = [
     { label: "Home", to: "/" },
@@ -42,6 +46,9 @@ export const Header = (): JSX.Element => {
     const [searchResults, setSearchResults] = useState<Product[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [unreadNotifications, setUnreadNotifications] = useState(0);
+    const [notifications, setNotifications] = useState<CustomerNotification[]>([]);
+    const [isNotificationsLoading, setIsNotificationsLoading] = useState(false);
+    const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
     const { items: cartItems } = useCart();
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -52,6 +59,7 @@ export const Header = (): JSX.Element => {
     const deferredSearchTerm = useDeferredValue(searchTerm);
     const searchRef = useRef<HTMLDivElement | null>(null);
     const profileMenuRef = useRef<HTMLDivElement | null>(null);
+    const notificationMenuRef = useRef<HTMLDivElement | null>(null);
     const searchInputRef = useRef<HTMLInputElement | null>(null);
     const [recentSearches, setRecentSearches] = useLocalStorage<string[]>(RECENT_SEARCH_KEY, []);
 
@@ -127,6 +135,32 @@ export const Header = (): JSX.Element => {
         }
     };
 
+    const handleNotificationsPageNavigation = () => {
+        if (loading) {
+            addToast("Checking login", "Please wait a moment and try again.");
+            return;
+        }
+
+        setIsNotificationMenuOpen(false);
+        navigate(userData
+            ? CUSTOMER_NOTIFICATIONS_TARGET
+            : `/login?redirect=${encodeURIComponent(CUSTOMER_NOTIFICATIONS_TARGET)}`);
+    };
+
+    const handleNotificationToggle = () => {
+        if (loading) {
+            addToast("Checking login", "Please wait a moment and try again.");
+            return;
+        }
+
+        if (!userData) {
+            navigate(`/login?redirect=${encodeURIComponent(CUSTOMER_NOTIFICATIONS_TARGET)}`);
+            return;
+        }
+
+        setIsNotificationMenuOpen((previous) => !previous);
+    };
+
     const handleAccountAction = () => {
         if (loading) {
             addToast("Checking login", "Please wait a moment and try again.");
@@ -152,21 +186,37 @@ export const Header = (): JSX.Element => {
     const closeMenu = () => setIsMenuOpen(false);
 
     useEffect(() => {
+        let isActive = true;
+
         const fetchNotifications = async () => {
             if (!userData?.id) {
                 setUnreadNotifications(0);
+                setNotifications([]);
+                setIsNotificationsLoading(false);
+                setIsNotificationMenuOpen(false);
                 return;
             }
 
+            setIsNotificationsLoading(true);
             try {
                 const response = await fetchCustomerNotifications(userData.id, 10);
+                if (!isActive) return;
                 setUnreadNotifications(response.unread);
+                setNotifications(response.notifications);
             } catch {
+                if (!isActive) return;
                 setUnreadNotifications(0);
+                setNotifications([]);
+            } finally {
+                if (isActive) setIsNotificationsLoading(false);
             }
         };
 
         fetchNotifications();
+
+        return () => {
+            isActive = false;
+        };
     }, [userData?.id]);
 
     useEffect(() => {
@@ -207,12 +257,17 @@ export const Header = (): JSX.Element => {
             if (!profileMenuRef.current?.contains(event.target as Node)) {
                 setIsProfileMenuOpen(false);
             }
+
+            if (!notificationMenuRef.current?.contains(event.target as Node)) {
+                setIsNotificationMenuOpen(false);
+            }
         };
 
         const handleEscape = (event: KeyboardEvent) => {
             if (event.key === "Escape") {
                 setIsSearchOpen(false);
                 setIsProfileMenuOpen(false);
+                setIsNotificationMenuOpen(false);
             }
         };
 
@@ -228,6 +283,7 @@ export const Header = (): JSX.Element => {
     useEffect(() => {
         setIsSearchOpen(false);
         setIsProfileMenuOpen(false);
+        setIsNotificationMenuOpen(false);
     }, [location.pathname, location.search]);
 
     return (
@@ -341,7 +397,7 @@ export const Header = (): JSX.Element => {
                                                     </span>
                                                 </span>
                                                 <span className="header__search__result__price">
-                                                    ${Number(activePrice || 0).toFixed(2)}
+                                                    {formatCurrency(activePrice)}
                                                 </span>
                                             </button>
                                         );
@@ -394,15 +450,68 @@ export const Header = (): JSX.Element => {
                             <CartIcon size={20} />
                             {cartItems.length > 0 ? <span>{Math.min(cartItems.length, 99)}</span> : null}
                         </button>
-                        <button
-                            type="button"
-                            className="header__action header__action--badge"
-                            onClick={() => handleRequireLogin("/notifications")}
-                            aria-label={t("common.notifications")}
-                        >
-                            <BellIcon size={20} />
-                            {unreadNotifications > 0 ? <span>{Math.min(unreadNotifications, 9)}</span> : null}
-                        </button>
+                        <div className="header__notifications" ref={notificationMenuRef}>
+                            <button
+                                type="button"
+                                className={`header__action header__action--badge${isNotificationMenuOpen ? " is-open" : ""}`}
+                                onClick={handleNotificationToggle}
+                                aria-label={t("common.notifications")}
+                                aria-expanded={isNotificationMenuOpen}
+                                aria-controls="header-notifications-menu"
+                            >
+                                <BellIcon size={20} />
+                                {unreadNotifications > 0 ? <span>{Math.min(unreadNotifications, 9)}</span> : null}
+                            </button>
+                            {isNotificationMenuOpen ? (
+                                <div
+                                    id="header-notifications-menu"
+                                    className="header__notifications__menu"
+                                    role="dialog"
+                                    aria-label="Notifications"
+                                >
+                                    <div className="header__notifications__header">
+                                        <div>
+                                            <strong>Notifications</strong>
+                                            {unreadNotifications > 0 ? (
+                                                <span>{unreadNotifications} unread</span>
+                                            ) : null}
+                                        </div>
+                                        <Link
+                                            to={CUSTOMER_NOTIFICATIONS_TARGET}
+                                            onClick={() => setIsNotificationMenuOpen(false)}
+                                        >
+                                            View all
+                                        </Link>
+                                    </div>
+                                    <div className="header__notifications__list">
+                                        {isNotificationsLoading ? (
+                                            <p className="header__notifications__status">Loading notifications...</p>
+                                        ) : notifications.length > 0 ? (
+                                            notifications.slice(0, 5).map((notification) => (
+                                                <Link
+                                                    key={notification.id}
+                                                    to={notification.link || CUSTOMER_NOTIFICATIONS_TARGET}
+                                                    className={
+                                                        notification.is_read
+                                                            ? "header__notifications__item"
+                                                            : "header__notifications__item is-unread"
+                                                    }
+                                                    onClick={() => setIsNotificationMenuOpen(false)}
+                                                >
+                                                    <span className="header__notifications__item__topline">
+                                                        <strong>{notification.title}</strong>
+                                                        <small>{formatUtcDateTime(notification.created_at)}</small>
+                                                    </span>
+                                                    <p>{notification.message}</p>
+                                                </Link>
+                                            ))
+                                        ) : (
+                                            <p className="header__notifications__status">No notifications yet.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : null}
+                        </div>
                         <LanguageDropdown />
                         <ColorSchemeDropdown />
                         <div className="header__profile" ref={profileMenuRef}>
@@ -567,7 +676,7 @@ export const Header = (): JSX.Element => {
                     <button
                         type="button"
                         onClick={() => {
-                            handleRequireLogin("/notifications");
+                            handleNotificationsPageNavigation();
                             closeMenu();
                         }}
                     >

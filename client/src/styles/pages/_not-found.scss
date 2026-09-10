@@ -8,12 +8,10 @@
 
     &__hero,
     &__panel {
-        border: 1px solid rgba(148, 163, 184, 0.18);
+        border: 1px solid var(--de-color-border);
         border-radius: 24px;
-        background:
-            linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 250, 252, 0.98) 100%),
-            #fff;
-        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+        background: linear-gradient(180deg, var(--de-color-surface-strong), var(--de-color-surface));
+        box-shadow: var(--de-shadow-md);
     }
 
     &__hero {
@@ -23,7 +21,7 @@
     }
 
     &__eyebrow {
-        color: #2563eb;
+        color: var(--de-color-electric);
         font-size: 0.8rem;
         font-weight: 900;
         letter-spacing: 0.12em;
@@ -32,7 +30,7 @@
 
     h1 {
         margin: 0;
-        color: #0f172a;
+        color: var(--de-color-text);
         font-size: clamp(2rem, 4vw, 3rem);
         line-height: 1.05;
         max-width: 12ch;
@@ -41,7 +39,7 @@
     p {
         margin: 0;
         max-width: 42rem;
-        color: #475569;
+        color: var(--de-color-text-soft);
         line-height: 1.7;
     }
 
@@ -58,16 +56,16 @@
             min-height: 46px;
             padding: 0.75rem 1.1rem;
             border-radius: 999px;
-            background: #0b5fff;
-            color: #fff;
+            background: var(--de-color-electric);
+            color: var(--de-color-on-strong);
             font-weight: 900;
             text-decoration: none;
-            box-shadow: 0 14px 24px rgba(37, 99, 235, 0.22);
+            box-shadow: var(--de-shadow-info-soft);
         }
 
         .ghost {
-            background: #eff6ff;
-            color: #1d4ed8;
+            background: var(--de-color-info-soft);
+            color: var(--de-color-info-strong);
             box-shadow: none;
         }
     }

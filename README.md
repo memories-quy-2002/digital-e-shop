@@ -9,9 +9,13 @@ Digital-E is a full-stack electronics store with a customer storefront and an op
 - Catalog search, filters, pagination, facets, recommendations, and product details
 - Product reviews and verified-purchase indicators
 - Authenticated carts, guest carts, coupon validation, and checkout
+- Provider-aware signup with local email/password or Firebase identity, server-owned email verification, and limited access before verification
+- Password reset, confirmed email changes, account-security notices, and Resend-backed marketing subscription/unsubscribe flows
 - Guest order lookup protected by a one-time access token
+- Customer order confirmation emails through Resend after successful checkout when the server has a valid email
 - Wishlist, reorder, address book, notifications, and order timeline
-- Stripe checkout support with deterministic local mock mode
+- Vietnam-first PayOS checkout links with VND quote snapshots, verified webhooks, and deterministic local mock mode
+- Optional Stripe Checkout support for international payments
 - Responsive storefront, checkout, account, and support pages
 
 ### Admin operations
@@ -41,9 +45,9 @@ Digital-E is a full-stack electronics store with a customer storefront and an op
 | Client UI | Radix UI primitives, project UI components, Lucide icons, Recharts |
 | Server | Node.js 24.20.0, NestJS 11, Express 5 adapter, TypeScript, Zod |
 | Data | MySQL through feature repositories, Prisma 7 for the partial migration-owned layer |
-| Authentication | Firebase client/Admin verification where configured, cookie-backed JWT access and refresh sessions |
-| Payments | Stripe Checkout and webhooks, local mock provider mode, PayOS quote support |
-| Operations | Pino request logging, request IDs, rate limiting, optional Redis store, Vercel Blob uploads |
+| Authentication | Local development email/password or Firebase client/Admin verification, server-owned email verification, cookie-backed JWT access and refresh sessions |
+| Payments | Vietnam-first PayOS Checkout links/webhooks, VND settlement quotes, optional Stripe, and local mock provider mode |
+| Operations | Pino request logging, request IDs, rate limiting, optional Redis store, Resend email delivery, Vercel Blob uploads |
 | Verification | Vitest, Testing Library, TypeScript checks, ESLint, builds, MySQL integration tests, and read-only k6 scripts |
 | Deployment | Separate Vercel projects for `client/` and `server/` |
 
@@ -65,7 +69,7 @@ digital-e-shop/
     api/                   Vercel function entrypoint
     src/
       <feature>/           Nest module, controller, service, repository, and types
-      config/              Environment, database, CORS, and Stripe configuration
+      config/              Environment, database, CORS, and payment configuration
       core/                Shared middleware and response/error infrastructure
       database/            Prisma schema, migrations, seeders, and legacy dumps
       guards/              Authentication, role, and ownership guards
@@ -127,9 +131,13 @@ Local demo accounts and migration details are documented in [`server/README.pris
 
 Use [`client/.env.example`](./client/.env.example), [`server/.env.example`](./server/.env.example), and [`server/.env.docker.example`](./server/.env.docker.example) as placeholders. Never commit populated environment files.
 
-The server reads database, JWT, refresh-token, CSRF, CORS, Firebase Admin, Stripe, payment-provider, Blob, and optional Redis settings. Production startup requires the database, auth, and origin variables documented in [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md). Production client builds require `VITE_API_BASE_URL` so a preview cannot silently target the wrong API.
+The server reads database, JWT, refresh-token, CSRF, CORS, Firebase Admin, Stripe, PayOS, payment-provider, Resend, Blob, and optional Redis settings. Production startup requires the database, auth, origin, and live payment variables documented in [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md). Production client builds require `VITE_API_BASE_URL` so a preview cannot silently target the wrong API.
+
+Customer, account-security, and marketing email delivery uses `RESEND_API_KEY` and `RESEND_FROM_EMAIL`. Leave the API key blank to disable delivery locally; configure a verified sender/domain in Resend for production. Order confirmations are sent after the order transaction or Stripe finalization commits, use the server-authoritative customer email, and intentionally do not include the raw guest access token. Customer-facing delivery is gated by account email verification: authenticated order, password-reset/security, email-change notice, and marketing welcome messages are skipped for unverified account addresses. Verification and email-change confirmation messages remain enabled because they establish address ownership; guest confirmations remain eligible. Marketing subscriptions are persisted even when Resend is unavailable, and each welcome email includes a one-time unsubscribe link.
 
 Authentication is environment-bound. Development defaults to local database login unless `AUTH_PROVIDER=firebase`; production always resolves to Firebase verification. Both paths issue the server's cookie-backed session. Unsafe requests use the double-submit CSRF flow, while login, registration, and refresh keep their existing explicit exceptions.
+
+New accounts can sign in before email verification. Browse, cart, wishlist, account, support, and order-history access remain available, while authenticated checkout, Stripe checkout-session creation, and review creation require `email_verified=true`. Verification links are single-use, expire after 24 hours, store only a SHA-256 token hash, and are sent through Resend when `RESEND_API_KEY` is configured. The verification resend endpoint returns a generic response to avoid account enumeration.
 
 ## Verification commands
 

@@ -8,6 +8,7 @@ import { fetchPromotions, createPromotion, updatePromotion, deletePromotion } fr
 import AdminStatusPanel from "../components/AdminStatusPanel";
 import AdminTableScrollHint from "../components/AdminTableScrollHint";
 import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
+import { formatCurrency } from "../../../utils/currency";
 
 type Promotion = {
     id: number;
@@ -376,7 +377,7 @@ const AdminPromotionsPage = () => {
                                             <strong>{promotion.discount_code}</strong>
                                         </td>
                                         <td width="120px">{promotion.discount_percent}%</td>
-                                        <td width="140px">${promotion.min_order_value.toFixed(2)}</td>
+                                        <td width="140px">{formatCurrency(promotion.min_order_value)}</td>
                                         <td width="260px">
                                             <div className="admin__table__stack">
                                                 <span>{promotion.starts_at ? new Date(promotion.starts_at).toLocaleString() : "Starts now"}</span>

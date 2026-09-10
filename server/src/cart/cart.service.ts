@@ -17,6 +17,8 @@ import type { PromotionRow } from "../promotions/promotions.types";
 import { CartRepository } from "./cart.repository";
 import { NestProductsRepository } from "../products/products.repository";
 import { PromotionsRepository } from "../promotions/promotions.repository";
+import { env } from "#src/config/env.config";
+import { formatPaymentAmount } from "../payments/currency";
 
 const normalizeOptionalSalePrice = (value: unknown): number | null => {
     if (value === null || value === undefined || value === "") {
@@ -162,7 +164,7 @@ export function buildGuestCartPreviewResult(
                 valid: false,
                 discount: 0,
                 discountPercent: Number(promotion.discount_percent) || 0,
-                message: `This promotion requires a minimum order of $${minimumOrderValue.toFixed(2)}.`,
+                message: `This promotion requires a minimum order of ${formatPaymentAmount(minimumOrderValue, env.storeCurrency)}.`,
             };
         } else {
             const discount = roundCurrency(merchandiseTotal * ((Number(promotion.discount_percent) || 0) / 100));

@@ -72,8 +72,8 @@ const upsertDemoUsers = async (connection, plan, passwordHash) => {
     for (const [index, user] of plan.users.entries()) {
         await connection.query(
             `INSERT INTO users
-                (id, username, email, password, role, token, first_name, last_name, status, created_at, last_login)
-            VALUES (?, ?, ?, ?, ?, '', ?, ?, 'Active', ?, ?)
+                (id, username, email, password, role, token, first_name, last_name, status, email_verified_at, created_at, last_login)
+            VALUES (?, ?, ?, ?, ?, '', ?, ?, 'Active', UTC_TIMESTAMP(), ?, ?)
             ON DUPLICATE KEY UPDATE
                 username = VALUES(username),
                 email = VALUES(email),
@@ -82,7 +82,8 @@ const upsertDemoUsers = async (connection, plan, passwordHash) => {
                 token = '',
                 first_name = VALUES(first_name),
                 last_name = VALUES(last_name),
-                status = 'Active'`,
+                status = 'Active',
+                email_verified_at = UTC_TIMESTAMP()`,
             [
                 user.id,
                 user.username,
@@ -197,8 +198,42 @@ const clearDemoRows = async (connection, plan, userIds, productIds) => {
     await connection.query("DELETE FROM inventory_movements WHERE note LIKE ?", [`${DEMO_MOVEMENT_PREFIX}%`]);
     await deleteByIds(connection, "order_status_events", "order_id", orderIds);
     await connection.query("DELETE FROM order_status_events WHERE note LIKE ?", [`${DEMO_MOVEMENT_PREFIX} order%`]);
+    await deleteByIds(connection, "order_payments", "order_id", orderIds);
+    await deleteByIds(connection, "discount_redemptions", "order_id", orderIds);
+    await deleteByIds(connection, "support_tickets", "order_id", orderIds);
     await deleteByIds(connection, "order_items", "order_id", orderIds);
     await deleteByIds(connection, "cart_items", "cart_id", cartIds);
+    const demoDiscountCodes = plan.discounts.map((discount) => discount.code);
+    await connection.query(
+        `DELETE ir
+         FROM inventory_reservations ir
+         JOIN pending_checkouts pc ON pc.id = ir.pending_checkout_id
+         JOIN discounts d ON d.id = pc.discount_id
+         WHERE d.discount_code IN (?)`,
+        [demoDiscountCodes],
+    );
+    await connection.query(
+        `DELETE dr
+         FROM discount_redemptions dr
+         JOIN pending_checkouts pc ON pc.id = dr.pending_checkout_id
+         JOIN discounts d ON d.id = pc.discount_id
+         WHERE d.discount_code IN (?)`,
+        [demoDiscountCodes],
+    );
+    await connection.query(
+        `DELETE pc
+         FROM pending_checkouts pc
+         JOIN discounts d ON d.id = pc.discount_id
+         WHERE d.discount_code IN (?)`,
+        [demoDiscountCodes],
+    );
+    await connection.query(
+        `DELETE dr
+         FROM discount_redemptions dr
+         JOIN discounts d ON d.id = dr.discount_id
+         WHERE d.discount_code IN (?)`,
+        [demoDiscountCodes],
+    );
     await connection.query("DELETE FROM reviews WHERE user_id IN (?) AND product_id IN (?)", [userIdValues, productIdValues]);
     await connection.query("DELETE FROM wishlist WHERE user_id IN (?) AND product_id IN (?)", [userIdValues, productIdValues]);
     await connection.query(
@@ -209,7 +244,7 @@ const clearDemoRows = async (connection, plan, userIds, productIds) => {
     await connection.query("DELETE FROM customer_addresses WHERE user_id IN (?)", [userIdValues]);
     await deleteByIds(connection, "orders", "id", orderIds);
     await deleteByIds(connection, "carts", "id", cartIds);
-    await connection.query("DELETE FROM discounts WHERE discount_code IN (?)", [plan.discounts.map((discount) => discount.code)]);
+    await connection.query("DELETE FROM discounts WHERE discount_code IN (?)", [demoDiscountCodes]);
 };
 
 const clearLegacyCatalogProducts = async (connection) => {
@@ -309,8 +344,8 @@ const seedOrders = async (connection, plan, userIds, productIds, productDefiniti
         const customerId = userIds.get(order.userKey);
         const result = await connection.query(
             `INSERT INTO orders
-                (user_id, total_price, discount, shipping_address, payment_method, stripe_checkout_session_id, date_added, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                (user_id, total_price, discount, shipping_address, payment_method, stripe_checkout_session_id, date_added, status, currency)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 customerId,
                 grossTotal,
@@ -320,6 +355,7 @@ const seedOrders = async (connection, plan, userIds, productIds, productDefiniti
                 `${DEMO_ORDER_SESSION_PREFIX}${order.key}`,
                 dateDaysAgo(18 - index, 9 + (index % 6)),
                 order.status,
+                plan.currency,
             ],
         );
         const orderId = asInsertId(result[0]);

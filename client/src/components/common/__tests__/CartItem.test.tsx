@@ -51,8 +51,8 @@ describe("CartItem", () => {
             />
         );
 
-        expect(screen.getByText("$1798.00")).toBeInTheDocument();
-        expect(screen.getByText("$899.00 each")).toBeInTheDocument();
+        expect(screen.getByText(/1\.798\s+₫/)).toBeInTheDocument();
+        expect(screen.getByText(/899\s+₫\s+each/)).toBeInTheDocument();
     });
 
     it("falls back to price when sale_price is null", () => {
@@ -64,8 +64,8 @@ describe("CartItem", () => {
             />
         );
 
-        expect(screen.getByText("$1998.00")).toBeInTheDocument();
-        expect(screen.getByText("$999.00 each")).toBeInTheDocument();
+        expect(screen.getByText(/1\.998\s+₫/)).toBeInTheDocument();
+        expect(screen.getByText(/999\s+₫\s+each/)).toBeInTheDocument();
     });
 
     it("strips .jpg from main_image when building image URL", () => {

@@ -1,7 +1,7 @@
 import React from "react";
 import { StarIcon, StarFillIcon, StarHalfIcon } from "../components/common/Icons";
 
-const ratingStar = (overallScore: number, color: string = "#FFCC4A", size: number = 18) => {
+const ratingStar = (overallScore: number, color: string = "var(--de-color-warning)", size: number = 18) => {
     const stars = [];
     const maxStars = 5;
 

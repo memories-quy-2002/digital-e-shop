@@ -1,6 +1,7 @@
 import React, { memo, useEffect, useState } from "react";
 import ReactSlider from "react-slider";
 import { Product } from "../../utils/interface";
+import { formatCurrency, formatCurrencyNumber } from "../../utils/currency";
 
 type Filters = {
     term: string;
@@ -32,7 +33,7 @@ const AsideShops = ({
 }: AsideShopsProps) => {
     const [priceRange, setPriceRange] = useState<[number, number]>(filters.priceRange);
     const visibleProductCount = filteredCount || products.length;
-    const sliderMax = Math.max(filters.priceRange[1], 5000);
+    const sliderMax = Math.max(filters.priceRange[1], 100_000_000);
 
     useEffect(() => {
         setPriceRange(filters.priceRange);
@@ -110,11 +111,11 @@ const AsideShops = ({
                 <div className="shops__price-summary" aria-live="polite">
                     <div>
                         <span>Min</span>
-                        <strong>${priceRange[0]}</strong>
+                        <strong>{formatCurrency(priceRange[0])}</strong>
                     </div>
                     <div>
                         <span>Max</span>
-                        <strong>${priceRange[1]}</strong>
+                        <strong>{formatCurrency(priceRange[1])}</strong>
                     </div>
                 </div>
                 <div className="shops__price-slider">
@@ -136,9 +137,9 @@ const AsideShops = ({
                                 key={key}
                                 {...thumbProps}
                                 aria-label={state.index === 0 ? "Minimum price" : "Maximum price"}
-                                aria-valuetext={`$${state.valueNow}`}
+                                aria-valuetext={formatCurrency(state.valueNow)}
                             >
-                                <span>${state.valueNow}</span>
+                                <span>{formatCurrencyNumber(state.valueNow)} ₫</span>
                             </div>
                             );
                         }}

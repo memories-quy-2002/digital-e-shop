@@ -24,6 +24,7 @@ import {
     normalizeProductImageName,
 } from "../utils/images";
 import { normalizeProduct, normalizeProducts } from "../utils/product";
+import { formatCurrency } from "../utils/currency";
 
 const DISPLAYED_NUMBER = 8;
 const HOME_PRODUCT_LIMIT = DISPLAYED_NUMBER * 2;
@@ -69,11 +70,6 @@ const intentIcons: Record<IntentKey, React.ComponentType<{ size?: number }>> = {
     connect: HouseIcon,
 };
 
-const formatCurrency = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-});
-
 const getActivePrice = (product: Product) => {
     const hasSale = product.sale_price !== null && product.sale_price > 0 && product.sale_price < product.price;
     return hasSale ? product.sale_price ?? product.price : product.price;
@@ -92,7 +88,7 @@ const getProductImageSource = (product: Product | undefined, sizes: string) => {
 };
 
 const getIntentHref = (categories: readonly string[]) =>
-    `/shops?categories=${encodeURIComponent(categories.join(","))}&brands=&minPrice=0&maxPrice=5000&term=`;
+    `/shops?categories=${encodeURIComponent(categories.join(","))}&brands=&minPrice=0&maxPrice=100000000&term=`;
 
 interface Wishlist {
     id: number;
@@ -457,7 +453,7 @@ const HomePage = () => {
                                     <p>{heroProduct?.brand || "Digital-E"}</p>
                                     <h2>{heroProduct?.name || t("home.heroLoading")}</h2>
                                     <div className="home__hero__ticket__footer">
-                                        <strong>{heroProduct ? formatCurrency.format(getActivePrice(heroProduct)) : "—"}</strong>
+                                        <strong>{heroProduct ? formatCurrency(getActivePrice(heroProduct)) : "—"}</strong>
                                         <Link to={heroProductPath}>{t("home.viewProduct")} <ArrowRightIcon size={16} /></Link>
                                     </div>
                                 </div>
@@ -564,7 +560,7 @@ const HomePage = () => {
                                             <h3>{spotlightProduct.name}</h3>
                                             <span>{t("home.spotlightBody")}</span>
                                             <div className="home__spotlight__price">
-                                                <strong>{formatCurrency.format(getActivePrice(spotlightProduct))}</strong>
+                                                <strong>{formatCurrency(getActivePrice(spotlightProduct))}</strong>
                                                 <Link to={`/product?id=${spotlightProduct.id}`}>{t("home.viewProduct")} <ArrowRightIcon size={16} /></Link>
                                             </div>
                                             <button

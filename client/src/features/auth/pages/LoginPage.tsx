@@ -100,6 +100,9 @@ const LoginPage = () => {
             }
             setUserData(userDataResult);
             addToast("Login", "You have been logon successfully");
+            if (userDataResult?.email_verified === false) {
+                addToast("Verify your email", "You can browse and manage your account, but checkout and reviews require verification.");
+            }
             const requestedPath = getSafeRedirectTarget(new URLSearchParams(location.search).get("redirect"));
             const destination = userDataResult?.role === Role.Admin ? requestedPath || "/admin" : "/";
             navigate(destination, { replace: true });

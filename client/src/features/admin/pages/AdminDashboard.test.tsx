@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AdminDashboard from "./AdminDashboard";
+import { formatCurrency } from "../../../utils/currency";
 import {
     fetchAdminOrders,
     fetchAdminProducts,
@@ -106,14 +107,14 @@ describe("AdminDashboard mixed request results", () => {
 
         renderDashboard();
         await waitFor(() => expect(screen.getByText(/Updated/)).toBeTruthy());
-        expect(screen.getAllByText("$1,234.00").length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/1\.234\s+₫/).length).toBeGreaterThan(0);
         expect(screen.getAllByText("55").length).toBeGreaterThan(0);
 
         fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
 
         await waitFor(() => expect(screen.getByText(/Partially updated/)).toBeTruthy());
         expect(screen.queryAllByText("55")).toHaveLength(0);
-        expect(screen.queryByText("$1,234.00")).toBeNull();
+        expect(screen.queryByText(/1\.234\s+₫/)).toBeNull();
         expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(0);
         expect(screen.getByText("Analytics unavailable")).toBeTruthy();
 
@@ -160,7 +161,7 @@ describe("AdminDashboard mixed request results", () => {
         expect(report).toContain("- Active products: Unavailable");
         expect(report).toContain("- Registered users: Unavailable");
         expect(report).toContain("- Orders (Last 30 days): 0");
-        expect(report).toContain("- Revenue (Last 30 days): $0.00");
+        expect(report).toContain(`- Revenue (Last 30 days): ${formatCurrency(0)}`);
         expect(report).toContain("- Bank transfer orders: Unavailable");
         expect(report).toContain("- Cash orders: Unavailable");
         expect(report).toContain("TOP REVENUE PRODUCTS\n- Unavailable");
@@ -202,7 +203,7 @@ describe("AdminDashboard mixed request results", () => {
         fireEvent.click(screen.getByRole("button", { name: "Download report" }));
         const report = await (createObjectURL.mock.calls[0][0] as Blob).text();
 
-        expect(report).toContain("1. USB-C Hub | Sales: 1 | Revenue: $19.99");
+        expect(report).toContain(`1. USB-C Hub | Sales: 1 | Revenue: ${formatCurrency(19.99)}`);
         expect(report).toContain("1. USB-C Hub | Remaining stock: 2");
         expect(report).toContain("- Order #42");
         expect(report).toContain("Ada Lovelace | buyer@example.com");

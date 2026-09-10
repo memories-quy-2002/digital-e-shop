@@ -56,3 +56,8 @@ export async function markAllCustomerNotificationsRead(uid: string): Promise<{ u
     const response = await http.post(`/api/users/${uid}/notifications/read-all`);
     return { updated: Number(response.data?.result?.updated) || 0 };
 }
+
+export async function markCustomerNotificationRead(uid: string, notificationId: number): Promise<{ updated: number }> {
+    const response = await http.post(`/api/users/${uid}/notifications/${notificationId}/read`);
+    return { updated: Number(response.data?.result?.updated) || 0 };
+}

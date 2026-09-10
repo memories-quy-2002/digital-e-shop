@@ -10,6 +10,7 @@ import {
 import { useToast } from "../../context/ToastContext";
 import React, { useState } from "react";
 import { useT } from "../../hooks/useT";
+import { subscribeToMarketing } from "../../features/marketing/api";
 
 const socialLinks = [
     {
@@ -39,14 +40,27 @@ const Footer = () => {
     const { addToast } = useToast();
     const t = useT();
     const newsletterInputId = "footer-newsletter-email";
+    const [isSubscribing, setIsSubscribing] = useState(false);
 
-    const handleSubscribe = () => {
-        const emailPattern = /^([A-Za-z0-9_\-.])+@([A-Za-z0-9_\-.])+\.([A-Za-z]{2,4})$/;
-        if (email.match(emailPattern)) {
+    const handleSubscribe = async () => {
+        const normalizedEmail = email.trim();
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+        if (!emailPattern.test(normalizedEmail)) {
+            addToast(t("footer.invalidEmail"), t("footer.invalidEmail"));
+            return;
+        }
+
+        if (isSubscribing) return;
+
+        try {
+            setIsSubscribing(true);
+            await subscribeToMarketing(normalizedEmail);
             addToast(t("footer.subscribe"), t("footer.subscribeSuccess"));
             setEmail("");
-        } else {
-            addToast(t("footer.invalidEmail"), t("footer.invalidEmail"));
+        } catch {
+            addToast(t("footer.subscribe"), "Unable to subscribe right now");
+        } finally {
+            setIsSubscribing(false);
         }
     };
 
@@ -100,7 +114,7 @@ const Footer = () => {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />
-                            <button type="button" onClick={handleSubscribe}>
+                            <button type="button" onClick={() => void handleSubscribe()} disabled={isSubscribing}>
                                 {t("footer.subscribe")}
                             </button>
                         </div>
@@ -112,7 +126,7 @@ const Footer = () => {
                         <div className="footer__col">
                             <h2 className="footer__col__heading">{t("footer.shop")}</h2>
                             <Link to="/shops">{t("footer.shopAll")}</Link>
-                            <Link to="/shops?categories=Graphics+Card&brands=&minPrice=0&maxPrice=5000&term=">
+                            <Link to="/shops?categories=Graphics+Card&brands=&minPrice=0&maxPrice=100000000&term=">
                                 {t("footer.shopComponents")}
                             </Link>
                             <Link to="/wishlist">{t("common.wishlist")}</Link>

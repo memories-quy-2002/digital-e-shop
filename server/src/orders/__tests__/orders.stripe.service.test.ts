@@ -7,6 +7,7 @@ vi.mock("#src/config/env.config", () => ({
     env: {
         clientUrl: "http://localhost:5173",
         paymentProviderMode: "live",
+        storeCurrency: "USD",
     },
 }));
 vi.mock("../orders.service", () => ({
@@ -66,11 +67,27 @@ describe("createCheckoutSession", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         env.paymentProviderMode = "live";
+        env.storeCurrency = "USD";
         vi.useFakeTimers();
         vi.setSystemTime(new Date("2026-09-06T01:00:00.000Z"));
     });
 
     afterEach(() => vi.useRealTimers());
+
+    it("fails closed instead of sending VND amounts to the USD Stripe path", async () => {
+        env.storeCurrency = "VND";
+        const { service, cartService } = buildService();
+
+        await expect(service.createCheckoutSession("user-1", {
+            totalPrice: 250000,
+            cart: [{ productId: 1, quantity: 1 }],
+            shippingAddress: "1 Main St",
+        })).rejects.toMatchObject({
+            statusCode: 400,
+            message: expect.stringContaining("unavailable while the store uses VND"),
+        });
+        expect(cartService.validateCheckoutSubmission).not.toHaveBeenCalled();
+    });
 
     it("reserves stock before Stripe and binds the reservation to a 30-minute session", async () => {
         const { service, cartService, ordersService, stripeService, checkoutReservationService } = buildService();

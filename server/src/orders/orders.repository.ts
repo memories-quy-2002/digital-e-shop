@@ -240,11 +240,28 @@ export class OrdersRepository {
 
     getPendingCheckoutBySessionId(stripeSessionId: string, callback: QueryCallback<PendingCheckoutRow[]>) {
         this.query(
-            `SELECT id, stripe_session_id, reservation_token, user_id, guest_email, guest_name, guest_phone,
+            `SELECT id, stripe_session_id, payment_provider, provider_reference, provider_order_code,
+                    payment_amount, payment_currency, payment_fx_rate,
+                    reservation_token, user_id, guest_email, guest_name, guest_phone,
                     guest_order_token_hash, cart_json, total_price, discount,
                     shipping_address, status, expires_at, discount_id, created_at, consumed_at
             FROM pending_checkouts WHERE stripe_session_id = ? LIMIT 1`,
             [stripeSessionId],
+            callback,
+        );
+    }
+
+    getPendingCheckoutByPayOSOrderCode(providerOrderCode: number, callback: QueryCallback<PendingCheckoutRow[]>) {
+        this.query(
+            `SELECT id, stripe_session_id, payment_provider, provider_reference, provider_order_code,
+                    payment_amount, payment_currency, payment_fx_rate,
+                    reservation_token, user_id, guest_email, guest_name, guest_phone,
+                    guest_order_token_hash, cart_json, total_price, discount,
+                    shipping_address, status, expires_at, discount_id, created_at, consumed_at
+            FROM pending_checkouts
+            WHERE payment_provider = 'payos' AND provider_order_code = ?
+            LIMIT 1`,
+            [providerOrderCode],
             callback,
         );
     }
@@ -256,6 +273,18 @@ export class OrdersRepository {
              WHERE o.stripe_checkout_session_id = ? AND o.user_id IS NULL
              LIMIT 1`,
             [stripeSessionId],
+            callback,
+        );
+    }
+
+    getGuestOrderIdentityByPayOSOrderCode(providerOrderCode: number, callback: QueryCallback<GuestOrderIdentityRow[]>) {
+        this.query(
+            `SELECT o.id, o.user_id, o.guest_email, o.guest_name, o.guest_phone, o.guest_order_token_hash
+             FROM orders o
+             JOIN order_payments op ON op.order_id = o.id
+             WHERE op.provider = 'payos' AND op.provider_reference = ? AND o.user_id IS NULL
+             LIMIT 1`,
+            [String(providerOrderCode)],
             callback,
         );
     }
@@ -273,6 +302,18 @@ export class OrdersRepository {
             `SELECT id, user_id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added, payment_method
             FROM orders WHERE stripe_checkout_session_id = ? LIMIT 1`,
             [stripeSessionId],
+            callback,
+        );
+    }
+
+    getOrderByPayOSOrderCode(providerOrderCode: number, callback: QueryCallback<OrderBySessionRow[]>) {
+        this.query(
+            `SELECT o.id, o.user_id, DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added, o.payment_method
+            FROM orders o
+            JOIN order_payments op ON op.order_id = o.id
+            WHERE op.provider = 'payos' AND op.provider_reference = ?
+            LIMIT 1`,
+            [String(providerOrderCode)],
             callback,
         );
     }

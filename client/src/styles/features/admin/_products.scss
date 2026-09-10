@@ -8,7 +8,7 @@
 
 .admin__form-upload__status {
     font-size: 0.85rem;
-    color: #16a34a;
+    color: var(--de-color-success-strong);
     font-weight: 600;
 }
 
@@ -16,8 +16,8 @@
     margin-top: 0.75rem;
     border-radius: 14px;
     padding: 0.5rem;
-    background: #f8fafc;
-    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: var(--de-color-surface-muted);
+    border: 1px solid var(--de-color-border-strong);
 }
 
 .admin__form-upload__preview img {

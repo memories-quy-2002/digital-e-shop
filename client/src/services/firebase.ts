@@ -46,6 +46,18 @@ export const sendFirebasePasswordReset = async (email: string): Promise<void> =>
     await sendPasswordResetEmail(auth, email);
 };
 
+export const verifyFirebasePasswordResetCode = async (code: string): Promise<string> => {
+    const auth = await getFirebaseAuth();
+    const { verifyPasswordResetCode } = await import("firebase/auth");
+    return verifyPasswordResetCode(auth, code);
+};
+
+export const confirmFirebasePasswordReset = async (code: string, newPassword: string): Promise<void> => {
+    const auth = await getFirebaseAuth();
+    const { confirmPasswordReset } = await import("firebase/auth");
+    await confirmPasswordReset(auth, code, newPassword);
+};
+
 export const sendFirebaseEmailVerification = async (): Promise<void> => {
     const auth = await getFirebaseAuth();
     const { sendEmailVerification } = await import("firebase/auth");

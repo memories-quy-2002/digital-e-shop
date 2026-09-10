@@ -26,7 +26,7 @@ pnpm --dir server test -- --run
 pnpm --dir server build
 ```
 
-The default server Vitest configuration includes `src/**/*.{test,spec}.ts` and excludes integration files. The suite covers guards, validators, controllers, services, repositories, checkout reservations, guest order tokens, seed invariants, response contracts, and security boundaries.
+The default server Vitest configuration includes `src/**/*.{test,spec}.ts` and excludes integration files. The suite covers guards, validators, controllers, services, repositories, checkout reservations, guest order tokens, email verification, seed invariants, response contracts, and security boundaries.
 
 ## MySQL integration checks
 
@@ -49,6 +49,8 @@ pnpm --dir server demo:verify
 ```
 
 Checkout, inventory, payment, order timeline, notification, support, guest lookup, and promotion changes need focused tests for ownership, validation, transaction boundaries, idempotency, and failure behavior.
+
+Authentication changes should cover both provider payloads, the generic resend response, one-time/expired verification tokens, public-user redaction, unverified-session login, and `VerifiedEmailGuard` behavior. The email-verification migration must be applied to a disposable MySQL database before runtime signup checks.
 
 ## HTTP smoke checks
 

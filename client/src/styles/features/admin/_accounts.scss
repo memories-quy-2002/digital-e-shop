@@ -7,9 +7,9 @@
 .admin__customer-profile__hero,
 .admin__customer-profile__stats,
 .admin__customer-profile__orders > div {
-    border: 1px solid rgba(148, 163, 184, 0.25);
+    border: 1px solid var(--de-color-border);
     border-radius: 12px;
-    background: #f8fafc;
+    background: var(--de-color-surface-muted);
 }
 
 .admin__customer-profile__hero {
@@ -22,12 +22,12 @@
 .admin__customer-profile__hero strong {
     display: block;
     font-size: 1.25rem;
-    color: #0f172a;
+    color: var(--de-color-text);
 }
 
 .admin__customer-profile__hero p {
     margin: 0.25rem 0 0;
-    color: #64748b;
+    color: var(--de-color-text-muted);
 }
 
 .admin__customer-profile__stats {
@@ -44,7 +44,7 @@
 
 .admin__customer-profile__stats span,
 .admin__customer-profile__orders small {
-    color: #64748b;
+    color: var(--de-color-text-muted);
     font-size: 0.82rem;
 }
 

@@ -10,11 +10,9 @@ import { fetchAllUsers, updateAccount, fetchCustomerProfile } from "../api";
 import AdminStatusPanel from "../components/AdminStatusPanel";
 import AdminTableScrollHint from "../components/AdminTableScrollHint";
 import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
+import { formatCurrency } from "../../../utils/currency";
 
 const ITEMS_PER_PAGE = 8;
-
-const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value || 0);
 
 const getStatusLabel = (status: number) => {
     if (status === 1) return "Done";

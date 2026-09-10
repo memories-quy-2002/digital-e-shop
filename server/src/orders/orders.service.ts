@@ -20,8 +20,11 @@ import { ProductAttributesRepository } from "../products/product-attributes.repo
 import { attributeMapToSnapshot, type ProductAttribute } from "../products/product-attributes.types";
 import { PaymentProviderService } from "../payments/payment-provider.service";
 import { buildPaymentQuote } from "../payments/currency";
-import type { PaymentProviderName } from "../payments/payment.types";
+import type { PaymentProviderName, PaymentQuote } from "../payments/payment.types";
 import { generateGuestOrderToken, hashGuestOrderToken, matchesGuestOrderToken } from "./guest-order-token";
+import { ResendEmailService, type OrderConfirmationInput } from "../email/resend-email.service";
+import { UsersRepository } from "../users/users.repository";
+import { isEmailVerified } from "../users/user-public";
 
 export const createCheckoutError = (message: string, statusCode = 409, details: Record<string, unknown> = {}) =>
     Object.assign(new Error(message), { statusCode, details });
@@ -78,6 +81,53 @@ const normalizePaymentProvider = (paymentMethod: string): PaymentProviderName =>
 
 const roundCurrency = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
 
+type OrderConfirmationRecipient =
+    | { kind: "guest"; email: string; name: string }
+    | { kind: "authenticated"; userId: string };
+
+type OrderConfirmationContext = {
+    orderId: number;
+    total: number;
+    paymentMethod: string;
+    shipping: OrderConfirmationInput["shipping"];
+    items: OrderConfirmationInput["items"];
+    recipient: OrderConfirmationRecipient;
+};
+
+const buildOrderEmailItems = (cart: CartItemRow[]): OrderConfirmationInput["items"] => cart.map((item) => {
+    const quantity = Math.max(Number(item.quantity) || 0, 0);
+    const unitPrice = item.sale_price !== null && item.sale_price !== undefined
+        ? Number(item.sale_price)
+        : Number(item.price) || 0;
+
+    return {
+        name: String(item.product_name || `Product #${Number(item.product_id) || 0}`),
+        quantity,
+        total: roundCurrency(unitPrice * quantity),
+    };
+});
+
+const parseOrderShipping = (value: unknown): OrderConfirmationInput["shipping"] => {
+    let parsed: unknown = value;
+    if (typeof value === "string") {
+        try {
+            parsed = JSON.parse(value);
+        } catch {
+            parsed = { address: value };
+        }
+    }
+
+    const shipping = parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? parsed as Record<string, unknown>
+        : {};
+
+    return {
+        address: String(shipping.address || ""),
+        city: String(shipping.city || ""),
+        country: String(shipping.country || ""),
+    };
+};
+
 const normalizeSalePrice = (value: unknown): number | null => {
     if (value === null || value === undefined || value === "") return null;
     const numberValue = Number(value);
@@ -133,7 +183,51 @@ export class NestOrdersService {
         private readonly promotionsRepository: PromotionsRepository,
         private readonly productAttributesRepository: ProductAttributesRepository,
         @Optional() private readonly paymentProviderService?: PaymentProviderService,
+        @Optional() private readonly resendEmailService?: ResendEmailService,
+        @Optional() private readonly usersRepository?: UsersRepository,
     ) {}
+
+    private async resolveAuthenticatedRecipient(userId: string): Promise<{ email: string; name: string; emailVerified: boolean } | null> {
+        if (!this.usersRepository) return null;
+
+        const user = await this.usersRepository.findById(userId);
+        const email = typeof user?.email === "string" ? user.email.trim() : "";
+        if (!email) return null;
+
+        const name = [user?.first_name, user?.last_name]
+            .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+            .join(" ")
+            .trim()
+            || (typeof user?.username === "string" ? user.username.trim() : "")
+            || "Customer";
+
+        return { email, name, emailVerified: isEmailVerified(user) };
+    }
+
+    private async sendOrderConfirmation(context: OrderConfirmationContext): Promise<void> {
+        if (!this.resendEmailService) return;
+
+        try {
+            const recipient = context.recipient.kind === "guest"
+                ? { ...context.recipient, emailVerified: true }
+                : await this.resolveAuthenticatedRecipient(context.recipient.userId);
+            if (!recipient) return;
+
+            await this.resendEmailService.sendOrderConfirmation({
+                orderId: context.orderId,
+                email: recipient.email,
+                name: recipient.name,
+                total: context.total,
+                paymentMethod: context.paymentMethod,
+                shipping: context.shipping,
+                items: context.items,
+                customerType: context.recipient.kind,
+                emailVerified: recipient.emailVerified,
+            });
+        } catch {
+            logger.error({ orderId: context.orderId }, "[NestOrdersService] order confirmation email failed");
+        }
+    }
 
     private async createPaymentLedgerInTransaction(
         tx: TransactionContext,
@@ -142,17 +236,21 @@ export class NestOrdersService {
             paymentMethod,
             baseAmount,
             providerPaymentId = null,
+            providerReference = null,
+            paymentQuote,
             status = "pending",
         }: {
             orderId: number;
             paymentMethod: string;
             baseAmount: number;
             providerPaymentId?: string | null;
+            providerReference?: string | null;
+            paymentQuote?: PaymentQuote;
             status?: "pending" | "paid";
         },
     ) {
         const provider = normalizePaymentProvider(paymentMethod);
-        const quote = buildPaymentQuote(baseAmount, provider, env.payosUsdToVndRate);
+        const quote = paymentQuote || buildPaymentQuote(baseAmount, provider, env.payosUsdToVndRate, env.storeCurrency || "USD");
         const providerResult = this.paymentProviderService
             ? await this.paymentProviderService.createPayment({
                 provider,
@@ -160,6 +258,7 @@ export class NestOrdersService {
                 amount: quote.amount,
                 currency: quote.currency,
                 providerPaymentId,
+                providerReference,
             })
             : null;
         const paymentStatus = status === "paid" ? "paid" : providerResult?.status || "pending";
@@ -168,16 +267,17 @@ export class NestOrdersService {
             `INSERT INTO order_payments
                 (order_id, provider, status, provider_reference, provider_payment_id, idempotency_key,
                  base_amount, base_currency, amount, currency, fx_rate, paid_at, simulated, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'USD', ?, ?, ?, ${paymentStatus === "paid" ? "UTC_TIMESTAMP()" : "NULL"}, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP())
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${paymentStatus === "paid" ? "UTC_TIMESTAMP()" : "NULL"}, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP())
              ON DUPLICATE KEY UPDATE updated_at = UTC_TIMESTAMP()`,
             [
                 orderId,
                 provider,
                 paymentStatus,
-                providerResult?.providerReference || providerPaymentId,
+                providerResult?.providerReference || providerReference || providerPaymentId,
                 providerPaymentId,
                 `order:${orderId}:payment`,
                 quote.baseAmount,
+                quote.baseCurrency,
                 quote.amount,
                 quote.currency,
                 quote.fxRate,
@@ -503,8 +603,8 @@ export class NestOrdersService {
                 `INSERT INTO orders
                     (user_id, guest_email, guest_name, guest_phone, guest_order_token_hash,
                      total_price, discount, shipping_address, payment_method, stripe_checkout_session_id,
-                     stripe_payment_intent_id, date_added)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
+                     stripe_payment_intent_id, currency, date_added)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
                 [
                     userId,
                     identity.kind === "guest" ? identity.guestContact.guestEmail : null,
@@ -517,6 +617,7 @@ export class NestOrdersService {
                     paymentMethod,
                     stripeCheckoutSessionId,
                     stripePaymentIntentId,
+                    env.storeCurrency,
                 ],
             );
             const orderId = orderResult.insertId;
@@ -706,6 +807,7 @@ export class NestOrdersService {
                 inventoryMovements,
                 appliedDiscount,
                 authoritativeTotalPrice: transactionMerchandiseTotal,
+                emailItems: buildOrderEmailItems(transactionCart),
                 order: order || { id: orderId, date_added: new Date().toISOString() },
             };
         });
@@ -717,6 +819,20 @@ export class NestOrdersService {
                 Number(transactionResult.authoritativeTotalPrice) - Number(transactionResult.appliedDiscount || 0),
             );
         }
+        await this.sendOrderConfirmation({
+            orderId: transactionResult.orderId,
+            total: Math.max(Number(transactionResult.authoritativeTotalPrice) - Number(transactionResult.appliedDiscount || 0), 0),
+            paymentMethod,
+            shipping: parseOrderShipping(shippingAddress),
+            items: transactionResult.emailItems,
+            recipient: identity.kind === "guest"
+                ? {
+                    kind: "guest",
+                    email: identity.guestContact.guestEmail,
+                    name: identity.guestContact.guestName,
+                }
+                : { kind: "authenticated", userId: identity.userId },
+        });
         logger.info({ orderId: transactionResult.orderId, ms: Date.now() - startedAt }, "[createOrderFromValidatedCart] commit ok");
         return transactionResult.order;
     }
@@ -915,6 +1031,277 @@ export class NestOrdersService {
         return this.lookupGuestOrder(identity.id, normalizedToken);
     }
 
+    async getGuestOrderByPayOSOrderCode(orderCode: number, guestOrderToken: string): Promise<GuestSafeOrderDetail> {
+        const normalizedToken = String(guestOrderToken || "").trim();
+        if (!Number.isSafeInteger(orderCode) || orderCode <= 0 || !normalizedToken) {
+            throw createCheckoutError("Order not ready yet", 404);
+        }
+
+        const pending = await new Promise<PendingCheckoutRow | null>((resolve, reject) => {
+            this.ordersRepository.getPendingCheckoutByPayOSOrderCode(orderCode, (error: Error | null, rows: PendingCheckoutRow[]) => {
+                if (error) return reject(error);
+                resolve(rows?.[0] || null);
+            });
+        });
+        if (pending && (pending.user_id !== null || !matchesGuestOrderToken(normalizedToken, pending.guest_order_token_hash))) {
+            throw createCheckoutError("Order not ready yet", 404);
+        }
+
+        const identity = await new Promise<GuestOrderIdentityRow | null>((resolve, reject) => {
+            this.ordersRepository.getGuestOrderIdentityByPayOSOrderCode(orderCode, (error: Error | null, rows: GuestOrderIdentityRow[]) => {
+                if (error) return reject(error);
+                resolve(rows?.[0] || null);
+            });
+        });
+        if (!identity || !matchesGuestOrderToken(normalizedToken, identity.guest_order_token_hash)) {
+            throw createCheckoutError("Order not ready yet", 404);
+        }
+        return this.lookupGuestOrder(identity.id, normalizedToken);
+    }
+
+    async finalizePayOSCheckout(
+        orderCode: number,
+        paymentLinkId: string,
+        paymentAmount: number,
+    ): Promise<{ id: number; date_added: string } | null> {
+        const transactionResult = await withTransaction(async (tx) => {
+            const pending = await this.checkoutReservationRepository.getPendingCheckoutByProviderOrderCodeForUpdate(tx, "payos", orderCode);
+            if (!pending) return null;
+
+            const expectedAmount = Number(pending.payment_amount);
+            if (
+                pending.payment_provider !== "payos"
+                || String(pending.provider_order_code) !== String(orderCode)
+                || String(pending.provider_reference || "") !== String(paymentLinkId)
+                || pending.payment_currency !== "VND"
+                || !Number.isFinite(expectedAmount)
+                || Math.abs(expectedAmount - Number(paymentAmount)) > 0.001
+            ) {
+                throw createCheckoutError("PayOS payment amount or reference does not match the checkout reservation.", 409);
+            }
+
+            const [existingOrder] = await tx.query<Array<{ id: number; date_added: string }>>(
+                `SELECT o.id, DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
+                 FROM orders o
+                 JOIN order_payments op ON op.order_id = o.id
+                 WHERE op.provider = 'payos' AND op.provider_reference = ?
+                 LIMIT 1`,
+                [String(orderCode)],
+            );
+            if (existingOrder) {
+                if (pending.status === "PENDING" && !pending.consumed_at) {
+                    if (pending.discount_id) {
+                        const consumedRows = await this.promotionsRepository.consumePromotionReservation(tx, pending.id, existingOrder.id);
+                        if (consumedRows !== 1) {
+                            throw createCheckoutError("Promotion reservation was already finalized.", 409);
+                        }
+                    }
+                    await this.checkoutReservationRepository.consumeReservation(tx, pending.id);
+                }
+                return {
+                    orderId: existingOrder.id,
+                    userId: pending.user_id,
+                    payableAmount: Number(pending.total_price) - Number(pending.discount),
+                    alreadyProcessed: true,
+                    confirmation: null,
+                    order: existingOrder,
+                };
+            }
+
+            const reservationExpired = !pending.expires_at || new Date(pending.expires_at).getTime() <= Date.now();
+            if (pending.status !== "PENDING" || pending.consumed_at || reservationExpired) {
+                throw createCheckoutError("Checkout reservation is no longer payable.", 409);
+            }
+
+            let authoritativeCart: CartItemRow[];
+            try {
+                authoritativeCart = JSON.parse(pending.cart_json) as CartItemRow[];
+            } catch (error) {
+                throw createCheckoutError("Checkout reservation contains invalid cart data.", 500, { cause: String(error) });
+            }
+
+            const reservationItems = await this.checkoutReservationRepository.getReservationItems(tx, pending.id);
+            if (reservationItems.length === 0) {
+                throw createCheckoutError("Checkout reservation has no inventory items.", 409);
+            }
+            const productIds = reservationItems.map((item) => item.productId).sort((left, right) => left - right);
+            const lockedProducts = await this.checkoutReservationRepository.lockProducts(tx, productIds);
+            const stockById = new Map(lockedProducts.map((product) => [product.id, Number(product.stock) || 0]));
+            const cartItemById = new Map(
+                authoritativeCart.map((item) => [Number(item.product_id || 0), item] as const),
+            );
+            for (const item of reservationItems) {
+                const stock = stockById.get(item.productId);
+                if (stock == null || stock < item.quantity) {
+                    const productName = String(cartItemById.get(item.productId)?.product_name || `Product #${item.productId}`);
+                    throw createCheckoutError(
+                        `${productName} no longer has enough stock to complete this paid order.`,
+                        409,
+                        { productId: item.productId, requestedQuantity: item.quantity, availableStock: stock ?? 0 },
+                    );
+                }
+            }
+
+            const orderResult = await tx.query<InsertResult>(
+                `INSERT INTO orders
+                    (user_id, guest_email, guest_name, guest_phone, guest_order_token_hash,
+                     total_price, discount, shipping_address, payment_method, currency, date_added)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
+                [
+                    pending.user_id,
+                    pending.guest_email,
+                    pending.guest_name,
+                    pending.guest_phone,
+                    pending.guest_order_token_hash,
+                    Number(pending.total_price),
+                    Number(pending.discount),
+                    pending.shipping_address,
+                    "payos",
+                    env.storeCurrency,
+                ],
+            );
+            const orderId = orderResult.insertId;
+            if (pending.discount_id) {
+                const consumedRows = await this.promotionsRepository.consumePromotionReservation(tx, pending.id, orderId);
+                if (consumedRows !== 1) {
+                    throw createCheckoutError("Promotion reservation was already finalized.", 409);
+                }
+            }
+
+            const payableAmount = Math.max(Number(pending.total_price) - Number(pending.discount), 0);
+            await this.createPaymentLedgerInTransaction(tx, {
+                orderId,
+                paymentMethod: "payos",
+                baseAmount: payableAmount,
+                providerPaymentId: paymentLinkId,
+                providerReference: String(orderCode),
+                paymentQuote: {
+                    baseAmount: Number(payableAmount.toFixed(2)),
+                    baseCurrency: env.storeCurrency || "USD",
+                    amount: expectedAmount,
+                    currency: "VND",
+                    fxRate: Number(pending.payment_fx_rate) || 1,
+                },
+                status: "paid",
+            });
+
+            const productAttributes = await this.productAttributesRepository.getForProducts(tx, productIds);
+            const orderItemSnapshots = authoritativeCart.map((item) =>
+                buildOrderItemSnapshot(item, productAttributes.get(Number(item.product_id || 0))),
+            );
+            const orderItemsValues = orderItemSnapshots.map((snapshot) => [
+                orderId,
+                snapshot.productId,
+                snapshot.quantity,
+                snapshot.unitPrice * snapshot.quantity,
+                snapshot.sku,
+                snapshot.productName,
+                snapshot.image,
+                snapshot.unitPrice,
+                snapshot.brand,
+                snapshot.category,
+                snapshot.warrantyMonths,
+                JSON.stringify(snapshot.specifications),
+            ]);
+            if (orderItemsValues.length > 0) {
+                await tx.query(
+                    `INSERT INTO order_items
+                        (order_id, product_id, quantity, total_price, sku_snapshot, product_name_snapshot,
+                         image_snapshot, unit_price_snapshot, brand_snapshot, category_snapshot,
+                         warranty_months_snapshot, specifications_snapshot)
+                     VALUES ?`,
+                    [orderItemsValues],
+                );
+            }
+
+            const inventoryMovements: InventoryMovementInput[] = [];
+            for (const item of reservationItems) {
+                const stockBefore = stockById.get(item.productId) || 0;
+                const result = await tx.query<{ affectedRows: number }>(
+                    "UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?",
+                    [item.quantity, item.productId, item.quantity],
+                );
+                if (result.affectedRows !== 1) {
+                    throw createCheckoutError("Stock changed while confirming payment. The order was not created.", 409);
+                }
+                inventoryMovements.push({
+                    productId: item.productId,
+                    orderId,
+                    movementType: "sale",
+                    quantityChange: -item.quantity,
+                    stockBefore,
+                    stockAfter: stockBefore - item.quantity,
+                    note: `Stock deducted for order #${orderId}`,
+                    actorId: pending.user_id,
+                });
+            }
+            await this.inventoryService.createMovementsInTransaction(tx, inventoryMovements);
+            if (pending.user_id) {
+                await tx.query("UPDATE carts SET done = 1 WHERE user_id = ? AND done = 0", [pending.user_id]);
+            }
+
+            const consumedRows = await this.checkoutReservationRepository.consumeReservation(tx, pending.id);
+            if (consumedRows !== 1) {
+                throw createCheckoutError("Checkout reservation was already finalized.", 409);
+            }
+            await this.orderTimelineService.createTimelineEventInTransaction(tx, {
+                orderId,
+                status: 0,
+                note: "Order was placed by the customer.",
+                actorId: pending.user_id,
+            });
+            const [order] = await tx.query<Array<{ id: number; date_added: string }>>(
+                `SELECT id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
+                 FROM orders WHERE id = ?`,
+                [orderId],
+            );
+            return {
+                orderId,
+                userId: pending.user_id,
+                payableAmount,
+                alreadyProcessed: false,
+                confirmation: pending.user_id
+                    ? {
+                        orderId,
+                        total: payableAmount,
+                        paymentMethod: "payos",
+                        shipping: parseOrderShipping(pending.shipping_address),
+                        items: buildOrderEmailItems(authoritativeCart),
+                        recipient: { kind: "authenticated" as const, userId: pending.user_id },
+                    }
+                    : pending.guest_email
+                        ? {
+                            orderId,
+                            total: payableAmount,
+                            paymentMethod: "payos",
+                            shipping: parseOrderShipping(pending.shipping_address),
+                            items: buildOrderEmailItems(authoritativeCart),
+                            recipient: {
+                                kind: "guest" as const,
+                                email: pending.guest_email,
+                                name: pending.guest_name || "Guest customer",
+                            },
+                        }
+                        : null,
+                order: order || { id: orderId, date_added: new Date().toISOString() },
+            };
+        });
+
+        if (!transactionResult) return null;
+        if (transactionResult.alreadyProcessed) return transactionResult.order;
+        if (transactionResult.userId) {
+            this.notificationsService.notifyOrderPlaced(
+                transactionResult.userId,
+                transactionResult.orderId,
+                transactionResult.payableAmount,
+            );
+        }
+        if (transactionResult.confirmation) {
+            await this.sendOrderConfirmation(transactionResult.confirmation);
+        }
+        return transactionResult.order;
+    }
+
     async finalizeReservedCheckout(
         stripeSessionId: string,
         stripePaymentIntentId: string | null,
@@ -943,6 +1330,7 @@ export class NestOrdersService {
                     userId: pending.user_id,
                     payableAmount: Number(pending.total_price) - Number(pending.discount),
                     alreadyProcessed: true,
+                    confirmation: null,
                     order: existingOrder,
                 };
             }
@@ -984,8 +1372,8 @@ export class NestOrdersService {
                 `INSERT INTO orders
                     (user_id, guest_email, guest_name, guest_phone, guest_order_token_hash,
                      total_price, discount, shipping_address, payment_method, stripe_checkout_session_id,
-                     stripe_payment_intent_id, date_added)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
+                     stripe_payment_intent_id, currency, date_added)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
                 [
                     pending.user_id,
                     pending.guest_email,
@@ -998,6 +1386,7 @@ export class NestOrdersService {
                     "card",
                     stripeSessionId,
                     stripePaymentIntentId,
+                    env.storeCurrency,
                 ],
             );
             const orderId = orderResult.insertId;
@@ -1089,6 +1478,29 @@ export class NestOrdersService {
                 userId: pending.user_id,
                 payableAmount: Number(pending.total_price) - Number(pending.discount),
                 alreadyProcessed: false,
+                confirmation: pending.user_id
+                    ? {
+                        orderId,
+                        total: Math.max(Number(pending.total_price) - Number(pending.discount), 0),
+                        paymentMethod: "card",
+                        shipping: parseOrderShipping(pending.shipping_address),
+                        items: buildOrderEmailItems(authoritativeCart),
+                        recipient: { kind: "authenticated" as const, userId: pending.user_id },
+                    }
+                    : pending.guest_email
+                        ? {
+                            orderId,
+                            total: Math.max(Number(pending.total_price) - Number(pending.discount), 0),
+                            paymentMethod: "card",
+                            shipping: parseOrderShipping(pending.shipping_address),
+                            items: buildOrderEmailItems(authoritativeCart),
+                            recipient: {
+                                kind: "guest" as const,
+                                email: pending.guest_email,
+                                name: pending.guest_name || "Guest customer",
+                            },
+                        }
+                        : null,
                 order: order || { id: orderId, date_added: new Date().toISOString() },
             };
         });
@@ -1101,6 +1513,9 @@ export class NestOrdersService {
                 transactionResult.orderId,
                 transactionResult.payableAmount,
             );
+        }
+        if (transactionResult.confirmation) {
+            await this.sendOrderConfirmation(transactionResult.confirmation);
         }
         return transactionResult.order;
     }
@@ -1308,6 +1723,15 @@ export class NestOrdersService {
     getOrderByStripeSessionId(stripeSessionId: string): Promise<OrderBySessionRow | null> {
         return new Promise((resolve, reject) => {
             this.ordersRepository.getOrderByStripeSessionId(stripeSessionId, (err: Error | null, results: OrderBySessionRow[]) => {
+                if (err) return reject(err);
+                resolve(results[0] || null);
+            });
+        });
+    }
+
+    getOrderByPayOSOrderCode(orderCode: number): Promise<OrderBySessionRow | null> {
+        return new Promise((resolve, reject) => {
+            this.ordersRepository.getOrderByPayOSOrderCode(orderCode, (err: Error | null, results: OrderBySessionRow[]) => {
                 if (err) return reject(err);
                 resolve(results[0] || null);
             });

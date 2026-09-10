@@ -3,6 +3,7 @@ import { CartIcon, TrashIcon } from "./Icons";
 import { useNavigate } from "react-router-dom";
 import { Product } from "../../utils/interface";
 import loadImage from "../../utils/loadImage";
+import { formatCurrency } from "../../utils/currency";
 
 interface Item {
     id: number;
@@ -51,8 +52,8 @@ const WishlistItem = ({ item, selected, onSelect, onMoveToCart, onRemoveWishlist
             </div>
 
             <div className="wishlist__row__price">
-                <strong>${activePrice.toFixed(2)}</strong>
-                {hasSale ? <span>Sale from ${product.price.toFixed(2)}</span> : <span>No sale change</span>}
+                <strong>{formatCurrency(activePrice)}</strong>
+                {hasSale ? <span>Sale from {formatCurrency(product.price)}</span> : <span>No sale change</span>}
             </div>
 
             <span className={availableStock > 0 ? "wishlist__stock is-in" : "wishlist__stock is-out"}>

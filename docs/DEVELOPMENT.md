@@ -32,7 +32,39 @@ Copy-Item server/.env.example server/.env
 Copy-Item server/.env.docker.example server/.env.docker
 ```
 
-The server loads a configured `DIGITAL_E_ENV_FILE` first, then `.env.<mode>.local`, `.env.local`, `.env.<mode>`, `.env`, and the current working directory fallback. Production validates database, JWT, refresh, CSRF, client-origin, and server-origin variables before startup.
+For the normal local workflow, the server reads `server/.env`. The loader also
+supports an explicit `DIGITAL_E_ENV_FILE` or mode-specific overrides when a
+deployment needs them. Production validates database, JWT, refresh, CSRF,
+client-origin, and server-origin variables before startup.
+
+Customer, account-security, and marketing emails use Resend. Set
+`RESEND_API_KEY` and a verified `RESEND_FROM_EMAIL` in `server/.env`. A blank
+API key safely disables email delivery locally. Orders with a missing or invalid
+server-side email are skipped without failing checkout. Authenticated order
+confirmations, password-reset/security notices, email-change notices, and
+marketing welcomes are skipped for unverified account addresses; verification
+and email-change confirmation links remain deliverable so ownership can be
+established. These messages remain non-blocking side effects after their
+database state is committed. The
+default `Digital-E <onboarding@resend.dev>` sender is for Resend testing only;
+production must use a verified sender/domain. Raw reset, email-change,
+unsubscribe, and guest-order access tokens are never logged; the guest access
+token is intentionally not included in order email payloads.
+
+Vietnam-first payments use PayOS payment links and whole-number VND catalog values. Keep `PAYOS_CLIENT_ID`,
+`PAYOS_API_KEY`, and `PAYOS_CHECKSUM_KEY` server-side and set
+`STORE_CURRENCY=VND` for the Vietnam-first default. Set
+`PAYOS_USD_TO_VND_RATE` only when deliberately running an USD-backed catalog.
+Use `PAYMENT_PROVIDER_MODE=mock` for the local PayOS simulator; it redirects to
+`/mock-payos-checkout` and waits for an explicit simulated confirmation. Use
+`live` only with real PayOS channel credentials and a configured
+`/api/orders/webhooks/payos` URL. In live mode, only a verified webhook creates
+the order; the browser return URL is not a payment confirmation. Run
+`pnpm --dir server prisma:seed` after changing the demo seed so local products,
+discount thresholds, and demo orders are materialized in VND. Stripe remains an
+optional international rail and requires an intentional USD/catalog setup.
+
+Authentication is provider-aware. Local development defaults to `AUTH_PROVIDER=local` and uses the server-stored bcrypt password hash. Set `AUTH_PROVIDER=firebase` to exercise the Firebase client/Admin path; production always resolves to Firebase. The client mirrors this with `VITE_AUTH_PROVIDER=firebase` when needed. New accounts can log in before verification, but authenticated checkout, Stripe checkout-session creation, and review creation remain blocked until the server-owned email link is confirmed. Verification links use `CLIENT_URL`, expire after 24 hours, and require the additive `email_verification_*` migration. Password reset and email change use the additive `20260910140000_account_security_and_marketing` migration. Resend delivery is optional locally; without an API key, account creation and marketing subscription still succeed and the account page can request delivery after configuration.
 
 The client reads `VITE_API_BASE_URL`. Development uses `http://localhost:4000` when no override is supplied. Production builds require an explicit API base URL. Do not put `/api` in the client variable because request modules add that prefix.
 

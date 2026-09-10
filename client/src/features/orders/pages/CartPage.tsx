@@ -16,6 +16,7 @@ import { getCartValidationMessage } from "../types";
 import "../../../styles/features/orders/_cart.scss";
 import CheckoutPaymentPage from "../components/CheckoutPaymentPage";
 import { useT } from "../../../hooks/useT";
+import { formatCurrency } from "../../../utils/currency";
 
 const CartPage = () => {
     const navigate = useNavigate();
@@ -239,7 +240,7 @@ const CartPage = () => {
                                     <span>{t("cart.itemsLabel")}</span>
                                 </div>
                                 <div>
-                                    <strong>${subtotal.toFixed(2)}</strong>
+                                    <strong>{formatCurrency(subtotal)}</strong>
                                     <span>{t("cart.estimatedTotal")}</span>
                                 </div>
                             </div>
@@ -341,18 +342,18 @@ const CartPage = () => {
                                 <div className="cart__confirm__rows">
                                     <div className="cart__confirm__row">
                                         <span>{t("cart.merchandise")}</span>
-                                        <strong>${totalPrice.toFixed(2)}</strong>
+                                        <strong>{formatCurrency(totalPrice)}</strong>
                                     </div>
                                     {discount > 0 ? (
                                         <div className="cart__confirm__row cart__confirm__row--discount">
                                             <span>{t("cart.discount")}</span>
-                                            <strong>−${discount.toFixed(2)}</strong>
+                                            <strong>−{formatCurrency(discount)}</strong>
                                         </div>
                                     ) : null}
                                     <div className="cart__confirm__divider" />
                                     <div className="cart__confirm__row cart__confirm__row--total">
                                         <span>{t("cart.amountDue")}</span>
-                                        <strong>${subtotal.toFixed(2)}</strong>
+                                        <strong>{formatCurrency(subtotal)}</strong>
                                     </div>
                                 </div>
                             </div>
@@ -366,7 +367,7 @@ const CartPage = () => {
                                                 <span className="cart__confirm__item-meta">{item.brand} &middot; {item.category}</span>
                                             </div>
                                             <div className="cart__confirm__item-qty">&times;{item.quantity}</div>
-                                            <div className="cart__confirm__item-price">${((item.sale_price || item.price) * item.quantity).toFixed(2)}</div>
+                                            <div className="cart__confirm__item-price">{formatCurrency((item.sale_price || item.price) * item.quantity)}</div>
                                         </div>
                                     ))}
                                 </div>
@@ -379,7 +380,7 @@ const CartPage = () => {
                             {t("cart.cancelOrder")}
                         </Button>
                         <Button variant="primary" size="lg" onClick={handleClickPayment}>
-                            {t("cart.placeOrder", subtotal.toFixed(2))}
+                            {t("cart.placeOrder", formatCurrency(subtotal))}
                         </Button>
                     </Modal.Footer>
                 </Modal>

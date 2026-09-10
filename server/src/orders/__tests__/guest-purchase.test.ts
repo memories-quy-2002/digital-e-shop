@@ -45,7 +45,7 @@ function buildController() {
 
 function buildService() {
     const tx = { query: vi.fn() };
-    const cartService = { previewGuestCart: vi.fn() };
+    const cartService = { previewGuestCart: vi.fn(), validateCheckoutSubmission: vi.fn() };
     const ordersRepository = {
         getGuestOrderIdentity: vi.fn(),
         getPendingCheckoutBySessionId: vi.fn(),
@@ -72,6 +72,8 @@ function buildService() {
     const timeline = { createTimelineEventInTransaction: vi.fn().mockResolvedValue(undefined), getTimeline: vi.fn().mockResolvedValue([]) };
     const inventory = { createMovementsInTransaction: vi.fn().mockResolvedValue(undefined) };
     const notifications = { notifyOrderPlaced: vi.fn() };
+    const email = { sendOrderConfirmation: vi.fn().mockResolvedValue(undefined) };
+    const usersRepository = { findById: vi.fn() };
     const productAttributes = { getForProducts: vi.fn().mockResolvedValue(new Map()) };
     const promotions = { consumePromotion: vi.fn() };
 
@@ -93,9 +95,12 @@ function buildService() {
         checkoutReservations as never,
         promotions as never,
         productAttributes as never,
+        undefined,
+        email as never,
+        usersRepository as never,
     );
 
-    return { service, tx, cartService, checkoutReservations, ordersRepository, timeline, inventory, notifications, promotions };
+    return { service, tx, cartService, checkoutReservations, ordersRepository, timeline, inventory, notifications, promotions, email, usersRepository };
 }
 
 describe("guest checkout contracts", () => {
@@ -233,9 +238,9 @@ describe("guest purchase controller", () => {
 
 describe("guest purchase transaction", () => {
     it.each(["cash", "bank_transfer", "payos"] as const)(
-        "creates a nullable-identity %s order from authoritative cart data without notifying a guest",
+        "creates a nullable-identity %s order from authoritative cart data and emails the guest after commit",
         async (paymentMethod) => {
-            const { service, tx, cartService, notifications, timeline, inventory } = buildService();
+            const { service, tx, cartService, notifications, timeline, inventory, email } = buildService();
             vi.mocked(cartService.previewGuestCart).mockResolvedValue({
                 valid: true,
                 cartItems: [{ product_id: 7, product_name: "Widget", price: 10, sale_price: 8, stock: 5, quantity: 2 }],
@@ -263,14 +268,68 @@ describe("guest purchase transaction", () => {
             expect(timeline.createTimelineEventInTransaction).toHaveBeenCalledWith(tx, expect.objectContaining({ actorId: null }));
             expect(inventory.createMovementsInTransaction).toHaveBeenCalled();
             expect(notifications.notifyOrderPlaced).not.toHaveBeenCalled();
+            expect(email.sendOrderConfirmation).toHaveBeenCalledWith(expect.objectContaining({
+                orderId: 91,
+                email: "buyer@example.com",
+                items: expect.any(Array),
+            }));
+            expect(JSON.stringify(email.sendOrderConfirmation.mock.calls[0][0])).not.toContain(result.guestOrderToken);
             if (paymentMethod === "payos") {
                 expect(tx.query).toHaveBeenCalledWith(
                     expect.stringContaining("INSERT INTO order_payments"),
-                    expect.arrayContaining([400000, "VND", 25000]),
+                    expect.arrayContaining([16, "VND", 1]),
                 );
             }
         },
     );
+
+    it("keeps a committed guest order successful when Resend delivery fails", async () => {
+        const { service, cartService, email } = buildService();
+        email.sendOrderConfirmation.mockRejectedValue(new Error("Resend unavailable"));
+        vi.mocked(cartService.previewGuestCart).mockResolvedValue({
+            valid: true,
+            cartItems: [{ product_id: 7, product_name: "Widget", price: 10, sale_price: 8, stock: 5, quantity: 2 }],
+            issues: [],
+            merchandiseTotal: 16,
+            promotion: { code: null, valid: true, discount: 0, discountPercent: null },
+            totalPrice: 16,
+        });
+
+        await expect(service.makeGuestPurchase(guestPayload())).resolves.toEqual(expect.objectContaining({
+            order: expect.objectContaining({ id: 91 }),
+            guestOrderToken: expect.any(String),
+        }));
+    });
+
+    it("emails an authenticated customer using the server-owned email after commit", async () => {
+        const { service, cartService, email, usersRepository } = buildService();
+        vi.mocked(usersRepository.findById).mockResolvedValue({
+            id: "user-1",
+            email: "customer@example.com",
+            username: "Customer",
+        });
+        vi.mocked(cartService.validateCheckoutSubmission).mockResolvedValue({
+            cartItems: [{ product_id: 7, product_name: "Widget", price: 8, sale_price: null, stock: 5, quantity: 2 }],
+            issues: [],
+            mismatches: [],
+            authoritativeTotalPrice: 16,
+        });
+
+        await service.makePurchase("user-1", {
+            totalPrice: 16,
+            cart: [{ productId: 7, quantity: 2, price: 8 }],
+            discount: 0,
+            shippingAddress: JSON.stringify({ address: "123 ABC Street", city: "HCMC", country: "VN" }),
+            paymentMethod: "cash",
+        });
+
+        expect(email.sendOrderConfirmation).toHaveBeenCalledWith(expect.objectContaining({
+            customerType: "authenticated",
+            orderId: 91,
+            email: "customer@example.com",
+            name: "Customer",
+        }));
+    });
 
     it("passes a server-derived coupon amount and null user ID into transactional redemption", async () => {
         const { service, cartService, checkoutReservations, promotions } = buildService();

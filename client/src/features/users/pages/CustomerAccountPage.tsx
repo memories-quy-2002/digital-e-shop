@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
 import { BellIcon, CartIcon, HouseIcon, PersonIcon } from "../../../components/common/Icons";
@@ -17,11 +17,16 @@ import {
     fetchCurrentCustomer,
     fetchCustomerAddresses,
     fetchCustomerNotifications,
+    markAllCustomerNotificationsRead,
+    markCustomerNotificationRead,
 } from "../api";
 import { CustomerOrder, fetchCustomerOrders } from "../../orders/api";
-import { sendFirebaseEmailVerification } from "../../../services/firebase";
+import {
+    requestEmailChange as requestEmailChangeEmail,
+    resendVerification as resendVerificationEmail,
+} from "../../auth/api";
+import { formatCurrency } from "../../../utils/currency";
 
-const formatCurrency = (value: number) => `$${Number(value || 0).toFixed(2)}`;
 
 const getDisplayName = (customer: CustomerIdentity | null) => {
     if (!customer) return "Customer";
@@ -39,24 +44,61 @@ const CustomerAccountPage = () => {
     const { userData } = useAuth();
     const uid = userData?.id || "";
     const { addToast } = useToast();
+    const location = useLocation();
     const [customer, setCustomer] = useState<CustomerIdentity | null>(null);
     const [orders, setOrders] = useState<CustomerOrder[]>([]);
     const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
     const [notifications, setNotifications] = useState<CustomerNotification[]>([]);
-    const [unreadNotifications, setUnreadNotifications] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [isNotificationsLoading, setIsNotificationsLoading] = useState(true);
+    const [isMarkingAllNotificationsRead, setIsMarkingAllNotificationsRead] = useState(false);
+    const [isMarkingNotificationId, setIsMarkingNotificationId] = useState<number | null>(null);
+    const [expandedNotificationId, setExpandedNotificationId] = useState<number | null>(null);
     const [isSendingVerification, setIsSendingVerification] = useState(false);
+    const [newEmail, setNewEmail] = useState("");
+    const [isRequestingEmailChange, setIsRequestingEmailChange] = useState(false);
+    const [emailChangeMessage, setEmailChangeMessage] = useState("");
+    const [emailChangeError, setEmailChangeError] = useState(false);
 
     const resendVerification = async () => {
         if (isSendingVerification) return;
+        const email = userData?.email || customer?.email;
+        if (!email) return;
         try {
             setIsSendingVerification(true);
-            await sendFirebaseEmailVerification();
-            addToast("Verify your email", "A new verification link has been sent.");
+            await resendVerificationEmail(email);
+            addToast("Verify your email", "If email delivery is configured, a new verification link is on its way.");
         } catch {
             addToast("Verify your email", "Please sign in again before requesting a new verification link.");
         } finally {
             setIsSendingVerification(false);
+        }
+    };
+
+    const requestEmailChange = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const normalizedEmail = newEmail.trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(normalizedEmail)) {
+            setEmailChangeError(true);
+            setEmailChangeMessage("Enter a valid new email address.");
+            return;
+        }
+
+        try {
+            setIsRequestingEmailChange(true);
+            setEmailChangeError(false);
+            await requestEmailChangeEmail(normalizedEmail);
+            setNewEmail("");
+            setEmailChangeMessage("Check your new email to confirm the change.");
+            addToast("Change email", "A confirmation link has been sent to your new email address.");
+        } catch (error: unknown) {
+            const response = error && typeof error === "object" && "response" in error
+                ? (error as { response?: { data?: { msg?: string } } }).response
+                : undefined;
+            setEmailChangeError(true);
+            setEmailChangeMessage(response?.data?.msg || "Unable to request an email change right now.");
+        } finally {
+            setIsRequestingEmailChange(false);
         }
     };
 
@@ -66,18 +108,15 @@ const CustomerAccountPage = () => {
 
             try {
                 setLoading(true);
-                const [currentCustomer, customerOrders, customerAddresses, customerNotifications] = await Promise.all([
+                const [currentCustomer, customerOrders, customerAddresses] = await Promise.all([
                     fetchCurrentCustomer(),
                     fetchCustomerOrders(uid),
                     fetchCustomerAddresses(uid),
-                    fetchCustomerNotifications(uid, 6),
                 ]);
 
                 setCustomer(currentCustomer);
                 setOrders(customerOrders);
                 setAddresses(customerAddresses);
-                setNotifications(customerNotifications.notifications);
-                setUnreadNotifications(customerNotifications.unread);
             } catch {
                 addToast("Account", "Unable to load your account overview.");
             } finally {
@@ -88,18 +127,98 @@ const CustomerAccountPage = () => {
         loadAccount();
     }, [addToast, uid]);
 
+    useEffect(() => {
+        const loadNotifications = async () => {
+            if (!uid) {
+                setNotifications([]);
+                setIsNotificationsLoading(false);
+                return;
+            }
+
+            try {
+                setIsNotificationsLoading(true);
+                const response = await fetchCustomerNotifications(uid, 10);
+                setNotifications(response.notifications);
+            } catch {
+                addToast("Notifications", "Unable to load notification updates.");
+            } finally {
+                setIsNotificationsLoading(false);
+            }
+        };
+
+        loadNotifications();
+    }, [addToast, uid]);
+
+    useEffect(() => {
+        if (loading || location.hash !== "#notifications") return;
+
+        const notificationsSection = document.getElementById("account-notifications");
+        if (notificationsSection && typeof notificationsSection.scrollIntoView === "function") {
+            notificationsSection.scrollIntoView({ block: "start" });
+        }
+    }, [loading, location.hash]);
+
+    const unreadNotificationCount = notifications.filter((notification) => !notification.is_read).length;
+
+    const markAllNotificationsRead = async () => {
+        if (!uid || isMarkingAllNotificationsRead || isMarkingNotificationId !== null || unreadNotificationCount === 0) {
+            return;
+        }
+
+        try {
+            setIsMarkingAllNotificationsRead(true);
+            const result = await markAllCustomerNotificationsRead(uid);
+            setNotifications((current) => current.map((notification) => ({
+                ...notification,
+                is_read: true,
+                read_at: notification.read_at || new Date().toISOString(),
+            })));
+            addToast(
+                "Notifications",
+                result.updated > 0 ? "All notifications marked as read." : "There were no unread notifications.",
+            );
+        } catch {
+            addToast("Notifications", "Unable to update notifications.");
+        } finally {
+            setIsMarkingAllNotificationsRead(false);
+        }
+    };
+
+    const markNotificationRead = async (notification: CustomerNotification) => {
+        if (
+            !uid
+            || notification.is_read
+            || isMarkingAllNotificationsRead
+            || isMarkingNotificationId !== null
+        ) {
+            return;
+        }
+
+        try {
+            setIsMarkingNotificationId(notification.id);
+            await markCustomerNotificationRead(uid, notification.id);
+            setNotifications((current) => current.map((item) => item.id === notification.id
+                ? { ...item, is_read: true, read_at: item.read_at || new Date().toISOString() }
+                : item));
+            addToast("Notifications", "Notification marked as read.");
+        } catch {
+            addToast("Notifications", "Unable to update notification.");
+        } finally {
+            setIsMarkingNotificationId(null);
+        }
+    };
+
     const recentOrders = useMemo(() => orders.slice(0, 3), [orders]);
     const primaryAddress = useMemo(
         () => addresses.find((address) => address.is_default) || addresses[0] || null,
         [addresses],
     );
-    const recentNotifications = useMemo(() => notifications.slice(0, 3), [notifications]);
-
+    const emailIsUnverified = userData?.email_verified === false || customer?.email_verified === false;
     return (
         <Layout>
             <Helmet>
                 <title>My Account | Digital-E</title>
-                <meta name="description" content="Review your account, orders, saved addresses, and notifications." />
+                <meta name="description" content="Review your account, orders, and saved addresses." />
             </Helmet>
             <main className="customer-account-page">
                 <CustomerAccountShell
@@ -118,7 +237,7 @@ const CustomerAccountPage = () => {
                                 <span className="customer-account-page__skeleton customer-account-page__skeleton--line customer-account-page__skeleton--line-short" />
                             </div>
                             <div className="customer-account-page__stats">
-                                {Array.from({ length: 3 }, (_, index) => (
+                                {Array.from({ length: 2 }, (_, index) => (
                                     <article key={`account-stat-loading-${index}`}>
                                         <span className="customer-account-page__skeleton customer-account-page__skeleton--stat-label" />
                                         <strong className="customer-account-page__skeleton customer-account-page__skeleton--stat-value" />
@@ -128,7 +247,7 @@ const CustomerAccountPage = () => {
                         </section>
 
                         <section className="customer-account-page__actions" aria-hidden="true">
-                            {Array.from({ length: 3 }, (_, index) => (
+                            {Array.from({ length: 2 }, (_, index) => (
                                 <div key={`account-action-loading-${index}`} className="customer-account-page__action-skeleton">
                                     <span className="customer-account-page__skeleton customer-account-page__skeleton--action" />
                                 </div>
@@ -136,7 +255,7 @@ const CustomerAccountPage = () => {
                         </section>
 
                         <section className="customer-account-page__grid" aria-hidden="true">
-                            {Array.from({ length: 3 }, (_, index) => (
+                            {Array.from({ length: 2 }, (_, index) => (
                                 <article key={`account-panel-loading-${index}`} className="customer-account-page__panel">
                                     <div className="customer-account-page__panel__header">
                                         <span className="customer-account-page__skeleton customer-account-page__skeleton--panel-title" />
@@ -161,10 +280,32 @@ const CustomerAccountPage = () => {
                                 </span>
                                 <h2>{getDisplayName(customer)}</h2>
                                 <p>{customer?.email || userData?.email || "No email available"}</p>
-                                <button type="button" onClick={resendVerification} disabled={isSendingVerification}>
-                                    {isSendingVerification ? "Sending verification..." : "Resend verification email"}
-                                </button>
+                                {emailIsUnverified ? (
+                                    <button type="button" onClick={resendVerification} disabled={isSendingVerification}>
+                                        {isSendingVerification ? "Sending verification..." : "Resend verification email"}
+                                    </button>
+                                ) : null}
                                 <small>Last active {customer?.last_login ? formatUtcDateTime(customer.last_login) : "recently"}</small>
+                                <form className="customer-account-page__email-change" onSubmit={requestEmailChange}>
+                                    <label htmlFor="customer-account-new-email">New email</label>
+                                    <div className="customer-account-page__email-change__controls">
+                                        <input
+                                            id="customer-account-new-email"
+                                            type="email"
+                                            autoComplete="email"
+                                            value={newEmail}
+                                            onChange={(event) => setNewEmail(event.target.value)}
+                                            placeholder="new@example.com"
+                                            required
+                                        />
+                                        <button type="submit" disabled={isRequestingEmailChange}>
+                                            {isRequestingEmailChange ? "Sending..." : "Send email-change link"}
+                                        </button>
+                                    </div>
+                                    {emailChangeMessage ? (
+                                        <p role={emailChangeError ? "alert" : "status"}>{emailChangeMessage}</p>
+                                    ) : null}
+                                </form>
                             </div>
 
                             <div className="customer-account-page__stats">
@@ -175,10 +316,6 @@ const CustomerAccountPage = () => {
                                 <article>
                                     <span>Addresses</span>
                                     <strong>{addresses.length}</strong>
-                                </article>
-                                <article>
-                                    <span>Unread alerts</span>
-                                    <strong>{unreadNotifications}</strong>
                                 </article>
                             </div>
                         </section>
@@ -197,13 +334,6 @@ const CustomerAccountPage = () => {
                                 </span>
                                 <strong>Manage shipping</strong>
                                 <small>Keep delivery addresses ready for checkout.</small>
-                            </Link>
-                            <Link to="/notifications">
-                                <span>
-                                    <BellIcon size={18} />
-                                </span>
-                                <strong>Check updates</strong>
-                                <small>Read account and order notifications.</small>
                             </Link>
                         </section>
 
@@ -275,38 +405,120 @@ const CustomerAccountPage = () => {
                                 </div>
                             </article>
 
-                            <article className="customer-account-page__panel">
-                                <div className="customer-account-page__panel__header">
-                                    <h3>Recent notifications</h3>
-                                    <Link to="/notifications">Open</Link>
+                        </section>
+
+                        <section
+                            id="account-notifications"
+                            className="customer-account-page__notifications"
+                            aria-labelledby="account-notifications-heading"
+                            aria-busy={isNotificationsLoading || isMarkingAllNotificationsRead}
+                        >
+                            <div className="customer-account-page__notifications__header">
+                                <div>
+                                    <span>ACCOUNT SIGNALS</span>
+                                    <h3 id="account-notifications-heading">Notification updates</h3>
+                                    <p>
+                                        {unreadNotificationCount > 0
+                                            ? `${unreadNotificationCount} unread update${unreadNotificationCount === 1 ? "" : "s"} from your account activity.`
+                                            : "Order, delivery, and account updates appear here."}
+                                    </p>
                                 </div>
-                                <div className="customer-account-page__panel-body">
-                                    {recentNotifications.length > 0 ? (
-                                        <div className="customer-account-page__notification-list">
-                                            {recentNotifications.map((notification) => (
-                                                <Link
-                                                    key={notification.id}
-                                                    to={notification.link || "/notifications"}
-                                                    className={notification.is_read ? "" : "is-unread"}
-                                                >
-                                                    <strong>{notification.title}</strong>
-                                                    <span>{formatUtcDateTime(notification.created_at)}</span>
-                                                    <p>{notification.message}</p>
-                                                </Link>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <EmptyState
-                                            compact
-                                            className="customer-account-page__empty"
-                                            title="No notifications yet"
-                                            description="Account and order updates will show up here when there is activity."
-                                            actionLabel="Open notifications"
-                                            actionTo="/notifications"
-                                        />
-                                    )}
-                                </div>
-                            </article>
+                                <button
+                                    type="button"
+                                    onClick={markAllNotificationsRead}
+                                    disabled={
+                                        isNotificationsLoading
+                                        || unreadNotificationCount === 0
+                                        || isMarkingAllNotificationsRead
+                                        || isMarkingNotificationId !== null
+                                    }
+                                >
+                                    {isMarkingAllNotificationsRead ? "Updating..." : "Mark all read"}
+                                </button>
+                            </div>
+
+                            <div className="customer-account-page__notifications__body">
+                                {isNotificationsLoading ? (
+                                    <div className="customer-account-page__notifications__skeleton" aria-hidden="true">
+                                        <span />
+                                        <span />
+                                        <span />
+                                    </div>
+                                ) : notifications.length > 0 ? (
+                                    <div className="customer-account-page__notification-list">
+                                        {notifications.map((notification) => (
+                                            <article
+                                                key={notification.id}
+                                                className={notification.is_read ? "" : "is-unread"}
+                                            >
+                                                <div className="customer-account-page__notification-header">
+                                                    <button
+                                                        type="button"
+                                                        className="customer-account-page__notification-trigger"
+                                                        aria-label={notification.title}
+                                                        aria-expanded={expandedNotificationId === notification.id}
+                                                        aria-controls={expandedNotificationId === notification.id
+                                                            ? `account-notification-details-${notification.id}`
+                                                            : undefined}
+                                                        onClick={() => setExpandedNotificationId((current) =>
+                                                            current === notification.id ? null : notification.id,
+                                                        )}
+                                                    >
+                                                        <span className="customer-account-page__notification-meta">
+                                                            <span>{notification.type}</span>
+                                                            <small>{formatUtcDateTime(notification.created_at)}</small>
+                                                        </span>
+                                                        <strong>{notification.title}</strong>
+                                                        <span className="customer-account-page__notification-toggle">
+                                                            {expandedNotificationId === notification.id
+                                                                ? "Hide details"
+                                                                : "View details"}
+                                                        </span>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="customer-account-page__notification-mark-read"
+                                                        onClick={() => markNotificationRead(notification)}
+                                                        disabled={
+                                                            notification.is_read
+                                                            || isMarkingAllNotificationsRead
+                                                            || isMarkingNotificationId !== null
+                                                        }
+                                                        aria-label={notification.is_read
+                                                            ? `${notification.title} is read`
+                                                            : `Mark ${notification.title} as read`}
+                                                    >
+                                                        {isMarkingNotificationId === notification.id
+                                                            ? "Saving..."
+                                                            : notification.is_read ? "Read" : "Mark read"}
+                                                    </button>
+                                                </div>
+                                                {expandedNotificationId === notification.id ? (
+                                                    <div
+                                                        id={`account-notification-details-${notification.id}`}
+                                                        className="customer-account-page__notification-detail"
+                                                    >
+                                                        <p>{notification.message}</p>
+                                                        {notification.link ? (
+                                                            <Link to={notification.link}>Open details</Link>
+                                                        ) : null}
+                                                    </div>
+                                                ) : null}
+                                            </article>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <EmptyState
+                                        compact
+                                        className="customer-account-page__empty"
+                                        title="No notifications yet"
+                                        description="Order updates, delivery changes, and account reminders will appear here."
+                                        actionLabel="Browse products"
+                                        actionTo="/shops"
+                                        icon={<BellIcon size={18} />}
+                                    />
+                                )}
+                            </div>
                         </section>
                     </>
                 )}

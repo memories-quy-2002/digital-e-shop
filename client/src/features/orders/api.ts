@@ -9,6 +9,8 @@ import {
     type CustomerOrderDetail,
     type GuestCheckoutSessionRequest,
     type GuestCheckoutSessionResponse,
+    type GuestPayOSCheckoutRequest,
+    type PayOSCheckoutResponse,
     type GuestCartItemInput,
     type GuestOrderDetail,
     type GuestCartPreview,
@@ -111,6 +113,35 @@ export async function createGuestCheckoutSession(
     return response.data as GuestCheckoutSessionResponse;
 }
 
+export async function createGuestPayOSCheckoutSession(
+    payload: GuestPayOSCheckoutRequest,
+): Promise<GuestCheckoutSessionResponse> {
+    const response = await http.post("/api/orders/guest/payos-checkout-session", payload);
+    return response.data as GuestCheckoutSessionResponse;
+}
+
+export async function createPayOSCheckoutSession(
+    uid: string,
+    payload: Omit<GuestPayOSCheckoutRequest, "cart" | "contact" | "shipping" | "paymentMethod"> & {
+        cart: CheckoutCartItem[];
+        totalPrice: number;
+        discount: number;
+        shippingAddress: string;
+    },
+): Promise<PayOSCheckoutResponse> {
+    const response = await http.post(`/api/orders/payos-checkout-session/${uid}`, payload);
+    return response.data as PayOSCheckoutResponse;
+}
+
+export async function confirmMockPayOSPayment(payload: {
+    orderCode: number;
+    paymentLinkId: string;
+    amount: number;
+}): Promise<{ orderId: number }> {
+    const response = await http.post("/api/orders/mock-payos/confirm", payload);
+    return { orderId: Number(response.data.orderId) };
+}
+
 export async function lookupGuestOrder(orderId: number, guestOrderToken: string): Promise<GuestOrderDetail> {
     const response = await http.post("/api/orders/guest/lookup", { orderId, guestOrderToken });
     return response.data.order as GuestOrderDetail;
@@ -121,5 +152,13 @@ export async function fetchGuestOrderBySession(
     guestOrderToken: string,
 ): Promise<GuestOrderDetail> {
     const response = await http.post("/api/orders/guest/by-session", { sessionId, guestOrderToken });
+    return response.data.order as GuestOrderDetail;
+}
+
+export async function fetchGuestOrderByPayOSOrderCode(
+    orderCode: number,
+    guestOrderToken: string,
+): Promise<GuestOrderDetail> {
+    const response = await http.post("/api/orders/guest/by-payos-order-code", { orderCode, guestOrderToken });
     return response.data.order as GuestOrderDetail;
 }

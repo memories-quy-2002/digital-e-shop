@@ -38,7 +38,14 @@ export class NestOrdersStripeService {
         private readonly checkoutReservationService: CheckoutReservationService,
     ) {}
 
+    private assertStripeCurrency(): void {
+        if ((env.storeCurrency || "USD") !== "USD") {
+            throw createCheckoutError("Card checkout is currently unavailable while the store uses VND. Please choose PayOS, bank transfer, or cash on delivery.", 400);
+        }
+    }
+
     async createCheckoutSession(uid: string, input: AuthenticatedCheckoutInput): Promise<{ url: string }> {
+        this.assertStripeCurrency();
         const checkoutValidation = await this.cartService.validateCheckoutSubmission(uid, input.cart, input.totalPrice);
 
         if (checkoutValidation.cartItems.length === 0) {
@@ -77,6 +84,7 @@ export class NestOrdersStripeService {
     }
 
     async createGuestCheckoutSession(payload: GuestCheckoutSessionPayload): Promise<{ url: string; guestOrderToken: string }> {
+        this.assertStripeCurrency();
         const preview = await this.cartService.previewGuestCart(payload.cart, payload.discountCode);
         if (preview.cartItems.length === 0) {
             throw createCheckoutError("Your cart is empty. Refresh your cart and try again.", 400);

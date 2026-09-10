@@ -10,6 +10,7 @@ import { maskPhoneNumber } from "./checkoutSuccessStorage";
 import { parseShippingAddress } from "../shippingAddress";
 import "../../../styles/features/orders/_guest-order.scss";
 import { useT } from "../../../hooks/useT";
+import { formatMoney } from "../../../utils/currency";
 
 const getErrorMessage = (error: unknown, fallback: string) => {
     if (error && typeof error === "object" && "response" in error) {
@@ -136,8 +137,8 @@ const GuestOrderLookupPage = () => {
 
                         <div className="guest-order__summary">
                             <div><span>{t("guestOrder.payment")}</span><strong>{getPaymentLabel(order.payment_method)}</strong></div>
-                            <div><span>{t("guestOrder.total")}</span><strong>${Number(order.total_price || 0).toFixed(2)}</strong></div>
-                            <div><span>{t("guestOrder.discount")}</span><strong>${Number(order.discount || 0).toFixed(2)}</strong></div>
+                            <div><span>{t("guestOrder.total")}</span><strong>{formatMoney(order.total_price, order.currency === "USD" ? "USD" : "VND")}</strong></div>
+                            <div><span>{t("guestOrder.discount")}</span><strong>{formatMoney(order.discount, order.currency === "USD" ? "USD" : "VND")}</strong></div>
                             <div><span>{t("guestOrder.email")}</span><strong>{order.guest_email || "-"}</strong></div>
                         </div>
 
@@ -154,7 +155,7 @@ const GuestOrderLookupPage = () => {
                                     {order.items.map((item) => (
                                         <li key={`${item.productId}-${item.productName}`}>
                                             <span>{item.productName} x{item.quantity}</span>
-                                            <strong>${Number(item.totalPrice || 0).toFixed(2)}</strong>
+                                            <strong>{formatMoney(item.totalPrice, order.currency === "USD" ? "USD" : "VND")}</strong>
                                         </li>
                                     ))}
                                 </ul>

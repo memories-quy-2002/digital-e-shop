@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Form } from "../../../components/ui/legacy";
 import { Helmet } from "react-helmet-async";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
 import { BankIcon, CashStackIcon, CheckCircleIcon, ShieldIcon } from "../../../components/common/Icons";
@@ -11,7 +11,9 @@ import { fetchCustomerAddresses } from "../../users/api";
 import type { CustomerAddress } from "../../users/api";
 import {
     createGuestCheckoutSession,
+    createGuestPayOSCheckoutSession,
     createGuestPurchase,
+    createPayOSCheckoutSession,
     fetchCustomerOrders,
 } from "../api";
 import {
@@ -34,6 +36,7 @@ import {
     serializeShippingAddress,
     type RecentOrderAddress,
 } from "../shippingAddress";
+import { formatCurrency, STORE_CURRENCY } from "../../../utils/currency";
 
 interface CheckoutForm {
     email: string;
@@ -79,7 +82,7 @@ const CheckoutPaymentPage = ({
         city: "",
         country: null,
         phone_number: null,
-        payment_method: "bank_transfer",
+        payment_method: "payos",
     });
     const [errors, setErrors] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,6 +90,7 @@ const CheckoutPaymentPage = ({
     const [recentOrderAddresses, setRecentOrderAddresses] = useState<RecentOrderAddress[]>([]);
     const [isValidatingCart, setIsValidatingCart] = useState(false);
     const [isEmailTouched, setIsEmailTouched] = useState(false);
+    const [verificationRequired, setVerificationRequired] = useState(false);
     const cartRef = useRef(cart);
 
     const applyValidationPayload = useCallback(
@@ -107,10 +111,12 @@ const CheckoutPaymentPage = ({
     );
 
     const paymentOptions = [
+        { value: "payos" as const, title: "PayOS (VND)", description: "Vietnam-first QR payment", icon: <CashStackIcon size={22} /> },
         { value: "bank_transfer" as const, title: "Bank transfer", description: "Manual confirmation", icon: <BankIcon size={22} /> },
         { value: "cash" as const, title: "Cash on delivery", description: "Pay when it arrives", icon: <CashStackIcon size={22} /> },
-        { value: "payos" as const, title: "PayOS (VND)", description: "Whole-number VND quote", icon: <CashStackIcon size={22} /> },
-        { value: "card" as const, title: "Card", description: "Secure Stripe redirect", icon: <ShieldIcon size={22} /> },
+        ...(STORE_CURRENCY === "USD"
+            ? [{ value: "card" as const, title: "Card", description: "Secure Stripe redirect", icon: <ShieldIcon size={22} /> }]
+            : []),
     ];
 
     const selectedPayment = paymentOptions.find((option) => option.value === formCheckout.payment_method) || paymentOptions[0];
@@ -227,6 +233,7 @@ const CheckoutPaymentPage = ({
 
     const handlePurchase = async () => {
         setErrors([]);
+        setVerificationRequired(false);
         setIsEmailTouched(true);
         const validationErrors = validateCheckoutForm(formCheckout);
         if (validationErrors.length > 0) {
@@ -263,12 +270,13 @@ const CheckoutPaymentPage = ({
                 country: formCheckout.country?.trim() || "",
             };
 
-            if (formCheckout.payment_method === "card") {
+            if (formCheckout.payment_method === "card" || formCheckout.payment_method === "payos") {
                 const pendingCheckout = {
                     totalPrice: latestTotalPrice,
                     discount,
                     subtotal: latestTotalPrice - discount,
                     itemsCount: latestCart.reduce((sum, item) => sum + item.quantity, 0),
+                    paymentMethod: formCheckout.payment_method,
                     email: normalizedEmail,
                     name: normalizedName,
                     address: formCheckout.address,
@@ -276,21 +284,37 @@ const CheckoutPaymentPage = ({
                     country: formCheckout.country || "",
                     phone: formCheckout.phone_number ? maskPhoneNumber(formCheckout.phone_number) : "",
                 };
-                const sessionResponse = uid
-                    ? await http.post(`/api/orders/checkout-session/${uid}`, {
-                        cart: latestCart,
-                        totalPrice: latestTotalPrice,
-                        discount,
-                        discountCode: discountCode || undefined,
-                        shippingAddress: serializeShippingAddress(guestShipping),
-                    })
-                    : await createGuestCheckoutSession({
-                        cart: guestCart,
-                        contact: guestContact,
-                        shipping: guestShipping,
-                        discountCode: discountCode || undefined,
-                        paymentMethod: "card",
-                    });
+                const sessionResponse = formCheckout.payment_method === "card"
+                    ? uid
+                        ? await http.post(`/api/orders/checkout-session/${uid}`, {
+                            cart: latestCart,
+                            totalPrice: latestTotalPrice,
+                            discount,
+                            discountCode: discountCode || undefined,
+                            shippingAddress: serializeShippingAddress(guestShipping),
+                        })
+                        : await createGuestCheckoutSession({
+                            cart: guestCart,
+                            contact: guestContact,
+                            shipping: guestShipping,
+                            discountCode: discountCode || undefined,
+                            paymentMethod: "card",
+                        })
+                    : uid
+                        ? await createPayOSCheckoutSession(uid, {
+                            cart: latestCart,
+                            totalPrice: latestTotalPrice,
+                            discount,
+                            discountCode: discountCode || undefined,
+                            shippingAddress: serializeShippingAddress(guestShipping),
+                        })
+                        : await createGuestPayOSCheckoutSession({
+                            cart: guestCart,
+                            contact: guestContact,
+                            shipping: guestShipping,
+                            discountCode: discountCode || undefined,
+                            paymentMethod: "payos",
+                        });
                 const checkoutUrl = "url" in sessionResponse ? sessionResponse.url : sessionResponse.data?.url;
                 const guestOrderToken = "guestOrderToken" in sessionResponse
                     ? sessionResponse.guestOrderToken
@@ -338,7 +362,7 @@ const CheckoutPaymentPage = ({
                 writeCheckoutSuccess(payload);
                 clearPendingCheckout();
                 clearGuestCart();
-                navigate("/checkout-success");
+                navigate("/checkout-success", { state: { checkoutSuccess: payload } });
                 return;
             }
 
@@ -377,13 +401,17 @@ const CheckoutPaymentPage = ({
         } catch (err: unknown) {
             if (err && typeof err === "object" && "response" in err) {
                 const axiosError = err as {
-                    response: { data: { msg?: string; issues?: CartValidationIssue[]; authoritativeCart?: unknown[]; cartItems?: unknown[] } };
+                    response: { data: { msg?: string; code?: string; issues?: CartValidationIssue[]; authoritativeCart?: unknown[]; cartItems?: unknown[] } };
                 };
+                const requiresVerification = axiosError.response.data.code === "EMAIL_VERIFICATION_REQUIRED";
+                setVerificationRequired(requiresVerification);
                 applyValidationPayload({
                     issues: axiosError.response.data.issues,
                     cartItems: axiosError.response.data.authoritativeCart || axiosError.response.data.cartItems,
                 });
-                const message = axiosError.response.data.msg || "Checkout failed.";
+                const message = requiresVerification
+                    ? "Please verify your email before placing an authenticated order."
+                    : axiosError.response.data.msg || "Checkout failed.";
                 setErrors([message]);
                 addToast("Checkout", message);
             } else {
@@ -423,7 +451,7 @@ const CheckoutPaymentPage = ({
                 </div>
                 <div className="checkout__hero__meta">
                     <div><strong>{itemsCount}</strong><span>Items</span></div>
-                    <div><strong>${(totalPrice - discount).toFixed(2)}</strong><span>Total due</span></div>
+                    <div><strong>{formatCurrency(totalPrice - discount)}</strong><span>Total due</span></div>
                 </div>
             </div>
 
@@ -432,6 +460,12 @@ const CheckoutPaymentPage = ({
                     {loading ? <div className="checkout__note">Checking session...</div> : null}
                     {isValidatingCart ? <div className="checkout__note">Checking latest stock before payment...</div> : null}
                     {errors.length > 0 ? <div className="checkout__alert">{errors.map((error, id) => <span key={id}>{error}</span>)}</div> : null}
+                    {verificationRequired ? (
+                        <div className="checkout__alert checkout__alert--warning" role="alert">
+                            <span>Open your account to request a new verification email.</span>
+                            <Link to="/account">Verify email</Link>
+                        </div>
+                    ) : null}
                     {hasValidationIssues ? (
                         <div className="checkout__alert checkout__alert--warning">
                             <strong>Review your cart before placing the order.</strong>
@@ -575,10 +609,9 @@ const CheckoutPaymentPage = ({
                                 <div className="checkout__payment__details">
                                     <h3>PayOS payment</h3>
                                     <p>
-                                        The order total is kept as USD internally and quoted as a whole-number VND amount for PayOS.
-                                        The final VND quote is recorded with your order using the server exchange rate.
+                                        PayOS is our Vietnam-first payment option. The server calculates and locks the whole-number VND quote before redirecting you to PayOS.
                                     </p>
-                                    <p>This demo uses a symbolic PayOS payment reference. No live payment is charged.</p>
+                                    <p>Your order is created only after a verified PayOS payment webhook confirms the exact amount.</p>
                                 </div>
                             ) : formCheckout.payment_method === "card" ? (
                                 <div className="checkout__payment__details">
@@ -604,18 +637,18 @@ const CheckoutPaymentPage = ({
                         <div className="checkout__summary__list">
                             {cart.slice(0, 3).map((item) => (
                                 <div key={item.cartItemId} className="checkout__summary__item">
-                                    <div><strong>{item.productName}</strong><span>{item.quantity} x ${item.sale_price ?? item.price}</span></div>
-                                    <span>${(item.quantity * (item.sale_price ?? item.price)).toFixed(2)}</span>
+                                    <div><strong>{item.productName}</strong><span>{item.quantity} x {formatCurrency(item.sale_price ?? item.price)}</span></div>
+                                    <span>{formatCurrency(item.quantity * (item.sale_price ?? item.price))}</span>
                                 </div>
                             ))}
                             {cart.length > 3 ? <div className="checkout__summary__more">+ {cart.length - 3} more items</div> : null}
                         </div>
                         <div className="checkout__summary__rows">
-                            <div><span>Subtotal</span><strong>${totalPrice.toFixed(2)}</strong></div>
+                            <div><span>Subtotal</span><strong>{formatCurrency(totalPrice)}</strong></div>
                             <div><span>Shipping</span><strong className="free">Free</strong></div>
-                            <div><span>Discount</span><strong className="muted">-${discount.toFixed(2)}</strong></div>
+                            <div><span>Discount</span><strong className="muted">−{formatCurrency(discount)}</strong></div>
                         </div>
-                        <div className="checkout__summary__total"><span>Total</span><strong>${(totalPrice - discount).toFixed(2)}</strong></div>
+                        <div className="checkout__summary__total"><span>Total</span><strong>{formatCurrency(totalPrice - discount)}</strong></div>
                         <button type="button" onClick={handlePurchase} disabled={isSubmitting || isValidatingCart || hasValidationIssues}>
                             {isSubmitting ? "Placing order..." : isValidatingCart ? "Checking stock..." : "Place order"}
                         </button>

@@ -1,11 +1,27 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Optional, Post, Req, Res, UseGuards } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { env, isProduction } from "#src/config/env.config";
 import { NestAuthService } from "./auth.service";
-import { registerUserSchema, userLoginSchema, type UserLoginInput } from "./auth.validator";
+import {
+    registerUserSchema,
+    userLoginSchema,
+    verificationConfirmSchema,
+    verificationResendSchema,
+    passwordResetRequestSchema,
+    passwordResetConfirmSchema,
+    emailChangeRequestSchema,
+    emailChangeConfirmSchema,
+    type RegisterUserRequest,
+    type UserLoginInput,
+} from "./auth.validator";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import type { AuthSessionPayload } from "./auth.types";
 import { buildErrorResponse, buildSuccessResponse, requestIdFrom } from "#src/shared/http/api-response";
+import { EmailVerificationService } from "./email-verification.service";
+import { PasswordResetService } from "./password-reset.service";
+import { EmailChangeService } from "./email-change.service";
+import { AuthGuard } from "../guards/auth.guard";
+import { toPublicUser } from "../users/user-public";
 
 const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
 
@@ -45,7 +61,12 @@ const clearAuthCookies = (res: Response) => {
 
 @Controller("users")
 export class NestAuthController {
-    constructor(private readonly authService: NestAuthService) {}
+    constructor(
+        private readonly authService: NestAuthService,
+        @Optional() private readonly emailVerificationService?: EmailVerificationService,
+        @Optional() private readonly passwordResetService?: PasswordResetService,
+        @Optional() private readonly emailChangeService?: EmailChangeService,
+    ) {}
 
     @Get("session/check")
     @HttpCode(HttpStatus.OK)
@@ -67,17 +88,132 @@ export class NestAuthController {
     @Post("register")
     @HttpCode(HttpStatus.OK)
     async registerUser(
-        @Body(new ZodValidationPipe(registerUserSchema)) body: { idToken: string; user: { username: string } },
+        @Body(new ZodValidationPipe(registerUserSchema)) body: RegisterUserRequest,
         @Req() req: Request,
         @Res() res: Response,
     ) {
-        const { idToken, user } = body;
-        const sessionPayload = await this.authService.registerUser(idToken, user);
+        let sessionPayload: AuthSessionPayload;
+        if ("idToken" in body) {
+            if (env.authProvider !== "firebase") {
+                throw new BadRequestException({ msg: "Local registration requires email and password" });
+            }
+            sessionPayload = await this.authService.registerUser(body.idToken, body.user);
+        } else {
+            if (env.authProvider !== "local") {
+                throw new BadRequestException({ msg: "Firebase registration requires an ID token" });
+            }
+            sessionPayload = await this.authService.registerLocalUser({ ...body.user, email: body.email, password: body.password });
+        }
         const { user: createdUser, token } = sessionPayload;
         setAuthCookies(res, sessionPayload, false);
 
         return res.status(200).json(buildSuccessResponse(
-            { uid: createdUser.id, token, msg: "User created successfully" },
+            {
+                uid: createdUser.id,
+                token,
+                userData: createdUser,
+                email_verified: createdUser.email_verified === true,
+                verification_email_sent: sessionPayload.verificationEmailSent === true,
+                msg: "User created successfully",
+            },
+            requestIdFrom(req),
+        ));
+    }
+
+    @Post("verification/resend")
+    @HttpCode(HttpStatus.ACCEPTED)
+    async resendVerification(
+        @Body(new ZodValidationPipe(verificationResendSchema)) body: { email: string },
+        @Req() req: Request,
+        @Res() res: Response,
+    ) {
+        await this.emailVerificationService?.resendByEmail(body.email);
+        return res.status(HttpStatus.ACCEPTED).json(buildSuccessResponse(
+            { msg: "If an account exists, a verification email will be sent." },
+            requestIdFrom(req),
+        ));
+    }
+
+    @Post("verification/confirm")
+    @HttpCode(HttpStatus.OK)
+    async confirmVerification(
+        @Body(new ZodValidationPipe(verificationConfirmSchema)) body: { token: string },
+        @Req() req: Request,
+        @Res() res: Response,
+    ) {
+        if (!this.emailVerificationService) {
+            throw new BadRequestException({ msg: "Email verification is unavailable" });
+        }
+        const result = await this.emailVerificationService.confirm(body.token);
+        return res.status(HttpStatus.OK).json(buildSuccessResponse(
+            { userData: result.user, email_verified: true, msg: "Email verified successfully" },
+            requestIdFrom(req),
+        ));
+    }
+
+    @Post("password-reset/request")
+    @HttpCode(HttpStatus.ACCEPTED)
+    async requestPasswordReset(
+        @Body(new ZodValidationPipe(passwordResetRequestSchema)) body: { email: string },
+        @Req() req: Request,
+        @Res() res: Response,
+    ) {
+        await this.passwordResetService?.request(body.email);
+        return res.status(HttpStatus.ACCEPTED).json(buildSuccessResponse(
+            { msg: "If an account matches that email, a reset link is on its way." },
+            requestIdFrom(req),
+        ));
+    }
+
+    @Post("password-reset/confirm")
+    @HttpCode(HttpStatus.OK)
+    async confirmPasswordReset(
+        @Body(new ZodValidationPipe(passwordResetConfirmSchema)) body: { token: string; newPassword: string },
+        @Req() req: Request,
+        @Res() res: Response,
+    ) {
+        if (!this.passwordResetService) {
+            throw new BadRequestException({ msg: "Password reset is unavailable" });
+        }
+        const user = await this.passwordResetService.confirm(body.token, body.newPassword);
+        return res.status(HttpStatus.OK).json(buildSuccessResponse(
+            { userData: toPublicUser(user), msg: "Password reset successfully" },
+            requestIdFrom(req),
+        ));
+    }
+
+    @Post("email-change/request")
+    @UseGuards(AuthGuard)
+    @HttpCode(HttpStatus.ACCEPTED)
+    async requestEmailChange(
+        @Body(new ZodValidationPipe(emailChangeRequestSchema)) body: { email: string },
+        @Req() req: Request,
+        @Res() res: Response,
+    ) {
+        if (!this.emailChangeService) {
+            throw new BadRequestException({ msg: "Email change is unavailable" });
+        }
+        const userId = String(req.user?.id || "");
+        const result = await this.emailChangeService.request(userId, body.email);
+        return res.status(HttpStatus.ACCEPTED).json(buildSuccessResponse(
+            { ...result, msg: "Check your new email to confirm the change" },
+            requestIdFrom(req),
+        ));
+    }
+
+    @Post("email-change/confirm")
+    @HttpCode(HttpStatus.OK)
+    async confirmEmailChange(
+        @Body(new ZodValidationPipe(emailChangeConfirmSchema)) body: { token: string },
+        @Req() req: Request,
+        @Res() res: Response,
+    ) {
+        if (!this.emailChangeService) {
+            throw new BadRequestException({ msg: "Email change is unavailable" });
+        }
+        const user = await this.emailChangeService.confirm(body.token);
+        return res.status(HttpStatus.OK).json(buildSuccessResponse(
+            { userData: toPublicUser(user), msg: "Email changed successfully" },
             requestIdFrom(req),
         ));
     }

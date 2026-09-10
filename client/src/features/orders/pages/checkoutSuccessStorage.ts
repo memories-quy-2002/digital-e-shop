@@ -5,6 +5,7 @@ export type CheckoutSuccessData = {
     subtotal: number;
     itemsCount: number;
     placedAt: string;
+    currency?: "USD" | "VND";
     paymentMethod?: "bank_transfer" | "cash" | "payos" | "stripe" | "card";
     email?: string;
     name?: string;
@@ -15,7 +16,7 @@ export type CheckoutSuccessData = {
     guestOrderToken?: string;
 };
 
-export type PendingCheckoutData = Omit<CheckoutSuccessData, "orderId" | "placedAt" | "paymentMethod">;
+export type PendingCheckoutData = Omit<CheckoutSuccessData, "orderId" | "placedAt">;
 
 type StoredCheckoutSuccessData = Omit<CheckoutSuccessData, "email" | "name" | "address" | "city" | "country" | "phone">;
 type StoredPendingCheckoutData = Omit<PendingCheckoutData, "email" | "name" | "address" | "city" | "country" | "phone">;
