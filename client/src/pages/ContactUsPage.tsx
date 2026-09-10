@@ -1,15 +1,53 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Layout from "../components/layout/Layout";
+import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { createSupportTicket } from "../features/support/api";
 import { BellIcon, HouseIcon, PersonIcon } from "../components/common/Icons";
 import { useT } from "../hooks/useT";
 import "../styles/pages/_contact.scss";
 
+const CONTACT_DRAFT_KEY = "digital-e:contact-draft:v1";
+type ContactDraft = { name: string; email: string; message: string };
+
+const readContactDraft = (): ContactDraft | null => {
+    try {
+        const stored = sessionStorage.getItem(CONTACT_DRAFT_KEY);
+        if (!stored) return null;
+        const parsed: unknown = JSON.parse(stored);
+        if (!parsed || typeof parsed !== "object") return null;
+        const draft = parsed as Record<string, unknown>;
+        if (typeof draft.name !== "string" || typeof draft.email !== "string" || typeof draft.message !== "string") {
+            return null;
+        }
+        return { name: draft.name, email: draft.email, message: draft.message };
+    } catch {
+        return null;
+    }
+};
+
+const writeContactDraft = (draft: ContactDraft) => {
+    try {
+        sessionStorage.setItem(CONTACT_DRAFT_KEY, JSON.stringify(draft));
+    } catch {
+        // Navigation should still work when storage is unavailable.
+    }
+};
+
+const clearContactDraft = () => {
+    try {
+        sessionStorage.removeItem(CONTACT_DRAFT_KEY);
+    } catch {
+        // Ignore storage failures after a successful submit.
+    }
+};
+
 const ContactUsPage: React.FC = () => {
     const t = useT();
+    const navigate = useNavigate();
+    const { userData, loading } = useAuth();
     const [formData, setFormData] = useState({
         name: "",
         email: "",
@@ -17,6 +55,11 @@ const ContactUsPage: React.FC = () => {
     });
     const { addToast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        const draft = readContactDraft();
+        if (draft) setFormData(draft);
+    }, []);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -26,6 +69,12 @@ const ContactUsPage: React.FC = () => {
         e.preventDefault();
         try {
             setIsSubmitting(true);
+            if (!userData) {
+                writeContactDraft(formData);
+                addToast(t("contact.guestTitle"), t("contact.guestBody"));
+                navigate("/login?redirect=%2Fcontact-us");
+                return;
+            }
             await createSupportTicket({
                 subject: `Contact request from ${formData.name.trim()}`,
                 message: `Name: ${formData.name.trim()}\nEmail: ${formData.email.trim()}\n\n${formData.message.trim()}`,
@@ -33,12 +82,23 @@ const ContactUsPage: React.FC = () => {
             });
             addToast(t("contact.submitSuccess"), t("contact.submitSuccessBody"));
             setFormData({ name: "", email: "", message: "" });
+            clearContactDraft();
         } catch {
-            addToast("Support request failed", "Please sign in and try again, or contact support by email.");
+            addToast(t("contact.submitError"), t("contact.submitErrorBody"));
         } finally {
             setIsSubmitting(false);
         }
     };
+
+    if (loading) {
+        return (
+            <Layout>
+                <main className="contact info-page" aria-live="polite">
+                    <p role="status">{t("contact.loading")}</p>
+                </main>
+            </Layout>
+        );
+    }
 
     return (
         <Layout>
@@ -46,7 +106,7 @@ const ContactUsPage: React.FC = () => {
                 <title>{`${t("contact.title")} | Digital-E`}</title>
                 <meta
                     name="description"
-                    content="Get in touch with Digital-E for support, inquiries, or feedback."
+                    content={t("contact.metaDescription")}
                 />
             </Helmet>
             <main className="contact info-page">
@@ -90,7 +150,7 @@ const ContactUsPage: React.FC = () => {
                                     <input
                                         type="text"
                                         name="name"
-                                        placeholder="Nguyen Van A"
+                                        placeholder={t("contact.namePlaceholder")}
                                         value={formData.name}
                                         onChange={handleChange}
                                         required
@@ -102,7 +162,7 @@ const ContactUsPage: React.FC = () => {
                                     <input
                                         type="email"
                                         name="email"
-                                        placeholder="you@example.com"
+                                        placeholder={t("contact.emailPlaceholder")}
                                         value={formData.email}
                                         onChange={handleChange}
                                         required
@@ -124,7 +184,7 @@ const ContactUsPage: React.FC = () => {
                             </label>
                             <div className="contact__form__actions">
                                 <button type="submit" className="contact__form__button contact__form__button--primary" disabled={isSubmitting}>
-                                    {isSubmitting ? "Sending..." : t("contact.sendButton")}
+                                    {isSubmitting ? t("contact.pending") : t("contact.sendButton")}
                                 </button>
                                 <small>{t("contact.replyNote")}</small>
                             </div>
@@ -140,12 +200,16 @@ const ContactUsPage: React.FC = () => {
                             <div className="info-page__meta-list">
                                 <div className="info-page__meta-item">
                                     <small>{t("contact.metaEmailLabel")}</small>
-                                    <strong>{t("contact.metaEmailValue")}</strong>
+                                    <a className="contact__direct-link" href={`mailto:${t("contact.metaEmailValue")}`}>
+                                        {t("contact.metaEmailValue")}
+                                    </a>
                                     <span>{t("contact.metaEmailNote")}</span>
                                 </div>
                                 <div className="info-page__meta-item">
                                     <small>{t("contact.metaPhoneLabel")}</small>
-                                    <strong>{t("contact.metaPhoneValue")}</strong>
+                                    <a className="contact__direct-link" href="tel:+84123456789">
+                                        {t("contact.metaPhoneValue")}
+                                    </a>
                                     <span>{t("contact.metaPhoneNote")}</span>
                                 </div>
                                 <div className="info-page__meta-item">

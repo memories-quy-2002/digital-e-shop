@@ -4,12 +4,15 @@ import { Link } from "react-router-dom";
 import featureImage from "../assets/images/news_1.jpg";
 import heroImage from "../assets/images/news_2.jpg";
 import Layout from "../components/layout/Layout";
+import { useLocale } from "../context/LocaleContext";
 import { HERO_IMAGE_WIDTHS, PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../utils/images";
 import { useT } from "../hooks/useT";
+import { formatNewsDate, NEWS_ARTICLES } from "./newsData";
 import "../styles/pages/_news.scss";
 
 const NewsPage: React.FC = () => {
     const t = useT();
+    const { locale } = useLocale();
     const heroImageSource = getResponsiveImageSource(heroImage, {
         widths: HERO_IMAGE_WIDTHS,
         sizes: "100vw",
@@ -21,28 +24,19 @@ const NewsPage: React.FC = () => {
         fit: "fill",
     });
 
-    const featured = {
-        title: t("news.featuredTitle"),
-        excerpt: t("news.featuredExcerpt"),
-        author: t("news.featuredAuthor"),
-        readTime: t("news.readTimeMinutes", 5),
-    };
-
-    const articles = (
-        t("news.articles") as unknown as Array<{
-            tag: string;
-            title: string;
-            excerpt: string;
-            author: string;
-        }>
-    ).map((article, index) => ({
-        id: index + 1,
-        title: article.title,
-        excerpt: article.excerpt,
-        date: ["2026-05-06", "2026-04-28", "2026-04-18", "2026-04-09"][index] ?? "2026-01-01",
-        author: article.author,
-        tag: article.tag,
-        readTime: t("news.readTimeMinutes", index === 0 ? 6 : index === 1 ? 4 : index === 2 ? 7 : 3),
+    const stories = t("news.stories") as unknown as Record<
+        string,
+        { tag: string; title: string; excerpt: string; author: string }
+    >;
+    const featuredArticle = NEWS_ARTICLES.find((article) => article.featured);
+    if (!featuredArticle) {
+        throw new Error("News article map must contain a featured article");
+    }
+    const featured = stories[featuredArticle.key];
+    const articles = NEWS_ARTICLES.filter((article) => article !== featuredArticle).map((article) => ({
+        ...article,
+        ...stories[article.key],
+        readTime: t("news.readTimeMinutes", article.readMinutes),
     }));
 
     const briefs = t("news.briefs") as unknown as string[];
@@ -53,7 +47,7 @@ const NewsPage: React.FC = () => {
                 <title>{`${t("news.title")} | Digital-E`}</title>
                 <meta
                     name="description"
-                    content="Product releases, buying guides, and store updates from Digital-E."
+                    content={t("news.metaDescription")}
                 />
             </Helmet>
             <main className="news info-page">
@@ -97,13 +91,16 @@ const NewsPage: React.FC = () => {
                         />
                     </div>
                     <div className="news__featured__content">
-                        <span className="news__featured__tag">{t("news.featuredTag")}</span>
+                        <span className="news__featured__tag">{featured.tag}</span>
                         <h2>{featured.title}</h2>
                         <p>{featured.excerpt}</p>
                         <div className="news__featured__meta">
                             <span>{featured.author}</span>
-                            <span>{new Date("2026-05-10").toLocaleDateString("en-GB")}</span>
-                            <span>{featured.readTime}</span>
+                            <span>{formatNewsDate(featuredArticle.date, locale)}</span>
+                            <span>{t("news.readTimeMinutes", featuredArticle.readMinutes)}</span>
+                        </div>
+                        <div className="info-page__actions">
+                            <Link to={`/news/${featuredArticle.slug}`}>{t("news.readArticle")}</Link>
                         </div>
                     </div>
                 </section>
@@ -115,7 +112,7 @@ const NewsPage: React.FC = () => {
                     </div>
                     <div className="news__list__grid">
                         {articles.map((article) => (
-                            <article className="news__card" key={article.id}>
+                            <article className="news__card" key={article.slug}>
                                 <div className="news__card__top">
                                     <span>{article.tag}</span>
                                     <small>{article.readTime}</small>
@@ -124,8 +121,11 @@ const NewsPage: React.FC = () => {
                                 <p>{article.excerpt}</p>
                                 <div className="news__card__meta">
                                     <span>{article.author}</span>
-                                    <span>{new Date(article.date).toLocaleDateString("en-GB")}</span>
+                                    <span>{formatNewsDate(article.date, locale)}</span>
                                 </div>
+                                <Link className="news__card__link" to={`/news/${article.slug}`}>
+                                    {t("news.readArticle")}
+                                </Link>
                             </article>
                         ))}
                     </div>

@@ -27,18 +27,22 @@ Use `--frozen-lockfile` in CI or when you need to prove that the manifest and lo
 Copy the tracked templates:
 
 ```powershell
-Copy-Item client/.env.example client/.env.local
+Copy-Item client/.env.example client/.env
 Copy-Item server/.env.example server/.env
 Copy-Item server/.env.docker.example server/.env.docker
 ```
 
-For the normal local workflow, the server reads `server/.env`. The loader also
-supports an explicit `DIGITAL_E_ENV_FILE` or mode-specific overrides when a
-deployment needs them. Production validates database, JWT, refresh, CSRF,
-client-origin, and server-origin variables before startup.
+For the normal local workflow, the client reads `client/.env` and the server
+reads `server/.env`. Prisma CLI reads the same `server/.env`, so the application
+and seed commands use one explicit database target. The loader also supports an
+explicit `DIGITAL_E_ENV_FILE` or mode-specific overrides when a deployment needs
+them.
+Production validates database, JWT, refresh, CSRF, client-origin, and
+server-origin variables before startup.
 
 Customer, account-security, and marketing emails use Resend. Set
-`RESEND_API_KEY` and a verified `RESEND_FROM_EMAIL` in `server/.env`. A blank
+`RESEND_API_KEY` and a verified `RESEND_FROM_EMAIL` in `server/.env` for local
+development. A blank
 API key safely disables email delivery locally. Orders with a missing or invalid
 server-side email are skipped without failing checkout. Authenticated order
 confirmations, password-reset/security notices, email-change notices, and

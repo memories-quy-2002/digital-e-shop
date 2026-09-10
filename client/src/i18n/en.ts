@@ -262,44 +262,68 @@ const en = {
             "Weekend laptop deals",
             "Warranty guide refreshed",
         ],
-        featuredTag: "Featured update",
-        featuredTitle:
-            "Digital-E expands faster order tracking and personalized product discovery",
-        featuredExcerpt:
-            "The latest Digital-E update brings smarter recommendations, clearer order timelines, and better inventory signals so customers can shop with more confidence.",
-        featuredAuthor: "Digital-E Product Team",
-        sectionEyebrow: "Latest articles",
-        sectionTitle: "Helpful updates for smarter tech shopping",
-        articles: [
-            {
+        readArticle: "Read article",
+        backToNews: "Back to news",
+        metaDescription: "Product releases, buying guides, and store updates from Digital-E.",
+        stories: {
+            featured: {
+                tag: "Featured update",
+                title: "Digital-E expands faster order tracking and personalized product discovery",
+                excerpt:
+                    "The latest Digital-E update brings smarter recommendations, clearer order timelines, and better inventory signals so customers can shop with more confidence.",
+                author: "Digital-E Product Team",
+                body: [
+                    "Digital-E is making it easier to understand what happens after checkout. New order timeline signals bring payment, packing, and delivery updates into one clearer view.",
+                    "The same release improves product discovery with recommendations shaped by practical use cases, inventory availability, and the way customers compare technology.",
+                ],
+            },
+            laptops: {
                 tag: "Buying guide",
                 title: "How we pick laptops for creators, students, and hybrid teams",
                 excerpt:
                     "A look inside our selection process for performance, battery life, display quality, and long-term value.",
                 author: "Product Desk",
+                body: [
+                    "A useful laptop shortlist starts with the work it needs to support. We compare sustained performance, battery behavior, display quality, and portability instead of relying on one headline specification.",
+                    "That approach helps creators, students, and hybrid teams choose a dependable fit without paying for features they will not use.",
+                ],
             },
-            {
+            checkout: {
                 tag: "Store update",
                 title: "What changed in our checkout and payment experience",
                 excerpt:
                     "Cleaner payment choices, better stock validation, and clearer order confirmation for every purchase.",
                 author: "Operations",
+                body: [
+                    "Checkout now makes the important decisions easier to review before an order is placed. Payment choices, stock validation, and order totals stay visible as the cart changes.",
+                    "After payment, the confirmation view gives customers a clearer handoff into order tracking, with the details needed to follow the next step.",
+                ],
             },
-            {
+            audio: {
                 tag: "Guide",
                 title: "Audio picks: when to choose ANC, open-back, or studio monitors",
                 excerpt:
                     "A practical guide to choosing audio gear based on work, travel, gaming, and content creation.",
                 author: "Audio Lab",
+                body: [
+                    "Active noise cancellation is useful when travel and focus matter. Open-back headphones create a more spacious listening experience, while studio monitors prioritize a neutral reference for careful editing.",
+                    "Start with the environment and the task, then choose the sound profile and connection options that will be easiest to live with every day.",
+                ],
             },
-            {
+            inventory: {
                 tag: "Operations",
                 title: "Inventory signals now help admins react before products sell out",
                 excerpt:
                     "Low-stock watchlists and analytics help the store keep popular products available for customers.",
                 author: "Admin Team",
+                body: [
+                    "Inventory signals bring low-stock patterns into the daily operating view, so the team can spot pressure on popular products earlier.",
+                    "These signals support better decisions about replenishment and merchandising while keeping the customer-facing availability honest.",
+                ],
             },
-        ],
+        },
+        sectionEyebrow: "Latest articles",
+        sectionTitle: "Helpful updates for smarter tech shopping",
         readTimeMinutes: (count: number) => `${count} min read`,
     },
     about: {
@@ -353,6 +377,7 @@ const en = {
     },
     contact: {
         title: "Contact",
+        metaDescription: "Get in touch with Digital-E for support, inquiries, or feedback.",
         subtitle: "Product questions, order issues, account help, or general feedback.",
         visitSupport: "Visit support",
         reviewOrders: "Review orders",
@@ -366,7 +391,9 @@ const en = {
         },
         formHeading: "Send us a message",
         nameLabel: "Your name",
+        namePlaceholder: "Nguyen Van A",
         emailLabel: "Email address",
+        emailPlaceholder: "you@example.com",
         messageLabel: "Your message",
         messagePlaceholder: "Tell us about your question, issue, or feedback.",
         sendButton: "Send Message",
@@ -392,6 +419,57 @@ const en = {
         shortcutSupportNote: "Read common answers before contacting the team.",
         submitSuccess: "Submit successfully",
         submitSuccessBody: "Thank you for contacting us! We'll get back to you soon.",
+        pending: "Sending…",
+        loading: "Checking your sign-in status…",
+        guestTitle: "Sign in to send your message",
+        guestBody: "Your draft is saved for this session. Sign in to continue.",
+        submitError: "We could not send your message",
+        submitErrorBody: "Please try again or contact us by email or phone.",
+    },
+    support: {
+        title: "Support Center",
+        metaDescription: "Get help with Digital-E orders, payments, products, warranties, and account support.",
+        heroSubtitle: "Help before, during, and after every order.",
+        viewOrderHistory: "View order history",
+        contactUs: "Contact us",
+        contactLabel: "Contact",
+        contactHeading: "Choose the fastest way to reach us",
+        contactFormTitle: "Contact form",
+        contactFormText: "Fast help for product questions, checkout issues, delivery updates, and returns.",
+        contactFormDetail: "A support agent will reply as soon as possible",
+        contactFormAction: "Open contact form",
+        emailTitle: "Email support",
+        emailText: "Send details, screenshots, order IDs, or warranty documents for deeper help.",
+        emailDetail: "support@digital-e.com",
+        emailAction: "Send email",
+        hotlineTitle: "Hotline",
+        hotlineText: "Speak with a support agent when delivery, payment, or account access needs urgent attention.",
+        hotlineDetail: "+84 123 456 789",
+        hotlineAction: "Call now",
+        selfServiceLabel: "Self service",
+        resourcesHeading: "Popular support topics",
+        trackOrderTitle: "Track an order",
+        trackOrderText: "Check status, payment method, delivery address, and order items from your account.",
+        trackOrderAction: "View orders",
+        returnsTitle: "Returns and refunds",
+        returnsText: "Review return conditions, refund timelines, and what to prepare before sending items back.",
+        returnsAction: "Ask about returns",
+        warrantyTitle: "Warranty help",
+        warrantyText: "Understand coverage, repair steps, proof-of-purchase needs, and service options.",
+        warrantyAction: "Get warranty help",
+        paymentTitle: "Payment support",
+        paymentText: "Get help with cash on delivery, bank transfer confirmation, and failed checkout attempts.",
+        paymentAction: "Ask about payment",
+        faqLabel: "FAQ",
+        faqHeading: "Answers customers ask for most often",
+        faq1Question: "How can I track my order?",
+        faq1Answer: "Sign in and open Order History. Each order shows status, payment method, total, address, and item details.",
+        faq2Question: "Can I change the shipping address after checkout?",
+        faq2Answer: "Contact support as soon as possible. Address changes are easiest before the order is confirmed or packed.",
+        faq3Question: "What happens if an item is out of stock?",
+        faq3Answer: "Checkout blocks unavailable stock. If stock changes after purchase, support will contact you with replacement or refund options.",
+        faq4Question: "How do promotions work?",
+        faq4Answer: "Discount codes may have active dates, minimum order values, and usage limits. The cart will validate the promotion before checkout.",
     },
     colorScheme: {
         light: "Light mode",

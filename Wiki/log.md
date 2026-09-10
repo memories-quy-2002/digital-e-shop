@@ -48,3 +48,5 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-10 - Codex - Added a dedicated customer notifications page with expandable details, per-item Mark read controls, and the existing View all route from the header.
 - 2026-09-10 - Codex - Moved customer notification updates back into Account section 4; View all and the legacy notifications route now target Account#notifications.
 - 2026-09-10 - Codex - Fixed mock PayOS finalization by binding the VND currency value in the order insert and verified idempotent confirmation against local MySQL.
+- 2026-09-10 - Codex - Switched local client/server environment loading to the example-backed local files, aligned Prisma CLI with the same local-first resolution, and verified signup against Docker MySQL after a remote-database false positive.
+- 2026-09-10 - Codex - Standardized the active local workflow on `client/.env` and `server/.env`, reseeded the VND demo graph, and verified that server development no longer reads the remote database target.

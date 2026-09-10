@@ -264,44 +264,68 @@ const vi: Dictionary = {
             "Ưu đãi laptop cuối tuần",
             "Hướng dẫn bảo hành mới",
         ],
-        featuredTag: "Cập nhật nổi bật",
-        featuredTitle:
-            "Digital-E mở rộng theo dõi đơn hàng nhanh hơn và gợi ý sản phẩm cá nhân hóa",
-        featuredExcerpt:
-            "Bản cập nhật mới nhất của Digital-E mang đến gợi ý thông minh hơn, thời gian đơn hàng rõ ràng hơn và tín hiệu tồn kho chính xác hơn.",
-        featuredAuthor: "Đội ngũ sản phẩm Digital-E",
-        sectionEyebrow: "Bài viết mới",
-        sectionTitle: "Cập nhật hữu ích giúp mua sắm công nghệ thông minh hơn",
-        articles: [
-            {
+        readArticle: "Đọc bài viết",
+        backToNews: "Quay lại tin tức",
+        metaDescription: "Ra mắt sản phẩm, hướng dẫn mua sắm và cập nhật từ Digital-E.",
+        stories: {
+            featured: {
+                tag: "Cập nhật nổi bật",
+                title: "Digital-E mở rộng theo dõi đơn hàng nhanh hơn và gợi ý sản phẩm cá nhân hóa",
+                excerpt:
+                    "Bản cập nhật mới nhất của Digital-E mang đến gợi ý thông minh hơn, thời gian đơn hàng rõ ràng hơn và tín hiệu tồn kho chính xác hơn.",
+                author: "Đội ngũ sản phẩm Digital-E",
+                body: [
+                    "Digital-E giúp khách hàng dễ hiểu hơn về hành trình sau khi đặt hàng. Các tín hiệu mới gom trạng thái thanh toán, đóng gói và giao hàng vào một dòng thời gian rõ ràng.",
+                    "Bản phát hành này cũng cải thiện việc khám phá sản phẩm với gợi ý dựa trên nhu cầu sử dụng, tình trạng tồn kho và cách khách hàng so sánh công nghệ.",
+                ],
+            },
+            laptops: {
                 tag: "Hướng dẫn mua",
                 title: "Cách chúng tôi chọn laptop cho người sáng tạo, sinh viên và team hybrid",
                 excerpt:
                     "Bên trong quy trình chọn lọc về hiệu năng, pin, chất lượng màn hình và giá trị lâu dài.",
                 author: "Bàn sản phẩm",
+                body: [
+                    "Một danh sách laptop hữu ích cần bắt đầu từ công việc thực tế. Chúng tôi so sánh hiệu năng ổn định, thời lượng pin, chất lượng màn hình và tính di động thay vì chỉ nhìn vào một thông số nổi bật.",
+                    "Cách tiếp cận này giúp người sáng tạo, sinh viên và các nhóm hybrid chọn được thiết bị đáng tin cậy mà không phải trả thêm cho tính năng không dùng đến.",
+                ],
             },
-            {
+            checkout: {
                 tag: "Cập nhật cửa hàng",
                 title: "Điều gì đã thay đổi trong trải nghiệm thanh toán",
                 excerpt:
                     "Lựa chọn thanh toán gọn gàng hơn, kiểm tra tồn kho tốt hơn và xác nhận đơn hàng rõ ràng hơn cho mỗi giao dịch.",
                 author: "Vận hành",
+                body: [
+                    "Quy trình thanh toán hiện giúp khách hàng dễ kiểm tra các quyết định quan trọng trước khi đặt hàng. Phương thức thanh toán, tồn kho và tổng tiền luôn rõ ràng khi giỏ hàng thay đổi.",
+                    "Sau khi thanh toán, màn hình xác nhận đưa khách hàng đến bước theo dõi đơn hàng với đầy đủ thông tin cần thiết.",
+                ],
             },
-            {
+            audio: {
                 tag: "Hướng dẫn",
                 title: "Chọn tai nghe: ANC, open-back hay studio monitor?",
                 excerpt:
                     "Hướng dẫn thực tế để chọn thiết bị âm thanh theo công việc, di chuyển, chơi game và sáng tạo nội dung.",
                 author: "Phòng thí nghiệm âm thanh",
+                body: [
+                    "Chống ồn chủ động phù hợp khi cần tập trung hoặc di chuyển. Tai nghe open-back tạo không gian âm thanh rộng hơn, còn studio monitor ưu tiên âm thanh trung tính để biên tập chính xác.",
+                    "Hãy bắt đầu từ môi trường và công việc, sau đó chọn chất âm cùng kết nối phù hợp với thói quen sử dụng hằng ngày.",
+                ],
             },
-            {
+            inventory: {
                 tag: "Vận hành",
                 title: "Tín hiệu tồn kho giúp admin phản ứng trước khi sản phẩm hết hàng",
                 excerpt:
                     "Danh sách theo dõi tồn kho thấp và phân tích giúp cửa hàng giữ sản phẩm phổ biến luôn có sẵn cho khách.",
                 author: "Đội ngũ admin",
+                body: [
+                    "Tín hiệu tồn kho đưa các xu hướng sắp hết hàng vào tầm nhìn vận hành hằng ngày, giúp đội ngũ phát hiện sớm áp lực trên những sản phẩm phổ biến.",
+                    "Các tín hiệu này hỗ trợ quyết định nhập hàng và trưng bày tốt hơn, đồng thời giữ thông tin sẵn hàng với khách luôn trung thực.",
+                ],
             },
-        ],
+        },
+        sectionEyebrow: "Bài viết mới",
+        sectionTitle: "Cập nhật hữu ích giúp mua sắm công nghệ thông minh hơn",
         readTimeMinutes: (count: number) => `${count} phút đọc`,
     },
     about: {
@@ -355,6 +379,7 @@ const vi: Dictionary = {
     },
     contact: {
         title: "Liên hệ",
+        metaDescription: "Liên hệ Digital-E để được hỗ trợ, giải đáp hoặc gửi góp ý.",
         subtitle: "Câu hỏi sản phẩm, vấn đề đơn hàng, hỗ trợ tài khoản hoặc góp ý chung.",
         visitSupport: "Trung tâm hỗ trợ",
         reviewOrders: "Xem đơn hàng",
@@ -368,7 +393,9 @@ const vi: Dictionary = {
         },
         formHeading: "Gửi tin nhắn cho chúng tôi",
         nameLabel: "Họ và tên",
+        namePlaceholder: "Nguyễn Văn A",
         emailLabel: "Địa chỉ email",
+        emailPlaceholder: "ban@example.com",
         messageLabel: "Tin nhắn của bạn",
         messagePlaceholder: "Cho chúng tôi biết câu hỏi, vấn đề hoặc góp ý của bạn.",
         sendButton: "Gửi tin nhắn",
@@ -394,6 +421,57 @@ const vi: Dictionary = {
         shortcutSupportNote: "Đọc câu trả lời phổ biến trước khi liên hệ đội ngũ.",
         submitSuccess: "Gửi thành công",
         submitSuccessBody: "Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi sớm nhất có thể.",
+        pending: "Đang gửi…",
+        loading: "Đang kiểm tra trạng thái đăng nhập…",
+        guestTitle: "Đăng nhập để gửi tin nhắn",
+        guestBody: "Bản nháp đã được lưu trong phiên này. Hãy đăng nhập để tiếp tục.",
+        submitError: "Không thể gửi tin nhắn",
+        submitErrorBody: "Vui lòng thử lại hoặc liên hệ qua email hay điện thoại.",
+    },
+    support: {
+        title: "Trung tâm hỗ trợ",
+        metaDescription: "Nhận hỗ trợ về đơn hàng, thanh toán, sản phẩm, bảo hành và tài khoản Digital-E.",
+        heroSubtitle: "Hỗ trợ trước, trong và sau mỗi đơn hàng.",
+        viewOrderHistory: "Xem lịch sử đơn hàng",
+        contactUs: "Liên hệ với chúng tôi",
+        contactLabel: "Liên hệ",
+        contactHeading: "Chọn cách nhanh nhất để liên hệ",
+        contactFormTitle: "Biểu mẫu liên hệ",
+        contactFormText: "Nhận hỗ trợ nhanh về sản phẩm, thanh toán, giao hàng và đổi trả.",
+        contactFormDetail: "Nhân viên hỗ trợ sẽ phản hồi sớm nhất có thể",
+        contactFormAction: "Mở biểu mẫu liên hệ",
+        emailTitle: "Hỗ trợ qua email",
+        emailText: "Gửi thông tin, ảnh chụp màn hình, mã đơn hàng hoặc giấy tờ bảo hành để được hỗ trợ sâu hơn.",
+        emailDetail: "support@digital-e.com",
+        emailAction: "Gửi email",
+        hotlineTitle: "Đường dây nóng",
+        hotlineText: "Trao đổi với nhân viên khi vấn đề giao hàng, thanh toán hoặc truy cập tài khoản cần xử lý gấp.",
+        hotlineDetail: "+84 123 456 789",
+        hotlineAction: "Gọi ngay",
+        selfServiceLabel: "Tự phục vụ",
+        resourcesHeading: "Chủ đề hỗ trợ phổ biến",
+        trackOrderTitle: "Theo dõi đơn hàng",
+        trackOrderText: "Kiểm tra trạng thái, phương thức thanh toán, địa chỉ giao hàng và sản phẩm trong tài khoản.",
+        trackOrderAction: "Xem đơn hàng",
+        returnsTitle: "Đổi trả và hoàn tiền",
+        returnsText: "Xem điều kiện đổi trả, thời gian hoàn tiền và những gì cần chuẩn bị trước khi gửi lại sản phẩm.",
+        returnsAction: "Hỏi về đổi trả",
+        warrantyTitle: "Hỗ trợ bảo hành",
+        warrantyText: "Tìm hiểu phạm vi bảo hành, quy trình sửa chữa, giấy tờ mua hàng và lựa chọn dịch vụ.",
+        warrantyAction: "Nhận hỗ trợ bảo hành",
+        paymentTitle: "Hỗ trợ thanh toán",
+        paymentText: "Nhận hỗ trợ về COD, xác nhận chuyển khoản và các lần thanh toán thất bại.",
+        paymentAction: "Hỏi về thanh toán",
+        faqLabel: "Câu hỏi thường gặp",
+        faqHeading: "Những câu trả lời khách hàng thường cần nhất",
+        faq1Question: "Làm thế nào để theo dõi đơn hàng?",
+        faq1Answer: "Đăng nhập và mở Lịch sử đơn hàng. Mỗi đơn hiển thị trạng thái, phương thức thanh toán, tổng tiền, địa chỉ và sản phẩm.",
+        faq2Question: "Có thể đổi địa chỉ giao hàng sau khi đặt không?",
+        faq2Answer: "Hãy liên hệ hỗ trợ sớm nhất có thể. Việc đổi địa chỉ dễ thực hiện hơn trước khi đơn được xác nhận hoặc đóng gói.",
+        faq3Question: "Điều gì xảy ra nếu sản phẩm hết hàng?",
+        faq3Answer: "Thanh toán sẽ chặn sản phẩm không còn tồn. Nếu tồn kho thay đổi sau khi mua, đội ngũ hỗ trợ sẽ liên hệ để đề xuất đổi sản phẩm hoặc hoàn tiền.",
+        faq4Question: "Khuyến mãi hoạt động như thế nào?",
+        faq4Answer: "Mã giảm giá có thể có thời hạn, giá trị đơn tối thiểu và giới hạn sử dụng. Giỏ hàng sẽ kiểm tra khuyến mãi trước khi thanh toán.",
     },
     colorScheme: {
         light: "Chế độ sáng",

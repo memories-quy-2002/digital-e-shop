@@ -99,6 +99,18 @@
             color: var(--info-muted);
             line-height: 1.65;
         }
+
+        a {
+            color: var(--de-color-primary-emphasis);
+            font-weight: 900;
+            text-decoration: underline;
+            text-underline-offset: 0.18em;
+
+            &:focus-visible {
+                outline: 3px solid var(--de-color-signal);
+                outline-offset: 3px;
+            }
+        }
     }
 
     &__channels__card {
@@ -120,6 +132,22 @@
             padding: 0.72rem 1rem;
             font-weight: 900;
             text-decoration: none;
+
+            &:focus-visible {
+                outline: 3px solid var(--de-color-on-inverse);
+                outline-offset: 3px;
+            }
+        }
+    }
+
+    &__resources__card {
+        display: flex;
+        flex-direction: column;
+
+        a {
+            width: fit-content;
+            margin-top: auto;
+            padding-top: 0.7rem;
         }
     }
 
