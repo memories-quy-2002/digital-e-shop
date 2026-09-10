@@ -189,7 +189,33 @@ expanded catalog contains 28 products across 8 categories and 16 brands, and
 each product is represented in demo order, review, and wishlist relationships.
 `demo:verify` fails on count, image, or orphan-link mismatches.
 
-The seed and verifier reject non-local `DB_HOST`/`DATABASE_URL` targets. Do
-not bypass that guard for the configured Aiven database; any remote demo
-operation needs a separately reviewed, explicitly confirmed production
-workflow with a recoverable backup.
+The seed and verifier reject non-local `DB_HOST`/`DATABASE_URL` targets during
+normal local operation. Do not bypass that guard manually for the configured
+Aiven database.
+
+## Manual production demo reset
+
+The repository now contains a deliberately destructive, manual-only GitHub
+Actions workflow at `.github/workflows/demo-seed.yml`. It is the only approved
+remote path for rebuilding the selected database from the checked-in demo
+baseline and must be dispatched from `main`. It does not run on pushes, pull
+requests, Vercel deployments, or server startup.
+
+Configure a protected GitHub `production` Environment with `DATABASE_URL`,
+`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, and `DB_SSL` when
+TLS is required. Verify a recoverable backup first, then dispatch the workflow
+with a non-empty backup ID/timestamp and the exact confirmation
+`RESET_DEMO_DATABASE`.
+
+The workflow runs `pnpm demo:reset`, which drops the selected database's base
+tables, reloads the committed legacy dump plus the historical Stripe SQL, and
+clears the imported rows while retaining the legacy table structure. It then
+records `0_init`, runs `prisma migrate deploy`, invokes
+`pnpm prisma:seed` using `src/database/seeders/demoSeedData.js`, and finishes
+with `pnpm demo:verify`. This is intentionally not implemented with
+`prisma migrate reset`: the Prisma schema is partial and the raw-MySQL legacy
+tables must be restored from the checked-in baseline first.
+
+The remote path requires all of `DEMO_SEED_MODE=full-reset`,
+`ALLOW_DESTRUCTIVE_DEMO_SEED=true`, and `DEMO_SEED_CONFIRMATION=RESET_DEMO_DATABASE`.
+The local seed command remains protected by `assertLocalDatabaseTarget`.

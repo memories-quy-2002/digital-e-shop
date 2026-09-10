@@ -1,5 +1,6 @@
 import React, { ReactNode, useEffect, useState } from "react";
 import { BrowserRouter } from "react-router-dom";
+import { HelmetProvider } from "react-helmet-async";
 import ToastProvider from "../context/ToastContext";
 import { AuthProvider } from "../context/AuthContext";
 import { CartProvider } from "../context/CartContext";
@@ -73,11 +74,13 @@ const AppProviders = ({ children }: AppProvidersProps) => {
             <LocaleProvider>
                 <ToastProvider>
                     <CartProvider>
-                        <BrowserRouter>
-                            <ThemeSync />
-                            {children}
-                            <Observability />
-                        </BrowserRouter>
+                        <HelmetProvider>
+                            <BrowserRouter>
+                                <ThemeSync />
+                                {children}
+                                <Observability />
+                            </BrowserRouter>
+                        </HelmetProvider>
                     </CartProvider>
                 </ToastProvider>
             </LocaleProvider>

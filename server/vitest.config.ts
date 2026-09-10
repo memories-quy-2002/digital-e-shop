@@ -9,6 +9,9 @@ export default defineConfig({
     test: {
         environment: "node",
         globals: true,
+        env: {
+            PAYOS_USD_TO_VND_RATE: "25000",
+        },
         include: ["src/**/*.{test,spec}.ts"],
         exclude: ["src/**/*.integration.test.ts", "src/**/*.integration.spec.ts"],
         // Register tsx's CJS hook (see vitest.setup.ts) so the CommonJS

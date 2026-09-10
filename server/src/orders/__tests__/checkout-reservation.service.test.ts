@@ -7,6 +7,7 @@ vi.mock("../../database/transaction", () => ({
 }));
 
 import { CheckoutReservationService } from "../checkout-reservation.service";
+import { hashGuestOrderToken } from "../guest-order-token";
 
 type CheckoutState = {
     id: number;
@@ -153,6 +154,37 @@ describe("CheckoutReservationService", () => {
         expect(result.pricingSnapshot).toEqual({ totalPrice: 30, discount: 0 });
         expect(result.shippingAddress).toBe("1 Test Street");
         expect(result.reservationToken).toMatch(/^[0-9a-f-]{36}$/i);
+    });
+
+    it("persists a guest contact snapshot without assigning a user ID", async () => {
+        const { repository } = createMockRepository();
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never);
+
+        await service.reserveInventory({
+            authoritativeCart: [{ product_id: 1, product_name: "Product 1", price: 10, sale_price: null, quantity: 1 }],
+            authoritativeTotalPrice: 10,
+            discount: 0,
+            shippingAddress: "1 Test Street",
+            databaseExpiresAt: new Date(Date.now() + 35 * 60_000),
+            identity: {
+                kind: "guest",
+                userId: null,
+                guestContact: {
+                    guestEmail: "guest@example.com",
+                    guestName: "Guest Buyer",
+                    guestPhone: "+84123456789",
+                },
+                guestOrderTokenHash: hashGuestOrderToken("guest-order-access-token"),
+            },
+        });
+
+        expect(repository.insertPendingCheckout).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+            userId: null,
+            guestEmail: "guest@example.com",
+            guestName: "Guest Buyer",
+            guestPhone: "+84123456789",
+            guestOrderTokenHash: hashGuestOrderToken("guest-order-access-token"),
+        }));
     });
 
     it("allows only one concurrent quantity-one reservation against stock one", async () => {

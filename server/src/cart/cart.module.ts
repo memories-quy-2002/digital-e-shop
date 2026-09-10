@@ -6,9 +6,10 @@ import { CartRepository } from "./cart.repository";
 import { createRateLimitMiddleware } from "../middleware/rate-limit.middleware";
 import { NestConfigModule } from "../config/nest-config.module";
 import { ProductsModule } from "../products/products.module";
+import { PromotionsModule } from "../promotions/promotions.module";
 
 @Module({
-    imports: [NestConfigModule, ProductsModule],
+    imports: [NestConfigModule, ProductsModule, PromotionsModule],
     controllers: [CartController],
     providers: [NestCartService, CartRepository],
     exports: [NestCartService],

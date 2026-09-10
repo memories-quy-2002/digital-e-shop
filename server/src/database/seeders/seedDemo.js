@@ -6,7 +6,11 @@ require("dotenv").config({
 
 const bcrypt = require("bcryptjs");
 const mysql = require("mysql2/promise");
-const { assertLocalDatabaseTarget } = require("../../config/database-target");
+const {
+    assertExplicitDemoSeedTarget,
+    assertLocalDatabaseTarget,
+    DESTRUCTIVE_DEMO_SEED_MODE,
+} = require("../../config/database-target");
 const { DEMO_PASSWORD, DEMO_SEED_PLAN, validateDemoSeedPlan } = require("./demoSeedData");
 
 const LOOKUP_TABLES = new Set(["categories", "brands"]);
@@ -15,6 +19,24 @@ const DEMO_ORDER_SESSION_PREFIX = "digital-e-demo-order-";
 const DEMO_NOTIFICATION_PREFIX = "Demo";
 const DEMO_MOVEMENT_PREFIX = "Digital-E demo seed";
 const LEGACY_PRODUCT_NAME_PATTERNS = ["%e2e%", "%demo%"];
+
+const assertDemoSeedTarget = () => {
+    if (process.env.DEMO_SEED_MODE === DESTRUCTIVE_DEMO_SEED_MODE) {
+        assertExplicitDemoSeedTarget({
+            dbHost: process.env.DB_HOST,
+            databaseUrl: process.env.DATABASE_URL,
+            mode: process.env.DEMO_SEED_MODE,
+            confirmation: process.env.DEMO_SEED_CONFIRMATION,
+            allowRemoteDatabase: process.env.ALLOW_DESTRUCTIVE_DEMO_SEED === "true",
+        });
+        return;
+    }
+
+    assertLocalDatabaseTarget({
+        dbHost: process.env.DB_HOST,
+        databaseUrl: process.env.DATABASE_URL,
+    });
+};
 
 const roundMoney = (value) => Number(Number(value).toFixed(2));
 
@@ -28,6 +50,7 @@ const dateDaysAgo = (daysAgo, hour = 10) => {
 const query = (connection, sql, params = []) => connection.query(sql, params).then(([rows]) => rows);
 
 const asInsertId = (result) => Number(result.insertId);
+const demoProductSku = (index) => `DEMO-${String(index + 1).padStart(4, "0")}`;
 
 const ensureLookupId = async (connection, tableName, name) => {
     if (!LOOKUP_TABLES.has(tableName)) {
@@ -91,16 +114,17 @@ const upsertDemoProducts = async (connection, plan) => {
         brandIds.set(brandName, await ensureLookupId(connection, "brands", brandName));
     }
 
-    for (const product of plan.products) {
+    for (const [index, product] of plan.products.entries()) {
         const categoryId = categoryIds.get(product.categoryName);
         const brandId = brandIds.get(product.brandName);
+        const sku = demoProductSku(index);
         const existing = await query(connection, "SELECT id FROM products WHERE name = ? ORDER BY id LIMIT 1", [product.name]);
 
         if (existing[0]) {
             const productId = Number(existing[0].id);
             await connection.query(
                 `UPDATE products
-                SET description = ?, category_id = ?, brand_id = ?, price = ?, sale_price = ?, stock = ?, main_image = ?, specifications = ?, updated_at = UTC_TIMESTAMP()
+                SET description = ?, category_id = ?, brand_id = ?, price = ?, sale_price = ?, stock = ?, main_image = ?, specifications = ?, sku = ?, updated_at = UTC_TIMESTAMP()
                 WHERE id = ?`,
                 [
                     product.description,
@@ -111,6 +135,7 @@ const upsertDemoProducts = async (connection, plan) => {
                     product.stock,
                     product.mainImage,
                     product.specifications,
+                    sku,
                     productId,
                 ],
             );
@@ -120,8 +145,8 @@ const upsertDemoProducts = async (connection, plan) => {
 
         const result = await connection.query(
             `INSERT INTO products
-                (name, description, category_id, brand_id, price, sale_price, stock, main_image, specifications, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP())`,
+                (name, description, category_id, brand_id, price, sale_price, stock, main_image, specifications, sku, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP())`,
             [
                 product.name,
                 product.description,
@@ -132,6 +157,7 @@ const upsertDemoProducts = async (connection, plan) => {
                 product.stock,
                 product.mainImage,
                 product.specifications,
+                sku,
             ],
         );
         productIds.set(product.name, asInsertId(result[0]));
@@ -444,10 +470,7 @@ const seedDiscounts = async (connection, plan) => {
 
 const main = async () => {
     const summary = validateDemoSeedPlan(DEMO_SEED_PLAN);
-    assertLocalDatabaseTarget({
-        dbHost: process.env.DB_HOST,
-        databaseUrl: process.env.DATABASE_URL,
-    });
+    assertDemoSeedTarget();
 
     const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
     const pool = mysql.createPool({

@@ -4,7 +4,8 @@ import { OwnerParam, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestCartService } from "./cart.service";
 
-import { cartAddItemSchema, cartDeleteItemSchema, cartUpdateQuantitySchema } from "./cart.validator";
+import { cartAddItemSchema, cartDeleteItemSchema, cartUpdateQuantitySchema, guestCartPreviewSchema } from "./cart.validator";
+import type { GuestCartPreviewInput } from "./cart.types";
 
 function toHttpException(err: { statusCode?: number; message?: string }, fallbackMessage: string): HttpException {
     const statusCode = err.statusCode || 500;
@@ -15,6 +16,21 @@ function toHttpException(err: { statusCode?: number; message?: string }, fallbac
 @Controller("cart")
 export class CartController {
     constructor(private readonly cartService: NestCartService) {}
+
+    @Post("guest/preview")
+    @HttpCode(200)
+    @UsePipes(new ZodValidationPipe(guestCartPreviewSchema))
+    async previewGuestCart(@Body() body: GuestCartPreviewInput) {
+        try {
+            const result = await this.cartService.previewGuestCart(body.items, body.discountCode);
+            return {
+                msg: result.valid ? "Guest cart preview retrieved successfully" : "Guest cart requires attention",
+                ...result,
+            };
+        } catch (err) {
+            throw toHttpException(err as Error, "Error previewing guest cart");
+        }
+    }
 
     @Get(":uid")
     @UseGuards(AuthGuard, RolesGuard)

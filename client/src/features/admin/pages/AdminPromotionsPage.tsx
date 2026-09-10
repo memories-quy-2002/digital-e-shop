@@ -1,11 +1,13 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Table } from "../../../components/ui/legacy";
 import AdminLayout from "../../../components/layout/AdminLayout";
-import AdminWorkflowSteps from "../../../components/common/admin/AdminWorkflowSteps";
-import { Helmet } from "react-helmet";
+import { Helmet } from "react-helmet-async";
 import { useToast } from "../../../context/ToastContext";
 import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
 import { fetchPromotions, createPromotion, updatePromotion, deletePromotion } from "../api";
+import AdminStatusPanel from "../components/AdminStatusPanel";
+import AdminTableScrollHint from "../components/AdminTableScrollHint";
+import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
 
 type Promotion = {
     id: number;
@@ -39,8 +41,6 @@ const emptyForm: PromotionForm = {
     active: true,
 };
 
-const promotionWorkflowSteps = ["Create or edit code", "Set schedule and limits", "Deactivate expired campaigns"];
-
 const normalizePromotion = (promotion: Promotion): Promotion => ({
     ...promotion,
     id: Number(promotion.id),
@@ -64,19 +64,29 @@ const AdminPromotionsPage = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [pendingDeactivatePromotion, setPendingDeactivatePromotion] = useState<Promotion | null>(null);
     const [isDeactivating, setIsDeactivating] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [hasLoaded, setHasLoaded] = useState(false);
+    const [loadError, setLoadError] = useState<AdminRequestError | null>(null);
+    const hasLoadedRef = useRef(false);
     const { addToast } = useToast();
 
-    useEffect(() => {
-        const loadPromotions = async () => {
-            try {
-                const data = await fetchPromotions();
+    const loadPromotions = React.useCallback(async () => {
+        try {
+            setIsLoading(true);
+            setLoadError(null);
+            const data = await fetchPromotions();
                 setPromotions((data || []).map(normalizePromotion));
-            } catch {
-                addToast("Promotions", "Unable to load promotions.");
-            }
-        };
-        loadPromotions();
-    }, []);
+            setHasLoaded(true);
+            hasLoadedRef.current = true;
+        } catch (error) {
+            setLoadError(getAdminRequestError(error));
+            if (hasLoadedRef.current) addToast("Promotions", "Refresh failed. Showing the latest saved promotions.");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [addToast]);
+
+    useEffect(() => { loadPromotions(); }, [loadPromotions]);
 
     const filteredPromotions = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
@@ -106,14 +116,28 @@ const AdminPromotionsPage = () => {
         });
     };
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (event?: React.FormEvent<HTMLFormElement>) => {
+        event?.preventDefault();
+        const discountPercent = Number(form.discountPercent);
+        const minOrderValue = Number(form.minOrderValue || 0);
+        const usageLimit = form.usageLimit === "" ? null : Number(form.usageLimit);
+
+        if (!form.discountCode.trim() || !Number.isFinite(discountPercent) || discountPercent < 1 || discountPercent > 90) {
+            addToast("Promotions", "Enter a code and a discount between 1% and 90%.");
+            return;
+        }
+        if (!Number.isFinite(minOrderValue) || minOrderValue < 0 || (usageLimit !== null && (!Number.isFinite(usageLimit) || usageLimit < 1))) {
+            addToast("Promotions", "Check the minimum order and usage limit values.");
+            return;
+        }
+
         const payload = {
             discountCode: form.discountCode,
-            discountPercent: Number(form.discountPercent),
-            minOrderValue: Number(form.minOrderValue || 0),
+            discountPercent,
+            minOrderValue,
             startsAt: form.startsAt || null,
             expiresAt: form.expiresAt || null,
-            usageLimit: form.usageLimit === "" ? null : Number(form.usageLimit),
+            usageLimit,
             active: form.active,
         };
 
@@ -164,10 +188,13 @@ const AdminPromotionsPage = () => {
                 <header className="admin__page__header">
                     <div>
                         <span className="admin__page__eyebrow">Growth</span>
-                        <h2 className="admin__page__title">Promotions</h2>
+                        <h1 className="admin__page__title">Promotions</h1>
                         <p className="admin__page__subtitle">
                             Create discount codes, schedule campaigns, and control minimum order rules.
                         </p>
+                    </div>
+                    <div className="admin__page__actions">
+                        <button type="button" className="admin__button admin__button--ghost" onClick={loadPromotions}>Refresh</button>
                     </div>
                 </header>
 
@@ -189,86 +216,114 @@ const AdminPromotionsPage = () => {
                     </div>
                 </section>
 
-                <AdminWorkflowSteps steps={promotionWorkflowSteps} />
-
-                <section className="admin__card">
-                    <div className="admin__card__header">
+                <section className="admin__card admin__card--promotion-editor">
+                    <div className="admin__card__header admin__card__header--stacked">
                         <div>
                             <h3>{form.id ? "Edit promotion" : "Create promotion"}</h3>
                             <span>Codes are normalized to uppercase for checkout.</span>
                         </div>
+                        {form.id ? <span className="admin__pill admin__pill--info">Editing promotion</span> : null}
                     </div>
-                    <div className="admin__form-grid">
-                        <label>
-                            Code
+                    <form className="admin__promotion-form" onSubmit={handleSubmit}>
+                        <div className="admin__promotion-form__fields">
+                            <label htmlFor="promotion-code">
+                                <span>Code <span className="admin__field-required" aria-hidden="true">*</span></span>
                             <input
+                                id="promotion-code"
+                                name="discountCode"
+                                type="text"
                                 value={form.discountCode}
                                 onChange={(event) => setForm((current) => ({ ...current, discountCode: event.target.value }))}
-                                placeholder="SPRING20"
+                                placeholder="e.g. SPRING20…"
+                                required
+                                autoComplete="off"
+                                spellCheck={false}
                             />
-                        </label>
-                        <label>
-                            Discount %
+                            </label>
+                            <label htmlFor="promotion-discount">
+                                <span>Discount % <span className="admin__field-required" aria-hidden="true">*</span></span>
                             <input
+                                id="promotion-discount"
+                                name="discountPercent"
                                 type="number"
                                 min="1"
                                 max="90"
+                                step="1"
+                                inputMode="numeric"
                                 value={form.discountPercent}
                                 onChange={(event) => setForm((current) => ({ ...current, discountPercent: event.target.value }))}
+                                required
                             />
-                        </label>
-                        <label>
-                            Minimum order
+                            </label>
+                            <label htmlFor="promotion-minimum">
+                                <span>Minimum order</span>
                             <input
+                                id="promotion-minimum"
+                                name="minOrderValue"
                                 type="number"
                                 min="0"
+                                step="0.01"
+                                inputMode="decimal"
                                 value={form.minOrderValue}
                                 onChange={(event) => setForm((current) => ({ ...current, minOrderValue: event.target.value }))}
                             />
-                        </label>
-                        <label>
-                            Usage limit
+                            </label>
+                            <label htmlFor="promotion-usage">
+                                <span>Usage limit</span>
                             <input
+                                id="promotion-usage"
+                                name="usageLimit"
                                 type="number"
                                 min="1"
+                                step="1"
+                                inputMode="numeric"
                                 value={form.usageLimit}
                                 onChange={(event) => setForm((current) => ({ ...current, usageLimit: event.target.value }))}
-                                placeholder="Optional"
+                                placeholder="Optional…"
                             />
-                        </label>
-                        <label>
-                            Starts at
+                            </label>
+                            <label htmlFor="promotion-starts">
+                                <span>Starts at</span>
                             <input
+                                id="promotion-starts"
+                                name="startsAt"
                                 type="datetime-local"
                                 value={form.startsAt}
                                 onChange={(event) => setForm((current) => ({ ...current, startsAt: event.target.value }))}
                             />
-                        </label>
-                        <label>
-                            Expires at
+                            </label>
+                            <label htmlFor="promotion-expires">
+                                <span>Expires at</span>
                             <input
+                                id="promotion-expires"
+                                name="expiresAt"
                                 type="datetime-local"
                                 value={form.expiresAt}
                                 onChange={(event) => setForm((current) => ({ ...current, expiresAt: event.target.value }))}
                             />
-                        </label>
-                        <label className="admin__form-grid__check">
-                            <input
-                                type="checkbox"
-                                checked={form.active}
-                                onChange={(event) => setForm((current) => ({ ...current, active: event.target.checked }))}
-                            />
-                            Active
-                        </label>
-                        <div className="admin__form-grid__actions">
-                            <button type="button" className="admin__button admin__button--primary" onClick={handleSubmit} disabled={isSaving}>
-                                {isSaving ? "Saving..." : form.id ? "Save promotion" : "Create promotion"}
+                            </label>
+                        </div>
+                        <div className="admin__promotion-form__footer">
+                            <label className="admin__promotion-form__toggle" htmlFor="promotion-active">
+                                <input
+                                    id="promotion-active"
+                                    name="active"
+                                    type="checkbox"
+                                    checked={form.active}
+                                    onChange={(event) => setForm((current) => ({ ...current, active: event.target.checked }))}
+                                />
+                                <span>Active at checkout</span>
+                            </label>
+                            <div className="admin__form-grid__actions">
+                            <button type="submit" className="admin__button admin__button--primary" disabled={isSaving}>
+                                {isSaving ? "Saving…" : form.id ? "Save promotion" : "Create promotion"}
                             </button>
                             <button type="button" className="admin__button admin__button--ghost" onClick={() => setForm(emptyForm)}>
                                 Reset
                             </button>
+                            </div>
                         </div>
-                    </div>
+                    </form>
                 </section>
 
                 <section className="admin__card">
@@ -279,10 +334,16 @@ const AdminPromotionsPage = () => {
                         </div>
                         <div className="admin__list-toolbar">
                             <div className="admin__filters">
+                                <label className="admin__sr-only" htmlFor="promotion-search">
+                                    Search promotions
+                                </label>
                                 <input
+                                    type="search"
+                                    id="promotion-search"
+                                    name="promotion-search"
                                     value={searchTerm}
                                     onChange={(event) => setSearchTerm(event.target.value)}
-                                    placeholder="Search promotion code"
+                                    placeholder="Search promotion code…"
                                 />
                                 <button type="button" className="admin__button admin__button--ghost" onClick={() => setSearchTerm("")}>
                                     Clear
@@ -291,8 +352,13 @@ const AdminPromotionsPage = () => {
                         </div>
                     </div>
                     <div className="admin__card__body admin__list-shell">
-                        <div className="admin__table-wrap">
-                        <Table responsive hover borderless className="admin__table">
+                        {loadError && !hasLoaded ? <AdminStatusPanel variant="error" title={loadError.title} description={loadError.message} onRetry={loadPromotions} /> : null}
+                        {isLoading && !hasLoaded ? <AdminStatusPanel variant="loading" title="Loading promotions" description="Fetching the latest discount rules." /> : null}
+                        {loadError && hasLoaded ? <AdminStatusPanel variant="error" title="Refresh failed" description={loadError.message} onRetry={loadPromotions} retryLabel="Retry refresh" /> : null}
+                        {!isLoading && !loadError && hasLoaded && filteredPromotions.length === 0 ? <AdminStatusPanel variant="empty" title="No promotions found" description="No promotion codes match the current search." /> : null}
+                        {(!loadError || hasLoaded) && !(isLoading && !hasLoaded) && filteredPromotions.length > 0 ? <>
+                        <AdminTableScrollHint label="Promotion list">
+                        <Table responsive={false} hover borderless className="admin__table admin__table--promotions">
                             <thead>
                                 <tr>
                                     <th>Code</th>
@@ -340,7 +406,8 @@ const AdminPromotionsPage = () => {
                                 ))}
                             </tbody>
                         </Table>
-                        </div>
+                        </AdminTableScrollHint>
+                        </> : null}
                     </div>
                 </section>
                 <ConfirmActionModal

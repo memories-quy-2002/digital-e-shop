@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Helmet } from "react-helmet";
+import { Helmet } from "react-helmet-async";
 import axios from "../api/axios";
 import EmptyState from "../components/common/EmptyState";
 import LoadingScreen from "../components/common/LoadingScreen";

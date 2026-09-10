@@ -12,7 +12,6 @@ const apiMocks = vi.hoisted(() => ({
     fetchWishlist: vi.fn(),
     fetchReviews: vi.fn(),
     submitReview: vi.fn(),
-    addToCart: vi.fn(),
     addToWishlist: vi.fn(),
     removeFromWishlist: vi.fn(),
 }));
@@ -21,6 +20,10 @@ const toastMocks = vi.hoisted(() => ({
     addToast: vi.fn(),
     toasts: [],
     removeToast: vi.fn(),
+}));
+
+const cartMocks = vi.hoisted(() => ({
+    addItem: vi.fn(),
 }));
 
 vi.mock("../ShopsItem", () => ({
@@ -42,6 +45,10 @@ vi.mock("../../../features/products/api", () => apiMocks);
 
 vi.mock("../../../context/AuthContext", () => ({
     useAuth: () => ({ userData: null, loading: false, setUserData: vi.fn() }),
+}));
+
+vi.mock("../../../context/CartContext", () => ({
+    useCart: () => cartMocks,
 }));
 
 vi.mock("../../../context/ToastContext", async () => {
@@ -76,7 +83,7 @@ vi.mock("../../../features/products/components/RecommendedProduct", () => ({
     default: () => <div data-testid="mock-recommended-product" />,
 }));
 
-vi.mock("react-helmet", () => ({
+vi.mock("react-helmet-async", () => ({
     Helmet: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 

@@ -6,7 +6,8 @@ import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestOrdersService } from "./orders.service";
 import { NestOrdersStripeService } from "./orders.stripe.service";
 import { calculatePromotionDiscount } from "./orders.pricing";
-import { orderStatusSchema, purchaseSchema, checkoutSessionSchema, applyDiscountSchema, cancelOrderSchema } from "./orders.validator";
+import type { GuestCheckoutSessionPayload, GuestOrderLookupPayload, GuestPurchasePayload, GuestSessionLookupPayload } from "./orders.dto";
+import { orderStatusSchema, purchaseSchema, checkoutSessionSchema, applyDiscountSchema, cancelOrderSchema, guestOrderLookupSchema, guestPurchaseSchema, guestCheckoutSessionSchema, guestSessionLookupSchema } from "./orders.validator";
 
 type AuthenticatedRequest = Request & {
     user?: { id?: string | number; role?: string };
@@ -183,6 +184,93 @@ export class OrdersController {
         } catch (err) {
             if (err instanceof HttpException) throw err;
             throw toHttpException(err as Error, "Unable to cancel order");
+        }
+    }
+
+    @Post("/guest/purchase")
+    @HttpCode(201)
+    async makeGuestPurchase(
+        @Body(new ZodValidationPipe(guestPurchaseSchema)) body: GuestPurchasePayload,
+    ) {
+        try {
+            const result = await this.ordersService.makeGuestPurchase(body);
+            return {
+                orderId: result.order.id,
+                order: result.order,
+                guestOrderToken: result.guestOrderToken,
+                paymentMethod: body.paymentMethod,
+                msg: `Order has been created successfully with id = ${result.order.id}`,
+            };
+        } catch (err) {
+            if (err instanceof HttpException) throw err;
+            const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
+            const statusCode = error.statusCode || 500;
+            throw new HttpException(
+                {
+                    msg: statusCode === 500 ? "Unable to place order right now" : error.message,
+                    ...(statusCode === 500 ? {} : error.details || {}),
+                },
+                statusCode,
+            );
+        }
+    }
+
+    @Post("/guest/lookup")
+    @HttpCode(200)
+    async lookupGuestOrder(
+        @Body(new ZodValidationPipe(guestOrderLookupSchema)) body: GuestOrderLookupPayload,
+    ) {
+        try {
+            const order = await this.ordersService.lookupGuestOrder(body.orderId, body.guestOrderToken);
+            return { order, msg: "Guest order retrieved successfully" };
+        } catch (err) {
+            if (err instanceof HttpException) throw err;
+            const error = err as Error & { statusCode?: number };
+            const statusCode = error.statusCode || 500;
+            throw new HttpException(
+                { msg: statusCode === 500 ? "Unable to retrieve guest order right now" : error.message },
+                statusCode,
+            );
+        }
+    }
+
+    @Post("/guest/checkout-session")
+    @HttpCode(200)
+    async createGuestCheckoutSession(
+        @Body(new ZodValidationPipe(guestCheckoutSessionSchema)) body: GuestCheckoutSessionPayload,
+    ) {
+        try {
+            const result = await this.ordersStripeService.createGuestCheckoutSession(body);
+            return { url: result.url, guestOrderToken: result.guestOrderToken, msg: "Checkout session created" };
+        } catch (err) {
+            const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
+            const statusCode = error.statusCode || 500;
+            throw new HttpException(
+                {
+                    msg: statusCode === 500 ? "Unable to start checkout right now" : error.message,
+                    ...(statusCode === 500 ? {} : error.details || {}),
+                },
+                statusCode,
+            );
+        }
+    }
+
+    @Post("/guest/by-session")
+    @HttpCode(200)
+    async getGuestOrderBySessionId(
+        @Body(new ZodValidationPipe(guestSessionLookupSchema)) body: GuestSessionLookupPayload,
+    ) {
+        try {
+            const order = await this.ordersService.getGuestOrderBySessionId(body.sessionId, body.guestOrderToken);
+            return { order, msg: "Guest order retrieved successfully" };
+        } catch (err) {
+            if (err instanceof HttpException) throw err;
+            const error = err as Error & { statusCode?: number };
+            const statusCode = error.statusCode || 500;
+            throw new HttpException(
+                { msg: statusCode === 500 ? "Unable to retrieve guest order right now" : error.message },
+                statusCode,
+            );
         }
     }
 

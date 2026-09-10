@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
-import { Helmet } from "react-helmet";
+import { Helmet } from "react-helmet-async";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "../api/axios";
 import AsideShops from "../components/common/AsideShops";

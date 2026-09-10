@@ -13,7 +13,7 @@ vi.mock("../../context/ToastContext", () => ({
     useToast: () => ({ addToast: vi.fn() }),
 }));
 
-vi.mock("react-helmet", () => ({
+vi.mock("react-helmet-async", () => ({
     Helmet: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 

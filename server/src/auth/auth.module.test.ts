@@ -23,5 +23,6 @@ describe("AuthModule CSRF middleware", () => {
             "users/register",
             "users/refresh",
         ]);
+        expect(middlewareConfig.forRoutes).toHaveBeenCalledWith("*");
     });
 });

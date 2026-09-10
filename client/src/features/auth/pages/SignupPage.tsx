@@ -1,7 +1,7 @@
 import { AxiosError } from "axios";
 import React, { useMemo, useState } from "react";
 import { Form } from "../../../components/ui/legacy";
-import { Helmet } from "react-helmet";
+import { Helmet } from "react-helmet-async";
 import { Link, useNavigate } from "react-router-dom";
 import authImage from "../../../assets/images/background_form.jpg";
 import { useToast } from "../../../context/ToastContext";

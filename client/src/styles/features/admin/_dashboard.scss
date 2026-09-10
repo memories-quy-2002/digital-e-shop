@@ -437,3 +437,572 @@
     }
 }
 
+// Operations-first dashboard contract. This sits below the legacy dashboard
+// styles so the new route composition has a compact, token-driven surface.
+.admin__page--dashboard {
+    min-width: 0;
+}
+
+.admin__dashboard__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1.25rem;
+    min-width: 0;
+    padding: 1.25rem 1.4rem;
+    border: 1px solid var(--de-color-border);
+    border-left: 3px solid var(--de-color-signal);
+    border-radius: var(--de-radius-md);
+    background: var(--de-color-surface);
+    box-shadow: var(--de-shadow-xs);
+}
+
+.admin__dashboard__header-copy,
+.admin__dashboard__header-controls,
+.admin__dashboard__header-actions,
+.admin__dashboard__range-control,
+.admin__dashboard__freshness {
+    min-width: 0;
+}
+
+.admin__dashboard__eyebrow {
+    margin: 0 0 0.35rem;
+    color: var(--de-color-circuit);
+    font-family: var(--de-font-family-mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.admin__dashboard__header h1 {
+    font-size: clamp(1.65rem, 2.7vw, 2.2rem);
+    letter-spacing: -0.04em;
+}
+
+.admin__dashboard__header-description {
+    max-width: 42rem;
+    margin-top: 0.45rem;
+    color: var(--de-color-text-muted);
+    line-height: 1.45;
+}
+
+.admin__dashboard__header-controls {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+}
+
+.admin__dashboard__range-control {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.admin__dashboard__range-control label {
+    color: var(--de-color-text-muted);
+    font-family: var(--de-font-family-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.admin__dashboard__range-control select {
+    min-width: 9.4rem;
+    min-height: 2.75rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--de-color-border-strong);
+    border-radius: var(--de-radius-sm);
+    background: var(--de-color-bg-muted);
+    color: var(--de-color-text);
+}
+
+.admin__dashboard__freshness {
+    display: grid;
+    grid-template-columns: auto auto;
+    align-items: center;
+    column-gap: 0.4rem;
+    min-height: 2.75rem;
+    padding: 0.4rem 0.7rem;
+    border: 1px solid var(--de-color-border);
+    border-radius: var(--de-radius-sm);
+    color: var(--de-color-text-soft);
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.admin__dashboard__freshness-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: var(--de-radius-pill);
+    background: var(--de-color-warning);
+}
+
+.admin__dashboard__freshness-dot--ready {
+    background: var(--de-color-circuit);
+    box-shadow: 0 0 0 4px var(--de-color-success-soft);
+}
+
+.admin__dashboard__freshness-dot--attention {
+    background: var(--de-color-warning);
+    box-shadow: 0 0 0 4px var(--de-color-warning-soft);
+}
+
+.admin__dashboard__freshness-time {
+    grid-column: 2;
+    color: var(--de-color-text-muted);
+    font-size: 0.68rem;
+    font-weight: 500;
+}
+
+.admin__dashboard__header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.admin__dashboard__header-actions > button {
+    min-width: 7.2rem;
+}
+
+.admin__dashboard__attention,
+.admin__dashboard__kpis,
+.admin__dashboard__operations,
+.admin__dashboard__secondary {
+    min-width: 0;
+}
+
+.admin__dashboard__attention,
+.admin__dashboard__operations {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.admin__dashboard__section-heading,
+.admin__dashboard__card-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    min-width: 0;
+}
+
+.admin__dashboard__section-heading h2 {
+    font-size: 1.35rem;
+    letter-spacing: -0.03em;
+}
+
+.admin__dashboard__section-meta {
+    flex: 0 0 auto;
+    color: var(--de-color-text-muted);
+    font-family: var(--de-font-family-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.admin__dashboard__attention-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: 0.7rem;
+}
+
+.admin__dashboard__attention-card {
+    display: grid;
+    min-width: 0;
+    gap: 0.65rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--de-color-border);
+    border-left: 3px solid var(--de-color-border-strong);
+    border-radius: var(--de-radius-sm);
+    background: var(--de-color-surface);
+    transition: background-color var(--de-transition-fast), border-color var(--de-transition-fast), box-shadow var(--de-transition-fast);
+}
+
+.admin__dashboard__attention-card--high {
+    border-left-color: var(--de-color-danger);
+}
+
+.admin__dashboard__attention-card--medium {
+    border-left-color: var(--de-color-warning);
+}
+
+.admin__dashboard__attention-card--low {
+    border-left-color: var(--de-color-circuit);
+}
+
+.admin__dashboard__attention-card-topline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.admin__dashboard__attention-count {
+    color: var(--de-color-text-muted);
+    font-family: var(--de-font-family-mono);
+    font-size: 0.68rem;
+    white-space: nowrap;
+}
+
+.admin__dashboard__attention-card h3 {
+    font-size: 1rem;
+    line-height: 1.2;
+}
+
+.admin__dashboard__attention-card p {
+    min-height: 2.5em;
+    color: var(--de-color-text-muted);
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
+.admin__dashboard__attention-action,
+.admin__dashboard__view-all,
+.admin__dashboard__table-action,
+.admin__dashboard__kpi-link {
+    width: fit-content;
+    color: var(--de-color-electric);
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.admin__dashboard__attention-action:hover,
+.admin__dashboard__view-all:hover,
+.admin__dashboard__table-action:hover,
+.admin__dashboard__kpi-link:hover {
+    color: var(--de-color-info-strong);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+.admin__dashboard__kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.admin__dashboard__kpi {
+    min-width: 0;
+}
+
+.admin__dashboard__kpi-card {
+    height: 100%;
+    border-color: var(--de-color-border) !important;
+    border-radius: var(--de-radius-md) !important;
+    background: var(--de-color-surface) !important;
+    box-shadow: var(--de-shadow-xs) !important;
+}
+
+.admin__dashboard__kpi-header,
+.admin__dashboard__kpi-content {
+    min-width: 0;
+}
+
+.admin__dashboard__kpi-header {
+    min-height: 5.4rem;
+    padding: 1rem !important;
+    border-bottom: 1px solid var(--de-color-border);
+}
+
+.admin__dashboard__kpi-header h3 {
+    font-size: 0.92rem;
+    letter-spacing: 0;
+}
+
+.admin__dashboard__kpi-header p {
+    overflow-wrap: anywhere;
+    font-size: 0.75rem;
+}
+
+.admin__dashboard__kpi-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 1rem !important;
+}
+
+.admin__dashboard__kpi-value {
+    min-height: 2.25rem;
+    color: var(--de-color-text);
+    font-family: var(--de-font-family-display);
+    font-size: clamp(1.5rem, 2.4vw, 2rem);
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.admin__dashboard__kpi-skeleton {
+    width: 7rem;
+    height: 2rem;
+}
+
+.admin__dashboard__kpi-link {
+    margin-top: auto;
+}
+
+.admin__dashboard__operations-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(22rem, 0.7fr);
+    gap: 0.75rem;
+}
+
+.admin__dashboard__operation-card {
+    min-width: 0;
+    height: 100%;
+    padding: 0 !important;
+    overflow: hidden;
+}
+
+.admin__dashboard__operation-header {
+    padding: 1rem 1.15rem !important;
+}
+
+.admin__dashboard__operation-header h3 {
+    font-size: 1.05rem;
+}
+
+.admin__dashboard__operation-header p {
+    max-width: 38rem;
+    margin-top: 0.25rem;
+    font-size: 0.78rem;
+}
+
+.admin__dashboard__operation-content {
+    min-width: 0;
+    padding: 0 !important;
+}
+
+.admin__dashboard__operations .admin__table-scroll-region__hint {
+    display: none;
+}
+
+.admin__dashboard__operations .admin__table--dashboard-operations {
+    min-width: 700px;
+}
+
+.admin__dashboard__operations .admin__table--dashboard-inventory {
+    min-width: 560px;
+}
+
+.admin__dashboard__operations .admin__table th,
+.admin__dashboard__operations .admin__table td {
+    padding: 0.75rem 0.85rem;
+    vertical-align: middle;
+}
+
+.admin__dashboard__operations .admin__table th:last-child,
+.admin__dashboard__operations .admin__table td:last-child {
+    text-align: right;
+}
+
+.admin__dashboard__operations .admin__table__numeric {
+    color: var(--de-color-text) !important;
+    font-family: var(--de-font-family-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.admin__dashboard__table-value {
+    color: var(--de-color-text-soft);
+    font-size: 0.78rem;
+    text-transform: capitalize;
+}
+
+.admin__dashboard__secondary {
+    display: grid;
+    gap: 0.75rem;
+    padding-top: 0.25rem;
+    border-top: 1px solid var(--de-color-border);
+}
+
+@media (min-width: 901px) {
+    .admin__dashboard__analysis--overview {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+    }
+}
+
+.admin__dashboard__realtime {
+    display: block;
+}
+
+.admin__dashboard__mix-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.admin__dashboard__secondary > section,
+.admin__dashboard__secondary > .admin__card {
+    min-width: 0;
+}
+
+.admin__dashboard__promotion-performance {
+    grid-column: 1 / -1;
+}
+
+.admin__dashboard__secondary .admin__dashboard__promotion-performance .admin__table-scroll-region__hint {
+    display: none;
+}
+
+.admin__dashboard__promotion-performance .admin__table-wrap {
+    overflow-x: hidden;
+}
+
+.admin__dashboard__promotion-performance .admin__table--dashboard-promotion {
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
+}
+
+.admin__dashboard__promotion-performance .admin__table--dashboard-promotion th,
+.admin__dashboard__promotion-performance .admin__table--dashboard-promotion td {
+    padding: 0.7rem 0.75rem;
+}
+
+.admin__dashboard__promotion-performance .admin__table--dashboard-promotion th:nth-child(1),
+.admin__dashboard__promotion-performance .admin__table--dashboard-promotion td:nth-child(1) {
+    width: 27%;
+}
+
+.admin__dashboard__promotion-performance .admin__table--dashboard-promotion th:nth-child(2),
+.admin__dashboard__promotion-performance .admin__table--dashboard-promotion td:nth-child(2) {
+    width: 16%;
+}
+
+.admin__dashboard__promotion-performance .admin__table--dashboard-promotion th:nth-child(3),
+.admin__dashboard__promotion-performance .admin__table--dashboard-promotion td:nth-child(3) {
+    width: 32%;
+}
+
+.admin__dashboard__promotion-performance .admin__table--dashboard-promotion th:nth-child(4),
+.admin__dashboard__promotion-performance .admin__table--dashboard-promotion td:nth-child(4) {
+    width: 25%;
+}
+
+.admin__dashboard__promotion-performance .admin__table--dashboard-promotion th:nth-child(3) {
+    white-space: normal;
+}
+
+.admin__dashboard__promotion-code {
+    color: var(--de-color-text) !important;
+    font-family: var(--de-font-family-mono);
+    font-weight: 800 !important;
+    overflow-wrap: anywhere;
+}
+
+.admin__dashboard__promotion-performance .admin__table--dashboard-promotion .admin__table__numeric {
+    color: var(--de-color-text) !important;
+    font-family: var(--de-font-family-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.admin__dashboard__promotion-performance .admin__table--dashboard-promotion .inline-flex {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin__dashboard__table-empty {
+    padding: 0.8rem 0;
+    color: var(--de-color-text-muted);
+    font-size: 0.8rem;
+}
+
+.admin__dashboard__activity-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+}
+
+@media (max-width: 1350px) {
+    .admin__dashboard__header {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+    }
+
+    .admin__dashboard__header-controls {
+        justify-content: flex-start;
+    }
+
+    .admin__dashboard__attention-grid,
+    .admin__dashboard__kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .admin__dashboard__operations-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .admin__dashboard__operations .admin__table-scroll-region__hint {
+        display: block;
+    }
+}
+
+@media (max-width: 720px) {
+    .admin__dashboard__header,
+    .admin__dashboard__attention-card {
+        padding: 1rem;
+    }
+
+    .admin__dashboard__header-controls,
+    .admin__dashboard__header-actions,
+    .admin__dashboard__range-control,
+    .admin__dashboard__header-actions > button {
+        width: 100%;
+    }
+
+    .admin__dashboard__header-controls {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .admin__dashboard__header-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .admin__dashboard__section-heading,
+    .admin__dashboard__card-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .admin__dashboard__attention-grid,
+    .admin__dashboard__kpis {
+        grid-template-columns: 1fr;
+    }
+
+    .admin__dashboard__mix-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .admin__dashboard__freshness {
+        width: 100%;
+    }
+}
+
+@media (max-width: 420px) {
+    .admin__dashboard__header-actions {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .admin__dashboard__attention-card,
+    .admin__dashboard__attention-action,
+    .admin__dashboard__view-all,
+    .admin__dashboard__table-action,
+    .admin__dashboard__kpi-link {
+        transition: none;
+    }
+}
+

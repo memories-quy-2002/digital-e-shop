@@ -16,8 +16,9 @@ smoke check against the Vite preview.
 The server job runs against a disposable MySQL 8.4 service and performs the
 same code-quality checks plus MySQL connectivity verification, legacy
 schema/bootstrap loading, the pre-Prisma Stripe schema change, Prisma deploy
-and status checks, MySQL-backed integration tests, the server build, and an
-HTTP smoke check against `/api/health`.
+and status checks, MySQL-backed integration tests, a full demo reset/seed/
+verification cycle on the disposable database, the server build, and an HTTP
+smoke check against `/api/health`.
 
 The Prisma history is intentionally partial. `0_init` is a metadata-only
 baseline because raw MySQL repositories still own legacy tables. Consequently,
@@ -29,6 +30,21 @@ after loading that legacy baseline, then applies the pending Prisma migration.
 This is the reproducible CI equivalent of the documented legacy production
 baseline; it is not a claim that `0_init` can create the complete schema on an
 empty database.
+
+### Production migration job
+
+The same workflow exposes `CI / production-migrate` on a push to `main`. It
+runs only after both disposable-environment jobs succeed, installs from
+`server/pnpm-lock.yaml`, and executes `prisma:migrate:deploy` followed by a
+final migration-status check. The job is protected by the `production`
+GitHub Environment and uses the shared `production-database-operation`
+concurrency group, so a manual demo reset cannot overlap it.
+
+The `production` Environment must contain a `DATABASE_URL` secret. Configure
+required reviewers on that Environment before allowing the job to mutate the
+production database. The job does not resolve `0_init` automatically; the
+legacy baseline must already be reconciled on the target, as it is for the
+current production database.
 
 ### `.github/workflows/security.yml`
 
@@ -182,6 +198,47 @@ Never use `prisma db push` or `prisma migrate reset` against a data-bearing
 database. See [server/README.prisma.md](../server/README.prisma.md) for the
 operator commands and reconciliation path.
 
+## Manual demo reset workflow
+
+`.github/workflows/demo-seed.yml` is intentionally manual-only and must be
+dispatched from `main`. It is not connected to `push`, pull-request, Vercel
+deployment, or server startup. Run it only after verifying a recoverable backup
+and configuring the protected
+GitHub `production` Environment with these secrets:
+
+- `DATABASE_URL`
+- `DB_HOST`
+- `DB_PORT`
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_NAME`
+- `DB_SSL` when the database requires TLS
+
+The workflow dispatch form requires both:
+
+- `confirmation`: exactly `RESET_DEMO_DATABASE`;
+- `backup_reference`: a non-empty backup ID or timestamp verified by the
+  operator.
+
+After Environment approval, the workflow performs this destructive sequence:
+
+1. drops all base tables in the selected database;
+2. reloads the committed legacy dump and Stripe baseline from
+   `server/src/database/migrations/`, then clears their rows while retaining
+   the legacy table structure;
+3. records the metadata-only `0_init` migration;
+4. applies every reviewed Prisma forward migration;
+5. runs `pnpm prisma:seed`, whose data comes from
+   `server/src/database/seeders/demoSeedData.js`; and
+6. runs `pnpm demo:verify` and a final Prisma migration-status check.
+
+The workflow does not use `prisma migrate reset`, because the Prisma schema is
+partial and cannot recreate the legacy tables required by the raw-MySQL
+repositories. The reset utility is reachable remotely only with the explicit
+full-reset mode, the exact confirmation, and the destructive opt-in variables
+set by this workflow. The normal local demo seed remains protected by the
+local-target guard.
+
 ## Main branch protection
 
 Configure these rules in the GitHub repository settings for `main`:
@@ -190,6 +247,8 @@ Configure these rules in the GitHub repository settings for `main`:
   solo-maintainer workflow;
 - require `CI / client`, `CI / server`, and the CodeQL check exposed by
   repository default setup;
+- keep `CI / production-migrate` visible as the post-merge production database
+  gate; it requires the protected `production` Environment approval;
 - require `Security / dependency-review` if GitHub exposes the skipped-on-push
   dependency job as a stable pull-request check;
 - require the branch to be up to date when compatible with the merge workflow;
@@ -206,6 +265,7 @@ are external state and cannot be verified from this source checkout.
 - [ ] Prisma migration review is complete.
 - [ ] Pull request is merged to `main`.
 - [ ] Main-branch CI and security checks are green.
+- [ ] `CI / production-migrate` is approved and green for the main commit.
 - [ ] Production deployment is released only after those checks pass.
 - [ ] Frontend smoke check passes.
 - [ ] Backend `/api/health` check passes.

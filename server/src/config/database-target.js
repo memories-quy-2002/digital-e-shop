@@ -1,4 +1,6 @@
 const LOCAL_DATABASE_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+const DESTRUCTIVE_DEMO_SEED_MODE = "full-reset";
+const DEMO_SEED_CONFIRMATION = "RESET_DEMO_DATABASE";
 
 const normalizeHost = (host) => String(host || "").trim().toLowerCase().replace(/^\[|\]$/g, "");
 
@@ -91,8 +93,43 @@ function assertLocalDatabaseTarget({ dbHost, databaseUrl } = {}) {
     }
 }
 
+/**
+ * Allows the manual, destructive demo reset workflow to use an explicitly
+ * approved remote target without weakening the normal local-only seed guard.
+ * @param {DatabaseTargetOptions & {mode?: string, confirmation?: string, allowRemoteDatabase?: boolean}} options
+ */
+function assertExplicitDemoSeedTarget({
+    dbHost,
+    databaseUrl,
+    mode,
+    confirmation,
+    allowRemoteDatabase = false,
+} = {}) {
+    if (
+        mode !== DESTRUCTIVE_DEMO_SEED_MODE ||
+        confirmation !== DEMO_SEED_CONFIRMATION ||
+        !allowRemoteDatabase
+    ) {
+        throw new Error(
+            `Refusing destructive demo seed. Set DEMO_SEED_MODE=${DESTRUCTIVE_DEMO_SEED_MODE}, ` +
+                `ALLOW_DESTRUCTIVE_DEMO_SEED=true, and DEMO_SEED_CONFIRMATION=${DEMO_SEED_CONFIRMATION}.`,
+        );
+    }
+
+    const { hosts, invalidUrl } = inspectDatabaseTarget({ dbHost, databaseUrl });
+
+    if (invalidUrl || hosts.length === 0) {
+        throw new Error(
+            "Destructive demo seed requires a configured database target before any connection is opened.",
+        );
+    }
+}
+
 module.exports = {
+    assertExplicitDemoSeedTarget,
     assertLocalDatabaseTarget,
     assertSafeDatabaseTarget,
+    DEMO_SEED_CONFIRMATION,
+    DESTRUCTIVE_DEMO_SEED_MODE,
     isPrismaGenerateCommand,
 };

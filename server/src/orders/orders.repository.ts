@@ -7,7 +7,7 @@ import type {
     QueryParams,
     UpdateResult,
 } from "#src/shared/interfaces/domain";
-import type { OrderBySessionRow, OrderDetailRow, OrderSummaryRow, PendingCheckoutRow } from "./orders.types";
+import type { GuestOrderIdentityRow, OrderBySessionRow, OrderDetailRow, OrderSummaryRow, PendingCheckoutRow } from "./orders.types";
 import type { PromotionRow } from "../promotions/promotions.types";
 import { PromotionsRepository } from "../promotions/promotions.repository";
 
@@ -70,8 +70,11 @@ export class OrdersRepository {
     private readonly orderSelect = `
         o.id,
         o.user_id,
-        COALESCE(u.username, o.user_id) AS customer_name,
-        u.email AS customer_email,
+        o.guest_email,
+        o.guest_name,
+        o.guest_phone,
+        COALESCE(o.guest_name, u.username, o.user_id) AS customer_name,
+        COALESCE(o.guest_email, u.email) AS customer_email,
         DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added,
         o.total_price,
         o.discount,
@@ -125,8 +128,8 @@ export class OrdersRepository {
                 op.amount AS payment_amount,
                 op.currency AS payment_currency,
                 op.simulated AS payment_simulated,
-                COALESCE(u.username, o.user_id) AS customer_name,
-                u.email AS customer_email,
+                COALESCE(o.guest_name, u.username, o.user_id) AS customer_name,
+                COALESCE(o.guest_email, u.email) AS customer_email,
                 DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added,
                 oi.id AS order_item_id,
                 oi.product_id,
@@ -152,6 +155,17 @@ export class OrdersRepository {
             LEFT JOIN categories c ON c.id = p.category_id
             LEFT JOIN brands b ON b.id = p.brand_id
             WHERE o.id = ?`,
+            [orderId],
+            callback,
+        );
+    }
+
+    getGuestOrderIdentity(orderId: number, callback: QueryCallback<GuestOrderIdentityRow[]>) {
+        this.query(
+            `SELECT id, user_id, guest_email, guest_name, guest_phone, guest_order_token_hash
+             FROM orders
+             WHERE id = ? AND user_id IS NULL
+             LIMIT 1`,
             [orderId],
             callback,
         );
@@ -226,9 +240,21 @@ export class OrdersRepository {
 
     getPendingCheckoutBySessionId(stripeSessionId: string, callback: QueryCallback<PendingCheckoutRow[]>) {
         this.query(
-            `SELECT id, stripe_session_id, reservation_token, user_id, cart_json, total_price, discount,
+            `SELECT id, stripe_session_id, reservation_token, user_id, guest_email, guest_name, guest_phone,
+                    guest_order_token_hash, cart_json, total_price, discount,
                     shipping_address, status, expires_at, discount_id, created_at, consumed_at
             FROM pending_checkouts WHERE stripe_session_id = ? LIMIT 1`,
+            [stripeSessionId],
+            callback,
+        );
+    }
+
+    getGuestOrderIdentityBySessionId(stripeSessionId: string, callback: QueryCallback<GuestOrderIdentityRow[]>) {
+        this.query(
+            `SELECT o.id, o.user_id, o.guest_email, o.guest_name, o.guest_phone, o.guest_order_token_hash
+             FROM orders o
+             WHERE o.stripe_checkout_session_id = ? AND o.user_id IS NULL
+             LIMIT 1`,
             [stripeSessionId],
             callback,
         );

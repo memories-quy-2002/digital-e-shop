@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import pool from "#src/config/database.config";
 import type { InsertResult, QueryCallback } from "#src/shared/interfaces/domain";
 import type { PromotionPayload } from "./promotions.dto";
-import type { PromotionRow } from "./promotions.types";
+import type { PromotionRedemptionUserId, PromotionRow } from "./promotions.types";
 import type { TransactionContext } from "../database/transaction";
 
 type QueryParams = unknown[] | Record<string, unknown> | QueryCallback | undefined;
@@ -100,7 +100,7 @@ export class PromotionsRepository {
         tx: TransactionContext,
         discountCode: string,
         pendingCheckoutId: number,
-        userId: string,
+        userId: PromotionRedemptionUserId,
         expiresAt: Date,
         totalPrice: number,
     ): Promise<PromotionReservationResult> {
@@ -131,7 +131,7 @@ export class PromotionsRepository {
     async consumePromotion(
         tx: TransactionContext,
         discountCode: string,
-        userId: string,
+        userId: PromotionRedemptionUserId,
         orderId: number,
         totalPrice: number,
     ): Promise<PromotionReservationResult> {

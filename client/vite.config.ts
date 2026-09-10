@@ -9,6 +9,7 @@ const clientRoot = fileURLToPath(new URL(".", import.meta.url));
 export default defineConfig({
     plugins: [react(), tailwindcss()],
     base: "/", // Ensure this is set correctly
+    cacheDir: ".vite",
     resolve: {
         alias: {
             "@": path.resolve(clientRoot, "src"),

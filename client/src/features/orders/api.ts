@@ -1,7 +1,54 @@
 import http from "../../lib/http";
-import type { CustomerOrder, CustomerOrderDetail } from "./types";
+import { normalizeCartQuantity } from "./guestCartStorage";
+import {
+    type CartValidationIssue,
+    type CustomerCartValidation,
+    type CheckoutCartItem,
+    normalizeCheckoutCartItems,
+    type CustomerOrder,
+    type CustomerOrderDetail,
+    type GuestCheckoutSessionRequest,
+    type GuestCheckoutSessionResponse,
+    type GuestCartItemInput,
+    type GuestOrderDetail,
+    type GuestCartPreview,
+    type GuestPurchaseRequest,
+    type GuestPurchaseResponse,
+} from "./types";
 
 export type { CustomerOrder, CustomerOrderDetail } from "./types";
+
+const normalizeCartItems = (items: unknown): CheckoutCartItem[] =>
+    normalizeCheckoutCartItems(Array.isArray(items) ? items : []);
+
+export async function fetchCustomerCart(uid: string): Promise<CheckoutCartItem[]> {
+    const response = await http.get(`/api/cart/${uid}`);
+    return normalizeCartItems(response.data.cartItems);
+}
+
+export async function updateCustomerCartItem(uid: string, cartItemId: number, quantity: number): Promise<void> {
+    const normalizedQuantity = normalizeCartQuantity(quantity);
+    if (normalizedQuantity === null) return;
+    await http.put("/api/cart/", { uid, cartItemId, quantity: normalizedQuantity });
+}
+
+export async function removeCustomerCartItem(cartItemId: number): Promise<void> {
+    await http.delete("/api/cart/", { data: { cartItemId } });
+}
+
+export async function validateCustomerCart(uid: string): Promise<CustomerCartValidation> {
+    const response = await http.get(`/api/cart/${uid}/validation`);
+    return {
+        valid: response.data.valid === true,
+        cartItems: normalizeCartItems(response.data.cartItems),
+        issues: (response.data.issues || []) as CartValidationIssue[],
+    };
+}
+
+export async function applyCustomerDiscount(code: string, price: number): Promise<{ newPrice: number }> {
+    const response = await http.post("/api/orders/discount", { discountCode: code, price });
+    return { newPrice: Number(response.data.newPrice) };
+}
 
 export async function fetchCustomerOrders(uid: string): Promise<CustomerOrder[]> {
     const response = await http.get(`/api/orders/user/${uid}`);
@@ -23,12 +70,56 @@ export async function addItemsToCustomerCart(
     items: Array<{ productId: number; quantity: number; stock: number }>,
 ): Promise<void> {
     await Promise.all(
-        items.map((item) =>
-            http.post("/api/cart/", {
-                uid,
-                pid: item.productId,
-                quantity: Math.min(item.quantity, item.stock),
-            }),
-        ),
+        items.map((item) => {
+            const quantity = normalizeCartQuantity(Math.min(item.quantity, item.stock));
+            if (quantity === null) return Promise.resolve();
+            return http.post("/api/cart/", { uid, pid: item.productId, quantity });
+        }),
     );
+}
+
+export async function previewGuestCart(
+    items: GuestCartItemInput[],
+    discountCode?: string,
+): Promise<GuestCartPreview> {
+    const response = await http.post("/api/cart/guest/preview", {
+        items,
+        ...(discountCode ? { discountCode } : {}),
+    });
+    return {
+        ...response.data,
+        cartItems: normalizeCartItems(response.data.cartItems),
+        issues: response.data.issues || [],
+        promotion: response.data.promotion || {
+            code: null,
+            valid: false,
+            discount: 0,
+            discountPercent: null,
+        },
+    } as GuestCartPreview;
+}
+
+export async function createGuestPurchase(payload: GuestPurchaseRequest): Promise<GuestPurchaseResponse> {
+    const response = await http.post("/api/orders/guest/purchase", payload);
+    return response.data as GuestPurchaseResponse;
+}
+
+export async function createGuestCheckoutSession(
+    payload: GuestCheckoutSessionRequest,
+): Promise<GuestCheckoutSessionResponse> {
+    const response = await http.post("/api/orders/guest/checkout-session", payload);
+    return response.data as GuestCheckoutSessionResponse;
+}
+
+export async function lookupGuestOrder(orderId: number, guestOrderToken: string): Promise<GuestOrderDetail> {
+    const response = await http.post("/api/orders/guest/lookup", { orderId, guestOrderToken });
+    return response.data.order as GuestOrderDetail;
+}
+
+export async function fetchGuestOrderBySession(
+    sessionId: string,
+    guestOrderToken: string,
+): Promise<GuestOrderDetail> {
+    const response = await http.post("/api/orders/guest/by-session", { sessionId, guestOrderToken });
+    return response.data.order as GuestOrderDetail;
 }

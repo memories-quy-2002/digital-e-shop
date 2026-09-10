@@ -1,10 +1,11 @@
 import React, { JSX, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { CartIcon, BellIcon, HeartIcon, PersonIcon, SearchIcon } from "../common/Icons";
+import { CartIcon, BellIcon, HeartIcon, PersonIcon, SearchIcon, SpeedometerIcon } from "../common/Icons";
 import ColorSchemeDropdown from "../common/ColorSchemeDropdown";
 import LanguageDropdown from "../common/LanguageDropdown";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
+import { Role } from "../../types/user";
 import "../../styles/layout/_header.scss";
 import { useToast } from "../../context/ToastContext";
 import axios from "../../api/axios";
@@ -65,6 +66,7 @@ export const Header = (): JSX.Element => {
         const fullName = [userData.first_name, userData.last_name].filter(Boolean).join(" ").trim();
         return fullName || userData.username || userData.email || t("common.account");
     }, [userData, t]);
+    const isAdmin = Boolean(userData && !loading && userData.role === Role.Admin);
 
     const submitSearch = useCallback(
         (term?: string) => {
@@ -138,6 +140,14 @@ export const Header = (): JSX.Element => {
 
         navigate("/login");
     };
+
+    const handleAdminNavigation = () => {
+        navigate("/admin");
+        setIsProfileMenuOpen(false);
+        setIsMenuOpen(false);
+    };
+
+    const handleCartNavigation = () => navigate("/cart");
 
     const closeMenu = () => setIsMenuOpen(false);
 
@@ -378,7 +388,7 @@ export const Header = (): JSX.Element => {
                         <button
                             type="button"
                             className="header__action header__action--badge"
-                            onClick={() => handleRequireLogin("/cart")}
+                            onClick={handleCartNavigation}
                             aria-label={t("common.cart")}
                         >
                             <CartIcon size={20} />
@@ -411,6 +421,16 @@ export const Header = (): JSX.Element => {
 
                             {isProfileMenuOpen ? (
                                 <div className="header__profile__menu">
+                                    {isAdmin ? (
+                                        <button
+                                            type="button"
+                                            className="header__profile__item header__profile__item--admin"
+                                            onClick={handleAdminNavigation}
+                                        >
+                                            <SpeedometerIcon size={18} />
+                                            <span>Back to Admin</span>
+                                        </button>
+                                    ) : null}
                                     <button
                                         type="button"
                                         className="header__profile__item"
@@ -437,7 +457,7 @@ export const Header = (): JSX.Element => {
                                         type="button"
                                         className="header__profile__item"
                                         onClick={() => {
-                                            handleRequireLogin("/cart");
+                                            handleCartNavigation();
                                             setIsProfileMenuOpen(false);
                                         }}
                                     >
@@ -514,6 +534,16 @@ export const Header = (): JSX.Element => {
                 </nav>
 
                 <div className="header__mobile__actions">
+                    {isAdmin ? (
+                        <button
+                            type="button"
+                            className="header__profile__item--admin header__mobile__admin-link"
+                            onClick={handleAdminNavigation}
+                        >
+                            <SpeedometerIcon size={18} />
+                            Back to Admin
+                        </button>
+                    ) : null}
                     <button
                         type="button"
                         onClick={() => {
@@ -547,7 +577,7 @@ export const Header = (): JSX.Element => {
                     <button
                         type="button"
                         onClick={() => {
-                            handleRequireLogin("/cart");
+                            handleCartNavigation();
                             closeMenu();
                         }}
                     >

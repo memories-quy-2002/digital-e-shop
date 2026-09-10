@@ -1,0 +1,8 @@
+#!/bin/sh
+
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+exec pnpm --dir server exec commitlint --edit "$1"

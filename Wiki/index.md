@@ -4,17 +4,22 @@ The long-term knowledge base for the Digital-E e-commerce system. Readable in Ob
 
 **Project summary:** Digital-E is a full-stack e-commerce platform for electronic components and devices, built as two independent pnpm packages: a React 19 + Vite storefront/admin (`client/`) and a NestJS + TypeScript API (`server/`, migrated from Express 5 — see [[0002-nestjs-migration]]) backed primarily by MySQL with a partial Prisma layer.
 
-**Last updated:** 2026-09-08
+**Last updated:** 2026-09-09
 
 The local MySQL demo seed creates and verifies a linked multi-table graph with
 28 catalog products, each using a unique HTTPS stock image URL. The seed stays
 non-destructive for normal reruns; Docker reset is an explicit local-only
-operation.
+operation. A separately protected, manual GitHub Actions workflow can rebuild
+the selected production database from the committed legacy baseline before
+running the same demo seed and verifier.
 
 Checkout follows the dark technical storefront language with a progress rail,
 scoped payment/shipping panels, and normalized client-side email validation.
 Transient Toasts use a portal-mounted viewport outside the app shell, while
 contextual validation stays next to the action that needs attention.
+Successful checkout clears the active cart, preserves a structured shipping
+snapshot for order detail, and offers prior order addresses as one-click
+checkout suggestions.
 
 ## Core pages
 
@@ -25,6 +30,9 @@ contextual validation stays next to the action that needs attention.
 - [[log]] — append-only wiki/AI-maintenance change log.
 - [[0003-payment-ledger-and-usd-canonical-currency]] — payment providers, USD canonical amounts, and PayOS VND quotes.
 - [[order-lifecycle-and-support]] — cancellation, review eligibility, and support-ticket rules.
+
+- [[guest-checkout]] - guest cart persistence, authoritative checkout, and token-protected lookup.
+- [[0004-guest-cart-and-checkout]] - accepted guest access model and security boundaries.
 
 ## Catalog
 

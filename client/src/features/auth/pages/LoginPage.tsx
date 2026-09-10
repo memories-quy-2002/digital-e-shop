@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Form } from "../../../components/ui/legacy";
-import { Helmet } from "react-helmet";
-import { Link, useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import authImage from "../../../assets/images/background_form.jpg";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
@@ -12,6 +12,7 @@ import { Role } from "../../../types/user";
 import { EyeIcon, EyeOffIcon } from "../../../components/common/Icons";
 import { loginUser } from "../api";
 import { isLocalAuth } from "../../../lib/env";
+import { getSafeRedirectTarget } from "../authRedirect";
 
 interface User {
     email: string;
@@ -20,6 +21,7 @@ interface User {
 
 const LoginPage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { addToast } = useToast();
     const [user, setUser] = useState<User>({
         email: "",
@@ -98,7 +100,9 @@ const LoginPage = () => {
             }
             setUserData(userDataResult);
             addToast("Login", "You have been logon successfully");
-            navigate(userDataResult?.role === Role.Admin ? "/admin" : "/");
+            const requestedPath = getSafeRedirectTarget(new URLSearchParams(location.search).get("redirect"));
+            const destination = userDataResult?.role === Role.Admin ? requestedPath || "/admin" : "/";
+            navigate(destination, { replace: true });
         } catch (err: unknown) {
             if (err && typeof err === "object" && "response" in err) {
                 const axiosError = err as { response: { status: number; data: { msg: string } } };

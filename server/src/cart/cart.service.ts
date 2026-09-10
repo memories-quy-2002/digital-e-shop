@@ -4,6 +4,8 @@ import type {
     CartCheckoutItem,
     CartItemRow,
     CartRow,
+    GuestCartItemInput,
+    GuestCartPreviewResult,
     CartValidationIssue,
     CartValidationResult,
     CheckoutMismatch,
@@ -11,8 +13,10 @@ import type {
     CheckoutValidationResult,
 } from "./cart.types";
 import type { ProductEditorRow } from "../products/products.types";
+import type { PromotionRow } from "../promotions/promotions.types";
 import { CartRepository } from "./cart.repository";
 import { NestProductsRepository } from "../products/products.repository";
+import { PromotionsRepository } from "../promotions/promotions.repository";
 
 const normalizeOptionalSalePrice = (value: unknown): number | null => {
     if (value === null || value === undefined || value === "") {
@@ -35,7 +39,13 @@ export function buildCartValidationIssue(item: CartItemRow): CartValidationIssue
     const rawAvailableStock = item.available_stock ?? item.stock;
     const availableStock = rawAvailableStock === null || rawAvailableStock === undefined ? 0 : Number(rawAvailableStock) || 0;
 
-    if (!productId || rawAvailableStock === null || rawAvailableStock === undefined || availableStock < 0) {
+    if (
+        !productId
+        || rawAvailableStock === null
+        || rawAvailableStock === undefined
+        || availableStock < 0
+        || (item.stock !== null && item.stock !== undefined && Number(item.stock) < 0)
+    ) {
         return {
             cartItemId,
             productId,
@@ -80,6 +90,97 @@ export function buildCartValidationResult(cartItems: CartItemRow[]): CartValidat
         valid: cartItems.length > 0 && issues.length === 0,
         cartItems,
         issues,
+    };
+}
+
+export function coalesceGuestCartItems(items: GuestCartItemInput[]): GuestCartItemInput[] {
+    const quantities = new Map<number, number>();
+    for (const item of items) {
+        const productId = Number(item.productId);
+        const quantity = Number(item.quantity);
+        if (!Number.isSafeInteger(productId) || productId <= 0 || !Number.isSafeInteger(quantity) || quantity <= 0) {
+            continue;
+        }
+        quantities.set(productId, (quantities.get(productId) || 0) + quantity);
+    }
+
+    return Array.from(quantities, ([productId, quantity]) => ({ productId, quantity }));
+}
+
+const roundCurrency = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+export function buildGuestCartPreviewResult(
+    requestedItems: GuestCartItemInput[],
+    products: CartItemRow[],
+    promotion: Pick<PromotionRow, "discount_code" | "discount_percent" | "min_order_value"> | null,
+    requestedDiscountCode?: string,
+): GuestCartPreviewResult {
+    const productsById = new Map(products.map((product) => [Number(product.product_id || 0), product]));
+    const cartItems = requestedItems.map((requestedItem) => {
+        const product = productsById.get(requestedItem.productId);
+        if (!product) {
+            return {
+                product_id: requestedItem.productId,
+                product_name: `Product #${requestedItem.productId}`,
+                quantity: requestedItem.quantity,
+                price: 0,
+                sale_price: null,
+                stock: null,
+                available_stock: null,
+            } satisfies CartItemRow;
+        }
+
+        return { ...product, quantity: requestedItem.quantity };
+    });
+    const merchandiseTotal = roundCurrency(cartItems.reduce((total, item) => {
+        const unitPrice = (normalizeOptionalSalePrice(item.sale_price) ?? Number(item.price)) || 0;
+        return total + unitPrice * (Number(item.quantity) || 0);
+    }, 0));
+    const cartValidation = buildCartValidationResult(cartItems);
+    const discountCode = String(requestedDiscountCode || "").trim().toUpperCase();
+
+    let promotionPreview: GuestCartPreviewResult["promotion"] = {
+        code: null,
+        valid: true,
+        discount: 0,
+        discountPercent: null,
+    };
+
+    if (discountCode && !promotion) {
+        promotionPreview = {
+            code: discountCode,
+            valid: false,
+            discount: 0,
+            discountPercent: null,
+            message: "Discount code is no longer valid.",
+        };
+    } else if (promotion) {
+        const minimumOrderValue = Number(promotion.min_order_value) || 0;
+        if (merchandiseTotal < minimumOrderValue) {
+            promotionPreview = {
+                code: promotion.discount_code,
+                valid: false,
+                discount: 0,
+                discountPercent: Number(promotion.discount_percent) || 0,
+                message: `This promotion requires a minimum order of $${minimumOrderValue.toFixed(2)}.`,
+            };
+        } else {
+            const discount = roundCurrency(merchandiseTotal * ((Number(promotion.discount_percent) || 0) / 100));
+            promotionPreview = {
+                code: promotion.discount_code,
+                valid: true,
+                discount,
+                discountPercent: Number(promotion.discount_percent) || 0,
+            };
+        }
+    }
+
+    return {
+        ...cartValidation,
+        valid: cartValidation.valid && promotionPreview.valid,
+        merchandiseTotal,
+        promotion: promotionPreview,
+        totalPrice: roundCurrency(Math.max(merchandiseTotal - promotionPreview.discount, 0)),
     };
 }
 
@@ -193,6 +294,7 @@ export class NestCartService {
     constructor(
         private readonly cartRepository: CartRepository,
         private readonly productsRepository: NestProductsRepository,
+        private readonly promotionsRepository: PromotionsRepository,
     ) {}
 
     async addItemToCart(pid: number, uid: string, quantity: number): Promise<ServiceResultMessage> {
@@ -271,6 +373,27 @@ export class NestCartService {
     async validateCartForCheckout(uid: string): Promise<CartValidationResult> {
         const cartItems = await this.getCheckoutCartItems(uid);
         return buildCartValidationResult(cartItems);
+    }
+
+    async previewGuestCart(items: GuestCartItemInput[], discountCode?: string): Promise<GuestCartPreviewResult> {
+        const requestedItems = coalesceGuestCartItems(items);
+        const products = await new Promise<CartItemRow[]>((resolve, reject) => {
+            this.cartRepository.getGuestCartPreviewItems(
+                requestedItems.map((item) => item.productId),
+                (err: DbError | null, results: CartItemRow[]) => err ? reject(err) : resolve(results || []),
+            );
+        });
+        const normalizedDiscountCode = String(discountCode || "").trim().toUpperCase();
+        const promotion = normalizedDiscountCode
+            ? await new Promise<PromotionRow | null>((resolve, reject) => {
+                this.promotionsRepository.getActivePromotionByCode(normalizedDiscountCode, (err: DbError | null, results: PromotionRow[]) => {
+                    if (err) return reject(err);
+                    resolve(results?.[0] || null);
+                });
+            })
+            : null;
+
+        return buildGuestCartPreviewResult(requestedItems, products, promotion, normalizedDiscountCode);
     }
 
     async validateCheckoutSubmission(

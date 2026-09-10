@@ -184,7 +184,11 @@ model Discount {
 
 model Order {
   id                      Int       @id @default(autoincrement())
-  userId                  String    @map("user_id") @db.VarChar(255)
+  userId                  String?   @map("user_id") @db.VarChar(255)
+  guestEmail              String?   @map("guest_email") @db.VarChar(255)
+  guestName               String?   @map("guest_name") @db.VarChar(160)
+  guestPhone              String?   @map("guest_phone") @db.VarChar(40)
+  guestOrderTokenHash     String?   @unique(map: "uq_orders_guest_order_token_hash") @map("guest_order_token_hash") @db.Char(64)
   totalPrice              Decimal   @map("total_price") @db.Decimal(11, 2)
   discount                Decimal   @default(0) @db.Decimal(11, 2)
   shippingAddress         String    @map("shipping_address") @db.Text
@@ -197,36 +201,42 @@ model Order {
   inventoryRestoredAt     DateTime? @map("inventory_restored_at") @db.DateTime(0)
   cancellationReason      String?   @map("cancellation_reason") @db.Text
 
-  user                User                 @relation(fields: [userId], references: [id])
+  user                User?                @relation(fields: [userId], references: [id])
   items               OrderItem[]
   discountRedemptions DiscountRedemption[]
   payments            OrderPayment[]
   supportTickets      SupportTicket[]
 
+  @@index([guestEmail], map: "idx_orders_guest_email")
   @@map("orders")
 }
 
 model PendingCheckout {
-  id               Int       @id @default(autoincrement())
-  stripeSessionId  String?   @unique(map: "uq_pending_checkouts_session") @map("stripe_session_id") @db.VarChar(255)
-  reservationToken String    @unique(map: "uq_pending_checkouts_reservation_token") @map("reservation_token") @db.Char(36)
-  userId           String    @map("user_id") @db.VarChar(255)
-  cartJson         String    @map("cart_json") @db.Text
-  totalPrice       Decimal   @map("total_price") @db.Decimal(11, 2)
-  discount         Decimal   @default(0) @db.Decimal(11, 2)
-  shippingAddress  String    @map("shipping_address") @db.Text
-  status           String    @default("PENDING") @db.VarChar(20)
-  expiresAt        DateTime  @map("expires_at") @db.DateTime(0)
-  discountId       Int?      @map("discount_id")
-  createdAt        DateTime  @default(now()) @map("created_at") @db.DateTime(0)
-  consumedAt       DateTime? @map("consumed_at") @db.DateTime(0)
+  id                  Int       @id @default(autoincrement())
+  stripeSessionId     String?   @unique(map: "uq_pending_checkouts_session") @map("stripe_session_id") @db.VarChar(255)
+  reservationToken    String    @unique(map: "uq_pending_checkouts_reservation_token") @map("reservation_token") @db.Char(36)
+  userId              String?   @map("user_id") @db.VarChar(255)
+  guestEmail          String?   @map("guest_email") @db.VarChar(255)
+  guestName           String?   @map("guest_name") @db.VarChar(160)
+  guestPhone          String?   @map("guest_phone") @db.VarChar(40)
+  guestOrderTokenHash String?   @unique(map: "uq_pending_checkouts_guest_order_token_hash") @map("guest_order_token_hash") @db.Char(64)
+  cartJson            String    @map("cart_json") @db.Text
+  totalPrice          Decimal   @map("total_price") @db.Decimal(11, 2)
+  discount            Decimal   @default(0) @db.Decimal(11, 2)
+  shippingAddress     String    @map("shipping_address") @db.Text
+  status              String    @default("PENDING") @db.VarChar(20)
+  expiresAt           DateTime  @map("expires_at") @db.DateTime(0)
+  discountId          Int?      @map("discount_id")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  consumedAt          DateTime? @map("consumed_at") @db.DateTime(0)
 
-  user                  User                   @relation(fields: [userId], references: [id])
+  user                  User?                  @relation(fields: [userId], references: [id])
   promotion             Discount?              @relation(fields: [discountId], references: [id])
   inventoryReservations InventoryReservation[]
   discountRedemptions   DiscountRedemption[]
 
   @@index([status, expiresAt], map: "pending_checkouts_status_expiry_idx")
+  @@index([guestEmail], map: "idx_pending_checkouts_guest_email")
   @@map("pending_checkouts")
 }
 
@@ -250,7 +260,7 @@ model DiscountRedemption {
   discountId        Int       @map("discount_id")
   pendingCheckoutId Int?      @unique(map: "uq_discount_redemptions_pending_checkout") @map("pending_checkout_id")
   orderId           Int?      @unique(map: "uq_discount_redemptions_order") @map("order_id")
-  userId            String    @map("user_id") @db.VarChar(255)
+  userId            String?   @map("user_id") @db.VarChar(255)
   status            String    @db.VarChar(20)
   expiresAt         DateTime? @map("expires_at") @db.DateTime(0)
   createdAt         DateTime  @default(now()) @map("created_at") @db.DateTime(0)

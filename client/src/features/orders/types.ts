@@ -62,6 +62,112 @@ export type CartValidationIssue = {
     reason: "unavailable" | "out_of_stock" | "insufficient_stock";
 };
 
+export type GuestCartItemInput = {
+    productId: number;
+    quantity: number;
+};
+
+export type GuestPaymentMethod = "cash" | "bank_transfer" | "payos";
+export type GuestCardPaymentMethod = "card" | "stripe";
+
+export type GuestCheckoutContact = {
+    email: string;
+    name: string;
+    phone?: string;
+};
+
+export type GuestCheckoutShipping = {
+    address: string;
+    city: string;
+    country: string;
+};
+
+export type GuestPurchaseRequest = {
+    cart: GuestCartItemInput[];
+    contact: GuestCheckoutContact;
+    shipping: GuestCheckoutShipping;
+    discountCode?: string;
+    paymentMethod: GuestPaymentMethod;
+};
+
+export type GuestCheckoutSessionRequest = {
+    cart: GuestCartItemInput[];
+    contact: GuestCheckoutContact;
+    shipping: GuestCheckoutShipping;
+    discountCode?: string;
+    paymentMethod: GuestCardPaymentMethod;
+};
+
+export type GuestOrderItem = {
+    productId: number;
+    sku?: string | null;
+    productName: string;
+    category: string;
+    brand: string;
+    warrantyMonths?: number | null;
+    specifications?: string | null;
+    price: number;
+    sale_price: number | null;
+    stock: number;
+    main_image: string;
+    quantity: number;
+    totalPrice: number;
+};
+
+export type GuestOrderDetail = {
+    id: number;
+    date_added: string;
+    guest_email: string | null;
+    guest_name: string | null;
+    guest_phone: string | null;
+    status: number;
+    total_price: number;
+    discount: number;
+    shipping_address?: string | null;
+    payment_method?: string | null;
+    currency?: string | null;
+    payment_status?: string | null;
+    payment_amount?: number | null;
+    payment_currency?: string | null;
+    payment_simulated?: boolean | number | null;
+    items: GuestOrderItem[];
+};
+
+export type GuestPurchaseResponse = {
+    orderId: number;
+    order: { id: number; date_added: string; total_price?: number; discount?: number };
+    guestOrderToken: string;
+    paymentMethod: GuestPaymentMethod;
+};
+
+export type GuestCheckoutSessionResponse = {
+    url: string;
+    guestOrderToken: string;
+};
+
+export type GuestCartPromotionPreview = {
+    code: string | null;
+    valid: boolean;
+    discount: number;
+    discountPercent: number | null;
+    message?: string;
+};
+
+export type GuestCartPreview = {
+    valid: boolean;
+    cartItems: CheckoutCartItem[];
+    issues: CartValidationIssue[];
+    merchandiseTotal: number;
+    promotion: GuestCartPromotionPreview;
+    totalPrice: number;
+};
+
+export type CustomerCartValidation = {
+    valid: boolean;
+    cartItems: CheckoutCartItem[];
+    issues: CartValidationIssue[];
+};
+
 const normalizeOptionalSalePrice = (value: unknown) => {
     if (value === null || value === undefined || value === "") {
         return null;

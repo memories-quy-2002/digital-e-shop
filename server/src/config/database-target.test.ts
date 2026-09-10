@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+    assertExplicitDemoSeedTarget,
     assertLocalDatabaseTarget,
     assertSafeDatabaseTarget,
+    DEMO_SEED_CONFIRMATION,
+    DESTRUCTIVE_DEMO_SEED_MODE,
     isPrismaGenerateCommand,
 } from "./database-target";
 
@@ -63,5 +66,40 @@ describe("database target guards", () => {
             dbHost: "mysql.example.test",
             databaseUrl: "mysql://root:password@mysql.example.test:3306/digital_e_shop",
         })).toThrow("Refusing to use a non-local database target");
+    });
+
+    it("rejects a remote demo reset without every explicit destructive opt-in", () => {
+        expect(() => assertExplicitDemoSeedTarget({
+            dbHost: "mysql.example.test",
+            databaseUrl: "mysql://root:password@mysql.example.test:3306/digital_e_shop",
+            mode: DESTRUCTIVE_DEMO_SEED_MODE,
+            confirmation: DEMO_SEED_CONFIRMATION,
+        })).toThrow("Refusing destructive demo seed");
+
+        expect(() => assertExplicitDemoSeedTarget({
+            dbHost: "mysql.example.test",
+            databaseUrl: "mysql://root:password@mysql.example.test:3306/digital_e_shop",
+            mode: "full-reset",
+            confirmation: "wrong-confirmation",
+            allowRemoteDatabase: true,
+        })).toThrow("Refusing destructive demo seed");
+    });
+
+    it("allows a remote demo reset only with the exact workflow opt-ins", () => {
+        expect(() => assertExplicitDemoSeedTarget({
+            dbHost: "mysql.example.test",
+            databaseUrl: "mysql://root:password@mysql.example.test:3306/digital_e_shop",
+            mode: DESTRUCTIVE_DEMO_SEED_MODE,
+            confirmation: DEMO_SEED_CONFIRMATION,
+            allowRemoteDatabase: true,
+        })).not.toThrow();
+    });
+
+    it("requires a configured target for the explicit demo reset", () => {
+        expect(() => assertExplicitDemoSeedTarget({
+            mode: DESTRUCTIVE_DEMO_SEED_MODE,
+            confirmation: DEMO_SEED_CONFIRMATION,
+            allowRemoteDatabase: true,
+        })).toThrow("configured database target");
     });
 });

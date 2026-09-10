@@ -1,9 +1,10 @@
 import http from "../../lib/http";
 import { normalizeProductWithAttributes, type ProductWithAttributes } from "../products/api";
 import type { AdminOrder, AdminOrderDetail, AdminOrderItem, AdminCustomerProfile } from "../../types/order";
+import type { DashboardRange } from "./utils/dashboardRange";
 
-export async function fetchAnalyticsSummary(): Promise<any> {
-    const response = await http.get("/api/analytics/summary");
+export async function fetchAnalyticsSummary(range: DashboardRange = "30d"): Promise<any> {
+    const response = await http.get("/api/analytics/summary", { params: { range } });
     return response.data;
 }
 
@@ -22,7 +23,7 @@ export async function fetchAdminOrders(page = 1, limit = 80): Promise<AdminOrder
     return response.data.orders || [];
 }
 
-export async function fetchAllOrders(): Promise<any[]> {
+export async function fetchAllOrders(): Promise<AdminOrder[]> {
     const response = await http.get("/api/orders");
     return response.data.orders || [];
 }

@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { Button, Container, Modal } from "../../../components/ui/legacy";
-import { Helmet } from "react-helmet";
+import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import AsideCart from "../../../components/common/AsideCart";
 import CartItem from "../../../components/common/CartItem";
@@ -28,6 +28,8 @@ const CartPage = () => {
         discountCode,
         subtotal,
         validationIssues,
+        status: cartStatus,
+        error: cartError,
         isLoading: isCartLoading,
         isRemovingItem,
         pendingRemoveItem,
@@ -37,7 +39,12 @@ const CartPage = () => {
         cancelRemoveItem,
         applyDiscount,
         validateBeforeCheckout,
+        fetchCart,
         onValidationRefresh,
+        isGuest,
+        hasGuestItems,
+        mergeStatus,
+        mergeGuestCart,
     } = useCart();
     const [show, setShow] = useState<boolean>(false);
     const [isPayment, setIsPayment] = useState<boolean>(false);
@@ -160,10 +167,35 @@ const CartPage = () => {
         [onValidationRefresh],
     );
 
+    const handleMergeGuestCart = useCallback(async () => {
+        const result = await mergeGuestCart();
+        if (result.complete) {
+            addToast("Guest cart", "Guest cart items were merged successfully.");
+        } else if (result.accepted.length > 0) {
+            addToast("Guest cart", "Some guest cart items could not be merged.");
+        }
+    }, [addToast, mergeGuestCart]);
+
     if (isCartLoading && cart.length === 0) {
         return (
             <Layout>
                 <LoadingScreen variant="page" />
+            </Layout>
+        );
+    }
+
+    if (cartStatus === "error" && cart.length === 0) {
+        return (
+            <Layout>
+                <Container fluid className="cart app-page">
+                    <div className="cart__state cart__state--error" role="alert" aria-live="assertive">
+                        <strong>{t("cart.loadErrorTitle")}</strong>
+                        <p>{cartError || t("cart.loadError")}</p>
+                        <button type="button" onClick={() => void fetchCart()} disabled={isCartLoading}>
+                            {t("cart.retry")}
+                        </button>
+                    </div>
+                </Container>
             </Layout>
         );
     }
@@ -175,6 +207,15 @@ const CartPage = () => {
                 <meta name="description" content="Review your items, update quantities, and proceed to checkout." />
             </Helmet>
             <Container fluid className="cart app-page">
+                {cartStatus === "error" ? (
+                    <div className="cart__state cart__state--error" role="alert" aria-live="assertive">
+                        <strong>{t("cart.loadErrorTitle")}</strong>
+                        <p>{cartError || t("cart.loadError")}</p>
+                        <button type="button" onClick={() => void fetchCart()} disabled={isCartLoading}>
+                            {t("cart.retry")}
+                        </button>
+                    </div>
+                ) : null}
                 {isPayment ? (
                     <CheckoutPaymentPage
                         setIsPayment={setIsPayment}
@@ -247,6 +288,20 @@ const CartPage = () => {
                                     </button>
                                 </div>
                                 <div className="cart__support">
+                                    {!isGuest && hasGuestItems ? (
+                                        <div className="cart__warning" role="region" aria-label={t("cart.guestCart")}>
+                                            <strong>{t("cart.guestCartTitle")}</strong>
+                                            <span>{t("cart.guestCartDescription")}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => void handleMergeGuestCart()}
+                                                disabled={mergeStatus === "loading"}
+                                            >
+                                                {mergeStatus === "loading" ? t("cart.mergingGuestCart") : t("cart.mergeGuestCart")}
+                                            </button>
+                                            {mergeStatus === "partial" ? <small>{t("cart.guestCartMergePartial")}</small> : null}
+                                        </div>
+                                    ) : null}
                                     {activeValidationIssues.length > 0 ? (
                                         <div className="cart__warning">
                                             <strong>{t("cart.checkoutNeedsUpdates")}</strong>

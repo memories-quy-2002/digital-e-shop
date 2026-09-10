@@ -1,22 +1,31 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Modal, Table } from "../../../components/ui/legacy";
 import ReactPaginate from "react-paginate";
 import type { AdminOrder as Order, AdminOrderDetail as OrderDetail } from "../../../types/order";
 import AdminLayout from "../../../components/layout/AdminLayout";
-import AdminWorkflowSteps from "../../../components/common/admin/AdminWorkflowSteps";
 import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
 import { useToast } from "../../../context/ToastContext";
 import { CheckCircleIcon, XCircleIcon } from "../../../components/common/Icons";
-import { Helmet } from "react-helmet";
+import { MoreHorizontal } from "lucide-react";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "../../../components/ui/dropdown-menu";
+import { Helmet } from "react-helmet-async";
 import { formatUtcDate, formatUtcDateTime, toUtcIsoString } from "../../../utils/dateTime";
 import { fetchAllOrders, fetchOrderDetail, updateOrderStatus, bulkUpdateOrderStatus } from "../api";
+import AdminStatusPanel from "../components/AdminStatusPanel";
+import AdminTableScrollHint from "../components/AdminTableScrollHint";
+import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
+import { formatShippingAddress } from "../../orders/shippingAddress";
 
 const ITEMS_PER_PAGE = 8;
 
 type StatusFilter = "all" | "pending" | "done" | "canceled";
 type PaymentFilter = "all" | "bank_transfer" | "cash" | "payos" | "stripe" | "none";
-
-const orderWorkflowSteps = ["Review pending orders", "Open detail before changing status", "Mark done or cancel"];
 
 const normalizeOrder = (order: any): Order => ({
     ...order,
@@ -42,11 +51,19 @@ const getStatusLabel = (status: number) => {
 
 const getNetRevenue = (order: Order) => Math.max(order.total_price - order.discount, 0);
 
-const getShortId = (value: string) => (value.length > 14 ? `${value.slice(0, 10)}...` : value);
+const getShortId = (value: string | null | undefined) => {
+    if (!value) return "Guest checkout";
+    return value.length > 14 ? `${value.slice(0, 10)}...` : value;
+};
 
-const getCustomerName = (order: Order) => order.customer_name || getShortId(order.user_id);
+const getCustomerName = (order: Order) => order.guest_name || order.customer_name || getShortId(order.user_id);
 
-const getCustomerMeta = (order: Order) => order.customer_email || order.user_id;
+const getCustomerMeta = (order: Order) =>
+    [order.guest_email || order.customer_email, !order.user_id ? order.guest_phone : null]
+        .filter(Boolean)
+        .join(" · ") || getShortId(order.user_id);
+
+const getShippingAddress = (value: string | null | undefined) => formatShippingAddress(value) || "No address";
 
 const getItemSubtotal = (price: number, quantity: number) => price * quantity;
 
@@ -62,20 +79,29 @@ const AdminOrderPage = () => {
     const [showBulkConfirm, setShowBulkConfirm] = useState(false);
     const [bulkTarget, setBulkTarget] = useState<1 | 2 | null>(null);
     const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [hasLoaded, setHasLoaded] = useState(false);
+    const [loadError, setLoadError] = useState<AdminRequestError | null>(null);
+    const hasLoadedRef = useRef(false);
     const { addToast } = useToast();
 
-    useEffect(() => {
-        const loadOrders = async () => {
-            try {
-                const orders = await fetchAllOrders();
+    const loadOrders = React.useCallback(async () => {
+        try {
+            setIsLoading(true);
+            setLoadError(null);
+            const orders = await fetchAllOrders();
                 setOrders((orders || []).map(normalizeOrder));
-            } catch {
-                addToast("Orders", "Unable to load orders.");
-            }
-        };
-
-        loadOrders();
+            setHasLoaded(true);
+            hasLoadedRef.current = true;
+        } catch (error) {
+            setLoadError(getAdminRequestError(error));
+            if (hasLoadedRef.current) addToast("Orders", "Refresh failed. Showing the latest saved orders.");
+        } finally {
+            setIsLoading(false);
+        }
     }, [addToast]);
+
+    useEffect(() => { loadOrders(); }, [loadOrders]);
 
     const filteredOrders = useMemo(() => {
         const lowerSearchTerm = searchTerm.trim().toLowerCase();
@@ -101,7 +127,8 @@ const AdminOrderPage = () => {
             return (
                 order.id.toString().includes(lowerSearchTerm) ||
                 (order.shipping_address || "").toLowerCase().includes(lowerSearchTerm) ||
-                order.user_id.toLowerCase().includes(lowerSearchTerm) ||
+                String(order.user_id || "").toLowerCase().includes(lowerSearchTerm) ||
+                (order.guest_phone || "").toLowerCase().includes(lowerSearchTerm) ||
                 (order.customer_name || "").toLowerCase().includes(lowerSearchTerm) ||
                 (order.customer_email || "").toLowerCase().includes(lowerSearchTerm) ||
                 getPaymentMethodLabel(order.payment_method).toLowerCase().includes(lowerSearchTerm) ||
@@ -274,6 +301,7 @@ const AdminOrderPage = () => {
                 "customer_name",
                 "customer_email",
                 "user_id",
+                "guest_phone",
                 "date_added",
                 "payment_method",
                 "status",
@@ -286,14 +314,15 @@ const AdminOrderPage = () => {
                 String(order.id),
                 getCustomerName(order),
                 order.customer_email || "",
-                order.user_id,
+                order.user_id || "",
+                order.guest_phone || "",
                 toUtcIsoString(order.date_added),
                 getPaymentMethodLabel(order.payment_method),
                 getStatusLabel(order.status),
                 order.total_price.toFixed(2),
                 order.discount.toFixed(2),
                 getNetRevenue(order).toFixed(2),
-                order.shipping_address || "",
+                getShippingAddress(order.shipping_address),
             ]),
         ];
         const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -315,12 +344,13 @@ const AdminOrderPage = () => {
                 <header className="admin__page__header">
                     <div>
                         <span className="admin__page__eyebrow">Operations</span>
-                        <h2 className="admin__page__title">Orders</h2>
+                        <h1 className="admin__page__title">Orders</h1>
                         <p className="admin__page__subtitle">
                             Monitor the full order pipeline, keep tabs on payment mix, and resolve pending deliveries.
                         </p>
                     </div>
                     <div className="admin__page__actions">
+                        <button type="button" className="admin__button admin__button--ghost" onClick={loadOrders}>Refresh</button>
                         <button type="button" className="admin__button admin__button--primary" onClick={exportOrdersCsv}>
                             Export orders CSV
                         </button>
@@ -360,8 +390,6 @@ const AdminOrderPage = () => {
                     </div>
                 </section>
 
-                <AdminWorkflowSteps steps={orderWorkflowSteps} />
-
                 <section className="admin__card">
                     <div className="admin__card__header admin__card__header--stacked">
                         <div>
@@ -370,11 +398,14 @@ const AdminOrderPage = () => {
                         </div>
                         <div className="admin__list-toolbar">
                             <div className="admin__order-toolbar">
+                                <label className="admin__sr-only" htmlFor="order-search">
+                                    Search orders
+                                </label>
                                 <input
-                                    type="text"
+                                    type="search"
                                     name="order-search"
                                     id="order-search"
-                                    placeholder="Search by order ID, customer, email, address, payment, or status"
+                                    placeholder="Search by order ID, customer, email, address, payment, or status…"
                                     value={searchTerm}
                                     onChange={(event) => {
                                         setSearchTerm(event.target.value);
@@ -444,8 +475,13 @@ const AdminOrderPage = () => {
                         </div>
                     ) : null}
                     <div className="admin__card__body admin__list-shell">
-                        <div className="admin__table-wrap">
-                        <Table responsive hover borderless className="admin__table">
+                        {loadError && !hasLoaded ? <AdminStatusPanel variant="error" title={loadError.title} description={loadError.message} onRetry={loadOrders} /> : null}
+                        {isLoading && !hasLoaded ? <AdminStatusPanel variant="loading" title="Loading orders" description="Fetching the latest orders." /> : null}
+                        {loadError && hasLoaded ? <AdminStatusPanel variant="error" title="Refresh failed" description={loadError.message} onRetry={loadOrders} retryLabel="Retry refresh" /> : null}
+                        {!isLoading && !loadError && hasLoaded && filteredOrders.length === 0 ? <AdminStatusPanel variant="empty" title="No orders found" description="No orders match the current filters." /> : null}
+                        {(!loadError || hasLoaded) && !(isLoading && !hasLoaded) && filteredOrders.length > 0 ? <>
+                        <AdminTableScrollHint label="Order list">
+                        <Table responsive={false} hover borderless className="admin__table admin__table--orders">
                             <thead>
                                 <tr>
                                     <th style={{ width: "40px" }}>
@@ -494,9 +530,9 @@ const AdminOrderPage = () => {
                                         </td>
                                         <td width="260px">
                                             <div className="admin__table__stack">
-                                                <strong title={order.user_id}>{getCustomerName(order)}</strong>
+                                                <strong title={order.user_id || "Guest checkout"}>{getCustomerName(order)}</strong>
                                                 <span>{getCustomerMeta(order)}</span>
-                                                <small>{order.shipping_address || "No address"}</small>
+                                                <small>{getShippingAddress(order.shipping_address)}</small>
                                             </div>
                                         </td>
                                         <td width="180px">
@@ -531,54 +567,56 @@ const AdminOrderPage = () => {
                                                 {getStatusLabel(order.status)}
                                             </span>
                                         </td>
-                                        <td width="100px">
-                                            {order.status === 0 ? (
-                                                <div className="admin__table__actions">
-                                                    <button
-                                                        type="button"
-                                                        className="admin__button admin__button--ghost admin__icon-button"
-                                                        onClick={() => handleOpenDetail(order.id)}
-                                                    >
-                                                        View
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="admin__button admin__button--danger admin__button--compact"
-                                                        data-testid="cancelBtn"
-                                                        aria-label={`Cancel order ${order.id}`}
-                                                        onClick={() => handleChangeStatus(2, order.id)}
-                                                    >
-                                                        <XCircleIcon size={22} />
-                                                        <span>Cancel</span>
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="admin__button admin__button--success admin__button--compact"
-                                                        data-testid="doneBtn"
-                                                        aria-label={`Mark order ${order.id} as done`}
-                                                        onClick={() => handleChangeStatus(1, order.id)}
-                                                    >
-                                                        <CheckCircleIcon size={22} />
-                                                        <span>Done</span>
-                                                    </button>
-                                                </div>
-                                            ) : (
+                                        <td className="admin__table__actions-cell">
+                                            <div className="admin__table__actions admin__table__actions--order">
                                                 <button
                                                     type="button"
-                                                    className="admin__button admin__button--ghost admin__icon-button"
+                                                    className="admin__button admin__button--ghost admin__button--compact admin__table__view-action"
                                                     onClick={() => handleOpenDetail(order.id)}
                                                 >
                                                     View
                                                 </button>
-                                            )}
+                                                {order.status === 0 ? (
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <button
+                                                                type="button"
+                                                                className="admin__table__action-menu-trigger"
+                                                                aria-label={`More actions for order ${order.id}`}
+                                                            >
+                                                                <MoreHorizontal size={18} aria-hidden="true" />
+                                                            </button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end" className="admin__dropdown-menu">
+                                                            <DropdownMenuGroup>
+                                                                <DropdownMenuItem
+                                                                    data-testid="doneBtn"
+                                                                    onSelect={() => handleChangeStatus(1, order.id)}
+                                                                >
+                                                                    <CheckCircleIcon size={16} aria-hidden="true" />
+                                                                    Mark done
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem
+                                                                    data-testid="cancelBtn"
+                                                                    variant="destructive"
+                                                                    onSelect={() => handleChangeStatus(2, order.id)}
+                                                                >
+                                                                    <XCircleIcon size={16} aria-hidden="true" />
+                                                                    Cancel order
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuGroup>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                ) : null}
+                                            </div>
                                         </td>
                                     </tr>
                                     );
                                 })}
                             </tbody>
                         </Table>
-                        </div>
-                        <div className="admin__table__pagination">
+                        </AdminTableScrollHint>
+                        {pageCount > 1 ? <div className="admin__table__pagination">
                             <ReactPaginate
                                 className="shops__container__main__pagination__items"
                                 pageClassName="pagination__item"
@@ -588,7 +626,7 @@ const AdminOrderPage = () => {
                                 breakClassName="pagination__item"
                                 activeClassName="selected"
                                 disabledClassName="disabled"
-                                breakLabel="..."
+                                breakLabel="…"
                                 nextLabel="Next"
                                 onPageChange={handlePageClick}
                                 pageRangeDisplayed={5}
@@ -597,7 +635,8 @@ const AdminOrderPage = () => {
                                 forcePage={Math.max(currentPage - 1, 0)}
                                 renderOnZeroPageCount={null}
                             />
-                        </div>
+                        </div> : null}
+                        </> : null}
                     </div>
                 </section>
 
@@ -671,7 +710,7 @@ const AdminOrderPage = () => {
                                     </div>
                                     <div className="admin__order-detail__address">
                                     <span>Shipping address</span>
-                                    <strong>{selectedOrder.shipping_address || "Not recorded"}</strong>
+                                    <strong>{getShippingAddress(selectedOrder.shipping_address)}</strong>
                                     </div>
                                 </section>
                                 <section className="admin__detail-section">

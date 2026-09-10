@@ -1,13 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Button, Form, Modal, Table } from "../../../components/ui/legacy";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Button, Modal, Table } from "../../../components/ui/legacy";
 import ReactPaginate from "react-paginate";
 import { useNavigate } from "react-router-dom";
 import type { Product } from "../../../types/product";
 import AdminLayout from "../../../components/layout/AdminLayout";
-import AdminWorkflowSteps from "../../../components/common/admin/AdminWorkflowSteps";
 import AdminProductItem from "../../../components/common/admin/AdminProductItem";
 import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
-import { Helmet } from "react-helmet";
+import { Helmet } from "react-helmet-async";
 import { useToast } from "../../../context/ToastContext";
 import {
     fetchAllProducts,
@@ -16,6 +15,9 @@ import {
     updateProductInventory,
     fetchInventoryMovements,
 } from "../api";
+import AdminStatusPanel from "../components/AdminStatusPanel";
+import AdminTableScrollHint from "../components/AdminTableScrollHint";
+import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
 import {
     createProductAttributeRow,
     productAttributeRowsToInputs,
@@ -31,28 +33,19 @@ import {
     serializeProductDetails,
 } from "../../../utils/productDetails";
 import { normalizeProduct as normalizeProductResponse } from "../../../utils/product";
+import ProductForm, {
+    type ProductFormErrors,
+    type ProductFormField,
+    type ProductFormValues,
+} from "../components/ProductForm";
+import { validateProductEdit } from "../utils/validateProductEdit";
 
 const ITEMS_PER_PAGE = 8;
 
-const productWorkflowSteps = ["Find listing", "Edit product or restock", "Hide only when needed"];
-
-type ProductEditForm = {
-    name: string;
-    sku: string;
-    manufacturerPartNumber: string;
-    warrantyMonths: string;
-    description: string;
-    category: string;
-    brand: string;
+type ProductEditForm = Omit<ProductFormValues, "inventory" | "stock" | "price" | "salePrice"> & {
     price: string;
     salePrice: string;
     stock: string;
-    model: string;
-    warranty: string;
-    datasheet: string;
-    highlights: string;
-    specifications: string;
-    attributes: ProductAttributeRow[];
 };
 
 type InventoryMovement = {
@@ -78,104 +71,6 @@ const normalizeProduct = (product: ProductWithAttributes): ProductWithAttributes
         stock: Number(normalized.stock) || 0,
     };
 };
-
-type ProductAttributeEditorProps = {
-    rows: ProductAttributeRow[];
-    onChange: (id: string, patch: Partial<ProductAttributeRow>) => void;
-    onAdd: () => void;
-    onRemove: (id: string) => void;
-};
-
-const ProductAttributeEditor = ({ rows, onChange, onAdd, onRemove }: ProductAttributeEditorProps) => (
-    <section className="admin__form-section">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="admin__form-section__header">
-                <h4>Structured attributes</h4>
-                <p>Use generic typed rows for electronics filters. Legacy specifications remain a display fallback.</p>
-            </div>
-            <button type="button" className="admin__button admin__button--ghost" onClick={onAdd}>
-                Add attribute
-            </button>
-        </div>
-        {rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No structured attributes yet.</p>
-        ) : (
-            <div className="grid gap-3">
-                {rows.map((row, index) => (
-                    <div key={row.id} className="grid gap-3 rounded-control border border-border p-3 md:grid-cols-12" data-testid="product-attribute-row">
-                        <Form.Group className="md:col-span-2" controlId={`productAttributeKey-${row.id}`}>
-                            <Form.Label htmlFor={`productAttributeKey-${row.id}`}>Key</Form.Label>
-                            <Form.Control
-                                id={`productAttributeKey-${row.id}`}
-                                value={row.key}
-                                placeholder="vram_gb"
-                                autoComplete="off"
-                                spellCheck={false}
-                                onChange={(event) => onChange(row.id, { key: event.target.value })}
-                            />
-                        </Form.Group>
-                        <Form.Group className="md:col-span-3" controlId={`productAttributeLabel-${row.id}`}>
-                            <Form.Label htmlFor={`productAttributeLabel-${row.id}`}>Label</Form.Label>
-                            <Form.Control
-                                id={`productAttributeLabel-${row.id}`}
-                                value={row.label}
-                                placeholder="VRAM"
-                                onChange={(event) => onChange(row.id, { label: event.target.value })}
-                            />
-                        </Form.Group>
-                        <Form.Group className="md:col-span-2" controlId={`productAttributeType-${row.id}`}>
-                            <Form.Label htmlFor={`productAttributeType-${row.id}`}>Type</Form.Label>
-                            <Form.Control
-                                as="select"
-                                id={`productAttributeType-${row.id}`}
-                                value={row.type}
-                                onChange={(event) => onChange(row.id, { type: event.target.value as ProductAttributeRow["type"] })}
-                            >
-                                <option value="text">Text</option>
-                                <option value="number">Number</option>
-                            </Form.Control>
-                        </Form.Group>
-                        <Form.Group className="md:col-span-2" controlId={`productAttributeValue-${row.id}`}>
-                            <Form.Label htmlFor={`productAttributeValue-${row.id}`}>Value</Form.Label>
-                            <Form.Control
-                                id={`productAttributeValue-${row.id}`}
-                                type={row.type === "number" ? "number" : "text"}
-                                step={row.type === "number" ? "any" : undefined}
-                                value={row.value}
-                                placeholder={row.type === "number" ? "12" : "GDDR7"}
-                                onChange={(event) => onChange(row.id, { value: event.target.value })}
-                            />
-                        </Form.Group>
-                        <Form.Group className="md:col-span-1" controlId={`productAttributeUnit-${row.id}`}>
-                            <Form.Label htmlFor={`productAttributeUnit-${row.id}`}>Unit</Form.Label>
-                            <Form.Control
-                                id={`productAttributeUnit-${row.id}`}
-                                value={row.unit}
-                                placeholder="GB"
-                                onChange={(event) => onChange(row.id, { unit: event.target.value })}
-                            />
-                        </Form.Group>
-                        <div className="flex items-end gap-3 md:col-span-2">
-                            <Form.Check
-                                label="Filterable"
-                                checked={row.filterable}
-                                onChange={(event) => onChange(row.id, { filterable: event.target.checked })}
-                            />
-                            <button
-                                type="button"
-                                className="admin__button admin__button--ghost"
-                                aria-label={`Remove attribute ${index + 1}`}
-                                onClick={() => onRemove(row.id)}
-                            >
-                                Remove
-                            </button>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        )}
-    </section>
-);
 
 const AdminProductPage = () => {
     const navigate = useNavigate();
@@ -203,34 +98,50 @@ const AdminProductPage = () => {
     });
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [editValidationErrors, setEditValidationErrors] = useState<ProductFormErrors>({});
+    const [attributeError, setAttributeError] = useState<string | undefined>();
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [restockValues, setRestockValues] = useState<Record<number, string>>({});
     const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>([]);
+    const [productsLoaded, setProductsLoaded] = useState(false);
+    const [productsError, setProductsError] = useState<AdminRequestError | null>(null);
+    const [movementsLoaded, setMovementsLoaded] = useState(false);
+    const [inventoryMovementsError, setInventoryMovementsError] = useState<AdminRequestError | null>(null);
+    const productsLoadedRef = useRef(false);
+    const movementsLoadedRef = useRef(false);
     const { addToast } = useToast();
 
-    useEffect(() => {
-        const loadProducts = async () => {
-            try {
-                const products = await fetchAllProducts();
+    const loadProducts = React.useCallback(async () => {
+        try {
+            setProductsError(null);
+            const products = await fetchAllProducts();
                 setProducts(products.map(normalizeProduct).sort((a, b) => a.id - b.id));
-            } catch {
-                addToast("Products", "Unable to load products.");
-            }
-        };
+            setProductsLoaded(true);
+            productsLoadedRef.current = true;
+        } catch (error) {
+            setProductsError(getAdminRequestError(error));
+            if (productsLoadedRef.current) addToast("Products", "Refresh failed. Showing the latest saved products.");
+        }
+    }, [addToast]);
 
-        const loadMovements = async () => {
-            try {
-                const movements = await fetchInventoryMovements(12);
+    const loadMovements = React.useCallback(async () => {
+        try {
+            setInventoryMovementsError(null);
+            const movements = await fetchInventoryMovements(12);
                 setInventoryMovements(movements);
-            } catch {
-                setInventoryMovements([]);
-            }
-        };
+            setMovementsLoaded(true);
+            movementsLoadedRef.current = true;
+        } catch (error) {
+            setInventoryMovementsError(getAdminRequestError(error));
+            if (movementsLoadedRef.current) addToast("Inventory movements", "Refresh failed. Showing the latest saved movements.");
+        }
+    }, [addToast]);
 
+    useEffect(() => {
         loadProducts();
         loadMovements();
-    }, [addToast]);
+    }, [loadMovements, loadProducts]);
 
     const filteredProducts = useMemo(() => {
         const lowerSearchTerm = searchTerm.trim().toLowerCase();
@@ -289,17 +200,27 @@ const AdminProductPage = () => {
             specifications: rowsToText(details.specifications),
             attributes: productWithAttributes.attributes ?? [],
         });
+        setEditValidationErrors({});
+        setAttributeError(undefined);
         setShow(true);
     };
 
     const handleClose = () => {
         setShow(false);
         setSelectedProduct(null);
+        setEditValidationErrors({});
+        setAttributeError(undefined);
     };
 
-    const handleEditChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name, value } = event.target;
-        setEditForm((currentForm) => ({ ...currentForm, [name]: value }));
+    const handleEditFieldChange = (field: ProductFormField, value: string) => {
+        setEditForm((currentForm) => ({ ...currentForm, [field]: value }));
+        setEditValidationErrors((current) => {
+            if (!(field in current)) return current;
+            const next = { ...current };
+            delete next[field];
+            return next;
+        });
+        if (attributeError) setAttributeError(undefined);
     };
 
     const handleAttributeChange = (id: string, patch: Partial<ProductAttributeRow>) => {
@@ -307,6 +228,7 @@ const AdminProductPage = () => {
             ...currentForm,
             attributes: currentForm.attributes.map((row) => (row.id === id ? { ...row, ...patch } : row)),
         }));
+        if (attributeError) setAttributeError(undefined);
     };
 
     const addAttribute = () => {
@@ -314,6 +236,7 @@ const AdminProductPage = () => {
             ...currentForm,
             attributes: [...currentForm.attributes, createProductAttributeRow()],
         }));
+        if (attributeError) setAttributeError(undefined);
     };
 
     const removeAttribute = (id: string) => {
@@ -321,6 +244,7 @@ const AdminProductPage = () => {
             ...currentForm,
             attributes: currentForm.attributes.filter((row) => row.id !== id),
         }));
+        if (attributeError) setAttributeError(undefined);
     };
 
     const handleSave = async () => {
@@ -328,40 +252,43 @@ const AdminProductPage = () => {
             return;
         }
 
+        const nextValidationErrors = validateProductEdit({
+            name: editForm.name,
+            sku: editForm.sku,
+            category: editForm.category,
+            brand: editForm.brand,
+            price: editForm.price,
+            salePrice: editForm.salePrice,
+            warrantyMonths: editForm.warrantyMonths,
+        });
+        const firstInvalidField = Object.keys(nextValidationErrors)[0] as ProductFormField | undefined;
+
+        if (firstInvalidField) {
+            setEditValidationErrors(nextValidationErrors);
+            const fieldIds: Partial<Record<ProductFormField, string>> = {
+                name: "manage-product-name",
+                sku: "manage-product-sku",
+                category: "manage-product-category",
+                brand: "manage-product-brand",
+                price: "manage-product-price",
+                salePrice: "manage-product-sale-price",
+                warrantyMonths: "manage-product-warranty-months",
+            };
+            document.getElementById(fieldIds[firstInvalidField] || "")?.focus();
+            return;
+        }
+
+        setEditValidationErrors({});
         const price = Number(editForm.price);
         const salePrice = editForm.salePrice.trim() === "" ? null : Number(editForm.salePrice);
-        const stock = Number(editForm.stock);
         const warrantyMonths = editForm.warrantyMonths.trim() === "" ? null : Number(editForm.warrantyMonths);
         let attributes;
 
         try {
             attributes = productAttributeRowsToInputs(editForm.attributes);
         } catch (error) {
+            setAttributeError(error instanceof Error ? error.message : "Product attributes are invalid.");
             addToast("Update product", error instanceof Error ? error.message : "Product attributes are invalid.");
-            return;
-        }
-
-        if (
-            !editForm.name.trim() ||
-            !editForm.sku.trim() ||
-            !editForm.category.trim() ||
-            !editForm.brand.trim() ||
-            Number.isNaN(price) ||
-            Number.isNaN(stock) ||
-            price < 0 ||
-            stock < 0
-        ) {
-            addToast("Update product", "SKU, name, category, brand, price, and quantity must be valid.");
-            return;
-        }
-
-        if (salePrice !== null && (Number.isNaN(salePrice) || salePrice < 0)) {
-            addToast("Update product", "Sale price must be empty or a valid number.");
-            return;
-        }
-
-        if (warrantyMonths !== null && (!Number.isInteger(warrantyMonths) || warrantyMonths < 0)) {
-            addToast("Update product", "Warranty must be empty or a valid whole number of months.");
             return;
         }
 
@@ -377,7 +304,6 @@ const AdminProductPage = () => {
                 brand: editForm.brand.trim(),
                 price,
                 salePrice,
-                stock,
                 attributes,
                 specifications: serializeProductDetails({
                     model: editForm.model,
@@ -392,7 +318,7 @@ const AdminProductPage = () => {
             setProducts((currentProducts) =>
                 currentProducts.map((product) => (product.id === updatedProduct.id ? updatedProduct : product)),
             );
-            setInventoryMovements(await fetchInventoryMovements(12));
+            await loadMovements();
             addToast("Update product", `${updatedProduct.name} has been updated.`);
             handleClose();
         } catch {
@@ -439,7 +365,7 @@ const AdminProductPage = () => {
                 currentProducts.map((item) => (item.id === updatedProduct.id ? updatedProduct : item)),
             );
             setRestockValues((current) => ({ ...current, [product.id]: "" }));
-            setInventoryMovements(await fetchInventoryMovements(12));
+            await loadMovements();
             addToast("Inventory", `${updatedProduct.name} stock updated.`);
         } catch {
             addToast("Inventory", "Unable to update stock.");
@@ -478,7 +404,7 @@ const AdminProductPage = () => {
                 <header className="admin__page__header">
                     <div>
                         <span className="admin__page__eyebrow">Catalog</span>
-                        <h2 className="admin__page__title">Products</h2>
+                        <h1 className="admin__page__title">Products</h1>
                         <p className="admin__page__subtitle">
                             Track inventory, pricing, and product availability across your store.
                         </p>
@@ -511,18 +437,21 @@ const AdminProductPage = () => {
                     </div>
                 </section>
 
-                <AdminWorkflowSteps steps={productWorkflowSteps} />
-
-                <section className="admin__card">
+                <section className="admin__card admin__card--secondary admin__card--inventory-log">
                     <div className="admin__card__header">
                         <div>
-                            <h3>Inventory movement log</h3>
-                            <span>Recent stock adjustments from sales, product creation, and admin updates.</span>
+                            <h3>Recent inventory activity</h3>
+                            <span>{inventoryMovements.length} recent adjustments</span>
                         </div>
                     </div>
-                    <div className="admin__card__body admin__list-shell">
-                        <div className="admin__table-wrap">
-                        <Table responsive hover borderless className="admin__table">
+                    <details className="admin__disclosure admin__card--inventory-log__disclosure">
+                        <summary>View activity</summary>
+                        <div className="admin__card__body admin__list-shell admin__card--inventory-log__body">
+                        {inventoryMovementsError && !movementsLoaded ? <AdminStatusPanel variant="error" title="Inventory movements unavailable" description={inventoryMovementsError.message} onRetry={loadMovements} /> : null}
+                        {!inventoryMovementsError && !movementsLoaded ? <AdminStatusPanel variant="loading" title="Loading inventory movements" description="Fetching recent stock adjustments." /> : null}
+                        {inventoryMovementsError && movementsLoaded ? <AdminStatusPanel variant="error" title="Inventory movement refresh failed" description={inventoryMovementsError.message} onRetry={loadMovements} retryLabel="Retry refresh" /> : null}
+                        {(!inventoryMovementsError || movementsLoaded) ? <AdminTableScrollHint label="Inventory movement log">
+                        <Table responsive={false} hover borderless className="admin__table admin__table--inventory-movements">
                             <thead>
                                 <tr>
                                     <th>Time</th>
@@ -556,18 +485,19 @@ const AdminProductPage = () => {
                                             <td>{movement.note || "-"}</td>
                                         </tr>
                                     ))
-                                ) : (
+                                ) : !inventoryMovementsError && movementsLoaded ? (
                                     <tr>
                                         <td colSpan={6}>No inventory movements recorded yet.</td>
                                     </tr>
-                                )}
+                                ) : null}
                             </tbody>
                         </Table>
+                        </AdminTableScrollHint> : null}
                         </div>
-                    </div>
+                    </details>
                 </section>
 
-                <section className="admin__card">
+                {inventoryWatch.length > 0 ? <section className="admin__card">
                     <div className="admin__card__header">
                         <div>
                             <h3>Inventory management</h3>
@@ -575,8 +505,8 @@ const AdminProductPage = () => {
                         </div>
                     </div>
                     <div className="admin__card__body admin__list-shell">
-                        <div className="admin__table-wrap">
-                        <Table responsive hover borderless className="admin__table">
+                        <AdminTableScrollHint label="Inventory restock table">
+                        <Table responsive={false} hover borderless className="admin__table admin__table--inventory">
                             <thead>
                                 <tr>
                                     <th>Product</th>
@@ -587,8 +517,7 @@ const AdminProductPage = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {inventoryWatch.length > 0 ? (
-                                    inventoryWatch.map((product) => (
+                                {inventoryWatch.map((product) => (
                                         <tr key={`inventory-${product.id}`}>
                                             <td width="320px">
                                                 <div className="admin__table__stack">
@@ -634,17 +563,12 @@ const AdminProductPage = () => {
                                                 </button>
                                             </td>
                                         </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan={5}>Inventory is healthy. No low-stock products right now.</td>
-                                    </tr>
-                                )}
+                                    ))}
                             </tbody>
                         </Table>
-                        </div>
+                        </AdminTableScrollHint>
                     </div>
-                </section>
+                </section> : null}
 
                 <section className="admin__card">
                     <div className="admin__card__header admin__card__header--stacked">
@@ -654,11 +578,14 @@ const AdminProductPage = () => {
                         </div>
                         <div className="admin__list-toolbar">
                             <div className="admin__filters">
+                                <label className="admin__sr-only" htmlFor="product">
+                                    Search products
+                                </label>
                                 <input
-                                    type="text"
+                                    type="search"
                                     name="product"
                                     id="product"
-                                    placeholder="Search all products by name, category, brand, or ID"
+                                    placeholder="Search all products by name, category, brand, or ID…"
                                     value={searchTerm}
                                     onChange={(event) => {
                                         setSearchTerm(event.target.value);
@@ -679,12 +606,16 @@ const AdminProductPage = () => {
                         </div>
                     </div>
                     <div className="admin__card__body admin__list-shell">
-                        <div className="admin__table-wrap">
-                        <Table responsive hover borderless className="admin__table">
+                        {productsError && !productsLoaded ? <AdminStatusPanel variant="error" title={productsError.title} description={productsError.message} onRetry={loadProducts} /> : null}
+                        {!productsError && !productsLoaded ? <AdminStatusPanel variant="loading" title="Loading products" description="Fetching the latest catalog." /> : null}
+                        {productsError && productsLoaded ? <AdminStatusPanel variant="error" title="Product refresh failed" description={productsError.message} onRetry={loadProducts} retryLabel="Retry refresh" /> : null}
+                        {!productsError && productsLoaded && filteredProducts.length === 0 ? <AdminStatusPanel variant="empty" title="No products found" description="No products match the current search." /> : null}
+                        {(!productsError || productsLoaded) && productsLoaded && filteredProducts.length > 0 ? <>
+                        <AdminTableScrollHint label="Product catalog table">
+                        <Table responsive={false} hover borderless className="admin__table admin__table--products">
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>Picture</th>
                                     <th>Name</th>
                                     <th>Category</th>
                                     <th>Brand</th>
@@ -705,8 +636,8 @@ const AdminProductPage = () => {
                                 ))}
                             </tbody>
                         </Table>
-                        </div>
-                        <div className="admin__table__pagination">
+                        </AdminTableScrollHint>
+                        {pageCount > 1 ? <div className="admin__table__pagination">
                             <ReactPaginate
                                 className="shops__container__main__pagination__items"
                                 pageClassName="pagination__item"
@@ -716,7 +647,7 @@ const AdminProductPage = () => {
                                 breakClassName="pagination__item"
                                 activeClassName="selected"
                                 disabledClassName="disabled"
-                                breakLabel="..."
+                                breakLabel="…"
                                 nextLabel="Next"
                                 onPageChange={handlePageClick}
                                 pageRangeDisplayed={5}
@@ -725,7 +656,8 @@ const AdminProductPage = () => {
                                 forcePage={Math.max(currentPage - 1, 0)}
                                 renderOnZeroPageCount={null}
                             />
-                        </div>
+                        </div> : null}
+                        </> : null}
                         <Modal
                             show={show}
                             onHide={handleClose}
@@ -739,200 +671,48 @@ const AdminProductPage = () => {
                                 <Modal.Title>Manage product</Modal.Title>
                             </Modal.Header>
                             <Modal.Body>
-                                <Form className="admin__edit-form">
-                                    <section className="admin__form-section">
-                                        <div className="admin__form-section__header">
-                                            <h4>Core content</h4>
-                                            <p>Name, storefront description, and primary product taxonomy.</p>
-                                        </div>
-                                    <Form.Group className="mb-3" controlId="productName">
-                                        <Form.Label>Name</Form.Label>
-                                        <Form.Control name="name" value={editForm.name} onChange={handleEditChange} />
-                                    </Form.Group>
-                                    <Form.Group className="mb-3" controlId="productDescription">
-                                        <Form.Label>Description</Form.Label>
-                                        <Form.Control
-                                            as="textarea"
-                                            rows={3}
-                                            name="description"
-                                            value={editForm.description}
-                                            onChange={handleEditChange}
-                                        />
-                                    </Form.Group>
-                                    </section>
-                                    <section className="admin__form-section">
-                                        <div className="admin__form-section__header">
-                                            <h4>Commercial details</h4>
-                                            <p>SKU, pricing, quantity, and commercial metadata.</p>
-                                        </div>
-                                    <div className="admin__edit-form__grid">
-                                        <Form.Group className="mb-3" controlId="productSku">
-                                            <Form.Label htmlFor="productSku">
-                                                SKU <span className="required">*</span>
-                                            </Form.Label>
-                                            <Form.Control
-                                                id="productSku"
-                                                type="text"
-                                                name="sku"
-                                                value={editForm.sku}
-                                                onChange={handleEditChange}
-                                                required
-                                                autoComplete="off"
-                                                spellCheck={false}
-                                            />
-                                        </Form.Group>
-                                        <Form.Group className="mb-3" controlId="productManufacturerPartNumber">
-                                            <Form.Label htmlFor="productManufacturerPartNumber">
-                                                Manufacturer part number
-                                            </Form.Label>
-                                            <Form.Control
-                                                id="productManufacturerPartNumber"
-                                                type="text"
-                                                name="manufacturerPartNumber"
-                                                value={editForm.manufacturerPartNumber}
-                                                onChange={handleEditChange}
-                                                autoComplete="off"
-                                                spellCheck={false}
-                                            />
-                                        </Form.Group>
-                                        <Form.Group className="mb-3" controlId="productCategory">
-                                            <Form.Label>Category</Form.Label>
-                                            <Form.Control
-                                                name="category"
-                                                value={editForm.category}
-                                                onChange={handleEditChange}
-                                            />
-                                        </Form.Group>
-                                        <Form.Group className="mb-3" controlId="productBrand">
-                                            <Form.Label>Brand</Form.Label>
-                                            <Form.Control
-                                                name="brand"
-                                                value={editForm.brand}
-                                                onChange={handleEditChange}
-                                            />
-                                        </Form.Group>
-                                        <Form.Group className="mb-3" controlId="productPrice">
-                                            <Form.Label>Price</Form.Label>
-                                            <Form.Control
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                name="price"
-                                                value={editForm.price}
-                                                onChange={handleEditChange}
-                                            />
-                                        </Form.Group>
-                                        <Form.Group className="mb-3" controlId="productSalePrice">
-                                            <Form.Label>Sale price</Form.Label>
-                                            <Form.Control
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                name="salePrice"
-                                                placeholder="None"
-                                                value={editForm.salePrice}
-                                                onChange={handleEditChange}
-                                            />
-                                        </Form.Group>
-                                        <Form.Group className="mb-3" controlId="productStock">
-                                            <Form.Label>Quantity</Form.Label>
-                                            <Form.Control
-                                                type="number"
-                                                min="0"
-                                                step="1"
-                                                name="stock"
-                                                value={editForm.stock}
-                                                onChange={handleEditChange}
-                                            />
-                                        </Form.Group>
-                                        <Form.Group className="mb-3" controlId="productWarrantyMonths">
-                                            <Form.Label htmlFor="productWarrantyMonths">Warranty (months)</Form.Label>
-                                            <Form.Control
-                                                id="productWarrantyMonths"
-                                                type="number"
-                                                min="0"
-                                                step="1"
-                                                inputMode="numeric"
-                                                name="warrantyMonths"
-                                                value={editForm.warrantyMonths}
-                                                onChange={handleEditChange}
-                                                autoComplete="off"
-                                            />
-                                        </Form.Group>
-                                    </div>
-                                    </section>
-                                    <section className="admin__form-section">
-                                        <div className="admin__form-section__header">
-                                            <h4>Support and specifications</h4>
-                                            <p>Model, warranty, datasheet, highlights, and technical details.</p>
-                                        </div>
-                                    <div className="admin__edit-form__grid">
-                                        <Form.Group className="mb-3" controlId="productModel">
-                                            <Form.Label>Model</Form.Label>
-                                            <Form.Control name="model" value={editForm.model} onChange={handleEditChange} />
-                                        </Form.Group>
-                                        <Form.Group className="mb-3" controlId="productWarranty">
-                                            <Form.Label>Warranty</Form.Label>
-                                            <Form.Control
-                                                name="warranty"
-                                                value={editForm.warranty}
-                                                onChange={handleEditChange}
-                                            />
-                                        </Form.Group>
-                                        <Form.Group className="mb-3" controlId="productDatasheet">
-                                            <Form.Label>Datasheet URL</Form.Label>
-                                            <Form.Control
-                                                type="url"
-                                                name="datasheet"
-                                                value={editForm.datasheet}
-                                                onChange={handleEditChange}
-                                            />
-                                        </Form.Group>
-                                    </div>
-                                    <div className="admin__edit-form__grid admin__edit-form__grid--two">
-                                        <Form.Group className="mb-3" controlId="productHighlights">
-                                            <Form.Label>Customer highlights</Form.Label>
-                                            <Form.Control
-                                                as="textarea"
-                                                rows={4}
-                                                name="highlights"
-                                                value={editForm.highlights}
-                                                onChange={handleEditChange}
-                                            />
-                                        </Form.Group>
-                                        <Form.Group className="mb-3" controlId="productSpecifications">
-                                            <Form.Label>Specifications</Form.Label>
-                                            <Form.Control
-                                                as="textarea"
-                                                rows={4}
-                                                name="specifications"
-                                                value={editForm.specifications}
-                                                onChange={handleEditChange}
-                                            />
-                                        </Form.Group>
-                                    </div>
-                                    </section>
-                                    <ProductAttributeEditor
-                                        rows={editForm.attributes}
-                                        onChange={handleAttributeChange}
-                                        onAdd={addAttribute}
-                                        onRemove={removeAttribute}
+                                <form
+                                    id="manage-product-form"
+                                    className="admin__product-form__native"
+                                    noValidate
+                                    onSubmit={(event) => {
+                                        event.preventDefault();
+                                        void handleSave();
+                                    }}
+                                >
+                                    <ProductForm
+                                        mode="edit"
+                                        idPrefix="manage-product"
+                                        values={editForm}
+                                        errors={editValidationErrors}
+                                        onChange={handleEditFieldChange}
+                                        onAttributeChange={handleAttributeChange}
+                                        onAddAttribute={addAttribute}
+                                        onRemoveAttribute={removeAttribute}
+                                        attributeError={attributeError}
+                                        currentStock={Number(editForm.stock) || 0}
                                     />
-                                </Form>
+                                </form>
                             </Modal.Body>
                             <Modal.Footer className="admin__modal-actions">
                                 <Button
                                     variant="outline-danger"
+                                    type="button"
                                     onClick={() => setShowDeleteConfirm(true)}
                                     disabled={isDeleting || isSaving}
                                 >
                                     {isDeleting ? "Hiding..." : "Hide product"}
                                 </Button>
                                 <div>
-                                    <Button variant="secondary" onClick={handleClose} disabled={isDeleting || isSaving}>
+                                    <Button type="button" variant="secondary" onClick={handleClose} disabled={isDeleting || isSaving}>
                                         Cancel
                                     </Button>
-                                    <Button variant="primary" onClick={handleSave} disabled={isDeleting || isSaving}>
+                                    <Button
+                                        type="submit"
+                                        form="manage-product-form"
+                                        variant="primary"
+                                        disabled={isDeleting || isSaving}
+                                    >
                                         {isSaving ? "Saving..." : "Save changes"}
                                     </Button>
                                 </div>

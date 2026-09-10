@@ -80,7 +80,16 @@ const FormBase = React.forwardRef<HTMLFormElement, React.FormHTMLAttributes<HTML
 FormBase.displayName = "LegacyForm";
 const Form = Object.assign(FormBase, { Group: FormGroup, Label: FormLabel, Control: FormControl, Text: FormText, Check: FormCheck });
 
-function Table({ children, className, responsive = false, ...props }: React.TableHTMLAttributes<HTMLTableElement> & { responsive?: boolean; hover?: boolean; borderless?: boolean }) {
+function Table({
+    children,
+    className,
+    responsive = false,
+    hover: _hover,
+    borderless: _borderless,
+    ...props
+}: React.TableHTMLAttributes<HTMLTableElement> & { responsive?: boolean; hover?: boolean; borderless?: boolean }) {
+    void _hover;
+    void _borderless;
     const table = <table className={cn("w-full border-collapse text-left text-sm", className)} {...props}>{children}</table>;
     return responsive ? <div className="w-full overflow-x-auto">{table}</div> : table;
 }

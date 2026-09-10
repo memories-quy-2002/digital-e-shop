@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { InsertResult } from "#src/shared/interfaces/domain";
 import type { TransactionContext } from "../database/transaction";
+import { assertGuestOrderTokenHash } from "./guest-order-token";
 import type {
     CheckoutReservationItem,
     LockedProductRow,
@@ -25,6 +26,23 @@ export class CheckoutReservationRepository {
         );
     }
 
+    async lockProductsForPurchase(tx: TransactionContext, productIds: number[]): Promise<LockedProductRow[]> {
+        if (productIds.length === 0) return [];
+
+        const placeholders = productIds.map(() => "?").join(", ");
+        return tx.query<LockedProductRow[]>(
+            `SELECT p.id, p.name, p.sku, p.warranty_months, p.price, p.sale_price, p.stock,
+                    p.main_image, p.specifications, b.name AS brand, c.name AS category
+             FROM products p
+             JOIN brands b ON b.id = p.brand_id
+             JOIN categories c ON c.id = p.category_id
+             WHERE p.id IN (${placeholders}) AND p.stock >= 0
+             ORDER BY p.id
+             FOR UPDATE`,
+            productIds,
+        );
+    }
+
     async getActiveReservationQuantities(tx: TransactionContext, productIds: number[]): Promise<ReservedQuantityRow[]> {
         if (productIds.length === 0) return [];
 
@@ -42,11 +60,29 @@ export class CheckoutReservationRepository {
     }
 
     async insertPendingCheckout(tx: TransactionContext, input: PendingCheckoutInsertInput): Promise<InsertResult> {
+        const guestOrderTokenHash = input.guestOrderTokenHash === null
+            ? null
+            : assertGuestOrderTokenHash(input.guestOrderTokenHash);
+
         return tx.query<InsertResult>(
             `INSERT INTO pending_checkouts
-                (stripe_session_id, reservation_token, user_id, cart_json, total_price, discount, shipping_address, status, expires_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)`,
-            [null, input.reservationToken, input.userId, input.cartJson, input.totalPrice, input.discount, input.shippingAddress, input.expiresAt],
+                (stripe_session_id, reservation_token, user_id, guest_email, guest_name, guest_phone, guest_order_token_hash,
+                 cart_json, total_price, discount, shipping_address, status, expires_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)`,
+            [
+                null,
+                input.reservationToken,
+                input.userId,
+                input.guestEmail,
+                input.guestName,
+                input.guestPhone,
+                guestOrderTokenHash,
+                input.cartJson,
+                input.totalPrice,
+                input.discount,
+                input.shippingAddress,
+                input.expiresAt,
+            ],
         );
     }
 
@@ -99,8 +135,9 @@ export class CheckoutReservationRepository {
         stripeSessionId: string,
     ): Promise<PendingCheckoutRow | null> {
         const rows = await tx.query<PendingCheckoutRow[]>(
-            `SELECT id, stripe_session_id, reservation_token, user_id, cart_json, total_price,
-                    discount, shipping_address, status, expires_at, discount_id, created_at, consumed_at
+            `SELECT id, stripe_session_id, reservation_token, user_id, guest_email, guest_name, guest_phone,
+                    guest_order_token_hash, cart_json, total_price, discount, shipping_address, status, expires_at,
+                    discount_id, created_at, consumed_at
              FROM pending_checkouts
              WHERE stripe_session_id = ?
              LIMIT 1
