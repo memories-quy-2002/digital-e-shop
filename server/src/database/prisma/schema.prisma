@@ -91,6 +91,7 @@ model Product {
   createdAt              DateTime @default(now()) @map("created_at") @db.DateTime(0)
   updatedAt              DateTime @default(now()) @map("updated_at") @db.DateTime(0)
 
+  category              Category               @relation(fields: [categoryId], references: [id])
   reviews               Review[]
   cartItems             CartItem[]
   orderItems            OrderItem[]
@@ -99,6 +100,52 @@ model Product {
 
   @@index([manufacturerPartNumber], map: "products_mpn_idx")
   @@map("products")
+}
+
+model Category {
+  id           Int     @id @default(autoincrement())
+  name         String  @db.VarChar(255)
+  slug         String  @unique(map: "uq_categories_slug") @db.VarChar(120)
+  catalogGroup String? @map("catalog_group") @db.VarChar(80)
+  isActive     Boolean @default(true) @map("is_active") @db.TinyInt
+  sortOrder    Int     @default(100) @map("sort_order")
+
+  products             Product[]
+  aliases              CategoryAlias[]
+  attributeDefinitions CategoryAttributeDefinition[]
+
+  @@index([isActive, catalogGroup, sortOrder], map: "categories_navigation_idx")
+  @@map("categories")
+}
+
+model CategoryAlias {
+  id         Int      @id @default(autoincrement())
+  aliasSlug  String   @unique(map: "uq_category_aliases_slug") @map("alias_slug") @db.VarChar(120)
+  aliasName  String   @unique(map: "uq_category_aliases_name") @map("alias_name") @db.VarChar(255)
+  categoryId Int      @map("category_id")
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId], map: "category_aliases_category_id_idx")
+  @@map("category_aliases")
+}
+
+model CategoryAttributeDefinition {
+  id              Int      @id @default(autoincrement())
+  categoryId      Int      @map("category_id")
+  attributeKey    String   @map("attribute_key") @db.VarChar(120)
+  label           String   @db.VarChar(160)
+  valueType       String   @map("value_type") @db.VarChar(16)
+  unit            String?  @db.VarChar(32)
+  filterable      Boolean  @default(true) @db.TinyInt
+  comparable      Boolean  @default(true) @db.TinyInt
+  facetOrder      Int      @default(100) @map("facet_order")
+  comparisonOrder Int      @default(100) @map("comparison_order")
+  category        Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, attributeKey], map: "uq_category_attribute_definition")
+  @@index([categoryId, filterable, facetOrder], map: "category_attribute_filter_idx")
+  @@index([categoryId, comparable, comparisonOrder], map: "category_attribute_compare_idx")
+  @@map("category_attribute_definitions")
 }
 
 model ProductAttribute {

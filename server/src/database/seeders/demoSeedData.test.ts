@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 // The seed writer is intentionally CommonJS to match the server's legacy
 // runtime shape; the test imports Vitest as ESM and exercises that module.
-const { DEMO_SEED_PLAN, validateDemoSeedPlan } = require("./demoSeedData");
+const { DEMO_SEED_PLAN, shouldSeedFirebaseUsersUnverified, validateDemoSeedPlan } = require("./demoSeedData");
 
 describe("Digital-E demo seed graph", () => {
     it("validates a fully linked graph and reports deterministic parent counts", () => {
@@ -110,5 +110,67 @@ describe("Digital-E demo seed graph", () => {
         };
 
         expect(() => validateDemoSeedPlan(invalidPlan)).toThrow("verified email");
+    });
+
+    it("uses the Firebase UID as both the user id and provider user id", () => {
+        expect(DEMO_SEED_PLAN.users.every((user: { id: string; providerUserId: string }) =>
+            user.id === user.providerUserId,
+        )).toBe(true);
+    });
+
+    it("starts local Firebase Emulator demo users as unverified", () => {
+        expect(shouldSeedFirebaseUsersUnverified({
+            FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099",
+        })).toBe(true);
+    });
+
+    it("keeps non-emulator demo seed users verified", () => {
+        expect(shouldSeedFirebaseUsersUnverified({
+            FIREBASE_AUTH_EMULATOR_HOST: "",
+        })).toBe(false);
+    });
+
+    it("rejects a demo account whose provider user id does not match its Firebase id", () => {
+        const invalidPlan = {
+            ...DEMO_SEED_PLAN,
+            users: DEMO_SEED_PLAN.users.map((user: Record<string, unknown>, index: number) =>
+                index === 0 ? { ...user, providerUserId: "different-firebase-uid" } : user,
+            ),
+        };
+
+        expect(() => validateDemoSeedPlan(invalidPlan)).toThrow("Firebase UID");
+    });
+
+    it("requires canonical category definitions and deterministic product identity metadata", () => {
+        expect(DEMO_SEED_PLAN.categoryAttributeDefinitions.length).toBeGreaterThan(0);
+        expect(DEMO_SEED_PLAN.products.every((product: Record<string, unknown>) =>
+            typeof product.manufacturerPartNumber === "string"
+            && String(product.manufacturerPartNumber).startsWith("DEMO-MPN-")
+            && Array.isArray(product.attributes)
+            && product.attributes.length > 0,
+        )).toBe(true);
+    });
+
+    it("rejects a product without a typed attribute value", () => {
+        const invalidPlan = {
+            ...DEMO_SEED_PLAN,
+            products: DEMO_SEED_PLAN.products.map((product: Record<string, unknown>, index: number) =>
+                index === 0 ? { ...product, attributes: [] } : product,
+            ),
+        };
+
+        expect(() => validateDemoSeedPlan(invalidPlan)).toThrow("typed attribute");
+    });
+
+    it("rejects a duplicate category attribute definition", () => {
+        const invalidPlan = {
+            ...DEMO_SEED_PLAN,
+            categoryAttributeDefinitions: [
+                ...DEMO_SEED_PLAN.categoryAttributeDefinitions,
+                DEMO_SEED_PLAN.categoryAttributeDefinitions[0],
+            ],
+        };
+
+        expect(() => validateDemoSeedPlan(invalidPlan)).toThrow("duplicate category attribute");
     });
 });

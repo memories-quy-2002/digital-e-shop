@@ -1,11 +1,23 @@
 const DEMO_PASSWORD = "DemoPass123!";
 
+const shouldSeedFirebaseUsersUnverified = (environment = process.env) =>
+    environment.FIREBASE_AUTH_EMULATOR_HOST === "127.0.0.1:9099";
+
+const DEMO_FIREBASE_UIDS = {
+    admin: "9wcbAsfh5QfeXCcf3PkiyXD0oXx1",
+    alice: "FpL0KaNqLSXGvdMVHqtUha4jn3E3",
+    bob: "ARejtsYaJVPiRJiZsEebeyNCtIr2",
+    carol: "Z1VdSveiLLYiL9aeMD1okAoOI2I2",
+};
+
 const DEMO_SEED_PLAN = {
     currency: "VND",
     users: [
         {
             key: "admin",
-            id: "demo-digital-e-admin",
+            id: DEMO_FIREBASE_UIDS.admin,
+            providerUserId: DEMO_FIREBASE_UIDS.admin,
+            authProvider: "firebase",
             username: "demo_admin_de",
             email: "demo.admin@digital-e.local",
             firstName: "Minh",
@@ -15,7 +27,9 @@ const DEMO_SEED_PLAN = {
         },
         {
             key: "alice",
-            id: "demo-digital-e-alice",
+            id: DEMO_FIREBASE_UIDS.alice,
+            providerUserId: DEMO_FIREBASE_UIDS.alice,
+            authProvider: "firebase",
             username: "demo_alice_de",
             email: "demo.alice@digital-e.local",
             firstName: "Ngoc Anh",
@@ -25,7 +39,9 @@ const DEMO_SEED_PLAN = {
         },
         {
             key: "bob",
-            id: "demo-digital-e-bob",
+            id: DEMO_FIREBASE_UIDS.bob,
+            providerUserId: DEMO_FIREBASE_UIDS.bob,
+            authProvider: "firebase",
             username: "demo_bob_de",
             email: "demo.bob@digital-e.local",
             firstName: "Quang Huy",
@@ -35,7 +51,9 @@ const DEMO_SEED_PLAN = {
         },
         {
             key: "carol",
-            id: "demo-digital-e-carol",
+            id: DEMO_FIREBASE_UIDS.carol,
+            providerUserId: DEMO_FIREBASE_UIDS.carol,
+            authProvider: "firebase",
             username: "demo_carol_de",
             email: "demo.carol@digital-e.local",
             firstName: "Thu Ha",
@@ -45,6 +63,35 @@ const DEMO_SEED_PLAN = {
         },
     ],
     categories: ["Laptop", "Smartphone", "PC", "Monitor", "Headphone", "Graphics Card", "Console", "Camera"],
+    categoryAliases: [
+        { aliasSlug: "phone", aliasName: "Phone", categoryName: "Smartphone" },
+        { aliasSlug: "gpu", aliasName: "GPU", categoryName: "Graphics Card" },
+        { aliasSlug: "headphones", aliasName: "Headphones", categoryName: "Headphone" },
+    ],
+    categoryAttributeDefinitions: [
+        { categoryName: "Laptop", attributeKey: "screen_size", label: "Screen size", valueType: "number", unit: "in", filterable: true, comparable: true, facetOrder: 10, comparisonOrder: 10 },
+        { categoryName: "Laptop", attributeKey: "ram_gb", label: "RAM", valueType: "number", unit: "GB", filterable: true, comparable: true, facetOrder: 20, comparisonOrder: 20 },
+        { categoryName: "Laptop", attributeKey: "storage_gb", label: "Storage", valueType: "number", unit: "GB", filterable: true, comparable: true, facetOrder: 30, comparisonOrder: 30 },
+        { categoryName: "Laptop", attributeKey: "cpu", label: "Processor", valueType: "text", filterable: true, comparable: true, facetOrder: 40, comparisonOrder: 40 },
+        { categoryName: "Smartphone", attributeKey: "screen_size", label: "Screen size", valueType: "number", unit: "in", filterable: true, comparable: true, facetOrder: 10, comparisonOrder: 10 },
+        { categoryName: "Smartphone", attributeKey: "storage_gb", label: "Storage", valueType: "number", unit: "GB", filterable: true, comparable: true, facetOrder: 20, comparisonOrder: 20 },
+        { categoryName: "Smartphone", attributeKey: "network", label: "Network", valueType: "text", filterable: true, comparable: true, facetOrder: 30, comparisonOrder: 30 },
+        { categoryName: "PC", attributeKey: "device_type", label: "Device type", valueType: "text", filterable: true, comparable: true, facetOrder: 10, comparisonOrder: 10 },
+        { categoryName: "PC", attributeKey: "connectivity", label: "Connectivity", valueType: "text", filterable: true, comparable: true, facetOrder: 20, comparisonOrder: 20 },
+        { categoryName: "PC", attributeKey: "ram_gb", label: "RAM", valueType: "number", unit: "GB", filterable: true, comparable: true, facetOrder: 30, comparisonOrder: 30 },
+        { categoryName: "Monitor", attributeKey: "screen_size", label: "Screen size", valueType: "number", unit: "in", filterable: true, comparable: true, facetOrder: 10, comparisonOrder: 10 },
+        { categoryName: "Monitor", attributeKey: "refresh_rate", label: "Refresh rate", valueType: "number", unit: "Hz", filterable: true, comparable: true, facetOrder: 20, comparisonOrder: 20 },
+        { categoryName: "Monitor", attributeKey: "panel_type", label: "Panel type", valueType: "text", filterable: true, comparable: true, facetOrder: 30, comparisonOrder: 30 },
+        { categoryName: "Headphone", attributeKey: "connection", label: "Connection", valueType: "text", filterable: true, comparable: true, facetOrder: 10, comparisonOrder: 10 },
+        { categoryName: "Headphone", attributeKey: "battery_hours", label: "Battery life", valueType: "number", unit: "h", filterable: true, comparable: true, facetOrder: 20, comparisonOrder: 20 },
+        { categoryName: "Headphone", attributeKey: "noise_cancelling", label: "Noise cancelling", valueType: "text", filterable: true, comparable: true, facetOrder: 30, comparisonOrder: 30 },
+        { categoryName: "Graphics Card", attributeKey: "vram_gb", label: "VRAM", valueType: "number", unit: "GB", filterable: true, comparable: true, facetOrder: 10, comparisonOrder: 10 },
+        { categoryName: "Graphics Card", attributeKey: "pci_generation", label: "PCI generation", valueType: "text", filterable: true, comparable: true, facetOrder: 20, comparisonOrder: 20 },
+        { categoryName: "Console", attributeKey: "storage_gb", label: "Storage", valueType: "number", unit: "GB", filterable: true, comparable: true, facetOrder: 10, comparisonOrder: 10 },
+        { categoryName: "Console", attributeKey: "resolution", label: "Resolution", valueType: "text", filterable: true, comparable: true, facetOrder: 20, comparisonOrder: 20 },
+        { categoryName: "Camera", attributeKey: "sensor_resolution_mp", label: "Sensor resolution", valueType: "number", unit: "MP", filterable: true, comparable: true, facetOrder: 10, comparisonOrder: 10 },
+        { categoryName: "Camera", attributeKey: "video_resolution", label: "Video resolution", valueType: "text", filterable: true, comparable: true, facetOrder: 20, comparisonOrder: 20 },
+    ],
     brands: [
         "Dell",
         "Samsung",
@@ -662,8 +709,57 @@ const DEMO_SEED_PLAN = {
 const DEMO_SEED_USD_TO_VND_RATE = 25_000;
 const toDemoVnd = (value) => Math.round((Number(value) * DEMO_SEED_USD_TO_VND_RATE) / 1_000) * 1_000;
 
-DEMO_SEED_PLAN.products = DEMO_SEED_PLAN.products.map((product) => ({
+const demoTypedAttributes = (product) => {
+    const categoryAttributes = {
+        Laptop: [
+            { key: "screen_size", label: "Screen size", type: "number", numberValue: product.name.includes("Surface") ? 14.4 : product.name.includes("XPS") ? 13.4 : 14, unit: "in" },
+            { key: "ram_gb", label: "RAM", type: "number", numberValue: product.name.includes("Surface") ? 32 : 16, unit: "GB" },
+            { key: "storage_gb", label: "Storage", type: "number", numberValue: product.name.includes("Surface") ? 1024 : 512, unit: "GB" },
+            { key: "cpu", label: "Processor", type: "text", textValue: product.name.includes("MacBook") ? "Apple M3" : product.name.includes("ZenBook") ? "Intel Core i5" : "Intel Core i7" },
+        ],
+        Smartphone: [
+            { key: "screen_size", label: "Screen size", type: "number", numberValue: product.name.includes("iPhone") ? 6.1 : product.name.includes("Galaxy S24") ? 6.2 : product.name.includes("Pixel") ? 6.3 : 6.5, unit: "in" },
+            { key: "storage_gb", label: "Storage", type: "number", numberValue: 128, unit: "GB" },
+            { key: "network", label: "Network", type: "text", textValue: "5G" },
+        ],
+        PC: [
+            { key: "device_type", label: "Device type", type: "text", textValue: product.name.includes("Mouse") ? "Mouse" : product.name.includes("Keys") ? "Keyboard" : product.name.includes("CPU") || product.name.includes("Ryzen") ? "Processor" : product.name.includes("NUC") || product.name.includes("Omen") ? "Desktop" : "Peripheral" },
+            { key: "connectivity", label: "Connectivity", type: "text", textValue: product.name.includes("Intel Core") || product.name.includes("Ryzen") ? "Socketed" : "Wireless" },
+            { key: "ram_gb", label: "RAM", type: "number", numberValue: product.name.includes("Omen") ? 32 : product.name.includes("NUC") ? 16 : 8, unit: "GB" },
+        ],
+        Monitor: [
+            { key: "screen_size", label: "Screen size", type: "number", numberValue: product.name.includes("34") ? 34 : product.name.includes("32") ? 32 : 27, unit: "in" },
+            { key: "refresh_rate", label: "Refresh rate", type: "number", numberValue: product.name.includes("Odyssey") ? 240 : product.name.includes("TUF") ? 165 : 60, unit: "Hz" },
+            { key: "panel_type", label: "Panel type", type: "text", textValue: product.name.includes("Studio") ? "Retina" : product.name.includes("TUF") ? "IPS" : product.name.includes("Odyssey") ? "VA" : "IPS" },
+        ],
+        Headphone: [
+            { key: "connection", label: "Connection", type: "text", textValue: "Bluetooth" },
+            { key: "battery_hours", label: "Battery life", type: "number", numberValue: product.name.includes("Sony WH") ? 35 : product.name.includes("Bose") ? 24 : 20, unit: "h" },
+            { key: "noise_cancelling", label: "Noise cancelling", type: "text", textValue: product.name.includes("JBL") ? "No" : "Yes" },
+        ],
+        "Graphics Card": [
+            { key: "vram_gb", label: "VRAM", type: "number", numberValue: product.name.includes("7900") ? 20 : 12, unit: "GB" },
+            { key: "pci_generation", label: "PCI generation", type: "text", textValue: "PCIe 4.0" },
+        ],
+        Console: [
+            { key: "storage_gb", label: "Storage", type: "number", numberValue: 1024, unit: "GB" },
+            { key: "resolution", label: "Resolution", type: "text", textValue: "4K" },
+        ],
+        Camera: [
+            { key: "sensor_resolution_mp", label: "Sensor resolution", type: "number", numberValue: 24, unit: "MP" },
+            { key: "video_resolution", label: "Video resolution", type: "text", textValue: "4K" },
+        ],
+    };
+    return (categoryAttributes[product.categoryName] || []).map((attribute) => ({
+        ...attribute,
+        filterable: true,
+    }));
+};
+
+DEMO_SEED_PLAN.products = DEMO_SEED_PLAN.products.map((product, index) => ({
     ...product,
+    manufacturerPartNumber: "DEMO-MPN-" + String(index + 1).padStart(4, "0"),
+    attributes: demoTypedAttributes(product),
     price: toDemoVnd(product.price),
     salePrice: toDemoVnd(product.salePrice),
 }));
@@ -688,8 +784,12 @@ const validateDemoSeedPlan = (plan = DEMO_SEED_PLAN) => {
     ensureUnique(plan.users.map((user) => user.email), "user email");
     ensureUnique(plan.users.map((user) => user.username), "username");
     ensureUnique(plan.categories, "category");
+    ensureUnique((plan.categoryAliases || []).map((alias) => alias.aliasSlug), "category alias slug");
+    ensureUnique((plan.categoryAliases || []).map((alias) => alias.aliasName), "category alias name");
+    ensureUnique((plan.categoryAttributeDefinitions || []).map((definition) => definition.categoryName + ":" + definition.attributeKey), "category attribute definition");
     ensureUnique(plan.brands, "brand");
     ensureUnique(plan.products.map((product) => product.name), "product name");
+    ensureUnique(plan.products.map((product) => product.manufacturerPartNumber), "manufacturer part number");
     ensureUnique(plan.carts.map((cart) => cart.key), "cart key");
     ensureUnique(plan.orders.map((order) => order.key), "order key");
     ensureUnique(plan.discounts.map((discount) => discount.code), "discount code");
@@ -703,11 +803,24 @@ const validateDemoSeedPlan = (plan = DEMO_SEED_PLAN) => {
     if (plan.users.some((user) => user.emailVerified !== true)) {
         throw new Error("Demo seed plan requires every account to have a verified email");
     }
+    if (plan.users.some((user) => !user.id || user.id !== user.providerUserId || user.authProvider !== "firebase")) {
+        throw new Error("Demo seed plan requires users.id and users.provider_user_id to be the same Firebase UID");
+    }
 
     const users = new Set(plan.users.map((user) => user.key));
     const products = new Set(plan.products.map((product) => product.name));
     const categories = new Set(plan.categories);
     const brands = new Set(plan.brands);
+    const definitionMap = new Map((plan.categoryAttributeDefinitions || []).map((definition) => [
+        definition.categoryName + ":" + definition.attributeKey,
+        definition,
+    ]));
+
+    (plan.categoryAliases || []).forEach((alias) => {
+        if (!categories.has(alias.categoryName)) {
+            throw new Error("Demo seed plan references an unknown category alias target: " + alias.categoryName);
+        }
+    });
 
     plan.products.forEach((product) => {
         if (/\b(?:e2e|demo)\b/i.test(product.name)) {
@@ -722,6 +835,26 @@ const validateDemoSeedPlan = (plan = DEMO_SEED_PLAN) => {
         if (typeof product.mainImage !== "string" || product.mainImage.trim() === "") {
             throw new Error(`Demo seed plan is missing a main image: ${product.name}`);
         }
+        if (typeof product.manufacturerPartNumber !== "string" || product.manufacturerPartNumber.trim() === "") {
+            throw new Error("Demo seed plan requires a manufacturer part number: " + product.name);
+        }
+        if (!Array.isArray(product.attributes) || product.attributes.length === 0) {
+            throw new Error("Demo seed plan requires at least one typed attribute: " + product.name);
+        }
+        const productAttributeKeys = new Set();
+        product.attributes.forEach((attribute) => {
+            if (productAttributeKeys.has(attribute.key)) {
+                throw new Error("Demo seed plan contains a duplicate typed attribute: " + product.name + "/" + attribute.key);
+            }
+            productAttributeKeys.add(attribute.key);
+            const definition = definitionMap.get(product.categoryName + ":" + attribute.key);
+            if (!definition) {
+                throw new Error("Demo seed plan references an undefined typed attribute: " + product.name + "/" + attribute.key);
+            }
+            if (definition.valueType !== attribute.type) {
+                throw new Error("Demo seed plan has a typed attribute mismatch: " + product.name + "/" + attribute.key);
+            }
+        });
         if (!Number.isInteger(product.price) || !Number.isInteger(product.salePrice) || product.price <= product.salePrice) {
             throw new Error(`Demo seed plan requires whole-number VND prices: ${product.name}`);
         }
@@ -870,5 +1003,6 @@ const validateDemoSeedPlan = (plan = DEMO_SEED_PLAN) => {
 module.exports = {
     DEMO_PASSWORD,
     DEMO_SEED_PLAN,
+    shouldSeedFirebaseUsersUnverified,
     validateDemoSeedPlan,
 };

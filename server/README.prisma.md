@@ -44,10 +44,13 @@ pnpm prisma:generate
 pnpm prisma:validate
 pnpm prisma:migrate:status
 pnpm prisma:migrate:deploy
-pnpm prisma:seed
+pnpm seed:demo
+pnpm demo:verify
 ```
 
 Use `prisma:migrate` for intentional local development migrations only. Use `prisma:migrate:deploy` for shared or production rollout. Never run `prisma migrate reset`, `prisma db push`, or an unreviewed destructive command against a data-bearing database.
+
+`pnpm dev` only runs Prisma Client generation before starting the watcher. It does not migrate or seed. Apply migrations explicitly, then run `pnpm seed:demo` when the local database should contain the demo graph.
 
 ## Local Docker setup
 
