@@ -1,6 +1,24 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 const { quoteIdentifier, sanitizeDump } = require("./resetDemoDatabase.js");
+const { resolveDemoDatabaseSsl } = require("./databaseSsl.js");
+
+const originalDbSsl = process.env.DB_SSL;
+const originalDbSslCaPath = process.env.DB_SSL_CA_PATH;
+
+afterEach(() => {
+    if (originalDbSsl === undefined) {
+        delete process.env.DB_SSL;
+    } else {
+        process.env.DB_SSL = originalDbSsl;
+    }
+
+    if (originalDbSslCaPath === undefined) {
+        delete process.env.DB_SSL_CA_PATH;
+    } else {
+        process.env.DB_SSL_CA_PATH = originalDbSslCaPath;
+    }
+});
 
 describe("demo database reset helpers", () => {
     it("escapes SQL identifiers", () => {
@@ -26,5 +44,22 @@ describe("demo database reset helpers", () => {
         expect(sanitized).not.toContain("GTID_PURGED");
         expect(sanitized).not.toContain("SQL_LOG_BIN");
         expect(sanitized).toContain("CREATE TABLE `products`");
+    });
+});
+
+describe("demo database SSL configuration", () => {
+    it("does not configure TLS when DB_SSL is disabled", () => {
+        process.env.DB_SSL = "false";
+
+        expect(resolveDemoDatabaseSsl()).toBeUndefined();
+    });
+
+    it("loads the bundled CA when DB_SSL is enabled", () => {
+        process.env.DB_SSL = "true";
+        delete process.env.DB_SSL_CA_PATH;
+
+        expect(resolveDemoDatabaseSsl()).toEqual({
+            ca: expect.stringContaining("BEGIN CERTIFICATE"),
+        });
     });
 });

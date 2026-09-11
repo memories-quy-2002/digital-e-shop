@@ -10,6 +10,7 @@ const {
     assertExplicitDemoSeedTarget,
     DESTRUCTIVE_DEMO_SEED_MODE,
 } = require("../../config/database-target");
+const { resolveDemoDatabaseSsl } = require("./databaseSsl.js");
 
 const BASELINE_FILES = [
     path.resolve(__dirname, "..", "migrations", "defaultdb_2026-06-01_142319.sql"),
@@ -97,7 +98,7 @@ const createPool = () =>
         connectionLimit: 2,
         queueLimit: 0,
         multipleStatements: true,
-        ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: true } : undefined,
+        ssl: resolveDemoDatabaseSsl(),
     });
 
 const main = async () => {
