@@ -10,6 +10,7 @@ const {
     assertLocalDatabaseTarget,
     DESTRUCTIVE_DEMO_SEED_MODE,
 } = require("../../config/database-target");
+const { resolveDemoDatabaseSsl } = require("./databaseSsl.js");
 const { DEMO_SEED_PLAN, validateDemoSeedPlan } = require("./demoSeedData");
 
 const DEMO_ORDER_SESSION_PREFIX = "digital-e-demo-order-";
@@ -294,7 +295,7 @@ const main = async () => {
         waitForConnections: true,
         connectionLimit: 5,
         queueLimit: 0,
-        ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: true } : undefined,
+        ssl: resolveDemoDatabaseSsl(),
     });
 
     const connection = await pool.getConnection();
