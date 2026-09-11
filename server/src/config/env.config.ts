@@ -14,14 +14,64 @@ export const resolveServerRoot = (moduleDirectory: string) => {
 type FileExists = (candidate: string) => boolean;
 type ReadFile = (candidate: string) => string;
 
-export type AuthProvider = "local" | "firebase";
+const LOCAL_FIREBASE_PROJECT_ID = "demo-digital-e-local";
 
-export const resolveAuthProvider = (nodeEnv: string, configuredProvider?: string): AuthProvider => {
-    if (nodeEnv === "production") {
-        return "firebase";
+export type FirebaseEnvironmentValidationInput = {
+    nodeEnv: string;
+    projectId?: string;
+    clientEmail?: string;
+    privateKey?: string;
+    emulatorHost?: string;
+};
+
+export const normalizeFirebaseAuthEmulatorHost = (value?: string) => {
+    const normalized = value?.trim() || "";
+    if (!normalized) {
+        return "";
     }
 
-    return configuredProvider?.trim().toLowerCase() === "firebase" ? "firebase" : "local";
+    if (!/^(localhost|127\.0\.0\.1):\d{1,5}$/.test(normalized)) {
+        throw new Error("FIREBASE_AUTH_EMULATOR_HOST must be a host:port value without a protocol");
+    }
+
+    const port = Number(normalized.split(":").at(-1));
+    if (port < 1 || port > 65535) {
+        throw new Error("FIREBASE_AUTH_EMULATOR_HOST must use a valid TCP port");
+    }
+
+    return normalized;
+};
+
+export const getFirebaseEnvironmentErrors = ({
+    nodeEnv,
+    projectId = "",
+    clientEmail = "",
+    privateKey = "",
+    emulatorHost = "",
+}: FirebaseEnvironmentValidationInput) => {
+    const errors: string[] = [];
+    if (!projectId.trim()) {
+        errors.push("FIREBASE_PROJECT_ID is required when Firebase auth is active");
+    }
+
+    if (emulatorHost) {
+        if (nodeEnv === "production") {
+            errors.push("FIREBASE_AUTH_EMULATOR_HOST is not allowed when NODE_ENV=production");
+        }
+        if (projectId.trim() && projectId.trim() !== LOCAL_FIREBASE_PROJECT_ID) {
+            errors.push("Local Firebase Emulator mode must use FIREBASE_PROJECT_ID=demo-digital-e-local");
+        }
+        return errors;
+    }
+
+    if (!clientEmail.trim()) {
+        errors.push("FIREBASE_CLIENT_EMAIL is required when Firebase Admin is not using the Auth Emulator");
+    }
+    if (!privateKey.trim()) {
+        errors.push("FIREBASE_PRIVATE_KEY is required when Firebase Admin is not using the Auth Emulator");
+    }
+
+    return errors;
 };
 
 export const resolveEnvPath = (
@@ -91,6 +141,7 @@ export const env = {
     firebaseProjectId: process.env.FIREBASE_PROJECT_ID || "",
     firebaseClientEmail: process.env.FIREBASE_CLIENT_EMAIL || "",
     firebasePrivateKey: (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n"),
+    firebaseAuthEmulatorHost: normalizeFirebaseAuthEmulatorHost(process.env.FIREBASE_AUTH_EMULATOR_HOST),
     clientUrl: process.env.CLIENT_URL || "",
     serverUrl: process.env.SERVER_URL || "",
     blobReadWriteToken: process.env.BLOB_READ_WRITE_TOKEN || "",
@@ -105,13 +156,21 @@ export const env = {
     payosPartnerCode: process.env.PAYOS_PARTNER_CODE || "",
     payosBaseUrl: process.env.PAYOS_BASE_URL || "https://api-merchant.payos.vn",
     storeCurrency: (process.env.STORE_CURRENCY === "USD" ? "USD" : "VND") as "USD" | "VND",
-    resendApiKey: process.env.RESEND_API_KEY || "",
-    resendFromEmail: process.env.RESEND_FROM_EMAIL || "Digital-E <onboarding@resend.dev>",
     paymentProviderMode: process.env.PAYMENT_PROVIDER_MODE === "live" ? "live" : "mock",
     payosUsdToVndRate: process.env.PAYOS_USD_TO_VND_RATE ? Number(process.env.PAYOS_USD_TO_VND_RATE) : undefined,
     redisUrl: process.env.REDIS_URL || "",
-    authProvider: resolveAuthProvider(mode, process.env.AUTH_PROVIDER),
 };
+
+const firebaseEnvironmentErrors = getFirebaseEnvironmentErrors({
+    nodeEnv: env.nodeEnv,
+    projectId: env.firebaseProjectId,
+    clientEmail: env.firebaseClientEmail,
+    privateKey: env.firebasePrivateKey,
+    emulatorHost: env.firebaseAuthEmulatorHost,
+});
+if (firebaseEnvironmentErrors.length > 0) {
+    throw new Error("Invalid Firebase environment: " + firebaseEnvironmentErrors.join("; "));
+}
 
 const missingProductionEnvironmentKeys = getMissingProductionEnvironmentKeys();
 if (env.nodeEnv === "production" && missingProductionEnvironmentKeys.length > 0) {

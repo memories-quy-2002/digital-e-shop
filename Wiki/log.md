@@ -50,3 +50,12 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-10 - Codex - Fixed mock PayOS finalization by binding the VND currency value in the order insert and verified idempotent confirmation against local MySQL.
 - 2026-09-10 - Codex - Switched local client/server environment loading to the example-backed local files, aligned Prisma CLI with the same local-first resolution, and verified signup against Docker MySQL after a remote-database false positive.
 - 2026-09-10 - Codex - Standardized the active local workflow on `client/.env` and `server/.env`, reseeded the VND demo graph, and verified that server development no longer reads the remote database target.
+- 2026-09-11 - Codex - Replaced server-owned Resend email verification with Firebase client verification, removed the verification token endpoints/service, and documented claim synchronization on the next login.
+- 2026-09-11 - Codex - Switched production password reset and email change to Firebase client flows, synchronized verified Firebase email changes on next login, and removed marketing runtime routes while keeping optional order email and in-app order notifications.
+- 2026-09-11 - Codex - Removed the Resend adapter, environment contract, and order-email side effects; Firebase remains responsible for production auth emails and database-backed in-app notifications remain the order update channel.
+- 2026-09-11 - Codex - Made server development generation-only and kept demo seeding as an explicit manual idempotent operation with separate verification.
+- 2026-09-11 - Codex - Fixed demo seed legacy-email conflicts by cleaning owned foreign-key rows before recreating demo users with Firebase UID primary keys.
+- 2026-09-11 - Codex - Added isolated Firebase Auth Emulator client/Admin wiring, guarded local demo identities, and local verification/reset/email-change acceptance guidance.
+- 2026-09-11 - Codex - Removed MySQL password authentication and server-owned reset/email-change token flows; Firebase is now the only authentication provider in runtime, seed guidance, and maintained documentation.
+- 2026-09-11 - Codex - Updated current README, development/testing guides, Wiki overview, and Firebase environment plan/spec to document Firebase-only authentication and emulator-only local testing.
+- 2026-09-11 - Codex - Fixed local Firebase Auth Emulator password-reset handling, verified reset and email-change flows with Playwright, and documented the pnpm 12 emulator command and reset-link placeholder.

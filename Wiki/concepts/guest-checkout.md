@@ -20,10 +20,10 @@ Back to [[index]]. Related: [[0004-guest-cart-and-checkout]], [[architecture]].
    Authenticated checkout stores the shipping snapshot so Admin order detail
    can render the full destination; checkout can also suggest unique addresses
    from prior orders.
-6. When configured, Resend sends a customer confirmation after the immediate
-   order transaction or Stripe finalization commits. Guest messages contain a
-   guest lookup link without the raw access token; authenticated messages link
-   to signed-in order history. Missing or invalid server-side email is skipped.
+6. The current runtime does not send an external order email after the
+   immediate order transaction or Stripe finalization commits. Guests receive
+   the checkout-success response and protected lookup remains available;
+   authenticated customers receive database-backed in-app order notifications.
 
 Immediate checkout can use the local symbolic provider path in development;
 that path finalizes the reserved order without calling Stripe. Production
@@ -39,7 +39,7 @@ implied by the guest access model.
 | Order identity | `user_id = NULL` plus validated contact snapshot |
 | Secret access | Raw token in active `sessionStorage`; SHA-256 hash in the database |
 | Lookup | Order ID and token together; guest-safe response only |
-| Confirmation | Optional Resend email after commit when the server email is valid; raw token excluded |
+| Confirmation | Checkout-success response and protected lookup; raw token is excluded from URLs and database rows |
 | Customer history | Excluded from authenticated user order history |
 | Admin view | Left-joined user data with guest name/email/phone fallback |
 

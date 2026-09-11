@@ -25,5 +25,4 @@ export type AuthSessionPayload = {
     sessionId: number;
     refreshToken?: string | null;
     rememberMe?: boolean;
-    verificationEmailSent?: boolean;
 };

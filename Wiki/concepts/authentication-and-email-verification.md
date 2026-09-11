@@ -2,48 +2,49 @@
 
 Back to [[index]].
 
-## Provider modes
+## Provider
 
-- Local development defaults to `AUTH_PROVIDER=local` and accepts email/password registration and login.
-- Firebase mode accepts a client ID token; the server verifies it with Firebase Admin.
-- Production always resolves to Firebase, regardless of a local provider value.
-- Both modes issue the same server-owned cookie session and reload the live user row for authorization.
+- Firebase is the only authentication provider in every environment.
+- The client signs in with Firebase Email/Password and sends an ID token to the API.
+- The server verifies the token with Firebase Admin, reloads the live user row, and issues the same server-owned cookie session.
+- Email/password credentials are never compared against the MySQL users.password column.
 
-## Verification state
+## Firebase verification state
 
-New accounts start with `email_verified_at = NULL`. The server generates a 32-byte token, stores only its SHA-256 hash plus a 24-hour expiry, and asks Resend to deliver `/verify-email?token=...`. The raw token is not persisted, returned in an API response, placed in a cookie, or logged.
+In production, Firebase owns the verification email, link, and action-code handling. After Firebase creates an account, the client calls sendEmailVerification for the signed-in Firebase user. Firebase can deliver to any recipient address; a paid custom domain is not required.
 
-`POST /api/users/verification/confirm` consumes the token atomically. The public user contract exposes only `email_verified`; the internal hash and timestamps are removed by `toPublicUser`.
+The default Firebase action handler marks the Firebase user as verified. The user must sign in again so the client sends a fresh ID token. The server reads the verified claim, updates email_verified_at, and exposes the derived email_verified boolean. The server no longer generates verification tokens or exposes verification resend/confirmation endpoints.
+
+The nullable email_verification_token_hash, email_verification_expires_at, and email_verification_sent_at columns remain only for migration and row-shape compatibility with the previous implementation. They are not used to send or consume Firebase verification links.
 
 ## Access policy
 
-`AuthGuard` does not reject an unverified session. An unverified customer may browse, use the cart, wishlist, account, support, and order history, and can request another link. `VerifiedEmailGuard` protects authenticated purchase, Stripe checkout-session creation, and review creation. Admins and legacy rows with no verification column value are grandfathered in.
+AuthGuard does not reject an unverified session. An unverified customer may browse, use the cart, wishlist, account, support, and order history. In Firebase mode, the account page can resend a link through the currently signed-in Firebase user. VerifiedEmailGuard protects authenticated purchase, Stripe checkout-session creation, and review creation. Admins and legacy rows with no verification column value are grandfathered in.
 
-Registration succeeds when Resend is unavailable, so a missing local `RESEND_API_KEY` is a delivery state rather than an account-creation failure. Resend and resend-by-email responses remain generic, and auth routes are rate-limited to reduce enumeration and abuse.
-
+If Firebase delivery fails, account creation still succeeds and the user can retry from the account page after signing in again. The server has no separate email provider; Firebase owns production verification, password reset, and email change.
 ## Customer email delivery
 
-Normal customer-facing transactional, security, and marketing messages are sent only when the account's `email_verified_at` is set. This includes order confirmations for authenticated customers, password-reset links and completion notices, email-change security notices to the current address, and marketing welcome messages. The subscription or account operation still completes when delivery is skipped or unavailable.
-
-Verification email and email-change confirmation are deliberate exceptions: they are the messages that prove ownership of a new address, so blocking them would make verification impossible. Guest order confirmations remain eligible because guests do not have an account verification state. An account row with an undefined verification field is treated as a legacy verified row for migration compatibility.
-
+Customer order confirmations are not sent by the current runtime. Database-backed in-app order notifications are the primary order update channel for authenticated customers, while guests use checkout success and protected lookup. Firebase production owns verification, password-reset, and email-change delivery; marketing delivery and its runtime routes have been removed.
 ## Password reset
 
-`POST /api/users/password-reset/request` always returns a generic response. Verified local accounts receive a random one-hour token whose SHA-256 hash is stored on the user row. Verified Firebase accounts receive a Firebase Admin action link, and the client reset page handles the Firebase action code. Unverified accounts do not receive a reset email or get a reset token prepared. Confirmation replaces the local password atomically, clears the reset fields, revokes all active sessions, and sends a password-changed security notice only to a verified address. Raw reset tokens are only present in the outbound link and confirmation request.
+Password reset is a client-side Firebase flow. The API does not issue or consume MySQL password-reset tokens.
 
+The local Auth Emulator does not deliver mail. Its `Logs` tab contains the
+reset action link with `newPassword=NEW_PASSWORD_HERE`; replace that placeholder
+with a URL-encoded disposable password before opening the link.
+The emulator then completes the action in its own handler. The client only
+passes the app `/reset-password` continuation URL for production, where the
+Firebase `oobCode` page handles the reset.
 ## Email change
 
-An authenticated customer submits a new address to `POST /api/users/email-change/request`. The current email remains active while the requested address, token hash, and one-hour expiry are stored as pending state. The new address always receives the confirmation link, while the current address receives a security notice only when that current address is verified. Confirmation updates Firebase first when the Firebase provider is active, then atomically replaces the local email and marks it verified; the verified new address receives a change notice afterward, and the old address receives one only when it was verified.
-
+Customers submit a new address through the client Firebase verifyBeforeUpdateEmail flow. Firebase sends the verification link and keeps the current address until the new address is confirmed. After the customer signs in again, the server verifies the Firebase claim, checks for an email collision, synchronizes the local user row by Firebase UID, marks it verified, and issues the session.
 ## Code map
 
-- Server provider selection: `server/src/config/env.config.ts`
-- Registration and verification routes: `server/src/auth/auth.controller.ts`
-- Registration/session rules: `server/src/auth/auth.service.ts`
-- Token lifecycle: `server/src/auth/email-verification.service.ts`
-- Resend adapter: `server/src/email/resend-email.service.ts`
-- Verification gate: `server/src/guards/verified-email.guard.ts`
-- User fields and migration: `server/src/users/users.repository.ts` and `server/src/database/prisma/migrations/20260910100000_email_verification/`
-- Client signup and confirmation: `client/src/features/auth/pages/SignupPage.tsx` and `client/src/features/auth/pages/VerifyEmailPage.tsx`
-- Password reset: `server/src/auth/password-reset.service.ts` and `client/src/features/auth/pages/ResetPasswordPage.tsx`
-- Email change: `server/src/auth/email-change.service.ts`, `client/src/features/users/pages/CustomerAccountPage.tsx`, and `client/src/features/auth/pages/ConfirmEmailChangePage.tsx`
+- Firebase client helpers: client/src/services/firebase.ts
+- Client signup and account resend: client/src/features/auth/pages/SignupPage.tsx and client/src/features/users/pages/CustomerAccountPage.tsx
+- Firebase identity verification and claim synchronization: server/src/auth/firebase-admin.service.ts and server/src/auth/auth.service.ts
+- Verification gate: server/src/guards/verified-email.guard.ts
+- Public-user compatibility fields: server/src/users/user-public.ts and server/src/users/users.types.ts
+- Legacy migration: server/src/database/prisma/migrations/20260910100000_email_verification/
+- Password reset: client/src/services/firebase.ts and client/src/features/auth/pages/ResetPasswordPage.tsx
+- Email change: client/src/services/firebase.ts and client/src/features/users/pages/CustomerAccountPage.tsx

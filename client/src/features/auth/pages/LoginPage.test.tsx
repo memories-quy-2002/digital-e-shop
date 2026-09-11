@@ -8,6 +8,7 @@ import { Role, type UserData } from "../../../types/user";
 
 const mocks = vi.hoisted(() => ({
     loginUser: vi.fn(),
+    signInWithFirebaseEmail: vi.fn(),
     setUserData: vi.fn(),
     addToast: vi.fn(),
 }));
@@ -25,7 +26,7 @@ vi.mock("../../../context/ToastContext", () => ({
 }));
 
 vi.mock("../../../services/firebase", () => ({
-    signInWithFirebaseEmail: vi.fn(),
+    signInWithFirebaseEmail: mocks.signInWithFirebaseEmail,
 }));
 
 vi.mock("../../../utils/images", () => ({
@@ -50,6 +51,9 @@ const LocationProbe = () => {
 };
 
 const renderLogin = (redirect: string, role: Role) => {
+    mocks.signInWithFirebaseEmail.mockResolvedValue({
+        user: { getIdToken: vi.fn().mockResolvedValue("firebase-id-token") },
+    });
     mocks.loginUser.mockResolvedValue(buildUser(role));
     render(
         <MemoryRouter initialEntries={["/login?redirect=" + encodeURIComponent(redirect)]}>

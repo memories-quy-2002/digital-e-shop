@@ -1,7 +1,5 @@
 export const LOCAL_API_BASE_URL = "http://localhost:4000";
 
-export type AuthProvider = "local" | "firebase";
-
 type ApiBaseUrlOptions = {
     configuredUrl?: string;
     isProduction?: boolean;
@@ -33,22 +31,4 @@ export const resolveApiBaseUrl = ({ configuredUrl, isProduction = import.meta.en
     return normalizedUrl;
 };
 
-type AuthProviderOptions = {
-    configuredProvider?: string;
-    isProduction?: boolean;
-};
-
-export const resolveAuthProvider = ({
-    configuredProvider,
-    isProduction = import.meta.env.PROD,
-}: AuthProviderOptions = {}): AuthProvider => {
-    if (isProduction) {
-        return "firebase";
-    }
-
-    return configuredProvider?.trim().toLowerCase() === "firebase" ? "firebase" : "local";
-};
-
 export const API_BASE_URL = resolveApiBaseUrl({ configuredUrl: import.meta.env.VITE_API_BASE_URL });
-export const AUTH_PROVIDER = resolveAuthProvider({ configuredProvider: import.meta.env.VITE_AUTH_PROVIDER });
-export const isLocalAuth = AUTH_PROVIDER === "local";

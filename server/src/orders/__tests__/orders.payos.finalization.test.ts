@@ -50,8 +50,6 @@ function buildService(status: string = "PENDING") {
     const productAttributesRepository = { getForProducts: vi.fn().mockResolvedValue(new Map()) };
     const timelineService = { createTimelineEventInTransaction: vi.fn().mockResolvedValue(undefined) };
     const notificationsService = { notifyOrderPlaced: vi.fn() };
-    const emailService = { sendOrderConfirmation: vi.fn().mockResolvedValue(undefined) };
-    const usersRepository = { findById: vi.fn().mockResolvedValue({ id: "user-1", email: "customer@example.com", username: "Customer" }) };
     const paymentProviderService = { createPayment: vi.fn().mockResolvedValue({ providerReference: "1757450400007", status: "pending", simulated: false }) };
 
     tx.query.mockImplementation(async (sql: string) => {
@@ -73,11 +71,9 @@ function buildService(status: string = "PENDING") {
         {} as never,
         productAttributesRepository as never,
         paymentProviderService as never,
-        emailService as never,
-        usersRepository as never,
     );
 
-    return { service, tx, reservationRepository, inventoryService, notificationsService, emailService, paymentProviderService };
+    return { service, tx, reservationRepository, inventoryService, notificationsService, paymentProviderService };
 }
 
 describe("PayOS reserved checkout finalization", () => {

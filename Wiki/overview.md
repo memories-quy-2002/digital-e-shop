@@ -11,9 +11,13 @@ Back to [[index]].
 - Production client builds require `VITE_API_BASE_URL`.
 - Production server startup validates database, authentication, and origin
   configuration before serving requests.
-- Local authentication defaults to email/password; production resolves to
-  Firebase. New sessions can be unverified, with checkout and review writes
-  gated by server-owned email verification.
+- Firebase is the only authentication provider in every environment. Local
+  development uses the Firebase Auth Emulator; new sessions can be
+  unverified, with Firebase-owned email verification and checkout/review
+  writes gated by the synchronized verified claim.
+- Firebase Auth Emulator testing is opt-in through the separate local project
+  `demo-digital-e-local`; production Firebase and production data are not used
+  by the local action-link flow.
 
 ## Purpose
 
@@ -33,7 +37,7 @@ authenticated checkout, and an admin operations dashboard.
 ## High-level modules
 
 - **Frontend** - domain UI and API wrappers live under
-  `client/src/features/` (`admin`, `auth`, `marketing`, `orders`, `products`, `support`,
+  `client/src/features/` (`admin`, `auth`, `orders`, `products`, `support`,
   `users`). Generic pages live in `client/src/pages/`; shared state and HTTP
   infrastructure live in `client/src/context`, `client/src/lib`, and shared
   components.
@@ -90,7 +94,10 @@ and demo-seed guards reject remote targets by default; intentional remote
 development requires `ALLOW_REMOTE_DATABASE=true`. CI uses a separate
 `digital_e_shop_ci` database.
 
-The demo seed is transactional and idempotent. It creates linked admin and
+The demo seed is transactional and idempotent, but it is manual rather than a
+server-startup side effect. `pnpm --dir server dev` only generates Prisma Client
+and starts the server. Run `pnpm --dir server seed:demo` deliberately after
+database setup or a seed change. It creates linked admin and
 customer accounts, catalog records, carts, orders, reviews, wishlists,
 addresses, notifications, sessions, discounts, and inventory movements.
 `demo:verify` checks demo-owned counts, image coverage, order/review/wishlist
@@ -115,9 +122,11 @@ and branch protection remain repository/deployment settings.
 - Guest checkout uses a browser-local cart and a one-time raw token whose
   SHA-256 hash is stored server-side; server preview and checkout remain
   authoritative for price, stock, promotions, and totals.
-- Password reset, confirmed email change, and marketing subscription flows use
-  the shared Resend boundary; raw reset/email-change/unsubscribe tokens are
-  transient browser-link values and only their hashes are persisted.
+- Firebase owns verification, password-reset, and email-change action links in every environment. The server has no MySQL password-authentication path or generic transactional email provider; order updates use database-backed in-app notifications and guest checkout/lookup responses.
+- Local Firebase Auth uses the Auth Emulator and Emulator UI (`9099`/`4001`);
+  the guarded seeder and local MySQL profile start users unverified until an
+  emulator action link is completed.
+- Marketing subscription and unsubscribe runtime routes were removed; the historical table remains only for migration/database compatibility.
 - Client and server each have Vitest coverage; the server also has an opt-in
   MySQL-backed integration suite and read-only k6 scripts.
 - `Wiki/` records current understanding and decisions; completed plans and

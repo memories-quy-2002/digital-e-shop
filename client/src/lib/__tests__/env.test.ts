@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { API_BASE_URL, AUTH_PROVIDER, isLocalAuth, resolveApiBaseUrl, resolveAuthProvider } from "../env";
+import { API_BASE_URL, resolveApiBaseUrl } from "../env";
 
 describe("env module", () => {
     it("exports a string API base URL", () => {
@@ -35,11 +35,4 @@ describe("env module", () => {
         );
     });
 
-    it("uses local password auth outside production and Firebase in production", () => {
-        expect(resolveAuthProvider({ isProduction: false })).toBe("local");
-        expect(resolveAuthProvider({ configuredProvider: "firebase", isProduction: false })).toBe("firebase");
-        expect(resolveAuthProvider({ configuredProvider: "local", isProduction: true })).toBe("firebase");
-        expect(["local", "firebase"]).toContain(AUTH_PROVIDER);
-        expect(typeof isLocalAuth).toBe("boolean");
-    });
 });

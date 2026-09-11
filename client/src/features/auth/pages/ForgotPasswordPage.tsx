@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { useToast } from "../../../context/ToastContext";
-import { requestPasswordReset } from "../api";
+import { sendFirebasePasswordReset } from "../../../services/firebase";
 import "../../../styles/features/auth/_login.scss";
 
 const ForgotPasswordPage = () => {
@@ -15,13 +15,15 @@ const ForgotPasswordPage = () => {
         event.preventDefault();
         setIsSubmitting(true);
         try {
-            await requestPasswordReset(email.trim());
+            await sendFirebasePasswordReset(email.trim());
+            setSubmitted(true);
+            addToast("Password reset", "If an account matches that email, a reset link is on its way.");
         } catch {
             // Keep the same public response for existing and unknown emails.
-        } finally {
             setSubmitted(true);
-            setIsSubmitting(false);
             addToast("Password reset", "If an account matches that email, a reset link is on its way.");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -34,7 +36,9 @@ const ForgotPasswordPage = () => {
                 <h1 id="forgot-password-title" className="login__form__title">Reset your password</h1>
                 {submitted ? (
                     <div className="login__form__errors" role="status">
-                        <div>Check your inbox for a password reset link. If you do not see it, check spam.</div>
+                        <div>
+                            Check your inbox for a password reset link. If you do not see it, check spam.
+                        </div>
                     </div>
                 ) : null}
                 <form className="login__form__container" onSubmit={handleSubmit}>

@@ -6,13 +6,12 @@ import { Link, useNavigate } from "react-router-dom";
 import authImage from "../../../assets/images/background_form.jpg";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
-import { createFirebaseUser, signInWithFirebaseEmail } from "../../../services/firebase";
+import { createFirebaseUser, sendFirebaseEmailVerification, signInWithFirebaseEmail } from "../../../services/firebase";
 import "../../../styles/features/auth/_signup.scss";
 import { PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../../../utils/images";
 import type { UserCredential } from "firebase/auth";
 import { EyeIcon, EyeOffIcon } from "../../../components/common/Icons";
 import { registerUser } from "../api";
-import { isLocalAuth } from "../../../lib/env";
 
 interface User {
     username: string;
@@ -126,37 +125,40 @@ const SignupPage = () => {
         try {
             const normalizedEmail = user.email.trim();
             const normalizedUsername = user.username.trim();
-            const registrationResponse = isLocalAuth
-                ? await registerUser({
-                    email: normalizedEmail,
-                    password: user.password,
-                    user: { username: normalizedUsername },
-                })
-                : await (async () => {
-                    let userCredential: UserCredential;
-                    try {
-                        userCredential = await createFirebaseUser(normalizedEmail, user.password);
-                    } catch (err: unknown) {
-                        const error = err as { code?: string };
-                        if (error.code === "auth/email-already-in-use") {
-                            userCredential = await signInWithFirebaseEmail(normalizedEmail, user.password);
-                        } else {
-                            throw err;
-                        }
-                    }
+            let userCredential: UserCredential;
+            try {
+                userCredential = await createFirebaseUser(normalizedEmail, user.password);
+            } catch (err: unknown) {
+                const error = err as { code?: string };
+                if (error.code === "auth/email-already-in-use") {
+                    userCredential = await signInWithFirebaseEmail(normalizedEmail, user.password);
+                } else {
+                    throw err;
+                }
+            }
 
-                    const idToken = await userCredential.user.getIdToken(true);
-                    return registerUser({ idToken, user: { username: normalizedUsername } });
-                })();
+            const firebaseUser = userCredential.user;
+            const idToken = await firebaseUser.getIdToken(true);
+            const registrationResponse = await registerUser({ idToken, user: { username: normalizedUsername } });
+
+            let verificationEmailSent = false;
+            if (!firebaseUser.emailVerified) {
+                try {
+                    await sendFirebaseEmailVerification();
+                    verificationEmailSent = true;
+                } catch {
+                    // Account creation already succeeded; the signed-in user can retry from the account page.
+                }
+            }
 
             if (registrationResponse.userData) {
                 setUserData(registrationResponse.userData);
             }
             addToast("Signup", "Account created successfully.");
-            if (registrationResponse.verification_email_sent) {
+            if (verificationEmailSent) {
                 addToast("Verify your email", "We sent a verification link to your inbox.");
             } else if (registrationResponse.email_verified !== true) {
-                addToast("Verify your email", "Your account is ready. You can request a new verification link from your account page.");
+                addToast("Verify your email", "Account created. Check your inbox or resend the verification email from your account page.");
             }
             navigate("/");
         } catch (err: unknown) {
