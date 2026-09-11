@@ -717,7 +717,7 @@ const main = async () => {
 
         console.log(`Digital-E demo seed complete: ${JSON.stringify(summary)}`);
         console.log(`Removed ${legacyProductCount} legacy E2E/Demo catalog products.`);
-        console.log("Demo Firebase password for all four accounts:", DEMO_PASSWORD);
+        console.log("Demo Firebase credentials are configured for seeded accounts (password not logged).");
     } catch (error) {
         await connection.rollback();
         if (error && typeof error === "object") {
