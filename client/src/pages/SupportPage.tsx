@@ -3,10 +3,15 @@ import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import supportImage from "../assets/images/support.jpg";
 import Layout from "../components/layout/Layout";
+import { useT } from "../hooks/useT";
 import { HERO_IMAGE_WIDTHS, getResponsiveImageSource } from "../utils/images";
 import "../styles/pages/_support.scss";
 
+type SupportChannel = { title: string; text: string; detail: string; action: string; href: string };
+type SupportResource = { title: string; text: string; action: string; href: "/orders" | "/contact-us" };
+
 const SupportPage: React.FC = () => {
+    const t = useT();
     const [faqOpen, setFaqOpen] = useState<number | null>(0);
     const heroImageSource = getResponsiveImageSource(supportImage, {
         widths: HERO_IMAGE_WIDTHS,
@@ -14,103 +19,45 @@ const SupportPage: React.FC = () => {
         fit: "fill",
     });
 
-    const channels = [
-        {
-            title: "Live chat",
-            text: "Fast help for product questions, checkout issues, delivery updates, and returns.",
-            detail: "Average response: 3 minutes",
-            action: "Start chat",
-            href: "/contact-us",
-        },
-        {
-            title: "Email support",
-            text: "Send details, screenshots, order IDs, or warranty documents for deeper help.",
-            detail: "support@digital-e.com",
-            action: "Send email",
-            href: "mailto:support@digital-e.com",
-        },
-        {
-            title: "Hotline",
-            text: "Speak with a support agent when delivery, payment, or account access needs urgent attention.",
-            detail: "+84 123 456 789",
-            action: "Call now",
-            href: "tel:+84123456789",
-        },
+    const channels: SupportChannel[] = [
+        { title: t("support.contactFormTitle"), text: t("support.contactFormText"), detail: t("support.contactFormDetail"), action: t("support.contactFormAction"), href: "/contact-us" },
+        { title: t("support.emailTitle"), text: t("support.emailText"), detail: t("support.emailDetail"), action: t("support.emailAction"), href: "mailto:support@digital-e.com" },
+        { title: t("support.hotlineTitle"), text: t("support.hotlineText"), detail: t("support.hotlineDetail"), action: t("support.hotlineAction"), href: "tel:+84123456789" },
     ];
-
-    const resources = [
-        {
-            title: "Track an order",
-            text: "Check status, payment method, delivery address, and order items from your account.",
-        },
-        {
-            title: "Returns and refunds",
-            text: "Review return conditions, refund timelines, and what to prepare before sending items back.",
-        },
-        {
-            title: "Warranty help",
-            text: "Understand coverage, repair steps, proof-of-purchase needs, and service options.",
-        },
-        {
-            title: "Payment support",
-            text: "Get help with cash on delivery, bank transfer confirmation, and failed checkout attempts.",
-        },
+    const resources: SupportResource[] = [
+        { title: t("support.trackOrderTitle"), text: t("support.trackOrderText"), action: t("support.trackOrderAction"), href: "/orders" },
+        { title: t("support.returnsTitle"), text: t("support.returnsText"), action: t("support.returnsAction"), href: "/contact-us" },
+        { title: t("support.warrantyTitle"), text: t("support.warrantyText"), action: t("support.warrantyAction"), href: "/contact-us" },
+        { title: t("support.paymentTitle"), text: t("support.paymentText"), action: t("support.paymentAction"), href: "/contact-us" },
     ];
-
     const faqs = [
-        {
-            q: "How can I track my order?",
-            a: "Sign in and open Order History. Each order shows status, payment method, total, address, and item details.",
-        },
-        {
-            q: "Can I change the shipping address after checkout?",
-            a: "Contact support as soon as possible. Address changes are easiest before the order is confirmed or packed.",
-        },
-        {
-            q: "What happens if an item is out of stock?",
-            a: "Checkout blocks unavailable stock. If stock changes after purchase, support will contact you with replacement or refund options.",
-        },
-        {
-            q: "How do promotions work?",
-            a: "Discount codes may have active dates, minimum order values, and usage limits. The cart will validate the promotion before checkout.",
-        },
+        { question: t("support.faq1Question"), answer: t("support.faq1Answer") },
+        { question: t("support.faq2Question"), answer: t("support.faq2Answer") },
+        { question: t("support.faq3Question"), answer: t("support.faq3Answer") },
+        { question: t("support.faq4Question"), answer: t("support.faq4Answer") },
     ];
 
     return (
         <Layout>
             <Helmet>
-                <title>Support | Digital-E</title>
-                <meta
-                    name="description"
-                    content="Get help with Digital-E orders, payments, products, warranties, and account support."
-                />
+                <title>{`${t("support.title")} | Digital-E`}</title>
+                <meta name="description" content={t("support.metaDescription")} />
             </Helmet>
             <main className="support info-page">
                 <header className="support__hero">
-                    <img
-                        src={heroImageSource.src}
-                        srcSet={heroImageSource.srcSet}
-                        sizes={heroImageSource.sizes}
-                        alt=""
-                        aria-hidden="true"
-                        loading="eager"
-                        fetchPriority="high"
-                        decoding="async"
-                    />
-                    <h1>Support Center</h1>
-                    <p>Help before, during, and after every order.</p>
+                    <img src={heroImageSource.src} srcSet={heroImageSource.srcSet} sizes={heroImageSource.sizes} alt="" aria-hidden="true" loading="eager" fetchPriority="high" decoding="async" />
+                    <h1>{t("support.title")}</h1>
+                    <p>{t("support.heroSubtitle")}</p>
                     <div className="support__hero__actions info-page__actions">
-                        <Link to="/orders">View order history</Link>
-                        <Link to="/contact-us" className="ghost">
-                            Contact us
-                        </Link>
+                        <Link to="/orders">{t("support.viewOrderHistory")}</Link>
+                        <Link to="/contact-us" className="ghost">{t("support.contactUs")}</Link>
                     </div>
                 </header>
 
                 <section className="support__channels" aria-labelledby="support-contact-heading">
                     <div className="support__section-heading info-page__section-heading">
-                        <span>Contact</span>
-                        <h2 id="support-contact-heading">Choose the fastest way to reach us</h2>
+                        <span>{t("support.contactLabel")}</span>
+                        <h2 id="support-contact-heading">{t("support.contactHeading")}</h2>
                     </div>
                     <div className="support__channels__grid">
                         {channels.map((channel) => (
@@ -118,48 +65,50 @@ const SupportPage: React.FC = () => {
                                 <h3>{channel.title}</h3>
                                 <p>{channel.text}</p>
                                 <span>{channel.detail}</span>
-                                <a href={channel.href}>{channel.action}</a>
+                                {channel.href.startsWith("/") ? <Link to={channel.href}>{channel.action}</Link> : <a href={channel.href}>{channel.action}</a>}
                             </article>
                         ))}
                     </div>
                 </section>
 
-                <section className="support__resources">
+                <section className="support__resources" aria-labelledby="support-resources-heading">
                     <div className="support__section-heading info-page__section-heading">
-                        <span>Self service</span>
-                        <h2>Popular support topics</h2>
+                        <span>{t("support.selfServiceLabel")}</span>
+                        <h2 id="support-resources-heading">{t("support.resourcesHeading")}</h2>
                     </div>
                     <div className="support__resources__grid">
                         {resources.map((resource) => (
                             <article className="support__resources__card" key={resource.title}>
                                 <h3>{resource.title}</h3>
                                 <p>{resource.text}</p>
+                                <Link to={resource.href}>{resource.action}</Link>
                             </article>
                         ))}
                     </div>
                 </section>
 
-                <section className="support__faq">
+                <section className="support__faq" aria-labelledby="support-faq-heading">
                     <div className="support__section-heading info-page__section-heading">
-                        <span>FAQ</span>
-                        <h2>Answers customers ask for most often</h2>
+                        <span>{t("support.faqLabel")}</span>
+                        <h2 id="support-faq-heading">{t("support.faqHeading")}</h2>
                     </div>
                     <div className="support__faq__list">
-                        {faqs.map((item, idx) => (
-                            <button
-                                key={item.q}
-                                type="button"
-                                className={`support__faq__item ${faqOpen === idx ? "active" : ""}`}
-                                onClick={() => setFaqOpen(faqOpen === idx ? null : idx)}
-                                aria-expanded={faqOpen === idx}
-                            >
-                                <div className="support__faq__item__q">
-                                    <span>{item.q}</span>
-                                    <strong>{faqOpen === idx ? "-" : "+"}</strong>
-                                </div>
-                                {faqOpen === idx && <div className="support__faq__item__a">{item.a}</div>}
-                            </button>
-                        ))}
+                        {faqs.map((item, idx) => {
+                            const questionId = `support-faq-question-${idx}`;
+                            const answerId = `support-faq-answer-${idx}`;
+                            const isOpen = faqOpen === idx;
+                            return (
+                                <React.Fragment key={questionId}>
+                                    <button id={questionId} type="button" className={`support__faq__item ${isOpen ? "active" : ""}`} onClick={() => setFaqOpen(isOpen ? null : idx)} aria-expanded={isOpen} aria-controls={answerId}>
+                                        <span className="support__faq__item__q">
+                                            <span>{item.question}</span>
+                                            <strong aria-hidden="true">{isOpen ? "-" : "+"}</strong>
+                                        </span>
+                                    </button>
+                                    {isOpen && <div id={answerId} className="support__faq__item__a" role="region" aria-labelledby={questionId}>{item.answer}</div>}
+                                </React.Fragment>
+                            );
+                        })}
                     </div>
                 </section>
             </main>

@@ -194,6 +194,30 @@
         gap: 1.25rem;
     }
 
+    &__direct-link {
+        display: inline-block;
+        color: var(--info-ink);
+        font-size: 0.95rem;
+        font-weight: 700;
+        line-height: 1.4;
+        text-decoration: underline;
+        text-decoration-color: transparent;
+        text-underline-offset: 0.18em;
+        transition:
+            color var(--de-transition-fast),
+            text-decoration-color var(--de-transition-fast);
+
+        &:hover {
+            color: var(--de-color-primary-emphasis);
+            text-decoration-color: currentColor;
+        }
+
+        &:focus-visible {
+            outline: 2px solid var(--de-color-electric);
+            outline-offset: 3px;
+        }
+    }
+
     &__shortcut-list {
         display: grid;
         gap: 0.75rem;

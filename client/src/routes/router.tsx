@@ -20,6 +20,7 @@ const ShopsPage = lazy(() => import("../pages/ShopsPage"));
 const AboutUsPage = lazy(() => import("../pages/AboutUsPage"));
 const ContactUsPage = lazy(() => import("../pages/ContactUsPage"));
 const NewsPage = lazy(() => import("../pages/NewsPage"));
+const NewsArticlePage = lazy(() => import("../pages/NewsArticlePage"));
 const SupportPage = lazy(() => import("../pages/SupportPage"));
 const AdminSupportPage = lazy(() => import("../features/admin/pages/AdminSupportPage"));
 const CartPage = lazy(() => import("../features/orders/pages/CartPage"));
@@ -61,6 +62,7 @@ const AppRouter = () => {
                 <Route path="/wishlist" element={<ProtectedWishlistPage />} />
                 <Route path="/shops" element={<ShopsPage />} />
                 <Route path="/news" element={<NewsPage />} />
+                <Route path="/news/:slug" element={<NewsArticlePage />} />
                 <Route path="/support" element={<SupportPage />} />
                 <Route path="/checkout-success" element={<CheckoutSuccessPage />} />
                 <Route path="/mock-payos-checkout" element={<MockPayOSCheckoutPage />} />
