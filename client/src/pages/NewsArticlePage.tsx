@@ -15,6 +15,10 @@ const NewsArticlePage: React.FC = () => {
     const { slug } = useParams();
     const article = findNewsArticle(slug);
 
+    React.useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [slug]);
+
     if (!article) return <NotFoundPage />;
 
     const stories = t("news.stories") as unknown as Record<
