@@ -1,12 +1,11 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Footer from "./Footer";
 
 const mocks = vi.hoisted(() => ({
     addToast: vi.fn(),
-    subscribeToMarketing: vi.fn(),
 }));
 
 vi.mock("../../context/ToastContext", () => ({
@@ -15,29 +14,19 @@ vi.mock("../../context/ToastContext", () => ({
 vi.mock("../../hooks/useT", () => ({
     useT: () => (key: string) => key,
 }));
-vi.mock("../../features/marketing/api", () => ({
-    subscribeToMarketing: mocks.subscribeToMarketing,
-}));
-
-describe("Footer newsletter subscription", () => {
+describe("Footer", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        mocks.subscribeToMarketing.mockResolvedValue(undefined);
     });
 
-    it("submits a valid email to the marketing subscription endpoint", async () => {
+    it("does not render marketing subscription controls", () => {
         render(
             <MemoryRouter>
                 <Footer />
             </MemoryRouter>,
         );
 
-        fireEvent.change(screen.getByLabelText("footer.newsletterEmailLabel"), {
-            target: { value: "buyer@example.com" },
-        });
-        fireEvent.click(screen.getByRole("button", { name: "footer.subscribe" }));
-
-        await waitFor(() => expect(mocks.subscribeToMarketing).toHaveBeenCalledWith("buyer@example.com"));
-        expect(mocks.addToast).toHaveBeenCalledWith("footer.subscribe", "footer.subscribeSuccess");
+        expect(screen.queryByText("footer.newsletterTitle")).not.toBeInTheDocument();
+        expect(screen.queryByLabelText("footer.newsletterEmailLabel")).not.toBeInTheDocument();
     });
 });

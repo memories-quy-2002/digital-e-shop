@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
+> Historical plan note (superseded 2026-09-11): this plan describes the former provider-aware/local-auth architecture and must not be used to reintroduce local password authentication or server-owned email delivery.
+
 **Goal:** Align local/Firebase registration, add Resend-backed verification, and enforce sensitive-action restrictions for unverified sessions.
 
 **Architecture:** Keep provider selection in the existing client/server env resolvers. Add a local registration branch and preserve Firebase token registration. Add application-owned verification state and token operations to the auth/users boundary, reuse the existing Resend service, and add a narrowly scoped Nest verification guard instead of changing `AuthGuard` globally.

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { confirmPasswordReset } from "../api";
 import {
     confirmFirebasePasswordReset,
     verifyFirebasePasswordResetCode,
@@ -13,17 +12,14 @@ type ResetState = "loading" | "ready" | "success" | "error";
 const ResetPasswordPage = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const token = searchParams.get("token")?.trim() || "";
     const firebaseCode = searchParams.get("oobCode")?.trim() || "";
-    const [state, setState] = useState<ResetState>(firebaseCode ? "loading" : token ? "ready" : "error");
+    const [state, setState] = useState<ResetState>(firebaseCode ? "loading" : "error");
     const [password, setPassword] = useState("");
     const [confirmation, setConfirmation] = useState("");
     const [message, setMessage] = useState(
-        token
-            ? "Choose a new password for your Digital-E account."
-            : firebaseCode
-              ? "Validating your password reset link..."
-              : "This password reset link is missing its token.",
+        firebaseCode
+            ? "Validating your password reset link..."
+            : "This password reset link is missing its Firebase action code.",
     );
     const [error, setError] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,19 +55,12 @@ const ResetPasswordPage = () => {
 
         try {
             setIsSubmitting(true);
-            if (firebaseCode) {
-                await confirmFirebasePasswordReset(firebaseCode, password);
-            } else {
-                await confirmPasswordReset(token, password);
-            }
+            await confirmFirebasePasswordReset(firebaseCode, password);
             setState("success");
             setMessage("Your password has been reset successfully.");
             navigate("/reset-password", { replace: true });
-        } catch (requestError: unknown) {
-            const response = requestError && typeof requestError === "object" && "response" in requestError
-                ? (requestError as { response?: { data?: { msg?: string } } }).response
-                : undefined;
-            setError(response?.data?.msg || "Unable to reset your password. Please request a new link.");
+    } catch {
+            setError("Unable to reset your password. Please request a new Firebase link.");
             navigate("/reset-password", { replace: true });
         } finally {
             setIsSubmitting(false);

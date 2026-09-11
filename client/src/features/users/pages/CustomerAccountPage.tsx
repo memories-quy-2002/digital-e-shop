@@ -22,9 +22,9 @@ import {
 } from "../api";
 import { CustomerOrder, fetchCustomerOrders } from "../../orders/api";
 import {
-    requestEmailChange as requestEmailChangeEmail,
-    resendVerification as resendVerificationEmail,
-} from "../../auth/api";
+    sendFirebaseEmailChangeVerification,
+    sendFirebaseEmailVerification,
+} from "../../../services/firebase";
 import { formatCurrency } from "../../../utils/currency";
 
 
@@ -62,12 +62,10 @@ const CustomerAccountPage = () => {
 
     const resendVerification = async () => {
         if (isSendingVerification) return;
-        const email = userData?.email || customer?.email;
-        if (!email) return;
         try {
             setIsSendingVerification(true);
-            await resendVerificationEmail(email);
-            addToast("Verify your email", "If email delivery is configured, a new verification link is on its way.");
+            await sendFirebaseEmailVerification();
+            addToast("Verify your email", "A new verification link has been sent.");
         } catch {
             addToast("Verify your email", "Please sign in again before requesting a new verification link.");
         } finally {
@@ -87,7 +85,7 @@ const CustomerAccountPage = () => {
         try {
             setIsRequestingEmailChange(true);
             setEmailChangeError(false);
-            await requestEmailChangeEmail(normalizedEmail);
+            await sendFirebaseEmailChangeVerification(normalizedEmail);
             setNewEmail("");
             setEmailChangeMessage("Check your new email to confirm the change.");
             addToast("Change email", "A confirmation link has been sent to your new email address.");
@@ -213,7 +211,7 @@ const CustomerAccountPage = () => {
         () => addresses.find((address) => address.is_default) || addresses[0] || null,
         [addresses],
     );
-    const emailIsUnverified = userData?.email_verified === false || customer?.email_verified === false;
+    const emailIsUnverified = (userData?.email_verified ?? customer?.email_verified) === false;
     return (
         <Layout>
             <Helmet>

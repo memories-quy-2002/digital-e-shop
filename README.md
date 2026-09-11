@@ -9,10 +9,10 @@ Digital-E is a full-stack electronics store with a customer storefront and an op
 - Catalog search, filters, pagination, facets, recommendations, and product details
 - Product reviews and verified-purchase indicators
 - Authenticated carts, guest carts, coupon validation, and checkout
-- Provider-aware signup with local email/password or Firebase identity, server-owned email verification, and limited access before verification
-- Password reset, confirmed email changes, account-security notices, and Resend-backed marketing subscription/unsubscribe flows
+- Firebase-only signup and identity verification; Firebase owns verification and sensitive email action links in every environment
+- Firebase-based password reset and confirmed email changes; database-backed order/account notifications; marketing subscription and unsubscribe flows removed
 - Guest order lookup protected by a one-time access token
-- Customer order confirmation emails through Resend after successful checkout when the server has a valid email
+- Checkout success and protected guest-order lookup provide order confirmation; no external order-email provider is configured
 - Wishlist, reorder, address book, notifications, and order timeline
 - Vietnam-first PayOS checkout links with VND quote snapshots, verified webhooks, and deterministic local mock mode
 - Optional Stripe Checkout support for international payments
@@ -45,9 +45,9 @@ Digital-E is a full-stack electronics store with a customer storefront and an op
 | Client UI | Radix UI primitives, project UI components, Lucide icons, Recharts |
 | Server | Node.js 24.20.0, NestJS 11, Express 5 adapter, TypeScript, Zod |
 | Data | MySQL through feature repositories, Prisma 7 for the partial migration-owned layer |
-| Authentication | Local development email/password or Firebase client/Admin verification, server-owned email verification, cookie-backed JWT access and refresh sessions |
+| Authentication | Firebase client/Admin verification in every environment, Firebase-owned email actions, cookie-backed JWT access and refresh sessions |
 | Payments | Vietnam-first PayOS Checkout links/webhooks, VND settlement quotes, optional Stripe, and local mock provider mode |
-| Operations | Pino request logging, request IDs, rate limiting, optional Redis store, Resend email delivery, Vercel Blob uploads |
+| Operations | Pino request logging, request IDs, rate limiting, optional Redis store, Vercel Blob uploads |
 | Verification | Vitest, Testing Library, TypeScript checks, ESLint, builds, MySQL integration tests, and read-only k6 scripts |
 | Deployment | Separate Vercel projects for `client/` and `server/` |
 
@@ -109,7 +109,7 @@ pnpm --dir server docker:setup
 
 The local database uses MySQL at `127.0.0.1:3307`, database `digital_e_shop_local`, and the Docker volume `digital_e_shop_local_mysql_data`. The setup imports the checked-in legacy baseline, records the metadata-only Prisma `0_init` marker, applies forward migrations, seeds demo data, and verifies counts and relationships.
 
-The normal demo seed is transactional and idempotent for its owned rows. The separate `demo:reset` workflow is destructive and must remain a deliberate local or protected production operation. Never point local seed commands at a shared or production database.
+The normal demo seed is transactional and idempotent for its owned rows. Run it manually with `pnpm --dir server seed:demo`; `pnpm --dir server dev` only generates Prisma Client and starts the server, so restarting development does not reseed or overwrite data. The separate `demo:reset` workflow is destructive and must remain a deliberate local or protected production operation. Never point local seed commands at a shared or production database.
 
 Run the applications in separate terminals:
 
@@ -131,13 +131,13 @@ Local demo accounts and migration details are documented in [`server/README.pris
 
 Use [`client/.env.example`](./client/.env.example), [`server/.env.example`](./server/.env.example), and [`server/.env.docker.example`](./server/.env.docker.example) as placeholders. Never commit populated environment files.
 
-The server reads database, JWT, refresh-token, CSRF, CORS, Firebase Admin, Stripe, PayOS, payment-provider, Resend, Blob, and optional Redis settings. Production startup requires the database, auth, origin, and live payment variables documented in [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md). Production client builds require `VITE_API_BASE_URL` so a preview cannot silently target the wrong API.
+The server reads database, JWT, refresh-token, CSRF, CORS, Firebase Admin, Stripe, PayOS, payment-provider, Blob, and optional Redis settings. Production startup requires the database, auth, origin, and live payment variables documented in [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md). Production client builds require `VITE_API_BASE_URL` so a preview cannot silently target the wrong API.
 
-Customer, account-security, and marketing email delivery uses `RESEND_API_KEY` and `RESEND_FROM_EMAIL`. Leave the API key blank to disable delivery locally; configure a verified sender/domain in Resend for production. Order confirmations are sent after the order transaction or Stripe finalization commits, use the server-authoritative customer email, and intentionally do not include the raw guest access token. Customer-facing delivery is gated by account email verification: authenticated order, password-reset/security, email-change notice, and marketing welcome messages are skipped for unverified account addresses. Verification and email-change confirmation messages remain enabled because they establish address ownership; guest confirmations remain eligible. Marketing subscriptions are persisted even when Resend is unavailable, and each welcome email includes a one-time unsubscribe link.
+Firebase sends verification, password-reset, and email-change action links for production accounts. The server currently has no generic transactional email provider, so order confirmation email delivery is disabled. Authenticated customers receive database-backed order and status notifications in the app; guests use checkout success and protected order lookup. A future email provider must be added as a separate server-side integration and must not participate in order rollback.
 
-Authentication is environment-bound. Development defaults to local database login unless `AUTH_PROVIDER=firebase`; production always resolves to Firebase verification. Both paths issue the server's cookie-backed session. Unsafe requests use the double-submit CSRF flow, while login, registration, and refresh keep their existing explicit exceptions.
+Authentication is Firebase-only. The client signs users in with Firebase Email/Password and sends a Firebase ID token to the API; the server verifies that token with Firebase Admin before issuing its cookie-backed session. Firebase also owns verification, password-reset, and email-change action links. Unsafe requests use the double-submit CSRF flow, while login, registration, and refresh keep their existing explicit exceptions.
 
-New accounts can sign in before email verification. Browse, cart, wishlist, account, support, and order-history access remain available, while authenticated checkout, Stripe checkout-session creation, and review creation require `email_verified=true`. Verification links are single-use, expire after 24 hours, store only a SHA-256 token hash, and are sent through Resend when `RESEND_API_KEY` is configured. The verification resend endpoint returns a generic response to avoid account enumeration.
+New accounts can sign in before email verification. Browse, cart, wishlist, account, support, and order-history access remain available, while authenticated checkout, Stripe checkout-session creation, and review creation require `email_verified=true`. Firebase issues and handles the verification action link; the server does not generate verification tokens or expose a verification delivery endpoint.
 
 ## Verification commands
 

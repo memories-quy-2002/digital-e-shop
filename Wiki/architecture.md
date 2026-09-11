@@ -12,7 +12,7 @@ digital-e-shop/
       app/                Bootstrap and providers
       components/         Shared common and layout UI
       context/            Auth, cart, toast, and shared client state
-      features/           admin, auth, marketing, orders, products, support, users
+      features/           admin, auth, orders, products, support, users
       lib/                HTTP client and environment helpers
       pages/              Generic route-level pages
       routes/             Router and lazy route wiring
@@ -109,14 +109,15 @@ documented singular/plural aliases where the client contract requires them.
   is returned once, kept in active browser session storage, and stored in the
   database only as a SHA-256 hash. See [[guest-checkout]] and
   [[0004-guest-cart-and-checkout]].
-- Provider-aware signup converges on the same cookie session for local and
-  Firebase modes. See [[authentication-and-email-verification]] for the
-  server-owned verification token lifecycle and the `VerifiedEmailGuard`
-  boundary around checkout and review writes.
-- Account-security and marketing messages share the Resend delivery boundary.
-  Password reset revokes sessions after a successful local reset; email changes
-  remain pending until the new address confirms; marketing unsubscribe tokens
-  are hashed and consumed once. See [[marketing-subscriptions]].
+- Firebase-only signup converges on the server-owned cookie session. Firebase owns verification delivery and action-code handling; the server synchronizes the verified Firebase claim before the VerifiedEmailGuard boundary around checkout and review writes. See [[authentication-and-email-verification]].
+- Local Firebase testing is isolated at both SDK boundaries: the Vite client
+  connects to `http://127.0.0.1:9099` only when the explicit emulator profile is
+  selected, and Firebase Admin uses `127.0.0.1:9099` without loading a service
+  account. `firebase.json` owns Auth port `9099` and Emulator UI port `4001`;
+  the guarded seeder never targets the production project.
+- Account security is Firebase-owned in every environment: Firebase sends verification, password-reset, and email-change action links. The server has no MySQL password-authentication or server-owned reset/email-change token flow.
+- Customer order state changes create database-backed in-app notifications. No external order-email provider is configured, so order success is independent of email delivery.
+- Marketing subscription and unsubscribe runtime routes were removed. The historical table and migration remain only for database compatibility.
 
 ## Data and migration boundaries
 
@@ -155,13 +156,11 @@ application has not been converted to Prisma.
   Support tickets are database-backed and ownership-scoped. Admin analytics
   and operational alerts query bounded operational data rather than rebuilding
   alerts from broad datasets.
-- Customer order confirmation is an optional Resend side effect after the
-  checkout transaction or Stripe reservation finalization commits. It uses the
-  server-authoritative email, never participates in order rollback, and never
-  receives the raw guest access token.
-- Password reset, email change, and marketing subscription delivery are also
-  non-transactional Resend side effects. The account/subscription state is
-  committed independently, and delivery failures are logged with safe IDs.
+- Customer order confirmation email is currently disabled. Authenticated order
+  state changes create in-app notifications after the checkout transaction or
+  payment reservation finalization commits; guests use checkout success and
+  protected lookup. A future email provider must remain a non-transactional
+  post-commit side effect and must never receive the raw guest access token.
 
 ## CI/CD and runtime
 

@@ -1,24 +1,20 @@
 import type { Auth, UserCredential } from "firebase/auth";
-
-const firebaseConfig = {
-    apiKey: "AIzaSyCae88IRpKYJbHLxZIiArzIPYTkglQqgb0",
-    authDomain: "graduation-project-5bbfb.firebaseapp.com",
-    projectId: "graduation-project-5bbfb",
-    storageBucket: "graduation-project-5bbfb.appspot.com",
-    messagingSenderId: "503526214575",
-    appId: "1:503526214575:web:5c4e1263f106bc2bee7d5a",
-    measurementId: "G-NGN3CY83D3",
-};
+import { resolveFirebaseClientEnvironment } from "./firebaseConfig";
 
 let authPromise: Promise<Auth> | null = null;
 
 const loadFirebaseAuth = async (): Promise<Auth> => {
-    const [{ initializeApp }, { getAuth }] = await Promise.all([
+    const [{ initializeApp }, { getAuth, connectAuthEmulator }] = await Promise.all([
         import("firebase/app"),
         import("firebase/auth"),
     ]);
-    const app = initializeApp(firebaseConfig);
-    return getAuth(app);
+    const environment = resolveFirebaseClientEnvironment();
+    const app = initializeApp(environment.config);
+    const auth = getAuth(app);
+    if (environment.mode === "emulator" && environment.authEmulatorUrl) {
+        connectAuthEmulator(auth, environment.authEmulatorUrl);
+    }
+    return auth;
 };
 
 export const getFirebaseAuth = async (): Promise<Auth> => {
@@ -43,7 +39,13 @@ export const createFirebaseUser = async (email: string, password: string): Promi
 export const sendFirebasePasswordReset = async (email: string): Promise<void> => {
     const auth = await getFirebaseAuth();
     const { sendPasswordResetEmail } = await import("firebase/auth");
-    await sendPasswordResetEmail(auth, email);
+    const actionCodeSettings = typeof window === "undefined" || resolveFirebaseClientEnvironment().mode === "emulator"
+        ? undefined
+        : {
+            url: window.location.origin + "/reset-password",
+            handleCodeInApp: true,
+        };
+    await sendPasswordResetEmail(auth, email, actionCodeSettings);
 };
 
 export const verifyFirebasePasswordResetCode = async (code: string): Promise<string> => {
@@ -65,6 +67,15 @@ export const sendFirebaseEmailVerification = async (): Promise<void> => {
         throw new Error("No signed-in Firebase user");
     }
     await sendEmailVerification(auth.currentUser);
+};
+
+export const sendFirebaseEmailChangeVerification = async (newEmail: string): Promise<void> => {
+    const auth = await getFirebaseAuth();
+    const { verifyBeforeUpdateEmail } = await import("firebase/auth");
+    if (!auth.currentUser) {
+        throw new Error("No signed-in Firebase user");
+    }
+    await verifyBeforeUpdateEmail(auth.currentUser, newEmail.trim());
 };
 
 export const signOutFirebaseUser = async (): Promise<void> => {

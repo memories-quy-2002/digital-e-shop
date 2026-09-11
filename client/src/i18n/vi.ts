@@ -221,13 +221,6 @@ const vi: Dictionary = {
     footer: {
         brandTagline:
             "Thiết bị điện tử đáng tin cậy, thanh toán rõ ràng, theo dõi đơn hàng và hỗ trợ thực tế tất cả trong một.",
-        newsletterTitle: "Cập nhật liên tục",
-        newsletterSubtitle: "Sản phẩm nổi bật, hướng dẫn và khuyến mãi giới hạn.",
-        newsletterEmailLabel: "Địa chỉ email đăng ký nhận tin",
-        newsletterPlaceholder: "Nhập email của bạn",
-        subscribe: "Đăng ký",
-        subscribeSuccess: "Đăng ký nhận bản tin thành công",
-        invalidEmail: "Định dạng email không hợp lệ",
         shop: "Mua sắm",
         shopAll: "Tất cả sản phẩm",
         shopComponents: "Linh kiện",

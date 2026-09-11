@@ -77,13 +77,13 @@ Use local development or an approved test environment. The supported local datab
 Contributors must preserve the controls implemented in the current codebase:
 
 - Production authentication verifies Firebase identity before the server issues its own session; local development can use the configured local provider
-- Registration is provider-aware, but both providers converge on server-owned sessions and server-owned email verification state
-- Verification tokens are single-use, expire after 24 hours, stored only as SHA-256 hashes, and are never logged or returned by API responses
+- Registration is provider-aware, but both providers converge on server-owned sessions; production verification state comes from Firebase claims
+- Firebase action links are handled by Firebase and the client; the server does not generate or log verification tokens
 - Unverified sessions may browse and manage an account, but `VerifiedEmailGuard` protects authenticated checkout, Stripe checkout-session creation, and review creation
-- Verification resend responses are generic and rate-limited; Resend delivery failures do not expose raw tokens or roll back account creation
-- Password-reset requests are generic, local reset tokens are one-time SHA-256 hashes with one-hour expiry, and successful local resets revoke active sessions and send a security notice
-- Email changes remain pending until the new address confirms; old/new address notices and marketing welcome/unsubscribe links use the shared Resend boundary without logging raw tokens
-- Customer-facing Resend delivery is gated by the server-side email verification state; verification and email-change confirmation messages remain explicit ownership-verification exceptions, and guest order confirmations do not depend on account verification
+- Verification resend is performed through the signed-in Firebase user; Firebase owns verification delivery and action handling
+- Password-reset requests are generic; production reset is client-owned by Firebase, while the server request endpoint is a compatibility no-op and legacy local confirmation revokes active sessions without sending a notice
+- Email changes in production remain pending until Firebase confirms the new address; server-owned email-change requests and legacy confirmation links are rejected
+- No generic transactional email provider is configured; order status notifications remain database-backed in-app events, and guest order lookup remains protected by the hashed access token
 - Access and refresh tokens use cookie-backed, database-aware sessions; refresh sessions are hashed, rotated, and revocable
 - `AuthGuard`, `RolesGuard`, and `OwnerParam` enforce authentication, role, and ownership boundaries
 - Unsafe requests use the double-submit CSRF middleware; login, registration, and refresh keep their explicit exclusions

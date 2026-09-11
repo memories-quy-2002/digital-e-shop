@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import path from "node:path";
-import { getMissingProductionEnvironmentKeys, resolveAuthProvider, resolveServerRoot } from "../env.config";
+import {
+    getFirebaseEnvironmentErrors,
+    getMissingProductionEnvironmentKeys,
+    normalizeFirebaseAuthEmulatorHost,
+    resolveServerRoot,
+} from "../env.config";
 
 describe("resolveServerRoot", () => {
     it("resolves the server root from source and compiled module paths", () => {
@@ -45,17 +50,57 @@ describe("production environment validation", () => {
     });
 });
 
-describe("authentication provider selection", () => {
-    it("defaults local environments to MySQL password auth", () => {
-        expect(resolveAuthProvider("development")).toBe("local");
-        expect(resolveAuthProvider("test")).toBe("local");
+describe("Firebase environment validation", () => {
+    it("normalizes a local Auth Emulator host without a protocol", () => {
+        expect(normalizeFirebaseAuthEmulatorHost(" 127.0.0.1:9099 ")).toBe("127.0.0.1:9099");
     });
 
-    it("allows Firebase to be selected for a non-production environment", () => {
-        expect(resolveAuthProvider("development", "firebase")).toBe("firebase");
+    it("rejects a URL-form Auth Emulator host", () => {
+        expect(() => normalizeFirebaseAuthEmulatorHost("http://127.0.0.1:9099")).toThrow(
+            "FIREBASE_AUTH_EMULATOR_HOST must be a host:port value without a protocol",
+        );
     });
 
-    it("always selects Firebase in production", () => {
-        expect(resolveAuthProvider("production", "local")).toBe("firebase");
+    it("allows Firebase Admin emulator mode without service-account credentials", () => {
+        expect(getFirebaseEnvironmentErrors({
+            nodeEnv: "development",
+            projectId: "demo-digital-e-local",
+            emulatorHost: "127.0.0.1:9099",
+        })).toEqual([]);
+    });
+
+    it("rejects the emulator in production", () => {
+        expect(getFirebaseEnvironmentErrors({
+            nodeEnv: "production",
+            projectId: "graduation-project-5bbfb",
+            emulatorHost: "127.0.0.1:9099",
+        })).toContain("FIREBASE_AUTH_EMULATOR_HOST is not allowed when NODE_ENV=production");
+    });
+
+    it("rejects the production project in local emulator mode", () => {
+        expect(getFirebaseEnvironmentErrors({
+            nodeEnv: "development",
+            projectId: "graduation-project-5bbfb",
+            emulatorHost: "127.0.0.1:9099",
+        })).toContain("Local Firebase Emulator mode must use FIREBASE_PROJECT_ID=demo-digital-e-local");
+    });
+
+    it("requires service-account credentials without the emulator", () => {
+        expect(getFirebaseEnvironmentErrors({
+            nodeEnv: "production",
+            projectId: "graduation-project-5bbfb",
+        })).toEqual([
+            "FIREBASE_CLIENT_EMAIL is required when Firebase Admin is not using the Auth Emulator",
+            "FIREBASE_PRIVATE_KEY is required when Firebase Admin is not using the Auth Emulator",
+        ]);
+    });
+
+    it("accepts complete production Firebase Admin credentials", () => {
+        expect(getFirebaseEnvironmentErrors({
+            nodeEnv: "production",
+            projectId: "graduation-project-5bbfb",
+            clientEmail: "firebase-adminsdk@example.test",
+            privateKey: "private-key",
+        })).toEqual([]);
     });
 });

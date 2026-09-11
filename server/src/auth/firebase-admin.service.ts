@@ -12,13 +12,23 @@ export type FirebaseIdentity = {
 @Injectable()
 export class FirebaseAdminAuthService {
     private getAuthClient() {
-        const app = getApps()[0] ?? initializeApp({
-            credential: cert({
-                projectId: env.firebaseProjectId,
-                clientEmail: env.firebaseClientEmail,
-                privateKey: env.firebasePrivateKey,
-            }),
-        });
+        if (env.firebaseAuthEmulatorHost) {
+            process.env.FIREBASE_AUTH_EMULATOR_HOST = env.firebaseAuthEmulatorHost;
+        }
+
+        const app = getApps()[0] ?? (
+            env.firebaseAuthEmulatorHost
+                ? initializeApp({
+                    projectId: env.firebaseProjectId,
+                })
+                : initializeApp({
+                    credential: cert({
+                        projectId: env.firebaseProjectId,
+                        clientEmail: env.firebaseClientEmail,
+                        privateKey: env.firebasePrivateKey,
+                    }),
+                })
+        );
         return getAuth(app);
     }
 
@@ -36,14 +46,4 @@ export class FirebaseAdminAuthService {
         }
     }
 
-    async generatePasswordResetLink(email: string): Promise<string> {
-        return this.getAuthClient().generatePasswordResetLink(email, {
-            url: `${env.clientUrl || "http://localhost:5173"}/reset-password`,
-            handleCodeInApp: true,
-        });
-    }
-
-    async updateEmail(uid: string, email: string): Promise<void> {
-        await this.getAuthClient().updateUser(uid, { email, emailVerified: true });
-    }
 }

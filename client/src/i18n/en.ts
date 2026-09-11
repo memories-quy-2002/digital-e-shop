@@ -219,13 +219,6 @@ const en = {
     footer: {
         brandTagline:
             "Dependable electronics, clear checkout, order tracking, and practical support in one place.",
-        newsletterTitle: "Stay in the loop",
-        newsletterSubtitle: "Product highlights, guides, and limited promotions.",
-        newsletterEmailLabel: "Email address for newsletter subscription",
-        newsletterPlaceholder: "Enter your email",
-        subscribe: "Subscribe",
-        subscribeSuccess: "Subscribe to newsletter successfully",
-        invalidEmail: "Invalid email format",
         shop: "Shop",
         shopAll: "All products",
         shopComponents: "Components",

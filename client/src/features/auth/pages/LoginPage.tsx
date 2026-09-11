@@ -11,7 +11,6 @@ import { PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../../../utils/imag
 import { Role } from "../../../types/user";
 import { EyeIcon, EyeOffIcon } from "../../../components/common/Icons";
 import { loginUser } from "../api";
-import { isLocalAuth } from "../../../lib/env";
 import { getSafeRedirectTarget } from "../authRedirect";
 
 interface User {
@@ -90,14 +89,9 @@ const LoginPage = () => {
 
         setIsSubmitting(true);
         try {
-            let userDataResult;
-            if (isLocalAuth) {
-                userDataResult = await loginUser({ email: user.email.trim(), password: user.password }, rememberMe);
-            } else {
-                const userCredential = await signInWithFirebaseEmail(user.email, user.password);
-                const idToken = await userCredential.user.getIdToken(true);
-                userDataResult = await loginUser({ idToken }, rememberMe);
-            }
+            const userCredential = await signInWithFirebaseEmail(user.email, user.password);
+            const idToken = await userCredential.user.getIdToken(true);
+            const userDataResult = await loginUser({ idToken }, rememberMe);
             setUserData(userDataResult);
             addToast("Login", "You have been logon successfully");
             if (userDataResult?.email_verified === false) {

@@ -22,9 +22,6 @@ import { PaymentProviderService } from "../payments/payment-provider.service";
 import { buildPaymentQuote } from "../payments/currency";
 import type { PaymentProviderName, PaymentQuote } from "../payments/payment.types";
 import { generateGuestOrderToken, hashGuestOrderToken, matchesGuestOrderToken } from "./guest-order-token";
-import { ResendEmailService, type OrderConfirmationInput } from "../email/resend-email.service";
-import { UsersRepository } from "../users/users.repository";
-import { isEmailVerified } from "../users/user-public";
 
 export const createCheckoutError = (message: string, statusCode = 409, details: Record<string, unknown> = {}) =>
     Object.assign(new Error(message), { statusCode, details });
@@ -81,53 +78,6 @@ const normalizePaymentProvider = (paymentMethod: string): PaymentProviderName =>
 
 const roundCurrency = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
 
-type OrderConfirmationRecipient =
-    | { kind: "guest"; email: string; name: string }
-    | { kind: "authenticated"; userId: string };
-
-type OrderConfirmationContext = {
-    orderId: number;
-    total: number;
-    paymentMethod: string;
-    shipping: OrderConfirmationInput["shipping"];
-    items: OrderConfirmationInput["items"];
-    recipient: OrderConfirmationRecipient;
-};
-
-const buildOrderEmailItems = (cart: CartItemRow[]): OrderConfirmationInput["items"] => cart.map((item) => {
-    const quantity = Math.max(Number(item.quantity) || 0, 0);
-    const unitPrice = item.sale_price !== null && item.sale_price !== undefined
-        ? Number(item.sale_price)
-        : Number(item.price) || 0;
-
-    return {
-        name: String(item.product_name || `Product #${Number(item.product_id) || 0}`),
-        quantity,
-        total: roundCurrency(unitPrice * quantity),
-    };
-});
-
-const parseOrderShipping = (value: unknown): OrderConfirmationInput["shipping"] => {
-    let parsed: unknown = value;
-    if (typeof value === "string") {
-        try {
-            parsed = JSON.parse(value);
-        } catch {
-            parsed = { address: value };
-        }
-    }
-
-    const shipping = parsed && typeof parsed === "object" && !Array.isArray(parsed)
-        ? parsed as Record<string, unknown>
-        : {};
-
-    return {
-        address: String(shipping.address || ""),
-        city: String(shipping.city || ""),
-        country: String(shipping.country || ""),
-    };
-};
-
 const normalizeSalePrice = (value: unknown): number | null => {
     if (value === null || value === undefined || value === "") return null;
     const numberValue = Number(value);
@@ -183,51 +133,7 @@ export class NestOrdersService {
         private readonly promotionsRepository: PromotionsRepository,
         private readonly productAttributesRepository: ProductAttributesRepository,
         @Optional() private readonly paymentProviderService?: PaymentProviderService,
-        @Optional() private readonly resendEmailService?: ResendEmailService,
-        @Optional() private readonly usersRepository?: UsersRepository,
     ) {}
-
-    private async resolveAuthenticatedRecipient(userId: string): Promise<{ email: string; name: string; emailVerified: boolean } | null> {
-        if (!this.usersRepository) return null;
-
-        const user = await this.usersRepository.findById(userId);
-        const email = typeof user?.email === "string" ? user.email.trim() : "";
-        if (!email) return null;
-
-        const name = [user?.first_name, user?.last_name]
-            .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
-            .join(" ")
-            .trim()
-            || (typeof user?.username === "string" ? user.username.trim() : "")
-            || "Customer";
-
-        return { email, name, emailVerified: isEmailVerified(user) };
-    }
-
-    private async sendOrderConfirmation(context: OrderConfirmationContext): Promise<void> {
-        if (!this.resendEmailService) return;
-
-        try {
-            const recipient = context.recipient.kind === "guest"
-                ? { ...context.recipient, emailVerified: true }
-                : await this.resolveAuthenticatedRecipient(context.recipient.userId);
-            if (!recipient) return;
-
-            await this.resendEmailService.sendOrderConfirmation({
-                orderId: context.orderId,
-                email: recipient.email,
-                name: recipient.name,
-                total: context.total,
-                paymentMethod: context.paymentMethod,
-                shipping: context.shipping,
-                items: context.items,
-                customerType: context.recipient.kind,
-                emailVerified: recipient.emailVerified,
-            });
-        } catch {
-            logger.error({ orderId: context.orderId }, "[NestOrdersService] order confirmation email failed");
-        }
-    }
 
     private async createPaymentLedgerInTransaction(
         tx: TransactionContext,
@@ -807,7 +713,6 @@ export class NestOrdersService {
                 inventoryMovements,
                 appliedDiscount,
                 authoritativeTotalPrice: transactionMerchandiseTotal,
-                emailItems: buildOrderEmailItems(transactionCart),
                 order: order || { id: orderId, date_added: new Date().toISOString() },
             };
         });
@@ -819,20 +724,6 @@ export class NestOrdersService {
                 Number(transactionResult.authoritativeTotalPrice) - Number(transactionResult.appliedDiscount || 0),
             );
         }
-        await this.sendOrderConfirmation({
-            orderId: transactionResult.orderId,
-            total: Math.max(Number(transactionResult.authoritativeTotalPrice) - Number(transactionResult.appliedDiscount || 0), 0),
-            paymentMethod,
-            shipping: parseOrderShipping(shippingAddress),
-            items: transactionResult.emailItems,
-            recipient: identity.kind === "guest"
-                ? {
-                    kind: "guest",
-                    email: identity.guestContact.guestEmail,
-                    name: identity.guestContact.guestName,
-                }
-                : { kind: "authenticated", userId: identity.userId },
-        });
         logger.info({ orderId: transactionResult.orderId, ms: Date.now() - startedAt }, "[createOrderFromValidatedCart] commit ok");
         return transactionResult.order;
     }
@@ -1103,7 +994,6 @@ export class NestOrdersService {
                     userId: pending.user_id,
                     payableAmount: Number(pending.total_price) - Number(pending.discount),
                     alreadyProcessed: true,
-                    confirmation: null,
                     order: existingOrder,
                 };
             }
@@ -1260,29 +1150,6 @@ export class NestOrdersService {
                 userId: pending.user_id,
                 payableAmount,
                 alreadyProcessed: false,
-                confirmation: pending.user_id
-                    ? {
-                        orderId,
-                        total: payableAmount,
-                        paymentMethod: "payos",
-                        shipping: parseOrderShipping(pending.shipping_address),
-                        items: buildOrderEmailItems(authoritativeCart),
-                        recipient: { kind: "authenticated" as const, userId: pending.user_id },
-                    }
-                    : pending.guest_email
-                        ? {
-                            orderId,
-                            total: payableAmount,
-                            paymentMethod: "payos",
-                            shipping: parseOrderShipping(pending.shipping_address),
-                            items: buildOrderEmailItems(authoritativeCart),
-                            recipient: {
-                                kind: "guest" as const,
-                                email: pending.guest_email,
-                                name: pending.guest_name || "Guest customer",
-                            },
-                        }
-                        : null,
                 order: order || { id: orderId, date_added: new Date().toISOString() },
             };
         });
@@ -1295,9 +1162,6 @@ export class NestOrdersService {
                 transactionResult.orderId,
                 transactionResult.payableAmount,
             );
-        }
-        if (transactionResult.confirmation) {
-            await this.sendOrderConfirmation(transactionResult.confirmation);
         }
         return transactionResult.order;
     }
@@ -1330,7 +1194,6 @@ export class NestOrdersService {
                     userId: pending.user_id,
                     payableAmount: Number(pending.total_price) - Number(pending.discount),
                     alreadyProcessed: true,
-                    confirmation: null,
                     order: existingOrder,
                 };
             }
@@ -1478,29 +1341,6 @@ export class NestOrdersService {
                 userId: pending.user_id,
                 payableAmount: Number(pending.total_price) - Number(pending.discount),
                 alreadyProcessed: false,
-                confirmation: pending.user_id
-                    ? {
-                        orderId,
-                        total: Math.max(Number(pending.total_price) - Number(pending.discount), 0),
-                        paymentMethod: "card",
-                        shipping: parseOrderShipping(pending.shipping_address),
-                        items: buildOrderEmailItems(authoritativeCart),
-                        recipient: { kind: "authenticated" as const, userId: pending.user_id },
-                    }
-                    : pending.guest_email
-                        ? {
-                            orderId,
-                            total: Math.max(Number(pending.total_price) - Number(pending.discount), 0),
-                            paymentMethod: "card",
-                            shipping: parseOrderShipping(pending.shipping_address),
-                            items: buildOrderEmailItems(authoritativeCart),
-                            recipient: {
-                                kind: "guest" as const,
-                                email: pending.guest_email,
-                                name: pending.guest_name || "Guest customer",
-                            },
-                        }
-                        : null,
                 order: order || { id: orderId, date_added: new Date().toISOString() },
             };
         });
@@ -1513,9 +1353,6 @@ export class NestOrdersService {
                 transactionResult.orderId,
                 transactionResult.payableAmount,
             );
-        }
-        if (transactionResult.confirmation) {
-            await this.sendOrderConfirmation(transactionResult.confirmation);
         }
         return transactionResult.order;
     }

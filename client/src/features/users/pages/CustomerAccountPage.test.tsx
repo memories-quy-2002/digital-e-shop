@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
             username: "demo_customer",
             first_name: "Demo",
             last_name: "Customer",
+            email_verified: false,
         },
     },
     toast: { addToast: vi.fn() },
@@ -21,11 +22,12 @@ const mocks = vi.hoisted(() => ({
         fetchCustomerNotifications: vi.fn(),
         markCustomerNotificationRead: vi.fn(),
         markAllCustomerNotificationsRead: vi.fn(),
-        resendVerification: vi.fn(),
-        requestEmailChange: vi.fn(),
     },
     orders: { fetchCustomerOrders: vi.fn() },
-    firebase: { sendFirebaseEmailVerification: vi.fn() },
+    firebase: {
+        sendFirebaseEmailChangeVerification: vi.fn(),
+        sendFirebaseEmailVerification: vi.fn(),
+    },
 }));
 
 vi.mock("../../../context/AuthContext", () => ({
@@ -55,22 +57,16 @@ vi.mock("../api", () => ({
     fetchCustomerNotifications: mocks.users.fetchCustomerNotifications,
     markCustomerNotificationRead: mocks.users.markCustomerNotificationRead,
     markAllCustomerNotificationsRead: mocks.users.markAllCustomerNotificationsRead,
-    resendVerification: mocks.users.resendVerification,
 }));
 
 vi.mock("../../orders/api", () => ({
     fetchCustomerOrders: mocks.orders.fetchCustomerOrders,
 }));
 
-vi.mock("../../auth/api", () => ({
-    resendVerification: mocks.users.resendVerification,
-    requestEmailChange: mocks.users.requestEmailChange,
-}));
-
 vi.mock("../../../services/firebase", () => ({
+    sendFirebaseEmailChangeVerification: mocks.firebase.sendFirebaseEmailChangeVerification,
     sendFirebaseEmailVerification: mocks.firebase.sendFirebaseEmailVerification,
 }));
-
 vi.mock("../../../components/common/Icons", () => ({
     CartIcon: () => <span aria-hidden="true" />,
     HouseIcon: () => <span aria-hidden="true" />,
@@ -118,7 +114,8 @@ describe("CustomerAccountPage", () => {
         mocks.users.markCustomerNotificationRead.mockResolvedValue({ updated: 1 });
         mocks.users.markAllCustomerNotificationsRead.mockResolvedValue({ updated: 1 });
         mocks.orders.fetchCustomerOrders.mockResolvedValue([]);
-        mocks.users.requestEmailChange.mockResolvedValue(undefined);
+        mocks.firebase.sendFirebaseEmailChangeVerification.mockResolvedValue(undefined);
+        mocks.firebase.sendFirebaseEmailVerification.mockResolvedValue(undefined);
     });
 
     it("renders notification updates inside the account page", async () => {
@@ -150,7 +147,7 @@ describe("CustomerAccountPage", () => {
         expect(screen.getByRole("button", { name: "Order #7 was placed is read" })).toBeDisabled();
     });
 
-    it("requests an email change from the account page", async () => {
+    it("requests an email change through Firebase from the account page", async () => {
         render(
             <MemoryRouter initialEntries={["/account"]}>
                 <CustomerAccountPage />
@@ -163,7 +160,20 @@ describe("CustomerAccountPage", () => {
         });
         fireEvent.click(screen.getByRole("button", { name: "Send email-change link" }));
 
-        await waitFor(() => expect(mocks.users.requestEmailChange).toHaveBeenCalledWith("new@example.com"));
+        await waitFor(() => expect(mocks.firebase.sendFirebaseEmailChangeVerification).toHaveBeenCalledWith("new@example.com"));
         expect(await screen.findByRole("status")).toHaveTextContent("Check your new email to confirm the change.");
+    });
+
+    it("resends verification through the signed-in Firebase user", async () => {
+        render(
+            <MemoryRouter initialEntries={["/account"]}>
+                <CustomerAccountPage />
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByRole("heading", { name: "My account" })).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("button", { name: "Resend verification email" }));
+
+        await waitFor(() => expect(mocks.firebase.sendFirebaseEmailVerification).toHaveBeenCalledTimes(1));
     });
 });
