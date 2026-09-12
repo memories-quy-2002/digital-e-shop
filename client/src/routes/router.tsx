@@ -12,8 +12,6 @@ const SignupPage = lazy(() => import("../features/auth/pages/SignupPage"));
 const VerifyEmailPage = lazy(() => import("../features/auth/pages/VerifyEmailPage"));
 const ForgotPasswordPage = lazy(() => import("../features/auth/pages/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import("../features/auth/pages/ResetPasswordPage"));
-const ConfirmEmailChangePage = lazy(() => import("../features/auth/pages/ConfirmEmailChangePage"));
-const UnsubscribePage = lazy(() => import("../pages/UnsubscribePage"));
 const ProductPage = lazy(() => import("../features/products/pages/ProductPage"));
 const WishlistPage = lazy(() => import("../pages/WishlistPage"));
 const ShopsPage = lazy(() => import("../pages/ShopsPage"));
@@ -52,8 +50,6 @@ const AppRouter = () => {
                 <Route path="/verify-email" element={<VerifyEmailPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
-                <Route path="/confirm-email-change" element={<ConfirmEmailChangePage />} />
-                <Route path="/unsubscribe" element={<UnsubscribePage />} />
                 <Route path="/product" element={<ProductPage />} />
                 <Route path="/cart" element={<CartPage />} />
                 <Route path="/guest-order" element={<GuestOrderLookupPage />} />

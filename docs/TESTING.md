@@ -26,7 +26,7 @@ pnpm --dir server test -- --run
 pnpm --dir server build
 ```
 
-The default server Vitest configuration includes `src/**/*.{test,spec}.ts` and excludes integration files. The suite covers guards, validators, controllers, services, repositories, checkout reservations, guest order tokens, email verification, seed invariants, response contracts, and security boundaries.
+The default server Vitest configuration includes `src/**/*.{test,spec}.ts` and excludes integration files. The suite covers guards, validators, controllers, services, repositories, checkout reservations, guest order tokens, Firebase auth boundaries, seed invariants, response contracts, and security boundaries.
 
 ## MySQL integration checks
 
@@ -50,7 +50,36 @@ pnpm --dir server demo:verify
 
 Checkout, inventory, payment, order timeline, notification, support, guest lookup, and promotion changes need focused tests for ownership, validation, transaction boundaries, idempotency, and failure behavior.
 
-Authentication changes should cover both provider payloads, the generic resend response, one-time/expired verification tokens, public-user redaction, unverified-session login, and `VerifiedEmailGuard` behavior. The email-verification migration must be applied to a disposable MySQL database before runtime signup checks.
+Authentication changes should cover Firebase ID-token payloads, Firebase signup delivery and account-page resend behavior, the absence of server-owned verification endpoints, synchronization from a verified Firebase ID-token claim, public-user redaction, unverified-session login, and `VerifiedEmailGuard` behavior. The disposable MySQL database is still required for repository and guard checks; the legacy email-verification columns are compatibility state, not a prerequisite for Firebase email delivery.
+
+## Firebase Auth Emulator acceptance flow
+
+Use the local Firebase profile when testing registration, verification,
+password reset, or email change without sending mail:
+
+```powershell
+pnpm dlx --allow-build=protobufjs --allow-build=re2 --package=firebase-tools firebase emulators:start --only auth --project demo-digital-e-local
+pnpm --dir server firebase:seed:emulator
+```
+
+Open `http://127.0.0.1:4001`. Use the `Authentication` tab to inspect users and
+the `Logs` tab to copy verification, reset, and email-change action links. The
+Emulator UI replaces the inbox; no real email is delivered. Password-reset action links
+from the emulator contain the placeholder `newPassword=NEW_PASSWORD_HERE`;
+replace it with a URL-encoded disposable password before opening the link. The
+emulator completes the reset in its own action handler, while production links
+continue to the client `/reset-password` action-code page. With both apps
+running on localhost:
+
+1. Register a disposable account and confirm it is unverified in the Emulator UI and the account state.
+2. Open its verification link from the Emulator UI, return to localhost, sign in again, and confirm the API user becomes verified.
+3. Request password reset, open the reset link, set a new password, and confirm login with the new password.
+4. Request an email change, open the Firebase action link, sign in again, and confirm the Firebase email and API user email match.
+
+Use only disposable emulator accounts. Do not use production credentials or
+run the seeder with `NODE_ENV=production`. For real-inbox preview testing,
+create a separate Firebase project and separate database; never point localhost
+at the production Firebase project.
 
 ## HTTP smoke checks
 

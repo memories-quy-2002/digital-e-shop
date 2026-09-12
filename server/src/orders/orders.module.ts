@@ -18,11 +18,10 @@ import { CheckoutReservationRepository } from "./checkout-reservation.repository
 import { CheckoutReservationService } from "./checkout-reservation.service";
 import { ProductsModule } from "../products/products.module";
 import { PaymentsModule } from "../payments/payments.module";
-import { EmailModule } from "../email/email.module";
 import { UsersModule } from "../users/users.module";
 
 @Module({
-    imports: [NestConfigModule, CartModule, InventoryModule, NotificationsModule, PromotionsModule, ProductsModule, PaymentsModule, EmailModule, UsersModule],
+    imports: [NestConfigModule, CartModule, InventoryModule, NotificationsModule, PromotionsModule, ProductsModule, PaymentsModule, UsersModule],
     controllers: [OrdersController],
     providers: [
         NestOrdersService,

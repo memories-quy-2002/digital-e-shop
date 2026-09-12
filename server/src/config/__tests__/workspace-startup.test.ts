@@ -10,17 +10,18 @@ const readPackage = (packagePath: string) => JSON.parse(fs.readFileSync(packageP
 };
 
 describe("independent package startup", () => {
-    it("prepares Prisma before server development and startup", () => {
+    it("generates Prisma before development and keeps migrations and seeds explicit", () => {
         const packageJson = readPackage(serverPackagePath);
         const pnpmCommand = "corepack pnpm@12.3.4";
 
-        expect(packageJson.scripts?.predev).toBe(`${pnpmCommand} prisma:prepare`);
+        expect(packageJson.scripts?.predev).toBe(`${pnpmCommand} prisma:generate`);
         expect(packageJson.scripts?.prestart).toBe(
             `${pnpmCommand} prisma:prepare && ${pnpmCommand} build:compile`,
         );
         expect(packageJson.scripts?.["prisma:prepare"]).toBe(
             `${pnpmCommand} prisma:generate && ${pnpmCommand} prisma:migrate:deploy`,
         );
+        expect(packageJson.scripts?.["seed:demo"]).toBe(`${pnpmCommand} prisma:seed`);
     });
 
     it("exposes a client-local development script", () => {

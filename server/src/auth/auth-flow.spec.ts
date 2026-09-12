@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UnauthorizedException } from "@nestjs/common";
 import jwt from "jsonwebtoken";
 import crypto from "node:crypto";
-import bcrypt from "bcryptjs";
 import { env } from "#src/config/env.config";
 import { NestAuthController } from "./auth.controller";
 import { registerUserSchema, userLoginSchema } from "./auth.validator";
@@ -32,9 +31,9 @@ function buildAuthService(options: { stubIssueLoginSession?: boolean } = {}) {
         findByUsername: vi.fn(),
         updateUserToken: vi.fn(),
         createUser: vi.fn(),
-        createLocalUser: vi.fn(),
         updateAuthIdentity: vi.fn(),
         markEmailVerified: vi.fn(),
+        syncFirebaseEmail: vi.fn(),
     };
     const firebaseAdminAuthService = {
         verifyIdToken: vi.fn(),
@@ -62,9 +61,7 @@ describe("authentication flow response contract", () => {
         verifySessionToken: ReturnType<typeof vi.fn>;
         refreshToken: ReturnType<typeof vi.fn>;
         loginUser: ReturnType<typeof vi.fn>;
-        loginWithPassword: ReturnType<typeof vi.fn>;
         registerUser: ReturnType<typeof vi.fn>;
-        registerLocalUser: ReturnType<typeof vi.fn>;
     };
     let controller: NestAuthController;
 
@@ -73,11 +70,8 @@ describe("authentication flow response contract", () => {
             verifySessionToken: vi.fn(),
             refreshToken: vi.fn(),
             loginUser: vi.fn(),
-            loginWithPassword: vi.fn(),
             registerUser: vi.fn(),
-            registerLocalUser: vi.fn(),
         };
-        env.authProvider = "firebase";
         controller = new NestAuthController(authService as unknown as NestAuthService);
     });
 
@@ -94,28 +88,17 @@ describe("authentication flow response contract", () => {
         expect(() => userLoginSchema.parse({ rememberMe: false })).toThrow();
     });
 
-    it("accepts local email and password login credentials", () => {
-        expect(userLoginSchema.parse({
+    it("rejects local credentials because Firebase is the only authentication provider", () => {
+        expect(() => userLoginSchema.parse({
             email: "demo.admin@digital-e.local",
             password: "DemoPass123!",
             rememberMe: true,
-        })).toEqual({
-            email: "demo.admin@digital-e.local",
-            password: "DemoPass123!",
-            rememberMe: true,
-        });
-    });
-
-    it("accepts local email and password registration credentials", () => {
-        expect(registerUserSchema.parse({
+        })).toThrow();
+        expect(() => registerUserSchema.parse({
             email: "customer@example.com",
             password: "Password1!",
             user: { username: "customer" },
-        })).toEqual({
-            email: "customer@example.com",
-            password: "Password1!",
-            user: { username: "customer" },
-        });
+        })).toThrow();
     });
 
     it("rejects client-controlled registration identity fields", () => {
@@ -156,29 +139,6 @@ describe("authentication flow response contract", () => {
         expect(authService.loginUser).toHaveBeenCalledWith("firebase-id-token", true);
     });
 
-    it("passes local credentials to the password login service", async () => {
-        env.authProvider = "local";
-        authService.loginWithPassword.mockResolvedValue({
-            user: { id: "demo-digital-e-admin", email: "demo.admin@digital-e.local", role: "Admin" },
-            token: "access-token",
-            sessionId: 42,
-            refreshToken: null,
-        });
-        const response = mockResponse();
-
-        await controller.userLogin(
-            { email: "demo.admin@digital-e.local", password: "DemoPass123!", rememberMe: true } as never,
-            { requestId: "auth-local-login-1" } as never,
-            response as never,
-        );
-
-        expect(authService.loginWithPassword).toHaveBeenCalledWith(
-            "demo.admin@digital-e.local",
-            "DemoPass123!",
-            true,
-        );
-    });
-
     it("passes only the Firebase ID token and username to the registration service", async () => {
         authService.registerUser.mockResolvedValue({
             user: { id: "firebase-uid", email: "customer@example.com", role: "Customer" },
@@ -193,28 +153,22 @@ describe("authentication flow response contract", () => {
         expect(authService.registerUser).toHaveBeenCalledWith("firebase-id-token", { username: "attacker" });
     });
 
-    it("passes local registration credentials to the password registration service", async () => {
-        env.authProvider = "local";
-        authService.registerLocalUser.mockResolvedValue({
-            user: { id: "local-uid", email: "customer@example.com", role: "Customer", email_verified: false },
+    it("does not expose a server-owned verification delivery result", async () => {
+        authService.registerUser.mockResolvedValue({
+            user: { id: "firebase-uid", email: "customer@example.com", role: "Customer", email_verified: false },
             token: "access-token",
             sessionId: 42,
             refreshToken: null,
-            verificationEmailSent: true,
         });
         const response = mockResponse();
 
         await controller.registerUser(
-            { email: "customer@example.com", password: "Password1!", user: { username: "customer" } } as never,
-            { requestId: "auth-local-register-1" } as never,
+            { idToken: "firebase-id-token", user: { username: "customer" } } as never,
+            { requestId: "auth-register-firebase-verification-1" } as never,
             response as never,
         );
 
-        expect(authService.registerLocalUser).toHaveBeenCalledWith({
-            email: "customer@example.com",
-            password: "Password1!",
-            username: "customer",
-        });
+        expect(response.json.mock.calls.at(-1)?.[0]).not.toHaveProperty("verification_email_sent");
     });
 
     it("sets a session-scoped refresh cookie for a non-remembered login", async () => {
@@ -384,56 +338,6 @@ describe("authentication flow response contract", () => {
 });
 
 describe("Firebase identity boundary", () => {
-    it("authenticates local credentials against the stored MySQL password hash", async () => {
-        const { service, usersRepository, firebaseAdminAuthService, issueLoginSession } = buildAuthService();
-        const user = {
-            id: "demo-digital-e-admin",
-            email: "demo.admin@digital-e.local",
-            role: "Admin",
-            status: "Active",
-            password: await bcrypt.hash("DemoPass123!", 10),
-        };
-        const session = { user, token: "access-token", sessionId: 42, refreshToken: null as string | null };
-        usersRepository.findByEmail.mockResolvedValue(user);
-        issueLoginSession.mockResolvedValue(session);
-
-        await expect(service.loginWithPassword("demo.admin@digital-e.local", "DemoPass123!", true)).resolves.toBe(session);
-
-        expect(usersRepository.findByEmail).toHaveBeenCalledWith("demo.admin@digital-e.local");
-        expect(firebaseAdminAuthService.verifyIdToken).not.toHaveBeenCalled();
-        expect(issueLoginSession).toHaveBeenCalledWith(user, true);
-    });
-
-    it("creates a local customer with a server-generated id and hashed password", async () => {
-        const { service, usersRepository, issueLoginSession } = buildAuthService();
-        const createdUser = {
-            id: "local-uid",
-            email: "customer@example.com",
-            username: "customer",
-            role: "Customer",
-            status: "Active",
-            email_verified_at: null as Date | null,
-        };
-        usersRepository.findByEmail.mockResolvedValue(null);
-        usersRepository.findByUsername.mockResolvedValue(null);
-        usersRepository.findById.mockResolvedValue(createdUser);
-        issueLoginSession.mockResolvedValue({ user: createdUser, token: "access-token", sessionId: 42, refreshToken: null as string | null });
-
-        await expect(service.registerLocalUser({
-            email: "Customer@Example.com",
-            password: "Password1!",
-            username: "customer",
-        })).resolves.toEqual(expect.objectContaining({ token: "access-token" }));
-
-        expect(usersRepository.createLocalUser).toHaveBeenCalledWith(
-            expect.any(String),
-            "customer",
-            "customer@example.com",
-            expect.not.stringContaining("Password1!"),
-            "Customer",
-        );
-    });
-
     it("looks up the account by the verified UID and does not accept a client role", async () => {
         const { service, usersRepository, firebaseAdminAuthService, issueLoginSession } = buildAuthService();
         const user = { id: "firebase-uid", email: "customer@example.com", role: "Customer" };
@@ -450,6 +354,61 @@ describe("Firebase identity boundary", () => {
         expect(firebaseAdminAuthService.verifyIdToken).toHaveBeenCalledWith("firebase-id-token");
         expect(usersRepository.findById).toHaveBeenCalledWith("firebase-uid");
         expect(issueLoginSession).toHaveBeenCalledWith(user, true);
+    });
+
+    it("synchronizes a verified Firebase claim before issuing the session", async () => {
+        const { service, usersRepository, firebaseAdminAuthService, issueLoginSession } = buildAuthService();
+        const user = {
+            id: "firebase-uid",
+            email: "customer@example.com",
+            role: "Customer",
+            email_verified_at: null as Date | null,
+        };
+        const refreshedUser = {
+            ...user,
+            email_verified_at: new Date(),
+        };
+        const session = { user: refreshedUser, token: "access-token", sessionId: 42, refreshToken: null as string | null };
+        firebaseAdminAuthService.verifyIdToken.mockResolvedValue({
+            uid: "firebase-uid",
+            email: "customer@example.com",
+            emailVerified: true,
+        });
+        usersRepository.findById.mockResolvedValueOnce(user).mockResolvedValueOnce(refreshedUser);
+        issueLoginSession.mockResolvedValue(session);
+
+        await expect(service.loginUser("firebase-id-token")).resolves.toBe(session);
+
+        expect(usersRepository.markEmailVerified).toHaveBeenCalledWith("firebase-uid");
+        expect(issueLoginSession).toHaveBeenCalledWith(refreshedUser, false);
+    });
+
+    it("synchronizes a verified Firebase email change by UID before issuing the session", async () => {
+        const { service, usersRepository, firebaseAdminAuthService, issueLoginSession } = buildAuthService();
+        const user = {
+            id: "firebase-uid",
+            email: "old@example.com",
+            auth_provider: "firebase",
+            provider_user_id: "firebase-uid",
+            role: "Customer",
+            email_verified_at: new Date(),
+        };
+        const refreshedUser = { ...user, email: "new@example.com" };
+        const session = { user: refreshedUser, token: "access-token", sessionId: 42, refreshToken: null as string | null };
+        firebaseAdminAuthService.verifyIdToken.mockResolvedValue({
+            uid: "firebase-uid",
+            email: "new@example.com",
+            emailVerified: true,
+        });
+        usersRepository.findById.mockResolvedValueOnce(user).mockResolvedValueOnce(refreshedUser);
+        usersRepository.findByEmail.mockResolvedValue(null);
+        usersRepository.syncFirebaseEmail.mockResolvedValue({ affectedRows: 1 });
+        issueLoginSession.mockResolvedValue(session);
+
+        await expect(service.loginUser("firebase-id-token")).resolves.toBe(session);
+
+        expect(usersRepository.syncFirebaseEmail).toHaveBeenCalledWith("firebase-uid", "new@example.com");
+        expect(issueLoginSession).toHaveBeenCalledWith(refreshedUser, false);
     });
 
     it("rejects a verified token when its email does not match the account", async () => {

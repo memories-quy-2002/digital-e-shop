@@ -1,5 +1,7 @@
 # Provider-Aware Signup and Email Verification Design
 
+> Historical design note (superseded 2026-09-11): this document describes the former provider-aware/local-auth architecture. The implemented architecture is Firebase-only; see the Firebase environment isolation design for the current contract.
+
 **Date:** 2026-09-10
 
 ## Goal

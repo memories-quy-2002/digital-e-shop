@@ -7,10 +7,7 @@ import {
     TelephoneIcon,
     TwitterIcon,
 } from "../common/Icons";
-import { useToast } from "../../context/ToastContext";
-import React, { useState } from "react";
 import { useT } from "../../hooks/useT";
-import { subscribeToMarketing } from "../../features/marketing/api";
 
 const socialLinks = [
     {
@@ -36,33 +33,7 @@ const socialLinks = [
 ];
 
 const Footer = () => {
-    const [email, setEmail] = useState<string>("");
-    const { addToast } = useToast();
     const t = useT();
-    const newsletterInputId = "footer-newsletter-email";
-    const [isSubscribing, setIsSubscribing] = useState(false);
-
-    const handleSubscribe = async () => {
-        const normalizedEmail = email.trim();
-        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-        if (!emailPattern.test(normalizedEmail)) {
-            addToast(t("footer.invalidEmail"), t("footer.invalidEmail"));
-            return;
-        }
-
-        if (isSubscribing) return;
-
-        try {
-            setIsSubscribing(true);
-            await subscribeToMarketing(normalizedEmail);
-            addToast(t("footer.subscribe"), t("footer.subscribeSuccess"));
-            setEmail("");
-        } catch {
-            addToast(t("footer.subscribe"), "Unable to subscribe right now");
-        } finally {
-            setIsSubscribing(false);
-        }
-    };
 
     return (
         <footer className="footer">
@@ -97,28 +68,6 @@ const Footer = () => {
                         </div>
                     </div>
 
-                    <section className="footer__newsletter" aria-label="Newsletter signup">
-                        <div>
-                            <h2>{t("footer.newsletterTitle")}</h2>
-                            <p>{t("footer.newsletterSubtitle")}</p>
-                        </div>
-                        <div className="footer__newsletter__form">
-                            <label className="footer__sr-only" htmlFor={newsletterInputId}>
-                                {t("footer.newsletterEmailLabel")}
-                            </label>
-                            <input
-                                type="email"
-                                name="email_subs"
-                                id={newsletterInputId}
-                                placeholder={t("footer.newsletterPlaceholder")}
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                            />
-                            <button type="button" onClick={() => void handleSubscribe()} disabled={isSubscribing}>
-                                {t("footer.subscribe")}
-                            </button>
-                        </div>
-                    </section>
                 </section>
 
                 <section className="footer__main" aria-label="Footer navigation">
