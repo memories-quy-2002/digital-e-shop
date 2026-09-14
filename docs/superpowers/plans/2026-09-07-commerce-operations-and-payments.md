@@ -10,6 +10,23 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-07-commerce-operations-and-payments-design.md`
 
+## Current verification status (2026-09-13)
+
+The implementation for Tasks 1-7 is present in the current branch and was
+revalidated against the source, unit tests, schema, build, and local runtime.
+The detailed step checkboxes below are retained as the original execution
+record; the quality gate for the current implementation is:
+
+- Backend unit suite: 70 files, 304 tests passed.
+- Frontend unit suite: 82 files, 369 tests passed.
+- Client/server typecheck, build, and server lint passed.
+- Client lint passed with 46 pre-existing `no-explicit-any` warnings.
+- Prisma schema validation and migration status passed.
+- Local demo verification passed after allowing runtime sessions above the
+  seeded baseline.
+- Integration tests were not run because the active `.env` targets the demo
+  database rather than the isolated CI database.
+
 ## Global Constraints
 
 - Use Node.js `24.20.0` and pnpm `12.3.4`.

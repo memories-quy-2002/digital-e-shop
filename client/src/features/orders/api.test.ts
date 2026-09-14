@@ -3,13 +3,16 @@ import http from "../../lib/http";
 import {
     applyCustomerDiscount,
     cancelCustomerOrder,
+    clearGuestCartServer,
     createGuestCheckoutSession,
     createGuestPurchase,
+    fetchGuestCart,
     fetchGuestOrderBySession,
     fetchCustomerCart,
     lookupGuestOrder,
     previewGuestCart,
     removeCustomerCartItem,
+    syncGuestCart,
     updateCustomerCartItem,
     validateCustomerCart,
 } from "./api";
@@ -98,14 +101,14 @@ describe("orders API", () => {
             quantity: 2,
         }]);
         await updateCustomerCartItem("user-1", 7, 3);
-        await removeCustomerCartItem(7);
+        await removeCustomerCartItem("user-1", 7);
         await expect(validateCustomerCart("user-1")).resolves.toEqual({ valid: false, cartItems: [], issues: [] });
         vi.mocked(http.post).mockResolvedValueOnce({ data: { newPrice: 100 } } as never);
         await expect(applyCustomerDiscount("SAVE10", 100)).resolves.toEqual({ newPrice: 100 });
 
         expect(http.get).toHaveBeenNthCalledWith(1, "/api/cart/user-1");
         expect(http.put).toHaveBeenCalledWith("/api/cart/", { uid: "user-1", cartItemId: 7, quantity: 3 });
-        expect(http.delete).toHaveBeenCalledWith("/api/cart/", { data: { cartItemId: 7 } });
+        expect(http.delete).toHaveBeenCalledWith("/api/cart/", { data: { uid: "user-1", cartItemId: 7 } });
         expect(http.get).toHaveBeenNthCalledWith(2, "/api/cart/user-1/validation");
         expect(http.post).toHaveBeenLastCalledWith("/api/orders/discount", { discountCode: "SAVE10", price: 100 });
     });
@@ -116,6 +119,20 @@ describe("orders API", () => {
 
         expect(http.put).toHaveBeenCalledTimes(1);
         expect(http.put).toHaveBeenCalledWith("/api/cart/", { uid: "user-1", cartItemId: 7, quantity: 3 });
+    });
+
+    it("uses the anonymous cookie-backed guest cart endpoints", async () => {
+        vi.mocked(http.get).mockResolvedValueOnce({ data: { items: [{ product_id: 18, quantity: 2 }] } } as never);
+        vi.mocked(http.post)
+            .mockResolvedValueOnce({ data: { items: [{ productId: 18, quantity: 3 }] } } as never)
+            .mockResolvedValueOnce({ data: {} } as never);
+
+        await expect(fetchGuestCart()).resolves.toEqual([{ productId: 18, quantity: 2 }]);
+        await expect(syncGuestCart([{ productId: 18, quantity: 3 }])).resolves.toEqual([{ productId: 18, quantity: 3 }]);
+        await clearGuestCartServer(true);
+
+        expect(http.post).toHaveBeenNthCalledWith(1, "/api/cart/guest/sync", { items: [{ productId: 18, quantity: 3 }] });
+        expect(http.post).toHaveBeenNthCalledWith(2, "/api/cart/guest/clear", { converted: true });
     });
 
     it("sends guest purchase data without client prices or totals", async () => {

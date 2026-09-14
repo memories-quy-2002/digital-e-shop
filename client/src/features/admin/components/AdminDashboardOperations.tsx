@@ -12,6 +12,7 @@ import { Table } from "../../../components/ui/legacy";
 import AdminStatusPanel from "./AdminStatusPanel";
 import AdminTableScrollHint from "./AdminTableScrollHint";
 import type { DashboardSectionStatus } from "../utils/dashboardAvailability";
+import { ORDER_STATUS } from "../../orders/orderStatus";
 
 export type DashboardLowStockProduct = {
     id?: number;
@@ -93,7 +94,7 @@ const renderOrders = ({
                                     <span>{getCustomerEmail(order)}</span>
                                 </div>
                             </td>
-                            <td className="admin__table__numeric">{formatCurrency(Math.max(order.total_price - order.discount, 0))}</td>
+                            <td className="admin__table__numeric">{formatCurrency(order.status === ORDER_STATUS.CANCELED ? 0 : Math.max(order.total_price - order.discount, 0))}</td>
                             <td>{getOrderAge(order.date_added)}</td>
                             <td><span className="admin__dashboard__table-value">{getPaymentLabel(order.payment_method)}</span></td>
                             <td><Link className="admin__dashboard__table-action" to="/admin/orders">Review</Link></td>

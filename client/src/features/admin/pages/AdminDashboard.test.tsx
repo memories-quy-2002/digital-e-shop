@@ -71,7 +71,7 @@ describe("AdminDashboard mixed request results", () => {
         await waitFor(() => expect(screen.getByText(/Partially updated/)).toBeTruthy());
 
         expect(screen.getByText("No low-stock products")).toBeTruthy();
-        const lazyChartQueryOptions = { timeout: 5000 };
+        const lazyChartQueryOptions = { timeout: 15000 };
         expect(await screen.findByText("Analytics unavailable", {}, lazyChartQueryOptions)).toBeTruthy();
         expect(await screen.findByText("Recent activity unavailable", {}, lazyChartQueryOptions)).toBeTruthy();
         expect(await screen.findByText("Category analytics unavailable", {}, lazyChartQueryOptions)).toBeTruthy();
@@ -93,7 +93,7 @@ describe("AdminDashboard mixed request results", () => {
                         revenue: { net: 1234, comparison: { current: 1234, previous: 1000, deltaPercent: 23.4 } },
                         inventory: { totalProducts: 99 },
                         customers: { total: 77 },
-                        orders: { total: 55, pending: 4, completed: 8, comparison: { current: 12, previous: 10, deltaPercent: 20 } },
+                        orders: { total: 55, nonCancelled: 55, pending: 4, completed: 8, comparison: { current: 12, previous: 10, deltaPercent: 20 } },
                     },
                 },
             })

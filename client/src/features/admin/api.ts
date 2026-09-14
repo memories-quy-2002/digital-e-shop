@@ -3,6 +3,29 @@ import { normalizeProductWithAttributes, type ProductWithAttributes } from "../p
 import type { AdminOrder, AdminOrderDetail, AdminOrderItem, AdminCustomerProfile } from "../../types/order";
 import type { DashboardRange } from "./utils/dashboardRange";
 
+const ADMIN_PAGE_LIMIT = 100;
+
+const fetchAllPages = async <T>(
+    path: string,
+    collectionKey: string,
+    limit = ADMIN_PAGE_LIMIT,
+): Promise<T[]> => {
+    const rows: T[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+        const response = await http.get(`${path}?page=${page}&limit=${limit}`);
+        const pageRows = response.data?.[collectionKey];
+        if (Array.isArray(pageRows)) rows.push(...pageRows);
+        const totalPages = Number(response.data?.pagination?.totalPages) || page;
+        hasMore = page < totalPages;
+        page += 1;
+    }
+
+    return rows;
+};
+
 export async function fetchAnalyticsSummary(range: DashboardRange = "30d"): Promise<any> {
     const response = await http.get("/api/analytics/summary", { params: { range } });
     return response.data;
@@ -14,8 +37,8 @@ export async function fetchAdminProducts(page = 1, limit = 60): Promise<ProductW
 }
 
 export async function fetchAllProducts(): Promise<ProductWithAttributes[]> {
-    const response = await http.get("/api/products");
-    return (response.data.products || []).map(normalizeProductWithAttributes);
+    const products = await fetchAllPages<unknown>("/api/products", "products");
+    return products.map(normalizeProductWithAttributes);
 }
 
 export async function fetchAdminOrders(page = 1, limit = 80): Promise<AdminOrder[]> {
@@ -24,8 +47,7 @@ export async function fetchAdminOrders(page = 1, limit = 80): Promise<AdminOrder
 }
 
 export async function fetchAllOrders(): Promise<AdminOrder[]> {
-    const response = await http.get("/api/orders");
-    return response.data.orders || [];
+    return fetchAllPages<AdminOrder>("/api/orders", "orders");
 }
 
 export async function fetchAdminUsers(page = 1, limit = 80): Promise<any[]> {
@@ -34,13 +56,24 @@ export async function fetchAdminUsers(page = 1, limit = 80): Promise<any[]> {
 }
 
 export async function fetchAllUsers(): Promise<any[]> {
-    const response = await http.get("/api/users");
-    return response.data.accounts || [];
+    return fetchAllPages<any>("/api/users", "accounts");
 }
 
-export async function fetchOrderItems(page = 1, limit = 120): Promise<AdminOrderItem[]> {
-    const response = await http.get(`/api/orders/item?page=${page}&limit=${limit}`);
-    return response.data.orderItems ?? response.data.order_items ?? [];
+export async function fetchOrderItems(page = 1, limit = ADMIN_PAGE_LIMIT): Promise<AdminOrderItem[]> {
+    const items: AdminOrderItem[] = [];
+    let currentPage = page;
+    let hasMore = true;
+
+    while (hasMore) {
+        const response = await http.get(`/api/orders/item?page=${currentPage}&limit=${limit}`);
+        const pageItems = response.data.orderItems ?? response.data.order_items ?? [];
+        if (Array.isArray(pageItems)) items.push(...pageItems);
+        const totalPages = Number(response.data.pagination?.totalPages) || currentPage;
+        hasMore = currentPage < totalPages;
+        currentPage += 1;
+    }
+
+    return items;
 }
 
 export async function updateProduct(

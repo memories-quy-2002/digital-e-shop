@@ -20,4 +20,20 @@ describe("CartRepository guest preview query", () => {
         expect(params).toEqual([10, 20]);
         expect(queryCallback).toBe(callback);
     });
+
+    it("scopes cart item mutations and stock reads to the owning active customer cart", () => {
+        poolQuery.mockClear();
+        const repository = new CartRepository();
+        repository.getCartItemQuantityByUserId("user-1", 10, vi.fn());
+        repository.getCartItemStock(7, "user-1", vi.fn());
+        repository.updateCartItemQuantity(7, "user-1", 3, vi.fn());
+        repository.deleteCartItem(7, "user-1", vi.fn());
+
+        expect(poolQuery.mock.calls[1][0]).toContain("c.user_id = ?");
+        expect(poolQuery.mock.calls[1][1]).toEqual(["user-1", 7]);
+        expect(poolQuery.mock.calls[2][0]).toContain("c.user_id = ?");
+        expect(poolQuery.mock.calls[2][1]).toEqual(["user-1", 3, 7]);
+        expect(poolQuery.mock.calls[3][0]).toContain("DELETE ci FROM cart_items");
+        expect(poolQuery.mock.calls[3][1]).toEqual(["user-1", 7]);
+    });
 });

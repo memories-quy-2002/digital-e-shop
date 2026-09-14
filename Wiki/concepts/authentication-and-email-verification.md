@@ -21,6 +21,10 @@ The nullable email_verification_token_hash, email_verification_expires_at, and e
 
 AuthGuard does not reject an unverified session. An unverified customer may browse, use the cart, wishlist, account, support, and order history. In Firebase mode, the account page can resend a link through the currently signed-in Firebase user. VerifiedEmailGuard protects authenticated purchase, Stripe checkout-session creation, and review creation. Admins and legacy rows with no verification column value are grandfathered in.
 
+Client protected routes wait for the server-backed `AuthContext` session check before rendering. Anonymous users are redirected to `/login?redirect=<encoded-internal-route>` so a successful Firebase sign-in can return them to the requested page. If a later session check returns `401`, the cached user state is cleared before the same redirect is performed. Loading and authentication failures use semantic status/alert regions rather than leaving a protected page in an indefinite skeleton state.
+
+Auth forms use Firebase error codes for meaningful, non-enumerating messages. Login credential failures share one safe message for unknown users and wrong passwords; Firebase availability failures are reported as service/network errors. Password-reset requests keep the generic response for unknown addresses, while invalid local input and Firebase availability failures use explicit inline alerts. Firebase action-code success and failure remain visible on the reset page instead of navigating away and losing context.
+
 If Firebase delivery fails, account creation still succeeds and the user can retry from the account page after signing in again. The server has no separate email provider; Firebase owns production verification, password reset, and email change.
 ## Customer email delivery
 
@@ -48,3 +52,4 @@ Customers submit a new address through the client Firebase verifyBeforeUpdateEma
 - Legacy migration: server/src/database/prisma/migrations/20260910100000_email_verification/
 - Password reset: client/src/services/firebase.ts and client/src/features/auth/pages/ResetPasswordPage.tsx
 - Email change: client/src/services/firebase.ts and client/src/features/users/pages/CustomerAccountPage.tsx
+- Auth guard and return target: client/src/features/auth/components/withSessionCheck.tsx and client/src/features/auth/authRedirect.ts

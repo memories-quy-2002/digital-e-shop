@@ -15,6 +15,9 @@ const mocks = vi.hoisted(() => ({
     applyCustomerDiscount: vi.fn(),
     previewGuestCart: vi.fn(),
     addItemsToCustomerCart: vi.fn(),
+    fetchGuestCart: vi.fn(),
+    syncGuestCart: vi.fn(),
+    clearGuestCartServer: vi.fn(),
 }));
 
 vi.mock("../AuthContext", () => ({
@@ -33,6 +36,9 @@ vi.mock("../../features/orders/api", () => ({
     applyCustomerDiscount: mocks.applyCustomerDiscount,
     previewGuestCart: mocks.previewGuestCart,
     addItemsToCustomerCart: mocks.addItemsToCustomerCart,
+    fetchGuestCart: mocks.fetchGuestCart,
+    syncGuestCart: mocks.syncGuestCart,
+    clearGuestCartServer: mocks.clearGuestCartServer,
 }));
 
 const serverItem = (overrides: Partial<CheckoutCartItem> = {}): CheckoutCartItem => ({
@@ -139,6 +145,9 @@ describe("CartContext dual-source state", () => {
         mocks.applyCustomerDiscount.mockReset();
         mocks.previewGuestCart.mockReset();
         mocks.addItemsToCustomerCart.mockReset();
+        mocks.fetchGuestCart.mockReset();
+        mocks.syncGuestCart.mockReset();
+        mocks.clearGuestCartServer.mockReset();
         mocks.previewGuestCart.mockResolvedValue(preview());
         mocks.fetchCustomerCart.mockResolvedValue([]);
         mocks.updateCustomerCartItem.mockResolvedValue(undefined);
@@ -146,6 +155,9 @@ describe("CartContext dual-source state", () => {
         mocks.validateCustomerCart.mockResolvedValue({ valid: true, cartItems: [], issues: [] });
         mocks.applyCustomerDiscount.mockResolvedValue({ newPrice: 180 });
         mocks.addItemsToCustomerCart.mockResolvedValue(undefined);
+        mocks.fetchGuestCart.mockResolvedValue([]);
+        mocks.syncGuestCart.mockImplementation(async (items) => items);
+        mocks.clearGuestCartServer.mockResolvedValue(undefined);
     });
 
     it("loads a guest preview as ready state and keeps server-derived totals", async () => {

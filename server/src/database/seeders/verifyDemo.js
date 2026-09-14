@@ -17,6 +17,15 @@ const DEMO_ORDER_SESSION_PREFIX = "digital-e-demo-order-";
 const DEMO_NOTIFICATION_PREFIX = "Demo";
 const DEMO_MOVEMENT_PREFIX = "Digital-E demo seed";
 
+const isDemoVerificationMatch = (actual, expected) => Object.entries(expected).every(([key, expectedValue]) => {
+    const actualValue = actual[key];
+
+    // Customer sessions are operational telemetry, so logins after seeding may
+    // add rows without changing the seeded demo baseline.
+    if (key === "sessions") return Number(actualValue) >= Number(expectedValue);
+    return actualValue === expectedValue;
+});
+
 const assertDemoSeedTarget = () => {
     if (process.env.DEMO_SEED_MODE === DESTRUCTIVE_DEMO_SEED_MODE) {
         assertExplicitDemoSeedTarget({
@@ -276,7 +285,7 @@ const verify = async (connection) => {
         productWishlistGaps: 0,
     };
 
-    if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    if (!isDemoVerificationMatch(actual, expected)) {
         throw new Error(`Digital-E demo verification failed: ${JSON.stringify(actual)}`);
     }
 
@@ -314,4 +323,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { main };
+module.exports = { isDemoVerificationMatch, main };

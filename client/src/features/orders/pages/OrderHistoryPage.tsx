@@ -14,11 +14,11 @@ import { addItemsToCustomerCart, cancelCustomerOrder, fetchCustomerOrderDetail, 
 import type { CustomerOrder, CustomerOrderDetail, CustomerOrderTimelineEvent } from "../types";
 import { formatShippingAddress } from "../shippingAddress";
 import { formatCurrency } from "../../../utils/currency";
+import { getOrderStatusKey, ORDER_STATUS } from "../orderStatus";
 
 const getStatusLabel = (status: number) => {
-    if (status === 1) return "Done";
-    if (status === 0) return "Pending";
-    return "Canceled";
+    const labels = { pending: "Pending", done: "Done", canceled: "Canceled", unknown: "Unknown" };
+    return labels[getOrderStatusKey(status)];
 };
 
 const getPaymentLabel = (payment?: CustomerOrder["payment_method"]) => {
@@ -155,7 +155,7 @@ const OrderHistoryPage = () => {
     };
 
     const handleCancel = async () => {
-        if (!orderDetail || orderDetail.status !== 0 || isCanceling) return;
+        if (!orderDetail || orderDetail.status !== ORDER_STATUS.PENDING || isCanceling) return;
 
         try {
             setIsCanceling(true);
@@ -308,7 +308,7 @@ const OrderHistoryPage = () => {
                                                 <CartIcon size={18} />
                                                 Reorder
                                             </button>
-                                            {orderDetail.status === 0 ? (
+                                            {orderDetail.status === ORDER_STATUS.PENDING ? (
                                                 <button type="button" className="order-history__cancel" onClick={handleCancel} disabled={isCanceling}>
                                                     {isCanceling ? "Canceling..." : "Cancel order"}
                                                 </button>

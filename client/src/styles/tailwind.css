@@ -221,6 +221,12 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+@media (max-width: 320px) {
+    body {
+        min-width: 0;
+    }
+}
+
 body::before {
     position: fixed;
     z-index: -1;

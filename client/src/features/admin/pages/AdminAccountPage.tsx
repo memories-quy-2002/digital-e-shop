@@ -11,13 +11,13 @@ import AdminStatusPanel from "../components/AdminStatusPanel";
 import AdminTableScrollHint from "../components/AdminTableScrollHint";
 import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
 import { formatCurrency } from "../../../utils/currency";
+import { getOrderStatusKey } from "../../orders/orderStatus";
 
 const ITEMS_PER_PAGE = 8;
 
 const getStatusLabel = (status: number) => {
-    if (status === 1) return "Done";
-    if (status === 0) return "Pending";
-    return "Canceled";
+    const labels = { pending: "Pending", done: "Done", canceled: "Canceled", unknown: "Unknown" };
+    return labels[getOrderStatusKey(status)];
 };
 
 const getDisplayName = (account: Account) => {

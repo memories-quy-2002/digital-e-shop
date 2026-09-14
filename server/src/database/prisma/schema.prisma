@@ -96,6 +96,7 @@ model Product {
   orderItems            OrderItem[]
   inventoryReservations InventoryReservation[]
   attributes            ProductAttribute[]
+  guestCartItems        GuestCartItem[]
 
   @@index([manufacturerPartNumber], map: "products_mpn_idx")
   @@map("products")
@@ -189,6 +190,37 @@ model CartItem {
 
   @@unique([cartId, productId], map: "uq_cart_items_carts_id_products_id")
   @@map("cart_items")
+}
+
+model GuestCart {
+  id          String    @id @db.Char(36)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.DateTime(0)
+  lastSeenAt  DateTime  @default(now()) @map("last_seen_at") @db.DateTime(0)
+  convertedAt DateTime? @map("converted_at") @db.DateTime(0)
+  expiresAt   DateTime  @map("expires_at") @db.DateTime(0)
+
+  items GuestCartItem[]
+
+  @@index([expiresAt], map: "guest_carts_expires_idx")
+  @@index([convertedAt, updatedAt], map: "guest_carts_conversion_updated_idx")
+  @@map("guest_carts")
+}
+
+model GuestCartItem {
+  id         Int      @id @default(autoincrement())
+  guestCartId String  @map("guest_cart_id") @db.Char(36)
+  productId  Int      @map("product_id")
+  quantity   Int
+  createdAt  DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt  DateTime @default(now()) @map("updated_at") @db.DateTime(0)
+
+  guestCart GuestCart @relation(fields: [guestCartId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id])
+
+  @@unique([guestCartId, productId], map: "uq_guest_cart_items_cart_product")
+  @@index([productId], map: "guest_cart_items_product_idx")
+  @@map("guest_cart_items")
 }
 
 model Discount {

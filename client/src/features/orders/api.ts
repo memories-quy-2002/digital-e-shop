@@ -28,14 +28,33 @@ export async function fetchCustomerCart(uid: string): Promise<CheckoutCartItem[]
     return normalizeCartItems(response.data.cartItems);
 }
 
+export async function fetchGuestCart(): Promise<GuestCartItemInput[]> {
+    const response = await http.get("/api/cart/guest");
+    return Array.isArray(response.data.items)
+        ? response.data.items.map((item: GuestCartItemInput & { product_id?: number }) => ({
+            productId: Number(item.productId ?? item.product_id),
+            quantity: Number(item.quantity),
+        }))
+        : [];
+}
+
+export async function syncGuestCart(items: GuestCartItemInput[]): Promise<GuestCartItemInput[]> {
+    const response = await http.post("/api/cart/guest/sync", { items });
+    return Array.isArray(response.data.items) ? response.data.items : items;
+}
+
+export async function clearGuestCartServer(converted = false): Promise<void> {
+    await http.post("/api/cart/guest/clear", { converted });
+}
+
 export async function updateCustomerCartItem(uid: string, cartItemId: number, quantity: number): Promise<void> {
     const normalizedQuantity = normalizeCartQuantity(quantity);
     if (normalizedQuantity === null) return;
     await http.put("/api/cart/", { uid, cartItemId, quantity: normalizedQuantity });
 }
 
-export async function removeCustomerCartItem(cartItemId: number): Promise<void> {
-    await http.delete("/api/cart/", { data: { cartItemId } });
+export async function removeCustomerCartItem(uid: string, cartItemId: number): Promise<void> {
+    await http.delete("/api/cart/", { data: { uid, cartItemId } });
 }
 
 export async function validateCustomerCart(uid: string): Promise<CustomerCartValidation> {

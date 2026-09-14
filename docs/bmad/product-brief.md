@@ -18,7 +18,7 @@ A focused storefront for electronics with operational admin tooling (inventory m
 
 ## Current scope (high level)
 
-- Storefront: catalog, search/filter/pagination, reviews/ratings, guest or authenticated cart, checkout + coupons, wishlist, reorder, order history with timeline, address book, notifications, and support tickets.
+- Storefront: catalog, search/filter/pagination, reviews/ratings, guest or authenticated cart (with anonymous server persistence for aggregate funnel analysis), checkout + coupons, wishlist, reorder, order history with timeline, address book, notifications, and support tickets.
 - Admin: dashboard analytics with range-aware trends, product management (including CSV export, soft delete, inventory), order management, account management, promotions, notifications, operational alerts, and demo-data verification.
 - Backend: cookie-based JWT sessions, Firebase verification in production, CSRF protection, role/ownership guards, payment ledger, inventory reservations/movements, and read/write APIs across the above.
 

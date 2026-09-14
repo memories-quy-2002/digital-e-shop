@@ -30,6 +30,18 @@ export class CartRepository {
         );
     }
 
+    getCartItemQuantityByUserId(uid: string, pid: number, callback: QueryCallback<CartItemRow[]>) {
+        pool.query(
+            `SELECT ci.quantity
+             FROM cart_items ci
+             JOIN carts c ON c.id = ci.cart_id
+             WHERE c.user_id = ? AND c.done = 0 AND ci.product_id = ?
+             LIMIT 1`,
+            [uid, pid],
+            callback,
+        );
+    }
+
     getCartItemsByUserId(uid: string, callback: QueryCallback<CartRow[]>) {
         pool.query(`SELECT id FROM carts WHERE user_id = ? AND done = 0 LIMIT 1`, [uid], callback);
     }
@@ -174,14 +186,24 @@ export class CartRepository {
         );
     }
 
-    updateCartItemQuantity(cartItemId: number, quantity: number, callback: QueryCallback<UpdateResult>) {
-        pool.query(`UPDATE cart_items SET quantity = ? WHERE id = ?`, [quantity, cartItemId], callback);
+    updateCartItemQuantity(cartItemId: number, uid: string, quantity: number, callback: QueryCallback<UpdateResult>) {
+        pool.query(
+            `UPDATE cart_items ci
+             JOIN carts c ON c.id = ci.cart_id AND c.user_id = ? AND c.done = 0
+             SET ci.quantity = ?
+             WHERE ci.id = ?`,
+            [uid, quantity, cartItemId],
+            callback,
+        );
     }
 
-    getCartItemStock(cartItemId: number, callback: QueryCallback<CartItemRow[]>) {
+    getCartItemStock(cartItemId: number, uid: string, callback: QueryCallback<CartItemRow[]>) {
         pool.query(
-            `SELECT GREATEST(p.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock
+            `SELECT p.name AS product_name,
+                    ci.quantity,
+                    GREATEST(p.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock
             FROM cart_items ci
+            JOIN carts c ON c.id = ci.cart_id AND c.user_id = ? AND c.done = 0
             JOIN products p ON p.id = ci.product_id
             LEFT JOIN (
                 SELECT ir.product_id, SUM(ir.quantity) AS reserved_quantity
@@ -191,12 +213,18 @@ export class CartRepository {
                 GROUP BY ir.product_id
             ) active_reservations ON active_reservations.product_id = p.id
             WHERE ci.id = ?`,
-            [cartItemId],
+            [uid, cartItemId],
             callback,
         );
     }
 
-    deleteCartItem(cartItemId: number, callback: QueryCallback<UpdateResult>) {
-        pool.query(`DELETE FROM cart_items WHERE id = ?`, [cartItemId], callback);
+    deleteCartItem(cartItemId: number, uid: string, callback: QueryCallback<UpdateResult>) {
+        pool.query(
+            `DELETE ci FROM cart_items ci
+             JOIN carts c ON c.id = ci.cart_id AND c.user_id = ? AND c.done = 0
+             WHERE ci.id = ?`,
+            [uid, cartItemId],
+            callback,
+        );
     }
 }

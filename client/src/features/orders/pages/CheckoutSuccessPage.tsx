@@ -71,7 +71,7 @@ const CheckoutSuccessPage = () => {
         if (loading || !confirmedCheckout) return;
 
         sessionStorage.removeItem("checkoutSuccess");
-        clearCart();
+        clearCart({ converted: Boolean(confirmedCheckout.guestOrderToken) });
         void fetchCart();
     }, [clearCart, fetchCart, loading, orderData, routeData]);
 
@@ -151,7 +151,7 @@ const CheckoutSuccessPage = () => {
                             phone: pending?.phone,
                         };
                     setPolledOrder(checkoutData);
-                    clearCart();
+                    clearCart({ converted: Boolean(guestOrderToken) });
                     void fetchCart();
                     clearPendingCheckout();
                     return;

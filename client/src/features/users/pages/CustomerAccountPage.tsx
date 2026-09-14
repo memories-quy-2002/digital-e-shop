@@ -25,7 +25,9 @@ import {
     sendFirebaseEmailChangeVerification,
     sendFirebaseEmailVerification,
 } from "../../../services/firebase";
+import { getFirebaseAuthErrorMessage } from "../../auth/authErrors";
 import { formatCurrency } from "../../../utils/currency";
+import { getOrderStatusKey } from "../../orders/orderStatus";
 
 
 const getDisplayName = (customer: CustomerIdentity | null) => {
@@ -35,9 +37,8 @@ const getDisplayName = (customer: CustomerIdentity | null) => {
 };
 
 const getStatusLabel = (status: number) => {
-    if (status === 1) return "Done";
-    if (status === 0) return "Pending";
-    return "Canceled";
+    const labels = { pending: "Pending", done: "Done", canceled: "Canceled", unknown: "Unknown" };
+    return labels[getOrderStatusKey(status)];
 };
 
 const CustomerAccountPage = () => {
@@ -94,7 +95,10 @@ const CustomerAccountPage = () => {
                 ? (error as { response?: { data?: { msg?: string } } }).response
                 : undefined;
             setEmailChangeError(true);
-            setEmailChangeMessage(response?.data?.msg || "Unable to request an email change right now.");
+            setEmailChangeMessage(response?.data?.msg || getFirebaseAuthErrorMessage(
+                error,
+                "Unable to request an email change right now. Please try again.",
+            ));
         } finally {
             setIsRequestingEmailChange(false);
         }

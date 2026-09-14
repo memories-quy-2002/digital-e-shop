@@ -8,6 +8,15 @@ The numeric order status remains `0 Pending`, `1 Done`, and `2 Canceled`. Only P
 
 Canceling a Pending order locks the order, restores its deducted inventory, records a cancellation movement, writes one timeline event, and emits one customer notification. `orders.inventory_restored_at` is the order-level concurrency/idempotency guard. A paid Stripe order must pass through the provider refund boundary before the database finalizes cancellation.
 
+## Reporting and retention
+
+Canceled orders remain in the database for auditability, but status `2` is
+excluded from revenue, discounts, order-item performance, payment mix,
+customer spend, and period-order metrics. Average order value uses Done orders
+only. There is currently no order soft-delete column or cleanup path; any
+future archival feature must be separate from cancellation and every report
+must continue to exclude archived rows explicitly.
+
 ## Review eligibility
 
 A user can create or update a product review only when a Done order contains that product. Public verified-purchase badges use the same predicate; Pending and Canceled orders do not qualify.

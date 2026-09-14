@@ -180,7 +180,9 @@ const vi: Dictionary = {
         checkingStock: "Đang kiểm tra tồn kho...",
         unavailable: "Sản phẩm không còn. Vui lòng xoá khỏi giỏ.",
         outOfStock: "Hết hàng. Vui lòng xoá khỏi giỏ.",
-        insufficientStock: (count: number) => `Chỉ còn ${count} sản phẩm.`,
+        insufficientStock: (count: number, requested?: number) => requested
+            ? `Chỉ còn ${count} sản phẩm, nhưng giỏ hàng đang có ${requested}.`
+            : `Chỉ còn ${count} sản phẩm.`,
         stockLeft: (count: number) => `Còn ${count}`,
         decreaseQty: "Giảm số lượng",
         increaseQty: "Tăng số lượng",
@@ -217,6 +219,9 @@ const vi: Dictionary = {
         statusPending: "Đang chờ",
         statusProcessing: "Đang xử lý",
         statusCompleted: "Hoàn tất",
+        statusDone: "Hoàn tất",
+        statusCanceled: "Đã hủy",
+        statusUnknown: "Không xác định",
     },
     footer: {
         brandTagline:

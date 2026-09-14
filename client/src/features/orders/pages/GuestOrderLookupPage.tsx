@@ -11,6 +11,7 @@ import { parseShippingAddress } from "../shippingAddress";
 import "../../../styles/features/orders/_guest-order.scss";
 import { useT } from "../../../hooks/useT";
 import { formatMoney } from "../../../utils/currency";
+import { getOrderStatusKey } from "../orderStatus";
 
 const getErrorMessage = (error: unknown, fallback: string) => {
     if (error && typeof error === "object" && "response" in error) {
@@ -20,10 +21,8 @@ const getErrorMessage = (error: unknown, fallback: string) => {
     return fallback;
 };
 
-const getStatusLabel = (status: number, labels: { pending: string; processing: string; completed: string }) => {
-    if (status === 2) return labels.completed;
-    if (status === 1) return labels.processing;
-    return labels.pending;
+const getStatusLabel = (status: number, labels: { pending: string; done: string; canceled: string; unknown: string }) => {
+    return labels[getOrderStatusKey(status)];
 };
 
 const getPaymentLabel = (paymentMethod?: string | null) => {
@@ -130,8 +129,9 @@ const GuestOrderLookupPage = () => {
                             </div>
                             <strong className="guest-order__status">{getStatusLabel(order.status, {
                                 pending: t("guestOrder.statusPending"),
-                                processing: t("guestOrder.statusProcessing"),
-                                completed: t("guestOrder.statusCompleted"),
+                                done: t("guestOrder.statusDone"),
+                                canceled: t("guestOrder.statusCanceled"),
+                                unknown: t("guestOrder.statusUnknown"),
                             })}</strong>
                         </div>
 

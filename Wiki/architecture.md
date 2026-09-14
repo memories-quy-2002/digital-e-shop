@@ -142,8 +142,11 @@ application has not been converted to Prisma.
 
 ## Checkout, payment, and operations
 
-- Guest carts are browser-local; preview and checkout are authoritative for
-  current catalog data, stock, promotions, and totals.
+- Guest carts use a versioned local cache plus an anonymous server cart keyed by
+  an HttpOnly UUID cookie. The server stores only product IDs and quantities,
+  expires carts after 30 days, and exposes aggregate funnel metrics to Admin;
+  preview and checkout remain authoritative for current catalog data, stock,
+  promotions, and totals.
 - Authenticated and guest orders share the order lifecycle: Pending, Done, and
   Canceled. Pending cancellation restores inventory once and records timeline,
   movement, and notification side effects.

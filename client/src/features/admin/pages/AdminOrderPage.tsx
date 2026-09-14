@@ -22,6 +22,7 @@ import AdminTableScrollHint from "../components/AdminTableScrollHint";
 import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
 import { formatShippingAddress } from "../../orders/shippingAddress";
 import { formatCurrency } from "../../../utils/currency";
+import { getOrderStatusKey, ORDER_STATUS } from "../../orders/orderStatus";
 
 const ITEMS_PER_PAGE = 8;
 
@@ -45,12 +46,13 @@ const getPaymentMethodLabel = (paymentMethod?: Order["payment_method"]) => {
 };
 
 const getStatusLabel = (status: number) => {
-    if (status === 1) return "Done";
-    if (status === 0) return "Pending";
-    return "Canceled";
+    const labels = { pending: "Pending", done: "Done", canceled: "Canceled", unknown: "Unknown" };
+    return labels[getOrderStatusKey(status)];
 };
 
-const getNetRevenue = (order: Order) => Math.max(order.total_price - order.discount, 0);
+const getNetRevenue = (order: Order) => order.status === ORDER_STATUS.CANCELED
+    ? 0
+    : Math.max(order.total_price - order.discount, 0);
 
 const getShortId = (value: string | null | undefined) => {
     if (!value) return "Guest checkout";
@@ -145,9 +147,9 @@ const AdminOrderPage = () => {
     }, [currentPage, filteredOrders]);
 
     const orderStats = useMemo(() => {
-        const pending = orders.filter((order) => order.status === 0).length;
-        const completed = orders.filter((order) => order.status === 1).length;
-        const canceled = orders.filter((order) => order.status === 2).length;
+        const pending = orders.filter((order) => order.status === ORDER_STATUS.PENDING).length;
+        const completed = orders.filter((order) => order.status === ORDER_STATUS.DONE).length;
+        const canceled = orders.filter((order) => order.status === ORDER_STATUS.CANCELED).length;
         const bankTransfer = orders.filter((order) => order.payment_method === "bank_transfer").length;
         const revenue = orders.reduce((sum, order) => sum + getNetRevenue(order), 0);
 
@@ -238,7 +240,7 @@ const AdminOrderPage = () => {
     };
 
     const selectedPendingIds = useMemo(
-        () => currentOrders.filter((o) => o.status === 0).map((o) => o.id),
+        () => currentOrders.filter((o) => o.status === ORDER_STATUS.PENDING).map((o) => o.id),
         [currentOrders],
     );
 
@@ -247,7 +249,7 @@ const AdminOrderPage = () => {
 
     const requestBulk = (status: 1 | 2) => {
         const ids = currentOrders
-            .filter((order) => selectedIds.has(order.id) && order.status === 0)
+            .filter((order) => selectedIds.has(order.id) && order.status === ORDER_STATUS.PENDING)
             .map((order) => order.id);
         if (ids.length === 0) {
             addToast("Bulk update", "Select at least one pending order to update.");
@@ -262,7 +264,7 @@ const AdminOrderPage = () => {
             return;
         }
         const ids = currentOrders
-            .filter((order) => selectedIds.has(order.id) && order.status === 0)
+            .filter((order) => selectedIds.has(order.id) && order.status === ORDER_STATUS.PENDING)
             .map((order) => order.id);
         if (ids.length === 0) {
             setShowBulkConfirm(false);
@@ -518,7 +520,7 @@ const AdminOrderPage = () => {
                                                 className="admin__order-checkbox"
                                                 aria-label={`Select order ${order.id}`}
                                                 checked={isSelected}
-                                                disabled={order.status !== 0}
+                                                disabled={order.status !== ORDER_STATUS.PENDING}
                                                 onChange={() => toggleSelection(order.id)}
                                             />
                                         </td>
@@ -558,9 +560,9 @@ const AdminOrderPage = () => {
                                         <td width="150px">
                                             <span
                                                 className={
-                                                    order.status === 1
+                                                    order.status === ORDER_STATUS.DONE
                                                         ? "admin__pill admin__pill--success"
-                                                        : order.status === 0
+                                                        : order.status === ORDER_STATUS.PENDING
                                                           ? "admin__pill admin__pill--warning"
                                                           : "admin__pill admin__pill--danger"
                                                 }
@@ -577,7 +579,7 @@ const AdminOrderPage = () => {
                                                 >
                                                     View
                                                 </button>
-                                                {order.status === 0 ? (
+                                                {order.status === ORDER_STATUS.PENDING ? (
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
                                                             <button
