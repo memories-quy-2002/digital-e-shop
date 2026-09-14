@@ -178,7 +178,9 @@ const en = {
         checkingStock: "Checking stock...",
         unavailable: "No longer available. Remove this item to continue.",
         outOfStock: "Out of stock. Remove this item to continue.",
-        insufficientStock: (count: number) => `Only ${count} item(s) available.`,
+        insufficientStock: (count: number, requested?: number) => requested
+            ? `Only ${count} item(s) available, but your cart requests ${requested}.`
+            : `Only ${count} item(s) available.`,
         stockLeft: (count: number) => `${count} left`,
         decreaseQty: "Decrease quantity",
         increaseQty: "Increase quantity",
@@ -215,6 +217,9 @@ const en = {
         statusPending: "Pending",
         statusProcessing: "Processing",
         statusCompleted: "Completed",
+        statusDone: "Completed",
+        statusCanceled: "Canceled",
+        statusUnknown: "Unknown",
     },
     footer: {
         brandTagline:

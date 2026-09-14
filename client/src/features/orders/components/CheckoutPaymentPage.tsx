@@ -13,6 +13,7 @@ import {
     createGuestCheckoutSession,
     createGuestPayOSCheckoutSession,
     createGuestPurchase,
+    clearGuestCartServer,
     createPayOSCheckoutSession,
     fetchCustomerOrders,
 } from "../api";
@@ -362,6 +363,7 @@ const CheckoutPaymentPage = ({
                 writeCheckoutSuccess(payload);
                 clearPendingCheckout();
                 clearGuestCart();
+                void clearGuestCartServer(true).catch(() => undefined);
                 navigate("/checkout-success", { state: { checkoutSuccess: payload } });
                 return;
             }

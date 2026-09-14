@@ -25,7 +25,7 @@ const CartItem = ({
     const t = useT();
     const imageUrl = item.main_image ? item.main_image.replace(".jpg", "") : null;
     const productPrice = item.sale_price || item.price;
-    const stockCap = Math.max(item.stock, 1);
+    const stockCap = Math.max(Number(item.available_stock ?? item.stock) || 0, 1);
     const isUnavailable = validationIssue?.reason === "out_of_stock";
 
     const step = useCallback(
@@ -48,7 +48,7 @@ const CartItem = ({
               ? t("cart.unavailable")
               : validationIssue.reason === "out_of_stock"
                 ? t("cart.outOfStock")
-                : t("cart.insufficientStock", validationIssue.availableStock)
+                : t("cart.insufficientStock", validationIssue.availableStock, validationIssue.requestedQuantity)
         : item.stock <= 5
           ? t("cart.stockLeft", item.stock)
           : null;

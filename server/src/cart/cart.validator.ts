@@ -16,11 +16,13 @@ export const cartAddItemSchema = z.object({
 
 export const cartDeleteItemSchema = z.object({
     cartItemId: positiveInt("Cart item id"),
+    uid: requiredText("User id"),
 });
 
 export const cartUpdateQuantitySchema = z.object({
     cartItemId: positiveInt("Cart item id"),
     quantity: positiveInt("Quantity"),
+    uid: requiredText("User id"),
 });
 
 export const guestCartPreviewSchema = z.object({
@@ -41,4 +43,12 @@ export const guestCartPreviewSchema = z.object({
             });
         }
     });
+});
+
+export const guestCartSyncSchema = z.object({
+    items: z.array(guestCartItemSchema).max(50, "Cart must not contain more than 50 items"),
+});
+
+export const guestCartClearSchema = z.object({
+    converted: z.boolean().optional().default(false),
 });

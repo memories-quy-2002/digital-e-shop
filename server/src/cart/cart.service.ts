@@ -15,6 +15,7 @@ import type {
 import type { ProductEditorRow } from "../products/products.types";
 import type { PromotionRow } from "../promotions/promotions.types";
 import { CartRepository } from "./cart.repository";
+import { GuestCartRepository } from "./guest-cart.repository";
 import { NestProductsRepository } from "../products/products.repository";
 import { PromotionsRepository } from "../promotions/promotions.repository";
 import { env } from "#src/config/env.config";
@@ -81,6 +82,45 @@ export function buildCartValidationIssue(item: CartItemRow): CartValidationIssue
     }
 
     return null;
+}
+
+export function buildCartStockConflictMessage(
+    productName: string,
+    existingQuantity: number,
+    requestedQuantity: number,
+    availableStock: number,
+) {
+    const safeName = productName || "This product";
+    const safeExistingQuantity = Math.max(0, Number(existingQuantity) || 0);
+    const safeRequestedQuantity = Math.max(0, Number(requestedQuantity) || 0);
+    const safeAvailableStock = Math.max(0, Number(availableStock) || 0);
+    const remaining = Math.max(safeAvailableStock - safeExistingQuantity, 0);
+
+    if (safeExistingQuantity > 0) {
+        return remaining > 0
+            ? `${safeName} has only ${safeAvailableStock} item(s) available. Requested ${safeRequestedQuantity}; your cart already contains ${safeExistingQuantity}, so you can add at most ${remaining} more.`
+            : `${safeName} has only ${safeAvailableStock} item(s) available. Requested ${safeRequestedQuantity}; your cart already contains ${safeExistingQuantity}, so no more can be added.`;
+    }
+
+    return `${safeName} has only ${safeAvailableStock} item(s) available for the requested quantity (${safeRequestedQuantity}).`;
+}
+
+export class CartStockConflictError extends Error {
+    readonly statusCode = 409;
+
+    constructor(message: string) {
+        super(message);
+        this.name = "CartStockConflictError";
+    }
+}
+
+export class CartItemNotFoundError extends Error {
+    readonly statusCode = 404;
+
+    constructor() {
+        super("Cart item not found for this customer");
+        this.name = "CartItemNotFoundError";
+    }
 }
 
 export function buildCartValidationResult(cartItems: CartItemRow[]): CartValidationResult {
@@ -295,6 +335,7 @@ export function compareSubmittedCart(
 export class NestCartService {
     constructor(
         private readonly cartRepository: CartRepository,
+        private readonly guestCartRepository: GuestCartRepository,
         private readonly productsRepository: NestProductsRepository,
         private readonly promotionsRepository: PromotionsRepository,
     ) {}
@@ -306,8 +347,19 @@ export class NestCartService {
             throw new Error("Product not found");
         }
         const availableStock = Number((product as ProductEditorRow).available_stock ?? (product as ProductEditorRow).stock) || 0;
-        if (availableStock < safeQuantity) {
-            throw new Error(`Only ${availableStock} item(s) available`);
+        const existingQuantity = await new Promise<number>((resolve, reject) => {
+            this.cartRepository.getCartItemQuantityByUserId(uid, pid, (err: DbError | null, results: CartItemRow[]) => {
+                if (err) return reject(err);
+                resolve(Number(results?.[0]?.quantity) || 0);
+            });
+        });
+        if (availableStock < existingQuantity + safeQuantity) {
+            throw new CartStockConflictError(buildCartStockConflictMessage(
+                String((product as ProductEditorRow).name || `Product #${pid}`),
+                existingQuantity,
+                safeQuantity,
+                availableStock,
+            ));
         }
 
         return new Promise((resolve, reject) => {
@@ -363,13 +415,36 @@ export class NestCartService {
         });
     }
 
-    async deleteCartItem(cartItemId: number): Promise<ServiceResultMessage> {
+    async deleteCartItem(cartItemId: number, uid: string): Promise<ServiceResultMessage> {
         return new Promise((resolve, reject) => {
-            this.cartRepository.deleteCartItem(cartItemId, (err: DbError | null) => {
+            this.cartRepository.deleteCartItem(cartItemId, uid, (err: DbError | null, result) => {
                 if (err) return reject(err);
+                if (!result?.affectedRows) return reject(new CartItemNotFoundError());
                 resolve(`Cart item with id = ${cartItemId} has been deleted.`);
             });
         });
+    }
+
+    async syncGuestCart(guestCartId: string, items: GuestCartItemInput[]) {
+        const normalizedItems = coalesceGuestCartItems(items).map((item) => ({
+            product_id: item.productId,
+            quantity: item.quantity,
+        }));
+        await this.guestCartRepository.replaceGuestCart(guestCartId, normalizedItems);
+        return coalesceGuestCartItems(items);
+    }
+
+    async getGuestCart(guestCartId: string): Promise<GuestCartItemInput[]> {
+        return new Promise((resolve, reject) => {
+            this.guestCartRepository.getGuestCartItems(guestCartId, (err: DbError | null, results) => {
+                if (err) return reject(err);
+                resolve((results || []).map((item) => ({ productId: Number(item.product_id), quantity: Number(item.quantity) })));
+            });
+        });
+    }
+
+    async clearGuestCart(guestCartId: string, converted = false): Promise<void> {
+        await this.guestCartRepository.clearGuestCart(guestCartId, converted);
     }
 
     async validateCartForCheckout(uid: string): Promise<CartValidationResult> {
@@ -415,17 +490,24 @@ export class NestCartService {
         };
     }
 
-    async updateCartItemQuantity(cartItemId: number, quantity: number): Promise<ServiceResultMessage> {
+    async updateCartItemQuantity(cartItemId: number, uid: string, quantity: number): Promise<ServiceResultMessage> {
         const safeQuantity = Math.max(1, Number(quantity) || 1);
         return new Promise((resolve, reject) => {
-            this.cartRepository.getCartItemStock(cartItemId, (stockErr: DbError | null, stockResults: CartItemRow[]) => {
+            this.cartRepository.getCartItemStock(cartItemId, uid, (stockErr: DbError | null, stockResults: CartItemRow[]) => {
                 if (stockErr) return reject(stockErr);
+                if (stockResults.length === 0) return reject(new CartItemNotFoundError());
                 const stock = Number(stockResults[0]?.available_stock ?? stockResults[0]?.stock) || 0;
                 if (stock < safeQuantity) {
-                    return reject(new Error(`Only ${stock} item(s) available`));
+                    return reject(new CartStockConflictError(buildCartStockConflictMessage(
+                        String(stockResults[0]?.product_name || "This product"),
+                        0,
+                        safeQuantity,
+                        stock,
+                    )));
                 }
-                this.cartRepository.updateCartItemQuantity(cartItemId, safeQuantity, (err: DbError | null) => {
+                this.cartRepository.updateCartItemQuantity(cartItemId, uid, safeQuantity, (err: DbError | null, result) => {
                     if (err) return reject(err);
+                    if (!result?.affectedRows) return reject(new CartItemNotFoundError());
                     resolve(`Cart item with id = ${cartItemId} has been updated.`);
                 });
             });

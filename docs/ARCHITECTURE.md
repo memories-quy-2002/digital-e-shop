@@ -74,7 +74,7 @@ Important domain boundaries include:
 - New orders use the configured store currency (VND by default for the
   Vietnam-first rollout); provider settlement values and the FX snapshot remain
   in the payment ledger. Historical orders retain their stored currency.
-- Guest carts store product IDs and quantities on the client, while preview and checkout recalculate prices, stock, discounts, and totals on the server
+- Guest carts keep a product-id/quantity local cache and best-effort anonymous server persistence keyed by an HttpOnly cookie; preview and checkout recalculate prices, stock, discounts, and totals on the server
 
 ## Authentication and authorization
 

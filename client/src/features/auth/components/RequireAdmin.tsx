@@ -3,6 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import LoadingScreen from "../../../components/common/LoadingScreen";
 import { useAuth } from "../../../context/AuthContext";
 import { Role } from "../../../types/user";
+import { buildLoginRedirectPath } from "../authRedirect";
 
 const RequireAdmin = ({ children }: { children: React.ReactNode }) => {
     const { userData, loading } = useAuth();
@@ -13,9 +14,7 @@ const RequireAdmin = ({ children }: { children: React.ReactNode }) => {
     }
 
     if (!userData) {
-        const redirect = location.pathname + location.search + location.hash;
-        const loginPath = "/login?redirect=" + encodeURIComponent(redirect);
-        return <Navigate to={loginPath} replace />;
+        return <Navigate to={buildLoginRedirectPath(location)} replace />;
     }
 
     if (userData.role !== Role.Admin) {

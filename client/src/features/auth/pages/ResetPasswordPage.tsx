@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
     confirmFirebasePasswordReset,
     verifyFirebasePasswordResetCode,
 } from "../../../services/firebase";
+import { getFirebaseAuthErrorMessage } from "../authErrors";
 import "../../../styles/features/auth/_login.scss";
 
 type ResetState = "loading" | "ready" | "success" | "error";
 
 const ResetPasswordPage = () => {
     const [searchParams] = useSearchParams();
-    const navigate = useNavigate();
     const firebaseCode = searchParams.get("oobCode")?.trim() || "";
     const [state, setState] = useState<ResetState>(firebaseCode ? "loading" : "error");
     const [password, setPassword] = useState("");
@@ -58,10 +58,14 @@ const ResetPasswordPage = () => {
             await confirmFirebasePasswordReset(firebaseCode, password);
             setState("success");
             setMessage("Your password has been reset successfully.");
-            navigate("/reset-password", { replace: true });
-    } catch {
-            setError("Unable to reset your password. Please request a new Firebase link.");
-            navigate("/reset-password", { replace: true });
+        } catch (error: unknown) {
+            const message = getFirebaseAuthErrorMessage(
+                error,
+                "Unable to reset your password. Request a new Firebase link and try again.",
+            );
+            setState("error");
+            setMessage(message);
+            setError("");
         } finally {
             setIsSubmitting(false);
         }
@@ -79,7 +83,7 @@ const ResetPasswordPage = () => {
                 </h1>
                 <p className="login__form__subtitle" role={state === "error" ? "alert" : "status"}>{message}</p>
                 {state === "ready" ? (
-                    <form className="login__form__container" onSubmit={handleSubmit}>
+                    <form className="login__form__container" onSubmit={handleSubmit} noValidate aria-busy={isSubmitting}>
                         <label htmlFor="reset-password-new">New password</label>
                         <input
                             id="reset-password-new"
@@ -88,6 +92,8 @@ const ResetPasswordPage = () => {
                             required
                             value={password}
                             onChange={(event) => setPassword(event.target.value)}
+                            aria-invalid={Boolean(error)}
+                            aria-describedby={error ? "reset-password-error" : undefined}
                         />
                         <label htmlFor="reset-password-confirm">Confirm new password</label>
                         <input
@@ -97,8 +103,10 @@ const ResetPasswordPage = () => {
                             required
                             value={confirmation}
                             onChange={(event) => setConfirmation(event.target.value)}
+                            aria-invalid={Boolean(error)}
+                            aria-describedby={error ? "reset-password-error" : undefined}
                         />
-                        {error ? <div className="login__form__errors" role="alert"><div>{error}</div></div> : null}
+                        {error ? <div id="reset-password-error" className="login__form__errors" role="alert"><div>{error}</div></div> : null}
                         <button className="login__form__submit" type="submit" disabled={isSubmitting}>
                             {isSubmitting ? "Resetting..." : "Reset password"}
                         </button>

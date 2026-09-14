@@ -24,4 +24,34 @@ describe("CartController guest preview", () => {
         expect(previewGuestCart).toHaveBeenCalledWith([{ productId: 10, quantity: 1 }], undefined);
         expect(result).toMatchObject({ msg: "Guest cart preview retrieved successfully", totalPrice: 80 });
     });
+
+    it("creates a secure anonymous cart cookie when syncing guest items", async () => {
+        const syncGuestCart = vi.fn().mockResolvedValue([{ productId: 10, quantity: 2 }]);
+        const controller = new CartController({ syncGuestCart } as never);
+        const request = { cookies: {} } as never;
+        const response = { cookie: vi.fn() } as never;
+
+        await expect(controller.syncGuestCart(request, response, { items: [{ productId: 10, quantity: 2 }] })).resolves.toMatchObject({
+            items: [{ productId: 10, quantity: 2 }],
+        });
+
+        expect(syncGuestCart).toHaveBeenCalledWith(expect.stringMatching(/^[0-9a-f-]{36}$/i), [{ productId: 10, quantity: 2 }]);
+        expect(response.cookie).toHaveBeenCalledWith(
+            "digitalEGuestCartId",
+            expect.stringMatching(/^[0-9a-f-]{36}$/i),
+            expect.objectContaining({ httpOnly: true, path: "/", maxAge: 30 * 24 * 60 * 60 * 1000 }),
+        );
+    });
+
+    it("clears the anonymous cookie after a guest cart converts into an order", async () => {
+        const clearGuestCart = vi.fn().mockResolvedValue(undefined);
+        const controller = new CartController({ clearGuestCart } as never);
+        const request = { cookies: { digitalEGuestCartId: "2f1c3c6d-1a0b-4f4a-9e1e-2e8a2dbf4b68" } } as never;
+        const response = { clearCookie: vi.fn() } as never;
+
+        await controller.clearGuestCart(request, response, { converted: true });
+
+        expect(clearGuestCart).toHaveBeenCalledWith("2f1c3c6d-1a0b-4f4a-9e1e-2e8a2dbf4b68", true);
+        expect(response.clearCookie).toHaveBeenCalledWith("digitalEGuestCartId", expect.objectContaining({ path: "/" }));
+    });
 });

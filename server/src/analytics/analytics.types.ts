@@ -71,4 +71,12 @@ export type DiscountOrderRow = {
     discounted_revenue?: number;
 };
 
+export type GuestCartAnalyticsRow = {
+    active_carts?: number;
+    active_items?: number;
+    converted_carts?: number;
+    abandoned_carts?: number;
+    expired_carts?: number;
+};
+
 export type AnalyticsRecord = LooseRecord;

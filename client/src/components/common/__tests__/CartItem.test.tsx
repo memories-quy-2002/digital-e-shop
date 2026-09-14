@@ -204,4 +204,17 @@ describe("CartItem", () => {
         const input = screen.getByLabelText("cart-42-quantity") as HTMLInputElement;
         expect(input.max).toBe("1");
     });
+
+    it("uses available stock after active reservations as the quantity cap", () => {
+        renderWithLocale(
+            <CartItem
+                item={{ ...baseItem, available_stock: 3 }}
+                handleQuantityChange={vi.fn()}
+                handleRemoveCartItem={vi.fn()}
+            />
+        );
+
+        const input = screen.getByLabelText("cart-42-quantity") as HTMLInputElement;
+        expect(input.max).toBe("3");
+    });
 });

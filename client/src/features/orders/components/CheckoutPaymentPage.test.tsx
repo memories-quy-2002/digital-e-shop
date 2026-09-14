@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
     auth: { userData: null as { id: string } | null, loading: false },
     toast: { addToast: vi.fn() },
     guestPurchase: vi.fn(),
+    clearGuestCartServer: vi.fn(),
     guestSession: vi.fn(),
     guestPayOSSession: vi.fn(),
     payosAuthSession: vi.fn(),
@@ -26,6 +27,7 @@ vi.mock("react-router-dom", async () => {
 });
 vi.mock("../api", () => ({
     createGuestPurchase: mocks.guestPurchase,
+    clearGuestCartServer: mocks.clearGuestCartServer,
     createGuestCheckoutSession: mocks.guestSession,
     createGuestPayOSCheckoutSession: mocks.guestPayOSSession,
     createPayOSCheckoutSession: mocks.payosAuthSession,
@@ -87,6 +89,7 @@ describe("CheckoutPaymentPage guest checkout", () => {
             guestOrderToken: "guest-token",
             paymentMethod: "cash",
         });
+        mocks.clearGuestCartServer.mockResolvedValue(undefined);
     });
 
     it.each(["cash", "bank_transfer"] as const)("submits the guest %s purchase contract", async (paymentMethod) => {

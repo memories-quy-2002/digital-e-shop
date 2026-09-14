@@ -4,9 +4,12 @@ import { useToast } from "./ToastContext";
 import {
     addItemsToCustomerCart,
     applyCustomerDiscount,
+    clearGuestCartServer,
     fetchCustomerCart,
+    fetchGuestCart,
     previewGuestCart,
     removeCustomerCartItem,
+    syncGuestCart,
     updateCustomerCartItem,
     validateCustomerCart,
 } from "../features/orders/api";
@@ -65,7 +68,7 @@ interface CartContextValue {
     isRemovingItem: boolean;
     pendingRemoveItem: CheckoutCartItem | null;
     fetchCart: () => Promise<boolean>;
-    clearCart: () => void;
+    clearCart: (options?: { converted?: boolean }) => void;
     addItem: (productId: number, quantity?: number) => Promise<boolean>;
     updateQuantity: (itemId: number, quantity: number) => Promise<void>;
     removeItem: (item: CheckoutCartItem) => void;
@@ -162,7 +165,23 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ): Promise<GuestCartPreview | null> => {
         const requestId = ++requestIdRef.current;
         const isActiveRequest = () => isCurrentSource(expectedSource) && requestId === requestIdRef.current;
-        const localItems = readGuestCart();
+        let localItems = readGuestCart();
+        if (localItems.length === 0) {
+            try {
+                const persistedItems = await fetchGuestCart();
+                if (persistedItems.length > 0) {
+                    localItems = replaceGuestCart(persistedItems);
+                }
+            } catch {
+                // Guest-cart persistence is a recovery/analytics aid; local preview remains available.
+            }
+        } else {
+            try {
+                await syncGuestCart(localItems);
+            } catch {
+                // Do not block guest shopping when the persistence store is temporarily unavailable.
+            }
+        }
         if (!isActiveRequest()) return null;
         setGuestItems(localItems);
         if (localItems.length === 0) {
@@ -194,7 +213,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } finally {
             if (isActiveRequest()) setIsLoading(false);
         }
-    }, [applyGuestPreview, isCurrentSource]);
+    }, [applyGuestPreview, fetchGuestCart, isCurrentSource, syncGuestCart]);
 
     const fetchCart = useCallback(async (requestedDiscountCode?: string | null): Promise<boolean> => {
         const expectedSource = sourceRef.current;
@@ -225,7 +244,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [addToast, isCurrentSource, refreshGuestCart, setReadyState]);
 
-    const clearCart = useCallback(() => {
+    const clearCart = useCallback((options: { converted?: boolean } = {}) => {
         requestIdRef.current += 1;
         setItems([]);
         setTotalPrice(0);
@@ -241,6 +260,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!sourceRef.current.uid) {
             clearGuestCart();
             setGuestItems([]);
+            void clearGuestCartServer(options.converted === true).catch(() => undefined);
         } else {
             setGuestItems(readGuestCart());
         }
@@ -262,7 +282,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (!isCurrentSource(expectedSource)) return false;
                 return await fetchCart();
             }
-            addGuestCartItem({ productId, quantity: normalizedQuantity });
+            const nextGuestItems = addGuestCartItem({ productId, quantity: normalizedQuantity });
+            try {
+                await syncGuestCart(nextGuestItems);
+            } catch {
+                // Keep local cart functionality available when guest-cart persistence is unavailable.
+            }
             if (!isCurrentSource(expectedSource)) return false;
             const preview = await refreshGuestCart(discountCode, expectedSource);
             if (preview === null) return false;
@@ -284,7 +309,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             addToast("Cart", getErrorMessage(cartError, "Unable to update cart right now."));
             return false;
         }
-    }, [addToast, discountCode, fetchCart, isCurrentSource, refreshGuestCart]);
+    }, [addToast, discountCode, fetchCart, isCurrentSource, refreshGuestCart, syncGuestCart]);
 
     const updateQuantity = useCallback(async (itemId: number, quantity: number) => {
         const normalizedQuantity = normalizeCartQuantity(quantity);
@@ -312,10 +337,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const item = items.find((cartItem) => cartItem.cartItemId === itemId || cartItem.productId === itemId);
         if (!item) return;
-        updateGuestCartItem(item.productId, normalizedQuantity);
+        const nextGuestItems = updateGuestCartItem(item.productId, normalizedQuantity);
+        try {
+            await syncGuestCart(nextGuestItems);
+        } catch {
+            // Keep local cart functionality available when guest-cart persistence is unavailable.
+        }
         if (!isCurrentSource(expectedSource)) return;
         await refreshGuestCart(discountCode, expectedSource);
-    }, [addToast, discountCode, fetchCart, isCurrentSource, items, refreshGuestCart]);
+    }, [addToast, discountCode, fetchCart, isCurrentSource, items, refreshGuestCart, syncGuestCart]);
 
     const removeItem = useCallback((item: CheckoutCartItem) => setPendingRemoveItem(item), []);
     const cancelRemoveItem = useCallback(() => setPendingRemoveItem(null), []);
@@ -328,11 +358,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsRemovingItem(true);
         try {
             if (expectedSource.uid) {
-                await removeCustomerCartItem(item.cartItemId);
+                await removeCustomerCartItem(expectedSource.uid, item.cartItemId);
                 if (!isCurrentSource(expectedSource)) return;
                 await fetchCart();
             } else {
-                removeGuestCartItem(item.productId);
+                const nextGuestItems = removeGuestCartItem(item.productId);
+                try {
+                    await syncGuestCart(nextGuestItems);
+                } catch {
+                    // Keep local cart functionality available when guest-cart persistence is unavailable.
+                }
                 if (!isCurrentSource(expectedSource)) return;
                 await refreshGuestCart(discountCode, expectedSource);
             }
@@ -345,7 +380,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } finally {
             if (isCurrentSource(expectedSource)) setIsRemovingItem(false);
         }
-    }, [addToast, discountCode, fetchCart, isCurrentSource, pendingRemoveItem, refreshGuestCart]);
+    }, [addToast, discountCode, fetchCart, isCurrentSource, pendingRemoveItem, refreshGuestCart, syncGuestCart]);
 
     const applyDiscount = useCallback(async (code: string, price: number): Promise<DiscountResult> => {
         const normalizedCode = code.trim();
@@ -455,6 +490,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 );
                 replaceGuestCart(remainingItems);
                 setGuestItems(remainingItems);
+                try {
+                    await syncGuestCart(remainingItems);
+                } catch {
+                    // Keep the rejected items locally if persistence is temporarily unavailable.
+                }
                 if (rejected.length === 0) {
                     setMergeStatus("complete");
                     setError(null);
@@ -480,7 +520,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (mergePromiseRef.current === mergePromise) mergePromiseRef.current = null;
         });
         return mergePromise;
-    }, [fetchCart, isCurrentSource]);
+    }, [fetchCart, isCurrentSource, syncGuestCart]);
 
     const onValidationRefresh = useCallback((nextCart: CheckoutCartItem[], issues: CartValidationIssue[]) => {
         setReadyState(nextCart, issues);

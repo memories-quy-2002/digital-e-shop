@@ -18,6 +18,7 @@ export type FirebaseClientEnvironment = {
 type FirebaseClientEnvironmentValues = Record<string, string | undefined>;
 
 const LOCAL_FIREBASE_PROJECT_ID = "demo-digital-e-local";
+const PRODUCTION_FIREBASE_PROJECT_ID = "graduation-project-5bbfb";
 const REQUIRED_FIREBASE_KEYS = [
     "VITE_FIREBASE_PROJECT_ID",
     "VITE_FIREBASE_API_KEY",
@@ -80,6 +81,8 @@ export const resolveFirebaseClientEnvironment = (
         if (projectId !== LOCAL_FIREBASE_PROJECT_ID) {
             throw new Error("Local Firebase Emulator mode must use demo-digital-e-local");
         }
+    } else if (!isDevelopment && projectId !== PRODUCTION_FIREBASE_PROJECT_ID) {
+        throw new Error("Production Firebase mode must use graduation-project-5bbfb");
     }
 
     return {

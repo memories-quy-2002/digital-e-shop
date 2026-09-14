@@ -80,4 +80,17 @@ export type GuestCartPreviewResult = CartValidationResult & {
     totalPrice: number;
 };
 
+export type GuestCartStoredItem = {
+    product_id: number;
+    quantity: number;
+};
+
+export type GuestCartSyncInput = {
+    items: GuestCartItemInput[];
+};
+
+export type GuestCartClearInput = {
+    converted?: boolean;
+};
+
 export type { CartCheckoutItem, GuestCartItemInput, GuestCartPreviewInput };

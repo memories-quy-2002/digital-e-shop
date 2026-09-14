@@ -88,3 +88,16 @@ describe("pending checkout repositories", () => {
         expect(query.mock.calls[0][0]).toContain("p.stock >= 0");
     });
 });
+
+describe("admin order-item reporting", () => {
+    it("excludes canceled orders from paginated sales rows and their count", () => {
+        poolQuery.mockClear();
+        const repository = new OrdersRepository({} as never);
+
+        repository.getOrderItemsPaginated(25, 50, vi.fn());
+        repository.getOrderItemsCount(vi.fn());
+
+        expect(poolQuery.mock.calls[0][0].sql).toContain("o.status <> 2");
+        expect(poolQuery.mock.calls[1][0].sql).toContain("o.status <> 2");
+    });
+});

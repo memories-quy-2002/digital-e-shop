@@ -40,11 +40,22 @@ GET  /api/products/recommendations/:uid
 GET  /api/products/images/:filename
 GET  /api/reviews/:pid
 POST /api/cart/guest/preview
+GET  /api/cart/guest
+POST /api/cart/guest/sync
+POST /api/cart/guest/clear
 ```
 
 `GET /api/products` accepts pagination, term, category, brand, price, sort, and JSON-encoded typed attribute filters. The server bounds pagination and recalculates the catalog query from the request. Product image names are constrained before a file is read.
 
 Guest cart preview accepts product IDs, quantities, and an optional discount code. It returns authoritative product, price, stock, discount, and total information. The client must not treat local cart values as authoritative.
+
+Guest cart synchronization accepts `{ "items": [{ "productId": 10, "quantity": 2 }] }`.
+The server assigns an HttpOnly `digitalEGuestCartId` cookie and stores only
+product IDs and quantities in the anonymous cart tables. The cookie expires
+after 30 days. `POST /api/cart/guest/clear` accepts optional
+`{ "converted": true }`; conversion clears the cookie and records the cart as
+converted for aggregate Admin analytics. These routes do not accept guest
+contact details.
 
 ## Authentication routes
 

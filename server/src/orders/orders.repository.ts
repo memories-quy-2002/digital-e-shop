@@ -186,6 +186,7 @@ export class OrdersRepository {
                 order_items oi ON p.id = oi.product_id
             JOIN
                 orders o ON oi.order_id = o.id
+            WHERE o.status <> 2
             GROUP BY
                 p.id, p.name, p.price, oi.order_id
             ORDER BY
@@ -210,6 +211,7 @@ export class OrdersRepository {
                 order_items oi ON p.id = oi.product_id
             JOIN
                 orders o ON oi.order_id = o.id
+            WHERE o.status <> 2
             GROUP BY
                 p.id, p.name, p.price, oi.order_id
             ORDER BY
@@ -228,6 +230,7 @@ export class OrdersRepository {
                 FROM products p
                 JOIN order_items oi ON p.id = oi.product_id
                 JOIN orders o ON oi.order_id = o.id
+                WHERE o.status <> 2
                 GROUP BY p.id, p.name, p.price, oi.order_id
             ) AS grouped_items`,
             callback,

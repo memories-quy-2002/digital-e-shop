@@ -20,6 +20,7 @@ import {
 import { CheckCircleIcon, PersonIcon } from "../../../components/common/Icons";
 import AdminTableScrollHint from "./AdminTableScrollHint";
 import type { DashboardAvailability } from "../utils/dashboardAvailability";
+import { ORDER_STATUS } from "../../orders/orderStatus";
 
 type ChartDatum = {
     name: string;
@@ -61,6 +62,13 @@ type AnalyticsSummaryLike = {
                 estimatedOrders: number;
                 active: boolean;
             }>;
+        };
+        guestCarts?: {
+            active?: number;
+            activeItems?: number;
+            abandoned?: number;
+            converted?: number;
+            expired?: number;
         };
     };
 };
@@ -126,7 +134,9 @@ const CHART_COLORS = [
     "var(--de-color-info)",
 ];
 
-const getNetRevenue = (order: DashboardOrder) => Math.max(order.total_price - order.discount, 0);
+const getNetRevenue = (order: DashboardOrder) => order.status === ORDER_STATUS.CANCELED
+    ? 0
+    : Math.max(order.total_price - order.discount, 0);
 
 const DashboardUnavailable = ({ section }: { section: string }) => (
     <div className="admin__chart-body" role="status">
@@ -199,6 +209,13 @@ const AdminDashboardCharts = ({
                                 <span>Customers</span>
                                 <strong>{analyticsSummary?.kpis?.customers?.total ?? analyticsSummary?.overview?.customers ?? 0}</strong>
                                 <p>Customer accounts only.</p>
+                            </div>
+                            <div className="admin__dashboard__insight">
+                                <span>Guest carts</span>
+                                <strong>{analyticsSummary?.operations?.guestCarts?.active ?? 0}</strong>
+                                <p>
+                                    {analyticsSummary?.operations?.guestCarts?.abandoned ?? 0} abandoned · {analyticsSummary?.operations?.guestCarts?.converted ?? 0} converted.
+                                </p>
                             </div>
                         </div>
                     </div>

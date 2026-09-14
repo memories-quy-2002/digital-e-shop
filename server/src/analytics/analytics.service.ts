@@ -10,6 +10,7 @@ import type {
     CategoryPerformanceRow,
     CustomerSegmentRow,
     DiscountOrderRow,
+    GuestCartAnalyticsRow,
     InventoryRiskRow,
     OverviewRow,
     PaymentMethodRow,
@@ -127,6 +128,7 @@ export class NestAnalyticsService {
             promotionCatalogRows,
             discountOrderRows,
             promotionPerformanceRows,
+            guestCartAnalyticsRows,
         ] = await Promise.all([
             safeQuery<OverviewRow>(
                 `SELECT
@@ -134,10 +136,10 @@ export class NestAnalyticsService {
                     COALESCE(SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END), 0) AS completed_orders,
                     COALESCE(SUM(CASE WHEN status = 0 THEN 1 ELSE 0 END), 0) AS pending_orders,
                     COALESCE(SUM(CASE WHEN status = 2 THEN 1 ELSE 0 END), 0) AS cancelled_orders,
-                    COALESCE(SUM(total_price), 0) AS gross_revenue,
+                    COALESCE(SUM(CASE WHEN status <> 2 THEN total_price ELSE 0 END), 0) AS gross_revenue,
                     COALESCE(SUM(CASE WHEN status <> 2 THEN total_price - discount ELSE 0 END), 0) AS net_revenue,
                     COALESCE(SUM(CASE WHEN status <> 2 THEN discount ELSE 0 END), 0) AS total_discounts,
-                    COALESCE(AVG(CASE WHEN status <> 2 THEN total_price - discount END), 0) AS average_order_value,
+                    COALESCE(AVG(CASE WHEN status = 1 THEN total_price - discount END), 0) AS average_order_value,
                     COALESCE(SUM(CASE WHEN date_added >= UTC_TIMESTAMP() - INTERVAL ? DAY AND status <> 2 THEN 1 ELSE 0 END), 0) AS current_period_orders,
                     COALESCE(SUM(CASE WHEN date_added >= UTC_TIMESTAMP() - INTERVAL ? DAY AND status <> 2 THEN total_price - discount ELSE 0 END), 0) AS current_period_revenue,
                     COALESCE(SUM(CASE WHEN date_added < UTC_TIMESTAMP() - INTERVAL ? DAY AND date_added >= UTC_TIMESTAMP() - INTERVAL ? DAY AND status <> 2 THEN 1 ELSE 0 END), 0) AS previous_period_orders,
@@ -154,9 +156,9 @@ export class NestAnalyticsService {
             safeQuery<RevenueTrendRow>(
                 `SELECT
                     DATE_FORMAT(o.date_added, '%Y-%m-%d') AS date,
-                    COUNT(*) AS orders,
+                    COALESCE(SUM(CASE WHEN o.status <> 2 THEN 1 ELSE 0 END), 0) AS orders,
                     COALESCE(SUM(CASE WHEN o.status = 1 THEN 1 ELSE 0 END), 0) AS completed_orders,
-                    COALESCE(SUM(o.total_price), 0) AS gross_revenue,
+                    COALESCE(SUM(CASE WHEN o.status <> 2 THEN o.total_price ELSE 0 END), 0) AS gross_revenue,
                     COALESCE(SUM(CASE WHEN o.status <> 2 THEN o.total_price - o.discount ELSE 0 END), 0) AS net_revenue,
                     COALESCE(SUM(CASE WHEN o.status <> 2 THEN o.discount ELSE 0 END), 0) AS discounts
                 FROM orders o
@@ -228,7 +230,7 @@ export class NestAnalyticsService {
             safeQuery<PaymentMethodRow>(
                 `SELECT
                     COALESCE(NULLIF(payment_method, ''), 'unknown') AS name,
-                    COUNT(*) AS value,
+                    SUM(CASE WHEN status <> 2 THEN 1 ELSE 0 END) AS value,
                     COALESCE(SUM(CASE WHEN status <> 2 THEN total_price - discount ELSE 0 END), 0) AS revenue
                 FROM orders
                 WHERE date_added >= UTC_DATE() - INTERVAL ? DAY
@@ -275,10 +277,29 @@ export class NestAnalyticsService {
                  ORDER BY redemption_count DESC, discount_total DESC`,
                 [range.days],
             ),
+            safeQuery<GuestCartAnalyticsRow>(
+                `SELECT
+                    COUNT(CASE WHEN gc.converted_at IS NULL AND gc.expires_at > UTC_TIMESTAMP()
+                        AND EXISTS (SELECT 1 FROM guest_cart_items gci_active WHERE gci_active.guest_cart_id = gc.id) THEN 1 END) AS active_carts,
+                    COUNT(CASE WHEN gc.converted_at IS NOT NULL THEN 1 END) AS converted_carts,
+                    COUNT(CASE WHEN gc.converted_at IS NULL AND gc.expires_at <= UTC_TIMESTAMP()
+                        AND EXISTS (SELECT 1 FROM guest_cart_items gci_expired WHERE gci_expired.guest_cart_id = gc.id) THEN 1 END) AS expired_carts,
+                    COUNT(CASE WHEN gc.converted_at IS NULL AND gc.expires_at > UTC_TIMESTAMP()
+                        AND gc.updated_at < UTC_TIMESTAMP() - INTERVAL 24 HOUR
+                        AND EXISTS (SELECT 1 FROM guest_cart_items gci_abandoned WHERE gci_abandoned.guest_cart_id = gc.id) THEN 1 END) AS abandoned_carts,
+                    COALESCE((
+                        SELECT SUM(gci.quantity)
+                        FROM guest_cart_items gci
+                        JOIN guest_carts gc_items ON gc_items.id = gci.guest_cart_id
+                        WHERE gc_items.converted_at IS NULL AND gc_items.expires_at > UTC_TIMESTAMP()
+                    ), 0) AS active_items
+                 FROM guest_carts gc`,
+            ),
         ]);
 
         const overview = (overviewRows[0] || {}) as OverviewRow;
         const discountOrders = (discountOrderRows[0] || {}) as DiscountOrderRow;
+        const guestCartAnalytics = (guestCartAnalyticsRows[0] || {}) as GuestCartAnalyticsRow;
         const revenueTrend = mapRevenueTrend(revenueTrendRows, range.days);
         const totalCategoryRevenue = categoryPerformanceRows.reduce((sum, row) => sum + toNumber(row.revenue), 0);
         const statusBreakdown = [
@@ -408,6 +429,13 @@ export class NestAnalyticsService {
                         discountGiven: roundTo(promotionPerformance.get(promotion.id)?.discountGiven || 0),
                         estimatedOrders: promotionPerformance.get(promotion.id)?.estimatedOrders || 0,
                     })),
+                },
+                guestCarts: {
+                    active: toNumber(guestCartAnalytics.active_carts),
+                    activeItems: toNumber(guestCartAnalytics.active_items),
+                    abandoned: toNumber(guestCartAnalytics.abandoned_carts),
+                    converted: toNumber(guestCartAnalytics.converted_carts),
+                    expired: toNumber(guestCartAnalytics.expired_carts),
                 },
             },
         };

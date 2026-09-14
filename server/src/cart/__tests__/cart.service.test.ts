@@ -1,7 +1,12 @@
 import { describe, it, expect } from "vitest";
 import type { CartItemRow } from "../cart.types";
 import type { CartCheckoutItem } from "../cart.dto";
-import { buildCartValidationIssue, buildCartValidationResult, compareSubmittedCart } from "../cart.service";
+import {
+    buildCartStockConflictMessage,
+    buildCartValidationIssue,
+    buildCartValidationResult,
+    compareSubmittedCart,
+} from "../cart.service";
 
 const line = (overrides: Partial<CartItemRow> = {}): CartItemRow => ({
     cart_item_id: 1,
@@ -44,6 +49,20 @@ describe("buildCartValidationIssue", () => {
     it("falls back to a synthetic product name when none is provided", () => {
         const issue = buildCartValidationIssue(line({ product_name: undefined, stock: 0 }));
         expect(issue?.productName).toBe("Product #10");
+    });
+});
+
+describe("buildCartStockConflictMessage", () => {
+    it("explains how many more items can be added when the existing cart quantity consumes stock", () => {
+        expect(buildCartStockConflictMessage("Widget", 5, 2, 6)).toBe(
+            "Widget has only 6 item(s) available. Requested 2; your cart already contains 5, so you can add at most 1 more.",
+        );
+    });
+
+    it("explains that no more items can be added when the cart already consumes all available stock", () => {
+        expect(buildCartStockConflictMessage("Widget", 6, 1, 6)).toBe(
+            "Widget has only 6 item(s) available. Requested 1; your cart already contains 6, so no more can be added.",
+        );
     });
 });
 

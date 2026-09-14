@@ -4,11 +4,11 @@ This Wiki records durable Digital-E understanding for maintainers and AI agents.
 
 **Project summary:** Digital-E is an electronics commerce platform built from two independent pnpm packages: a React 19 and Vite storefront/admin client in `client/`, and a NestJS 11 API on the Express 5 adapter in `server/`. MySQL remains the primary runtime database, while Prisma 7 owns a partial forward-migration layer. Firebase is the only auth provider; the Firebase Auth Emulator is a local testing target.
 
-**Last updated:** 2026-09-11
+**Last updated:** 2026-09-13
 
 The current implementation includes authenticated and guest carts, server-authoritative checkout, Vietnam-first PayOS payment links with VND quote snapshots and verified webhooks, optional Stripe and local mock payment paths, Firebase-owned production auth emails, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, customer support tickets, admin analytics, operational alerts, and database-backed demo verification.
 
-The local demo seed creates a linked graph with 28 products across 8 categories and 16 brands. It verifies image URLs, order totals, reviews, wishlists, addresses, notifications, sessions, discounts, inventory movements, and orphan relationships. Normal seeding is guarded and non-destructive for demo-owned rows; full reset is an explicit local or protected production workflow.
+The local demo seed creates a linked graph with 28 products across 8 categories and 16 brands. It verifies image URLs, order totals, reviews, wishlists, addresses, notifications, the seeded session baseline, discounts, inventory movements, and orphan relationships. Runtime logins may add sessions after seeding without invalidating verification. Normal seeding is guarded and non-destructive for demo-owned rows; full reset is an explicit local or protected production workflow.
 
 ## Start here
 
@@ -16,7 +16,7 @@ The local demo seed creates a linked graph with 28 products across 8 categories 
 - [[architecture]]: client, server, database, authentication, checkout, deployment, and CI boundaries
 - [[authentication-and-email-verification]]: Firebase-only identity, Firebase-owned verification, and verified-action gating
 - Marketing subscriptions and unsubscribe routes are removed; the historical schema remains only for migration compatibility.
-- [[guest-checkout]]: browser cart, authoritative preview, guest checkout, token-protected lookup, and cart merge
+- [[guest-checkout]]: local/server anonymous cart persistence, authoritative preview, guest checkout, token-protected lookup, aggregate funnel analytics, and cart merge
 - [[order-lifecycle-and-support]]: order state transitions, review eligibility, and support-ticket ownership
 - [[0001-mysql-primary-prisma-partial]]: MySQL and partial Prisma ownership
 - [[0002-nestjs-migration]]: accepted NestJS migration and current server structure

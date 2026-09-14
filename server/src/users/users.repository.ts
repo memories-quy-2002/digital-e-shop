@@ -40,7 +40,7 @@ export class UsersRepository {
             pool.query(
                 `SELECT users.*, COUNT(orders.id) AS order_count
                  FROM users
-                 LEFT JOIN orders ON orders.user_id = users.id
+                 LEFT JOIN orders ON orders.user_id = users.id AND orders.status <> 2
                  GROUP BY users.id
                  ORDER BY users.created_at DESC`,
                 (queryErr: DbError | null, results?: UserRow[]) => {
@@ -56,7 +56,7 @@ export class UsersRepository {
             pool.query(
                 `SELECT users.*, COUNT(orders.id) AS order_count
                  FROM users
-                 LEFT JOIN orders ON orders.user_id = users.id
+                 LEFT JOIN orders ON orders.user_id = users.id AND orders.status <> 2
                  GROUP BY users.id
                  ORDER BY users.created_at DESC
                  LIMIT ? OFFSET ?`,
@@ -95,7 +95,7 @@ export class UsersRepository {
                     MAX(o.date_added) AS last_order_at,
                     COUNT(DISTINCT w.id) AS wishlist_count
                 FROM users u
-                LEFT JOIN orders o ON o.user_id = u.id
+                LEFT JOIN orders o ON o.user_id = u.id AND o.status <> 2
                 LEFT JOIN wishlist w ON w.user_id = u.id
                 WHERE u.id = ?
                 GROUP BY u.id`,

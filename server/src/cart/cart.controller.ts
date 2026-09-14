@@ -1,11 +1,14 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpException, Param, Post, Put, UseGuards, UsePipes } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, HttpException, Param, Post, Put, Req, Res, UseGuards, UsePipes } from "@nestjs/common";
+import type { Request, Response } from "express";
 import { AuthGuard } from "../guards/auth.guard";
 import { OwnerParam, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestCartService } from "./cart.service";
 
-import { cartAddItemSchema, cartDeleteItemSchema, cartUpdateQuantitySchema, guestCartPreviewSchema } from "./cart.validator";
-import type { GuestCartPreviewInput } from "./cart.types";
+import { cartAddItemSchema, cartDeleteItemSchema, cartUpdateQuantitySchema, guestCartClearSchema, guestCartPreviewSchema, guestCartSyncSchema } from "./cart.validator";
+import type { GuestCartPreviewInput, GuestCartSyncInput } from "./cart.types";
+import { createGuestCartId, GUEST_CART_COOKIE, GUEST_CART_TTL_DAYS, isGuestCartId } from "./guest-cart";
+import { isProduction } from "#src/config/env.config";
 
 function toHttpException(err: { statusCode?: number; message?: string }, fallbackMessage: string): HttpException {
     const statusCode = err.statusCode || 500;
@@ -16,6 +19,79 @@ function toHttpException(err: { statusCode?: number; message?: string }, fallbac
 @Controller("cart")
 export class CartController {
     constructor(private readonly cartService: NestCartService) {}
+
+    private setGuestCartCookie(response: Response, guestCartId: string) {
+        response.cookie(GUEST_CART_COOKIE, guestCartId, {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: isProduction ? "none" : "lax",
+            maxAge: GUEST_CART_TTL_DAYS * 24 * 60 * 60 * 1000,
+            path: "/",
+        });
+    }
+
+    private resolveGuestCartId(request: Request, response: Response) {
+        const current = request.cookies?.[GUEST_CART_COOKIE];
+        if (isGuestCartId(current)) return current;
+        const guestCartId = createGuestCartId();
+        this.setGuestCartCookie(response, guestCartId);
+        return guestCartId;
+    }
+
+    @Get("guest")
+    @HttpCode(200)
+    async getGuestCart(@Req() request: Request) {
+        try {
+            const guestCartId = request.cookies?.[GUEST_CART_COOKIE];
+            const items = isGuestCartId(guestCartId) ? await this.cartService.getGuestCart(guestCartId) : [];
+            return { items, msg: "Guest cart retrieved successfully" };
+        } catch (err) {
+            throw toHttpException(err as Error, "Error retrieving guest cart");
+        }
+    }
+
+    @Post("guest/sync")
+    @HttpCode(200)
+    @UsePipes(new ZodValidationPipe(guestCartSyncSchema))
+    async syncGuestCart(
+        @Req() request: Request,
+        @Res({ passthrough: true }) response: Response,
+        @Body() body: GuestCartSyncInput,
+    ) {
+        try {
+            const guestCartId = this.resolveGuestCartId(request, response);
+            const items = await this.cartService.syncGuestCart(guestCartId, body.items);
+            return { items, msg: "Guest cart synchronized successfully" };
+        } catch (err) {
+            throw toHttpException(err as Error, "Error synchronizing guest cart");
+        }
+    }
+
+    @Post("guest/clear")
+    @HttpCode(200)
+    @UsePipes(new ZodValidationPipe(guestCartClearSchema))
+    async clearGuestCart(
+        @Req() request: Request,
+        @Res({ passthrough: true }) response: Response,
+        @Body() body: { converted?: boolean },
+    ) {
+        try {
+            const guestCartId = request.cookies?.[GUEST_CART_COOKIE];
+            if (isGuestCartId(guestCartId)) {
+                await this.cartService.clearGuestCart(guestCartId, body.converted === true);
+            }
+            if (body.converted === true) {
+                response.clearCookie(GUEST_CART_COOKIE, {
+                    path: "/",
+                    secure: isProduction,
+                    sameSite: isProduction ? "none" : "lax",
+                });
+            }
+            return { msg: "Guest cart cleared successfully" };
+        } catch (err) {
+            throw toHttpException(err as Error, "Error clearing guest cart");
+        }
+    }
 
     @Post("guest/preview")
     @HttpCode(200)
@@ -87,7 +163,7 @@ export class CartController {
     async updateCartItemQuantity(@Body() body: { cartItemId: number; quantity: number; uid: string }) {
         try {
             const { cartItemId, quantity } = body;
-            const msg = await this.cartService.updateCartItemQuantity(cartItemId, quantity);
+            const msg = await this.cartService.updateCartItemQuantity(cartItemId, body.uid, quantity);
             return { msg };
         } catch (err) {
             if (err instanceof Error && err.name === "ZodError") {
@@ -99,12 +175,13 @@ export class CartController {
 
     @Delete()
     @HttpCode(200)
-    @UseGuards(AuthGuard)
+    @UseGuards(AuthGuard, RolesGuard)
+    @OwnerParam("uid")
     @UsePipes(new ZodValidationPipe(cartDeleteItemSchema))
-    async deleteCartItem(@Body() body: { cartItemId: number }) {
+    async deleteCartItem(@Body() body: { cartItemId: number; uid: string }) {
         try {
-            const { cartItemId } = body;
-            const msg = await this.cartService.deleteCartItem(cartItemId);
+            const { cartItemId, uid } = body;
+            const msg = await this.cartService.deleteCartItem(cartItemId, uid);
             return { msg };
         } catch (err) {
             if (err instanceof Error && err.name === "ZodError") {

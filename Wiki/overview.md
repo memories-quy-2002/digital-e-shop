@@ -101,8 +101,9 @@ database setup or a seed change. It creates linked admin and
 customer accounts, catalog records, carts, orders, reviews, wishlists,
 addresses, notifications, sessions, discounts, and inventory movements.
 `demo:verify` checks demo-owned counts, image coverage, order/review/wishlist
-links, order totals, and relationship orphan counts. It refuses production or
-other remote targets.
+links, order totals, and relationship orphan counts. The session count is a
+minimum seeded baseline because real local logins add operational session rows.
+It refuses production or other remote targets.
 
 CI keeps client and server checks separate, starts disposable MySQL, validates
 the legacy SQL baseline plus forward Prisma migrations, runs the server
@@ -119,9 +120,10 @@ and branch protection remain repository/deployment settings.
   explicit exclusions; do not broaden that exception.
 - `AuthGuard`, `RolesGuard`, and `OwnerParam` enforce authentication, roles,
   and ownership at the Nest boundary.
-- Guest checkout uses a browser-local cart and a one-time raw token whose
-  SHA-256 hash is stored server-side; server preview and checkout remain
-  authoritative for price, stock, promotions, and totals.
+- Guest checkout uses a local cart cache plus an anonymous 30-day server cart
+  keyed by an HttpOnly cookie, and a one-time raw token whose SHA-256 hash is
+  stored server-side; server preview and checkout remain authoritative for
+  price, stock, promotions, and totals.
 - Firebase owns verification, password-reset, and email-change action links in every environment. The server has no MySQL password-authentication path or generic transactional email provider; order updates use database-backed in-app notifications and guest checkout/lookup responses.
 - Local Firebase Auth uses the Auth Emulator and Emulator UI (`9099`/`4001`);
   the guarded seeder and local MySQL profile start users unverified until an

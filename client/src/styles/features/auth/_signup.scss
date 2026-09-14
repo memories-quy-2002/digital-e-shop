@@ -158,6 +158,19 @@
         min-height: 0;
         overflow-y: auto;
 
+        &__back-link {
+            align-self: flex-start;
+            margin-bottom: 1rem;
+            color: var(--de-color-primary-emphasis);
+            font-size: 0.9rem;
+            font-weight: 800;
+
+            &:hover,
+            &:focus-visible {
+                text-decoration: underline;
+            }
+        }
+
         &__badge {
             align-self: flex-start;
             display: inline-flex;
@@ -236,7 +249,7 @@
 
             &:disabled {
                 opacity: 0.68;
-                cursor: progress;
+                cursor: wait;
             }
         }
 
@@ -249,6 +262,10 @@
                 color: var(--de-color-primary-emphasis);
                 font-weight: 800;
                 text-decoration: none;
+
+                &:hover {
+                    text-decoration: underline;
+                }
             }
         }
     }
@@ -330,6 +347,13 @@
         span.active {
             background: var(--de-color-primary-emphasis);
         }
+    }
+
+    &__password-hint {
+        margin: 0.55rem 0 0;
+        color: var(--de-color-text-muted);
+        font-size: 0.82rem;
+        line-height: 1.45;
     }
 
     @media (max-width: 900px) {

@@ -63,4 +63,14 @@ describe("resolveFirebaseClientEnvironment", () => {
             projectId: "graduation-project-5bbfb",
         });
     });
+
+    it("rejects an unknown project in production mode", () => {
+        expect(() => resolveFirebaseClientEnvironment({
+            ...values,
+            VITE_FIREBASE_PROJECT_ID: "another-production-project",
+            VITE_FIREBASE_AUTH_EMULATOR_URL: undefined,
+        }, false)).toThrow(
+            "Production Firebase mode must use graduation-project-5bbfb",
+        );
+    });
 });
