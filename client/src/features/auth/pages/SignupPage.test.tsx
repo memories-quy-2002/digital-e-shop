@@ -33,6 +33,20 @@ vi.mock("../../../utils/images", () => ({
 }));
 
 describe("SignupPage Firebase verification", () => {
+    it("renders the approved storefront shell without a fake social-auth affordance", () => {
+        render(
+            <MemoryRouter initialEntries={["/signup"]}>
+                <Routes><Route path="/signup" element={<SignupPage />} /></Routes>
+            </MemoryRouter>,
+        );
+
+        expect(document.querySelector(".auth-shell")).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "Back to store" })).toHaveAttribute("href", "/");
+        expect(screen.getByRole("heading", { name: "Create account" })).toBeInTheDocument();
+        expect(screen.getByText("Make every build count.")).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: /google/i })).not.toBeInTheDocument();
+    });
+
     beforeEach(() => {
         vi.clearAllMocks();
         mocks.createFirebaseUser.mockResolvedValue({
@@ -111,16 +125,4 @@ describe("SignupPage Firebase verification", () => {
         expect(screen.getByRole("textbox", { name: "Email address" })).toHaveAttribute("spellcheck", "false");
     });
 
-    it("preloads the critical auth image with intrinsic dimensions", () => {
-        render(
-            <MemoryRouter initialEntries={["/signup"]}>
-                <Routes><Route path="/signup" element={<SignupPage />} /></Routes>
-            </MemoryRouter>,
-        );
-
-        const image = document.querySelector(".signup__image img");
-        expect(image).toHaveAttribute("loading", "eager");
-        expect(image).toHaveAttribute("width", "1280");
-        expect(image).toHaveAttribute("height", "853");
-    });
 });

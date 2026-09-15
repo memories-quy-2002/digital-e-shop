@@ -56,6 +56,10 @@ install command. Each package owns its dependencies and lockfile.
   toast state. Shared UI belongs in `components/common` or `components/layout`.
 - Responsive storefront, account, checkout, and admin behavior is implemented
   with Tailwind/Radix UI primitives plus the existing BEM-style SCSS.
+- Login and signup share the storefront-oriented AuthShell and auth feature
+  styles, keeping Firebase email/password behavior, field-level errors, focus
+  management, password reveal controls, and color-scheme switching consistent
+  across the two entry routes.
 - Explicit loading, empty, error, and success states are part of each route's
   contract.
 

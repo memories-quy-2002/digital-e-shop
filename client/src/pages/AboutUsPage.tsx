@@ -3,15 +3,15 @@ import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import heroImage from "../assets/images/about_us.jpg";
 import Layout from "../components/layout/Layout";
-import { PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../utils/images";
+import { HERO_IMAGE_WIDTHS, getResponsiveImageSource } from "../utils/images";
 import { useT } from "../hooks/useT";
 import "../styles/pages/_about.scss";
 
 const AboutUsPage: React.FC = () => {
     const t = useT();
     const heroImageSource = getResponsiveImageSource(heroImage, {
-        widths: PAGE_IMAGE_WIDTHS,
-        sizes: "(min-width: 1024px) 42vw, 92vw",
+        widths: HERO_IMAGE_WIDTHS,
+        sizes: "100vw",
         fit: "fill",
     });
 
@@ -37,12 +37,23 @@ const AboutUsPage: React.FC = () => {
                 <title>{`${t("about.title")} | Digital-E`}</title>
                 <meta
                     name="description"
-                    content="Learn more about Digital-E, our mission, and how we build a trusted electronics shopping experience."
+                    content={t("about.metaDescription")}
                 />
             </Helmet>
             <main className="about info-page">
-                <section className="about__hero">
-                    <div className="about__hero__content">
+                <section className="about__hero info-page__hero">
+                    <img
+                        className="info-page__hero__image"
+                        src={heroImageSource.src}
+                        srcSet={heroImageSource.srcSet}
+                        sizes={heroImageSource.sizes}
+                        alt=""
+                        aria-hidden="true"
+                        loading="eager"
+                        fetchPriority="high"
+                        decoding="async"
+                    />
+                    <div className="about__hero__content info-page__hero__content">
                         <h1>{t("about.title")}</h1>
                         <p>{t("about.subtitle")}</p>
                         <div className="about__hero__actions info-page__actions">
@@ -52,20 +63,9 @@ const AboutUsPage: React.FC = () => {
                             </Link>
                         </div>
                     </div>
-                    <div className="about__hero__media">
-                        <img
-                            src={heroImageSource.src}
-                            srcSet={heroImageSource.srcSet}
-                            sizes={heroImageSource.sizes}
-                            alt="Digital-E mobile technology selection"
-                            loading="eager"
-                            fetchPriority="high"
-                            decoding="async"
-                        />
-                    </div>
                 </section>
 
-                <section className="about__stats" aria-label="Digital-E operating snapshot">
+                <section className="about__stats" aria-label={t("about.statsAriaLabel")}>
                     <div>
                         <strong>5K+</strong>
                         <span>{t("about.stats.products")}</span>
@@ -79,7 +79,7 @@ const AboutUsPage: React.FC = () => {
                         <span>{t("about.stats.support")}</span>
                     </div>
                     <div>
-                        <strong>UTC</strong>
+                        <strong>{t("about.stats.orderValue")}</strong>
                         <span>{t("about.stats.orderTime")}</span>
                     </div>
                 </section>

@@ -1,19 +1,16 @@
 import { AxiosError } from "axios";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Form } from "../../../components/ui/legacy";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate } from "react-router-dom";
-import authImage from "../../../assets/images/background_form.jpg";
-import { useAuth } from "../../../context/AuthContext";
-import { useToast } from "../../../context/ToastContext";
-import { createFirebaseUser, sendFirebaseEmailVerification, signInWithFirebaseEmail } from "../../../services/firebase";
-import "../../../styles/features/auth/_signup.scss";
-import { PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../../../utils/images";
 import type { UserCredential } from "firebase/auth";
 import { EyeIcon, EyeOffIcon } from "../../../components/common/Icons";
+import { useAuth } from "../../../context/AuthContext";
+import { useToast } from "../../../context/ToastContext";
+import { setFirebaseAuthPersistence } from "../../../services/firebasePersistence";
+import { createFirebaseUser, sendFirebaseEmailVerification, signInWithFirebaseEmail } from "../../../services/firebase";
+import AuthShell from "../components/AuthShell";
 import { registerUser } from "../api";
 import { getFirebaseAuthErrorMessage } from "../authErrors";
-import { setFirebaseAuthPersistence } from "../../../services/firebasePersistence";
 
 interface User {
     username: string;
@@ -26,14 +23,13 @@ const SignupPage = () => {
     const navigate = useNavigate();
     const { addToast } = useToast();
     const { setUserData } = useAuth();
-    const [user, setUser] = useState<User>({
-        username: "",
-        email: "",
-        password: "",
-        confirm: "",
-    });
+    const [user, setUser] = useState<User>({ username: "", email: "", password: "", confirm: "" });
     const [errors, setErrors] = useState<string[]>([]);
-    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
+    const formRef = useRef<HTMLFormElement | null>(null);
+
     const fieldErrors = useMemo(() => {
         const map: Record<string, string> = {};
         for (const err of errors) {
@@ -47,14 +43,6 @@ const SignupPage = () => {
         }
         return map;
     }, [errors]);
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirm, setShowConfirm] = useState(false);
-    const formSectionRef = useRef<HTMLElement | null>(null);
-    const authImageSource = getResponsiveImageSource(authImage, {
-        widths: PAGE_IMAGE_WIDTHS,
-        sizes: "(min-width: 960px) 42vw, 100vw",
-        fit: "fill",
-    });
 
     const passwordStrength = useMemo(() => {
         const checks = [
@@ -69,8 +57,7 @@ const SignupPage = () => {
 
     useEffect(() => {
         if (errors.length === 0) return;
-
-        formSectionRef.current?.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus();
+        formRef.current?.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus();
     }, [errors]);
 
     const validateForm = (): string[] => {
@@ -78,24 +65,23 @@ const SignupPage = () => {
         const usernamePattern = /^[a-zA-Z0-9._-]{3,15}$/;
         const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
         const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-        if (!user.username.trim()) {
+        const normalizedUsername = user.username.trim();
+        const normalizedEmail = user.email.trim();
+
+        if (!normalizedUsername) {
             errorsList.push("Enter a username.");
-        } else if (!usernamePattern.test(user.username)) {
-            errorsList.push(
-                "Username must be 3-15 characters long and contain only letters, numbers, periods, underscores, or hyphens.",
-            );
+        } else if (!usernamePattern.test(normalizedUsername)) {
+            errorsList.push("Username must be 3-15 characters long and contain only letters, numbers, periods, underscores, or hyphens.");
         }
-        if (!user.email) {
+        if (!normalizedEmail) {
             errorsList.push("Enter your email address.");
-        } else if (!emailPattern.test(user.email.trim())) {
+        } else if (!emailPattern.test(normalizedEmail)) {
             errorsList.push("Enter a valid email address.");
         }
         if (!user.password) {
             errorsList.push("Choose a password.");
         } else if (!passwordPattern.test(user.password)) {
-            errorsList.push(
-                "Password must be at least 8 characters long, contain at least one lowercase letter, one uppercase letter, one number, and one special character.",
-            );
+            errorsList.push("Password must be at least 8 characters long, contain at least one lowercase letter, one uppercase letter, one number, and one special character.");
         }
         if (!user.confirm) {
             errorsList.push("Confirm your password.");
@@ -105,12 +91,24 @@ const SignupPage = () => {
         return errorsList;
     };
 
+    const clearFieldError = (field: keyof User) => {
+        setErrors((current) => current.filter((err) => {
+            const lower = err.toLowerCase();
+            if (field === "username") return !lower.includes("username");
+            if (field === "email") return !lower.includes("email");
+            if (field === "password") {
+                return !lower.includes("password") || (lower.includes("match") && lower.includes("password"));
+            }
+            if (field === "confirm") return !(lower.includes("confirm") || lower.includes("match"));
+            return false;
+        }));
+    };
+
     const handleChangeInput = (event: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = event.target;
-        setUser({ ...user, [name]: value });
-        if (errors.length > 0) {
-            setErrors([]);
-        }
+        const field = name as keyof User;
+        setUser((current) => ({ ...current, [field]: value }));
+        clearFieldError(field);
     };
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -128,6 +126,7 @@ const SignupPage = () => {
             const normalizedEmail = user.email.trim();
             const normalizedUsername = user.username.trim();
             let userCredential: UserCredential;
+
             try {
                 userCredential = await createFirebaseUser(normalizedEmail, user.password);
             } catch (err: unknown) {
@@ -149,7 +148,7 @@ const SignupPage = () => {
                     await sendFirebaseEmailVerification();
                     verificationEmailSent = true;
                 } catch {
-                    // Account creation already succeeded; the signed-in user can retry from the account page.
+                    // Account creation already succeeded; the user can retry from the account page.
                 }
             }
 
@@ -167,15 +166,9 @@ const SignupPage = () => {
             if (err instanceof AxiosError) {
                 const status = err.response?.status;
                 const msg = err.response?.data?.msg || err.response?.data?.error || "We couldn't create your account. Please try again.";
-
                 setErrors([msg]);
-
-                if (status === 401) {
-                    addToast("Sign-up failed", "The account service rejected the request. Please try again.");
-                } else if (status === 500) {
+                if (status === 500) {
                     addToast("Sign-up failed", "The account service is temporarily unavailable. Please try again later.");
-                } else if (status) {
-                    addToast("Sign-up failed", msg);
                 } else {
                     addToast("Sign-up failed", msg);
                 }
@@ -193,158 +186,157 @@ const SignupPage = () => {
     };
 
     return (
-        <main className="auth-page">
+        <>
             <Helmet>
                 <title>Create Account | Digital-E</title>
                 <meta name="description" content="Create a Digital-E account to shop faster and track orders." />
             </Helmet>
-            <div className="signup">
-                <aside className="signup__image">
-                    <img
-                        src={authImageSource.src}
-                        srcSet={authImageSource.srcSet}
-                        sizes={authImageSource.sizes}
-                        alt=""
-                        aria-hidden="true"
-                        loading="eager"
-                        decoding="async"
-                        width={1280}
-                        height={853}
-                    />
-                    <div className="signup__image__content">
-                        <strong className="signup__image__content__name">DIGITAL-E</strong>
-                        <p className="signup__image__content__desc">Create an account for faster checkout.</p>
+            <AuthShell
+                mode="signup"
+                titleId="signup-title"
+                eyebrow="Customer account"
+                title="Create account"
+                description="Make your next build easier to manage from the first component to the final order."
+                storyTitle="Make every build count."
+                storyDescription="Keep your parts list, order history, and saved details ready whenever inspiration strikes."
+                footer={(
+                    <p className="auth-form__switch">
+                        Already registered? <Link to="/login">Log in</Link>
+                    </p>
+                )}
+            >
+                <form
+                    ref={formRef}
+                    className="auth-form auth-form--signup"
+                    onSubmit={handleSubmit}
+                    name="signup-form"
+                    aria-label="signup-form"
+                    noValidate
+                    aria-busy={isSubmitting}
+                >
+                    <div className="auth-form__field">
+                        <label className="auth-form__label" htmlFor="signup-username">Username</label>
+                        <input
+                            id="signup-username"
+                            className="auth-form__input"
+                            type="text"
+                            name="username"
+                            placeholder="Choose a username"
+                            required
+                            autoComplete="username"
+                            spellCheck={false}
+                            value={user.username}
+                            onChange={handleChangeInput}
+                            aria-invalid={Boolean(fieldErrors.username)}
+                            aria-describedby={fieldErrors.username ? "signup-username-error" : undefined}
+                        />
+                        {fieldErrors.username ? <p id="signup-username-error" className="auth-form__field-error" role="alert">{fieldErrors.username}</p> : null}
                     </div>
-                </aside>
-                <section ref={formSectionRef} className="signup__form" aria-labelledby="signup-title">
-                    <Link className="signup__form__back-link" to="/">← Back to store</Link>
-                    <h1 id="signup-title" className="signup__form__title">Create account</h1>
-                    <Form
-                        className="signup__form__container"
-                        onSubmit={handleSubmit}
-                        name="signup-form"
-                        aria-label="signup-form"
-                        noValidate
-                        aria-busy={isSubmitting}
-                    >
-                        <Form.Group className="signup__form__container__group mb-3" controlId="formBasicUserName">
-                            <Form.Label htmlFor="signup-username">Username</Form.Label>
-                            <Form.Control
-                                id="signup-username"
-                                type="text"
-                                name="username"
-                                placeholder="Choose a username…"
-                                className={`signup__form__container__group__input${fieldErrors.username ? " is-invalid" : ""}`}
+
+                    <div className="auth-form__field">
+                        <label className="auth-form__label" htmlFor="signup-email">Email address</label>
+                        <input
+                            id="signup-email"
+                            className="auth-form__input"
+                            type="email"
+                            name="email"
+                            placeholder="you@example.com"
+                            required
+                            autoComplete="email"
+                            spellCheck={false}
+                            value={user.email}
+                            onChange={handleChangeInput}
+                            aria-invalid={Boolean(fieldErrors.email)}
+                            aria-describedby={fieldErrors.email ? "signup-email-error" : undefined}
+                        />
+                        {fieldErrors.email ? <p id="signup-email-error" className="auth-form__field-error" role="alert">{fieldErrors.email}</p> : null}
+                    </div>
+
+                    <div className="auth-form__field">
+                        <label className="auth-form__label" htmlFor="signup-password">Password</label>
+                        <div className="auth-form__password-field">
+                            <input
+                                id="signup-password"
+                                className="auth-form__input"
+                                type={showPassword ? "text" : "password"}
+                                name="password"
+                                placeholder="Create a password"
                                 required
-                                autoComplete="username"
-                                spellCheck={false}
-                                value={user.username}
+                                autoComplete="new-password"
+                                value={user.password}
                                 onChange={handleChangeInput}
-                                aria-invalid={Boolean(fieldErrors.username)}
-                                aria-describedby={fieldErrors.username ? "signup-username-error" : undefined}
+                                aria-invalid={Boolean(fieldErrors.password)}
+                                aria-describedby={`signup-password-hint${fieldErrors.password ? " signup-password-error" : ""}`}
                             />
-                            {fieldErrors.username ? <div id="signup-username-error" className="signup__field-error" role="alert">{fieldErrors.username}</div> : null}
-                        </Form.Group>
-                        <Form.Group className="signup__form__container__group mb-3" controlId="formBasicEmail">
-                            <Form.Label htmlFor="signup-email">Email address</Form.Label>
-                            <Form.Control
-                                id="signup-email"
-                                type="email"
-                                name="email"
-                                placeholder="you@example.com…"
-                                className={`signup__form__container__group__input${fieldErrors.email ? " is-invalid" : ""}`}
-                                required
-                                autoComplete="email"
-                                spellCheck={false}
-                                value={user.email}
-                                onChange={handleChangeInput}
-                                aria-invalid={Boolean(fieldErrors.email)}
-                                aria-describedby={fieldErrors.email ? "signup-email-error" : undefined}
-                            />
-                            {fieldErrors.email ? <div id="signup-email-error" className="signup__field-error" role="alert">{fieldErrors.email}</div> : null}
-                        </Form.Group>
-                        <Form.Group className="signup__form__container__group mb-3" controlId="formBasicPassword">
-                            <Form.Label htmlFor="signup-password">Password</Form.Label>
-                            <div className="signup__password-field">
-                                <Form.Control
-                                    id="signup-password"
-                                    type={showPassword ? "text" : "password"}
-                                    name="password"
-                                    placeholder="Create a password…"
-                                    className={`signup__form__container__group__input${fieldErrors.password ? " is-invalid" : ""}`}
-                                    required
-                                    autoComplete="new-password"
-                                    value={user.password}
-                                    onChange={handleChangeInput}
-                                    aria-invalid={Boolean(fieldErrors.password)}
-                                    aria-describedby={`signup-password-hint${fieldErrors.password ? " signup-password-error" : ""}`}
-                                />
-                                <button
-                                    type="button"
-                                    aria-label={showPassword ? "Hide password" : "Show password"}
-                                    onClick={() => setShowPassword((value) => !value)}
-                                >
-                                    {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
-                                </button>
-                            </div>
-                            <p id="signup-password-hint" className="signup__password-hint">
-                                Use 8+ characters with upper/lowercase, a number, and a symbol.
-                            </p>
-                            <div
-                                className="signup__password-meter"
-                                role="progressbar"
-                                aria-label={`Password strength: ${passwordStrength} of 5`}
-                                aria-valuemin={0}
-                                aria-valuemax={5}
-                                aria-valuenow={passwordStrength}
+                            <button
+                                className="auth-form__password-toggle"
+                                type="button"
+                                aria-label={showPassword ? "Hide password" : "Show password"}
+                                onClick={() => setShowPassword((value) => !value)}
                             >
-                                {[1, 2, 3, 4, 5].map((level) => (
-                                    <span key={level} className={passwordStrength >= level ? "active" : ""}></span>
-                                ))}
-                            </div>
-                            {fieldErrors.password ? <div id="signup-password-error" className="signup__field-error" role="alert">{fieldErrors.password}</div> : null}
-                        </Form.Group>
-                        <Form.Group className="signup__form__container__group mb-3" controlId="formBasicConfirmPassword">
-                            <Form.Label htmlFor="signup-confirm-password">Confirm Password</Form.Label>
-                            <div className="signup__password-field">
-                                <Form.Control
-                                    id="signup-confirm-password"
-                                    type={showConfirm ? "text" : "password"}
-                                    name="confirm"
-                                    placeholder="Re-enter your password…"
-                                    className={`signup__form__container__group__input${fieldErrors.confirm ? " is-invalid" : ""}`}
-                                    required
-                                    autoComplete="new-password"
-                                    value={user.confirm}
-                                    onChange={handleChangeInput}
-                                    aria-invalid={Boolean(fieldErrors.confirm)}
-                                    aria-describedby={fieldErrors.confirm ? "signup-confirm-password-error" : undefined}
-                                />
-                                <button
-                                    type="button"
-                                    aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
-                                    onClick={() => setShowConfirm((value) => !value)}
-                                >
-                                    {showConfirm ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
-                                </button>
-                            </div>
-                            {fieldErrors.confirm ? <div id="signup-confirm-password-error" className="signup__field-error" role="alert">{fieldErrors.confirm}</div> : null}
-                        </Form.Group>
-                        {fieldErrors.general ? (
-                            <div id="signup-form-error" className="signup__form__errors" role="alert" aria-live="assertive">
-                                <div>{fieldErrors.general}</div>
-                            </div>
-                        ) : null}
-                        <button className="signup__form__submit" type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? "Creating account…" : "Sign up"}
-                        </button>
-                        <div className="signup__form__switch">
-                            Already registered? <Link to="/login">Login</Link>
+                                {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+                            </button>
                         </div>
-                    </Form>
-                </section>
-            </div>
-        </main>
+                        <p id="signup-password-hint" className="auth-form__password-hint">
+                            Use 8+ characters with lowercase, uppercase, a number, and a symbol.
+                        </p>
+                        <div
+                            className="auth-form__password-meter"
+                            role="progressbar"
+                            aria-label={`Password strength: ${passwordStrength} of 5`}
+                            aria-valuemin={0}
+                            aria-valuemax={5}
+                            aria-valuenow={passwordStrength}
+                        >
+                            {[1, 2, 3, 4, 5].map((level) => (
+                                <span key={level} className={passwordStrength >= level ? "active" : ""}></span>
+                            ))}
+                        </div>
+                        {fieldErrors.password ? <p id="signup-password-error" className="auth-form__field-error" role="alert">{fieldErrors.password}</p> : null}
+                    </div>
+
+                    <div className="auth-form__field">
+                        <label className="auth-form__label" htmlFor="signup-confirm-password">Confirm Password</label>
+                        <div className="auth-form__password-field">
+                            <input
+                                id="signup-confirm-password"
+                                className="auth-form__input"
+                                type={showConfirm ? "text" : "password"}
+                                name="confirm"
+                                placeholder="Re-enter your password"
+                                required
+                                autoComplete="new-password"
+                                value={user.confirm}
+                                onChange={handleChangeInput}
+                                aria-invalid={Boolean(fieldErrors.confirm)}
+                                aria-describedby={fieldErrors.confirm ? "signup-confirm-password-error" : undefined}
+                            />
+                            <button
+                                className="auth-form__password-toggle"
+                                type="button"
+                                aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
+                                onClick={() => setShowConfirm((value) => !value)}
+                            >
+                                {showConfirm ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+                            </button>
+                        </div>
+                        {fieldErrors.confirm ? <p id="signup-confirm-password-error" className="auth-form__field-error" role="alert">{fieldErrors.confirm}</p> : null}
+                    </div>
+
+                    {fieldErrors.general ? (
+                        <div className="auth-form__general-error" role="alert" aria-live="assertive">
+                            {fieldErrors.general}
+                        </div>
+                    ) : null}
+
+                    <button className="auth-form__submit" type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>
+                        {isSubmitting ? "Creating account…" : "Sign up"}
+                        <span aria-hidden="true">→</span>
+                    </button>
+                    <p className="auth-form__legal-note">We&apos;ll send a verification link after your account is created.</p>
+                </form>
+            </AuthShell>
+        </>
     );
 };
 

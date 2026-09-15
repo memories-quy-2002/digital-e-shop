@@ -69,6 +69,34 @@ export class NestAuthService {
         return this.issueLoginSession(user, false);
     }
 
+    private isLegacyFirebaseCandidate(user: UserRow): boolean {
+        return (!user.auth_provider || user.auth_provider === "local") && !user.provider_user_id;
+    }
+
+    private async findFirebaseUser(identity: FirebaseIdentity): Promise<UserRow | null> {
+        const byId = await this.usersRepository.findById(identity.uid);
+        if (byId) return byId;
+
+        const byProviderUserId = await this.usersRepository.findByProviderUserId(identity.uid);
+        if (byProviderUserId) return byProviderUserId;
+
+        if (!identity.emailVerified) return null;
+
+        const legacyUser = await this.usersRepository.findByEmail(identity.email);
+        if (!legacyUser || !this.isLegacyFirebaseCandidate(legacyUser)) return null;
+
+        const linked = await this.usersRepository.linkFirebaseIdentity(legacyUser.id, identity.email, identity.uid);
+        if (!linked?.affectedRows) {
+            return this.usersRepository.findByProviderUserId(identity.uid);
+        }
+
+        return (await this.usersRepository.findById(legacyUser.id)) || {
+            ...legacyUser,
+            auth_provider: "firebase",
+            provider_user_id: identity.uid,
+        };
+    }
+
     private async reconcileFirebaseEmail(user: UserRow, identity: FirebaseIdentity): Promise<UserRow> {
         if (user.email?.toLowerCase() === identity.email) return user;
         if (
@@ -98,17 +126,17 @@ export class NestAuthService {
 
     async registerUser(idToken: string, input: RegisterUserInput): Promise<AuthSessionPayload> {
         const identity = await this.firebaseAdminAuthService.verifyIdToken(idToken);
-        const existing = await this.usersRepository.findById(identity.uid);
+        const existing = await this.findFirebaseUser(identity);
         if (existing?.status === "Suspended") {
             throw new UnauthorizedException({ msg: "Account is suspended" });
         }
         if (existing) {
             const reconciled = await this.reconcileFirebaseEmail(existing, identity);
             if (identity.emailVerified && reconciled.email_verified_at === null && typeof this.usersRepository.markEmailVerified === "function") {
-                await this.usersRepository.markEmailVerified(identity.uid);
+                await this.usersRepository.markEmailVerified(reconciled.id);
             }
             const current = identity.emailVerified && typeof this.usersRepository.findById === "function"
-                ? await this.usersRepository.findById(identity.uid)
+                ? await this.usersRepository.findById(reconciled.id)
                 : existing;
             return this.issueRegistrationSession(current || existing);
         }
@@ -149,7 +177,7 @@ export class NestAuthService {
 
     async loginUser(idToken: string, rememberMe = false) {
         const identity = await this.firebaseAdminAuthService.verifyIdToken(idToken);
-        const user = await this.usersRepository.findById(identity.uid);
+        const user = await this.findFirebaseUser(identity);
         if (!user) {
             throw new UnauthorizedException({ msg: "Account is not registered" });
         }
@@ -159,8 +187,8 @@ export class NestAuthService {
 
         const reconciled = await this.reconcileFirebaseEmail(user, identity);
         if (identity.emailVerified && reconciled.email_verified_at === null && typeof this.usersRepository.markEmailVerified === "function") {
-            await this.usersRepository.markEmailVerified(identity.uid);
-            const refreshed = await this.usersRepository.findById(identity.uid);
+            await this.usersRepository.markEmailVerified(reconciled.id);
+            const refreshed = await this.usersRepository.findById(reconciled.id);
             if (refreshed) return this.issueLoginSession(refreshed, rememberMe);
         }
 

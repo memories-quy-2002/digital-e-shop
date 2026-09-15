@@ -27,11 +27,13 @@ function buildAuthService(options: { stubIssueLoginSession?: boolean } = {}) {
     };
     const usersRepository = {
         findById: vi.fn(),
+        findByProviderUserId: vi.fn(),
         findByEmail: vi.fn(),
         findByUsername: vi.fn(),
         updateUserToken: vi.fn(),
         createUser: vi.fn(),
         updateAuthIdentity: vi.fn(),
+        linkFirebaseIdentity: vi.fn(),
         markEmailVerified: vi.fn(),
         syncFirebaseEmail: vi.fn(),
     };
@@ -338,6 +340,101 @@ describe("authentication flow response contract", () => {
 });
 
 describe("Firebase identity boundary", () => {
+    it("links a verified Firebase identity to a legacy email row without rewriting its user id", async () => {
+        const { service, usersRepository, firebaseAdminAuthService, issueLoginSession } = buildAuthService();
+        const legacyUser = {
+            id: "legacy-user-id",
+            email: "customer@example.com",
+            auth_provider: "local",
+            provider_user_id: null as string | null,
+            email_verified_at: null as Date | null,
+            role: "Customer",
+        };
+        const linkedUser = {
+            ...legacyUser,
+            auth_provider: "firebase",
+            provider_user_id: "firebase-uid",
+        };
+        const session = { user: linkedUser, token: "access-token", sessionId: 42, refreshToken: null as string | null };
+        firebaseAdminAuthService.verifyIdToken.mockResolvedValue({
+            uid: "firebase-uid",
+            email: "customer@example.com",
+            emailVerified: true,
+        });
+        usersRepository.findById.mockResolvedValueOnce(null).mockResolvedValue(linkedUser);
+        usersRepository.findByProviderUserId.mockResolvedValue(null);
+        usersRepository.findByEmail.mockResolvedValue(legacyUser);
+        usersRepository.linkFirebaseIdentity.mockResolvedValue({ affectedRows: 1 });
+        issueLoginSession.mockResolvedValue(session);
+
+        await expect(service.loginUser("firebase-id-token")).resolves.toBe(session);
+
+        expect(usersRepository.linkFirebaseIdentity).toHaveBeenCalledWith(
+            "legacy-user-id",
+            "customer@example.com",
+            "firebase-uid",
+        );
+        expect(issueLoginSession).toHaveBeenCalledWith(linkedUser, false);
+    });
+
+    it("reuses a linked legacy row when signup is retried for an existing Firebase email", async () => {
+        const { service, usersRepository, firebaseAdminAuthService, issueLoginSession } = buildAuthService();
+        const legacyUser = {
+            id: "legacy-user-id",
+            email: "customer@example.com",
+            auth_provider: "local",
+            provider_user_id: null as string | null,
+            email_verified_at: null as Date | null,
+            role: "Customer",
+        };
+        const linkedUser = {
+            ...legacyUser,
+            auth_provider: "firebase",
+            provider_user_id: "firebase-uid",
+        };
+        firebaseAdminAuthService.verifyIdToken.mockResolvedValue({
+            uid: "firebase-uid",
+            email: "customer@example.com",
+            emailVerified: true,
+        });
+        usersRepository.findById.mockResolvedValueOnce(null).mockResolvedValue(linkedUser);
+        usersRepository.findByProviderUserId.mockResolvedValue(null);
+        usersRepository.findByEmail.mockResolvedValue(legacyUser);
+        usersRepository.linkFirebaseIdentity.mockResolvedValue({ affectedRows: 1 });
+        issueLoginSession.mockResolvedValue({ user: linkedUser, token: "access-token", sessionId: 42, refreshToken: null });
+
+        await expect(service.registerUser("firebase-id-token", { username: "customer" })).resolves.toEqual({
+            user: linkedUser,
+            token: "access-token",
+            sessionId: 42,
+            refreshToken: null,
+        });
+
+        expect(usersRepository.markEmailVerified).toHaveBeenCalledWith("legacy-user-id");
+        expect(issueLoginSession).toHaveBeenCalledWith(linkedUser, false);
+    });
+    it("does not link an unverified Firebase identity to a legacy email row", async () => {
+        const { service, usersRepository, firebaseAdminAuthService, issueLoginSession } = buildAuthService();
+        firebaseAdminAuthService.verifyIdToken.mockResolvedValue({
+            uid: "firebase-uid",
+            email: "customer@example.com",
+            emailVerified: false,
+        });
+        usersRepository.findById.mockResolvedValue(null);
+        usersRepository.findByProviderUserId.mockResolvedValue(null);
+        usersRepository.findByEmail.mockResolvedValue({
+            id: "legacy-user-id",
+            email: "customer@example.com",
+            auth_provider: "local",
+            provider_user_id: null,
+            role: "Customer",
+        });
+
+        await expect(service.loginUser("firebase-id-token")).rejects.toBeInstanceOf(UnauthorizedException);
+
+        expect(usersRepository.linkFirebaseIdentity).not.toHaveBeenCalled();
+        expect(issueLoginSession).not.toHaveBeenCalled();
+    });
     it("looks up the account by the verified UID and does not accept a client role", async () => {
         const { service, usersRepository, firebaseAdminAuthService, issueLoginSession } = buildAuthService();
         const user = { id: "firebase-uid", email: "customer@example.com", role: "Customer" };

@@ -55,17 +55,17 @@ describe("ContactUsPage", () => {
         renderPage();
 
         expect(screen.getByRole("button")).toHaveClass("contact__form__button--primary");
-        expect(screen.getByRole("link", { name: "Review orders" })).toHaveClass("contact__hero__action--ghost");
+        expect(screen.getByRole("link", { name: "Check an order" })).toHaveClass("contact__hero__action--ghost");
     });
 
     it("stores a guest draft and redirects without calling the protected API", async () => {
         const user = userEvent.setup();
         renderPage();
 
-        await user.type(screen.getByLabelText("Your name"), "Guest Buyer");
+        await user.type(screen.getByLabelText("Full name"), "Guest Buyer");
         await user.type(screen.getByLabelText("Email address"), "guest@example.com");
-        await user.type(screen.getByLabelText("Your message"), "I need help");
-        await user.click(screen.getByRole("button", { name: "Send Message" }));
+        await user.type(screen.getByLabelText("How can we help?"), "I need help");
+        await user.click(screen.getByRole("button", { name: "Send request" }));
 
         expect(createSupportTicket).not.toHaveBeenCalled();
         expect(sessionStorage.getItem("digital-e:contact-draft:v1")).toBe(
@@ -73,8 +73,8 @@ describe("ContactUsPage", () => {
         );
         expect(navigate).toHaveBeenCalledWith("/login?redirect=%2Fcontact-us");
         expect(addToast).toHaveBeenCalledWith(
-            "Sign in to send your message",
-            "Your draft is saved for this session. Sign in to continue.",
+            "Sign in to send your request",
+            "Your message is saved for this session. Sign in to continue without starting over.",
         );
     });
 
@@ -91,7 +91,7 @@ describe("ContactUsPage", () => {
         expect(screen.getByDisplayValue("saved@example.com")).toBeInTheDocument();
         expect(screen.getByDisplayValue("Saved question")).toBeInTheDocument();
 
-        await user.click(screen.getByRole("button", { name: "Send Message" }));
+        await user.click(screen.getByRole("button", { name: "Send request" }));
 
         await waitFor(() => expect(createSupportTicket).toHaveBeenCalledTimes(1));
         expect(sessionStorage.getItem("digital-e:contact-draft:v1")).toBeNull();
@@ -115,21 +115,21 @@ describe("ContactUsPage", () => {
     it("uses localized loading and error copy", async () => {
         useAuth.mockReturnValue({ userData: null, loading: true });
         renderPage();
-        expect(screen.getByText("Checking your sign-in status…")).toBeInTheDocument();
+        expect(screen.getByText("Preparing your contact form…")).toBeInTheDocument();
 
         useAuth.mockReturnValue({ userData: { id: 1 }, loading: false });
         vi.mocked(createSupportTicket).mockRejectedValueOnce(new Error("failed"));
         const user = userEvent.setup();
         renderPage();
-        await user.type(screen.getByLabelText("Your name"), "Buyer");
+        await user.type(screen.getByLabelText("Full name"), "Buyer");
         await user.type(screen.getByLabelText("Email address"), "buyer@example.com");
-        await user.type(screen.getByLabelText("Your message"), "Help");
-        await user.click(screen.getByRole("button", { name: "Send Message" }));
+        await user.type(screen.getByLabelText("How can we help?"), "Help");
+        await user.click(screen.getByRole("button", { name: "Send request" }));
 
         await waitFor(() =>
             expect(addToast).toHaveBeenCalledWith(
-                "We could not send your message",
-                "Please try again or contact us by email or phone.",
+                "We couldn't send your request",
+                "Please try again, or use the email or phone options on this page.",
             ),
         );
     });

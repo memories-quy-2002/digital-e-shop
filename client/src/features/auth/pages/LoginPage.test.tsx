@@ -111,6 +111,20 @@ describe("LoginPage return navigation", () => {
 });
 
 describe("LoginPage Firebase errors", () => {
+    it("renders the approved storefront shell", () => {
+        render(
+            <MemoryRouter initialEntries={["/login"]}>
+                <Routes><Route path="/login" element={<LoginPage />} /></Routes>
+            </MemoryRouter>,
+        );
+
+        expect(document.querySelector(".auth-shell")).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "Back to store" })).toHaveAttribute("href", "/");
+        expect(screen.getByRole("button", { name: /color scheme:/i })).toBeInTheDocument();
+        expect(screen.getByText("Your next build starts here.")).toBeInTheDocument();
+        expect(document.querySelector(".login__image")).not.toBeInTheDocument();
+    });
+
     beforeEach(() => {
         vi.clearAllMocks();
     });
@@ -168,16 +182,4 @@ describe("LoginPage Firebase errors", () => {
         expect(screen.getByRole("textbox", { name: "Email" })).toHaveFocus();
     });
 
-    it("preloads the critical auth image without layout-shifting attributes", () => {
-        render(
-            <MemoryRouter initialEntries={["/login"]}>
-                <Routes><Route path="/login" element={<LoginPage />} /></Routes>
-            </MemoryRouter>,
-        );
-
-        const image = document.querySelector(".login__image img");
-        expect(image).toHaveAttribute("loading", "eager");
-        expect(image).toHaveAttribute("width", "1280");
-        expect(image).toHaveAttribute("height", "853");
-    });
 });
