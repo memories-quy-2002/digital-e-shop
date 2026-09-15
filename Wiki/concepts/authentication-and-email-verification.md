@@ -17,6 +17,10 @@ The default Firebase action handler marks the Firebase user as verified. The use
 
 The nullable email_verification_token_hash, email_verification_expires_at, and email_verification_sent_at columns remain only for migration and row-shape compatibility with the previous implementation. They are not used to send or consume Firebase verification links.
 
+## Legacy identity reconciliation
+
+When a verified Firebase identity matches a legacy local MySQL row by email, the server links `auth_provider` and `provider_user_id` in place while preserving the legacy `users.id` and its cart/order relationships. Unverified identities are never auto-linked by email.
+
 ## Access policy
 
 AuthGuard does not reject an unverified session. An unverified customer may browse, use the cart, wishlist, account, support, and order history. In Firebase mode, the account page can resend a link through the currently signed-in Firebase user. VerifiedEmailGuard protects authenticated purchase, Stripe checkout-session creation, and review creation. Admins and legacy rows with no verification column value are grandfathered in.

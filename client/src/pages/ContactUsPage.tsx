@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate } from "react-router-dom";
+import backgroundFormImage from "../assets/images/background_form.jpg";
 import Layout from "../components/layout/Layout";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { createSupportTicket } from "../features/support/api";
 import { BellIcon, HouseIcon, PersonIcon } from "../components/common/Icons";
 import { useT } from "../hooks/useT";
+import { HERO_IMAGE_WIDTHS, getResponsiveImageSource } from "../utils/images";
 import "../styles/pages/_contact.scss";
 
 const CONTACT_DRAFT_KEY = "digital-e:contact-draft:v1";
@@ -55,6 +57,11 @@ const ContactUsPage: React.FC = () => {
     });
     const { addToast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const heroImageSource = getResponsiveImageSource(backgroundFormImage, {
+        widths: HERO_IMAGE_WIDTHS,
+        sizes: "100vw",
+        fit: "fill",
+    });
 
     useEffect(() => {
         const draft = readContactDraft();
@@ -110,8 +117,19 @@ const ContactUsPage: React.FC = () => {
                 />
             </Helmet>
             <main className="contact info-page">
-                <section className="contact__hero">
-                    <div className="contact__hero__content">
+                <section className="contact__hero info-page__hero">
+                    <img
+                        className="info-page__hero__image"
+                        src={heroImageSource.src}
+                        srcSet={heroImageSource.srcSet}
+                        sizes={heroImageSource.sizes}
+                        alt=""
+                        aria-hidden="true"
+                        loading="eager"
+                        fetchPriority="high"
+                        decoding="async"
+                    />
+                    <div className="contact__hero__content info-page__hero__content">
                         <h1>{t("contact.title")}</h1>
                         <p>{t("contact.subtitle")}</p>
                         <div className="info-page__actions">
@@ -121,7 +139,7 @@ const ContactUsPage: React.FC = () => {
                             </Link>
                         </div>
                     </div>
-                    <div className="contact__hero__stats">
+                    <div className="contact__hero__stats info-page__hero__rail">
                         <article>
                             <span>{t("contact.stats.responseLabel")}</span>
                             <strong>{t("contact.stats.responseValue")}</strong>

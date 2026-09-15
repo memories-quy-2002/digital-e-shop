@@ -2,44 +2,30 @@
 
 .support {
     &__hero {
-        position: relative;
-        overflow: hidden;
-        border-radius: 28px;
-        background: var(--de-color-surface-inverse);
-        color: var(--de-color-on-inverse);
-        padding: 2rem;
-        min-height: 470px;
-        display: grid;
-        align-content: center;
+        grid-template-columns: minmax(0, 1fr);
 
-        &::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            z-index: 1;
-            background: linear-gradient(120deg, color-mix(in srgb, var(--de-color-surface-inverse) 92%, transparent), color-mix(in srgb, var(--de-color-surface-inverse) 74%, transparent));
+        &__content {
+            width: min(100%, 720px);
+            max-width: 720px;
         }
 
-        > img {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        .info-page__hero__image {
+            object-position: 54% 50%;
         }
 
-        > *:not(img) {
-            position: relative;
-            z-index: 2;
+        .info-page__actions a {
+            font-size: 0.82rem;
         }
 
-        @media (min-width: 860px) {
-            padding: 4rem;
+        @media (max-width: 640px) {
+            &__content {
+                width: calc(100% - 4rem);
+            }
         }
 
         h1 {
             max-width: 720px;
-            margin: 1rem 0 0;
+            margin: 0;
             font-size: clamp(2.3rem, 5vw, 4.6rem);
             line-height: 1.03;
             color: var(--de-color-on-inverse);
@@ -55,15 +41,6 @@
 
         &__actions {
             margin-top: 1.5rem;
-        }
-
-        @media (max-width: 520px) {
-            min-height: 420px;
-
-            &__actions {
-                align-items: stretch;
-                flex-direction: column;
-            }
         }
     }
 
@@ -84,7 +61,7 @@
     &__channels__card,
     &__resources__card {
         border: 1px solid var(--info-line);
-        border-radius: 18px;
+        border-radius: var(--de-radius-md);
         background: var(--de-color-surface-strong);
         padding: 1.35rem;
         box-shadow: var(--de-shadow-sm);
@@ -158,7 +135,7 @@
 
     &__faq__item {
         border: 1px solid var(--info-line);
-        border-radius: 18px;
+        border-radius: var(--de-radius-md);
         background: var(--de-color-surface-strong);
         padding: 1rem 1.15rem;
         text-align: left;

@@ -2,40 +2,15 @@
 
 .news {
     &__hero {
-        position: relative;
-        min-height: 520px;
-        display: grid;
-        align-items: end;
-        overflow: hidden;
-        border-radius: 28px;
-        background: var(--info-hero);
-        color: var(--info-hero-text);
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) auto;
 
-        > img {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            opacity: 0.62;
-        }
-
-        &::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background: color-mix(in srgb, var(--info-hero) 78%, transparent);
+        .info-page__hero__image {
+            object-position: 55% 50%;
         }
 
         &__content {
-            position: relative;
-            z-index: 1;
             max-width: 760px;
-            padding: 2rem;
-
-            @media (min-width: 860px) {
-                padding: 3.5rem;
-            }
         }
 
         h1 {
@@ -64,25 +39,43 @@
         }
 
         &__ticker {
-            position: relative;
-            z-index: 1;
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.7rem;
-            padding: 0 2rem 2rem;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.6rem;
+            padding: 0 clamp(1.35rem, 5vw, 3.5rem) clamp(1.35rem, 4vw, 2.5rem);
 
             span {
-                border-radius: 14px;
+                display: flex;
+                min-height: 3.25rem;
+                align-items: center;
+                border-radius: var(--de-radius-md);
                 background: color-mix(in srgb, var(--info-hero-text) 12%, transparent);
                 border: 1px solid var(--info-hero-border);
                 padding: 0.75rem 0.85rem;
                 color: var(--info-hero-text);
+                font-size: 0.84rem;
+                line-height: 1.35;
                 font-weight: 800;
             }
+        }
 
-            @media (min-width: 860px) {
-                grid-template-columns: repeat(4, minmax(0, 1fr));
-                padding: 0 3.5rem 3rem;
+        @media (max-width: 859px) {
+            &__ticker {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 640px) {
+            &__ticker {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                overflow: visible;
+
+                span {
+                    min-height: 3.1rem;
+                    padding: 0.65rem 0.7rem;
+                    font-size: 0.76rem;
+                }
             }
         }
     }
@@ -92,7 +85,7 @@
         grid-template-columns: 1fr;
         overflow: hidden;
         border: 1px solid var(--info-line);
-        border-radius: 24px;
+        border-radius: var(--de-radius-lg);
         background: var(--de-color-surface-strong);
         box-shadow: var(--de-shadow-md);
 
@@ -178,7 +171,7 @@
         flex-direction: column;
         gap: 0.9rem;
         border: 1px solid var(--info-line);
-        border-radius: 18px;
+        border-radius: var(--de-radius-md);
         background: var(--de-color-surface-strong);
         padding: 1.35rem;
         box-shadow: var(--de-shadow-sm);
@@ -231,7 +224,7 @@
 .news-article {
     &__back { width: fit-content; }
     &__back a { color: var(--info-muted); font-weight: 800; text-decoration: none; }
-    &__surface { overflow: hidden; border: 1px solid var(--info-line); border-radius: 24px; background: var(--de-color-surface-strong); }
+    &__surface { overflow: hidden; border: 1px solid var(--info-line); border-radius: var(--de-radius-lg); background: var(--de-color-surface-strong); }
     &__surface > img { display: block; width: 100%; max-height: 360px; object-fit: cover; }
     &__content { max-width: 840px; margin: 0 auto; padding: clamp(1.5rem, 5vw, 4rem); }
     h1 { margin: 1rem 0; color: var(--info-ink); font-size: clamp(2rem, 5vw, 4rem); line-height: 1.05; }

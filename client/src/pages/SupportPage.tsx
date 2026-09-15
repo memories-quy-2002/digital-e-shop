@@ -44,13 +44,15 @@ const SupportPage: React.FC = () => {
                 <meta name="description" content={t("support.metaDescription")} />
             </Helmet>
             <main className="support info-page">
-                <header className="support__hero">
-                    <img src={heroImageSource.src} srcSet={heroImageSource.srcSet} sizes={heroImageSource.sizes} alt="" aria-hidden="true" loading="eager" fetchPriority="high" decoding="async" />
-                    <h1>{t("support.title")}</h1>
-                    <p>{t("support.heroSubtitle")}</p>
-                    <div className="support__hero__actions info-page__actions">
-                        <Link to="/orders">{t("support.viewOrderHistory")}</Link>
-                        <Link to="/contact-us" className="ghost">{t("support.contactUs")}</Link>
+                <header className="support__hero info-page__hero">
+                    <img className="info-page__hero__image" src={heroImageSource.src} srcSet={heroImageSource.srcSet} sizes={heroImageSource.sizes} alt="" aria-hidden="true" loading="eager" fetchPriority="high" decoding="async" />
+                    <div className="support__hero__content info-page__hero__content">
+                        <h1>{t("support.title")}</h1>
+                        <p>{t("support.heroSubtitle")}</p>
+                        <div className="support__hero__actions info-page__actions">
+                            <Link to="/orders">{t("support.viewOrderHistory")}</Link>
+                            <Link to="/contact-us" className="ghost">{t("support.contactUs")}</Link>
+                        </div>
                     </div>
                 </header>
 

@@ -61,7 +61,7 @@ describe("NewsPage", () => {
 
         try {
             renderNews();
-            expect(screen.getAllByRole("link", { name: "Read article" })[0]).toHaveAttribute(
+            expect(screen.getAllByRole("link", { name: "Read the guide" })[0]).toHaveAttribute(
                 "href",
                 "/news/faster-order-tracking",
             );
@@ -73,8 +73,8 @@ describe("NewsPage", () => {
     it("links the featured story and every article to its stable detail slug", () => {
         renderNews();
 
-        expect(screen.getAllByRole("link", { name: "Read article" })).toHaveLength(5);
-        expect(screen.getAllByRole("link", { name: "Read article" }).map((link) => link.getAttribute("href"))).toEqual([
+        expect(screen.getAllByRole("link", { name: "Read the guide" })).toHaveLength(5);
+        expect(screen.getAllByRole("link", { name: "Read the guide" }).map((link) => link.getAttribute("href"))).toEqual([
             "/news/faster-order-tracking",
             "/news/laptops-for-creators-students-and-hybrid-teams",
             "/news/checkout-and-payment-experience",
@@ -112,9 +112,9 @@ describe("NewsArticlePage", () => {
         renderArticle("checkout-and-payment-experience");
 
         expect(
-            screen.getByRole("heading", { name: "What changed in our checkout and payment experience" }),
+            screen.getByRole("heading", { name: "What to check before you place an electronics order" }),
         ).toBeVisible();
-        expect(screen.getByRole("link", { name: "Back to news" })).toHaveAttribute("href", "/news");
+        expect(screen.getAllByRole("link", { name: /Back to News/ })).toHaveLength(2);
     });
 
     it("renders NotFoundPage for an unknown slug instead of the first article", () => {
@@ -123,7 +123,7 @@ describe("NewsArticlePage", () => {
         expect(screen.getByRole("heading", { name: "Page not found" })).toBeVisible();
         expect(
             screen.queryByRole("heading", {
-                name: "Digital-E expands faster order tracking and personalized product discovery",
+                name: "A clearer way to choose and buy technology",
             }),
         ).not.toBeInTheDocument();
     });
@@ -159,7 +159,7 @@ describe("NewsArticlePage", () => {
             </MemoryRouter>,
         );
 
-        await waitFor(() => expect(screen.getByRole("heading", { name: "Audio picks: when to choose ANC, open-back, or studio monitors" })).toBeVisible());
+        await waitFor(() => expect(screen.getByRole("heading", { name: "Build an audio setup around the way you listen" })).toBeVisible());
         expect(scrollTo).toHaveBeenCalledWith(0, 0);
 
         scrollTo.mockRestore();

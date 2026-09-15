@@ -17,6 +17,19 @@ export class UsersRepository {
         });
     }
 
+    findByProviderUserId(providerUserId: string): Promise<UserRow | null> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                "SELECT * FROM users WHERE auth_provider = 'firebase' AND provider_user_id = ? LIMIT 1",
+                [providerUserId],
+                (queryErr: DbError | null, results?: UserRow[]) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve(results?.[0] || null);
+                },
+            );
+        });
+    }
+
     findByEmail(email: string): Promise<UserRow | null> {
         return new Promise((resolve, reject) => {
             pool.query("SELECT * FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1", [email], (queryErr: DbError | null, results?: UserRow[]) => {
@@ -149,6 +162,25 @@ export class UsersRepository {
             pool.query(
                 "UPDATE users SET auth_provider = ?, provider_user_id = ? WHERE id = ?",
                 [provider, providerUserId, uid],
+                (queryErr: DbError | null, result?: UpdateResult) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve(result || { affectedRows: 0 });
+                },
+            );
+        });
+    }
+
+    linkFirebaseIdentity(userId: string, email: string, providerUserId: string): Promise<UpdateResult> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                `UPDATE users
+                 SET auth_provider = 'firebase',
+                     provider_user_id = ?
+                 WHERE id = ?
+                   AND LOWER(email) = LOWER(?)
+                   AND COALESCE(auth_provider, '') IN ('', 'local')
+                   AND COALESCE(provider_user_id, '') = ''`,
+                [providerUserId, userId, email],
                 (queryErr: DbError | null, result?: UpdateResult) => {
                     if (queryErr) return reject(queryErr);
                     resolve(result || { affectedRows: 0 });

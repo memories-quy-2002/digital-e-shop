@@ -51,8 +51,9 @@ const NewsPage: React.FC = () => {
                 />
             </Helmet>
             <main className="news info-page">
-                <header className="news__hero">
+                <header className="news__hero info-page__hero">
                     <img
+                        className="info-page__hero__image"
                         src={heroImageSource.src}
                         srcSet={heroImageSource.srcSet}
                         sizes={heroImageSource.sizes}
@@ -62,7 +63,7 @@ const NewsPage: React.FC = () => {
                         fetchPriority="high"
                         decoding="async"
                     />
-                    <div className="news__hero__content">
+                    <div className="news__hero__content info-page__hero__content">
                         <h1>{t("news.title")}</h1>
                         <p>{t("news.subtitle")}</p>
                         <div className="news__hero__actions info-page__actions">
@@ -72,7 +73,7 @@ const NewsPage: React.FC = () => {
                             </Link>
                         </div>
                     </div>
-                    <div className="news__hero__ticker" aria-label={t("news.tickerAria")}>
+                    <div className="news__hero__ticker info-page__hero__rail" aria-label={t("news.tickerAria")}>
                         {briefs.map((brief) => (
                             <span key={brief}>{brief}</span>
                         ))}
@@ -85,7 +86,7 @@ const NewsPage: React.FC = () => {
                             src={featureImageSource.src}
                             srcSet={featureImageSource.srcSet}
                             sizes={featureImageSource.sizes}
-                            alt="Workspace with electronics and productivity gear"
+                            alt={t("news.featureImageAlt")}
                             loading="lazy"
                             decoding="async"
                         />
