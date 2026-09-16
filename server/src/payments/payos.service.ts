@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PayOS, type CreatePaymentLinkRequest, type Webhook, type WebhookData } from "@payos/node";
 import { NestConfigService } from "../config/nest-config.service";
+import type { PayOSPaymentLookup } from "./payment.types";
 
 export type PayOSPaymentLinkResult = {
     orderCode: number;
@@ -55,6 +56,22 @@ export class PayOSService {
         };
     }
 
+    async getPaymentLink(identifier: { paymentLinkId?: string; orderCode?: number }): Promise<PayOSPaymentLookup> {
+        if (identifier.orderCode === undefined && !identifier.paymentLinkId) {
+            throw new Error("PayOS payment link identifier is required");
+        }
+        const link = identifier.orderCode !== undefined
+            ? await this.getClient().paymentRequests.get(identifier.orderCode)
+            : await this.getClient().paymentRequests.get(identifier.paymentLinkId as string);
+        return {
+            orderCode: link.orderCode,
+            paymentLinkId: link.id,
+            amount: link.amount,
+            amountPaid: link.amountPaid,
+            status: link.status,
+            currency: "VND",
+        };
+    }
     cancelPaymentLink(paymentLinkId: string, reason: string) {
         return this.getClient().paymentRequests.cancel(paymentLinkId, reason);
     }

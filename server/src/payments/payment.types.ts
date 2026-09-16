@@ -1,4 +1,13 @@
 export type PaymentProviderName = "cash" | "payos";
+
+export type PayOSPaymentLookup = {
+    orderCode: number;
+    paymentLinkId: string;
+    amount: number;
+    amountPaid: number;
+    status: string;
+    currency: "VND";
+};
 export type PaymentCurrency = "VND";
 export type PaymentStatus = "pending" | "paid" | "failed" | "refund_pending" | "partially_refunded" | "refunded";
 
