@@ -154,10 +154,11 @@ export class OrdersController {
     @Roles("admin")
     async changeOrderStatus(
         @Param("oid") oid: string,
+        @Req() req: AuthenticatedRequest,
         @Body(new ZodValidationPipe(orderStatusSchema)) body: { status: number },
     ) {
         try {
-            const order = await this.ordersService.changeOrderStatus(Number(oid), body.status);
+            const order = await this.ordersService.changeOrderStatus(Number(oid), body.status, String(req.user?.id || ""));
             if (!order) {
                 throw new HttpException({ msg: "Order not found" }, 404);
             }

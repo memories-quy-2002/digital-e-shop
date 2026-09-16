@@ -15,6 +15,7 @@ export type OrderSummaryRow = {
     total_price: number;
     discount: number;
     date_added: string;
+    delivered_at?: string | null;
     shipping_address?: string | null;
     payment_method?: string | null;
     currency?: string;
@@ -69,6 +70,7 @@ export type OrderDetailRow = OrderSummaryRow & {
 export type OrderDetail = {
     id: number;
     date_added: string;
+    delivered_at?: string | null;
     user_id: string | null;
     guest_email?: string | null;
     guest_name?: string | null;

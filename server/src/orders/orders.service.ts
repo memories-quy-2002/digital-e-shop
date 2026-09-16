@@ -1403,6 +1403,7 @@ export class NestOrdersService {
                 const order: OrderDetail = {
                     id: first.id,
                     date_added: first.date_added,
+                    delivered_at: first.delivered_at || null,
                     user_id: first.user_id,
                     guest_email: first.guest_email || null,
                     guest_name: first.guest_name || null,
@@ -1462,18 +1463,37 @@ export class NestOrdersService {
         }
 
         return withTransaction(async (tx) => {
-            const [current] = await tx.query<Array<{ user_id: string; status: number }>>(
-                "SELECT user_id, status FROM orders WHERE id = ? FOR UPDATE",
+            const [current] = await tx.query<Array<{ user_id: string; status: number; delivered_at?: string | Date | null }>>(
+                "SELECT user_id, status, delivered_at FROM orders WHERE id = ? FOR UPDATE",
                 [orderId],
             );
             if (!current) throw createCheckoutError("Order not found", 404);
-            if (Number(current.status) === 1) return { userId: current.user_id, changed: false };
+            const [payment] = await tx.query<Array<{ id: number; provider: string; status: string }>>(
+                "SELECT id, provider, status FROM order_payments WHERE order_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE",
+                [orderId],
+            );
+            if (payment?.provider === "payos" && payment.status !== "paid") {
+                throw createCheckoutError("PayOS payment must be paid before delivery", 409);
+            }
+            if (Number(current.status) === 1) {
+                if (!current.delivered_at) {
+                    await tx.query("UPDATE orders SET delivered_at = COALESCE(delivered_at, UTC_TIMESTAMP()) WHERE id = ?", [orderId]);
+                }
+                return { userId: current.user_id, changed: false };
+            }
             if (Number(current.status) !== 0) {
                 throw createCheckoutError("Canceled orders cannot transition to Done", 409);
             }
-
-            await tx.query("UPDATE orders SET status = 1 WHERE id = ? AND status = 0", [orderId]);
-
+            await tx.query(
+                "UPDATE orders SET status = 1, delivered_at = COALESCE(delivered_at, UTC_TIMESTAMP()) WHERE id = ? AND status = 0",
+                [orderId],
+            );
+            if (payment?.provider === "cash" && payment.status === "pending") {
+                await tx.query(
+                    "UPDATE order_payments SET status = 'paid', paid_at = COALESCE(paid_at, UTC_TIMESTAMP()), reconciliation_status = 'MANUAL_CONFIRMED', last_reconciled_at = UTC_TIMESTAMP(), provider_status = 'COLLECTED', updated_at = UTC_TIMESTAMP() WHERE id = ? AND provider = 'cash' AND status = 'pending'",
+                    [payment.id],
+                );
+            }
             await this.orderTimelineService.createTimelineEventInTransaction(tx, {
                 orderId,
                 status: 1,

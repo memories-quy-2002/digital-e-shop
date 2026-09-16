@@ -14,6 +14,7 @@ function buildController() {
     const ordersService = {
         applyDiscount: vi.fn(),
         makePurchase: vi.fn(),
+        changeOrderStatus: vi.fn(),
         getOrderDetail: vi.fn(),
         getOrderByStripeSessionId: vi.fn(),
     } as unknown as NestOrdersService;
@@ -130,5 +131,11 @@ describe("OrdersController", () => {
             "user-1",
             expect.objectContaining({ discount: 10 }),
         );
+    });
+    it("passes the authenticated admin actor to the order status transition", async () => {
+        const { controller, ordersService } = buildController();
+        vi.mocked(ordersService.changeOrderStatus).mockResolvedValue({ id: 41, status: 1 } as never);
+        await controller.changeOrderStatus("41", adminRequest(), { status: 1 });
+        expect(ordersService.changeOrderStatus).toHaveBeenCalledWith(41, 1, "admin-1");
     });
 });

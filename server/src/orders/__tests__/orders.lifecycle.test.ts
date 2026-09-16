@@ -17,12 +17,12 @@ import { NestOrdersService } from "../orders.service";
 
 type RepositoryCallback = (error: Error | null, rows: unknown) => void;
 
-function buildService({ paidStripe = false } = {}) {
+function buildService({ paidStripe = false, orderId = 9, paymentProvider: ledgerProvider, paymentStatus = "pending" } = {}) {
     const tx = { query: vi.fn() };
     let orderStatus = 0;
     const orderRepository = {
         getOrderById: vi.fn((_id: number, callback: RepositoryCallback) => callback(null, [{
-            id: 9,
+            id: orderId,
             user_id: "user-1",
             status: orderStatus,
             total_price: 50,
@@ -42,13 +42,16 @@ function buildService({ paidStripe = false } = {}) {
 
     tx.query.mockImplementation(async (sql: string) => {
         const normalizedSql = sql.trimStart();
+        if (sql.includes("SELECT user_id, status") && sql.includes("FROM orders")) {
+            return [{ user_id: "user-1", status: orderStatus, delivered_at: null }];
+        }
         if (sql.includes("SELECT id, user_id, status, total_price")) {
             return [{ id: 9, user_id: "user-1", status: orderStatus, total_price: 50, discount: 0 }];
         }
         if (sql.includes("FROM order_payments")) {
-            return paidStripe
-                ? [{ id: 3, provider: "stripe", status: "paid", provider_payment_id: "pi_9", amount: 50, currency: "USD" }]
-                : [];
+            if (paidStripe) return [{ id: 3, provider: "stripe", status: "paid", provider_payment_id: "pi_9", amount: 50, currency: "USD" }];
+            if (ledgerProvider) return [{ id: orderId, provider: ledgerProvider, status: paymentStatus, provider_payment_id: "pay_4", amount: 50, currency: "VND" }];
+            return [];
         }
         if (normalizedSql.startsWith("SELECT") && sql.includes("inventory_restored_at")) {
             return [{ user_id: "user-1", status: orderStatus, inventory_restored_at: null }];
@@ -56,7 +59,7 @@ function buildService({ paidStripe = false } = {}) {
         if (sql.includes("FROM order_items")) return [{ product_id: 4, quantity: 2 }];
         if (sql.includes("FROM products")) return [{ id: 4, stock: 5 }];
         if (normalizedSql.startsWith("UPDATE orders")) {
-            orderStatus = 2;
+            orderStatus = sql.includes("status = 1") ? 1 : 2;
             return { affectedRows: 1 };
         }
         return { affectedRows: 1 };
@@ -111,6 +114,25 @@ describe("order lifecycle", () => {
             currency: "USD",
         }));
         expect(tx.query).toHaveBeenCalledWith(expect.stringContaining("status = 'refunded'"), ["re_9", 9]);
+        expect(timeline.createTimelineEventInTransaction).toHaveBeenCalledTimes(1);
+    });
+    it("sets delivered_at and marks a pending COD ledger paid once", async () => {
+        const { service, tx } = buildService({ orderId: 41, paymentProvider: "cash" });
+        const result = await service.changeOrderStatus(41, 1, "admin-1");
+        expect(result.status).toBe(1);
+        expect(tx.query).toHaveBeenCalledWith(expect.stringContaining("delivered_at"), expect.any(Array));
+        expect(tx.query).toHaveBeenCalledWith(expect.stringContaining("provider = 'cash'"), expect.arrayContaining([41]));
+    });
+
+    it("does not complete an unpaid PayOS order as delivered", async () => {
+        const { service } = buildService({ orderId: 42, paymentProvider: "payos" });
+        await expect(service.changeOrderStatus(42, 1, "admin-1")).rejects.toMatchObject({ statusCode: 409 });
+    });
+
+    it("repeating Done does not add a second delivery event", async () => {
+        const { service, timeline } = buildService({ orderId: 41, paymentProvider: "cash" });
+        await service.changeOrderStatus(41, 1, "admin-1");
+        await service.changeOrderStatus(41, 1, "admin-1");
         expect(timeline.createTimelineEventInTransaction).toHaveBeenCalledTimes(1);
     });
 });
