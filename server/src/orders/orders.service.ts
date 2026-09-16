@@ -1472,9 +1472,6 @@ export class NestOrdersService {
                 "SELECT id, provider, status FROM order_payments WHERE order_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE",
                 [orderId],
             );
-            if (payment?.provider === "payos" && payment.status !== "paid") {
-                throw createCheckoutError("PayOS payment must be paid before delivery", 409);
-            }
             if (Number(current.status) === 1) {
                 if (!current.delivered_at) {
                     await tx.query("UPDATE orders SET delivered_at = COALESCE(delivered_at, UTC_TIMESTAMP()) WHERE id = ?", [orderId]);
@@ -1483,6 +1480,9 @@ export class NestOrdersService {
             }
             if (Number(current.status) !== 0) {
                 throw createCheckoutError("Canceled orders cannot transition to Done", 409);
+            }
+            if (payment?.provider === "payos" && payment.status !== "paid") {
+                throw createCheckoutError("PayOS payment must be paid before delivery", 409);
             }
             await tx.query(
                 "UPDATE orders SET status = 1, delivered_at = COALESCE(delivered_at, UTC_TIMESTAMP()) WHERE id = ? AND status = 0",
