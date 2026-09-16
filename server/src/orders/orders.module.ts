@@ -1,6 +1,9 @@
 import { Module } from "@nestjs/common";
 import type { MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { OrdersController } from "./orders.controller";
+import { AdminPaymentsController } from "../payments/admin-payments.controller";
+import { PaymentReconciliationRepository } from "../payments/payment-reconciliation.repository";
+import { PaymentReconciliationService } from "../payments/payment-reconciliation.service";
 import { NestOrdersService } from "./orders.service";
 import { NestOrdersPayOSService } from "./orders.payos.service";
 import { OrdersRepository } from "./orders.repository";
@@ -20,7 +23,7 @@ import { UsersModule } from "../users/users.module";
 
 @Module({
     imports: [NestConfigModule, CartModule, InventoryModule, NotificationsModule, PromotionsModule, ProductsModule, PaymentsModule, UsersModule],
-    controllers: [OrdersController],
+    controllers: [OrdersController, AdminPaymentsController],
     providers: [
         NestOrdersService,
         NestOrdersPayOSService,
@@ -28,9 +31,11 @@ import { UsersModule } from "../users/users.module";
         CheckoutReservationService,
         OrdersRepository,
         NestOrderTimelineService,
+        PaymentReconciliationRepository,
+        PaymentReconciliationService,
         OrderTimelineRepository,
     ],
-    exports: [NestOrdersService, NestOrdersPayOSService, CheckoutReservationService],
+    exports: [NestOrdersService, NestOrdersPayOSService, CheckoutReservationService, PaymentReconciliationService],
 })
 export class OrdersModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {

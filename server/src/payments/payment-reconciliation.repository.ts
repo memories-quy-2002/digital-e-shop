@@ -149,6 +149,29 @@ export class PaymentReconciliationRepository {
         return rows[0] || null;
     }
 
+    async getOrderPaymentByOrderId(tx: TransactionContext, orderId: number) {
+        const rows = await tx.query<Array<Record<string, unknown>>>(
+            `SELECT id, order_id, provider, status, provider_reference, provider_payment_id, amount, currency,
+                    reconciliation_status, provider_status, paid_at, last_reconciliation_error
+             FROM order_payments WHERE order_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE`,
+            [orderId],
+        );
+        return rows[0] || null;
+    }
+
+    async confirmCashPayment(tx: TransactionContext, orderPaymentId: number) {
+        await tx.query(
+            `UPDATE order_payments
+             SET status = 'paid', paid_at = COALESCE(paid_at, UTC_TIMESTAMP()),
+                 reconciliation_status = 'MANUAL_CONFIRMED', provider_status = 'COLLECTED',
+                 last_reconciled_at = UTC_TIMESTAMP(), last_reconciliation_error = NULL,
+                 updated_at = UTC_TIMESTAMP()
+             WHERE id = ? AND provider = 'cash' AND status = 'pending'`,
+            [orderPaymentId],
+        );
+        return this.getOrderPaymentForUpdate(tx, orderPaymentId);
+    }
+
     async recordAttempt(tx: TransactionContext, input: ReconciliationAttemptInput): Promise<InsertResult> {
         if ((input.pendingCheckoutId == null) === (input.orderPaymentId == null)) throw new Error("Exactly one reconciliation target is required");
         return tx.query<InsertResult>(
