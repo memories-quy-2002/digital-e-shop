@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PaymentReconciliationRepository } from "../payment-reconciliation.repository";
+import { PaymentReconciliationService } from "../payment-reconciliation.service";
 
 type Query = ReturnType<typeof vi.fn>;
 const buildTx = (query: Query) => ({ query });
@@ -81,5 +82,140 @@ describe("PaymentReconciliationRepository", () => {
         }
         expect(tx.query.mock.calls[0][1]).toEqual(expectedValues.slice(0, -2));
         expect(tx.query.mock.calls[1][1]).toEqual(expectedValues);
+    });
+});
+
+
+const { withTransaction } = vi.hoisted(() => ({ withTransaction: vi.fn() }));
+
+vi.mock("../../database/transaction", () => ({ withTransaction }));
+
+const validInput = {
+    envelope: { code: "00", success: true },
+    data: {
+        orderCode: 123456,
+        paymentLinkId: "link-123",
+        amount: 250000,
+        currency: "VND",
+        code: "00",
+        status: "PAID",
+        reference: "reference-123",
+        transactionDateTime: "2026-09-16T10:00:00Z",
+    },
+};
+
+const buildRepository = () => ({
+    claimWebhookEvent: vi.fn().mockResolvedValue({
+        inserted: true,
+        eventId: 7,
+        status: "RECEIVED",
+        payloadHashMatches: true,
+    }),
+    completeWebhookEvent: vi.fn().mockResolvedValue(undefined),
+});
+
+describe("PaymentReconciliationService", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        withTransaction.mockImplementation(async (work: (tx: unknown) => Promise<unknown>) => work({ query: vi.fn() }));
+    });
+
+    it("does not finalize a duplicate processed event", async () => {
+        const repository = buildRepository();
+        repository.claimWebhookEvent.mockResolvedValue({ inserted: false, status: "PROCESSED", payloadHashMatches: true, eventId: 7 });
+        const ordersService = { finalizePayOSCheckout: vi.fn() };
+        const service = new PaymentReconciliationService(repository as never, ordersService as never);
+
+        await expect(service.handleVerifiedPayOSWebhook(validInput)).resolves.toMatchObject({ kind: "duplicate", httpStatus: 200 });
+        expect(ordersService.finalizePayOSCheckout).not.toHaveBeenCalled();
+    });
+
+    it("returns retryable for an event left in processing", async () => {
+        const repository = buildRepository();
+        repository.claimWebhookEvent.mockResolvedValue({ inserted: false, status: "PROCESSING", payloadHashMatches: true, eventId: 7 });
+        const ordersService = { finalizePayOSCheckout: vi.fn() };
+        const service = new PaymentReconciliationService(repository as never, ordersService as never);
+
+        await expect(service.handleVerifiedPayOSWebhook(validInput)).resolves.toMatchObject({ kind: "retryable", httpStatus: 500 });
+        expect(ordersService.finalizePayOSCheckout).not.toHaveBeenCalled();
+    });
+
+    it("records a same-key payload conflict without creating an order", async () => {
+        const repository = buildRepository();
+        repository.claimWebhookEvent.mockResolvedValue({ inserted: false, status: "PROCESSED", payloadHashMatches: false, conflict: true, eventId: 7 });
+        const ordersService = { finalizePayOSCheckout: vi.fn() };
+        const service = new PaymentReconciliationService(repository as never, ordersService as never);
+
+        await expect(service.handleVerifiedPayOSWebhook(validInput)).resolves.toMatchObject({ kind: "mismatch", httpStatus: 200 });
+        expect(ordersService.finalizePayOSCheckout).not.toHaveBeenCalled();
+        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "MISMATCH", expect.any(String));
+    });
+
+    it("records a mismatched reservation without creating an order", async () => {
+        const repository = buildRepository();
+        const ordersService = {
+            finalizePayOSCheckout: vi.fn().mockRejectedValue(Object.assign(new Error("PayOS payment amount or reference does not match the checkout reservation."), { statusCode: 409 })),
+        };
+        const service = new PaymentReconciliationService(repository as never, ordersService as never);
+
+        await expect(service.handleVerifiedPayOSWebhook(validInput)).resolves.toMatchObject({ kind: "mismatch", httpStatus: 200 });
+        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "MISMATCH", expect.any(String));
+    });
+
+    it("returns retryable when finalization fails transiently", async () => {
+        const repository = buildRepository();
+        const ordersService = { finalizePayOSCheckout: vi.fn().mockRejectedValue(new Error("database unavailable")) };
+        const service = new PaymentReconciliationService(repository as never, ordersService as never);
+
+        await expect(service.handleVerifiedPayOSWebhook(validInput)).resolves.toMatchObject({ kind: "retryable", httpStatus: 500 });
+        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "FAILED", "database unavailable");
+    });
+
+    it("ignores a successful event when no local reservation is found", async () => {
+        const repository = buildRepository();
+        const ordersService = { finalizePayOSCheckout: vi.fn().mockResolvedValue(null) };
+        const service = new PaymentReconciliationService(repository as never, ordersService as never);
+
+        await expect(service.handleVerifiedPayOSWebhook(validInput)).resolves.toMatchObject({ kind: "ignored", httpStatus: 200 });
+        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "IGNORED", expect.any(String));
+    });
+
+    it("finalizes a verified exact VND event once and marks it processed", async () => {
+        const repository = buildRepository();
+        const ordersService = { finalizePayOSCheckout: vi.fn().mockResolvedValue({ id: 42, date_added: "2026-09-16T10:00:00.000Z" }) };
+        const service = new PaymentReconciliationService(repository as never, ordersService as never);
+
+        await expect(service.handleVerifiedPayOSWebhook(validInput)).resolves.toMatchObject({ kind: "processed", httpStatus: 200, orderId: 42 });
+        expect(ordersService.finalizePayOSCheckout).toHaveBeenCalledTimes(1);
+        expect(ordersService.finalizePayOSCheckout).toHaveBeenCalledWith(123456, "link-123", 250000);
+        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "PROCESSED", null);
+    });
+
+    it("builds a deterministic event key from the provider reference or canonical fields", () => {
+        const repository = buildRepository();
+        const service = new PaymentReconciliationService(repository as never, { finalizePayOSCheckout: vi.fn() } as never);
+
+        expect(service.buildPayOSEventKey(validInput.data)).toBe("payos:reference-123");
+        expect(service.buildPayOSEventKey({ ...validInput.data, reference: undefined })).toMatch(/^payos:sha256:[a-f0-9]{64}$/);
+    });
+});
+describe("PaymentReconciliationService error classification", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        withTransaction.mockImplementation(async (work: (tx: unknown) => Promise<unknown>) => work({ query: vi.fn() }));
+    });
+
+    it("does not acknowledge unrelated 409 domain conflicts as a provider mismatch", async () => {
+        const repository = buildRepository();
+        const ordersService = {
+            finalizePayOSCheckout: vi.fn().mockRejectedValue(Object.assign(new Error("Checkout reservation is no longer payable."), { statusCode: 409 })),
+        };
+        const service = new PaymentReconciliationService(repository as never, ordersService as never);
+
+        await expect(service.handleVerifiedPayOSWebhook(validInput)).resolves.toMatchObject({
+            kind: "retryable",
+            httpStatus: 500,
+        });
+        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "FAILED", "Checkout reservation is no longer payable.");
     });
 });

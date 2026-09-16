@@ -220,11 +220,6 @@ export class NestOrdersPayOSService {
         }
     }
 
-    async handlePaymentWebhook(orderCode: number, paymentLinkId: string, amount: number): Promise<void> {
-        const order = await this.ordersService.finalizePayOSCheckout(orderCode, paymentLinkId, amount);
-        if (!order) logger.error({ orderCode, paymentLinkId }, "[handlePayOSWebhook] no pending checkout found");
-    }
-
     async confirmMockPayment(orderCode: number, paymentLinkId: string, amount: number): Promise<{ id: number; date_added: string }> {
         if (env.paymentProviderMode !== "mock") {
             throw createCheckoutError("The PayOS simulator is disabled outside mock payment mode.", 404);

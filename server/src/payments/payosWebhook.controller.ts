@@ -2,8 +2,8 @@ import { Controller, HttpStatus, Post, Req, Res } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { logger } from "#src/shared/utils/logger";
 import { buildErrorResponse, buildSuccessResponse, requestIdFrom } from "#src/shared/http/api-response";
-import { NestOrdersPayOSService } from "../orders/orders.payos.service";
 import { PayOSService } from "./payos.service";
+import { PaymentReconciliationService } from "./payment-reconciliation.service";
 
 type PayOSWebhookPayload = {
     code?: string;
@@ -21,8 +21,8 @@ type PayOSWebhookPayload = {
 @Controller("orders/webhooks/payos")
 export class PayOSWebhookController {
     constructor(
-        private readonly ordersPayOSService: NestOrdersPayOSService,
         private readonly payosService: PayOSService,
+        private readonly reconciliationService: PaymentReconciliationService,
     ) {}
 
     @Post()
@@ -45,38 +45,41 @@ export class PayOSWebhookController {
             }));
         }
 
-        if (payload.success !== true || payload.code !== "00" || data.code !== "00") {
-            return res.status(HttpStatus.OK).json(buildSuccessResponse({ received: true, finalized: false }, requestId));
-        }
-        if (
-            data.currency !== "VND"
-            || !Number.isSafeInteger(Number(data.orderCode))
-            || Number(data.orderCode) <= 0
-            || !Number.isSafeInteger(Number(data.amount))
-            || Number(data.amount) <= 0
-            || !data.paymentLinkId
-        ) {
-            return res.status(HttpStatus.BAD_REQUEST).json(buildErrorResponse({
-                statusCode: HttpStatus.BAD_REQUEST,
-                code: "PAYOS_WEBHOOK_DATA_INVALID",
-                message: "Invalid PayOS payment data",
-                requestId,
-            }));
-        }
-
         try {
-            await this.ordersPayOSService.handlePaymentWebhook(
-                Number(data.orderCode),
-                data.paymentLinkId,
-                Number(data.amount),
-            );
-            return res.status(HttpStatus.OK).json(buildSuccessResponse({ received: true, finalized: true }, requestId));
+            const outcome = await this.reconciliationService.handleVerifiedPayOSWebhook({
+                envelope: { code: payload.code, success: payload.success },
+                data: {
+                    orderCode: data.orderCode,
+                    amount: data.amount,
+                    currency: data.currency,
+                    paymentLinkId: data.paymentLinkId,
+                    reference: data.reference,
+                    transactionDateTime: data.transactionDateTime,
+                    code: data.code,
+                    status: data.code === "00" ? "PAID" : "FAILED",
+                },
+            });
+            if (outcome.httpStatus >= HttpStatus.INTERNAL_SERVER_ERROR) {
+                return res.status(outcome.httpStatus).json(buildErrorResponse({
+                    statusCode: outcome.httpStatus,
+                    code: "PAYOS_WEBHOOK_FAILED",
+                    message: "Unable to process PayOS webhook",
+                    details: { received: false },
+                    requestId,
+                }));
+            }
+            return res.status(outcome.httpStatus).json(buildSuccessResponse({
+                received: true,
+                finalized: outcome.kind === "processed",
+                outcome: outcome.kind,
+                ...(outcome.orderId === undefined ? {} : { orderId: outcome.orderId }),
+            }, requestId));
         } catch (error) {
             logger.error({ err: error, requestId, orderCode: data.orderCode }, "[payosWebhook] handler error");
             const statusCode = Number((error as { statusCode?: number }).statusCode) || HttpStatus.INTERNAL_SERVER_ERROR;
             return res.status(statusCode).json(buildErrorResponse({
                 statusCode,
-                code: "PAYOS_WEBHOOK_FAILED",
+                code: statusCode === HttpStatus.BAD_REQUEST ? "PAYOS_WEBHOOK_DATA_INVALID" : "PAYOS_WEBHOOK_FAILED",
                 message: statusCode >= 500 ? "Unable to process PayOS webhook" : (error as Error).message,
                 details: { received: false },
                 requestId,

@@ -59,10 +59,11 @@ export class PaymentReconciliationRepository {
     async completeWebhookEvent(tx: TransactionContext, eventId: number, status: string, error?: string | null): Promise<void> {
         await tx.query(
             `UPDATE payment_webhook_events
-             SET status = ?, last_error = ?, processed_at = CASE WHEN ? IN ('PROCESSED', 'IGNORED', 'MISMATCH') THEN UTC_TIMESTAMP() ELSE processed_at END,
+             SET status = ?, last_error = ?, attempt_count = attempt_count + CASE WHEN ? = 'PROCESSING' THEN 1 ELSE 0 END,
+                 processed_at = CASE WHEN ? IN ('PROCESSED', 'IGNORED', 'MISMATCH') THEN UTC_TIMESTAMP() ELSE processed_at END,
                  updated_at = UTC_TIMESTAMP()
              WHERE id = ?`,
-            [status, error ?? null, status, eventId],
+            [status, error ?? null, status, status, eventId],
         );
     }
 
