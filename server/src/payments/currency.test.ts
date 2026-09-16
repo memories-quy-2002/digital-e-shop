@@ -1,22 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { buildPaymentQuote, convertUsdToVnd } from "./currency";
+import { assertNewPaymentProvider } from "./payment.types";
+import { buildPaymentQuote } from "./currency";
 
 describe("payment currency", () => {
-    it("rounds a USD amount to integer VND for PayOS", () => {
-        expect(convertUsdToVnd(19.99, 25_000)).toBe(499_750);
-    });
-
-    it("rejects PayOS quotes without an explicit FX rate", () => {
-        expect(() => buildPaymentQuote(10, "payos")).toThrow("PAYOS_USD_TO_VND_RATE");
-    });
-
-    it("keeps an explicitly VND catalog amount unchanged for PayOS", () => {
-        expect(buildPaymentQuote(1_399_000, "payos", undefined, "VND")).toEqual({
+    it("keeps a VND PayOS amount unchanged and sets FX to one", () => {
+        expect(buildPaymentQuote(1_399_000, "payos")).toEqual({
             baseAmount: 1_399_000,
             baseCurrency: "VND",
             amount: 1_399_000,
             currency: "VND",
             fxRate: 1,
         });
+    });
+
+    it("rounds a fractional compatibility input to a whole VND amount", () => {
+        expect(buildPaymentQuote(10.6, "cash").amount).toBe(11);
+    });
+
+    it("rejects legacy providers before a payment is created", () => {
+        expect(() => assertNewPaymentProvider("stripe")).toThrow("Unsupported payment method");
+        expect(() => assertNewPaymentProvider("card")).toThrow("Unsupported payment method");
+        expect(() => assertNewPaymentProvider("bank_transfer")).toThrow("Unsupported payment method");
     });
 });

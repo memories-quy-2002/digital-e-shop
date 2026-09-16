@@ -1,6 +1,15 @@
-export type PaymentProviderName = "cash" | "bank_transfer" | "stripe" | "payos";
-export type PaymentCurrency = "USD" | "VND";
-export type PaymentStatus = "pending" | "paid" | "failed" | "refund_pending" | "refunded";
+export type PaymentProviderName = "cash" | "payos";
+
+export type PayOSPaymentLookup = {
+    orderCode: number;
+    paymentLinkId: string;
+    amount: number;
+    amountPaid: number;
+    status: string;
+    currency: "VND";
+};
+export type PaymentCurrency = "VND";
+export type PaymentStatus = "pending" | "paid" | "failed" | "refund_pending" | "partially_refunded" | "refunded";
 
 export type PaymentQuote = {
     baseAmount: number;
@@ -33,3 +42,8 @@ export type PaymentProviderResult = {
     refundReference?: string;
     simulated: boolean;
 };
+
+export function assertNewPaymentProvider(value: unknown): PaymentProviderName {
+    if (value === "cash" || value === "payos") return value;
+    throw Object.assign(new Error("Unsupported payment method"), { statusCode: 400 });
+}

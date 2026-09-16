@@ -5,6 +5,7 @@ const payosMocks = vi.hoisted(() => ({
         paymentRequests: {
             create: vi.fn(),
             cancel: vi.fn(),
+            get: vi.fn(),
         },
         webhooks: {
             verify: vi.fn(),
@@ -84,6 +85,27 @@ describe("PayOSService", () => {
         }));
     });
 
+    it("retrieves a PayOS payment link by order code", async () => {
+        const { service } = buildService();
+        payosMocks.client.paymentRequests.get.mockResolvedValue({
+            id: "link-123",
+            orderCode: 123456,
+            amount: 250000,
+            amountPaid: 250000,
+            status: "PAID",
+            transactions: [],
+        });
+
+        await expect(service.getPaymentLink({ orderCode: 123456 })).resolves.toEqual({
+            orderCode: 123456,
+            paymentLinkId: "link-123",
+            amount: 250000,
+            amountPaid: 250000,
+            status: "PAID",
+            currency: "VND",
+        });
+        expect(payosMocks.client.paymentRequests.get).toHaveBeenCalledWith(123456);
+    });
     it("fails closed when PayOS credentials are incomplete", async () => {
         const { service } = buildService({ payosChecksumKey: "" });
 

@@ -63,9 +63,7 @@ async function bootstrap() {
         return cachedApp;
     }
 
-    const app = await NestFactory.create(AppModule, {
-        rawBody: true,
-    });
+    const app = await NestFactory.create(AppModule);
 
     await configureHttpApp(app);
 

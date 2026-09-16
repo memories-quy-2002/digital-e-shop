@@ -29,4 +29,14 @@ describe("independent package startup", () => {
 
         expect(packageJson.scripts?.dev).toBe("vite");
     });
+
+    it("provides a persistent local Auth Emulator command", () => {
+        const packageJson = readPackage(serverPackagePath);
+        const emulatorScript = packageJson.scripts?.["firebase:emulator"];
+
+        expect(emulatorScript).toContain("firebase emulators:start --only auth");
+        expect(emulatorScript).toContain("--config=../firebase.json");
+        expect(emulatorScript).toContain("--import=../.firebase/emulator-data");
+        expect(emulatorScript).toContain("--export-on-exit");
+    });
 });

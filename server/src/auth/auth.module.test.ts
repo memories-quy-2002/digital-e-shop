@@ -22,7 +22,6 @@ describe("AuthModule CSRF middleware", () => {
             "users/login",
             "users/register",
             "users/refresh",
-            "orders/webhooks/stripe",
             "orders/webhooks/payos",
         ]);
         expect(middlewareConfig.forRoutes).toHaveBeenCalledWith("*");

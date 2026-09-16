@@ -152,7 +152,7 @@ export class NestOrdersPayOSService {
             if (payableTotal <= 0) {
                 throw createCheckoutError("Order total must be greater than zero to pay with PayOS.", 400);
             }
-            const quote = buildPaymentQuote(payableTotal, "payos", env.payosUsdToVndRate, env.storeCurrency || "USD");
+            const quote = buildPaymentQuote(payableTotal, "payos");
             const orderCode = createPayOSOrderCode(reservation.pendingCheckoutId);
             const returnUrl = `${env.clientUrl}/checkout-success?payment_provider=payos&payos_order_code=${orderCode}`;
             const cancelUrl = `${env.clientUrl}/cart?payment=cancelled`;
@@ -218,11 +218,6 @@ export class NestOrdersPayOSService {
             if ((error as { statusCode?: number }).statusCode) throw error;
             throw createCheckoutError(`Unable to start PayOS checkout right now. ${(error as Error)?.message || "Please try again."}`, 502);
         }
-    }
-
-    async handlePaymentWebhook(orderCode: number, paymentLinkId: string, amount: number): Promise<void> {
-        const order = await this.ordersService.finalizePayOSCheckout(orderCode, paymentLinkId, amount);
-        if (!order) logger.error({ orderCode, paymentLinkId }, "[handlePayOSWebhook] no pending checkout found");
     }
 
     async confirmMockPayment(orderCode: number, paymentLinkId: string, amount: number): Promise<{ id: number; date_added: string }> {

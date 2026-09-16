@@ -35,7 +35,6 @@ export class AuthModule implements NestModule {
             "users/login",
             "users/register",
             "users/refresh",
-            "orders/webhooks/stripe",
             "orders/webhooks/payos",
         ).forRoutes("*");
     }

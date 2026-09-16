@@ -25,7 +25,5 @@ verified webhook path.
 - Demo storefront and checkout values are displayed as VND.
 - Running `pnpm --dir server prisma:seed` is required to materialize the new
   demo values in a local database; the seed remains target-guarded.
-- Stripe remains an optional international rail and should be enabled only with
-  a deliberate USD currency/catalog configuration. The VND checkout does not
-  expose the Card option and the server rejects Stripe checkout in VND mode.
+- PayOS and cash are the only active purchase methods. Stripe and bank-transfer identifiers remain historical database/seed compatibility data and are not active checkout rails.
 - Historical USD rows remain readable through their stored order currency.

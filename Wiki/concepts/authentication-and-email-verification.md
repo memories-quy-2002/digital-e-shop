@@ -21,6 +21,8 @@ The nullable email_verification_token_hash, email_verification_expires_at, and e
 
 When a verified Firebase identity matches a legacy local MySQL row by email, the server links `auth_provider` and `provider_user_id` in place while preserving the legacy `users.id` and its cart/order relationships. Unverified identities are never auto-linked by email.
 
+When an already Firebase-linked row is paired with a recreated Firebase account (for example, after local emulator data is reset), the server may rebind only the provider UID when the email, database user ID, provider type, and previous provider UID all match. This keeps existing cart and order ownership intact. It does not broaden legacy linking: an unverified identity still cannot bind a local row that has no Firebase identity.
+
 ## Access policy
 
 AuthGuard does not reject an unverified session. An unverified customer may browse, use the cart, wishlist, account, support, and order history. In Firebase mode, the account page can resend a link through the currently signed-in Firebase user. VerifiedEmailGuard protects authenticated purchase, Stripe checkout-session creation, and review creation. Admins and legacy rows with no verification column value are grandfathered in.

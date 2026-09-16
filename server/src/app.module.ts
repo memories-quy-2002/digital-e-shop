@@ -15,7 +15,6 @@ import { UsersModule } from "./users/users.module";
 import { AnalyticsModule } from "./analytics/analytics.module";
 import { BlobModule } from "./blob/blob.module";
 import { AuthModule } from "./auth/auth.module";
-import { StripeWebhookModule } from "./stripe/stripeWebhook.module";
 import { PayOSWebhookModule } from "./payments/payosWebhook.module";
 import { AllExceptionsFilter } from "./filters/all-exceptions.filter";
 import { RequestLoggerInterceptor } from "./interceptors/request-logger.interceptor";
@@ -39,7 +38,6 @@ import { AdminAlertsModule } from "./admin-alerts/admin-alerts.module";
         UsersModule,
         AnalyticsModule,
         BlobModule,
-        StripeWebhookModule,
         PayOSWebhookModule,
         SupportModule,
         AdminAlertsModule,

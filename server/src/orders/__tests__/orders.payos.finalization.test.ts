@@ -139,4 +139,33 @@ describe("PayOS reserved checkout finalization", () => {
         expect(reservationRepository.consumeReservation).not.toHaveBeenCalled();
         expect(inventoryService.createMovementsInTransaction).not.toHaveBeenCalled();
     });
+
+    it("returns an exact matching PayOS order when its reservation is gone", async () => {
+        const { service, tx, reservationRepository } = buildService();
+        reservationRepository.getPendingCheckoutByProviderOrderCodeForUpdate.mockResolvedValue(null);
+        tx.query.mockImplementation(async (sql: string) => {
+            if (sql.includes("JOIN order_payments")) {
+                return [{ id: 42, date_added: "2026-09-06T01:00:00.000Z" }];
+            }
+            return [];
+        });
+
+        await expect(service.finalizePayOSCheckout(1_757_450_400_007, "link-123", 450_000)).resolves.toEqual({
+            id: 42,
+            date_added: "2026-09-06T01:00:00.000Z",
+        });
+        expect(tx.query.mock.calls[0][1]).toEqual(["1757450400007", "link-123", 450000]);
+    });
+
+    it("does not accept an existing PayOS order with a mismatched link or amount", async () => {
+        const { service, tx, reservationRepository } = buildService();
+        reservationRepository.getPendingCheckoutByProviderOrderCodeForUpdate.mockResolvedValue(null);
+        tx.query.mockResolvedValue([]);
+
+        await expect(service.finalizePayOSCheckout(1_757_450_400_007, "wrong-link", 450_001)).resolves.toBeNull();
+        const lookupSql = String(tx.query.mock.calls[0][0]);
+        expect(lookupSql).toContain("op.provider_payment_id = ?");
+        expect(lookupSql).toContain("op.amount = ?");
+        expect(lookupSql).toContain("op.currency = 'VND'");
+    });
 });

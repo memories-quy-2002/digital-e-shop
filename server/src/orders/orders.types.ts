@@ -1,4 +1,4 @@
-import type { GuestPurchasePayload, PurchasePayload, GuestCheckoutSessionPayload, GuestSessionLookupPayload } from "./orders.dto";
+import type { GuestPurchasePayload, PurchasePayload, GuestPayOSCheckoutPayload } from "./orders.dto";
 import type { CartItemRow } from "../cart/cart.types";
 import type { GuestOrderTokenHash } from "./guest-order-token";
 
@@ -15,6 +15,7 @@ export type OrderSummaryRow = {
     total_price: number;
     discount: number;
     date_added: string;
+    delivered_at?: string | null;
     shipping_address?: string | null;
     payment_method?: string | null;
     currency?: string;
@@ -69,6 +70,7 @@ export type OrderDetailRow = OrderSummaryRow & {
 export type OrderDetail = {
     id: number;
     date_added: string;
+    delivered_at?: string | null;
     user_id: string | null;
     guest_email?: string | null;
     guest_name?: string | null;
@@ -247,7 +249,7 @@ export type CheckoutReservation = {
 };
 
 export type PaymentProviderAttachment = {
-    provider: "stripe" | "payos";
+    provider: "payos";
     providerReference: string;
     providerOrderCode?: number | null;
     paymentAmount?: number | null;
@@ -263,5 +265,4 @@ export type OrderBySessionRow = {
 };
 
 export type { PurchasePayload };
-export type { GuestPurchasePayload };
-export type { GuestCheckoutSessionPayload, GuestSessionLookupPayload };
+export type { GuestPurchasePayload, GuestPayOSCheckoutPayload };

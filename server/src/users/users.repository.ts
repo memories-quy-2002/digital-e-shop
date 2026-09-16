@@ -189,6 +189,29 @@ export class UsersRepository {
         });
     }
 
+    rebindFirebaseIdentity(
+        userId: string,
+        email: string,
+        expectedProviderUserId: string,
+        nextProviderUserId: string,
+    ): Promise<UpdateResult> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                `UPDATE users
+                 SET provider_user_id = ?
+                 WHERE id = ?
+                   AND LOWER(email) = LOWER(?)
+                   AND auth_provider = 'firebase'
+                   AND provider_user_id = ?`,
+                [nextProviderUserId, userId, email, expectedProviderUserId],
+                (queryErr: DbError | null, result?: UpdateResult) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve(result || { affectedRows: 0 });
+                },
+            );
+        });
+    }
+
     markEmailVerified(uid: string): Promise<UpdateResult> {
         return new Promise((resolve, reject) => {
             pool.query(

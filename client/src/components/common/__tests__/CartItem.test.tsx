@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import React from "react";
+import { MemoryRouter } from "react-router-dom";
 import CartItem from "../CartItem";
 import { CartValidationIssue } from "../../../features/orders/types";
 import { LocaleProvider } from "../../../context/LocaleContext";
@@ -12,7 +13,7 @@ vi.mock("../../../utils/loadImage", () => ({
 }));
 
 const renderWithLocale = (ui: React.ReactElement) =>
-    render(<LocaleProvider>{ui}</LocaleProvider>);
+    render(<MemoryRouter><LocaleProvider>{ui}</LocaleProvider></MemoryRouter>);
 
 const baseItem = {
     cartItemId: 42,
@@ -28,6 +29,22 @@ const baseItem = {
 };
 
 describe("CartItem", () => {
+    it("links the product name to its detail page and enables a numeric mobile input", () => {
+        renderWithLocale(
+            <CartItem
+                item={baseItem}
+                handleQuantityChange={vi.fn()}
+                handleRemoveCartItem={vi.fn()}
+            />
+        );
+
+        expect(screen.getByRole("link", { name: "Apple iPhone 13" })).toHaveAttribute(
+            "href",
+            "/product?id=7",
+        );
+        expect(screen.getByLabelText("cart-42-quantity")).toHaveAttribute("inputmode", "numeric");
+    });
+
     it("renders brand, product name and category", () => {
         renderWithLocale(
             <CartItem

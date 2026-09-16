@@ -23,19 +23,70 @@ type ModalProps = {
     animation?: boolean;
 };
 
+const ModalTitleContext = React.createContext<string | null>(null);
+
 function Modal({ show = false, onHide, children, dialogClassName, contentClassName, size = "lg" }: ModalProps) {
     const dialogRef = React.useRef<HTMLDivElement>(null);
+    const previousActiveElementRef = React.useRef<HTMLElement | null>(null);
+    const titleId = React.useId();
+
     React.useEffect(() => {
         if (!show) return;
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === "Escape") onHide?.();
+
+        previousActiveElementRef.current =
+            document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        const dialog = dialogRef.current;
+        if (!dialog) return;
+
+        const focusableSelector =
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+        const getFocusableElements = () =>
+            Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+                (element) => element.getAttribute("aria-hidden") !== "true",
+            );
+        const focusInitialElement = () => {
+            const initialElement =
+                dialog.querySelector<HTMLElement>("[data-modal-close]") ?? getFocusableElements()[0] ?? dialog;
+            initialElement.focus();
         };
-        document.addEventListener("keydown", handleKeyDown);
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                event.preventDefault();
+                onHide?.();
+                return;
+            }
+            if (event.key !== "Tab") return;
+
+            const focusableElements = getFocusableElements();
+            if (focusableElements.length === 0) {
+                event.preventDefault();
+                dialog.focus();
+                return;
+            }
+
+            const firstElement = focusableElements[0];
+            const lastElement = focusableElements[focusableElements.length - 1];
+            if (event.shiftKey && document.activeElement === firstElement) {
+                event.preventDefault();
+                lastElement.focus();
+            } else if (!event.shiftKey && document.activeElement === lastElement) {
+                event.preventDefault();
+                firstElement.focus();
+            }
+        };
         const handleCloseEvent = () => onHide?.();
-        dialogRef.current?.addEventListener("de-close", handleCloseEvent);
+
+        document.addEventListener("keydown", handleKeyDown);
+        dialog.addEventListener("de-close", handleCloseEvent);
+        focusInitialElement();
+
         return () => {
             document.removeEventListener("keydown", handleKeyDown);
-            dialogRef.current?.removeEventListener("de-close", handleCloseEvent);
+            dialog.removeEventListener("de-close", handleCloseEvent);
+            if (previousActiveElementRef.current && document.contains(previousActiveElementRef.current)) {
+                previousActiveElementRef.current.focus();
+            }
+            previousActiveElementRef.current = null;
         };
     }, [onHide, show]);
 
@@ -43,21 +94,32 @@ function Modal({ show = false, onHide, children, dialogClassName, contentClassNa
     const width = size === "sm" ? "max-w-md" : size === "xl" ? "max-w-6xl" : size === "lg" ? "max-w-4xl" : "max-w-2xl";
     return createPortal(
         <div className="fixed inset-0 z-[120] grid place-items-center bg-black/65 p-4" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onHide?.()}>
-            <div ref={dialogRef} role="dialog" aria-modal="true" className={cn("max-h-[min(90vh,900px)] w-full overflow-y-auto rounded-panel border border-border-strong bg-mineral shadow-[var(--de-shadow-md)]", width, dialogClassName, contentClassName)}>
-                {children}
-            </div>
+            <ModalTitleContext.Provider value={titleId}>
+                <div
+                    ref={dialogRef}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby={titleId}
+                    tabIndex={-1}
+                    className={cn("max-h-[min(90vh,900px)] w-full overflow-y-auto rounded-panel border border-border-strong bg-mineral shadow-[var(--de-shadow-md)] outline-none focus-visible:ring-2 focus-visible:ring-electric", width, dialogClassName, contentClassName)}
+                >
+                    {children}
+                </div>
+            </ModalTitleContext.Provider>
         </div>,
         document.body,
     );
 }
 
 Modal.Header = function ModalHeader({ children, closeButton = false, className }: { children?: React.ReactNode; closeButton?: boolean; className?: string }) {
-    return <div className={cn("flex items-center justify-between gap-4 border-b border-border px-5 py-4", className)}>{children}{closeButton ? <button type="button" className="grid size-9 place-items-center rounded-control text-muted-foreground hover:bg-surface-hover hover:text-foreground" aria-label="Close" onClick={(event) => { const dialog = event.currentTarget.closest('[role="dialog"]'); dialog?.dispatchEvent(new CustomEvent("de-close")); }}>×</button> : null}</div>;
+    return <div className={cn("flex items-center justify-between gap-4 border-b border-border px-5 py-4", className)}>{children}{closeButton ? <button type="button" data-modal-close className="grid size-9 place-items-center rounded-control text-muted-foreground hover:bg-surface-hover hover:text-foreground" aria-label="Close" onClick={(event) => { const dialog = event.currentTarget.closest('[role="dialog"]'); dialog?.dispatchEvent(new CustomEvent("de-close")); }}>Ã—</button> : null}</div>;
 };
-Modal.Title = function ModalTitle({ children }: { children?: React.ReactNode }) { return <h2 className="font-display text-xl font-bold">{children}</h2>; };
+Modal.Title = function ModalTitle({ children }: { children?: React.ReactNode }) {
+    const labelledBy = React.useContext(ModalTitleContext);
+    return <h2 id={labelledBy ?? undefined} className="font-display text-xl font-bold">{children}</h2>;
+};
 Modal.Body = function ModalBody({ children, className }: { children?: React.ReactNode; className?: string }) { return <div className={cn("px-5 py-5", className)}>{children}</div>; };
 Modal.Footer = function ModalFooter({ children, className }: { children?: React.ReactNode; className?: string }) { return <div className={cn("flex flex-wrap justify-end gap-3 border-t border-border px-5 py-4", className)}>{children}</div>; };
-
 type FormControlProps = React.InputHTMLAttributes<HTMLInputElement> & { as?: "textarea" | "select"; rows?: number; children?: React.ReactNode };
 function FormControl({ as, className, children, ...props }: FormControlProps) {
     if (as === "textarea") {

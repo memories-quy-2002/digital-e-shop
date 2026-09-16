@@ -76,6 +76,7 @@ export class OrdersRepository {
         COALESCE(o.guest_name, u.username, o.user_id) AS customer_name,
         COALESCE(o.guest_email, u.email) AS customer_email,
         DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added,
+        DATE_FORMAT(o.delivered_at, '%Y-%m-%dT%H:%i:%s.000Z') AS delivered_at,
         o.total_price,
         o.discount,
         o.status,
@@ -131,6 +132,7 @@ export class OrdersRepository {
                 COALESCE(o.guest_name, u.username, o.user_id) AS customer_name,
                 COALESCE(o.guest_email, u.email) AS customer_email,
                 DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added,
+                DATE_FORMAT(o.delivered_at, '%Y-%m-%dT%H:%i:%s.000Z') AS delivered_at,
                 oi.id AS order_item_id,
                 oi.product_id,
                 oi.quantity,
@@ -288,14 +290,6 @@ export class OrdersRepository {
              WHERE op.provider = 'payos' AND op.provider_reference = ? AND o.user_id IS NULL
              LIMIT 1`,
             [String(providerOrderCode)],
-            callback,
-        );
-    }
-
-    markPendingCheckoutConsumed(stripeSessionId: string, callback: QueryCallback<UpdateResult>) {
-        this.query(
-            "UPDATE pending_checkouts SET status = 'CONSUMED', consumed_at = UTC_TIMESTAMP() WHERE stripe_session_id = ? AND status = 'PENDING'",
-            [stripeSessionId],
             callback,
         );
     }

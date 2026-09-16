@@ -114,6 +114,14 @@ describe("public cart states", () => {
         mocks.cart.mergeStatus = "idle";
     });
 
+    it("uses a page-level heading and gives an empty cart a useful next step", () => {
+        renderPage();
+
+        expect(screen.getByRole("heading", { name: "Your cart", level: 1 })).toBeInTheDocument();
+        expect(screen.getAllByText("Find the next useful piece for your setup.")).toHaveLength(2);
+        expect(screen.getByRole("link", { name: "Shop now" })).toHaveAttribute("href", "/shops");
+    });
+
     it("renders a recoverable preview error instead of an empty cart", () => {
         mocks.cart.status = "error";
         mocks.cart.error = "Unable to load cart right now.";

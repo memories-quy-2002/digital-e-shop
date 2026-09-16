@@ -5,11 +5,10 @@ import { OwnerParam, Roles, RolesGuard } from "../guards/roles.guard";
 import { RequireVerifiedEmail, VerifiedEmailGuard } from "../guards/verified-email.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestOrdersService } from "./orders.service";
-import { NestOrdersStripeService } from "./orders.stripe.service";
 import { NestOrdersPayOSService } from "./orders.payos.service";
 import { calculatePromotionDiscount } from "./orders.pricing";
-import type { GuestCheckoutSessionPayload, GuestOrderLookupPayload, GuestPurchasePayload, GuestPayOSCheckoutPayload, GuestPayOSOrderLookupPayload, GuestSessionLookupPayload, MockPayOSConfirmPayload } from "./orders.dto";
-import { orderStatusSchema, purchaseSchema, checkoutSessionSchema, applyDiscountSchema, cancelOrderSchema, guestOrderLookupSchema, guestPurchaseSchema, guestCheckoutSessionSchema, guestPayOSCheckoutSchema, guestPayOSOrderLookupSchema, guestSessionLookupSchema, mockPayOSConfirmSchema } from "./orders.validator";
+import type { GuestOrderLookupPayload, GuestPurchasePayload, GuestPayOSCheckoutPayload, GuestPayOSOrderLookupPayload, MockPayOSConfirmPayload } from "./orders.dto";
+import { orderStatusSchema, purchaseSchema, checkoutSessionSchema, applyDiscountSchema, cancelOrderSchema, guestOrderLookupSchema, guestPurchaseSchema, guestPayOSCheckoutSchema, guestPayOSOrderLookupSchema, mockPayOSConfirmSchema } from "./orders.validator";
 
 type AuthenticatedRequest = Request & {
     user?: { id?: string | number; role?: string };
@@ -29,7 +28,6 @@ function canAccessOrder(req: AuthenticatedRequest, ownerId: string | number): bo
 export class OrdersController {
     constructor(
         private readonly ordersService: NestOrdersService,
-        private readonly ordersStripeService: NestOrdersStripeService,
         @Optional() private readonly ordersPayOSService?: NestOrdersPayOSService,
     ) {}
 
@@ -118,21 +116,6 @@ export class OrdersController {
         }
     }
 
-    @Get("/by-session/:sessionId")
-    @UseGuards(AuthGuard)
-    async getOrderBySessionId(@Param("sessionId") sessionId: string, @Req() req: AuthenticatedRequest) {
-        try {
-            const order = await this.ordersService.getOrderByStripeSessionId(sessionId);
-            if (!order || !canAccessOrder(req, order.user_id)) {
-                throw new HttpException({ msg: "Order not ready yet" }, 404);
-            }
-            return { order, msg: "Order retrieved successfully" };
-        } catch (err) {
-            if (err instanceof HttpException) throw err;
-            throw toHttpException(err as Error, "Unable to retrieve order right now");
-        }
-    }
-
     @Get("/:oid")
     @UseGuards(AuthGuard)
     async getOrderDetail(@Param("oid") oid: string, @Req() req: AuthenticatedRequest) {
@@ -154,10 +137,11 @@ export class OrdersController {
     @Roles("admin")
     async changeOrderStatus(
         @Param("oid") oid: string,
+        @Req() req: AuthenticatedRequest,
         @Body(new ZodValidationPipe(orderStatusSchema)) body: { status: number },
     ) {
         try {
-            const order = await this.ordersService.changeOrderStatus(Number(oid), body.status);
+            const order = await this.ordersService.changeOrderStatus(Number(oid), body.status, String(req.user?.id || ""));
             if (!order) {
                 throw new HttpException({ msg: "Order not found" }, 404);
             }
@@ -237,27 +221,6 @@ export class OrdersController {
         }
     }
 
-    @Post("/guest/checkout-session")
-    @HttpCode(200)
-    async createGuestCheckoutSession(
-        @Body(new ZodValidationPipe(guestCheckoutSessionSchema)) body: GuestCheckoutSessionPayload,
-    ) {
-        try {
-            const result = await this.ordersStripeService.createGuestCheckoutSession(body);
-            return { url: result.url, guestOrderToken: result.guestOrderToken, msg: "Checkout session created" };
-        } catch (err) {
-            const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
-            const statusCode = error.statusCode || 500;
-            throw new HttpException(
-                {
-                    msg: statusCode === 500 ? "Unable to start checkout right now" : error.message,
-                    ...(statusCode === 500 ? {} : error.details || {}),
-                },
-                statusCode,
-            );
-        }
-    }
-
     @Post("/guest/payos-checkout-session")
     @HttpCode(200)
     async createGuestPayOSCheckoutSession(
@@ -329,25 +292,6 @@ export class OrdersController {
         }
     }
 
-    @Post("/guest/by-session")
-    @HttpCode(200)
-    async getGuestOrderBySessionId(
-        @Body(new ZodValidationPipe(guestSessionLookupSchema)) body: GuestSessionLookupPayload,
-    ) {
-        try {
-            const order = await this.ordersService.getGuestOrderBySessionId(body.sessionId, body.guestOrderToken);
-            return { order, msg: "Guest order retrieved successfully" };
-        } catch (err) {
-            if (err instanceof HttpException) throw err;
-            const error = err as Error & { statusCode?: number };
-            const statusCode = error.statusCode || 500;
-            throw new HttpException(
-                { msg: statusCode === 500 ? "Unable to retrieve guest order right now" : error.message },
-                statusCode,
-            );
-        }
-    }
-
     @Post("/purchase/:uid")
     @HttpCode(201)
     @UseGuards(AuthGuard, RolesGuard, VerifiedEmailGuard)
@@ -361,7 +305,7 @@ export class OrdersController {
             discount: number;
             discountCode?: string;
             shippingAddress: string;
-            paymentMethod: string;
+            paymentMethod: "cash" | "payos";
         },
     ) {
         const { totalPrice, cart, discountCode, shippingAddress, paymentMethod } = body;
@@ -369,7 +313,7 @@ export class OrdersController {
         if (!cart || cart.length === 0) {
             throw new HttpException({ msg: "Cart cannot be empty" }, 400);
         }
-        if (!["bank_transfer", "cash", "payos", "stripe", "card"].includes(paymentMethod)) {
+        if (!["cash", "payos"].includes(paymentMethod)) {
             throw new HttpException({ msg: "Unsupported payment method" }, 400);
         }
 
@@ -400,37 +344,6 @@ export class OrdersController {
             throw new HttpException(
                 {
                     msg: statusCode === 500 ? "Unable to place order right now" : error.message,
-                    ...(statusCode === 500 ? {} : error.details || {}),
-                },
-                statusCode,
-            );
-        }
-    }
-
-    @Post("/checkout-session/:uid")
-    @HttpCode(200)
-    @UseGuards(AuthGuard, RolesGuard, VerifiedEmailGuard)
-    @OwnerParam("uid")
-    @RequireVerifiedEmail()
-    async createCheckoutSession(
-        @Param("uid") uid: string,
-        @Body(new ZodValidationPipe(checkoutSessionSchema)) body: {
-            totalPrice: number;
-            cart: Array<{ productId: number; quantity: number; price: number; sale_price?: number | null }>;
-            discount: number;
-            discountCode?: string;
-            shippingAddress: string;
-        },
-    ) {
-        try {
-            const result = await this.ordersStripeService.createCheckoutSession(uid, body);
-            return { url: result.url, msg: "Checkout session created" };
-        } catch (err) {
-            const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
-            const statusCode = error.statusCode || 500;
-            throw new HttpException(
-                {
-                    msg: statusCode === 500 ? "Unable to start checkout right now" : error.message,
                     ...(statusCode === 500 ? {} : error.details || {}),
                 },
                 statusCode,

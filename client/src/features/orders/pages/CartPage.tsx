@@ -231,10 +231,12 @@ const CartPage = () => {
                 ) : (
                     <>
                         <header className="cart__header">
-                            <div>
-                                <h2>{t("cart.title")}</h2>
+                            <div className="cart__header__copy">
+                                <span className="cart__header__eyebrow">{t("cart.summaryEyebrow")}</span>
+                                <h1>{t("cart.title")}</h1>
+                                <p>{cart.length > 0 ? t("cart.description") : t("cart.emptyDescription")}</p>
                             </div>
-                            <div className="cart__header__summary">
+                            <div className="cart__header__summary" aria-label={t("cart.orderSummary")}>
                                 <div>
                                     <strong>{cart.length}</strong>
                                     <span>{t("cart.itemsLabel")}</span>
@@ -246,8 +248,8 @@ const CartPage = () => {
                             </div>
                         </header>
 
-                        <main className="cart__layout">
-                            <section className="cart__main">
+                        <div className="cart__layout">
+                            <section className={cart.length === 0 && isGuest && !hasGuestItems && activeValidationIssues.length === 0 ? "cart__main cart__main--empty" : "cart__main"}>
                                 <div className="cart__list-card">
                                     <div className="cart__list-header">
                                         <h3>{t("cart.itemsCount", cart.length)}</h3>
@@ -258,6 +260,7 @@ const CartPage = () => {
                                                 className="cart__empty"
                                                 icon={<CartIcon size={24} />}
                                                 title={t("cart.empty")}
+                                                description={t("cart.emptyDescription")}
                                                 actionLabel={t("common.shopNow")}
                                                 actionTo="/shops"
                                             />
@@ -277,15 +280,8 @@ const CartPage = () => {
                                 </div>
 
                                 <div className="cart__actions">
-                                    <button className="cart__action cart__action--ghost" onClick={() => navigate("/")}>
+                                    <button type="button" className="cart__action cart__action--ghost" onClick={() => navigate("/shops")}>
                                         <ArrowLeftIcon /> {t("cart.continueShopping")}
-                                    </button>
-                                    <button
-                                        className="cart__action cart__action--primary"
-                                        onClick={handleShow}
-                                        disabled={cart.length === 0 || isValidatingCheckout}
-                                    >
-                                        {isValidatingCheckout ? t("cart.checkingStock") : t("cart.proceed")} <ArrowRightIcon />
                                     </button>
                                 </div>
                                 <div className="cart__support">
@@ -316,23 +312,42 @@ const CartPage = () => {
                                 </div>
                             </section>
 
-                            <aside className="cart__sidebar">
-                                <AsideCart
-                                    totalPrice={totalPrice}
-                                    discount={discount}
-                                    subtotal={subtotal}
-                                    applyDiscount={applyDiscount}
-                                />
-                            </aside>
-                        </main>
+                            {cart.length > 0 ? (
+                                <aside className="cart__sidebar">
+                                    <AsideCart
+                                        itemCount={cart.length}
+                                        totalPrice={totalPrice}
+                                        discount={discount}
+                                        subtotal={subtotal}
+                                        applyDiscount={applyDiscount}
+                                        onCheckout={handleShow}
+                                        isCheckoutDisabled={activeValidationIssues.length > 0}
+                                        isCheckingOut={isValidatingCheckout}
+                                    />
+                                </aside>
+                            ) : null}
+                        </div>
+                        {cart.length > 0 ? (
+                            <div className="cart__mobile-checkout">
+                                <button
+                                    type="button"
+                                    className="cart__action cart__action--primary"
+                                    onClick={handleShow}
+                                    disabled={isValidatingCheckout || activeValidationIssues.length > 0}
+                                >
+                                    {isValidatingCheckout ? t("cart.checkingStock") : t("cart.proceed")}
+                                    <ArrowRightIcon />
+                                </button>
+                            </div>
+                        ) : null}
                     </>
                 )}
 
                 <Modal show={show} onHide={handleClose} animation={false} size="lg" dialogClassName="cart__confirm-modal">
-                    <Modal.Header closeButton>
+                    <Modal.Header closeButton className="cart__confirm-modal-header">
                         <Modal.Title>{t("cart.reviewOrder")}</Modal.Title>
                     </Modal.Header>
-                    <Modal.Body>
+                    <Modal.Body className="cart__confirm-modal-body">
                         <div className="cart__confirm">
                             <div className="cart__confirm__summary">
                                 <div className="cart__confirm__summary-header">
@@ -375,7 +390,7 @@ const CartPage = () => {
                             <p className="cart__confirm__footnote">{t("cart.footnote")}</p>
                         </div>
                     </Modal.Body>
-                    <Modal.Footer>
+                    <Modal.Footer className="cart__confirm-modal-footer">
                         <Button variant="outline-secondary" onClick={handleClose}>
                             {t("cart.cancelOrder")}
                         </Button>

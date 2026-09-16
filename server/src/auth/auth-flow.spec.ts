@@ -34,6 +34,7 @@ function buildAuthService(options: { stubIssueLoginSession?: boolean } = {}) {
         createUser: vi.fn(),
         updateAuthIdentity: vi.fn(),
         linkFirebaseIdentity: vi.fn(),
+        rebindFirebaseIdentity: vi.fn(),
         markEmailVerified: vi.fn(),
         syncFirebaseEmail: vi.fn(),
     };
@@ -435,6 +436,48 @@ describe("Firebase identity boundary", () => {
         expect(usersRepository.linkFirebaseIdentity).not.toHaveBeenCalled();
         expect(issueLoginSession).not.toHaveBeenCalled();
     });
+
+    it("rebinds an existing Firebase account after the emulator recreates its UID", async () => {
+        const { service, usersRepository, firebaseAdminAuthService, issueLoginSession } = buildAuthService();
+        const existingUser = {
+            id: "database-user-id",
+            email: "manhphuquynguyen@gmail.com",
+            auth_provider: "firebase",
+            provider_user_id: "old-firebase-uid",
+            email_verified_at: new Date(),
+            role: "Customer",
+            status: "Active",
+        };
+        const reboundUser = { ...existingUser, provider_user_id: "new-firebase-uid" };
+        const session = {
+            user: reboundUser,
+            token: "access-token",
+            sessionId: 42,
+            refreshToken: null as string | null,
+        };
+
+        firebaseAdminAuthService.verifyIdToken.mockResolvedValue({
+            uid: "new-firebase-uid",
+            email: "manhphuquynguyen@gmail.com",
+            emailVerified: false,
+        });
+        usersRepository.findById.mockResolvedValueOnce(null).mockResolvedValueOnce(reboundUser);
+        usersRepository.findByProviderUserId.mockResolvedValue(null);
+        usersRepository.findByEmail.mockResolvedValue(existingUser);
+        usersRepository.rebindFirebaseIdentity.mockResolvedValue({ affectedRows: 1 });
+        issueLoginSession.mockResolvedValue(session);
+
+        await expect(service.loginUser("firebase-id-token")).resolves.toBe(session);
+
+        expect(usersRepository.rebindFirebaseIdentity).toHaveBeenCalledWith(
+            "database-user-id",
+            "manhphuquynguyen@gmail.com",
+            "old-firebase-uid",
+            "new-firebase-uid",
+        );
+        expect(issueLoginSession).toHaveBeenCalledWith(reboundUser, false);
+    });
+
     it("looks up the account by the verified UID and does not accept a client role", async () => {
         const { service, usersRepository, firebaseAdminAuthService, issueLoginSession } = buildAuthService();
         const user = { id: "firebase-uid", email: "customer@example.com", role: "Customer" };
