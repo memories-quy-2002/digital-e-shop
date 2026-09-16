@@ -17,7 +17,7 @@ import { NestOrdersService } from "../orders.service";
 
 type RepositoryCallback = (error: Error | null, rows: unknown) => void;
 
-function buildService({ paidStripe = false, orderId = 9, paymentProvider: ledgerProvider, paymentStatus = "pending", initialOrderStatus = 0, deliveredAt = null } = {}) {
+function buildService({ orderId = 9, paymentProvider: ledgerProvider, paymentStatus = "pending", initialOrderStatus = 0, deliveredAt = null } = {}) {
     const tx = { query: vi.fn() };
     let orderStatus = initialOrderStatus;
     const orderRepository = {
@@ -49,7 +49,6 @@ function buildService({ paidStripe = false, orderId = 9, paymentProvider: ledger
             return [{ id: 9, user_id: "user-1", status: orderStatus, total_price: 50, discount: 0 }];
         }
         if (sql.includes("FROM order_payments")) {
-            if (paidStripe) return [{ id: 3, provider: "stripe", status: "paid", provider_payment_id: "pi_9", amount: 50, currency: "USD" }];
             if (ledgerProvider) return [{ id: orderId, provider: ledgerProvider, status: paymentStatus, provider_payment_id: "pay_4", amount: 50, currency: "VND" }];
             return [];
         }
@@ -102,21 +101,6 @@ describe("order lifecycle", () => {
         expect(notifications.notifyOrderStatus).toHaveBeenCalledTimes(1);
     });
 
-    it("refunds a paid Stripe order before canceling it", async () => {
-        const { service, paymentProvider, tx, timeline } = buildService({ paidStripe: true });
-
-        await expect(service.cancelOrder(9, "user-1")).resolves.toMatchObject({ id: 9, status: 2 });
-
-        expect(paymentProvider.refundPayment).toHaveBeenCalledWith(expect.objectContaining({
-            provider: "stripe",
-            orderId: 9,
-            paymentId: "pi_9",
-            amount: 50,
-            currency: "USD",
-        }));
-        expect(tx.query).toHaveBeenCalledWith(expect.stringContaining("status = 'refunded'"), ["re_9", 9]);
-        expect(timeline.createTimelineEventInTransaction).toHaveBeenCalledTimes(1);
-    });
     it("sets delivered_at and marks a pending COD ledger paid once", async () => {
         const { service, tx } = buildService({ orderId: 41, paymentProvider: "cash" });
         const result = await service.changeOrderStatus(41, 1, "admin-1");

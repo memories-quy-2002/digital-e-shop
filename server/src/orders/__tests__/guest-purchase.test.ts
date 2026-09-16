@@ -15,7 +15,7 @@ vi.mock("../checkout-reservation.repository", () => ({ CheckoutReservationReposi
 
 import { OrdersController } from "../orders.controller";
 import { NestOrdersService } from "../orders.service";
-import { guestCheckoutSessionSchema, guestOrderLookupSchema, guestPurchaseSchema } from "../orders.validator";
+import { guestOrderLookupSchema, guestPurchaseSchema } from "../orders.validator";
 import { hashGuestOrderToken } from "../guest-order-token";
 
 const guestPayload = () => ({
@@ -37,10 +37,8 @@ function buildController() {
     const ordersService = {
         makeGuestPurchase: vi.fn(),
         lookupGuestOrder: vi.fn(),
-        getGuestOrderBySessionId: vi.fn(),
-    } as unknown as NestOrdersService;
-    const ordersStripeService = { createGuestCheckoutSession: vi.fn() };
-    return { controller: new OrdersController(ordersService, ordersStripeService as never), ordersService, ordersStripeService };
+        getGuestOrderByPayOSOrderCode: vi.fn(),
+    } as unknown as NestOrdersService;    return { controller: new OrdersController(ordersService), ordersService };
 }
 
 function buildService() {
@@ -48,9 +46,9 @@ function buildService() {
     const cartService = { previewGuestCart: vi.fn(), validateCheckoutSubmission: vi.fn() };
     const ordersRepository = {
         getGuestOrderIdentity: vi.fn(),
-        getPendingCheckoutBySessionId: vi.fn(),
+        getGuestOrderByPayOSOrderCode: vi.fn(),
         getGuestOrderIdentityBySessionId: vi.fn(),
-        getOrderByStripeSessionId: vi.fn(),
+        getGuestOrderByPayOSOrderCode: vi.fn(),
     };
     const checkoutReservations = {
         lockProducts: vi.fn(),
@@ -145,17 +143,6 @@ describe("guest checkout contracts", () => {
         expect(guestOrderLookupSchema.safeParse({ orderId: 91, guestOrderToken: "raw-token" }).success).toBe(true);
     });
 
-    it("accepts only a strict server-authoritative card checkout payload", () => {
-        const parsed = guestCheckoutSessionSchema.safeParse({ ...guestPayload(), paymentMethod: "card" });
-        expect(parsed.success).toBe(true);
-        expect(guestCheckoutSessionSchema.safeParse({ ...guestPayload(), paymentMethod: "cash" }).success).toBe(false);
-        expect(guestCheckoutSessionSchema.safeParse({
-            ...guestPayload(),
-            paymentMethod: "card",
-            totalPrice: 1,
-            cart: [{ productId: 7, quantity: 1, price: 0.01 }],
-        }).success).toBe(false);
-    });
 });
 
 describe("guest purchase controller", () => {
@@ -195,44 +182,10 @@ describe("guest purchase controller", () => {
         expect(ordersService.lookupGuestOrder).toHaveBeenCalledWith(91, "raw-token");
     });
 
-    it("returns the guest token with a Stripe checkout URL", async () => {
-        const { controller, ordersStripeService } = buildController();
-        vi.mocked(ordersStripeService.createGuestCheckoutSession).mockResolvedValue({
-            url: "https://checkout.stripe.test/session",
-            guestOrderToken: "raw-token-once",
-        });
-
-        const response = await controller.createGuestCheckoutSession({
-            ...guestPayload(),
-            paymentMethod: "card",
-        } as never);
-
-        expect(response).toEqual({
-            url: "https://checkout.stripe.test/session",
-            guestOrderToken: "raw-token-once",
-            msg: "Checkout session created",
-        });
-    });
-
-    it("requires the raw guest token for session lookup", async () => {
-        const { controller, ordersService } = buildController();
-        vi.mocked(ordersService.getGuestOrderBySessionId).mockResolvedValue({ id: 91, items: [] } as never);
-
-        const response = await controller.getGuestOrderBySessionId({
-            sessionId: "cs_guest_123",
-            guestOrderToken: "raw-token",
-        });
-
-        expect(response).toEqual({
-            order: { id: 91, items: [] },
-            msg: "Guest order retrieved successfully",
-        });
-        expect(ordersService.getGuestOrderBySessionId).toHaveBeenCalledWith("cs_guest_123", "raw-token");
-    });
 });
 
 describe("guest purchase transaction", () => {
-    it.each(["cash", "bank_transfer", "payos"] as const)(
+    it.each(["cash", "payos"] as const)(
         "creates a nullable-identity %s order from authoritative cart data",
         async (paymentMethod) => {
             const { service, tx, cartService, notifications, timeline, inventory } = buildService();
@@ -470,38 +423,4 @@ describe("guest purchase transaction", () => {
         expect(safe.items[0]).not.toHaveProperty("internal_secret");
     });
 
-    it("validates the guest token against the pending checkout before returning a finalized session order", async () => {
-        const { service, ordersRepository } = buildService();
-        vi.mocked(ordersRepository.getPendingCheckoutBySessionId).mockImplementation((_sessionId, callback) => callback(null, [{
-            id: 91,
-            stripe_session_id: "cs_guest_123",
-            reservation_token: "reservation-token",
-            user_id: null,
-            guest_email: "buyer@example.com",
-            guest_name: "Buyer Name",
-            guest_phone: null,
-            guest_order_token_hash: hashGuestOrderToken("raw-token"),
-            cart_json: "[]",
-            total_price: "10.00",
-            discount: "0.00",
-            shipping_address: "123 Main St",
-            status: "CONSUMED",
-            expires_at: "2099-09-08T00:00:00.000Z",
-            created_at: "2026-09-08T00:00:00.000Z",
-            consumed_at: "2026-09-08T00:01:00.000Z",
-        }]));
-        vi.mocked(ordersRepository.getOrderByStripeSessionId).mockImplementation((_sessionId, callback) => callback(null, [{
-            id: 91,
-            user_id: null,
-            date_added: "2026-09-08T00:01:00.000Z",
-            payment_method: "card",
-        }]));
-        vi.spyOn(service, "lookupGuestOrder").mockResolvedValue({ id: 91, items: [] } as never);
-
-        await expect(service.getGuestOrderBySessionId("cs_guest_123", "raw-token")).resolves.toEqual({ id: 91, items: [] });
-        expect(service.lookupGuestOrder).toHaveBeenCalledWith(91, "raw-token");
-
-        await expect(service.getGuestOrderBySessionId("cs_guest_123", "wrong-token")).rejects.toMatchObject({ statusCode: 404 });
-        expect(service.lookupGuestOrder).toHaveBeenCalledTimes(1);
-    });
 });

@@ -67,11 +67,10 @@ export class CheckoutReservationRepository {
 
         return tx.query<InsertResult>(
             `INSERT INTO pending_checkouts
-                (stripe_session_id, reservation_token, user_id, guest_email, guest_name, guest_phone, guest_order_token_hash,
+                (reservation_token, user_id, guest_email, guest_name, guest_phone, guest_order_token_hash,
                  cart_json, total_price, discount, shipping_address, status, expires_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)`,
             [
-                null,
                 input.reservationToken,
                 input.userId,
                 input.guestEmail,
@@ -102,19 +101,6 @@ export class CheckoutReservationRepository {
         );
     }
 
-    async attachStripeSession(
-        tx: TransactionContext,
-        reservationToken: string,
-        stripeSessionId: string,
-    ): Promise<number> {
-        const result = await tx.query<{ affectedRows: number }>(
-            `UPDATE pending_checkouts
-             SET stripe_session_id = ?
-             WHERE reservation_token = ? AND status = 'PENDING' AND expires_at > UTC_TIMESTAMP()`,
-            [stripeSessionId, reservationToken],
-        );
-        return result.affectedRows;
-    }
 
     async getPendingCheckoutByTokenForUpdate(
         tx: TransactionContext,
@@ -133,7 +119,7 @@ export class CheckoutReservationRepository {
 
     async getPendingCheckoutForUpdate(
         tx: TransactionContext,
-        stripeSessionId: string,
+        sessionId: string,
     ): Promise<PendingCheckoutRow | null> {
         const rows = await tx.query<PendingCheckoutRow[]>(
             `SELECT id, stripe_session_id, payment_provider, provider_reference, provider_order_code,
@@ -145,7 +131,7 @@ export class CheckoutReservationRepository {
              WHERE stripe_session_id = ?
              LIMIT 1
              FOR UPDATE`,
-            [stripeSessionId],
+            [sessionId],
         );
         return rows[0] || null;
     }
@@ -214,12 +200,12 @@ export class CheckoutReservationRepository {
         return result.affectedRows;
     }
 
-    async expireReservationBySession(tx: TransactionContext, stripeSessionId: string): Promise<number> {
+    async expireReservationBySession(tx: TransactionContext, sessionId: string): Promise<number> {
         const result = await tx.query<{ affectedRows: number }>(
             `UPDATE pending_checkouts
              SET status = 'EXPIRED'
              WHERE stripe_session_id = ? AND status = 'PENDING'`,
-            [stripeSessionId],
+            [sessionId],
         );
         return result.affectedRows;
     }

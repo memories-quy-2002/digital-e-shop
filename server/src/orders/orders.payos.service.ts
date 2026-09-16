@@ -152,7 +152,7 @@ export class NestOrdersPayOSService {
             if (payableTotal <= 0) {
                 throw createCheckoutError("Order total must be greater than zero to pay with PayOS.", 400);
             }
-            const quote = buildPaymentQuote(payableTotal, "payos", env.payosUsdToVndRate, env.storeCurrency || "USD");
+            const quote = buildPaymentQuote(payableTotal, "payos");
             const orderCode = createPayOSOrderCode(reservation.pendingCheckoutId);
             const returnUrl = `${env.clientUrl}/checkout-success?payment_provider=payos&payos_order_code=${orderCode}`;
             const cancelUrl = `${env.clientUrl}/cart?payment=cancelled`;

@@ -37,7 +37,7 @@ function buildService() {
         applyDiscount: vi.fn(),
         finalizePayOSCheckout: vi.fn(),
     };
-    const payosService = { createPaymentLink: vi.fn(), cancelPaymentLink: vi.fn() };
+    const payosService = { createPaymentLink: vi.fn(), cancelPaymentLink: vi.fn().mockResolvedValue(undefined) };
     const checkoutReservationService = {
         reserveInventory: vi.fn(),
         attachPaymentProvider: vi.fn().mockResolvedValue(undefined),
@@ -78,7 +78,7 @@ describe("NestOrdersPayOSService", () => {
         checkoutReservationService.reserveInventory.mockResolvedValue(reservation);
         payosService.createPaymentLink.mockResolvedValue({
             orderCode: 1_789_002_000_000_007,
-            amount: 2_250_000,
+            amount: 90,
             currency: "VND",
             paymentLinkId: "link-123",
             checkoutUrl: "https://pay.payos.vn/web/link-123",
@@ -94,11 +94,11 @@ describe("NestOrdersPayOSService", () => {
 
         expect(result).toEqual(expect.objectContaining({
             url: "https://pay.payos.vn/web/link-123",
-            amount: 2_250_000,
+            amount: 90,
             currency: "VND",
         }));
         expect(payosService.createPaymentLink).toHaveBeenCalledWith(expect.objectContaining({
-            amount: 2_250_000,
+            amount: 90,
             returnUrl: expect.stringContaining("payos_order_code="),
         }));
     });
@@ -114,7 +114,7 @@ describe("NestOrdersPayOSService", () => {
         checkoutReservationService.reserveInventory.mockResolvedValue(reservation);
         payosService.createPaymentLink.mockResolvedValue({
             orderCode: 1_789_002_000_000_007,
-            amount: 2_250_000,
+            amount: 90,
             currency: "VND",
             paymentLinkId: "link-123",
             checkoutUrl: "https://pay.payos.vn/web/link-123",
@@ -131,7 +131,7 @@ describe("NestOrdersPayOSService", () => {
         expect(result).toEqual(expect.objectContaining({
             url: "https://pay.payos.vn/web/link-123",
             paymentLinkId: "link-123",
-            amount: 2_250_000,
+            amount: 90,
             currency: "VND",
             guestOrderToken: expect.any(String),
         }));
@@ -139,9 +139,9 @@ describe("NestOrdersPayOSService", () => {
             provider: "payos",
             providerReference: "link-123",
             providerOrderCode: result.orderCode,
-            paymentAmount: 2_250_000,
+            paymentAmount: 90,
             paymentCurrency: "VND",
-            paymentFxRate: 25_000,
+            paymentFxRate: 1,
         }));
         const request = payosService.createPaymentLink.mock.calls[0][0];
         expect(JSON.stringify(request)).not.toContain("buyer@example.com");
@@ -187,7 +187,7 @@ describe("NestOrdersPayOSService", () => {
 
         expect(result.url).toContain("/mock-payos-checkout");
         expect(result.url).toContain("payment_link_id=");
-        expect(result.amount).toBe(2_250_000);
+        expect(result.amount).toBe(90);
         expect(ordersService.finalizePayOSCheckout).not.toHaveBeenCalled();
         expect(payosService.createPaymentLink).not.toHaveBeenCalled();
         expect(checkoutReservationService.attachPaymentProvider).toHaveBeenCalledWith(
@@ -195,7 +195,7 @@ describe("NestOrdersPayOSService", () => {
             expect.objectContaining({
                 provider: "payos",
                 providerReference: expect.stringMatching(/^mock_payos_/),
-                paymentAmount: 2_250_000,
+                paymentAmount: 90,
                 paymentCurrency: "VND",
             }),
         );

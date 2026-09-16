@@ -1,15 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { OrdersController } from "./orders.controller";
 import type { NestOrdersService } from "./orders.service";
-import type { NestOrdersStripeService } from "./orders.stripe.service";
 
 function buildController() {
     const ordersService = {
         applyDiscount: vi.fn(),
         makePurchase: vi.fn(),
-    } as unknown as NestOrdersService;
-    const ordersStripeService = {} as unknown as NestOrdersStripeService;
-    return { controller: new OrdersController(ordersService, ordersStripeService), ordersService };
+    } as unknown as NestOrdersService;    return { controller: new OrdersController(ordersService), ordersService };
 }
 
 describe("customer checkout flow", () => {

@@ -134,14 +134,6 @@ export class CheckoutReservationService {
         });
     }
 
-    async attachStripeSession(reservationToken: string, stripeSessionId: string): Promise<void> {
-        await withTransaction(async (tx) => {
-            const affectedRows = await this.repository.attachStripeSession(tx, reservationToken, stripeSessionId);
-            if (affectedRows !== 1) {
-                throw createReservationError("Checkout reservation is no longer available.", 409);
-            }
-        });
-    }
 
     async attachPaymentProvider(reservationToken: string, attachment: PaymentProviderAttachment): Promise<void> {
         await withTransaction(async (tx) => {
@@ -149,19 +141,6 @@ export class CheckoutReservationService {
             if (affectedRows !== 1) {
                 throw createReservationError("Checkout reservation is no longer available.", 409);
             }
-        });
-    }
-
-    async expireStripeSession(stripeSessionId: string): Promise<number> {
-        return withTransaction(async (tx) => {
-            const pendingCheckout = await this.repository.getPendingCheckoutForUpdate(tx, stripeSessionId);
-            if (!pendingCheckout) return 0;
-
-            const affectedRows = await this.repository.expireReservationBySession(tx, stripeSessionId);
-            if (affectedRows === 1 && pendingCheckout.discount_id) {
-                await this.promotionsRepository.releasePromotionReservation(tx, pendingCheckout.id);
-            }
-            return affectedRows;
         });
     }
 

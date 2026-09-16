@@ -80,7 +80,7 @@ export const purchaseSchema = z.object({
     discount: nonNegativeNumber("Discount").default(0),
     discountCode: optionalDiscountCode,
     shippingAddress: requiredText("Shipping address"),
-    paymentMethod: z.enum(["bank_transfer", "cash", "payos", "stripe", "card"], { error: "Unsupported payment method" }),
+    paymentMethod: z.enum(["cash", "payos"], { error: "Unsupported payment method" }),
 });
 
 export const checkoutSessionSchema = z.object({
@@ -104,11 +104,7 @@ export const applyDiscountSchema = z.object({
 });
 
 export const guestPurchaseSchema = guestCheckoutBaseSchema.extend({
-    paymentMethod: z.enum(["bank_transfer", "cash", "payos"], { error: "Unsupported payment method" }),
-}).superRefine(validateGuestCartQuantities);
-
-export const guestCheckoutSessionSchema = guestCheckoutBaseSchema.extend({
-    paymentMethod: z.enum(["card", "stripe"], { error: "Unsupported payment method" }),
+    paymentMethod: z.enum(["cash", "payos"], { error: "Unsupported payment method" }),
 }).superRefine(validateGuestCartQuantities);
 
 export const guestPayOSCheckoutSchema = guestCheckoutBaseSchema.extend({
@@ -117,11 +113,6 @@ export const guestPayOSCheckoutSchema = guestCheckoutBaseSchema.extend({
 
 export const guestOrderLookupSchema = z.object({
     orderId: guestPositiveInt("Order id"),
-    guestOrderToken: z.string().trim().min(1, "Guest order token is required").max(256, "Guest order token is too long"),
-}).strict();
-
-export const guestSessionLookupSchema = z.object({
-    sessionId: z.string().trim().min(1, "Session id is required").max(255, "Session id is too long"),
     guestOrderToken: z.string().trim().min(1, "Guest order token is required").max(256, "Guest order token is too long"),
 }).strict();
 

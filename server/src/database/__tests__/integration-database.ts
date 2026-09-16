@@ -63,35 +63,6 @@ export async function createTestOrder(userId: string, totalPrice = 10): Promise<
     return Number(result.insertId);
 }
 
-export async function createTestPendingCheckout(
-    userId: string,
-    stripeSessionId: string,
-    cart: unknown[],
-    totalPrice = 10,
-): Promise<void> {
-    const [result] = await integrationPool.execute<ResultSetHeader>(
-        `INSERT INTO pending_checkouts
-            (stripe_session_id, reservation_token, user_id, cart_json, total_price, discount, shipping_address, status, expires_at)
-        VALUES (?, UUID(), ?, ?, ?, 0, 'Integration test address', 'PENDING', DATE_ADD(UTC_TIMESTAMP(), INTERVAL 35 MINUTE))`,
-        [stripeSessionId, userId, JSON.stringify(cart), totalPrice],
-    );
-    const quantities = new Map<number, number>();
-    for (const item of cart as Array<{ product_id: number; quantity: number }>) {
-        quantities.set(item.product_id, (quantities.get(item.product_id) || 0) + item.quantity);
-    }
-    const reservationValues = [...quantities.entries()].map(([productId, quantity]) => [
-        result.insertId,
-        productId,
-        quantity,
-    ]);
-    if (reservationValues.length > 0) {
-        await integrationPool.query(
-            `INSERT INTO inventory_reservations (pending_checkout_id, product_id, quantity) VALUES ?`,
-            [reservationValues],
-        );
-    }
-}
-
 async function ignoreMissingTable(operation: () => Promise<unknown>): Promise<void> {
     try {
         await operation();
