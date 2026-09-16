@@ -103,6 +103,8 @@ export class PaymentReconciliationRepository {
             if (filters.reconciliationStatus !== "PENDING") {
                 pendingConditions.push("1 = 0");
             }
+        } else {
+            orderConditions.push("(op.provider <> 'payos' OR op.reconciliation_status <> 'MATCHED')");
         }
 
         const orderWhere = orderConditions.length ? `WHERE ${orderConditions.join(" AND ")}` : "";
@@ -166,7 +168,7 @@ export class PaymentReconciliationRepository {
                  reconciliation_status = 'MANUAL_CONFIRMED', provider_status = 'COLLECTED',
                  last_reconciled_at = UTC_TIMESTAMP(), last_reconciliation_error = NULL,
                  updated_at = UTC_TIMESTAMP()
-             WHERE id = ? AND provider = 'cash' AND status = 'pending'`,
+             WHERE id = ? AND provider = 'cash' AND status IN ('pending', 'paid')`,
             [orderPaymentId],
         );
         return this.getOrderPaymentForUpdate(tx, orderPaymentId);

@@ -285,7 +285,7 @@ export class PaymentReconciliationService {
             if (!payment) throw adminPaymentError("Payment not found", 404);
             if (String(payment.provider).toLowerCase() !== "cash") throw adminPaymentError("Only cash payments can be confirmed as COD", 409);
             if (!["pending", "paid"].includes(String(payment.status).toLowerCase())) throw adminPaymentError("COD payment is not pending or paid", 409);
-            const confirmed = String(payment.status).toLowerCase() === "pending" ? await this.repository.confirmCashPayment(tx, paymentId) : payment;
+            const confirmed = await this.repository.confirmCashPayment(tx, paymentId);
             if (!confirmed) throw adminPaymentError("Payment not found", 404);
             await this.repository.recordAttempt(tx, { provider: "cash", orderPaymentId: paymentId, requestedBy: requestedBy || null, outcome: "MANUAL_CONFIRMED", localStatus: String(payment.status), providerStatus: "COLLECTED", expectedAmount: toIntegerOrNull(payment.amount), expectedCurrency: String(payment.currency || "").toUpperCase() || null, mismatchReason: normalizeNote(input.note) });
             return confirmed;
@@ -316,6 +316,17 @@ export class PaymentReconciliationService {
         catch { const result = await this.persistReconciliationOutcome(target, "UNAVAILABLE", "PayOS provider lookup was unavailable."); if (target.throwUnavailable) throw adminPaymentError("PayOS provider is unavailable", 503, result); return result; }
         const mismatchReason = comparePayOSPayment(target, provider);
         if (mismatchReason) return this.persistReconciliationOutcome(target, "MISMATCH", mismatchReason, provider);
+        if (target.orderPaymentId) {
+            const currentPayment = await withTransaction((tx) => this.repository.getOrderPaymentForUpdate(tx, target.orderPaymentId!));
+            const localChanged = !currentPayment
+                || String(currentPayment.provider).toLowerCase() !== "payos"
+                || toPositiveSafeInteger(currentPayment.provider_reference) !== target.providerOrderCode
+                || String(currentPayment.provider_payment_id || "") !== String(target.paymentLinkId || "")
+                || toIntegerOrNull(currentPayment.amount) !== toIntegerOrNull(target.expectedAmount)
+                || String(currentPayment.currency || "").toUpperCase() !== target.expectedCurrency
+                || String(currentPayment.status || "") !== target.localStatus;
+            if (localChanged) return this.persistReconciliationOutcome(target, "MISMATCH", "The local order-payment changed during PayOS reconciliation.", provider);
+        }
         try {
             const order = await this.ordersService.finalizePayOSCheckout(provider.orderCode, provider.paymentLinkId, provider.amount);
             if (!order) return this.persistReconciliationOutcome(target, "MISMATCH", "No matching local PayOS reservation or order was found.", provider);
@@ -338,7 +349,7 @@ export class PaymentReconciliationService {
     private persistReconciliationOutcome(target: PayOSTarget & { orderPaymentId?: number }, outcome: "MATCHED" | "MISMATCH" | "UNAVAILABLE" | "FAILED", reason: string | null, provider?: PayOSPaymentLookup) {
         return withTransaction(async (tx) => {
             await this.repository.recordAttempt(tx, { provider: "payos", pendingCheckoutId: target.pendingCheckoutId, orderPaymentId: target.orderPaymentId, requestedBy: target.requestedBy, outcome, localStatus: target.localStatus, providerStatus: provider?.status || null, expectedAmount: toIntegerOrNull(target.expectedAmount), providerAmount: provider ? toIntegerOrNull(provider.amount) : null, expectedCurrency: target.expectedCurrency || null, providerCurrency: provider?.currency || null, providerReference: provider?.paymentLinkId || null, mismatchReason: reason });
-            if (target.orderPaymentId) await this.repository.projectReconciliation(tx, { orderPaymentId: target.orderPaymentId, reconciliationStatus: outcome, providerStatus: provider?.status || null, error: reason });
+            if (outcome === "MATCHED" && target.orderPaymentId) await this.repository.projectReconciliation(tx, { orderPaymentId: target.orderPaymentId, reconciliationStatus: outcome, providerStatus: provider?.status || null, error: reason });
             return { targetType: target.targetType, targetId: target.targetId, ...(target.orderPaymentId ? { paymentId: target.orderPaymentId } : {}), outcome, ...(reason ? { error: reason } : {}) };
         });
 }

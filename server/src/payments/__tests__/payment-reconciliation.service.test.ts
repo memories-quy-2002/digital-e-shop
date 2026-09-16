@@ -108,6 +108,41 @@ describe("PaymentReconciliationRepository", () => {
         expect(sql).not.toContain("guest_order_token_hash");
         expect(tx.query.mock.calls[1][1]).toEqual(["payos", "payos", 100, 200]);
     });
+
+    it("excludes terminal MATCHED PayOS order payments by default", async () => {
+        const tx = buildTx(vi.fn().mockResolvedValueOnce([{ total: 0 }]).mockResolvedValueOnce([]));
+        const repository = new PaymentReconciliationRepository();
+
+        await repository.listCandidates({ provider: "payos" }, tx as never);
+
+        const sql = String(tx.query.mock.calls[0][0]);
+        expect(sql).toContain("op.provider <> 'payos' OR op.reconciliation_status <> 'MATCHED'");
+        expect(sql).not.toContain("op.reconciliation_status = ?");
+    });
+
+    it("keeps an explicit MATCHED filter available for inspection", async () => {
+        const tx = buildTx(vi.fn().mockResolvedValueOnce([{ total: 1 }]).mockResolvedValueOnce([]));
+        const repository = new PaymentReconciliationRepository();
+
+        await repository.listCandidates({ provider: "payos", reconciliationStatus: "MATCHED" }, tx as never);
+
+        const sql = String(tx.query.mock.calls[0][0]);
+        expect(sql).toContain("op.reconciliation_status = ?");
+        expect(sql).not.toContain("op.provider <> 'payos' OR op.reconciliation_status <> 'MATCHED'");
+    });
+
+    it("repairs pending and paid cash rows while preserving paid_at and reading back the row", async () => {
+        const tx = buildTx(vi.fn()
+            .mockResolvedValueOnce({ affectedRows: 1 })
+            .mockResolvedValueOnce([{ id: 42, status: "paid", paid_at: "2026-09-16 10:00:00" }]));
+        const repository = new PaymentReconciliationRepository();
+
+        await expect(repository.confirmCashPayment(tx as never, 42)).resolves.toEqual({ id: 42, status: "paid", paid_at: "2026-09-16 10:00:00" });
+        expect(String(tx.query.mock.calls[0][0])).toContain("status IN ('pending', 'paid')");
+        expect(String(tx.query.mock.calls[0][0])).toContain("paid_at = COALESCE(paid_at, UTC_TIMESTAMP())");
+        expect(tx.query.mock.calls[0][1]).toEqual([42]);
+    });
+
     it("matches finalized PayOS payments by webhook order code and payment-link ID", async () => {
         const tx = buildTx(vi.fn().mockResolvedValue([{ id: 9, order_code: 123456, payment_link_id: "link-123" }]));
         const repository = new PaymentReconciliationRepository();
