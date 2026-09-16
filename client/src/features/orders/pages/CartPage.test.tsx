@@ -118,7 +118,8 @@ describe("public cart states", () => {
         renderPage();
 
         expect(screen.getByRole("heading", { name: "Your cart", level: 1 })).toBeInTheDocument();
-        expect(screen.getByText("Find the next useful piece for your setup.")).toBeInTheDocument();
+        expect(screen.getAllByText("Find the next useful piece for your setup.")).toHaveLength(2);
+        expect(screen.getByRole("link", { name: "Shop now" })).toHaveAttribute("href", "/shops");
     });
 
     it("renders a recoverable preview error instead of an empty cart", () => {
