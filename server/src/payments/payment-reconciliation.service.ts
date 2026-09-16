@@ -336,7 +336,7 @@ export class PaymentReconciliationService {
                 orderPaymentId = payment?.id ? Number(payment.id) : undefined;
             }
             if (!orderPaymentId) return this.persistReconciliationOutcome(target, "FAILED", "Finalized PayOS order has no payment ledger row.", provider);
-            return this.persistReconciliationOutcome({ ...target, orderPaymentId }, "MATCHED", null, provider);
+            return this.persistReconciliationOutcome({ ...target, pendingCheckoutId: undefined, orderPaymentId }, "MATCHED", null, provider);
         } catch (error) {
             const reason = safeErrorMessage(error);
             const outcome = isPayOSReservationMismatch(error) ? "MISMATCH" : "FAILED";
