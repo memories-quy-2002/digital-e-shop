@@ -24,10 +24,10 @@ describe("PaymentReconciliationService admin operations", () => {
         const ordersService = { finalizePayOSCheckout: vi.fn().mockResolvedValue({ id: 99 }) };
         const service = new PaymentReconciliationService(repository as never, ordersService as never, payosService as never);
 
-        await expect(service.runReconciliation({ limit: 1, requestedBy: "admin-1" })).resolves.toMatchObject({ results: [{ outcome: "MATCHED", targetId: 7 }] });
+        await expect(service.runReconciliation({ limit: 1, requestedBy: "admin-1" })).resolves.toMatchObject({ results: [{ outcome: "MATCHED", targetId: 7, paymentId: 42 }] });
         expect(payosService.getPaymentLink).toHaveBeenCalledWith({ orderCode: 123456 });
         expect(ordersService.finalizePayOSCheckout).toHaveBeenCalledWith(123456, "link-123", 250000);
-        expect(repository.recordAttempt).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ pendingCheckoutId: 7, outcome: "MATCHED", requestedBy: "admin-1" }));
+        expect(repository.recordAttempt).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ pendingCheckoutId: undefined, orderPaymentId: 42, outcome: "MATCHED", requestedBy: "admin-1" }));
         expect(repository.projectReconciliation).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ orderPaymentId: 42, reconciliationStatus: "MATCHED" }));
     });
 
@@ -111,7 +111,6 @@ describe("PaymentReconciliationService admin operations", () => {
         expect(repository.recordAttempt).not.toHaveBeenCalled();
     });
 
-
     it("confirms only a locked pending cash payment and appends the manual audit attempt", async () => {
         const repository = {
             getOrderPaymentForUpdate: vi.fn().mockResolvedValue({ id: 42, provider: "cash", status: "pending", amount: 250000, currency: "VND", reconciliation_status: "PENDING" }),
@@ -146,7 +145,6 @@ describe("PaymentReconciliationService admin operations", () => {
 
         expect(repository.listCandidates).toHaveBeenCalledWith({ provider: "payos", page: 1, limit: 10 }, expect.anything());
     });
-
 
     it("rejects a non-cash payment before any confirmation mutation", async () => {
         const repository = { getOrderPaymentForUpdate: vi.fn().mockResolvedValue({ id: 42, provider: "payos", status: "pending" }), confirmCashPayment: vi.fn(), recordAttempt: vi.fn() };
