@@ -208,12 +208,12 @@ model GuestCart {
 }
 
 model GuestCartItem {
-  id         Int      @id @default(autoincrement())
-  guestCartId String  @map("guest_cart_id") @db.Char(36)
-  productId  Int      @map("product_id")
-  quantity   Int
-  createdAt  DateTime @default(now()) @map("created_at") @db.DateTime(0)
-  updatedAt  DateTime @default(now()) @map("updated_at") @db.DateTime(0)
+  id          Int      @id @default(autoincrement())
+  guestCartId String   @map("guest_cart_id") @db.Char(36)
+  productId   Int      @map("product_id")
+  quantity    Int
+  createdAt   DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.DateTime(0)
 
   guestCart GuestCart @relation(fields: [guestCartId], references: [id], onDelete: Cascade)
   product   Product   @relation(fields: [productId], references: [id])
@@ -255,6 +255,7 @@ model Order {
   stripeCheckoutSessionId String?   @unique(map: "uq_orders_stripe_checkout_session") @map("stripe_checkout_session_id") @db.VarChar(255)
   stripePaymentIntentId   String?   @map("stripe_payment_intent_id") @db.VarChar(255)
   dateAdded               DateTime  @default(now()) @map("date_added") @db.DateTime(0)
+  deliveredAt             DateTime? @map("delivered_at") @db.DateTime(0)
   status                  Int       @default(0)
   currency                String    @default("USD") @db.Char(3)
   inventoryRestoredAt     DateTime? @map("inventory_restored_at") @db.DateTime(0)
@@ -295,10 +296,11 @@ model PendingCheckout {
   createdAt           DateTime  @default(now()) @map("created_at") @db.DateTime(0)
   consumedAt          DateTime? @map("consumed_at") @db.DateTime(0)
 
-  user                  User?                  @relation(fields: [userId], references: [id])
-  promotion             Discount?              @relation(fields: [discountId], references: [id])
-  inventoryReservations InventoryReservation[]
-  discountRedemptions   DiscountRedemption[]
+  user                   User?                          @relation(fields: [userId], references: [id])
+  promotion              Discount?                      @relation(fields: [discountId], references: [id])
+  inventoryReservations  InventoryReservation[]
+  discountRedemptions    DiscountRedemption[]
+  reconciliationAttempts PaymentReconciliationAttempt[]
 
   @@unique([paymentProvider, providerReference], map: "uq_pending_checkouts_provider_reference")
   @@unique([paymentProvider, providerOrderCode], map: "uq_pending_checkouts_provider_order_code")
@@ -364,30 +366,87 @@ model OrderItem {
 }
 
 model OrderPayment {
-  id                Int       @id @default(autoincrement())
-  orderId           Int       @map("order_id")
-  provider          String    @db.VarChar(32)
-  status            String    @db.VarChar(24)
-  providerReference String?   @map("provider_reference") @db.VarChar(255)
-  providerPaymentId String?   @map("provider_payment_id") @db.VarChar(255)
-  idempotencyKey    String    @unique(map: "uq_order_payments_idempotency") @map("idempotency_key") @db.VarChar(128)
-  baseAmount        Decimal   @map("base_amount") @db.Decimal(11, 2)
-  baseCurrency      String    @default("USD") @map("base_currency") @db.Char(3)
-  amount            Decimal   @db.Decimal(14, 2)
-  currency          String    @db.Char(3)
-  fxRate            Decimal   @default(1) @map("fx_rate") @db.Decimal(18, 6)
-  paidAt            DateTime? @map("paid_at") @db.DateTime(0)
-  refundedAt        DateTime? @map("refunded_at") @db.DateTime(0)
-  refundReference   String?   @map("refund_reference") @db.VarChar(255)
-  simulated         Boolean   @default(false) @db.TinyInt
-  createdAt         DateTime  @default(now()) @map("created_at") @db.DateTime(0)
-  updatedAt         DateTime  @default(now()) @map("updated_at") @db.DateTime(0)
+  id                      Int       @id @default(autoincrement())
+  orderId                 Int       @map("order_id")
+  provider                String    @db.VarChar(32)
+  status                  String    @db.VarChar(24)
+  providerReference       String?   @map("provider_reference") @db.VarChar(255)
+  providerPaymentId       String?   @map("provider_payment_id") @db.VarChar(255)
+  idempotencyKey          String    @unique(map: "uq_order_payments_idempotency") @map("idempotency_key") @db.VarChar(128)
+  baseAmount              Decimal   @map("base_amount") @db.Decimal(11, 2)
+  baseCurrency            String    @default("USD") @map("base_currency") @db.Char(3)
+  amount                  Decimal   @db.Decimal(14, 2)
+  currency                String    @db.Char(3)
+  fxRate                  Decimal   @default(1) @map("fx_rate") @db.Decimal(18, 6)
+  paidAt                  DateTime? @map("paid_at") @db.DateTime(0)
+  refundedAt              DateTime? @map("refunded_at") @db.DateTime(0)
+  refundReference         String?   @map("refund_reference") @db.VarChar(255)
+  simulated               Boolean   @default(false) @db.TinyInt
+  createdAt               DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt               DateTime  @default(now()) @map("updated_at") @db.DateTime(0)
+  reconciliationStatus    String    @default("PENDING") @map("reconciliation_status") @db.VarChar(24)
+  providerStatus          String?   @map("provider_status") @db.VarChar(32)
+  lastReconciledAt        DateTime? @map("last_reconciled_at") @db.DateTime(0)
+  lastReconciliationError String?   @map("last_reconciliation_error") @db.Text
 
-  order Order @relation(fields: [orderId], references: [id])
+  order                  Order                          @relation(fields: [orderId], references: [id])
+  reconciliationAttempts PaymentReconciliationAttempt[]
 
   @@index([orderId, status], map: "order_payments_order_status_idx")
   @@index([provider, providerReference], map: "order_payments_provider_reference_idx")
+  @@index([reconciliationStatus, lastReconciledAt], map: "order_payments_reconciliation_idx")
   @@map("order_payments")
+}
+
+model PaymentWebhookEvent {
+  id                Int       @id @default(autoincrement())
+  provider          String    @db.VarChar(32)
+  eventKey          String    @map("event_key") @db.VarChar(255)
+  eventType         String    @map("event_type") @db.VarChar(64)
+  payloadHash       String    @map("payload_hash") @db.Char(64)
+  normalizedPayload Json      @map("normalized_payload")
+  orderCode         BigInt?   @map("order_code")
+  paymentLinkId     String?   @map("payment_link_id") @db.VarChar(255)
+  amount            Decimal?  @db.Decimal(14, 0)
+  currency          String?   @db.Char(3)
+  status            String    @default("RECEIVED") @db.VarChar(24)
+  attemptCount      Int       @default(0) @map("attempt_count")
+  lastError         String?   @map("last_error") @db.Text
+  receivedAt        DateTime  @default(now()) @map("received_at") @db.DateTime(0)
+  processedAt       DateTime? @map("processed_at") @db.DateTime(0)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt         DateTime  @default(now()) @map("updated_at") @db.DateTime(0)
+
+  @@unique([provider, eventKey], map: "payment_webhook_events_provider_key")
+  @@index([status, receivedAt], map: "payment_webhook_events_status_received_idx")
+  @@index([provider, orderCode], map: "payment_webhook_events_provider_order_idx")
+  @@map("payment_webhook_events")
+}
+
+model PaymentReconciliationAttempt {
+  id                Int      @id @default(autoincrement())
+  provider          String   @db.VarChar(32)
+  pendingCheckoutId Int?     @map("pending_checkout_id")
+  orderPaymentId    Int?     @map("order_payment_id")
+  requestedBy       String?  @map("requested_by") @db.VarChar(255)
+  outcome           String   @db.VarChar(24)
+  localStatus       String?  @map("local_status") @db.VarChar(24)
+  providerStatus    String?  @map("provider_status") @db.VarChar(32)
+  expectedAmount    Decimal? @map("expected_amount") @db.Decimal(14, 0)
+  providerAmount    Decimal? @map("provider_amount") @db.Decimal(14, 0)
+  expectedCurrency  String?  @map("expected_currency") @db.Char(3)
+  providerCurrency  String?  @map("provider_currency") @db.Char(3)
+  providerReference String?  @map("provider_reference") @db.VarChar(255)
+  mismatchReason    String?  @map("mismatch_reason") @db.Text
+  createdAt         DateTime @default(now()) @map("created_at") @db.DateTime(0)
+
+  pendingCheckout PendingCheckout? @relation(fields: [pendingCheckoutId], references: [id])
+  orderPayment    OrderPayment?    @relation(fields: [orderPaymentId], references: [id])
+
+  @@index([pendingCheckoutId], map: "payment_reconciliation_attempts_pending_idx")
+  @@index([orderPaymentId], map: "payment_reconciliation_attempts_payment_idx")
+  @@index([outcome, createdAt], map: "payment_reconciliation_attempts_outcome_idx")
+  @@map("payment_reconciliation_attempts")
 }
 
 model SupportTicket {
