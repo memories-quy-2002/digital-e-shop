@@ -294,14 +294,6 @@ export class OrdersRepository {
         );
     }
 
-    markPendingCheckoutConsumed(stripeSessionId: string, callback: QueryCallback<UpdateResult>) {
-        this.query(
-            "UPDATE pending_checkouts SET status = 'CONSUMED', consumed_at = UTC_TIMESTAMP() WHERE stripe_session_id = ? AND status = 'PENDING'",
-            [stripeSessionId],
-            callback,
-        );
-    }
-
     getOrderByStripeSessionId(stripeSessionId: string, callback: QueryCallback<OrderBySessionRow[]>) {
         this.query(
             `SELECT id, user_id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added, payment_method

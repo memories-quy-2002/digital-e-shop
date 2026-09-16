@@ -200,16 +200,6 @@ export class CheckoutReservationRepository {
         return result.affectedRows;
     }
 
-    async expireReservationBySession(tx: TransactionContext, sessionId: string): Promise<number> {
-        const result = await tx.query<{ affectedRows: number }>(
-            `UPDATE pending_checkouts
-             SET status = 'EXPIRED'
-             WHERE stripe_session_id = ? AND status = 'PENDING'`,
-            [sessionId],
-        );
-        return result.affectedRows;
-    }
-
     async expireReservationByProviderOrderCode(
         tx: TransactionContext,
         provider: string,
