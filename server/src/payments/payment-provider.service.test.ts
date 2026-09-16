@@ -17,11 +17,15 @@ describe("PaymentProviderService", () => {
             .resolves.toMatchObject({ status: "pending", providerReference: "mock_payos_order_12", simulated: true });
     });
 
-    it("does not simulate a successful refund when live Stripe credentials are absent", async () => {
-        const service = new PaymentProviderService(config("live") as never, {} as never);
+    it("rejects legacy providers before a payment is created", async () => {
+        const service = new PaymentProviderService(config("mock") as never, {} as never);
 
-        await expect(service.refundPayment({ provider: "stripe", orderId: 12, paymentId: "pi_123", amount: 10, currency: "USD" }))
-            .rejects.toThrow("Stripe payments are not configured");
+        await expect(service.createPayment({ provider: "stripe", orderId: 12, amount: 10, currency: "USD" } as never))
+            .rejects.toThrow("Unsupported payment method");
+        await expect(service.createPayment({ provider: "card", orderId: 12, amount: 10, currency: "USD" } as never))
+            .rejects.toThrow("Unsupported payment method");
+        await expect(service.createPayment({ provider: "bank_transfer", orderId: 12, amount: 10, currency: "USD" } as never))
+            .rejects.toThrow("Unsupported payment method");
     });
 
     it("does not claim to create a live PayOS payment without a PayOS integration", async () => {

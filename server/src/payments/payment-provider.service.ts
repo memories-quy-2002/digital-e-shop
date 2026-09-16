@@ -1,14 +1,13 @@
 import { Injectable, Optional } from "@nestjs/common";
 import { NestConfigService } from "../config/nest-config.service";
 import { PayOSService } from "./payos.service";
-import { StripeService } from "../stripe/stripe.service";
+import { assertNewPaymentProvider } from "./payment.types";
 import type { CreatePaymentInput, PaymentProviderResult, RefundPaymentInput } from "./payment.types";
 
 @Injectable()
 export class PaymentProviderService {
     constructor(
         private readonly config: NestConfigService,
-        private readonly stripeService: StripeService,
         @Optional() private readonly payosService?: PayOSService,
     ) {}
 
@@ -17,19 +16,17 @@ export class PaymentProviderService {
     }
 
     async createPayment(input: CreatePaymentInput): Promise<PaymentProviderResult> {
+        const provider = assertNewPaymentProvider(input.provider);
+
         if (this.mode === "mock") {
             return {
                 status: "pending",
-                providerReference: input.providerReference || `mock_${input.provider}_order_${input.orderId}`,
+                providerReference: input.providerReference || `mock_${provider}_order_${input.orderId}`,
                 simulated: true,
             };
         }
 
-        if (input.provider === "stripe" && !this.config.get("stripeSecretKey")) {
-            throw new Error("Stripe payments are not configured");
-        }
-
-        if (input.provider === "payos") {
+        if (provider === "payos") {
             if (!this.payosService?.isConfigured) {
                 throw new Error("PayOS payments are not configured");
             }
@@ -40,36 +37,20 @@ export class PaymentProviderService {
 
         return {
             status: "pending",
-            providerReference: input.providerReference || input.providerPaymentId || `${input.provider}_order_${input.orderId}`,
+            providerReference: input.providerReference || input.providerPaymentId || `${provider}_order_${input.orderId}`,
             simulated: false,
         };
     }
 
     async refundPayment(input: RefundPaymentInput): Promise<PaymentProviderResult> {
+        assertNewPaymentProvider(input.provider);
+
         if (this.mode === "mock") {
             return {
                 status: "refunded",
                 providerReference: input.paymentId,
                 refundReference: `mock_refund_${input.provider}_order_${input.orderId}`,
                 simulated: true,
-            };
-        }
-
-        if (input.provider === "stripe") {
-            if (!this.config.get("stripeSecretKey")) {
-                throw new Error("Stripe payments are not configured");
-            }
-
-            const refund = await this.stripeService.refundPayment(
-                input.paymentId,
-                undefined,
-                `order-${input.orderId}-refund`,
-            );
-            return {
-                status: "refunded",
-                providerReference: input.paymentId,
-                refundReference: refund.id,
-                simulated: false,
             };
         }
 
