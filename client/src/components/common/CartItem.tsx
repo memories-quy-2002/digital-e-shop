@@ -1,4 +1,5 @@
 import React, { useCallback } from "react";
+import { Link } from "react-router-dom";
 import { TrashIcon } from "./Icons";
 import loadImage from "../../utils/loadImage";
 import type { CartValidationIssue, CheckoutCartItem } from "../../features/orders/types";
@@ -26,7 +27,8 @@ const CartItem = ({
     const imageUrl = item.main_image ? item.main_image.replace(".jpg", "") : null;
     const productPrice = item.sale_price || item.price;
     const stockCap = Math.max(Number(item.available_stock ?? item.stock) || 0, 1);
-    const isUnavailable = validationIssue?.reason === "out_of_stock";
+    const isUnavailable = validationIssue?.reason === "unavailable" || validationIssue?.reason === "out_of_stock";
+    const productPath = `/product?id=${item.productId}`;
 
     const step = useCallback(
         (delta: number) => {
@@ -53,13 +55,24 @@ const CartItem = ({
           ? t("cart.stockLeft", item.stock)
           : null;
     return (
-        <article className={validationIssue ? "cart-item is-invalid" : "cart-item"}>
-            <div className="cart-item__image">{loadImage(imageUrl, item.productName)}</div>
+        <article
+            className={validationIssue ? "cart-item is-invalid" : "cart-item"}
+            aria-labelledby={`cart-item-${item.cartItemId}-name`}
+        >
+            <Link to={productPath} className="cart-item__image-link" aria-label={`View ${item.productName}`}>
+                <div className="cart-item__image">{loadImage(imageUrl, item.productName)}</div>
+            </Link>
             <div className="cart-item__info">
-                <span>{item.brand}</span>
-                <strong>{item.productName}</strong>
+                <span className="cart-item__brand">{item.brand}</span>
+                <Link
+                    to={productPath}
+                    className="cart-item__name"
+                    id={`cart-item-${item.cartItemId}-name`}
+                >
+                    {item.productName}
+                </Link>
                 <p>{item.category}</p>
-                {validationIssue ? <small className="cart-item__issue">{stockMessage}</small> : null}
+                {validationIssue ? <small className="cart-item__issue" role="alert">{stockMessage}</small> : null}
             </div>
             <div className="cart-item__qty">
                 <label htmlFor={`cart-${item.cartItemId}-quantity`}>{t("cart.qty")}</label>
@@ -79,6 +92,7 @@ const CartItem = ({
                     <input
                         type="number"
                         name="quantity"
+                        inputMode="numeric"
                         aria-label={`cart-${item.cartItemId}-quantity`}
                         id={`cart-${item.cartItemId}-quantity`}
                         min={1}
@@ -96,11 +110,14 @@ const CartItem = ({
                         +
                     </button>
                 </div>
-                {stockMessage ? <span className="cart-item__stock">{stockMessage}</span> : null}
+                {!validationIssue && stockMessage ? <span className="cart-item__stock">{stockMessage}</span> : null}
             </div>
             <div className="cart-item__price">
                 <strong>{formatCurrency(productPrice * item.quantity)}</strong>
-                <p>{formatCurrency(productPrice)} each</p>
+                <p>
+                    {item.sale_price ? <del>{formatCurrency(item.price)}</del> : null}{" "}
+                    {formatCurrency(productPrice)} {t("cart.each")}
+                </p>
             </div>
             <button
                 className="cart-item__remove"
@@ -109,6 +126,7 @@ const CartItem = ({
                 aria-label={`Remove ${item.productName} from cart`}
             >
                 <TrashIcon size={18} />
+                <span className="cart-item__remove-label">{t("cart.remove")}</span>
             </button>
         </article>
     );

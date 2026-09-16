@@ -73,12 +73,44 @@ export class NestAuthService {
         return (!user.auth_provider || user.auth_provider === "local") && !user.provider_user_id;
     }
 
+    private async findRecreatedFirebaseUser(identity: FirebaseIdentity): Promise<UserRow | null> {
+        const existingUser = await this.usersRepository.findByEmail(identity.email);
+        if (
+            !existingUser
+            || existingUser.auth_provider !== "firebase"
+            || !existingUser.provider_user_id
+            || existingUser.provider_user_id === identity.uid
+        ) {
+            return null;
+        }
+
+        if (existingUser.status === "Suspended") return existingUser;
+
+        const rebound = await this.usersRepository.rebindFirebaseIdentity(
+            existingUser.id,
+            identity.email,
+            existingUser.provider_user_id,
+            identity.uid,
+        );
+        if (!rebound?.affectedRows) {
+            return this.usersRepository.findByProviderUserId(identity.uid);
+        }
+
+        return (await this.usersRepository.findById(existingUser.id)) || {
+            ...existingUser,
+            provider_user_id: identity.uid,
+        };
+    }
+
     private async findFirebaseUser(identity: FirebaseIdentity): Promise<UserRow | null> {
         const byId = await this.usersRepository.findById(identity.uid);
         if (byId) return byId;
 
         const byProviderUserId = await this.usersRepository.findByProviderUserId(identity.uid);
         if (byProviderUserId) return byProviderUserId;
+
+        const recreatedUser = await this.findRecreatedFirebaseUser(identity);
+        if (recreatedUser) return recreatedUser;
 
         if (!identity.emailVerified) return null;
 

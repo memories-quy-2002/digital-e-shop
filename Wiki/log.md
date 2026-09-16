@@ -65,3 +65,5 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-15 - Codex - Rebuilt Login and Signup around a shared storefront auth shell with responsive typography, accessible validation/focus states, password reveal controls, and color-scheme switching while preserving Firebase-only auth behavior.
 - 2026-09-15 - Codex - Linked verified Firebase identities to matching legacy MySQL email rows without rewriting user IDs, preserving existing cart/order ownership and covering the unverified-link rejection path.
 - 2026-09-16 - Codex - Aligned the shared purchase schema with cash/PayOS, removed unused Stripe-session reservation mutations, and documented the migration-dependent MySQL integration failure.
+- 2026-09-16 - Codex - Rebound an already-linked Firebase provider UID after local emulator account recreation while preserving the legacy database user ID and ownership relationships.
+- 2026-09-16 - Codex - Added a package-owned Auth Emulator command with ignored import/export state so local Firebase UIDs persist across restarts.

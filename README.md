@@ -114,9 +114,13 @@ The normal demo seed is transactional and idempotent for its owned rows. Run it 
 Run the applications in separate terminals:
 
 ```powershell
+pnpm --dir server firebase:emulator
 pnpm --dir server dev
 pnpm --dir client dev
 ```
+
+The emulator command keeps local Auth users in the ignored
+.firebase/emulator-data directory across restarts.
 
 Default local URLs:
 

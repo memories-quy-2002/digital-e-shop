@@ -37,6 +37,7 @@
         "prisma:studio": "prisma studio --config prisma.config.ts",
         "demo:reset": "node src/database/seeders/resetDemoDatabase.js",
         "demo:verify": "node src/database/seeders/verifyDemo.js",
+        "firebase:emulator": "pnpm dlx --allow-build=protobufjs --allow-build=re2 --package=firebase-tools firebase emulators:start --only auth --project demo-digital-e-local --config=../firebase.json --import=../.firebase/emulator-data --export-on-exit",
         "firebase:seed:emulator": "node src/database/seeders/seedFirebaseEmulatorUsers.js",
         "seed:mock": "node src/database/seeders/seedMockOrdersReviews.js",
         "docker:up": "wsl -d Ubuntu -- bash -c \"cd /mnt/e/Code/digital-e-shop/server && docker compose --env-file .env.docker up -d\"",
