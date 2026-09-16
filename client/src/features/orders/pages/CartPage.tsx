@@ -339,6 +339,7 @@ const CartPage = () => {
                                     <ArrowRightIcon />
                                 </button>
                             </div>
+                        ) : null}
                     </>
                 )}
 
