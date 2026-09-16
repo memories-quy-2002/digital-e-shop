@@ -9,17 +9,94 @@ describe("PaymentReconciliationRepository", () => {
     it("claims a new event and returns a same-payload duplicate without conflicting", async () => {
         const tx = buildTx(vi.fn().mockResolvedValueOnce({ insertId: 7, affectedRows: 1 }).mockResolvedValueOnce([{ id: 7, status: "RECEIVED", payload_hash: "hash-1" }]));
         const repository = new PaymentReconciliationRepository();
-        await expect(repository.claimWebhookEvent(tx as never, { provider: "payos", eventKey: "event-1", eventType: "PAYMENT_SUCCESS", payloadHash: "hash-1", normalizedPayload: { orderCode: 123456 }, orderCode: 123456, paymentLinkId: "link-123", amount: 250000, currency: "VND" })).resolves.toEqual({ inserted: true, eventId: 7, status: "RECEIVED", payloadHashMatches: true });
+        await expect(repository.claimWebhookEvent(tx as never, { provider: "payos", eventKey: "event-1", eventType: "PAYMENT_SUCCESS", payloadHash: "hash-1", normalizedPayload: { orderCode: 123456 }, orderCode: 123456, paymentLinkId: "link-123", amount: 250000, currency: "VND" })).resolves.toEqual({ inserted: true, eventId: 7, status: "RECEIVED", payloadHashMatches: true, attemptCount: 0 });
 
         const duplicate = buildTx(vi.fn().mockResolvedValueOnce({ affectedRows: 0 }).mockResolvedValueOnce([{ id: 7, status: "PROCESSED", payload_hash: "hash-1" }]));
-        await expect(repository.claimWebhookEvent(duplicate as never, { provider: "payos", eventKey: "event-1", eventType: "PAYMENT_SUCCESS", payloadHash: "hash-1", normalizedPayload: { orderCode: 123456 } })).resolves.toMatchObject({ inserted: false, eventId: 7, status: "PROCESSED", payloadHashMatches: true });
+        await expect(repository.claimWebhookEvent(duplicate as never, { provider: "payos", eventKey: "event-1", eventType: "PAYMENT_SUCCESS", payloadHash: "hash-1", normalizedPayload: { orderCode: 123456 } })).resolves.toMatchObject({ inserted: false, eventId: 7, status: "PROCESSED", payloadHashMatches: true, attemptCount: 0 });
         expect(duplicate.query.mock.calls[0][0]).toContain("ON DUPLICATE KEY UPDATE");
     });
 
     it("returns a payload conflict for a reused event key with a different hash", async () => {
         const tx = buildTx(vi.fn().mockResolvedValueOnce({ affectedRows: 0 }).mockResolvedValueOnce([{ id: 7, status: "PROCESSED", payload_hash: "different-hash" }]));
         const repository = new PaymentReconciliationRepository();
-        await expect(repository.claimWebhookEvent(tx as never, { provider: "payos", eventKey: "event-1", eventType: "PAYMENT_SUCCESS", payloadHash: "hash-1", normalizedPayload: {} })).resolves.toMatchObject({ inserted: false, conflict: true, payloadHashMatches: false });
+        await expect(repository.claimWebhookEvent(tx as never, { provider: "payos", eventKey: "event-1", eventType: "PAYMENT_SUCCESS", payloadHash: "hash-1", normalizedPayload: {} })).resolves.toMatchObject({ inserted: false, conflict: true, payloadHashMatches: false, attemptCount: 0 });
+    });
+
+    it("reclaims a stale PROCESSING event with a new lease generation", async () => {
+        const tx = buildTx(vi.fn()
+            .mockResolvedValueOnce({ affectedRows: 0 })
+            .mockResolvedValueOnce([{
+                id: 7,
+                status: "PROCESSING",
+                payload_hash: "hash-1",
+                attempt_count: 3,
+                updated_at: "2026-09-16 10:00:00",
+            }])
+            .mockResolvedValueOnce({ affectedRows: 1 }));
+        const repository = new PaymentReconciliationRepository();
+
+        await expect(repository.claimWebhookEvent(tx as never, {
+            provider: "payos",
+            eventKey: "event-1",
+            eventType: "PAYMENT_SUCCESS",
+            payloadHash: "hash-1",
+            normalizedPayload: {},
+        })).resolves.toMatchObject({
+            inserted: false,
+            eventId: 7,
+            status: "PROCESSING",
+            payloadHashMatches: true,
+            attemptCount: 4,
+            reclaimed: true,
+        });
+        expect(String(tx.query.mock.calls[2][0])).toContain("updated_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND");
+        expect(String(tx.query.mock.calls[2][0])).toContain("attempt_count = attempt_count + 1");
+    });
+
+    it("does not reclaim a fresh PROCESSING event", async () => {
+        const tx = buildTx(vi.fn()
+            .mockResolvedValueOnce({ affectedRows: 0 })
+            .mockResolvedValueOnce([{
+                id: 7,
+                status: "PROCESSING",
+                payload_hash: "hash-1",
+                attempt_count: 3,
+                updated_at: "2099-09-16 10:00:00",
+            }])
+            .mockResolvedValueOnce({ affectedRows: 0 }));
+        const repository = new PaymentReconciliationRepository();
+
+        await expect(repository.claimWebhookEvent(tx as never, {
+            provider: "payos",
+            eventKey: "event-1",
+            eventType: "PAYMENT_SUCCESS",
+            payloadHash: "hash-1",
+            normalizedPayload: {},
+        })).resolves.toMatchObject({
+            inserted: false,
+            status: "PROCESSING",
+            payloadHashMatches: true,
+            attemptCount: 3,
+            reclaimed: false,
+        });
+        expect(tx.query).toHaveBeenCalledTimes(3);
+        expect(tx.query.mock.calls[2][1]).toEqual([7, "hash-1", 3, expect.any(Number)]);
+    });
+
+    it("reports a failed conditional terminal transition instead of assuming it committed", async () => {
+        const tx = buildTx(vi.fn().mockResolvedValue({ affectedRows: 0 }));
+        const repository = new PaymentReconciliationRepository();
+
+        await expect(repository.completeWebhookEvent(
+            tx as never,
+            7,
+            "PROCESSED",
+            null,
+            { expectedStatus: "PROCESSING", expectedAttemptCount: 4 },
+        )).resolves.toBe(false);
+        expect(String(tx.query.mock.calls[0][0])).toContain("AND status = ?");
+        expect(String(tx.query.mock.calls[0][0])).toContain("AND attempt_count = ?");
+        expect(tx.query.mock.calls[0][1]).toEqual(["PROCESSED", null, "PROCESSED", "PROCESSED", 7, "PROCESSING", 4]);
     });
 
     it("bounds candidate pagination and does not select guest token hashes", async () => {
@@ -110,8 +187,9 @@ const buildRepository = () => ({
         eventId: 7,
         status: "RECEIVED",
         payloadHashMatches: true,
+        attemptCount: 0,
     }),
-    completeWebhookEvent: vi.fn().mockResolvedValue(undefined),
+    completeWebhookEvent: vi.fn().mockResolvedValue(true),
 });
 
 describe("PaymentReconciliationService", () => {
@@ -122,7 +200,7 @@ describe("PaymentReconciliationService", () => {
 
     it("does not finalize a duplicate processed event", async () => {
         const repository = buildRepository();
-        repository.claimWebhookEvent.mockResolvedValue({ inserted: false, status: "PROCESSED", payloadHashMatches: true, eventId: 7 });
+        repository.claimWebhookEvent.mockResolvedValue({ inserted: false, status: "PROCESSED", payloadHashMatches: true, eventId: 7, attemptCount: 1 });
         const ordersService = { finalizePayOSCheckout: vi.fn() };
         const service = new PaymentReconciliationService(repository as never, ordersService as never);
 
@@ -132,7 +210,7 @@ describe("PaymentReconciliationService", () => {
 
     it("returns retryable for an event left in processing", async () => {
         const repository = buildRepository();
-        repository.claimWebhookEvent.mockResolvedValue({ inserted: false, status: "PROCESSING", payloadHashMatches: true, eventId: 7 });
+        repository.claimWebhookEvent.mockResolvedValue({ inserted: false, status: "PROCESSING", payloadHashMatches: true, eventId: 7, attemptCount: 1, reclaimed: false });
         const ordersService = { finalizePayOSCheckout: vi.fn() };
         const service = new PaymentReconciliationService(repository as never, ordersService as never);
 
@@ -142,13 +220,13 @@ describe("PaymentReconciliationService", () => {
 
     it("records a same-key payload conflict without creating an order", async () => {
         const repository = buildRepository();
-        repository.claimWebhookEvent.mockResolvedValue({ inserted: false, status: "PROCESSED", payloadHashMatches: false, conflict: true, eventId: 7 });
+        repository.claimWebhookEvent.mockResolvedValue({ inserted: false, status: "PROCESSED", payloadHashMatches: false, conflict: true, eventId: 7, attemptCount: 1 });
         const ordersService = { finalizePayOSCheckout: vi.fn() };
         const service = new PaymentReconciliationService(repository as never, ordersService as never);
 
         await expect(service.handleVerifiedPayOSWebhook(validInput)).resolves.toMatchObject({ kind: "mismatch", httpStatus: 200 });
         expect(ordersService.finalizePayOSCheckout).not.toHaveBeenCalled();
-        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "MISMATCH", expect.any(String));
+        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "MISMATCH", expect.any(String), { expectedStatus: "PROCESSED", expectedAttemptCount: 1 });
     });
 
     it("records a mismatched reservation without creating an order", async () => {
@@ -159,7 +237,7 @@ describe("PaymentReconciliationService", () => {
         const service = new PaymentReconciliationService(repository as never, ordersService as never);
 
         await expect(service.handleVerifiedPayOSWebhook(validInput)).resolves.toMatchObject({ kind: "mismatch", httpStatus: 200 });
-        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "MISMATCH", expect.any(String));
+        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "MISMATCH", expect.any(String), { expectedStatus: "PROCESSING", expectedAttemptCount: 1 });
     });
 
     it("returns retryable when finalization fails transiently", async () => {
@@ -168,7 +246,7 @@ describe("PaymentReconciliationService", () => {
         const service = new PaymentReconciliationService(repository as never, ordersService as never);
 
         await expect(service.handleVerifiedPayOSWebhook(validInput)).resolves.toMatchObject({ kind: "retryable", httpStatus: 500 });
-        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "FAILED", "database unavailable");
+        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "FAILED", "database unavailable", { expectedStatus: "PROCESSING", expectedAttemptCount: 1 });
     });
 
     it("ignores a successful event when no local reservation is found", async () => {
@@ -177,7 +255,7 @@ describe("PaymentReconciliationService", () => {
         const service = new PaymentReconciliationService(repository as never, ordersService as never);
 
         await expect(service.handleVerifiedPayOSWebhook(validInput)).resolves.toMatchObject({ kind: "ignored", httpStatus: 200 });
-        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "IGNORED", expect.any(String));
+        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "IGNORED", expect.any(String), { expectedStatus: "PROCESSING", expectedAttemptCount: 1 });
     });
 
     it("finalizes a verified exact VND event once and marks it processed", async () => {
@@ -188,7 +266,68 @@ describe("PaymentReconciliationService", () => {
         await expect(service.handleVerifiedPayOSWebhook(validInput)).resolves.toMatchObject({ kind: "processed", httpStatus: 200, orderId: 42 });
         expect(ordersService.finalizePayOSCheckout).toHaveBeenCalledTimes(1);
         expect(ordersService.finalizePayOSCheckout).toHaveBeenCalledWith(123456, "link-123", 250000);
-        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "PROCESSED", null);
+        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "PROCESSED", null, { expectedStatus: "PROCESSING", expectedAttemptCount: 1 });
+    });
+
+    it("retries finalization for a stale same-payload PROCESSING event", async () => {
+        const repository = buildRepository();
+        repository.claimWebhookEvent.mockResolvedValue({
+            inserted: false,
+            status: "PROCESSING",
+            payloadHashMatches: true,
+            eventId: 7,
+            attemptCount: 4,
+            reclaimed: true,
+        });
+        const ordersService = { finalizePayOSCheckout: vi.fn().mockResolvedValue({ id: 42 }) };
+        const service = new PaymentReconciliationService(repository as never, ordersService as never);
+
+        await expect(service.handleVerifiedPayOSWebhook(validInput)).resolves.toMatchObject({ kind: "processed", orderId: 42 });
+        expect(ordersService.finalizePayOSCheckout).toHaveBeenCalledTimes(1);
+        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "PROCESSED", null, { expectedStatus: "PROCESSING", expectedAttemptCount: 4 });
+    });
+
+    it.each(["true", "false", 1, 0, null])("does not finalize when envelope.success is not literal true: %s", async (success) => {
+        const repository = buildRepository();
+        const ordersService = { finalizePayOSCheckout: vi.fn().mockResolvedValue({ id: 42 }) };
+        const service = new PaymentReconciliationService(repository as never, ordersService as never);
+
+        await expect(service.handleVerifiedPayOSWebhook({
+            ...validInput,
+            envelope: { code: "00", success: success as never },
+        })).resolves.toMatchObject({ kind: "ignored", httpStatus: 200 });
+        expect(ordersService.finalizePayOSCheckout).not.toHaveBeenCalled();
+    });
+
+    it("does not let a stale worker overwrite a same-key payload mismatch", async () => {
+        const repository = buildRepository();
+        repository.claimWebhookEvent
+            .mockResolvedValueOnce({ inserted: true, status: "RECEIVED", payloadHashMatches: true, eventId: 7, attemptCount: 0 })
+            .mockResolvedValueOnce({ inserted: false, status: "PROCESSING", payloadHashMatches: false, conflict: true, eventId: 7, attemptCount: 1 });
+        repository.completeWebhookEvent
+            .mockResolvedValueOnce(true)
+            .mockResolvedValueOnce(true)
+            .mockResolvedValueOnce(false);
+        let releaseFinalization!: () => void;
+        let resolveFinalizationStarted!: () => void;
+        const finalizationStarted = new Promise<void>((resolve) => { resolveFinalizationStarted = resolve; });
+        const ordersService = {
+            finalizePayOSCheckout: vi.fn().mockImplementation(() => new Promise((resolveOrder) => {
+                resolveFinalizationStarted();
+                releaseFinalization = () => resolveOrder({ id: 42 });
+            })),
+        };
+        const service = new PaymentReconciliationService(repository as never, ordersService as never);
+        const first = service.handleVerifiedPayOSWebhook(validInput);
+        await finalizationStarted;
+        const conflict = await service.handleVerifiedPayOSWebhook({
+            ...validInput,
+            data: { ...validInput.data, amount: 260000 },
+        });
+        expect(conflict).toMatchObject({ kind: "mismatch", httpStatus: 200 });
+        releaseFinalization();
+        await expect(first).resolves.toMatchObject({ kind: "retryable", httpStatus: 500 });
+        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "PROCESSED", null, { expectedStatus: "PROCESSING", expectedAttemptCount: 1 });
     });
 
     it("builds a deterministic event key from the provider reference or canonical fields", () => {
@@ -216,6 +355,6 @@ describe("PaymentReconciliationService error classification", () => {
             kind: "retryable",
             httpStatus: 500,
         });
-        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "FAILED", "Checkout reservation is no longer payable.");
+        expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "FAILED", "Checkout reservation is no longer payable.", { expectedStatus: "PROCESSING", expectedAttemptCount: 1 });
     });
 });

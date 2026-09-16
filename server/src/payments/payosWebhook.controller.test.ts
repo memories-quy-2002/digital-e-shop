@@ -162,4 +162,32 @@ describe("PayOSWebhookController", () => {
             received: false,
         }));
     });
+
+    it("passes a non-boolean success value through without normalizing it to true", async () => {
+        const reconciliationService = {
+            handleVerifiedPayOSWebhook: vi.fn().mockResolvedValue({
+                kind: "ignored",
+                httpStatus: 200,
+                eventId: 7,
+            }),
+        };
+        const payosService = {
+            verifyWebhook: vi.fn().mockResolvedValue({
+                orderCode: 123456,
+                amount: 250000,
+                currency: "VND",
+                paymentLinkId: "link-123",
+                code: "00",
+            }),
+        };
+        const controller = new PayOSWebhookController(payosService as never, reconciliationService as never);
+        const response = buildResponse();
+
+        await controller.handlePayOSWebhook({ body: { code: "00", success: "true" }, headers: {}, get: vi.fn() } as never, response as never);
+
+        expect(reconciliationService.handleVerifiedPayOSWebhook).toHaveBeenCalledWith(expect.objectContaining({
+            envelope: { code: "00", success: "true" },
+        }));
+        expect(response.status).toHaveBeenCalledWith(200);
+    });
 });

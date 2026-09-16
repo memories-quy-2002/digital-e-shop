@@ -7,7 +7,9 @@ export type WebhookEventInput = {
     normalizedPayload: Record<string, unknown>; orderCode?: number | null;
     paymentLinkId?: string | null; amount?: number | null; currency?: string | null;
 };
-export type WebhookClaim = { inserted: boolean; eventId: number; status: string; payloadHashMatches: boolean; conflict?: boolean };
+export type WebhookClaim = { inserted: boolean; eventId: number; status: string; payloadHashMatches: boolean; attemptCount: number; reclaimed?: boolean; conflict?: boolean };
+export type WebhookCompletionGuard = { expectedStatus: string; expectedAttemptCount: number };
+export const PAYOS_PROCESSING_LEASE_SECONDS = 15 * 60;
 export type ReconciliationCandidate = {
     target_type: "pending_checkout" | "order_payment"; target_id: number; provider: string;
     local_status: string; reconciliation_status: string; provider_reference: string | null;
@@ -46,25 +48,39 @@ export class PaymentReconciliationRepository {
              ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)`,
             [input.provider, input.eventKey, input.eventType, input.payloadHash, JSON.stringify(input.normalizedPayload), input.orderCode ?? null, input.paymentLinkId ?? null, input.amount ?? null, input.currency ?? null],
         );
-        const rows = await tx.query<Array<{ id: number; status: string; payload_hash: string }>>(
-            `SELECT id, status, payload_hash FROM payment_webhook_events WHERE provider = ? AND event_key = ? LIMIT 1 FOR UPDATE`,
+        const rows = await tx.query<Array<{ id: number; status: string; payload_hash: string; attempt_count: number }>>(
+            `SELECT id, status, payload_hash, attempt_count FROM payment_webhook_events WHERE provider = ? AND event_key = ? LIMIT 1 FOR UPDATE`,
             [input.provider, input.eventKey],
         );
         const event = rows[0];
         if (!event) throw new Error("Webhook event claim disappeared");
         const matches = event.payload_hash === input.payloadHash;
-        return { inserted: result.affectedRows === 1, eventId: Number(event.id), status: event.status, payloadHashMatches: matches, ...(matches ? {} : { conflict: true }) };
+        const attemptCount = Number(event.attempt_count || 0);
+        if (matches && event.status === "PROCESSING") {
+            const recovery = await tx.query<{ affectedRows?: number }>(
+                `UPDATE payment_webhook_events
+                 SET attempt_count = attempt_count + 1, last_error = NULL, updated_at = UTC_TIMESTAMP()
+                 WHERE id = ? AND status = 'PROCESSING' AND payload_hash = ? AND attempt_count = ?
+                   AND updated_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND`,
+                [event.id, input.payloadHash, attemptCount, PAYOS_PROCESSING_LEASE_SECONDS],
+            );
+            if (recovery.affectedRows === 1) {
+                return { inserted: false, eventId: Number(event.id), status: "PROCESSING", payloadHashMatches: true, attemptCount: attemptCount + 1, reclaimed: true };
+            }
+        }
+        return { inserted: result.affectedRows === 1, eventId: Number(event.id), status: event.status, payloadHashMatches: matches, attemptCount, ...(matches && event.status === "PROCESSING" ? { reclaimed: false } : {}), ...(matches ? {} : { conflict: true }) };
     }
 
-    async completeWebhookEvent(tx: TransactionContext, eventId: number, status: string, error?: string | null): Promise<void> {
-        await tx.query(
+    async completeWebhookEvent(tx: TransactionContext, eventId: number, status: string, error: string | null, guard: WebhookCompletionGuard): Promise<boolean> {
+        const result = await tx.query<{ affectedRows?: number }>(
             `UPDATE payment_webhook_events
              SET status = ?, last_error = ?, attempt_count = attempt_count + CASE WHEN ? = 'PROCESSING' THEN 1 ELSE 0 END,
                  processed_at = CASE WHEN ? IN ('PROCESSED', 'IGNORED', 'MISMATCH') THEN UTC_TIMESTAMP() ELSE processed_at END,
                  updated_at = UTC_TIMESTAMP()
-             WHERE id = ?`,
-            [status, error ?? null, status, status, eventId],
+             WHERE id = ? AND status = ? AND attempt_count = ?`,
+            [status, error ?? null, status, status, eventId, guard.expectedStatus, guard.expectedAttemptCount],
         );
+        return result.affectedRows === 1;
     }
 
     async listCandidates(filters: CandidateFilters, tx: TransactionContext): Promise<CandidatePage> {

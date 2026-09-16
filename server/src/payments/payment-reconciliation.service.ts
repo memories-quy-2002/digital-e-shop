@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { createHash } from "node:crypto";
-import { withTransaction } from "../database/transaction";
+import { withTransaction, type TransactionContext } from "../database/transaction";
 import { NestOrdersService } from "../orders/orders.service";
 import { PaymentReconciliationRepository, type WebhookEventInput } from "./payment-reconciliation.repository";
 
@@ -18,7 +18,7 @@ export type VerifiedPayOSWebhookData = {
 export type VerifiedPayOSWebhook = {
     envelope: {
         code?: string | null;
-        success?: boolean | null;
+        success?: unknown;
     };
     data: VerifiedPayOSWebhookData;
 };
@@ -66,7 +66,7 @@ const normalize = (input: VerifiedPayOSWebhook): NormalizedPayOSWebhook => {
     const code = data.code == null ? null : String(data.code);
     return {
         envelopeCode: input.envelope?.code == null ? null : String(input.envelope.code),
-        envelopeSuccess: input.envelope?.success == null ? null : Boolean(input.envelope.success),
+        envelopeSuccess: input.envelope?.success === true ? true : null,
         orderCode: data.orderCode == null || data.orderCode === "" ? null : Number(data.orderCode),
         paymentLinkId: data.paymentLinkId ? String(data.paymentLinkId).trim() : null,
         amount: data.amount == null || data.amount === "" ? null : Number(data.amount),
@@ -145,22 +145,34 @@ export class PaymentReconciliationService {
 
         const claimResult = await withTransaction(async (tx) => {
             const claim = await this.repository.claimWebhookEvent(tx, eventInput);
+            const expectedAttemptCount = Number(claim.attemptCount || 0);
+            const complete = (status: string, error: string | null, expectedStatus: string, attemptCount: number) =>
+                this.repository.completeWebhookEvent(tx, claim.eventId, status, error, { expectedStatus, expectedAttemptCount: attemptCount });
             if (claim.conflict || !claim.payloadHashMatches) {
-                await this.repository.completeWebhookEvent(tx, claim.eventId, "MISMATCH", "PayOS event key was reused with a different payload.");
-                return { kind: "mismatch" as const, eventId: claim.eventId, message: "PayOS event key conflict" };
+                const completed = await complete("MISMATCH", "PayOS event key was reused with a different payload.", claim.status, expectedAttemptCount);
+                return completed
+                    ? { kind: "mismatch" as const, eventId: claim.eventId, message: "PayOS event key conflict" }
+                    : { kind: "retryable" as const, eventId: claim.eventId, message: "PayOS event conflict transition was superseded." };
             }
             if (!claim.inserted && ["PROCESSED", "IGNORED", "MISMATCH"].includes(claim.status)) {
                 return { kind: "duplicate" as const, eventId: claim.eventId };
             }
-            if (!claim.inserted && claim.status === "PROCESSING") {
+            if (!claim.inserted && claim.status === "PROCESSING" && !claim.reclaimed) {
                 return { kind: "retryable" as const, eventId: claim.eventId, message: "PayOS webhook is already being processed." };
             }
             if (!isSuccessful(data)) {
-                await this.repository.completeWebhookEvent(tx, claim.eventId, "IGNORED", "PayOS event did not report a successful payment.");
-                return { kind: "ignored" as const, eventId: claim.eventId };
+                const completed = await complete("IGNORED", "PayOS event did not report a successful payment.", claim.status, expectedAttemptCount);
+                return completed
+                    ? { kind: "ignored" as const, eventId: claim.eventId }
+                    : { kind: "retryable" as const, eventId: claim.eventId, message: "PayOS event transition was superseded." };
             }
-            await this.repository.completeWebhookEvent(tx, claim.eventId, "PROCESSING", null);
-            return { kind: "processing" as const, eventId: claim.eventId };
+            if (claim.reclaimed) {
+                return { kind: "processing" as const, eventId: claim.eventId, attemptCount: expectedAttemptCount };
+            }
+            const completed = await complete("PROCESSING", null, claim.status, expectedAttemptCount);
+            return completed
+                ? { kind: "processing" as const, eventId: claim.eventId, attemptCount: expectedAttemptCount + 1 }
+                : { kind: "retryable" as const, eventId: claim.eventId, message: "PayOS event claim transition was superseded." };
         });
 
         if (claimResult.kind !== "processing") {
@@ -170,6 +182,11 @@ export class PaymentReconciliationService {
             };
         }
 
+        const processingAttemptCount = claimResult.attemptCount;
+        const completionGuard = { expectedStatus: "PROCESSING", expectedAttemptCount: processingAttemptCount };
+        const completeTerminal = (tx: TransactionContext, status: string, error: string | null) =>
+            this.repository.completeWebhookEvent(tx, claimResult.eventId, status, error, completionGuard);
+
         try {
             const order = await this.ordersService.finalizePayOSCheckout(
                 data.orderCode as number,
@@ -177,24 +194,27 @@ export class PaymentReconciliationService {
                 data.amount as number,
             );
             if (!order) {
-                await withTransaction((tx) => this.repository.completeWebhookEvent(
-                    tx,
-                    claimResult.eventId,
-                    "IGNORED",
-                    "No matching local PayOS reservation or order was found.",
-                ));
-                return { kind: "ignored", httpStatus: 200, eventId: claimResult.eventId };
+                const completed = await withTransaction((tx) => completeTerminal(tx, "IGNORED", "No matching local PayOS reservation or order was found."));
+                return completed
+                    ? { kind: "ignored", httpStatus: 200, eventId: claimResult.eventId }
+                    : { kind: "retryable", httpStatus: 500, eventId: claimResult.eventId, message: "PayOS webhook transition was superseded." };
             }
-            await withTransaction((tx) => this.repository.completeWebhookEvent(tx, claimResult.eventId, "PROCESSED", null));
-            return { kind: "processed", httpStatus: 200, eventId: claimResult.eventId, orderId: order.id };
+            const completed = await withTransaction((tx) => completeTerminal(tx, "PROCESSED", null));
+            return completed
+                ? { kind: "processed", httpStatus: 200, eventId: claimResult.eventId, orderId: order.id }
+                : { kind: "retryable", httpStatus: 500, eventId: claimResult.eventId, message: "PayOS webhook transition was superseded." };
         } catch (error) {
             const message = safeErrorMessage(error);
             if (isPayOSReservationMismatch(error)) {
-                await withTransaction((tx) => this.repository.completeWebhookEvent(tx, claimResult.eventId, "MISMATCH", message));
-                return { kind: "mismatch", httpStatus: 200, eventId: claimResult.eventId, message };
+                const completed = await withTransaction((tx) => completeTerminal(tx, "MISMATCH", message));
+                return completed
+                    ? { kind: "mismatch", httpStatus: 200, eventId: claimResult.eventId, message }
+                    : { kind: "retryable", httpStatus: 500, eventId: claimResult.eventId, message: "PayOS webhook transition was superseded." };
             }
-            await withTransaction((tx) => this.repository.completeWebhookEvent(tx, claimResult.eventId, "FAILED", message));
-            return { kind: "retryable", httpStatus: 500, eventId: claimResult.eventId, message: "PayOS webhook processing failed." };
+            const completed = await withTransaction((tx) => completeTerminal(tx, "FAILED", message));
+            return completed
+                ? { kind: "retryable", httpStatus: 500, eventId: claimResult.eventId, message: "PayOS webhook processing failed." }
+                : { kind: "retryable", httpStatus: 500, eventId: claimResult.eventId, message: "PayOS webhook transition was superseded." };
         }
     }
 }

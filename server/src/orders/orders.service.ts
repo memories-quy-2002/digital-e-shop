@@ -806,7 +806,20 @@ export class NestOrdersService {
     ): Promise<{ id: number; date_added: string } | null> {
         const transactionResult = await withTransaction(async (tx) => {
             const pending = await this.checkoutReservationRepository.getPendingCheckoutByProviderOrderCodeForUpdate(tx, "payos", orderCode);
-            if (!pending) return null;
+            const [existingOrder] = await tx.query<Array<{ id: number; date_added: string }>>(
+                `SELECT o.id, DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
+                 FROM orders o
+                 JOIN order_payments op ON op.order_id = o.id
+                 WHERE op.provider = 'payos' AND op.provider_reference = ?
+                   AND op.provider_payment_id = ? AND op.amount = ? AND op.currency = 'VND'
+                 LIMIT 1`,
+                [String(orderCode), String(paymentLinkId), Number(paymentAmount)],
+            );
+            if (!pending) {
+                return existingOrder
+                    ? { orderId: existingOrder.id, userId: null, payableAmount: 0, alreadyProcessed: true, order: existingOrder }
+                    : null;
+            }
 
             const expectedAmount = Number(pending.payment_amount);
             if (
@@ -820,14 +833,6 @@ export class NestOrdersService {
                 throw createCheckoutError("PayOS payment amount or reference does not match the checkout reservation.", 409);
             }
 
-            const [existingOrder] = await tx.query<Array<{ id: number; date_added: string }>>(
-                `SELECT o.id, DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
-                 FROM orders o
-                 JOIN order_payments op ON op.order_id = o.id
-                 WHERE op.provider = 'payos' AND op.provider_reference = ?
-                 LIMIT 1`,
-                [String(orderCode)],
-            );
             if (existingOrder) {
                 if (pending.status === "PENDING" && !pending.consumed_at) {
                     if (pending.discount_id) {
