@@ -71,7 +71,7 @@ export class PaymentReconciliationRepository {
         const limit = Math.min(100, Math.max(1, Math.floor(filters.limit || 50)));
         const orderConditions: string[] = [];
         const orderValues: unknown[] = [];
-        const pendingConditions: string[] = [];
+        const pendingConditions: string[] = ["pc.status = 'PENDING'"];
         const pendingValues: unknown[] = [];
 
         if (filters.provider) {
@@ -83,10 +83,9 @@ export class PaymentReconciliationRepository {
         if (filters.reconciliationStatus) {
             orderConditions.push("op.reconciliation_status = ?");
             orderValues.push(filters.reconciliationStatus);
-            pendingConditions.push("pc.status = ?");
-            pendingValues.push(filters.reconciliationStatus);
-        } else {
-            pendingConditions.push("pc.status = 'PENDING'");
+            if (filters.reconciliationStatus !== "PENDING") {
+                pendingConditions.push("1 = 0");
+            }
         }
 
         const orderWhere = orderConditions.length ? `WHERE ${orderConditions.join(" AND ")}` : "";

@@ -49,20 +49,37 @@ describe("PaymentReconciliationRepository", () => {
         expect(String(tx.query.mock.calls[0][0])).toContain("e.payment_link_id");
     });
 
-    it("applies provider and reconciliation filters to both candidate sources", async () => {
+    it.each([
+        { name: "an absent reconciliation status", reconciliationStatus: undefined, expectedValues: ["cash", "cash", 50, 0] },
+        { name: "PENDING", reconciliationStatus: "PENDING", expectedValues: ["cash", "PENDING", "cash", 50, 0] },
+        { name: "CONSUMED", reconciliationStatus: "CONSUMED", expectedValues: ["cash", "CONSUMED", "cash", 50, 0] },
+        { name: "PAID", reconciliationStatus: "PAID", expectedValues: ["cash", "PAID", "cash", 50, 0] },
+    ])("keeps pending candidates restricted to PENDING for $name while filtering order payments by reconciliation status", async ({ reconciliationStatus, expectedValues }) => {
         const tx = buildTx(vi.fn().mockResolvedValueOnce([{ total: 0 }]).mockResolvedValueOnce([]));
         const repository = new PaymentReconciliationRepository();
-        await repository.listCandidates({ provider: "cash", reconciliationStatus: "PAID" }, tx as never);
+        await repository.listCandidates({ provider: "cash", ...(reconciliationStatus ? { reconciliationStatus } : {}) }, tx as never);
         const countSql = String(tx.query.mock.calls[0][0]);
         const listSql = String(tx.query.mock.calls[1][0]);
         for (const sql of [countSql, listSql]) {
             expect(sql).toContain("op.provider = ?");
-            expect(sql).toContain("op.reconciliation_status = ?");
             expect(sql).toContain("pc.payment_provider = ?");
-            expect(sql).toContain("pc.status = ?");
+            expect(sql).toContain("pc.status = 'PENDING'");
+            expect(sql).toContain("FROM order_payments op");
+            expect(sql).toContain("FROM pending_checkouts pc");
             expect(sql).not.toContain("pc.payment_provider = 'payos'");
+            if (reconciliationStatus) {
+                expect(sql).toContain("op.reconciliation_status = ?");
+            } else {
+                expect(sql).not.toContain("op.reconciliation_status = ?");
+            }
+            if (reconciliationStatus && reconciliationStatus !== "PENDING") {
+                expect(sql).toContain("1 = 0");
+                expect(sql).not.toContain("pc.status = ?");
+            } else {
+                expect(sql).not.toContain("1 = 0");
+            }
         }
-        expect(tx.query.mock.calls[0][1]).toEqual(["cash", "PAID", "cash", "PAID"]);
-        expect(tx.query.mock.calls[1][1]).toEqual(["cash", "PAID", "cash", "PAID", 50, 0]);
+        expect(tx.query.mock.calls[0][1]).toEqual(expectedValues.slice(0, -2));
+        expect(tx.query.mock.calls[1][1]).toEqual(expectedValues);
     });
 });
