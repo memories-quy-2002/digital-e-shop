@@ -28,6 +28,41 @@ describe("PaymentReconciliationRepository", () => {
         const sql = String(tx.query.mock.calls[1][0]);
         expect(sql).toContain("LIMIT ? OFFSET ?");
         expect(sql).not.toContain("guest_order_token_hash");
-        expect(tx.query.mock.calls[1][1]).toEqual(["payos", 100, 200]);
+        expect(tx.query.mock.calls[1][1]).toEqual(["payos", "payos", 100, 200]);
+    });
+    it("matches finalized PayOS payments by webhook order code and payment-link ID", async () => {
+        const tx = buildTx(vi.fn().mockResolvedValue([{ id: 9, order_code: 123456, payment_link_id: "link-123" }]));
+        const repository = new PaymentReconciliationRepository();
+        await expect(repository.listWebhookEvents(tx as never, 42)).resolves.toEqual([{ id: 9, order_code: 123456, payment_link_id: "link-123" }]);
+        const sql = String(tx.query.mock.calls[0][0]);
+        expect(sql).toContain("op.provider_reference = CAST(e.order_code AS CHAR)");
+        expect(sql).toContain("op.provider_payment_id = e.payment_link_id");
+        expect(sql).not.toContain("op.provider_reference = e.payment_link_id");
+        expect(tx.query.mock.calls[0][1]).toEqual([42]);
+    });
+
+    it("keeps payment-link IDs as string lookup values", async () => {
+        const tx = buildTx(vi.fn().mockResolvedValue([{ id: 10, payment_link_id: "000123" }]));
+        const repository = new PaymentReconciliationRepository();
+        await expect(repository.listWebhookEvents(tx as never, 43)).resolves.toEqual([{ id: 10, payment_link_id: "000123" }]);
+        expect(tx.query.mock.calls[0][1]).toEqual([43]);
+        expect(String(tx.query.mock.calls[0][0])).toContain("e.payment_link_id");
+    });
+
+    it("applies provider and reconciliation filters to both candidate sources", async () => {
+        const tx = buildTx(vi.fn().mockResolvedValueOnce([{ total: 0 }]).mockResolvedValueOnce([]));
+        const repository = new PaymentReconciliationRepository();
+        await repository.listCandidates({ provider: "cash", reconciliationStatus: "PAID" }, tx as never);
+        const countSql = String(tx.query.mock.calls[0][0]);
+        const listSql = String(tx.query.mock.calls[1][0]);
+        for (const sql of [countSql, listSql]) {
+            expect(sql).toContain("op.provider = ?");
+            expect(sql).toContain("op.reconciliation_status = ?");
+            expect(sql).toContain("pc.payment_provider = ?");
+            expect(sql).toContain("pc.status = ?");
+            expect(sql).not.toContain("pc.payment_provider = 'payos'");
+        }
+        expect(tx.query.mock.calls[0][1]).toEqual(["cash", "PAID", "cash", "PAID"]);
+        expect(tx.query.mock.calls[1][1]).toEqual(["cash", "PAID", "cash", "PAID", 50, 0]);
     });
 });

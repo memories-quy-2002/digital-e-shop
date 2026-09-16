@@ -69,16 +69,34 @@ export class PaymentReconciliationRepository {
     async listCandidates(filters: CandidateFilters, tx: TransactionContext): Promise<CandidatePage> {
         const page = Math.max(1, Math.floor(filters.page || 1));
         const limit = Math.min(100, Math.max(1, Math.floor(filters.limit || 50)));
-        const conditions: string[] = [];
-        const values: unknown[] = [];
-        if (filters.provider) { conditions.push("provider = ?"); values.push(filters.provider); }
-        if (filters.reconciliationStatus) { conditions.push("reconciliation_status = ?"); values.push(filters.reconciliationStatus); }
-        const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+        const orderConditions: string[] = [];
+        const orderValues: unknown[] = [];
+        const pendingConditions: string[] = [];
+        const pendingValues: unknown[] = [];
+
+        if (filters.provider) {
+            orderConditions.push("op.provider = ?");
+            orderValues.push(filters.provider);
+            pendingConditions.push("pc.payment_provider = ?");
+            pendingValues.push(filters.provider);
+        }
+        if (filters.reconciliationStatus) {
+            orderConditions.push("op.reconciliation_status = ?");
+            orderValues.push(filters.reconciliationStatus);
+            pendingConditions.push("pc.status = ?");
+            pendingValues.push(filters.reconciliationStatus);
+        } else {
+            pendingConditions.push("pc.status = 'PENDING'");
+        }
+
+        const orderWhere = orderConditions.length ? `WHERE ${orderConditions.join(" AND ")}` : "";
+        const pendingWhere = `WHERE ${pendingConditions.join(" AND ")}`;
+        const values = [...orderValues, ...pendingValues];
         const countRows = await tx.query<Array<{ total: number | string }>>(
             `SELECT COUNT(*) AS total FROM (
-                SELECT op.id FROM order_payments op ${where}
+                SELECT op.id FROM order_payments op ${orderWhere}
                 UNION ALL
-                SELECT pc.id FROM pending_checkouts pc WHERE pc.payment_provider = 'payos' AND pc.status = 'PENDING'
+                SELECT pc.id FROM pending_checkouts pc ${pendingWhere}
             ) candidates`, values,
         );
         const total = Number(countRows[0]?.total || 0);
@@ -87,18 +105,16 @@ export class PaymentReconciliationRepository {
                 SELECT 'order_payment' AS target_type, op.id AS target_id, op.provider, op.status AS local_status,
                        op.reconciliation_status, op.provider_reference, NULL AS provider_order_code,
                        op.amount AS payment_amount, op.currency AS payment_currency, NULL AS reservation_expires_at, op.order_id
-                FROM order_payments op ${where}
+                FROM order_payments op ${orderWhere}
                 UNION ALL
                 SELECT 'pending_checkout' AS target_type, pc.id AS target_id, pc.payment_provider AS provider, pc.status AS local_status,
                        'PENDING' AS reconciliation_status, pc.provider_reference, pc.provider_order_code,
                        pc.payment_amount, pc.payment_currency, pc.expires_at AS reservation_expires_at, NULL AS order_id
-                FROM pending_checkouts pc
-                WHERE pc.payment_provider = 'payos' AND pc.status = 'PENDING'
+                FROM pending_checkouts pc ${pendingWhere}
             ) candidates ORDER BY target_id DESC LIMIT ? OFFSET ?`, [...values, limit, (page - 1) * limit],
         );
         return { candidates: rows, pagination: { page, limit, total, totalPages: total === 0 ? 0 : Math.ceil(total / limit) } };
     }
-
     async getPendingCheckoutForUpdate(tx: TransactionContext, pendingCheckoutId: number) {
         const rows = await tx.query<Array<Record<string, unknown>>>(
             `SELECT id, payment_provider, provider_reference, provider_order_code, payment_amount, payment_currency,
@@ -141,7 +157,9 @@ export class PaymentReconciliationRepository {
                     e.order_code, e.payment_link_id, e.amount, e.currency, e.status, e.attempt_count,
                     e.last_error, e.received_at, e.processed_at, e.created_at, e.updated_at
              FROM payment_webhook_events e
-             JOIN order_payments op ON op.provider = e.provider AND op.provider_reference = e.payment_link_id
+             JOIN order_payments op ON op.provider = e.provider
+                 AND op.provider_reference = CAST(e.order_code AS CHAR)
+                 AND op.provider_payment_id = e.payment_link_id
              WHERE op.id = ? ORDER BY e.received_at DESC, e.id DESC`, [orderPaymentId],
         );
     }
