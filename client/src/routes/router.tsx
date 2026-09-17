@@ -31,6 +31,7 @@ const AddressBookPage = lazy(() => import("../features/users/pages/AddressBookPa
 const AdminDashboard = lazy(() => import("../features/admin/pages/AdminDashboard"));
 const AdminProductPage = lazy(() => import("../features/admin/pages/AdminProductPage"));
 const AdminOrderPage = lazy(() => import("../features/admin/pages/AdminOrderPage"));
+const AdminPaymentReconciliationPage = lazy(() => import("../features/admin/pages/AdminPaymentReconciliationPage"));
 const AdminAccountPage = lazy(() => import("../features/admin/pages/AdminAccountPage"));
 const AdminPromotionsPage = lazy(() => import("../features/admin/pages/AdminPromotionsPage"));
 const AdminAddProductPage = lazy(() => import("../features/admin/pages/AdminAddProductPage"));
@@ -104,6 +105,14 @@ const AppRouter = () => {
                     element={
                         <RequireAdmin>
                             <AdminOrderPage />
+                        </RequireAdmin>
+                    }
+                />
+                <Route
+                    path="/admin/payments/reconciliation"
+                    element={
+                        <RequireAdmin>
+                            <AdminPaymentReconciliationPage />
                         </RequireAdmin>
                     }
                 />

@@ -48,6 +48,7 @@ vi.mock("../features/admin/pages/AdminDashboard", () => ({
 vi.mock("../features/admin/pages/AdminSupportPage", () => ({ default: () => <div>Admin support</div> }));
 vi.mock("../features/admin/pages/AdminProductPage", () => ({ default: () => <div>Admin products</div> }));
 vi.mock("../features/admin/pages/AdminOrderPage", () => ({ default: () => <div>Admin orders</div> }));
+vi.mock("../features/admin/pages/AdminPaymentReconciliationPage", () => ({ default: () => <div>Admin payment reconciliation</div> }));
 vi.mock("../features/admin/pages/AdminAccountPage", () => ({ default: () => <div>Admin accounts</div> }));
 vi.mock("../features/admin/pages/AdminPromotionsPage", () => ({ default: () => <div>Admin promotions</div> }));
 vi.mock("../features/admin/pages/AdminAddProductPage", () => ({ default: () => <div>Admin add product</div> }));
@@ -70,6 +71,7 @@ const adminPaths = [
     "/admin/support",
     "/admin/products",
     "/admin/orders",
+    "/admin/payments/reconciliation",
     "/admin/accounts",
     "/admin/promotions",
     "/admin/add",

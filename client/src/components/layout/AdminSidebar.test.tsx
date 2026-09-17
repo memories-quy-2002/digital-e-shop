@@ -23,10 +23,21 @@ describe("AdminSidebar", () => {
         expect(within(sidebar).queryByText("Minh Nguyen")).not.toBeInTheDocument();
         expect(within(sidebar).queryByText("Anonymous")).not.toBeInTheDocument();
         expect(screen.getByRole("link", { name: "Orders" })).toHaveClass("active");
+        expect(screen.getByRole("link", { name: "Payment reconciliation" })).toBeInTheDocument();
 
         const collapseButton = screen.getByRole("button", { name: "Collapse admin navigation" });
         expect(collapseButton).toHaveAttribute("aria-expanded", "true");
         expect(collapseButton).toHaveAttribute("aria-controls", "admin-navigation");
+    });
+
+    it("keeps the payment reconciliation link active for its nested route", () => {
+        render(
+            <MemoryRouter initialEntries={["/admin/payments/reconciliation"]}>
+                <AdminSidebar />
+            </MemoryRouter>,
+        );
+
+        expect(screen.getByRole("link", { name: "Payment reconciliation" })).toHaveClass("active");
     });
 
     it("communicates and triggers the collapsed navigation state", () => {

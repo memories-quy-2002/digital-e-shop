@@ -5,6 +5,7 @@ import { NavLink } from "react-router-dom";
 const adminNavItems = [
     { label: "Dashboard", path: "/admin", match: "dashboard", icon: <SpeedometerIcon size={20} /> },
     { label: "Orders", path: "/admin/orders", match: "orders", icon: <CartIcon size={20} /> },
+    { label: "Payment reconciliation", path: "/admin/payments/reconciliation", match: "payments", icon: <CashStackIcon size={20} /> },
     { label: "Products", path: "/admin/products", match: "products", icon: <BoxSeamIcon size={20} /> },
     { label: "Promotions", path: "/admin/promotions", match: "promotions", icon: <CashStackIcon size={20} /> },
     { label: "Accounts", path: "/admin/accounts", match: "accounts", icon: <PersonIcon size={20} /> },

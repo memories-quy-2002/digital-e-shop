@@ -1,0 +1,208 @@
+.admin__page--payments {
+    .admin__payments__workspace {
+        overflow: visible;
+    }
+
+    .admin__payments__filters {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(180px, 1fr));
+        gap: 0.75rem;
+    }
+
+    .admin__payments__filters label {
+        display: grid;
+        gap: 0.35rem;
+        color: var(--de-color-text-muted);
+        font-size: 0.75rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .admin__payments__filters select {
+        min-height: 2.45rem;
+        min-width: 0;
+        padding: 0.45rem 0.65rem;
+        font: inherit;
+        font-size: 0.82rem;
+        font-weight: 600;
+        letter-spacing: normal;
+        text-transform: none;
+    }
+
+    .admin__payments__table-wrap {
+        border-top: 1px solid var(--de-color-border);
+    }
+
+    .admin__payments__table {
+        min-width: 1160px;
+    }
+
+    .admin__payments__table th,
+    .admin__payments__table td {
+        padding-block: 0.9rem;
+    }
+
+    .admin__payments__table th:nth-child(1) { min-width: 150px; }
+    .admin__payments__table th:nth-child(2) { min-width: 105px; }
+    .admin__payments__table th:nth-child(3) { min-width: 125px; }
+    .admin__payments__table th:nth-child(4),
+    .admin__payments__table th:nth-child(5) { min-width: 130px; }
+    .admin__payments__table th:nth-child(6) { min-width: 140px; }
+    .admin__payments__table th:nth-child(7) { min-width: 180px; }
+
+    .admin__payments__provider {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        color: var(--de-color-text);
+        font-weight: 800;
+    }
+
+    .admin__payments__table td > small,
+    .admin__payments__provider + small {
+        display: block;
+        max-width: 14rem;
+        margin-top: 0.25rem;
+        color: var(--de-color-text-muted);
+        font-size: 0.72rem;
+        overflow-wrap: anywhere;
+    }
+
+    .admin__payments__table .admin__pill--pending,
+    .admin__payments__table .admin__pill--unavailable {
+        background: var(--de-color-warning-soft);
+        color: var(--de-color-warning-strong);
+    }
+
+    .admin__payments__table .admin__pill--paid,
+    .admin__payments__table .admin__pill--matched,
+    .admin__payments__table .admin__pill--manual-confirmed {
+        background: var(--de-color-success-soft);
+        color: var(--de-color-success-strong);
+    }
+
+    .admin__payments__table .admin__pill--mismatch,
+    .admin__payments__table .admin__pill--failed {
+        background: var(--de-color-danger-soft);
+        color: var(--de-color-danger-strong);
+    }
+
+    .admin__payments__actions {
+        min-width: 13rem;
+        align-items: stretch;
+    }
+
+    .admin__payments__actions .admin__button,
+    .admin__payments__note {
+        width: 100%;
+    }
+
+    .admin__payments__note input {
+        width: 100%;
+        min-width: 11rem;
+        min-height: 2.1rem;
+        padding: 0.4rem 0.55rem;
+        font: inherit;
+        font-size: 0.75rem;
+    }
+
+    .admin__payments__action-note {
+        display: block;
+        max-width: 13rem;
+        color: var(--de-color-text-muted);
+        font-size: 0.72rem;
+        line-height: 1.35;
+    }
+
+    .admin__payments__events-row td {
+        padding: 0;
+        background: var(--de-color-bg-muted);
+    }
+
+    .admin__payments__events {
+        display: grid;
+        gap: 0.65rem;
+        padding: 1rem 1.25rem 1.1rem;
+        border-left: 3px solid var(--de-color-signal);
+    }
+
+    .admin__payments__events > div:first-child {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+
+    .admin__payments__events > div:first-child span {
+        color: var(--de-color-text-muted);
+        font-size: 0.78rem;
+    }
+
+    .admin__payments__event {
+        display: grid;
+        gap: 0.35rem;
+        padding: 0.7rem 0.8rem;
+        border: 1px solid var(--de-color-border);
+        border-radius: var(--de-radius-sm);
+        background: var(--de-color-surface);
+    }
+
+    .admin__payments__event > div {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+    }
+
+    .admin__payments__event p,
+    .admin__payments__event small,
+    .admin__payments__event-error {
+        margin: 0;
+        color: var(--de-color-text-muted);
+        font-size: 0.78rem;
+        line-height: 1.4;
+    }
+
+    .admin__payments__event-error {
+        color: var(--de-color-danger-strong);
+    }
+
+    .admin__payments__pagination {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem 1.25rem 1.2rem;
+        color: var(--de-color-text-muted);
+        font-size: 0.8rem;
+    }
+
+    .admin__payments__pagination > div {
+        display: flex;
+        gap: 0.5rem;
+    }
+}
+
+@media (max-width: 760px) {
+    .admin__page--payments {
+        .admin__payments__filters {
+            grid-template-columns: 1fr;
+        }
+
+        .admin__payments__pagination {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .admin__payments__pagination > div,
+        .admin__payments__pagination .admin__button {
+            width: 100%;
+        }
+
+        .admin__payments__pagination > div {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+}
