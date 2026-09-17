@@ -4,10 +4,11 @@ import {
     applyCustomerDiscount,
     cancelCustomerOrder,
     clearGuestCartServer,
-    createGuestCheckoutSession,
+    createGuestPayOSCheckoutSession,
     createGuestPurchase,
+    createPayOSCheckoutSession,
     fetchGuestCart,
-    fetchGuestOrderBySession,
+    fetchGuestOrderByPayOSOrderCode,
     fetchCustomerCart,
     lookupGuestOrder,
     previewGuestCart,
@@ -162,28 +163,55 @@ describe("orders API", () => {
         });
     });
 
-    it("keeps guest Stripe and lookup contracts token-protected", async () => {
-        vi.mocked(http.post)
-            .mockResolvedValueOnce({ data: { url: "https://checkout.test/session", guestOrderToken: "stripe-token" } } as never)
-            .mockResolvedValueOnce({ data: { order: { id: 42, items: [] } } } as never)
-            .mockResolvedValueOnce({ data: { order: { id: 42, items: [] } } } as never);
+    it("keeps PayOS checkout and guest lookup contracts token-protected", async () => {
+        vi.mocked(http.post).mockResolvedValue({
+            data: { url: "https://checkout.test/payos", guestOrderToken: "payos-token", orderCode: 123456, currency: "VND" },
+        } as never);
 
-        await expect(createGuestCheckoutSession({
+        await expect(createGuestPayOSCheckoutSession({
             cart: [{ productId: 10, quantity: 1 }],
             contact: { email: "guest@example.com", name: "Guest Buyer" },
             shipping: { address: "1 Main Street", city: "HCMC", country: "VN" },
-            paymentMethod: "card",
-        })).resolves.toEqual({ url: "https://checkout.test/session", guestOrderToken: "stripe-token" });
+            paymentMethod: "payos",
+        })).resolves.toMatchObject({ url: "https://checkout.test/payos", guestOrderToken: "payos-token" });
+        await createPayOSCheckoutSession("user-1", {
+            cart: [{
+                cartItemId: 7,
+                productId: 10,
+                productName: "Widget",
+                category: "Components",
+                brand: "Digital-E",
+                price: 100,
+                sale_price: 80,
+                main_image: "widget.jpg",
+                quantity: 1,
+                stock: 5,
+            }],
+            totalPrice: 80,
+            discount: 0,
+            shippingAddress: JSON.stringify({ address: "1 Main Street", city: "HCMC", country: "VN" }),
+        });
         await lookupGuestOrder(42, "lookup-token");
-        await fetchGuestOrderBySession("cs_test", "session-token");
+        await fetchGuestOrderByPayOSOrderCode(123456, "payos-token");
 
-        expect(http.post).toHaveBeenNthCalledWith(2, "/api/orders/guest/lookup", {
+        expect(http.post).toHaveBeenNthCalledWith(1, "/api/orders/guest/payos-checkout-session", {
+            cart: [{ productId: 10, quantity: 1 }],
+            contact: { email: "guest@example.com", name: "Guest Buyer" },
+            shipping: { address: "1 Main Street", city: "HCMC", country: "VN" },
+            paymentMethod: "payos",
+        });
+        expect(http.post).toHaveBeenNthCalledWith(2, "/api/orders/payos-checkout-session/user-1", expect.objectContaining({
+            totalPrice: 80,
+            discount: 0,
+            shippingAddress: JSON.stringify({ address: "1 Main Street", city: "HCMC", country: "VN" }),
+        }));
+        expect(http.post).toHaveBeenNthCalledWith(3, "/api/orders/guest/lookup", {
             orderId: 42,
             guestOrderToken: "lookup-token",
         });
-        expect(http.post).toHaveBeenNthCalledWith(3, "/api/orders/guest/by-session", {
-            sessionId: "cs_test",
-            guestOrderToken: "session-token",
+        expect(http.post).toHaveBeenNthCalledWith(4, "/api/orders/guest/by-payos-order-code", {
+            orderCode: 123456,
+            guestOrderToken: "payos-token",
         });
     });
 });

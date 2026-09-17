@@ -67,8 +67,7 @@ export type GuestCartItemInput = {
     quantity: number;
 };
 
-export type GuestPaymentMethod = "cash" | "bank_transfer" | "payos";
-export type GuestCardPaymentMethod = "card" | "stripe";
+export type GuestPaymentMethod = "cash" | "payos";
 
 export type GuestCheckoutContact = {
     email: string;
@@ -90,15 +89,11 @@ export type GuestPurchaseRequest = {
     paymentMethod: GuestPaymentMethod;
 };
 
-export type GuestCheckoutSessionRequest = {
+export type GuestPayOSCheckoutRequest = {
     cart: GuestCartItemInput[];
     contact: GuestCheckoutContact;
     shipping: GuestCheckoutShipping;
     discountCode?: string;
-    paymentMethod: GuestCardPaymentMethod;
-};
-
-export type GuestPayOSCheckoutRequest = Omit<GuestCheckoutSessionRequest, "paymentMethod"> & {
     paymentMethod: "payos";
 };
 

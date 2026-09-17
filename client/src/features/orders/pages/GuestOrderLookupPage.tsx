@@ -26,10 +26,10 @@ const getStatusLabel = (status: number, labels: { pending: string; done: string;
 };
 
 const getPaymentLabel = (paymentMethod?: string | null) => {
-    if (paymentMethod === "bank_transfer") return "Bank transfer";
+    if (paymentMethod === "bank_transfer") return "Historical bank transfer";
     if (paymentMethod === "cash") return "Cash on delivery";
     if (paymentMethod === "payos") return "PayOS (VND)";
-    if (paymentMethod === "card" || paymentMethod === "stripe") return "Card";
+    if (paymentMethod === "card" || paymentMethod === "stripe") return "Historical card payment";
     return "Payment method pending";
 };
 
