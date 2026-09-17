@@ -1,11 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { PaymentProviderService } from "./payment-provider.service";
 
-const config = (mode: "mock" | "live", rate = 25_000) => ({
+const config = (mode: "mock" | "live") => ({
     get: vi.fn((key: string) => ({
         paymentProviderMode: mode,
-        payosUsdToVndRate: rate,
-        stripeSecretKey: mode === "live" ? "" : "",
     })[key]),
 });
 

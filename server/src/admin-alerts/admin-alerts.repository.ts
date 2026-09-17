@@ -20,7 +20,7 @@ export class AdminAlertsRepository {
             safeQuery(
                 `SELECT CONCAT('order-', o.id) AS id, 'order' AS type,
                     CONCAT('Order #', o.id, ' needs review') AS title,
-                    CONCAT('A pending order worth $', FORMAT(o.total_price - o.discount, 2), ' is waiting for action.') AS description,
+                    CONCAT('A pending order worth ', FORMAT(o.total_price - o.discount, 0), ' VND is waiting for action.') AS description,
                     DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS createdAt,
                     'High' AS priority, 'Open orders' AS actionLabel, '/admin/orders' AS route, TRUE AS unread
                  FROM orders o WHERE o.status = 0 ORDER BY o.date_added DESC LIMIT 20`,
@@ -28,10 +28,17 @@ export class AdminAlertsRepository {
             safeQuery(
                 `SELECT CONCAT('payment-', o.id) AS id, 'payment' AS type,
                     CONCAT('Payment review for order #', o.id) AS title,
-                    'Confirm the bank transfer before completing the order.' AS description,
+                    CASE WHEN o.payment_method = 'payos'
+                        THEN CONCAT('Reconcile the PayOS payment for order #', o.id, ' before fulfillment.')
+                        ELSE CONCAT('Confirm the COD payment for order #', o.id, ' before fulfillment.')
+                    END AS description,
                     DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS createdAt,
-                    'Medium' AS priority, 'Review payment' AS actionLabel, '/admin/orders' AS route, TRUE AS unread
-                 FROM orders o WHERE o.status = 0 AND o.payment_method = 'bank_transfer'
+                    'Medium' AS priority, 'Review payment' AS actionLabel, '/admin/payments/reconciliation' AS route, TRUE AS unread
+                 FROM orders o
+                 LEFT JOIN order_payments op ON op.order_id = o.id
+                 WHERE o.status = 0
+                   AND o.payment_method IN ('cash', 'payos')
+                   AND (o.payment_method = 'cash' OR op.id IS NULL OR op.reconciliation_status <> 'MATCHED')
                  ORDER BY o.date_added DESC LIMIT 20`,
             ),
             safeQuery(

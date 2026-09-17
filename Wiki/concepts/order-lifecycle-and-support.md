@@ -4,9 +4,9 @@ Back to [[index]]. Related: [[architecture]], [[0003-payment-ledger-and-usd-cano
 
 ## Order lifecycle
 
-The numeric order status remains `0 Pending`, `1 Done`, and `2 Canceled`. Only Pending orders can move to Done or Canceled; Done and Canceled are terminal. Repeating the same terminal operation is idempotent.
+The numeric order status remains `0 Pending`, `1 Done`, and `2 Canceled`; a successful Done transition records `delivered_at` when it is first applied. Only Pending orders can move to Done or Canceled; Done and Canceled are terminal. Repeating the same terminal operation is idempotent.
 
-Canceling a Pending order locks the order, restores its deducted inventory, records a cancellation movement, writes one timeline event, and emits one customer notification. `orders.inventory_restored_at` is the order-level concurrency/idempotency guard. A paid Stripe order must pass through the provider refund boundary before the database finalizes cancellation.
+Canceling a Pending order locks the order, restores its deducted inventory, records a cancellation movement, writes one timeline event, and emits one customer notification. `orders.inventory_restored_at` is the order-level concurrency/idempotency guard. PayOS and COD refunds are currently manual operator actions; the payment ledger and reconciliation attempt provide the audit record before cancellation is finalized.
 
 ## Reporting and retention
 

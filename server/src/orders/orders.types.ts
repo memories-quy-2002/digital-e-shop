@@ -124,7 +124,6 @@ export type OrderTimelineInput = {
 
 export type PendingCheckoutRow = {
     id: number;
-    stripe_session_id: string | null;
     payment_provider?: string | null;
     provider_reference?: string | null;
     provider_order_code?: number | string | null;

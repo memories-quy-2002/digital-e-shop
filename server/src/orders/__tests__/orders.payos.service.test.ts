@@ -4,7 +4,6 @@ vi.mock("#src/config/env.config", () => ({
     env: {
         clientUrl: "http://localhost:5173",
         paymentProviderMode: "live",
-        payosUsdToVndRate: 25_000,
     },
 }));
 vi.mock("#src/shared/utils/logger", () => ({
@@ -58,7 +57,6 @@ describe("NestOrdersPayOSService", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         env.paymentProviderMode = "live";
-        env.payosUsdToVndRate = 25_000;
         vi.useFakeTimers();
         vi.setSystemTime(new Date("2026-09-10T01:00:00.000Z"));
     });

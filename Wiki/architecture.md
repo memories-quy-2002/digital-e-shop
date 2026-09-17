@@ -66,7 +66,7 @@ install command. Each package owns its dependencies and lockfile.
 ## Backend boundaries
 
 `server/src/main.ts` creates the Nest application with the Express adapter,
-sets the global `api` prefix, enables raw-body support for Stripe signatures,
+sets the global `api` prefix, enables raw-body support for signed payment webhooks,
 registers CORS/cookies/middleware, and calls `app.init()` before returning the
 cached instance. `server/src/server.ts` starts the local process; `server/api/`
 reuses the same bootstrap for serverless deployment.
@@ -154,11 +154,12 @@ application has not been converted to Prisma.
 - Authenticated and guest orders share the order lifecycle: Pending, Done, and
   Canceled. Pending cancellation restores inventory once and records timeline,
   movement, and notification side effects.
-- VND is the default catalog and new-order currency for the Vietnam-first
-  rollout. The payment ledger stores base/provider amount and currency, FX
-  snapshot, idempotency information, and refund state. PayOS receives VND
-  amounts unchanged; explicit USD-backed catalogs may still use the configured
-  USD-to-VND rate. Local mock provider modes do not call external APIs.
+- New catalog, order, and payment-ledger records use exact whole-number VND.
+  `env.storeCurrency` is fixed to VND. The payment ledger stores provider
+  references, expected/settled amount and currency, reconciliation state,
+  idempotency information, and refund state. PayOS receives VND amounts
+  unchanged; local mock provider modes do not call external APIs. Historical
+  USD rows and legacy provider identifiers remain readable for compatibility.
 - Customer reviews require a completed order containing the reviewed product.
   Support tickets are database-backed and ownership-scoped. Admin analytics
   and operational alerts query bounded operational data rather than rebuilding
@@ -192,7 +193,7 @@ application has not been converted to Prisma.
 - Prisma and raw MySQL must remain aligned while Prisma adoption is partial.
 - Shared multi-instance rate limiting requires `REDIS_URL`; otherwise the
   process-local fallback is not a cross-instance security boundary.
-- Production Firebase, Stripe, Blob, database, CORS, and Redis settings are
+- Production Firebase, PayOS, Blob, database, CORS, and Redis settings are
   deployment concerns and must come from environment secrets.
 - Product listing/search/facets, cart validation/checkout, analytics, order
   history, and notification reads are performance-sensitive paths.

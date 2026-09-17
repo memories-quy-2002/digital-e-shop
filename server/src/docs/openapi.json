@@ -155,7 +155,7 @@
                     "total_price": { "type": "number" },
                     "discount": { "type": "number" },
                     "shipping_address": { "type": "string" },
-                    "payment_method": { "type": "string", "enum": ["bank_transfer", "cash"] }
+                    "payment_method": { "type": "string", "enum": ["cash", "payos"] }
                 }
             },
             "OrderItem": {
@@ -1385,7 +1385,7 @@
                                     },
                                     "discount": { "type": "number", "minimum": 0, "default": 0 },
                                     "shippingAddress": { "type": "string" },
-                                    "paymentMethod": { "type": "string", "enum": ["bank_transfer", "cash"] }
+                                    "paymentMethod": { "type": "string", "enum": ["cash", "payos"] }
                                 }
                             }
                         }

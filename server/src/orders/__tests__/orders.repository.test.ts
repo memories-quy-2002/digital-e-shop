@@ -38,18 +38,18 @@ describe("pending checkout repositories", () => {
         expect(queryCallback).toBe(callback);
     });
 
-    it("selects every guest identity field when loading a pending checkout by session", () => {
+    it("selects every guest identity field when loading a pending checkout by PayOS order code", () => {
         const repository = new OrdersRepository({} as never);
         const callback = vi.fn();
 
-        repository.getPendingCheckoutBySessionId("cs_guest_123", callback);
+        repository.getPendingCheckoutByPayOSOrderCode(123456, callback);
 
         const [queryConfig, queryParams, queryCallback] = poolQuery.mock.calls[0];
         expect(queryConfig.sql).toContain("guest_email");
         expect(queryConfig.sql).toContain("guest_name");
         expect(queryConfig.sql).toContain("guest_phone");
         expect(queryConfig.sql).toContain("guest_order_token_hash");
-        expect(queryParams).toEqual(["cs_guest_123"]);
+        expect(queryParams).toEqual([123456]);
         expect(queryCallback).toBe(callback);
     });
 

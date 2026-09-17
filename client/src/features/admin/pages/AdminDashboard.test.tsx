@@ -162,8 +162,8 @@ describe("AdminDashboard mixed request results", () => {
         expect(report).toContain("- Registered users: Unavailable");
         expect(report).toContain("- Orders (Last 30 days): 0");
         expect(report).toContain(`- Revenue (Last 30 days): ${formatCurrency(0)}`);
-        expect(report).toContain("- Bank transfer orders: Unavailable");
         expect(report).toContain("- Cash orders: Unavailable");
+        expect(report).toContain("- PayOS orders: Unavailable");
         expect(report).toContain("TOP REVENUE PRODUCTS\n- Unavailable");
         expect(report).toContain("LOW STOCK WATCHLIST\n- Unavailable");
         expect(report).toContain("LATEST ORDERS\n- Unavailable");

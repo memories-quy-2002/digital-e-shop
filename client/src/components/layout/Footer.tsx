@@ -98,7 +98,7 @@ const Footer = () => {
                         <div className="footer__col">
                             <h2 className="footer__col__heading">{t("footer.payments")}</h2>
                             <div className="footer__payments" aria-label={t("footer.payments")}>
-                                <span>{t("footer.bankTransfer")}</span>
+                                <span>{t("cart.payos")}</span>
                                 <span>{t("footer.cashOnDelivery")}</span>
                             </div>
                         </div>

@@ -146,28 +146,40 @@ const getTopRevenueProducts = (orderItems: OrderItem[]) => {
     return Object.values(revenueMap).sort((a, b) => b.revenue - a.revenue);
 };
 
-const buildPaymentMix = (orders: Order[]): ChartDatum[] => [
-    {
-        name: "Bank transfer",
-        value: orders.filter((order) => order.status !== ORDER_STATUS.CANCELED && order.payment_method === "bank_transfer").length,
-    },
-    {
-        name: "Cash",
-        value: orders.filter((order) => order.status !== ORDER_STATUS.CANCELED && order.payment_method === "cash").length,
-    },
-    {
-        name: "PayOS",
-        value: orders.filter((order) => order.status !== ORDER_STATUS.CANCELED && order.payment_method === "payos").length,
-    },
-    {
-        name: "Stripe",
-        value: orders.filter((order) => order.status !== ORDER_STATUS.CANCELED && (order.payment_method === "stripe" || order.payment_method === "card")).length,
-    },
-    {
-        name: "Unknown",
-        value: orders.filter((order) => order.status !== ORDER_STATUS.CANCELED && !order.payment_method).length,
-    },
-].filter((item) => item.value > 0);
+const buildPaymentMix = (orders: Order[]): ChartDatum[] => {
+    const activeOrders = orders.filter((order) => order.status !== ORDER_STATUS.CANCELED);
+    const cashOrders = activeOrders.filter((order) => order.payment_method === "cash").length;
+    const payosOrders = activeOrders.filter((order) => order.payment_method === "payos").length;
+    const historicalPaymentOrders = activeOrders.filter(
+        (order) => Boolean(order.payment_method) && order.payment_method !== "cash" && order.payment_method !== "payos",
+    ).length;
+    const notRecordedOrders = activeOrders.filter((order) => !order.payment_method).length;
+
+    return [
+        { name: "Cash", value: cashOrders },
+        { name: "PayOS", value: payosOrders },
+        { name: "Historical methods", value: historicalPaymentOrders },
+        { name: "Not recorded", value: notRecordedOrders },
+    ].filter((item) => item.value > 0);
+};
+
+const normalizePaymentMix = (points: Array<{ name?: unknown; value?: unknown }>): ChartDatum[] => {
+    const totals = new Map<string, number>();
+
+    points.forEach((point) => {
+        const normalizedName = String(point.name || "").toLowerCase();
+        const name = normalizedName === "cash"
+            ? "Cash"
+            : normalizedName === "payos"
+              ? "PayOS"
+              : normalizedName === "" || normalizedName === "unknown"
+                ? "Not recorded"
+                : "Historical methods";
+        totals.set(name, (totals.get(name) || 0) + (Number(point.value) || 0));
+    });
+
+    return Array.from(totals, ([name, value]) => ({ name, value })).filter((item) => item.value > 0);
+};
 
 const buildStatusMix = (orders: Order[]): ChartDatum[] => [
     { name: "Pending", value: orders.filter((order) => order.status === ORDER_STATUS.PENDING).length },
@@ -384,19 +396,9 @@ const AdminDashboard = () => {
         [analyticsSummary, availability.analytics],
     );
     const analyticsPaymentMix = useMemo(
-        () =>
-            (availability.analytics === "success" ? analyticsSummary?.charts?.paymentMethods || [] : []).map((point: any) => ({
-                name: point.name === "bank_transfer"
-                    ? "Bank transfer"
-                    : point.name === "cash"
-                      ? "Cash"
-                      : point.name === "payos"
-                        ? "PayOS"
-                        : point.name === "stripe" || point.name === "card"
-                          ? "Stripe"
-                          : "Unknown",
-                value: Number(point.value) || 0,
-            })),
+        () => normalizePaymentMix(
+            availability.analytics === "success" ? analyticsSummary?.charts?.paymentMethods || [] : [],
+        ),
         [analyticsSummary, availability.analytics],
     );
     const analyticsStatusMix = useMemo(
@@ -449,10 +451,12 @@ const AdminDashboard = () => {
         const cancelledOrders = availability.analytics === "success" && analyticsSummary?.kpis?.orders?.cancelled !== undefined
             ? Number(analyticsSummary.kpis.orders.cancelled)
             : orders.filter((order) => order.status === ORDER_STATUS.CANCELED).length;
-        const bankTransferOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Bank transfer")?.value ?? nonCancelledOrders.filter((order) => order.payment_method === "bank_transfer").length;
         const cashOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Cash")?.value ?? nonCancelledOrders.filter((order) => order.payment_method === "cash").length;
         const payosOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "PayOS")?.value ?? nonCancelledOrders.filter((order) => order.payment_method === "payos").length;
-        const stripeOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Stripe")?.value ?? nonCancelledOrders.filter((order) => order.payment_method === "stripe" || order.payment_method === "card").length;
+        const historicalPaymentOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Historical methods")?.value
+            ?? nonCancelledOrders.filter((order) => Boolean(order.payment_method) && order.payment_method !== "cash" && order.payment_method !== "payos").length;
+        const notRecordedOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Not recorded")?.value
+            ?? nonCancelledOrders.filter((order) => !order.payment_method).length;
         const totalRevenue = availability.analytics === "success" && analyticsSummary?.kpis?.revenue?.net !== undefined
             ? Number(analyticsSummary.kpis.revenue.net)
             : orders.reduce((sum, order) => sum + getNetRevenue(order), 0);
@@ -475,10 +479,10 @@ const AdminDashboard = () => {
             pendingOrders,
             completedOrders,
             cancelledOrders,
-            bankTransferOrders,
             cashOrders,
             payosOrders,
-            stripeOrders,
+            historicalPaymentOrders,
+            notRecordedOrders,
             totalRevenue,
             lowStockProducts: lowStockProducts.length > 0 ? lowStockProducts : fallbackLowStockProducts,
             latestOrders,
@@ -567,8 +571,10 @@ const AdminDashboard = () => {
             `- Cancelled orders: ${reportCancelledOrders}`,
             "",
             "PAYMENT MIX",
-            `- Bank transfer orders: ${reportPaymentMixAvailable ? dashboardStats.bankTransferOrders : "Unavailable"}`,
             `- Cash orders: ${reportPaymentMixAvailable ? dashboardStats.cashOrders : "Unavailable"}`,
+            `- PayOS orders: ${reportPaymentMixAvailable ? dashboardStats.payosOrders : "Unavailable"}`,
+            `- Historical payment records: ${reportPaymentMixAvailable ? dashboardStats.historicalPaymentOrders : "Unavailable"}`,
+            `- Not recorded orders: ${reportPaymentMixAvailable ? dashboardStats.notRecordedOrders : "Unavailable"}`,
             "",
             "TOP REVENUE PRODUCTS",
             ...(reportTopProductsAvailable

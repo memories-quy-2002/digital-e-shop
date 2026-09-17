@@ -5,7 +5,7 @@ export type CustomerOrder = {
     total_price: number;
     discount: number;
     shipping_address: string;
-    payment_method?: "bank_transfer" | "cash" | "payos" | "stripe" | "card" | string;
+    payment_method?: string;
     currency?: string;
     payment_status?: string | null;
     payment_amount?: number | null;

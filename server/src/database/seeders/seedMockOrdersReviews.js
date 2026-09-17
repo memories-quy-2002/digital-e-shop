@@ -114,7 +114,7 @@ async function seedOrders(customers, products) {
         const grossTotal = cents(items.reduce((sum, item) => sum + item.totalPrice, 0));
         const discount = index % 5 === 0 ? cents(grossTotal * 0.1) : 0;
         const status = index % 9 === 0 ? 2 : index % 3 === 0 ? 0 : 1;
-        const paymentMethod = index % 2 === 0 ? "bank_transfer" : "cash";
+        const paymentMethod = index % 2 === 0 ? "payos" : "cash";
         const dateAdded = dateDaysAgo(index);
 
         const orderResult = await query(

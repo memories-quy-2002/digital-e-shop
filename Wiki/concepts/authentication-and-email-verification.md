@@ -25,7 +25,7 @@ When an already Firebase-linked row is paired with a recreated Firebase account 
 
 ## Access policy
 
-AuthGuard does not reject an unverified session. An unverified customer may browse, use the cart, wishlist, account, support, and order history. In Firebase mode, the account page can resend a link through the currently signed-in Firebase user. VerifiedEmailGuard protects authenticated purchase, Stripe checkout-session creation, and review creation. Admins and legacy rows with no verification column value are grandfathered in.
+AuthGuard does not reject an unverified session. An unverified customer may browse, use the cart, wishlist, account, support, and order history. In Firebase mode, the account page can resend a link through the currently signed-in Firebase user. VerifiedEmailGuard protects authenticated purchase, PayOS checkout-session creation, and review creation. Admins and legacy rows with no verification column value are grandfathered in.
 
 Client protected routes wait for the server-backed `AuthContext` session check before rendering. Anonymous users are redirected to `/login?redirect=<encoded-internal-route>` so a successful Firebase sign-in can return them to the requested page. If a later session check returns `401`, the cached user state is cleared before the same redirect is performed. Loading and authentication failures use semantic status/alert regions rather than leaving a protected page in an indefinite skeleton state.
 

@@ -13,7 +13,7 @@ const {
 const { resolveDemoDatabaseSsl } = require("./databaseSsl.js");
 const { DEMO_SEED_PLAN, validateDemoSeedPlan } = require("./demoSeedData");
 
-const DEMO_ORDER_SESSION_PREFIX = "digital-e-demo-order-";
+const DEMO_ORDER_EVENT_NOTE_PREFIX = "Digital-E demo seed order%";
 const DEMO_NOTIFICATION_PREFIX = "Demo";
 const DEMO_MOVEMENT_PREFIX = "Digital-E demo seed";
 
@@ -69,13 +69,13 @@ const verify = async (connection) => {
         ),
         query(
             connection,
-            "SELECT COUNT(*) AS count FROM orders WHERE user_id IN (?) AND stripe_checkout_session_id LIKE ?",
-            [userIds, `${DEMO_ORDER_SESSION_PREFIX}%`],
+            "SELECT COUNT(DISTINCT o.id) AS count FROM orders o JOIN order_status_events ose ON ose.order_id = o.id WHERE o.user_id IN (?) AND ose.note LIKE ?",
+            [userIds, DEMO_ORDER_EVENT_NOTE_PREFIX],
         ),
         query(
             connection,
-            "SELECT COUNT(*) AS count FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE o.user_id IN (?) AND o.stripe_checkout_session_id LIKE ? AND oi.product_id IN (?)",
-            [userIds, `${DEMO_ORDER_SESSION_PREFIX}%`, productIds],
+            "SELECT COUNT(DISTINCT oi.id) AS count FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN order_status_events ose ON ose.order_id = o.id WHERE o.user_id IN (?) AND ose.note LIKE ? AND oi.product_id IN (?)",
+            [userIds, DEMO_ORDER_EVENT_NOTE_PREFIX, productIds],
         ),
         query(connection, "SELECT COUNT(*) AS count FROM reviews WHERE user_id IN (?) AND product_id IN (?) AND review_text LIKE ?", [userIds, productIds, "Digital-E demo review:%"]),
         query(connection, "SELECT COUNT(*) AS count FROM wishlist WHERE user_id IN (?) AND product_id IN (?)", [userIds, productIds]),
@@ -86,8 +86,8 @@ const verify = async (connection) => {
         query(connection, "SELECT COUNT(*) AS count FROM inventory_movements WHERE note LIKE ?", [`${DEMO_MOVEMENT_PREFIX}%`]),
         query(
             connection,
-            "SELECT COUNT(*) AS count FROM order_status_events ose JOIN orders o ON o.id = ose.order_id WHERE o.user_id IN (?) AND o.stripe_checkout_session_id LIKE ? AND ose.note LIKE ?",
-            [userIds, `${DEMO_ORDER_SESSION_PREFIX}%`, `${DEMO_MOVEMENT_PREFIX} order%`],
+            "SELECT COUNT(*) AS count FROM order_status_events ose JOIN orders o ON o.id = ose.order_id WHERE o.user_id IN (?) AND ose.note LIKE ?",
+            [userIds, DEMO_ORDER_EVENT_NOTE_PREFIX],
         ),
     ]);
 
@@ -119,9 +119,12 @@ const verify = async (connection) => {
             LEFT JOIN users u ON u.id = o.user_id
             LEFT JOIN order_items oi ON oi.order_id = o.id
             LEFT JOIN products p ON p.id = oi.product_id
-            WHERE o.user_id IN (?) AND o.stripe_checkout_session_id LIKE ?
+            WHERE o.user_id IN (?) AND EXISTS (
+                SELECT 1 FROM order_status_events ose
+                WHERE ose.order_id = o.id AND ose.note LIKE ?
+            )
               AND (u.id IS NULL OR oi.id IS NULL OR p.id IS NULL)`,
-            [userIds, `${DEMO_ORDER_SESSION_PREFIX}%`],
+            [userIds, DEMO_ORDER_EVENT_NOTE_PREFIX],
         ),
         query(
             connection,
@@ -150,12 +153,15 @@ const verify = async (connection) => {
                 SELECT o.id
                 FROM orders o
                 LEFT JOIN order_items oi ON oi.order_id = o.id
-                WHERE o.user_id IN (?) AND o.stripe_checkout_session_id LIKE ?
+                WHERE o.user_id IN (?) AND EXISTS (
+                    SELECT 1 FROM order_status_events ose
+                    WHERE ose.order_id = o.id AND ose.note LIKE ?
+                )
                 GROUP BY o.id, o.total_price
                 HAVING COUNT(oi.id) = 0
                     OR ROUND(o.total_price, 2) <> ROUND(COALESCE(SUM(oi.total_price), 0), 2)
             ) mismatches`,
-            [userIds, `${DEMO_ORDER_SESSION_PREFIX}%`],
+            [userIds, DEMO_ORDER_EVENT_NOTE_PREFIX],
         ),
         query(
             connection,
@@ -173,7 +179,7 @@ const verify = async (connection) => {
             LEFT JOIN orders o ON o.id = ose.order_id
             LEFT JOIN users u ON u.id = ose.actor_id
             WHERE ose.note LIKE ? AND (o.id IS NULL OR u.id IS NULL)`,
-            [`${DEMO_MOVEMENT_PREFIX} order%`],
+            [DEMO_ORDER_EVENT_NOTE_PREFIX],
         ),
         query(
             connection,
@@ -186,9 +192,12 @@ const verify = async (connection) => {
                   JOIN orders o ON o.id = oi.order_id
                   WHERE oi.product_id = p.id
                     AND o.user_id IN (?)
-                    AND o.stripe_checkout_session_id LIKE ?
+                    AND EXISTS (
+                        SELECT 1 FROM order_status_events ose
+                        WHERE ose.order_id = o.id AND ose.note LIKE ?
+                    )
               )`,
-            [productNames, userIds, `${DEMO_ORDER_SESSION_PREFIX}%`],
+            [productNames, userIds, DEMO_ORDER_EVENT_NOTE_PREFIX],
         ),
         query(
             connection,
