@@ -22,10 +22,10 @@ const getStatusLabel = (status: number) => {
 };
 
 const getPaymentLabel = (payment?: CustomerOrder["payment_method"]) => {
-    if (payment === "bank_transfer") return "Bank transfer";
+    if (payment === "bank_transfer") return "Historical bank transfer";
     if (payment === "cash") return "Cash on delivery";
     if (payment === "payos") return "PayOS (VND)";
-    if (payment === "stripe" || payment === "card") return "Stripe card";
+    if (payment === "stripe" || payment === "card") return "Historical card payment";
     return "Not recorded";
 };
 

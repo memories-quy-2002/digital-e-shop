@@ -1,5 +1,5 @@
 import React, { useActionState, useEffect, useState } from "react";
-import { ArrowRightIcon, BankIcon, CashStackIcon, ShieldIcon } from "../common/Icons";
+import { ArrowRightIcon, CashStackIcon, ShieldIcon } from "../common/Icons";
 import { useToast } from "../../context/ToastContext";
 import { formatCurrency } from "../../utils/currency";
 import { useT } from "../../hooks/useT";
@@ -147,17 +147,10 @@ const AsideCart = ({
                     </div>
                     <ul className="cart-summary__payment-list">
                         <li className="cart-summary__payment-item">
-                            <span className="cart-summary__payment-icon"><BankIcon size={22} aria-hidden /></span>
+                            <span className="cart-summary__payment-icon"><CashStackIcon size={22} aria-hidden /></span>
                             <div>
                                 <strong>{t("cart.payos")}</strong>
                                 <small>{t("cart.payosNote")}</small>
-                            </div>
-                        </li>
-                        <li className="cart-summary__payment-item">
-                            <span className="cart-summary__payment-icon"><BankIcon size={22} aria-hidden /></span>
-                            <div>
-                                <strong>{t("cart.bankTransfer")}</strong>
-                                <small>{t("cart.bankTransferNote")}</small>
                             </div>
                         </li>
                         <li className="cart-summary__payment-item">

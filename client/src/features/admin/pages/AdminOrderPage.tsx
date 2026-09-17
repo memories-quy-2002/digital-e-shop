@@ -27,7 +27,7 @@ import { getOrderStatusKey, ORDER_STATUS } from "../../orders/orderStatus";
 const ITEMS_PER_PAGE = 8;
 
 type StatusFilter = "all" | "pending" | "done" | "canceled";
-type PaymentFilter = "all" | "bank_transfer" | "cash" | "payos" | "stripe" | "none";
+type PaymentFilter = "all" | "cash" | "payos" | "none";
 
 const normalizeOrder = (order: any): Order => ({
     ...order,
@@ -38,10 +38,10 @@ const normalizeOrder = (order: any): Order => ({
 });
 
 const getPaymentMethodLabel = (paymentMethod?: Order["payment_method"]) => {
-    if (paymentMethod === "bank_transfer") return "Bank transfer";
     if (paymentMethod === "cash") return "Cash on delivery";
     if (paymentMethod === "payos") return "PayOS (VND)";
-    if (paymentMethod === "stripe" || paymentMethod === "card") return "Stripe card";
+    if (paymentMethod === "bank_transfer") return "Historical bank transfer";
+    if (paymentMethod === "stripe" || paymentMethod === "card") return "Historical card payment";
     return "Not recorded";
 };
 
@@ -150,7 +150,9 @@ const AdminOrderPage = () => {
         const pending = orders.filter((order) => order.status === ORDER_STATUS.PENDING).length;
         const completed = orders.filter((order) => order.status === ORDER_STATUS.DONE).length;
         const canceled = orders.filter((order) => order.status === ORDER_STATUS.CANCELED).length;
-        const bankTransfer = orders.filter((order) => order.payment_method === "bank_transfer").length;
+        const historicalPaymentMethods = orders.filter(
+            (order) => Boolean(order.payment_method) && order.payment_method !== "cash" && order.payment_method !== "payos",
+        ).length;
         const revenue = orders.reduce((sum, order) => sum + getNetRevenue(order), 0);
 
         return {
@@ -158,7 +160,7 @@ const AdminOrderPage = () => {
             pending,
             completed,
             canceled,
-            bankTransfer,
+            historicalPaymentMethods,
             revenue,
         };
     }, [orders]);
@@ -372,9 +374,9 @@ const AdminOrderPage = () => {
                         <p>Still waiting for action</p>
                     </div>
                     <div className="admin__summary-card">
-                        <span>Bank transfer</span>
-                        <strong>{orderStats.bankTransfer}</strong>
-                        <p>Need payment confirmation</p>
+                        <span>Historical methods</span>
+                        <strong>{orderStats.historicalPaymentMethods}</strong>
+                        <p>Read-only legacy records</p>
                     </div>
                     <div className="admin__summary-card">
                         <span>Completed</span>
@@ -430,10 +432,8 @@ const AdminOrderPage = () => {
                                     onChange={(event) => setPaymentFilter(event.target.value as PaymentFilter)}
                                 >
                                     <option value="all">All payments</option>
-                                    <option value="bank_transfer">Bank transfer</option>
                                     <option value="cash">Cash on delivery</option>
                                     <option value="payos">PayOS (VND)</option>
-                                    <option value="stripe">Stripe card</option>
                                     <option value="none">No payment</option>
                                 </select>
                                 <button
@@ -541,7 +541,7 @@ const AdminOrderPage = () => {
                                         <td width="180px">
                                             <span
                                                 className={
-                                                    order.payment_method === "bank_transfer"
+                                                    order.payment_method === "payos"
                                                         ? "admin__pill admin__pill--info"
                                                         : order.payment_method === "cash"
                                                           ? "admin__pill admin__pill--success"

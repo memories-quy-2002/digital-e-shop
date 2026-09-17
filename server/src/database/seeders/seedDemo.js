@@ -15,8 +15,7 @@ const { resolveDemoDatabaseSsl } = require("./databaseSsl.js");
 const { DEMO_PASSWORD, DEMO_SEED_PLAN, validateDemoSeedPlan } = require("./demoSeedData");
 
 const LOOKUP_TABLES = new Set(["categories", "brands"]);
-const DEMO_ORDER_ADDRESS_PREFIX = "Digital-E Demo Order ";
-const DEMO_ORDER_SESSION_PREFIX = "digital-e-demo-order-";
+const DEMO_ORDER_EVENT_NOTE_PREFIX = "Digital-E demo seed order%";
 const DEMO_NOTIFICATION_PREFIX = "Demo";
 const DEMO_MOVEMENT_PREFIX = "Digital-E demo seed";
 const LEGACY_PRODUCT_NAME_PATTERNS = ["%e2e%", "%demo%"];
@@ -171,8 +170,11 @@ const upsertDemoProducts = async (connection, plan) => {
 const findDemoOrderIds = async (connection, userIds) => {
     const rows = await query(
         connection,
-        "SELECT id FROM orders WHERE user_id IN (?) AND (shipping_address LIKE ? OR stripe_checkout_session_id LIKE ?)",
-        [Array.from(userIds.values()), `${DEMO_ORDER_ADDRESS_PREFIX}%`, `${DEMO_ORDER_SESSION_PREFIX}%`],
+        `SELECT DISTINCT o.id
+         FROM orders o
+         JOIN order_status_events ose ON ose.order_id = o.id
+         WHERE o.user_id IN (?) AND ose.note LIKE ?`,
+        [Array.from(userIds.values()), DEMO_ORDER_EVENT_NOTE_PREFIX],
     );
     return rows.map((row) => Number(row.id));
 };
@@ -345,15 +347,14 @@ const seedOrders = async (connection, plan, userIds, productIds, productDefiniti
         const customerId = userIds.get(order.userKey);
         const result = await connection.query(
             `INSERT INTO orders
-                (user_id, total_price, discount, shipping_address, payment_method, stripe_checkout_session_id, date_added, status, currency)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                (user_id, total_price, discount, shipping_address, payment_method, date_added, status, currency)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 customerId,
                 grossTotal,
                 discount,
                 shippingAddressByUser.get(order.userKey),
                 order.paymentMethod,
-                `${DEMO_ORDER_SESSION_PREFIX}${order.key}`,
                 dateDaysAgo(18 - index, 9 + (index % 6)),
                 order.status,
                 plan.currency,

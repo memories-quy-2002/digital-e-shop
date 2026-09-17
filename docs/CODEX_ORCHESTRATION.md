@@ -4,6 +4,12 @@ This file defines the default multi-agent working pattern for Codex tasks in thi
 
 Use it when a task is broad enough to benefit from parallel review, isolated implementation, or independent verification. For small tasks, use one primary agent only.
 
+## Model policy
+
+When delegation is approved or requested, use only the Luna model for
+sub-agents. Do not substitute another model. The primary agent remains
+accountable for scope, integration, security decisions, and final verification.
+
 ## Core Pattern
 
 Use a 4-agent orchestrator-worker pattern:
@@ -29,9 +35,10 @@ Use a 4-agent orchestrator-worker pattern:
 
 4. Verification Agent
    - Owns targeted checks that can run independently.
-   - Scope: package-local typecheck, build, lint, Vitest, read-only k6 scripts, HTTP smoke checks, and focused regression review.
+   - Scope: package-local typecheck, build, lint, Vitest, read-only k6 scripts, HTTP smoke checks, browser checks, and focused regression review.
    - Must not run write-heavy performance tests against shared data.
-   - Must report exact commands, pass/fail status, and environment limitations.
+   - For UI changes, must record route, viewport, locale, theme, and visible outcome.
+   - Must report exact commands, pass/fail status, browser evidence, and environment limitations.
 
 ## When To Use Sub-Agents
 
@@ -68,14 +75,22 @@ The main agent should give sub-agents only the context needed for the task. Pref
 
 ## Report Contract
 
-Sub-agents return short reports only:
+Sub-agents return this exact short report:
 
 ```text
-Status: completed | blocked | no findings
-Files changed: path list, or "none"
-Findings: concise bullets with file/line when relevant
-Verification: commands run and result
-Risks: remaining assumptions or follow-up needed
+Status: pass | findings | blocked
+Role: role_name
+Files changed: none | path list
+Findings:
+- [P0|P1|P2|P3] path:line: evidence and impact
+Verification:
+- command or browser route, viewport, locale, theme, and result
+Assumptions:
+- assumption or none
+Risks:
+- remaining risk or none
+Next action:
+- concrete next action or none
 ```
 
 The main agent should not paste long sub-agent logs into the final answer. Summarize the integrated result.
@@ -108,11 +123,19 @@ Preserve auth, CSRF, ownership checks, route contracts, and database schema.
 Keep controllers thin and SQL inside repositories.
 
 Return:
-- Status
-- Files changed
-- Key findings or implementation summary
-- Verification run
-- Remaining risks
+Status: pass | findings | blocked
+Role: backend agent
+Files changed: none | path list
+Findings:
+- [P0|P1|P2|P3] path:line: evidence and impact
+Verification:
+- command or result
+Assumptions:
+- assumption or none
+Risks:
+- remaining risk or none
+Next action:
+- concrete next action or none
 ```
 
 ### Frontend Agent
@@ -126,13 +149,23 @@ Scope: client files only.
 Do not edit server files.
 Use existing API helpers, context providers, React Router patterns, Tailwind/Radix primitives, and SCSS structure.
 Preserve cookie and CSRF request behavior.
+For UI changes, verify English and Vietnamese, light and dark themes, responsive
+layout, focus states, loading and error recovery, and browser evidence.
 
 Return:
-- Status
-- Files changed
-- Key findings or implementation summary
-- Verification run
-- Remaining risks
+Status: pass | findings | blocked
+Role: frontend agent
+Files changed: none | path list
+Findings:
+- [P0|P1|P2|P3] path:line: evidence and impact
+Verification:
+- command or browser route, viewport, locale, theme, and result
+Assumptions:
+- assumption or none
+Risks:
+- remaining risk or none
+Next action:
+- concrete next action or none
 ```
 
 ### Verification Agent
@@ -144,6 +177,7 @@ Role: Verification Agent.
 Goal: Verify the current changes with targeted checks.
 Do not make product code edits unless explicitly assigned.
 Do not run write-heavy tests against real or shared data.
+If this task is delegated, use only the Luna model.
 
 Prefer relevant commands:
 - pnpm --dir client exec tsc -p tsconfig.json --noEmit
@@ -155,13 +189,22 @@ Prefer relevant commands:
 - pnpm --dir server build
 - pnpm --dir server lint
 - server read-only k6 scripts only when requested
+- Playwright or the available browser harness for changed UI routes
 
 Return:
-- Status
-- Commands run
-- Pass/fail result
-- Important output
-- Environment limitations
+Status: pass | findings | blocked
+Role: verification agent
+Files changed: none | path list
+Findings:
+- [P0|P1|P2|P3] path:line: evidence and impact
+Verification:
+- command or browser route, viewport, locale, theme, and result
+Assumptions:
+- assumption or none
+Risks:
+- remaining risk or none
+Next action:
+- concrete next action or none
 ```
 
 ## Practical Defaults For This Repo

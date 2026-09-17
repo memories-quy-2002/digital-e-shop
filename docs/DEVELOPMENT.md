@@ -55,20 +55,20 @@ order notifications in the app; guests use checkout success and protected
 lookup. If an external order-email channel is added later, keep credentials
 server-side and make delivery a non-blocking post-commit side effect. Firebase
 action codes and guest-order access tokens are never logged.
-Vietnam-first payments use PayOS payment links and whole-number VND catalog values. Keep `PAYOS_CLIENT_ID`,
-`PAYOS_API_KEY`, and `PAYOS_CHECKSUM_KEY` server-side and set
-`STORE_CURRENCY=VND` for the Vietnam-first default. Set
-`PAYOS_USD_TO_VND_RATE` only when deliberately running an USD-backed catalog.
-Use `PAYMENT_PROVIDER_MODE=mock` for the local PayOS simulator; it redirects to
-`/mock-payos-checkout` and waits for an explicit simulated confirmation. Use
-`live` only with real PayOS channel credentials and a configured
-`/api/orders/webhooks/payos` URL. In live mode, only a verified webhook creates
-the order; the browser return URL is not a payment confirmation. Run
-`pnpm --dir server seed:demo` after changing the demo seed so local products,
-discount thresholds, and demo orders are materialized in VND. Stripe remains an
-optional international rail and requires an intentional USD/catalog setup.
+Vietnam-first payments use PayOS payment links and whole-number VND catalog
+values, plus cash on delivery. Keep `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, and
+`PAYOS_CHECKSUM_KEY` server-side. New runtime records use VND without an FX
+configuration. Use `PAYMENT_PROVIDER_MODE=mock` for the local PayOS simulator;
+it redirects to `/mock-payos-checkout` and waits for an explicit simulated
+confirmation. Use `live` only with real PayOS channel credentials and a
+configured `/api/orders/webhooks/payos` URL. In live mode, only a verified
+webhook creates the order; the browser return URL is not a payment confirmation.
+The guarded admin reconciliation workspace can run at most 100 candidates per
+request, retry PayOS records, confirm COD collection, and inspect webhook
+history. Run `pnpm --dir server seed:demo` after changing the demo seed so local
+products, discount thresholds, and demo orders are materialized in VND.
 
-Authentication is Firebase-only. The client signs users in with Firebase Email/Password and sends a Firebase ID token to the API; the server verifies that token with Firebase Admin before issuing its cookie-backed session. Firebase owns verification, password-reset, and email-change action links in every environment. After the user signs in again, the server reads Firebase's email_verified claim and updates email_verified_at, including synchronizing a verified email change by Firebase UID. Authenticated checkout, Stripe checkout-session creation, and review creation remain blocked until that claim is true. Legacy verification and password-reset columns remain nullable for schema compatibility but are no longer used by the runtime.
+Authentication is Firebase-only. The client signs users in with Firebase Email/Password and sends a Firebase ID token to the API; the server verifies that token with Firebase Admin before issuing its cookie-backed session. Firebase owns verification, password-reset, and email-change action links in every environment. After the user signs in again, the server reads Firebase's email_verified claim and updates email_verified_at, including synchronizing a verified email change by Firebase UID. Authenticated checkout, PayOS checkout-session creation, and review creation remain blocked until that claim is true. Legacy verification and password-reset columns remain nullable for schema compatibility but are no longer used by the runtime.
 
 ### Local Firebase Auth Emulator profile
 
@@ -136,7 +136,7 @@ Run the protected local setup:
 pnpm --dir server docker:setup
 ```
 
-This command starts MySQL, imports the legacy SQL baseline and historical Stripe SQL, records the metadata-only Prisma `0_init` marker, deploys forward migrations, runs the deterministic demo seed, and verifies relational counts and orphan links.
+This command starts MySQL, imports the legacy SQL baseline and the historical payment schema compatibility SQL, records the metadata-only Prisma `0_init` marker, deploys forward migrations, runs the deterministic demo seed, and verifies relational counts and orphan links. The historical SQL is a migration prerequisite, not an active payment-provider integration.
 
 Run individual operations when needed:
 

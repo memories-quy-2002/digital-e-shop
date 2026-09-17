@@ -38,7 +38,7 @@ same bootstrap.
   compatibility response fields while adding shared metadata and correlation.
 - `main.ts` supplies the global `/api` prefix. Controllers must not hard-code
   `api/` in their decorator paths.
-- Stripe webhook handling depends on Nest raw-body support for signature
+- PayOS webhook handling depends on Nest raw-body support for signature
   verification, and bootstrap must call `app.init()` before routes are used.
 - Persistence is intentionally unaffected by this decision: MySQL repositories
   remain primary and Prisma remains partial. See [[0001-mysql-primary-prisma-partial]].

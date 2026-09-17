@@ -421,7 +421,7 @@ const DEMO_SEED_PLAN = {
             key: "order-1",
             userKey: "alice",
             status: 1,
-            paymentMethod: "bank_transfer",
+            paymentMethod: "payos",
             discountRate: 10,
             items: [
                 { productName: "Dell XPS 13 OLED 9320", quantity: 1 },
@@ -446,7 +446,7 @@ const DEMO_SEED_PLAN = {
             key: "order-3",
             userKey: "carol",
             status: 0,
-            paymentMethod: "bank_transfer",
+            paymentMethod: "payos",
             discountRate: 0,
             items: [
                 { productName: "Nvidia RTX 4070 Super", quantity: 2 },
@@ -471,7 +471,7 @@ const DEMO_SEED_PLAN = {
             key: "order-5",
             userKey: "bob",
             status: 2,
-            paymentMethod: "bank_transfer",
+            paymentMethod: "payos",
             discountRate: 0,
             items: [
                 { productName: "Asus TUF Gaming VG27AQ", quantity: 1 },
@@ -498,7 +498,7 @@ const DEMO_SEED_PLAN = {
             key: "order-7",
             userKey: "alice",
             status: 0,
-            paymentMethod: "bank_transfer",
+            paymentMethod: "payos",
             discountRate: 0,
             items: [
                 { productName: "Samsung Galaxy S24", quantity: 1 },

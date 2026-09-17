@@ -148,16 +148,13 @@ export const env = {
     dbQueryLog: process.env.DB_QUERY_LOG === "true",
     dbQueryLogThresholdMs: Number(process.env.DB_QUERY_LOG_THRESHOLD_MS || 200),
     dbExplainSlow: process.env.DB_EXPLAIN_SLOW === "true",
-    stripeSecretKey: process.env.STRIPE_SECRET_KEY || "",
-    stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
     payosClientId: process.env.PAYOS_CLIENT_ID || "",
     payosApiKey: process.env.PAYOS_API_KEY || "",
     payosChecksumKey: process.env.PAYOS_CHECKSUM_KEY || "",
     payosPartnerCode: process.env.PAYOS_PARTNER_CODE || "",
     payosBaseUrl: process.env.PAYOS_BASE_URL || "https://api-merchant.payos.vn",
-    storeCurrency: (process.env.STORE_CURRENCY === "USD" ? "USD" : "VND") as "USD" | "VND",
+    storeCurrency: "VND" as const,
     paymentProviderMode: process.env.PAYMENT_PROVIDER_MODE === "live" ? "live" : "mock",
-    payosUsdToVndRate: process.env.PAYOS_USD_TO_VND_RATE ? Number(process.env.PAYOS_USD_TO_VND_RATE) : undefined,
     redisUrl: process.env.REDIS_URL || "",
 };
 

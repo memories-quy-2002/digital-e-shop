@@ -1,194 +1,307 @@
-# API guide
+# Digital-E API reference
 
-The Digital-E API is a NestJS application on the Express adapter. It sets the global `/api` prefix, uses cookie credentials, and preserves route-specific response keys for compatibility with the client.
+## TL;DR
 
-## Discover the API
+The Digital-E API is a NestJS service with a global /api prefix. Run the
+server locally and open /docs for the Scalar reference or /api/openapi.json
+for the checked-in OpenAPI document. The source controllers remain the
+authority when a compatibility alias or a newly added route is not yet
+represented in the document.
 
-Run the server locally, then open these endpoints:
+## Start the reference
 
-```text
-GET /api/health
-GET /api/openapi.json
-GET /docs
-```
+From the repository root, start the server package:
 
-`/docs` serves the Scalar API reference. The generated OpenAPI document covers the stable API surface, while the source controllers remain the authority for newly added routes and compatibility aliases.
+~~~powershell
+pnpm --dir server dev
+~~~
+
+Then open:
+
+~~~text
+http://localhost:4000/docs
+http://localhost:4000/api/openapi.json
+http://localhost:4000/api/health
+~~~
+
+The production API reference uses the same routes under the deployed server
+origin.
 
 ## Request conventions
 
-- Send JSON with `Content-Type: application/json` unless the endpoint accepts multipart form data
-- Include cookies for authenticated requests; the client HTTP layer sets credentials automatically
-- Fetch a CSRF token from `GET /api/users/csrf` before unsafe requests and send it as `X-CSRF-Token`
-- Preserve route-local response keys such as `msg`, `error`, `product`, `products`, `order`, `orders`, `pagination`, `userData`, and `notifications`
-- Use the `X-Request-Id` response header to correlate a request with server logs
-- Expect validation and domain failures to use the established `{ msg }` or `{ error }` shape rather than a new global contract
+Send JSON with Content-Type: application/json unless the endpoint accepts
+multipart form data. Include cookies on authenticated requests. The client HTTP
+layer already sends credentials automatically.
 
-The CSRF middleware ignores `GET`, `HEAD`, and `OPTIONS`. Login, registration, and refresh retain their explicit authentication-flow exclusions. Do not broaden either exclusion set.
+For unsafe requests protected by CSRF, first call GET /api/users/csrf and send
+the returned token in X-CSRF-Token. The middleware ignores GET, HEAD, and
+OPTIONS. Login, registration, and refresh retain their explicit
+authentication-flow exclusions.
 
-## Public and catalog routes
+Responses preserve route-specific keys such as msg, error, product, products,
+order, orders, pagination, userData, and notifications. Payment reconciliation
+and PayOS webhook responses also include the normalized success and requestId
+fields. Use the X-Request-Id response header to correlate a request with
+server logs.
 
-The public catalog surface includes:
+## Route inventory
 
-```text
-GET  /api/health
-GET  /api/products
-GET  /api/products/:id
-GET  /api/products/search
-GET  /api/products/facets
-GET  /api/products/relevant/:pid
-GET  /api/products/recommendations/:uid
-GET  /api/products/images/:filename
-GET  /api/reviews/:pid
-POST /api/cart/guest/preview
-GET  /api/cart/guest
-POST /api/cart/guest/sync
-POST /api/cart/guest/clear
-```
+### Public and catalog
 
-`GET /api/products` accepts pagination, term, category, brand, price, sort, and JSON-encoded typed attribute filters. The server bounds pagination and recalculates the catalog query from the request. Product image names are constrained before a file is read.
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | / | Root service status |
+| GET | /api/health | API health check |
+| GET | /api/blob/health | Blob storage health check |
+| GET | /api/products | Browse the catalog |
+| GET | /api/products/:id | Read one product |
+| GET | /api/products/search | Search products |
+| GET | /api/products/facets | Read catalog facets |
+| GET | /api/products/relevant/:pid | Read related products |
+| GET | /api/products/recommendations/:uid | Read recommendations |
+| GET | /api/products/images/:filename | Read a product image |
+| GET | /api/reviews/:pid | Read product reviews |
+| GET | /api/cart/guest | Read the anonymous cart |
+| POST | /api/cart/guest/preview | Preview authoritative prices and stock |
+| POST | /api/cart/guest/sync | Synchronize the anonymous cart |
+| POST | /api/cart/guest/clear | Clear the anonymous cart |
 
-Guest cart preview accepts product IDs, quantities, and an optional discount code. It returns authoritative product, price, stock, discount, and total information. The client must not treat local cart values as authoritative.
+GET /api/products accepts pagination, term, category, brand, price, sort, and
+JSON-encoded typed attribute filters. The server bounds pagination and
+recalculates the catalog query from the request.
 
-Guest cart synchronization accepts `{ "items": [{ "productId": 10, "quantity": 2 }] }`.
-The server assigns an HttpOnly `digitalEGuestCartId` cookie and stores only
-product IDs and quantities in the anonymous cart tables. The cookie expires
-after 30 days. `POST /api/cart/guest/clear` accepts optional
-`{ "converted": true }`; conversion clears the cookie and records the cart as
-converted for aggregate Admin analytics. These routes do not accept guest
-contact details.
+Guest cart synchronization accepts
+{ "items": [{ "productId": 10, "quantity": 2 }] }. The server assigns an
+HttpOnly digitalEGuestCartId cookie and stores only product IDs and quantities.
+The cookie expires after 30 days. Sending { "converted": true } to the clear
+route also records the cart as converted for aggregate admin analytics.
 
-## Authentication routes
+### Authentication
 
-Authentication is exposed under `/api/users`:
+| Method | Path | Access |
+| --- | --- | --- |
+| GET | /api/users/csrf | Public |
+| POST | /api/users/register | Public |
+| POST | /api/users/login | Public |
+| POST | /api/users/refresh | Refresh session |
+| POST | /api/users/logout | Authenticated |
+| GET | /api/users/session/check | Authenticated |
+| GET | /api/users/me | Authenticated |
 
-```text
-GET  /api/users/csrf
-POST /api/users/register
-POST /api/users/login
-POST /api/users/refresh
-POST /api/users/logout
-GET  /api/users/session/check
-GET  /api/users/me
-```
+Authentication verifies Firebase identity on the server. Successful
+authentication issues the server cookie-backed access and refresh session. The
+server does not accept email/password credentials and does not expose
+password-reset or email-verification token routes.
 
-Authentication verifies Firebase identity on the server in every environment. Successful authentication issues the server's cookie-backed access and refresh session. Refresh reloads the current user and active session before issuing a new access token.
+Registration accepts an ID token and optional profile input:
 
-Registration accepts { "idToken": "...", "user": { "username": "customer" } }. The response issues a session and includes userData.email_verified. The client calls Firebase sendEmailVerification after registration; Firebase owns delivery and the default action handler. After the user clicks the link and signs in again, the server receives Firebase's verified ID-token claim and synchronizes email_verified_at. The server does not accept email/password credentials or expose a verification resend endpoint.
-Password reset and email change are client-side Firebase flows. The API does not issue or consume MySQL password-reset or email-change tokens; after a verified Firebase email change, the next sign-in synchronizes the API user row by Firebase UID.
+~~~json
+{
+  "idToken": "your_firebase_id_token",
+  "user": {
+    "username": "customer"
+  }
+}
+~~~
 
+Firebase owns verification, password reset, and email-change action links.
+After a verified sign-in, the server synchronizes the Firebase claim to the
+user record.
 
+### Authenticated customer
 
-Marketing subscription and unsubscribe routes were removed from the client and server runtime. The historical marketing subscription table and migration remain only for compatibility with existing databases; no current code reads or writes them.
-## Customer routes
+| Method | Path | Access |
+| --- | --- | --- |
+| GET | /api/cart/:uid | Owner or admin |
+| GET | /api/cart/:uid/validation | Owner or admin |
+| POST | /api/cart | Owner or admin |
+| PUT | /api/cart | Owner or admin |
+| DELETE | /api/cart | Owner or admin |
+| GET | /api/orders/user/:uid | Owner or admin |
+| GET | /api/orders/:oid | Order owner or admin |
+| POST | /api/orders/purchase/:uid | Verified owner or admin |
+| POST | /api/orders/payos-checkout-session/:uid | Verified owner or admin |
+| GET | /api/orders/by-payos-order-code/:orderCode | Order owner or admin |
+| POST | /api/orders/:oid/cancel | Order owner or admin |
+| POST | /api/orders/discount | Customer or admin |
+| GET | /api/users/:id/addresses | Owner or admin |
+| POST | /api/users/:id/addresses | Owner or admin |
+| PUT | /api/users/:id/addresses/:addressId | Owner or admin |
+| DELETE | /api/users/:id/addresses/:addressId | Owner or admin |
+| GET | /api/users/:id/notifications | Owner or admin |
+| POST | /api/users/:id/notifications/read-all | Owner or admin |
+| POST | /api/users/:id/notifications/:notificationId/read | Owner or admin |
+| GET | /api/wishlist/:uid | Owner or admin |
+| POST | /api/wishlist | Authenticated |
+| DELETE | /api/wishlist | Authenticated |
+| DELETE | /api/wishlist/:pid | Authenticated |
+| POST | /api/reviews | Verified customer |
+| GET | /api/support/tickets | Customer or admin |
+| POST | /api/support/tickets | Customer or admin |
 
-Customer routes require authentication and enforce resource ownership where the URL or body contains a user identifier:
+Authenticated checkout and review creation require a verified Firebase email.
+Customers can still browse, maintain a cart, view order history, and use
+support while unverified.
 
-```text
-GET    /api/cart/:uid
-GET    /api/cart/:uid/validation
-POST   /api/cart
-PUT    /api/cart
-DELETE /api/cart
+### Guest checkout
 
-GET    /api/orders/user/:uid
-GET    /api/orders/:oid
-    POST   /api/orders/purchase/:uid
-    POST   /api/orders/checkout-session/:uid
-    POST   /api/orders/payos-checkout-session/:uid
-POST   /api/orders/:oid/cancel
+Guest checkout does not accept a user ID and never trusts client prices or
+totals:
 
-GET    /api/users/:id/addresses
-POST   /api/users/:id/addresses
-PUT    /api/users/:id/addresses/:addressId
-DELETE /api/users/:id/addresses/:addressId
+| Method | Path | Purpose |
+| --- | --- | --- |
+| POST | /api/orders/guest/purchase | Create a COD or PayOS guest order |
+| POST | /api/orders/guest/payos-checkout-session | Create a guest PayOS payment link |
+| POST | /api/orders/guest/lookup | Read a guest order with its token |
+| POST | /api/orders/guest/by-payos-order-code | Read a guest PayOS order with its token |
+| POST | /api/orders/mock-payos/confirm | Confirm a local mock PayOS payment |
 
-GET    /api/users/:id/notifications
-POST   /api/users/:id/notifications/read-all
-POST   /api/users/:id/notifications/:notificationId/read
+The guest purchase shape is:
 
-GET    /api/wishlist/:uid
-POST   /api/wishlist
-DELETE /api/wishlist
-DELETE /api/wishlist/:pid
+~~~json
+{
+  "cart": [
+    {
+      "productId": 10,
+      "quantity": 2
+    }
+  ],
+  "contact": {
+    "email": "customer@example.com",
+    "name": "Demo Customer",
+    "phone": "0900000000"
+  },
+  "shipping": {
+    "address": "123 Demo Street",
+    "city": "Ho Chi Minh City",
+    "country": "Vietnam"
+  },
+  "paymentMethod": "cash"
+}
+~~~
 
-GET    /api/support/tickets
-POST   /api/support/tickets
-POST   /api/reviews
-```
+The server validates contact and shipping fields, rechecks stock and
+promotions, and creates a one-time guest order token. The database stores only
+the token hash. Public lookup requires the order ID or PayOS order code
+together with that token.
 
-The address and notification controllers also preserve the singular `/api/user`
-alias for clients that still use it. User profile routes expose both
-`/api/users` and `/api/user` aliases.
+The local mock PayOS flow uses POST /api/orders/mock-payos/confirm with the
+exact order code, payment link reference, and VND amount. It does not call an
+external payment provider.
 
-Reviews use the completed-order predicate, `orders.status = 1`, for write eligibility and verified-purchase display. Support-ticket reads are scoped to the authenticated customer; admin callers can read the operational queue.
+### Admin operations
 
-Authenticated purchase, Stripe checkout-session, and review-creation routes use `VerifiedEmailGuard` after authentication and ownership checks. Unverified sessions can still browse, maintain a cart, view account/order history, and use support. In Firebase mode, the signed-in client can resend verification through Firebase; the server does not accept an email-only resend request. Admin accounts and legacy rows created before the verification migration are grandfathered in.
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | /api/analytics/summary | Read analytics |
+| GET | /api/admin/alerts | Read operational alerts |
+| GET | /api/users | List users |
+| GET | /api/users/:id | Read a user |
+| GET | /api/users/:id/profile | Read a customer profile |
+| PUT | /api/users/:id | Update a user |
+| POST | /api/products/add | Create a product |
+| PUT | /api/products/:id | Update a product |
+| PUT | /api/products/:id/inventory | Adjust stock |
+| DELETE | /api/products | Soft-delete products |
+| GET | /api/products/admin/inventory-movements | Read inventory movements |
+| GET | /api/promotions | List promotions |
+| POST | /api/promotions | Create a promotion |
+| PUT | /api/promotions/:id | Update a promotion |
+| DELETE | /api/promotions/:id | Delete a promotion |
+| GET | /api/orders | List orders |
+| GET | /api/orders/item | List order items and sales |
+| POST | /api/orders/status/:oid | Update order status |
+| PATCH | /api/support/tickets/:id | Update a support ticket |
+| POST | /api/blob/upload | Upload a product image |
 
-## Guest checkout routes
+Admin list endpoints accept bounded pagination where implemented. Admin access
+requires the admin role. Product deletion preserves the existing soft-delete
+behavior, and stock changes record inventory movements.
 
-Guest checkout does not accept a user ID and never trusts client prices or totals:
+### Payment operations and webhook
 
-```text
-POST /api/orders/guest/purchase
-POST /api/orders/guest/checkout-session
-POST /api/orders/guest/payos-checkout-session
-POST /api/orders/guest/by-session
-POST /api/orders/guest/by-payos-order-code
-POST /api/orders/guest/lookup
-```
+| Method | Path | Access |
+| --- | --- | --- |
+| GET | /api/admin/payments/reconciliation | Admin |
+| POST | /api/admin/payments/reconciliation/run | Admin |
+| POST | /api/admin/payments/:paymentId/reconcile | Admin |
+| POST | /api/admin/payments/:paymentId/confirm-cod | Admin |
+| GET | /api/admin/payments/:paymentId/webhook-events | Admin |
+| POST | /api/orders/webhooks/payos | PayOS |
 
-The server validates contact and shipping fields, rechecks stock and promotions, and uses the same inventory and payment boundaries as authenticated checkout. A successful guest order returns a raw access token once. The client stores it only for the active success and lookup flow, masking it by default with explicit Reveal and Copy controls. The database stores only its SHA-256 hash, and public lookup requires both an order or session identifier and the token.
+The active payment providers are PayOS and cash on delivery. All new catalog,
+checkout, order, and payment-ledger records use exact whole-number VND amounts.
+There is no active Stripe or bank_transfer checkout path, and no foreign
+exchange conversion is applied. Historical USD orders remain readable for
+database compatibility.
 
-The server currently has no order-email provider. After an immediate order or Stripe/PayOS reservation commits, authenticated customers receive the database-backed in-app order notification; guests receive the checkout-success response and can use protected guest lookup. Adding email later requires a separate server-side provider integration and must not roll back a committed order.
+PayOS checkout returns a payment URL, provider order code, payment-link ID,
+amount, and currency. Return URLs only resume status polling. They never prove
+payment. The verified webhook is the payment finalization signal.
 
-## Admin routes
+PayOS webhook processing verifies the signature, stores the event, claims it
+idempotently, and checks the exact VND amount, order code, and payment-link
+reference. The response reports processed, ignored, mismatch, or retryable
+outcomes. PayOS configuration requires PAYOS_CLIENT_ID, PAYOS_API_KEY, and
+PAYOS_CHECKSUM_KEY.
 
-Admin routes use `AuthGuard` and `RolesGuard` with the `admin` role:
+Payment reconciliation accepts these provider values:
 
-```text
-GET    /api/analytics/summary?range=7d|30d|90d
-GET    /api/admin/alerts
+~~~text
+cash
+payos
+~~~
 
-GET    /api/users
-GET    /api/users/:id
-GET    /api/users/:id/profile
-PUT    /api/users/:id
+It accepts these reconciliation states:
 
-POST   /api/products/add
-PUT    /api/products/:id
-PUT    /api/products/:id/inventory
-DELETE /api/products
-GET    /api/products/admin/inventory-movements
+~~~text
+PENDING
+MATCHED
+MISMATCH
+UNAVAILABLE
+MANUAL_CONFIRMED
+~~~
 
-GET    /api/promotions
-POST   /api/promotions
-PUT    /api/promotions/:id
-DELETE /api/promotions/:id
+The reconciliation run clamps its limit to 100 candidates per request.
+Operators can retry PayOS reconciliation, confirm COD collection with an
+optional note, and inspect linked webhook events. Refunds currently remain
+manual operator actions recorded in the payment ledger.
 
-GET    /api/orders
-GET    /api/orders/item
-POST   /api/orders/status/:oid
-GET    /api/support/tickets
-PATCH  /api/support/tickets/:id
-```
+### Support, returns, warranty, and refunds
 
-Admin order queries use left joins so guest orders can display their contact snapshot without exposing token hashes. Admin list endpoints should remain paginated and apply filters against the full dataset. Product deletion keeps the existing soft-delete behavior, and stock changes record inventory movements.
+Support tickets currently require an authenticated customer or admin session.
+The create payload accepts subject, message, optional category, and an
+optional orderId. The validator allows a free-form category up to 32
+characters, so the storefront can use values such as return, warranty, or
+refund without changing the API.
 
-## Payments and order state
+~~~json
+{
+  "subject": "Request a warranty inspection",
+  "message": "The product does not power on after delivery.",
+  "category": "warranty",
+  "orderId": 1001
+}
+~~~
 
-Checkout reserves inventory before payment completion. Stripe Checkout uses the Checkout Session identifier as an idempotency boundary. PayOS uses a provider order code plus a server-created payment link, and its webhook finalization consumes a reservation once. Return URLs only resume status polling; they never prove payment. Pending cancellation can restore inventory once and request a Stripe refund through the provider boundary.
+The current API does not expose dedicated /returns, /warranty, or /refunds
+routes. It also does not expose a guest support-ticket route. A future guest
+after-sales flow should add a token-protected request endpoint with the same
+ownership and privacy guarantees as guest order lookup.
 
-Vietnam-first deployments use VND as the default catalog/order currency via `STORE_CURRENCY=VND`. The payment ledger stores the base currency, provider currency, settlement amount, exchange-rate snapshot, idempotency key, and refund state. VND catalog amounts are sent to PayOS unchanged; an explicitly USD-backed store can use `PAYOS_USD_TO_VND_RATE` for the conversion. Historical USD orders keep their stored currency. Local mock mode does not call external payment APIs.
+## Compatibility aliases
 
-The provider webhook endpoints are:
-
-```text
-POST /api/orders/webhooks/stripe
-POST /api/orders/webhooks/payos
-```
-
-PayOS live mode requires `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, and `PAYOS_CHECKSUM_KEY`; `PAYOS_USD_TO_VND_RATE` is additionally required when `STORE_CURRENCY=USD`. Configure the PayOS channel webhook URL to the PayOS endpoint above. Keep provider signature verification, exact VND amount matching, and raw request-body handling for Stripe intact when changing these routes. In local mock mode, checkout redirects to `/mock-payos-checkout` and only `POST /api/orders/mock-payos/confirm` finalizes the pending reservation after an exact amount/reference check.
+Addresses preserve both /api/users/:id/addresses and
+/api/user/:id/addresses routes. Notifications preserve both
+/api/users/:id/notifications and /api/user/:id/notifications routes. User
+profile and user management routes also
+preserve the /api/user controller alias. Use the plural /api/users routes for
+new clients.
 
 ## Performance-safe routes
 
-The k6 scripts in `server/test/` send read-only requests. Use `pnpm --dir server perf:readonly`, `perf:catalog`, `perf:admin-readonly`, `perf:customer-readonly`, or `perf:auth-readonly` as appropriate. Never run write-heavy checkout, cart, review, address, notification, promotion, product, or admin scenarios against production or shared data.
+The k6 scripts in server/test/ send read-only requests. Use
+pnpm --dir server perf:readonly, perf:catalog, perf:admin-readonly,
+perf:customer-readonly, or perf:auth-readonly as appropriate. Do not run
+write-heavy checkout, cart, review, address, notification, promotion,
+product, or admin scenarios against production or shared data.

@@ -117,32 +117,13 @@ export class CheckoutReservationRepository {
         return rows[0] || null;
     }
 
-    async getPendingCheckoutForUpdate(
-        tx: TransactionContext,
-        sessionId: string,
-    ): Promise<PendingCheckoutRow | null> {
-        const rows = await tx.query<PendingCheckoutRow[]>(
-            `SELECT id, stripe_session_id, payment_provider, provider_reference, provider_order_code,
-                    payment_amount, payment_currency, payment_fx_rate,
-                    reservation_token, user_id, guest_email, guest_name, guest_phone,
-                    guest_order_token_hash, cart_json, total_price, discount, shipping_address, status, expires_at,
-                    discount_id, created_at, consumed_at
-             FROM pending_checkouts
-             WHERE stripe_session_id = ?
-             LIMIT 1
-             FOR UPDATE`,
-            [sessionId],
-        );
-        return rows[0] || null;
-    }
-
     async getPendingCheckoutByProviderOrderCodeForUpdate(
         tx: TransactionContext,
         provider: string,
         providerOrderCode: number,
     ): Promise<PendingCheckoutRow | null> {
         const rows = await tx.query<PendingCheckoutRow[]>(
-            `SELECT id, stripe_session_id, payment_provider, provider_reference, provider_order_code,
+            `SELECT id, payment_provider, provider_reference, provider_order_code,
                     payment_amount, payment_currency, payment_fx_rate,
                     reservation_token, user_id, guest_email, guest_name, guest_phone,
                     guest_order_token_hash, cart_json, total_price, discount, shipping_address, status, expires_at,

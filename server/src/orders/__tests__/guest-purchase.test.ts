@@ -47,8 +47,6 @@ function buildService() {
     const ordersRepository = {
         getGuestOrderIdentity: vi.fn(),
         getGuestOrderByPayOSOrderCode: vi.fn(),
-        getGuestOrderIdentityBySessionId: vi.fn(),
-        getGuestOrderByPayOSOrderCode: vi.fn(),
     };
     const checkoutReservations = {
         lockProducts: vi.fn(),

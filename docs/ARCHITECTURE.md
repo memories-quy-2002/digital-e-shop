@@ -71,9 +71,10 @@ Important domain boundaries include:
 - Order items retain product and pricing snapshots so catalog edits do not rewrite order history
 - Inventory movements and order timeline events are written with the owning business transaction
 - Notifications are emitted after commit
-- New orders use the configured store currency (VND by default for the
-  Vietnam-first rollout); provider settlement values and the FX snapshot remain
-  in the payment ledger. Historical orders retain their stored currency.
+- New catalog, order, and payment-ledger records use exact whole-number VND;
+  `env.storeCurrency` is a VND runtime constant. Provider references, settlement
+  values, reconciliation state, and refund state remain in the payment ledger.
+  Historical orders retain their stored currency for compatibility.
 - Guest carts keep a product-id/quantity local cache and best-effort anonymous server persistence keyed by an HttpOnly cookie; preview and checkout recalculate prices, stock, discounts, and totals on the server
 
 ## Authentication and authorization
@@ -82,7 +83,7 @@ Authentication is Firebase-only in every environment. The server verifies Fireba
 
 `AuthGuard` validates the access token, session identifier, active session, and current user status. `RolesGuard` enforces roles, while `OwnerParam` allows an owner or an admin to access an identity-scoped resource. Zod validation runs before write services. Unsafe methods use the double-submit CSRF middleware; login, registration, and refresh retain their explicit exclusions.
 
-The client signs users in and manages verification, password-reset, and email-change action links through Firebase. The server verifies the Firebase Admin SDK ID token before registration/login, then issues the server cookie session. On the next Firebase login, the server reads the verified ID-token claim and synchronizes `email_verified_at`. Public user responses expose only the derived `email_verified` boolean. `VerifiedEmailGuard` reloads the live user row and protects authenticated checkout, Stripe checkout-session creation, and review creation without changing the broad `AuthGuard` session policy.
+The client signs users in and manages verification, password-reset, and email-change action links through Firebase. The server verifies the Firebase Admin SDK ID token before registration/login, then issues the server cookie session. On the next Firebase login, the server reads the verified ID-token claim and synchronizes `email_verified_at`. Public user responses expose only the derived `email_verified` boolean. `VerifiedEmailGuard` reloads the live user row and protects authenticated checkout, PayOS checkout-session creation, and review creation without changing the broad `AuthGuard` session policy.
 
 Password reset and email change are client-side Firebase flows. The server does not create or consume MySQL password-reset or email-change tokens. After a verified Firebase email change, the next Firebase login synchronizes the email by UID. Marketing subscription and unsubscribe runtime services/routes have been removed.
 

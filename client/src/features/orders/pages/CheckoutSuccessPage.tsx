@@ -15,7 +15,7 @@ import Layout from "../../../components/layout/Layout";
 import "../../../styles/features/orders/_checkout-success.scss";
 import { formatUtcDateTime } from "../../../utils/dateTime";
 import http from "../../../lib/http";
-import { fetchGuestOrderByPayOSOrderCode, fetchGuestOrderBySession, lookupGuestOrder } from "../api";
+import { fetchGuestOrderByPayOSOrderCode, lookupGuestOrder } from "../api";
 import { parseShippingAddress } from "../shippingAddress";
 import { formatMoney } from "../../../utils/currency";
 import type { GuestOrderDetail } from "../types";
@@ -58,7 +58,6 @@ const CheckoutSuccessPage = () => {
     const { clearCart, fetchCart } = useCart();
     const location = useLocation();
     const [searchParams] = useSearchParams();
-    const sessionId = searchParams.get("session_id");
     const payOSOrderCode = searchParams.get("payos_order_code");
     const routeData = (location.state as { checkoutSuccess?: CheckoutSuccessData } | null)?.checkoutSuccess || null;
 
@@ -120,18 +119,14 @@ const CheckoutSuccessPage = () => {
         };
     }, [loading, orderData, routeData]);
 
-    const pollForOrder = useCallback(async (id: string, provider: "stripe" | "payos") => {
+    const pollForOrder = useCallback(async (id: string) => {
         const pending = pendingCheckout;
 
         for (let attempt = 0; attempt < 7; attempt += 1) {
             try {
-                const order = provider === "payos"
-                    ? guestOrderToken
-                        ? await fetchGuestOrderByPayOSOrderCode(Number(id), guestOrderToken)
-                        : (await http.get(`/api/orders/by-payos-order-code/${encodeURIComponent(id)}`)).data?.order
-                    : guestOrderToken
-                        ? await fetchGuestOrderBySession(id, guestOrderToken)
-                        : (await http.get(`/api/orders/by-session/${id}`)).data?.order;
+                const order = guestOrderToken
+                    ? await fetchGuestOrderByPayOSOrderCode(Number(id), guestOrderToken)
+                    : (await http.get(`/api/orders/by-payos-order-code/${encodeURIComponent(id)}`)).data?.order;
                 if (order?.id) {
                     const checkoutData = guestOrderToken
                         ? guestOrderToCheckoutSuccess(order, guestOrderToken)
@@ -142,7 +137,7 @@ const CheckoutSuccessPage = () => {
                             subtotal: pending?.subtotal ?? pending?.totalPrice ?? 0,
                             itemsCount: pending?.itemsCount ?? 0,
                             placedAt: order.date_added,
-                            paymentMethod: pending?.paymentMethod || (provider === "payos" ? "payos" : "card"),
+                            paymentMethod: pending?.paymentMethod || "payos",
                             email: pending?.email,
                             name: pending?.name,
                             address: pending?.address,
@@ -165,24 +160,18 @@ const CheckoutSuccessPage = () => {
     }, [clearCart, fetchCart, guestOrderToken, pendingCheckout]);
 
     useEffect(() => {
-        const providerReference = payOSOrderCode || sessionId;
-        const provider = payOSOrderCode ? "payos" : "stripe";
-        if (providerReference && !routeData && !orderData && !loading) {
-            pollForOrder(providerReference, provider);
+        if (payOSOrderCode && !routeData && !orderData && !loading) {
+            pollForOrder(payOSOrderCode);
         }
-    }, [loading, orderData, payOSOrderCode, pollForOrder, routeData, sessionId]);
+    }, [loading, orderData, payOSOrderCode, pollForOrder, routeData]);
 
     const combinedData = routeData || polledOrder || orderData;
     const isGuestOrder = Boolean(combinedData?.guestOrderToken || guestOrderToken);
     const paymentLabel =
-        combinedData?.paymentMethod === "bank_transfer"
-            ? "Bank transfer"
-            : combinedData?.paymentMethod === "cash"
+        combinedData?.paymentMethod === "cash"
               ? "Cash on delivery"
               : combinedData?.paymentMethod === "payos"
                 ? "PayOS (VND)"
-              : combinedData?.paymentMethod === "card" || combinedData?.paymentMethod === "stripe"
-                ? "Card"
                 : "Payment method pending";
     const summaryCards = [
         { label: "Order ID", value: combinedData?.orderId || "Pending" },
@@ -210,10 +199,10 @@ const CheckoutSuccessPage = () => {
                 />
             </Helmet>
             <main className="success app-page">
-                {(sessionId || payOSOrderCode) && !combinedData && !pollingTimedOut ? (
+                {payOSOrderCode && !combinedData && !pollingTimedOut ? (
                     <div className="checkout__note">Confirming your payment...</div>
                 ) : null}
-                {(sessionId || payOSOrderCode) && !combinedData && pollingTimedOut ? (
+                {payOSOrderCode && !combinedData && pollingTimedOut ? (
                     <div className="checkout__alert">
                         Payment received — we&apos;re finalizing your order. Check{" "}
                         {isGuestOrder ? <Link to="/guest-order">Guest order lookup</Link> : <Link to="/orders">My Orders</Link>} shortly if it doesn&apos;t appear here.

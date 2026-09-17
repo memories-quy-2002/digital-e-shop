@@ -4,13 +4,12 @@ import { Helmet } from "react-helmet-async";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
-import { BankIcon, CashStackIcon, CheckCircleIcon, ShieldIcon } from "../../../components/common/Icons";
+import { CashStackIcon, CheckCircleIcon, ShieldIcon } from "../../../components/common/Icons";
 import http from "../../../lib/http";
 import { toUtcIsoString } from "../../../utils/dateTime";
 import { fetchCustomerAddresses } from "../../users/api";
 import type { CustomerAddress } from "../../users/api";
 import {
-    createGuestCheckoutSession,
     createGuestPayOSCheckoutSession,
     createGuestPurchase,
     clearGuestCartServer,
@@ -37,7 +36,7 @@ import {
     serializeShippingAddress,
     type RecentOrderAddress,
 } from "../shippingAddress";
-import { formatCurrency, STORE_CURRENCY } from "../../../utils/currency";
+import { formatCurrency } from "../../../utils/currency";
 
 interface CheckoutForm {
     email: string;
@@ -47,7 +46,7 @@ interface CheckoutForm {
     city: string;
     country: string | null;
     phone_number: string | null;
-    payment_method: "bank_transfer" | "cash" | "payos" | "card";
+    payment_method: "payos" | "cash";
 }
 
 type CheckoutPaymentProps = {
@@ -113,11 +112,7 @@ const CheckoutPaymentPage = ({
 
     const paymentOptions = [
         { value: "payos" as const, title: "PayOS (VND)", description: "Vietnam-first QR payment", icon: <CashStackIcon size={22} /> },
-        { value: "bank_transfer" as const, title: "Bank transfer", description: "Manual confirmation", icon: <BankIcon size={22} /> },
         { value: "cash" as const, title: "Cash on delivery", description: "Pay when it arrives", icon: <CashStackIcon size={22} /> },
-        ...(STORE_CURRENCY === "USD"
-            ? [{ value: "card" as const, title: "Card", description: "Secure Stripe redirect", icon: <ShieldIcon size={22} /> }]
-            : []),
     ];
 
     const selectedPayment = paymentOptions.find((option) => option.value === formCheckout.payment_method) || paymentOptions[0];
@@ -271,7 +266,7 @@ const CheckoutPaymentPage = ({
                 country: formCheckout.country?.trim() || "",
             };
 
-            if (formCheckout.payment_method === "card" || formCheckout.payment_method === "payos") {
+            if (formCheckout.payment_method === "payos") {
                 const pendingCheckout = {
                     totalPrice: latestTotalPrice,
                     discount,
@@ -285,41 +280,23 @@ const CheckoutPaymentPage = ({
                     country: formCheckout.country || "",
                     phone: formCheckout.phone_number ? maskPhoneNumber(formCheckout.phone_number) : "",
                 };
-                const sessionResponse = formCheckout.payment_method === "card"
-                    ? uid
-                        ? await http.post(`/api/orders/checkout-session/${uid}`, {
-                            cart: latestCart,
-                            totalPrice: latestTotalPrice,
-                            discount,
-                            discountCode: discountCode || undefined,
-                            shippingAddress: serializeShippingAddress(guestShipping),
-                        })
-                        : await createGuestCheckoutSession({
-                            cart: guestCart,
-                            contact: guestContact,
-                            shipping: guestShipping,
-                            discountCode: discountCode || undefined,
-                            paymentMethod: "card",
-                        })
-                    : uid
-                        ? await createPayOSCheckoutSession(uid, {
-                            cart: latestCart,
-                            totalPrice: latestTotalPrice,
-                            discount,
-                            discountCode: discountCode || undefined,
-                            shippingAddress: serializeShippingAddress(guestShipping),
-                        })
-                        : await createGuestPayOSCheckoutSession({
-                            cart: guestCart,
-                            contact: guestContact,
-                            shipping: guestShipping,
-                            discountCode: discountCode || undefined,
-                            paymentMethod: "payos",
-                        });
-                const checkoutUrl = "url" in sessionResponse ? sessionResponse.url : sessionResponse.data?.url;
-                const guestOrderToken = "guestOrderToken" in sessionResponse
-                    ? sessionResponse.guestOrderToken
-                    : undefined;
+                const sessionResponse = uid
+                    ? await createPayOSCheckoutSession(uid, {
+                        cart: latestCart,
+                        totalPrice: latestTotalPrice,
+                        discount,
+                        discountCode: discountCode || undefined,
+                        shippingAddress: serializeShippingAddress(guestShipping),
+                    })
+                    : await createGuestPayOSCheckoutSession({
+                        cart: guestCart,
+                        contact: guestContact,
+                        shipping: guestShipping,
+                        discountCode: discountCode || undefined,
+                        paymentMethod: "payos",
+                    });
+                const checkoutUrl = sessionResponse.url;
+                const guestOrderToken = sessionResponse.guestOrderToken;
                 writePendingCheckout({
                     ...pendingCheckout,
                     ...(guestOrderToken ? { guestOrderToken } : {}),
@@ -596,29 +573,13 @@ const CheckoutPaymentPage = ({
                                 ))}
                             </div>
                             <div className="checkout__payment__selected"><span>Selected method</span><strong>{selectedPayment.title}</strong></div>
-                            {formCheckout.payment_method === "bank_transfer" ? (
-                                <div className="checkout__payment__details">
-                                    <h3>Bank transfer instructions</h3>
-                                    <div className="checkout__payment__details__grid">
-                                        <div><span>Bank</span><strong>Vietcombank</strong></div>
-                                        <div><span>Account name</span><strong>Digital-E Store</strong></div>
-                                        <div><span>Account number</span><strong>1029384756</strong></div>
-                                        <div><span>Reference</span><strong>Use your order ID after checkout</strong></div>
-                                    </div>
-                                    <p>We&apos;ll confirm the transfer and start processing your order as soon as the payment arrives.</p>
-                                </div>
-                            ) : formCheckout.payment_method === "payos" ? (
+                            {formCheckout.payment_method === "payos" ? (
                                 <div className="checkout__payment__details">
                                     <h3>PayOS payment</h3>
                                     <p>
                                         PayOS is our Vietnam-first payment option. The server calculates and locks the whole-number VND quote before redirecting you to PayOS.
                                     </p>
                                     <p>Your order is created only after a verified PayOS payment webhook confirms the exact amount.</p>
-                                </div>
-                            ) : formCheckout.payment_method === "card" ? (
-                                <div className="checkout__payment__details">
-                                    <h3>Stripe card payment</h3>
-                                    <p>You will be redirected to Stripe Checkout to complete this payment securely.</p>
                                 </div>
                             ) : (
                                 <div className="checkout__payment__details">

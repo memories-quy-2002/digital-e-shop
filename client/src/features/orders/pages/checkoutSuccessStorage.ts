@@ -6,7 +6,7 @@ export type CheckoutSuccessData = {
     itemsCount: number;
     placedAt: string;
     currency?: "USD" | "VND";
-    paymentMethod?: "bank_transfer" | "cash" | "payos" | "stripe" | "card";
+    paymentMethod?: "cash" | "payos";
     email?: string;
     name?: string;
     address?: string;

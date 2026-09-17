@@ -1,16 +1,59 @@
-# QA Checklist
+# QA checklist
 
-Run before considering a non-trivial change done. Skip irrelevant items for small changes.
+Run this checklist before considering non-trivial work complete. Skip items that
+do not apply, and record why a relevant check could not run.
 
-## Correctness
+## Correctness and state
 
-- [ ] Acceptance criteria from the story/PRD are met.
-- [ ] Loading / empty / error / success states handled (frontend).
-- [ ] Edge cases and invalid input handled.
+- [ ] Acceptance criteria from the PRD and stories are met
+- [ ] Happy, loading, empty, validation, permission, retry, and failure states
+  behave as expected
+- [ ] Duplicate requests, retries, stale data, and concurrency are handled
+- [ ] Error messages explain the next action without exposing internals
+
+## Visual UI and UX
+
+- [ ] English and Vietnamese copy use the existing i18n path and remain aligned
+- [ ] Light and dark themes use existing tokens with readable contrast
+- [ ] Desktop and mobile routes have no unintended horizontal overflow
+- [ ] Hierarchy, spacing, typography, CTA labels, and imagery support the task
+- [ ] Forms have visible labels, inline errors, loading or disabled feedback,
+  focus states, and recovery actions
+- [ ] Touch targets, keyboard navigation, dialogs, accessible names, and reduced
+  motion meet the existing UI conventions
+- [ ] Changed routes were checked in a real browser with desktop and mobile
+  evidence when the environment supports it
+
+## Logic, data, and security
+
+- [ ] Write payloads are validated with Zod before persistence
+- [ ] Server-side prices, stock, promotions, totals, and ownership are trusted
+- [ ] `AuthGuard`, `RolesGuard`, `OwnerParam`, CSRF, rate limits,
+  and route aliases remain intact
+- [ ] No secrets, tokens, cookies, PII, or payment credentials are logged or
+  committed
+- [ ] Multi-table flows cover checkout, inventory, timeline, addresses,
+  notifications, and payment ledger effects as relevant
+- [ ] Guest flows expose only token-protected, guest-safe fields
+- [ ] PayOS and COD keep exact whole-number VND amounts, verified webhook
+  finalization, duplicate-event protection, and guarded COD confirmation
+- [ ] If after-sales is in scope, the server enforces seven calendar days after
+  successful delivery and records the request and operator actions
+
+## Contracts and architecture
+
+- [ ] Route-local response keys such as `msg`, `error`, and data keys are
+  preserved unless a contract change was approved
+- [ ] Client and server remain independently installable
+- [ ] Client feature, API, context, and shared HTTP boundaries remain clear
+- [ ] Nest controllers stay thin, services coordinate business logic, and
+  repositories own SQL
+- [ ] MySQL and the partial Prisma migration boundary remain aligned
+- [ ] No unnecessary dependency, abstraction, or unrelated rewrite was added
 
 ## Verification commands
 
-Run those relevant to the touched surface (see [AGENTS.md](../../AGENTS.md) → Verification commands):
+Run the commands relevant to the touched surface:
 
 ```powershell
 # Frontend
@@ -22,34 +65,22 @@ pnpm --dir client lint
 # Backend
 pnpm --dir server typecheck
 pnpm --dir server test -- --run
-pnpm --dir server test:integration  # requires the configured MySQL integration DB
 pnpm --dir server build
 pnpm --dir server lint
+
+# Only with an isolated database
+pnpm --dir server test:integration
 ```
 
-- [ ] Relevant checks pass (note any that couldn't run, and why).
+- [ ] Relevant checks pass
+- [ ] Browser routes, viewport sizes, locales, themes, and outcomes are
+  recorded for UI changes
+- [ ] Environment failures are separated from application failures
 
-## Contracts & security
+## Documentation and handoff
 
-- [ ] API response shapes preserved (route-local `msg`/`error`/data keys) unless change was requested.
-- [ ] Write payloads validated (Zod) before persistence.
-- [ ] `AuthGuard`, `RolesGuard`, and `OwnerParam` enforce authentication, roles, and ownership where applicable.
-- [ ] CSRF flow intact; login/register/refresh exceptions not broadened.
-- [ ] No secrets, tokens, cookies, or PII logged or committed.
-
-## Data
-
-- [ ] Schema changes applied across all layers (repository, service, validator, types, Prisma).
-- [ ] Multi-table flows (checkout, inventory, timeline, addresses, notifications) verified.
-- [ ] Guest checkout still revalidates price, stock, promotions, and totals server-side; raw guest tokens are not logged or returned in admin payloads.
-
-## Scope & quality
-
-- [ ] Change is small and reviewable; no unrelated rewrites.
-- [ ] No unnecessary dependencies added.
-- [ ] Style matches surrounding code.
-
-## Documentation
-
-- [ ] `Wiki/` updated for architecture / API / schema / business-logic changes; `Wiki/log.md` appended; `Wiki/index.md` date bumped.
-- [ ] Summary of changed files, behavior changes, verification, assumptions, and risks provided.
+- [ ] `Wiki/` is updated for architecture, API, schema, or business-logic
+  changes
+- [ ] `Wiki/index.md` date is bumped and `Wiki/log.md` receives one line
+- [ ] The final summary lists changed files, behavior, verification,
+  assumptions, and remaining risks

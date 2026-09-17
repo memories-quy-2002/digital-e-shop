@@ -14,7 +14,7 @@ remains authoritative for catalog data, stock, reservations, promotion
 validity, prices, and totals.
 
 Guest order access uses a cryptographically random token returned once by an
-immediate purchase or guest Stripe session creation. The database stores only
+immediate purchase or guest PayOS checkout creation. The database stores only
 the SHA-256 hash. The active browser keeps the raw token in `sessionStorage`;
 it is not placed in URLs, local cart storage, logs, or admin payloads. Lookup
 requires both the order ID and token.
@@ -23,7 +23,7 @@ requires both the order ID and token.
 
 - Order and pending-checkout identities may have a null `user_id` plus a
   validated guest contact snapshot.
-- Public preview, purchase, session, and lookup routes retain CSRF,
+- Public preview, purchase, PayOS checkout, and lookup routes retain CSRF,
   validation, rate-limit, server revalidation, and transactional safeguards.
 - Public success and lookup pages must not claim that a guest email was sent.
 - Admin queries use left joins and show guest contact fields without exposing
@@ -48,5 +48,5 @@ remain auditable transactional records; canceled orders are excluded from
 commercial metrics rather than being soft-deleted.
 
 The current route surface is documented in [docs/API.md](../../docs/API.md):
-guest preview/purchase/lookup and guest checkout-session operations are public
+guest preview/purchase/lookup and guest PayOS checkout operations are public
 but remain validation-, CSRF-, rate-limit-, and transaction-protected.

@@ -9,7 +9,6 @@ const mocks = vi.hoisted(() => ({
     toast: { addToast: vi.fn() },
     guestPurchase: vi.fn(),
     clearGuestCartServer: vi.fn(),
-    guestSession: vi.fn(),
     guestPayOSSession: vi.fn(),
     payosAuthSession: vi.fn(),
     customerAddresses: vi.fn(),
@@ -28,7 +27,6 @@ vi.mock("react-router-dom", async () => {
 vi.mock("../api", () => ({
     createGuestPurchase: mocks.guestPurchase,
     clearGuestCartServer: mocks.clearGuestCartServer,
-    createGuestCheckoutSession: mocks.guestSession,
     createGuestPayOSCheckoutSession: mocks.guestPayOSSession,
     createPayOSCheckoutSession: mocks.payosAuthSession,
     fetchCustomerOrders: mocks.customerOrders,
@@ -92,7 +90,17 @@ describe("CheckoutPaymentPage guest checkout", () => {
         mocks.clearGuestCartServer.mockResolvedValue(undefined);
     });
 
-    it.each(["cash", "bank_transfer"] as const)("submits the guest %s purchase contract", async (paymentMethod) => {
+    it("renders only PayOS and cash on delivery", () => {
+        renderCheckout();
+
+        expect(screen.getByRole("radio", { name: /PayOS/i })).toBeVisible();
+        expect(screen.getByRole("radio", { name: /cash on delivery/i })).toBeVisible();
+        expect(screen.queryByRole("radio", { name: /bank transfer/i })).not.toBeInTheDocument();
+        expect(screen.queryByRole("radio", { name: /card|stripe/i })).not.toBeInTheDocument();
+    });
+
+    it("submits the guest cash purchase contract", async () => {
+        const paymentMethod = "cash" as const;
         renderCheckout();
         fillRequiredFields();
         fireEvent.click(screen.getByDisplayValue(paymentMethod));
@@ -163,11 +171,6 @@ describe("CheckoutPaymentPage guest checkout", () => {
         expect(storedCheckout).not.toHaveProperty("address");
         expect(storedCheckout).not.toHaveProperty("city");
         expect(storedCheckout).not.toHaveProperty("country");
-    });
-
-    it("does not offer the USD-only card rail for the VND storefront", () => {
-        renderCheckout();
-        expect(screen.queryByDisplayValue("card")).not.toBeInTheDocument();
     });
 
     it("shows a clickable recent order address when no saved address is available", async () => {

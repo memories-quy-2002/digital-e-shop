@@ -27,6 +27,25 @@ const vi: Dictionary = {
             support: "Hỗ trợ",
             contact: "Liên hệ",
         },
+        primaryNavigation: "Điều hướng chính",
+        quickAccountActions: "Thao tác tài khoản nhanh",
+        mobileNavigation: "Điều hướng trên thiết bị di động",
+        closeMenu: "Đóng menu",
+        toggleMenu: "Bật tắt menu",
+        openProfileMenu: "Mở menu tài khoản",
+        sale: "Giảm giá",
+        searching: "Đang tìm…",
+        recentSearches: "Tìm kiếm gần đây",
+        clearRecentSearches: "Xóa",
+        unreadNotifications: (count: number) => `${count} chưa đọc`,
+        loadingNotifications: "Đang tải thông báo...",
+        noNotifications: "Chưa có thông báo.",
+        backToAdmin: "Về trang quản trị",
+        checkingLogin: "Đang kiểm tra đăng nhập",
+        pleaseWait: "Vui lòng chờ một chút rồi thử lại.",
+        loginRequired: "Cần đăng nhập",
+        loginRequiredBody: "Bạn cần đăng nhập để sử dụng tính năng này",
+        tryAgain: "Vui lòng thử lại.",
         searchPlaceholder: "Tìm sản phẩm",
         searchMobilePlaceholder: "Tìm sản phẩm",
         searchEmpty: "Nhập nội dung để tìm kiếm.",
@@ -53,9 +72,67 @@ const vi: Dictionary = {
         recentlyViewedSubtitle: "Tiếp tục nơi bạn đang xem",
         heroKicker: "Bàn làm việc điện tử hằng ngày",
         heroTitle: "Tìm thiết bị theo kịp nhịp sống.",
-        heroBody: "Laptop, máy ảnh, âm thanh và những phụ kiện đi cùng — chọn cho công việc, giải trí và mọi khoảng giữa.",
+        heroBody:
+            "Laptop, máy ảnh, âm thanh và những phụ kiện đi cùng — chọn cho công việc, giải trí và mọi khoảng giữa.",
         heroPrimary: "Xem bộ sưu tập",
         heroSecondary: "Xem sản phẩm mới",
+    heroFeaturedLabel: "\u01afu \u0111\u00e3i n\u1ed5i b\u1eadt",
+    heroPreviewLabel: "Xem tr\u01b0\u1edbc s\u1ea3n ph\u1ea9m n\u1ed5i b\u1eadt",
+        heroAvailability: "T\u00ecnh tr\u1ea1ng",
+    heroDealLabel: "\u01afu \u0111\u00e3i n\u1ed5i b\u1eadt",
+    heroDealBody: "L\u1ef1a ch\u1ecdn thi\u1ebft th\u1ef1c cho c\u00f4ng vi\u1ec7c v\u00e0 gi\u1ea3i tr\u00ed m\u1ed7i ng\u00e0y.",
+    dealDiscount: (percent: number) => percent + "% gi\u1ea3m",
+    heroCarouselLabel: "S\u1ea3n ph\u1ea9m n\u1ed5i b\u1eadt",
+    heroPrevious: "S\u1ea3n ph\u1ea9m n\u1ed5i b\u1eadt tr\u01b0\u1edbc",
+    heroNext: "S\u1ea3n ph\u1ea9m n\u1ed5i b\u1eadt ti\u1ebfp theo",
+    heroPause: "T\u1ea1m d\u1eebng chuy\u1ec3n s\u1ea3n ph\u1ea9m n\u1ed5i b\u1eadt",
+    heroPlay: "Ti\u1ebfp t\u1ee5c chuy\u1ec3n s\u1ea3n ph\u1ea9m n\u1ed5i b\u1eadt",
+    heroSlide: (number: number) => "Xem s\u1ea3n ph\u1ea9m n\u1ed5i b\u1eadt s\u1ed1 " + number,
+    heroSignalsLabel: "T\u00edn hi\u1ec7u mua s\u1eafm Digital-E",
+    heroSignalWork: "L\u00e0m vi\u1ec7c",
+    heroSignalPlay: "Gi\u1ea3i tr\u00ed",
+    heroSignalCreate: "S\u00e1ng t\u1ea1o",
+    heroSignalLive: "H\u1eb1ng ng\u00e0y",
+    categoryKicker: "Kh\u00e1m ph\u00e1 b\u1ed9 s\u01b0u t\u1eadp",
+    categoryTitle: "Mua theo danh m\u1ee5c",
+        categoryGaming: "Gaming",
+    categoryGamingBody: "Console, game v\u00e0 ph\u1ee5 ki\u1ec7n.",
+        categoryLaptops: "Laptop",
+    categoryLaptopsBody: "L\u00e0m vi\u1ec7c, h\u1ecdc t\u1eadp v\u00e0 s\u00e1ng t\u1ea1o.",
+    categoryAudio: "\u00c2m thanh",
+    categoryAudioBody: "Tai nghe, loa v\u00e0 micro.",
+    categoryComponents: "Linh ki\u1ec7n",
+    categoryComponentsBody: "GPU, CPU, RAM v\u00e0 l\u01b0u tr\u1eef.",
+    categorySmartHome: "Nh\u00e0 th\u00f4ng minh",
+    categorySmartHomeBody: "Camera, \u0111\u00e8n v\u00e0 t\u1ef1 \u0111\u1ed9ng h\u00f3a h\u1eb1ng ng\u00e0y.",
+    categoryAccessories: "Ph\u1ee5 ki\u1ec7n",
+    categoryAccessoriesBody: "C\u00e1p, s\u1ea1c v\u00e0 c\u00e1c m\u00f3n \u0111\u1ed3 h\u1eefu \u00edch.",
+    viewAllCategories: "Xem t\u1ea5t c\u1ea3 danh m\u1ee5c",
+    trendingKicker: "S\u1ea3n ph\u1ea9m n\u1ed5i b\u1eadt",
+    trendingTitle: "L\u1ef1a ch\u1ecdn t\u1ed1t, s\u1eb5n s\u00e0ng ngay",
+        valueKicker: "V\u00ec sao ch\u1ecdn Digital-E",
+        valueTitle: "Mua c\u00f4ng ngh\u1ec7 d\u1ec5 d\u00e0ng h\u01a1n.",
+        valueLink: "T\u00ecm hi\u1ec3u v\u1ec1 ch\u00fang t\u00f4i",
+        valueShipping: "Mi\u1ec5n ph\u00ed v\u1eadn chuy\u1ec3n",
+        valueShippingBody: "Cho \u0111\u01a1n t\u1eeb 2.000.000 \u20ab",
+        valueCheckout: "Thanh to\u00e1n nhanh g\u1ecdn",
+        valueCheckoutBody: "Ti\u1ebft ki\u1ec7m th\u1eddi gian, mua s\u1eafm nhanh h\u01a1n",
+        valuePayments: "Thanh to\u00e1n an to\u00e0n",
+        valuePaymentsBody: "Nhi\u1ec1u ph\u01b0\u01a1ng th\u1ee9c \u0111\u00e1ng tin c\u1eady",
+        valueSupport: "H\u1ed7 tr\u1ee3 chuy\u00ean nghi\u1ec7p",
+        valueSupportBody: "Nh\u1eadn tr\u1ee3 gi\u00fap khi b\u1ea1n c\u1ea7n",
+        valueReturns: "\u0110\u1ed5i tr\u1ea3 d\u1ec5 d\u00e0ng",
+        valueReturnsBody: "\u0110\u1ed5i tr\u1ea3 trong 14 ng\u00e0y",
+        bundleKicker: "Mua combo, ti\u1ebft ki\u1ec7m h\u01a1n",
+        bundleTitle: "N\u00e2ng c\u1ea5p g\u00f3c m\u00e1y v\u1edbi chi ph\u00ed h\u1ee3p l\u00fd.",
+        bundleBody:
+            "Combo \u0111\u01b0\u1ee3c ch\u1ecdn s\u1eb5n cho gaming, c\u00f4ng vi\u1ec7c v\u00e0 cu\u1ed9c s\u1ed1ng h\u00e0ng ng\u00e0y.",
+        bundleCta: "Xem \u01b0u \u0111\u00e3i combo",
+        bundleDealLabel: "Combo kh\u1edfi \u0111\u1ea7u gaming",
+        bundleDealTitle: "B\u00e0n ph\u00edm + chu\u1ed9t + tai nghe",
+        bundleDealPrice: "4.990.000 \u20ab",
+        bundleDealOriginal: "6.470.000 \u20ab",
+        bundleDealDiscount: "\u221223%",
         heroReady: "Sẵn sàng ngay",
         heroOutOfStock: "Hết hàng",
         catalogLoading: "Đang tải danh mục…",
@@ -65,7 +142,8 @@ const vi: Dictionary = {
         heroLoading: "Đang tải lựa chọn tiếp theo…",
         intentTitle: "Mua theo nhu cầu",
         intentHeading: "Bắt đầu từ điều bạn đang làm.",
-        intentBody: "Chọn một hướng trước. Chúng tôi sẽ giữ danh sách gợi ý thật thiết thực.",
+        intentBody:
+            "Chọn một hướng trước. Chúng tôi sẽ giữ danh sách gợi ý thật thiết thực.",
         intentMake: "Làm việc",
         intentMakeBody: "Máy tính, laptop, màn hình và công cụ.",
         intentPlay: "Giải trí",
@@ -79,7 +157,8 @@ const vi: Dictionary = {
         shelfBody: "Góc nhìn gọn hơn về những sản phẩm đang có trong cửa hàng.",
         viewProduct: "Xem sản phẩm",
         stockReady: "sẵn hàng",
-        spotlightBody: "Một lựa chọn phù hợp cho bộ thiết bị bạn đang xây dựng.",
+        spotlightBody:
+            "Một lựa chọn phù hợp cho bộ thiết bị bạn đang xây dựng.",
         emptyTitle: "Chưa có sản phẩm để hiển thị",
         emptyBody: "Mở toàn bộ danh mục để tìm món đồ tiếp theo.",
         proofKicker: "Điều hữu ích",
@@ -87,9 +166,11 @@ const vi: Dictionary = {
         proofStockTitle: "Nhìn thấy tồn kho",
         proofStockBody: "Kiểm tra tình trạng còn hàng trước khi thêm vào giỏ.",
         proofCheckoutTitle: "Thanh toán rõ ràng",
-        proofCheckoutBody: "Địa chỉ, thanh toán và trạng thái đơn hàng nằm trong một luồng dễ theo dõi.",
+        proofCheckoutBody:
+            "Địa chỉ, thanh toán và trạng thái đơn hàng nằm trong một luồng dễ theo dõi.",
         proofSupportTitle: "Hỗ trợ đúng việc",
-        proofSupportBody: "Nhận hỗ trợ thực tế cho sản phẩm và đơn hàng khi cần.",
+        proofSupportBody:
+            "Nhận hỗ trợ thực tế cho sản phẩm và đơn hàng khi cần.",
     },
     shops: {
         title: "Cửa hàng",
@@ -108,6 +189,8 @@ const vi: Dictionary = {
     },
     product: {
         view: "Xem sản phẩm",
+        discountBadge: (percent: number) => `-${percent}%`,
+        stockBadge: "C\u00f2n h\u00e0ng",
         singleImage: "Một hình ảnh sản phẩm",
         galleryImages: (count: number) => `${count} hình ảnh`,
         categoryFallback: "Sản phẩm danh mục",
@@ -142,7 +225,8 @@ const vi: Dictionary = {
         reviewsVisible: (count: number) => `${count} hiển thị`,
         writeReview: "Viết đánh giá",
         loginToReview: "Đăng nhập để viết đánh giá và chấm điểm sản phẩm này.",
-        reviewPlaceholder: "Chia sẻ điều bạn thích, cách bạn dùng, và bạn có khuyên dùng không.",
+        reviewPlaceholder:
+            "Chia sẻ điều bạn thích, cách bạn dùng, và bạn có khuyên dùng không.",
         selectRating: "Chọn số sao",
         noReviews: "Chưa có đánh giá. Hãy là người đầu tiên chấm điểm.",
         submitReview: "Gửi đánh giá",
@@ -163,7 +247,8 @@ const vi: Dictionary = {
         continueShopping: "Tiếp tục mua sắm",
         removeConfirm: (name: string) => `Xoá "${name}" khỏi giỏ hàng?`,
         remove: "Xoá",
-        freeDeliveryNote: "Miễn phí vận chuyển 1-2 ngày cho đơn từ 1.250.000 ₫.",
+        freeDeliveryNote:
+            "Miễn phí vận chuyển 1-2 ngày cho đơn từ 1.250.000 ₫.",
         qty: "SL",
         stock: "còn lại",
         checkoutNeedsUpdates: "Cần cập nhật trước khi thanh toán.",
@@ -174,15 +259,17 @@ const vi: Dictionary = {
         merchandise: "Tổng hàng",
         discount: "Giảm giá",
         amountDue: "Cần thanh toán",
-        footnote: "Bằng việc đặt hàng, bạn đồng ý với điều khoản dịch vụ và chính sách bảo mật.",
+        footnote:
+            "Bằng việc đặt hàng, bạn đồng ý với điều khoản dịch vụ và chính sách bảo mật.",
         placeOrder: (amount: string) => `Đặt hàng — ${amount}`,
         cancelOrder: "Huỷ",
         checkingStock: "Đang kiểm tra tồn kho...",
         unavailable: "Sản phẩm không còn. Vui lòng xoá khỏi giỏ.",
         outOfStock: "Hết hàng. Vui lòng xoá khỏi giỏ.",
-        insufficientStock: (count: number, requested?: number) => requested
-            ? `Chỉ còn ${count} sản phẩm, nhưng giỏ hàng đang có ${requested}.`
-            : `Chỉ còn ${count} sản phẩm.`,
+        insufficientStock: (count: number, requested?: number) =>
+            requested
+                ? `Chỉ còn ${count} sản phẩm, nhưng giỏ hàng đang có ${requested}.`
+                : `Chỉ còn ${count} sản phẩm.`,
         stockLeft: (count: number) => `Còn ${count}`,
         decreaseQty: "Giảm số lượng",
         increaseQty: "Tăng số lượng",
@@ -191,15 +278,18 @@ const vi: Dictionary = {
         retry: "Thử lại",
         guestCart: "Giỏ hàng khách",
         guestCartTitle: "Bạn có sản phẩm đã lưu khi chưa đăng nhập.",
-        guestCartDescription: "Gộp chúng vào giỏ hàng tài khoản để tiếp tục mua sắm.",
+        guestCartDescription:
+            "Gộp chúng vào giỏ hàng tài khoản để tiếp tục mua sắm.",
         mergeGuestCart: "Gộp giỏ hàng khách",
         mergingGuestCart: "Đang gộp giỏ hàng khách...",
-        guestCartMergePartial: "Một số sản phẩm chưa thể gộp. Bạn có thể thử lại.",
+        guestCartMergePartial:
+            "Một số sản phẩm chưa thể gộp. Bạn có thể thử lại.",
     },
     guestOrder: {
         title: "Tra cứu đơn hàng khách",
         eyebrow: "Theo dõi đơn hàng",
-        description: "Nhập mã đơn hàng và mã truy cập riêng được hiển thị sau khi thanh toán.",
+        description:
+            "Nhập mã đơn hàng và mã truy cập riêng được hiển thị sau khi thanh toán.",
         orderId: "Mã đơn hàng",
         accessToken: "Mã truy cập",
         submit: "Tìm đơn hàng",
@@ -226,6 +316,12 @@ const vi: Dictionary = {
     footer: {
         brandTagline:
             "Thiết bị điện tử đáng tin cậy, thanh toán rõ ràng, theo dõi đơn hàng và hỗ trợ thực tế tất cả trong một.",
+        phone: "(+84) 123 456 7890",
+        address: "123 Đường ABC, TP. Hồ Chí Minh, Việt Nam",
+        socialLinkLabel: (platform: string) =>
+            `Digital-E trên ${platform} (mở trong tab mới)`,
+        navigationLabel: "Điều hướng chân trang",
+        legalNavigationLabel: "Điều khoản và chính sách",
         shop: "Mua sắm",
         shopAll: "Tất cả sản phẩm",
         shopComponents: "Linh kiện",
@@ -240,20 +336,24 @@ const vi: Dictionary = {
         payments: "Thanh toán",
         bankTransfer: "Chuyển khoản",
         cashOnDelivery: "Thanh toán khi nhận hàng",
-        copyright: "© 2026 Digital-E. Xây dựng cho việc mua sắm đồ công nghệ hằng ngày.",
+        copyright:
+            "© 2026 Digital-E. Xây dựng cho việc mua sắm đồ công nghệ hằng ngày.",
         terms: "Điều khoản dịch vụ",
         privacy: "Chính sách bảo mật",
         cookies: "Chính sách cookie",
     },
     notFound: {
         title: "Không tìm thấy trang",
-        description: "Trang bạn tìm có thể đã được di chuyển hoặc không còn tồn tại.",
+        description:
+            "Trang bạn tìm có thể đã được di chuyển hoặc không còn tồn tại.",
         backHome: "Về trang chủ",
     },
     news: {
         title: "Tin tức & hướng dẫn mua",
-        subtitle: "Góc nhìn thực tế, hướng dẫn chọn sản phẩm và cập nhật từ Digital-E.",
-        featureImageAlt: "Không gian làm việc với thiết bị điện tử và phụ kiện công nghệ",
+        subtitle:
+            "Góc nhìn thực tế, hướng dẫn chọn sản phẩm và cập nhật từ Digital-E.",
+        featureImageAlt:
+            "Không gian làm việc với thiết bị điện tử và phụ kiện công nghệ",
         browseNewArrivals: "Khám phá danh mục",
         visitSupport: "Nhận hỗ trợ",
         tickerAria: "Bài đọc nhanh từ Digital-E",
@@ -265,7 +365,8 @@ const vi: Dictionary = {
         ],
         readArticle: "Đọc bài viết",
         backToNews: "Quay lại Tin tức",
-        metaDescription: "Hướng dẫn mua thiết bị điện tử, góc nhìn sản phẩm và cập nhật dịch vụ từ Digital-E.",
+        metaDescription:
+            "Hướng dẫn mua thiết bị điện tử, góc nhìn sản phẩm và cập nhật dịch vụ từ Digital-E.",
         stories: {
             featured: {
                 tag: "Góc nhìn Digital-E",
@@ -333,7 +434,8 @@ const vi: Dictionary = {
             "Tìm hiểu cách Digital-E giúp việc mua sắm thiết bị điện tử rõ ràng hơn, từ chọn sản phẩm đến thanh toán, theo dõi đơn và hỗ trợ.",
         heroAlt: "Danh mục thiết bị điện tử và công nghệ di động của Digital-E",
         statsAriaLabel: "Tổng quan trải nghiệm Digital-E",
-        subtitle: "Chọn đúng công nghệ, thanh toán rõ ràng và luôn có hỗ trợ sau khi mua.",
+        subtitle:
+            "Chọn đúng công nghệ, thanh toán rõ ràng và luôn có hỗ trợ sau khi mua.",
         explore: "Khám phá danh mục",
         getSupport: "Liên hệ hỗ trợ",
         stats: {
@@ -362,23 +464,46 @@ const vi: Dictionary = {
         missionText:
             "Giúp việc mua sắm công nghệ bớt mơ hồ bằng thông tin hữu ích, checkout minh bạch, trạng thái đơn dễ theo dõi và hỗ trợ thực tế.",
         milestones: [
-            { year: "01", text: "Khám phá sản phẩm theo danh mục, nhu cầu sử dụng và những thông tin quan trọng." },
-            { year: "02", text: "So sánh thông số, tình trạng hàng, thông tin bảo hành và tín hiệu từ khách hàng trước khi mua." },
-            { year: "03", text: "Kiểm tra tồn kho, giá, điều kiện khuyến mãi, giao hàng và thanh toán tại checkout." },
-            { year: "04", text: "Theo dõi đơn hàng sau khi đặt và liên hệ hỗ trợ khi cần một hướng xử lý rõ ràng." },
+            {
+                year: "01",
+                text: "Khám phá sản phẩm theo danh mục, nhu cầu sử dụng và những thông tin quan trọng.",
+            },
+            {
+                year: "02",
+                text: "So sánh thông số, tình trạng hàng, thông tin bảo hành và tín hiệu từ khách hàng trước khi mua.",
+            },
+            {
+                year: "03",
+                text: "Kiểm tra tồn kho, giá, điều kiện khuyến mãi, giao hàng và thanh toán tại checkout.",
+            },
+            {
+                year: "04",
+                text: "Theo dõi đơn hàng sau khi đặt và liên hệ hỗ trợ khi cần một hướng xử lý rõ ràng.",
+            },
         ],
         teamHeading: "Cách chúng tôi hỗ trợ",
         teamSubtitle: "Hỗ trợ thực tế ở từng chặng mua sắm",
         team: [
-            { name: "Thông tin sản phẩm", detail: "Biến thông số và thông tin bảo hành thành lựa chọn dễ hiểu hơn." },
-            { name: "Vận hành đơn hàng", detail: "Giữ giá, tồn kho, checkout và cập nhật đơn hàng đồng bộ." },
-            { name: "Chăm sóc khách hàng", detail: "Hỗ trợ câu hỏi về tài khoản, giao hàng, thanh toán, đổi trả và bảo hành." },
+            {
+                name: "Thông tin sản phẩm",
+                detail: "Biến thông số và thông tin bảo hành thành lựa chọn dễ hiểu hơn.",
+            },
+            {
+                name: "Vận hành đơn hàng",
+                detail: "Giữ giá, tồn kho, checkout và cập nhật đơn hàng đồng bộ.",
+            },
+            {
+                name: "Chăm sóc khách hàng",
+                detail: "Hỗ trợ câu hỏi về tài khoản, giao hàng, thanh toán, đổi trả và bảo hành.",
+            },
         ],
     },
     contact: {
         title: "Liên hệ Digital-E",
-        metaDescription: "Liên hệ Digital-E về sản phẩm, đơn hàng, tài khoản, thanh toán, giao hàng, đổi trả hoặc góp ý.",
-        subtitle: "Hãy cho chúng tôi biết bạn cần gì; chúng tôi sẽ giúp bạn tìm bước tiếp theo phù hợp.",
+        metaDescription:
+            "Liên hệ Digital-E về sản phẩm, đơn hàng, tài khoản, thanh toán, giao hàng, đổi trả hoặc góp ý.",
+        subtitle:
+            "Hãy cho chúng tôi biết bạn cần gì; chúng tôi sẽ giúp bạn tìm bước tiếp theo phù hợp.",
         visitSupport: "Xem chủ đề hỗ trợ",
         reviewOrders: "Kiểm tra đơn hàng",
         stats: {
@@ -395,81 +520,105 @@ const vi: Dictionary = {
         emailLabel: "Địa chỉ email",
         emailPlaceholder: "ban@example.com",
         messageLabel: "Bạn cần hỗ trợ gì?",
-        messagePlaceholder: "Nếu có, hãy thêm mã đơn hàng hoặc tên sản phẩm để chúng tôi hiểu câu hỏi nhanh hơn.",
+        messagePlaceholder:
+            "Nếu có, hãy thêm mã đơn hàng hoặc tên sản phẩm để chúng tôi hiểu câu hỏi nhanh hơn.",
         sendButton: "Gửi yêu cầu",
-        replyNote: "Đăng nhập để gửi yêu cầu an toàn. Chúng tôi sẽ làm rõ bước tiếp theo.",
+        replyNote:
+            "Đăng nhập để gửi yêu cầu an toàn. Chúng tôi sẽ làm rõ bước tiếp theo.",
         directChannelsHeading: "Bạn muốn liên hệ trực tiếp?",
         directChannelsSubtitle: "Chọn kênh phù hợp với câu hỏi của bạn",
         shortcutsHeading: "Lối đi nhanh",
         shortcutsSubtitle: "Bắt đầu từ đúng nơi có câu trả lời",
         metaEmailLabel: "Email",
         metaEmailValue: "contact@digital-e.com",
-        metaEmailNote: "Phù hợp cho câu hỏi chi tiết, ảnh chụp màn hình và giấy tờ bảo hành.",
+        metaEmailNote:
+            "Phù hợp cho câu hỏi chi tiết, ảnh chụp màn hình và giấy tờ bảo hành.",
         metaPhoneLabel: "Điện thoại",
         metaPhoneValue: "+84 123 456 789",
-        metaPhoneNote: "Hữu ích khi giao hàng, thanh toán hoặc truy cập tài khoản cần được làm rõ nhanh.",
+        metaPhoneNote:
+            "Hữu ích khi giao hàng, thanh toán hoặc truy cập tài khoản cần được làm rõ nhanh.",
         metaOfficeLabel: "Văn phòng",
         metaOfficeValue: "123 Đường Digital-E",
         metaOfficeNote: "Thành phố Hồ Chí Minh, Việt Nam",
         shortcutOrderTitle: "Lịch sử đơn hàng",
-        shortcutOrderNote: "Kiểm tra trạng thái, phương thức thanh toán, thông tin giao hàng và sản phẩm.",
+        shortcutOrderNote:
+            "Kiểm tra trạng thái, phương thức thanh toán, thông tin giao hàng và sản phẩm.",
         shortcutAccountTitle: "Tài khoản",
-        shortcutAccountNote: "Quản lý địa chỉ, thông báo và hoạt động tài khoản.",
+        shortcutAccountNote:
+            "Quản lý địa chỉ, thông báo và hoạt động tài khoản.",
         shortcutSupportTitle: "Trung tâm hỗ trợ",
         shortcutSupportNote: "Tìm câu trả lời phổ biến trước khi gửi yêu cầu.",
         submitSuccess: "Đã gửi yêu cầu",
-        submitSuccessBody: "Cảm ơn bạn đã liên hệ. Yêu cầu của bạn đã được gửi đến đội ngũ hỗ trợ Digital-E.",
+        submitSuccessBody:
+            "Cảm ơn bạn đã liên hệ. Yêu cầu của bạn đã được gửi đến đội ngũ hỗ trợ Digital-E.",
         pending: "Đang gửi…",
         loading: "Đang chuẩn bị biểu mẫu liên hệ…",
         guestTitle: "Đăng nhập để gửi yêu cầu",
-        guestBody: "Tin nhắn của bạn đã được lưu trong phiên này. Hãy đăng nhập để tiếp tục mà không phải viết lại.",
+        guestBody:
+            "Tin nhắn của bạn đã được lưu trong phiên này. Hãy đăng nhập để tiếp tục mà không phải viết lại.",
         submitError: "Không thể gửi yêu cầu",
-        submitErrorBody: "Vui lòng thử lại hoặc dùng lựa chọn email hay điện thoại trên trang này.",
+        submitErrorBody:
+            "Vui lòng thử lại hoặc dùng lựa chọn email hay điện thoại trên trang này.",
     },
     support: {
         title: "Trung tâm hỗ trợ",
-        metaDescription: "Tìm câu trả lời rõ ràng về sản phẩm, đơn hàng, thanh toán, giao hàng, đổi trả, bảo hành và tài khoản Digital-E.",
-        heroSubtitle: "Câu trả lời rõ ràng và bước tiếp theo thực tế, từ câu hỏi sản phẩm đến hỗ trợ sau khi đặt hàng.",
+        metaDescription:
+            "Tìm câu trả lời rõ ràng về sản phẩm, đơn hàng, thanh toán, giao hàng, đổi trả, bảo hành và tài khoản Digital-E.",
+        heroSubtitle:
+            "Câu trả lời rõ ràng và bước tiếp theo thực tế, từ câu hỏi sản phẩm đến hỗ trợ sau khi đặt hàng.",
         viewOrderHistory: "Theo dõi đơn hàng",
         contactUs: "Liên hệ Digital-E",
         contactLabel: "Chọn kênh phù hợp",
         contactHeading: "Nhận hỗ trợ theo cách phù hợp với câu hỏi của bạn",
         contactFormTitle: "Gửi yêu cầu hỗ trợ",
-        contactFormText: "Dùng biểu mẫu cho câu hỏi về sản phẩm, đơn hàng, thanh toán, giao hàng, đổi trả hoặc tài khoản.",
-        contactFormDetail: "Đăng nhập để gửi và gắn yêu cầu với tài khoản của bạn",
+        contactFormText:
+            "Dùng biểu mẫu cho câu hỏi về sản phẩm, đơn hàng, thanh toán, giao hàng, đổi trả hoặc tài khoản.",
+        contactFormDetail:
+            "Đăng nhập để gửi và gắn yêu cầu với tài khoản của bạn",
         contactFormAction: "Mở biểu mẫu liên hệ",
         emailTitle: "Hỗ trợ qua email",
-        emailText: "Gửi bối cảnh, ảnh chụp màn hình, mã đơn hàng hoặc thông tin bảo hành khi câu hỏi cần nhiều chi tiết hơn.",
+        emailText:
+            "Gửi bối cảnh, ảnh chụp màn hình, mã đơn hàng hoặc thông tin bảo hành khi câu hỏi cần nhiều chi tiết hơn.",
         emailDetail: "support@digital-e.com",
         emailAction: "Gửi email hỗ trợ",
         hotlineTitle: "Hỗ trợ qua điện thoại",
-        hotlineText: "Gọi điện khi giao hàng, thanh toán hoặc truy cập tài khoản cần được trao đổi nhanh hơn.",
+        hotlineText:
+            "Gọi điện khi giao hàng, thanh toán hoặc truy cập tài khoản cần được trao đổi nhanh hơn.",
         hotlineDetail: "+84 123 456 789",
         hotlineAction: "Gọi hỗ trợ",
         selfServiceLabel: "Tìm câu trả lời",
         resourcesHeading: "Bắt đầu từ các chủ đề phổ biến",
         trackOrderTitle: "Trạng thái đơn hàng",
-        trackOrderText: "Mở lịch sử đơn hàng để xem trạng thái, thanh toán, địa chỉ giao hàng và sản phẩm.",
+        trackOrderText:
+            "Mở lịch sử đơn hàng để xem trạng thái, thanh toán, địa chỉ giao hàng và sản phẩm.",
         trackOrderAction: "Mở lịch sử đơn hàng",
         returnsTitle: "Đổi trả và hoàn tiền",
-        returnsText: "Hãy cho chúng tôi biết vấn đề và chúng tôi sẽ hướng dẫn bước tiếp theo cho đơn hàng của bạn.",
+        returnsText:
+            "Hãy cho chúng tôi biết vấn đề và chúng tôi sẽ hướng dẫn bước tiếp theo cho đơn hàng của bạn.",
         returnsAction: "Hỏi về đổi trả",
         warrantyTitle: "Câu hỏi về bảo hành",
-        warrantyText: "Gửi thông tin sản phẩm và đơn mua để chúng tôi giúp bạn hiểu hướng xử lý phù hợp.",
+        warrantyText:
+            "Gửi thông tin sản phẩm và đơn mua để chúng tôi giúp bạn hiểu hướng xử lý phù hợp.",
         warrantyAction: "Hỏi về bảo hành",
         paymentTitle: "Câu hỏi về thanh toán",
-        paymentText: "Nhận hỗ trợ về thanh toán khi nhận hàng, xác nhận chuyển khoản hoặc lần checkout chưa hoàn tất.",
+        paymentText:
+            "Nhận hỗ trợ về thanh toán khi nhận hàng, xác nhận chuyển khoản hoặc lần checkout chưa hoàn tất.",
         paymentAction: "Hỏi về thanh toán",
         faqLabel: "Câu hỏi phổ biến",
         faqHeading: "Câu trả lời rõ ràng cho những lúc bạn cần nhất",
         faq1Question: "Tôi xem trạng thái đơn hàng ở đâu?",
-        faq1Answer: "Đăng nhập và mở Lịch sử đơn hàng. Bạn có thể xem trạng thái, phương thức thanh toán, tổng tiền, địa chỉ giao hàng và sản phẩm tại một nơi.",
+        faq1Answer:
+            "Đăng nhập và mở Lịch sử đơn hàng. Bạn có thể xem trạng thái, phương thức thanh toán, tổng tiền, địa chỉ giao hàng và sản phẩm tại một nơi.",
         faq2Question: "Tôi có thể đổi địa chỉ giao hàng sau khi đặt không?",
-        faq2Answer: "Hãy liên hệ với chúng tôi sớm nhất có thể. Chúng tôi sẽ kiểm tra trạng thái đơn và giải thích lựa chọn còn khả dụng; việc thay đổi sẽ dễ hơn trước khi đóng gói hoặc gửi đi.",
-        faq3Question: "Điều gì xảy ra nếu tồn kho thay đổi sau khi tôi đặt hàng?",
-        faq3Answer: "Checkout kiểm tra tình trạng hàng trước khi đơn được đặt. Nếu phát sinh vấn đề về tồn kho sau đó, đội ngũ hỗ trợ sẽ giải thích hướng đổi sản phẩm hoặc hoàn tiền phù hợp.",
+        faq2Answer:
+            "Hãy liên hệ với chúng tôi sớm nhất có thể. Chúng tôi sẽ kiểm tra trạng thái đơn và giải thích lựa chọn còn khả dụng; việc thay đổi sẽ dễ hơn trước khi đóng gói hoặc gửi đi.",
+        faq3Question:
+            "Điều gì xảy ra nếu tồn kho thay đổi sau khi tôi đặt hàng?",
+        faq3Answer:
+            "Checkout kiểm tra tình trạng hàng trước khi đơn được đặt. Nếu phát sinh vấn đề về tồn kho sau đó, đội ngũ hỗ trợ sẽ giải thích hướng đổi sản phẩm hoặc hoàn tiền phù hợp.",
         faq4Question: "Tôi sử dụng mã khuyến mãi như thế nào?",
-        faq4Answer: "Nhập mã trong giỏ hàng và kiểm tra kết quả xác thực trước khi checkout. Khuyến mãi có thể có thời hạn, giá trị đơn tối thiểu hoặc giới hạn sử dụng.",
+        faq4Answer:
+            "Nhập mã trong giỏ hàng và kiểm tra kết quả xác thực trước khi checkout. Khuyến mãi có thể có thời hạn, giá trị đơn tối thiểu hoặc giới hạn sử dụng.",
     },
     colorScheme: {
         light: "Chế độ sáng",

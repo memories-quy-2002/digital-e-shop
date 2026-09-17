@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { withTransaction } = vi.hoisted(() => ({ withTransaction: vi.fn() }));
 
 vi.mock("../../database/transaction", () => ({ withTransaction }));
-vi.mock("#src/config/env.config", () => ({ env: { payosUsdToVndRate: 25_000, storeCurrency: "VND" } }));
+vi.mock("#src/config/env.config", () => ({ env: { storeCurrency: "VND" } }));
 vi.mock("#src/shared/utils/logger", () => ({
     logger: { info: vi.fn(), error: vi.fn(), debug: vi.fn(), warn: vi.fn() },
 }));

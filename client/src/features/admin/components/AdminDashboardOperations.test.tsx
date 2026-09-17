@@ -17,7 +17,7 @@ const pendingOrder = {
     status: 0,
     total_price: 120,
     discount: 5,
-    payment_method: "bank_transfer",
+    payment_method: "payos",
 };
 
 describe("AdminDashboardOperations", () => {

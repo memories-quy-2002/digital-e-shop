@@ -4,9 +4,9 @@ This Wiki records durable Digital-E understanding for maintainers and AI agents.
 
 **Project summary:** Digital-E is an electronics commerce platform built from two independent pnpm packages: a React 19 and Vite storefront/admin client in `client/`, and a NestJS 11 API on the Express 5 adapter in `server/`. MySQL remains the primary runtime database, while Prisma 7 owns a partial forward-migration layer. Firebase is the only auth provider; the Firebase Auth Emulator is a local testing target.
 
-**Last updated:** 2026-09-16
+**Last updated:** 2026-09-17
 
-The current implementation includes authenticated and guest carts, server-authoritative checkout, Vietnam-first PayOS payment links with VND quote snapshots and verified webhooks, optional Stripe and local mock payment paths, Firebase-owned production auth emails, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, customer support tickets, admin analytics, operational alerts, and database-backed demo verification.
+The current implementation includes authenticated and guest carts, server-authoritative checkout, PayOS and COD payment paths with exact VND amounts, durable verified webhooks and bounded admin reconciliation, Firebase-owned production auth emails, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, customer support tickets, admin analytics, operational alerts, and database-backed demo verification. Legacy payment identifiers remain readable only for historical database compatibility.
 
 The local demo seed creates a linked graph with 28 products across 8 categories and 16 brands. It verifies image URLs, order totals, reviews, wishlists, addresses, notifications, the seeded session baseline, discounts, inventory movements, and orphan relationships. Runtime logins may add sessions after seeding without invalidating verification. Normal seeding is guarded and non-destructive for demo-owned rows; full reset is an explicit local or protected production workflow.
 
@@ -20,7 +20,7 @@ The local demo seed creates a linked graph with 28 products across 8 categories 
 - [[order-lifecycle-and-support]]: order state transitions, review eligibility, and support-ticket ownership
 - [[0001-mysql-primary-prisma-partial]]: MySQL and partial Prisma ownership
 - [[0002-nestjs-migration]]: accepted NestJS migration and current server structure
-- [[0003-payment-ledger-and-usd-canonical-currency]]: USD canonical amounts and provider settlement values
+- [[0003-payment-ledger-and-usd-canonical-currency]]: historical USD-canonical decision and its current VND status
 - [[0004-guest-cart-and-checkout]]: accepted guest access model and security boundary
 - [[0005-vietnam-first-vnd-catalog-and-mock-payos]]: VND-first demo pricing and explicit local PayOS simulation
 - [[log]]: append-only Wiki maintenance history
@@ -39,7 +39,12 @@ The local demo seed creates a linked graph with 28 products across 8 categories 
 
 ### Entities
 
-Domain objects and their relationships belong under `entities/`. Add a page when a domain object needs durable explanation, such as Product, Order, Cart, User, Discount, Review, Address, or Notification.
+Domain objects and their relationships belong under `entities/`. Current pages cover:
+
+- [[product]]: catalog identity, pricing, inventory, and historical snapshots
+- [[order]]: customer and guest identity, lifecycle, order items, and reporting
+- [[payment]]: payment ledger, provider boundary, webhooks, and reconciliation
+- [[support-ticket]]: support ownership and the current after-sales boundary
 
 ### Concepts
 
@@ -52,6 +57,16 @@ Accepted architectural decisions belong under `decisions/`, one decision per fil
 ### Sources and synthesis
 
 Use `sources/` for notes derived from a specific source file or external reference. Use `synthesis/` for summaries that connect several Wiki pages.
+
+Current source notes:
+
+- [[checkout-and-payment-runtime]]: source map for cart, checkout, payment, and reconciliation
+- [[support-and-after-sales-runtime]]: source map for support tickets and deferred guest after-sales work
+
+Current synthesis pages:
+
+- [[commerce-journey]]: end-to-end catalog, cart, checkout, order, payment, and support flow
+- [[vnd-payment-operations]]: VND provider, finalization, reconciliation, and recovery model
 
 ## Maintenance rules
 

@@ -59,7 +59,7 @@ const CartItem = ({
             className={validationIssue ? "cart-item is-invalid" : "cart-item"}
             aria-labelledby={`cart-item-${item.cartItemId}-name`}
         >
-            <Link to={productPath} className="cart-item__image-link" aria-label={`View ${item.productName}`}>
+            <Link to={productPath} className="cart-item__image-link" aria-label={t("cart.viewProduct", item.productName)}>
                 <div className="cart-item__image">{loadImage(imageUrl, item.productName)}</div>
             </Link>
             <div className="cart-item__info">
@@ -79,7 +79,7 @@ const CartItem = ({
                 <div
                     className="cart-item__stepper"
                     role="group"
-                    aria-label={`Adjust quantity for ${item.productName}`}
+                    aria-label={t("cart.adjustQuantity", item.productName)}
                 >
                     <button
                         type="button"
@@ -123,7 +123,7 @@ const CartItem = ({
                 className="cart-item__remove"
                 type="button"
                 onClick={() => handleRemoveCartItem(item.cartItemId)}
-                aria-label={`Remove ${item.productName} from cart`}
+                aria-label={t("cart.removeItem", item.productName)}
             >
                 <TrashIcon size={18} />
                 <span className="cart-item__remove-label">{t("cart.remove")}</span>
