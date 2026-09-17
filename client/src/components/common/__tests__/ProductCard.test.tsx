@@ -1,6 +1,7 @@
 import { MemoryRouter } from "react-router-dom";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { LocaleProvider } from "../../../context/LocaleContext";
 import ProductCard from "../ProductCard";
 
 const product = {
@@ -24,38 +25,63 @@ const product = {
 describe("ProductCard", () => {
     it("exposes one shared product link and accessible card actions", () => {
         render(
-            <MemoryRouter>
-                <ProductCard
-                    product={product}
-                    uid=""
-                    isWishlist={false}
-                    onToggleWishlist={vi.fn()}
-                    onAddingCart={vi.fn()}
-                />
-            </MemoryRouter>,
+            <LocaleProvider>
+                <MemoryRouter>
+                    <ProductCard
+                        product={product}
+                        uid=""
+                        isWishlist={false}
+                        onToggleWishlist={vi.fn()}
+                        onAddingCart={vi.fn()}
+                    />
+                </MemoryRouter>
+            </LocaleProvider>,
         );
 
         expect(screen.getByRole("link", { name: product.name })).toHaveAttribute("href", "/product?id=190");
-        expect(screen.getByRole("button", { name: "Add to wishlist" })).toHaveAttribute("aria-pressed", "false");
+        expect(screen.getByRole("button", { name: "Save to wishlist" })).toHaveAttribute("aria-pressed", "false");
         expect(screen.getByRole("button", { name: /Add to cart/i })).toBeEnabled();
     });
 
     it("keeps the product media full-width without a hover border treatment", () => {
         render(
-            <MemoryRouter>
-                <ProductCard
-                    product={product}
-                    uid=""
-                    isWishlist={false}
-                    onToggleWishlist={vi.fn()}
-                    onAddingCart={vi.fn()}
-                />
-            </MemoryRouter>,
+            <LocaleProvider>
+                <MemoryRouter>
+                    <ProductCard
+                        product={product}
+                        uid=""
+                        isWishlist={false}
+                        onToggleWishlist={vi.fn()}
+                        onAddingCart={vi.fn()}
+                    />
+                </MemoryRouter>
+            </LocaleProvider>,
         );
 
         const media = screen.getByTestId("product-card-image");
 
         expect(media).toHaveClass("w-full", "max-w-none");
         expect(media).not.toHaveClass("group-hover:border-electric");
+    });
+
+    it("keeps product content scannable with discount, rating, price, and stock", () => {
+        render(
+            <LocaleProvider>
+                <MemoryRouter>
+                    <ProductCard
+                        product={product}
+                        uid=""
+                        isWishlist={false}
+                        onToggleWishlist={vi.fn()}
+                        onAddingCart={vi.fn()}
+                    />
+                </MemoryRouter>
+            </LocaleProvider>,
+        );
+
+        expect(screen.getByTestId("product-card-price")).toHaveTextContent("419");
+        expect(screen.getByTestId("product-card-rating")).toHaveTextContent("4.0");
+        expect(screen.getByTestId("product-card-stock")).toHaveTextContent("39");
+        expect(screen.getByText("-7%")).toBeInTheDocument();
     });
 });

@@ -1,10 +1,12 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import React from "react";
 import { MemoryRouter } from "react-router-dom";
 import CartItem from "../CartItem";
 import { CartValidationIssue } from "../../../features/orders/types";
-import { LocaleProvider } from "../../../context/LocaleContext";
+import { LocaleProvider, useLocale } from "../../../context/LocaleContext";
+
+const LOCALE_STORAGE_KEY = "digital-e:locale:v1";
 
 vi.mock("../../../utils/loadImage", () => ({
     default: (imageUrl: string | null, alt: string) => (
@@ -12,8 +14,20 @@ vi.mock("../../../utils/loadImage", () => ({
     ),
 }));
 
+const LocaleToggle = () => {
+    const { setLocale } = useLocale();
+    return <button type="button" onClick={() => setLocale("vi")}>Switch to Vietnamese</button>;
+};
 const renderWithLocale = (ui: React.ReactElement) =>
     render(<MemoryRouter><LocaleProvider>{ui}</LocaleProvider></MemoryRouter>);
+
+beforeEach(() => {
+    window.localStorage.removeItem(LOCALE_STORAGE_KEY);
+});
+
+afterEach(() => {
+    window.localStorage.removeItem(LOCALE_STORAGE_KEY);
+});
 
 const baseItem = {
     cartItemId: 42,
@@ -45,6 +59,26 @@ describe("CartItem", () => {
         expect(screen.getByLabelText("cart-42-quantity")).toHaveAttribute("inputmode", "numeric");
     });
 
+    it("localizes item action labels for Vietnamese", () => {
+        render(
+            <MemoryRouter>
+                <LocaleProvider>
+                    <LocaleToggle />
+                    <CartItem
+                        item={baseItem}
+                        handleQuantityChange={vi.fn()}
+                        handleRemoveCartItem={vi.fn()}
+                    />
+                </LocaleProvider>
+            </MemoryRouter>,
+        );
+
+        fireEvent.click(screen.getByRole("button", { name: "Switch to Vietnamese" }));
+
+        expect(screen.getByRole("link", { name: "Xem Apple iPhone 13" })).toBeInTheDocument();
+        expect(screen.getByRole("group", { name: "Điều chỉnh số lượng cho Apple iPhone 13" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Xoá Apple iPhone 13 khỏi giỏ hàng" })).toBeInTheDocument();
+    });
     it("renders brand, product name and category", () => {
         renderWithLocale(
             <CartItem

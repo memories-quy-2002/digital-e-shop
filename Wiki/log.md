@@ -68,3 +68,5 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-16 - Codex - Rebound an already-linked Firebase provider UID after local emulator account recreation while preserving the legacy database user ID and ownership relationships.
 - 2026-09-16 - Codex - Added a package-owned Auth Emulator command with ignored import/export state so local Firebase UIDs persist across restarts.
 - 2026-09-17 - Codex - Completed the VND PayOS/COD payment rollout: removed active client legacy payment choices, added the guarded admin reconciliation workspace and webhook history, fixed VND runtime configuration, and refreshed payment documentation.
+- 2026-09-17 - Codex - Added Product, Order, Payment, and SupportTicket entity pages plus source notes and synthesis pages for checkout, after-sales, and VND payment operations.
+- 2026-09-17 - Codex - Added index backlinks to the new entity, source, and synthesis pages so the Wiki catalog remains navigable.

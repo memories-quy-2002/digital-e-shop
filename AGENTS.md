@@ -557,6 +557,7 @@ Templates live in `docs/bmad/`. Produce only the artifacts the task actually nee
 ## Codex working rules
 
 - Read this `AGENTS.md` before starting repo work and re-read it after resume/compaction.
+- Before any repository response or action, read `docs/ai-prompts/README.md` and automatically select the closest task prompt. Do not wait for the user to name a prompt. Invoke the skills required by that prompt when the task matches their scope.
 - For broad tasks that need delegation, read `docs/CODEX_ORCHESTRATION.md`.
 - Use Context7 when the task is about a library, framework, SDK, API, CLI tool, or cloud service. Resolve the library ID first, then query the docs.
 - Inspect existing patterns before editing.

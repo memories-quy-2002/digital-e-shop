@@ -2,7 +2,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "Digital-E Shop API",
-        "description": "REST API reference for the Digital-E e-commerce backend. Covers catalog browsing, authentication, cart, orders, wishlist, reviews, address book, notifications, inventory, promotions, analytics, and admin operations.",
+        "description": "REST API reference for the Digital-E e-commerce backend. Covers catalog browsing, Firebase authentication, guest checkout, PayOS and COD payments in VND, support tickets, payment reconciliation, webhooks, and admin operations.",
         "version": "1.0.0",
         "contact": {
             "name": "Digital-E",
@@ -29,14 +29,16 @@
         { "name": "Addresses", "description": "Customer shipping address book" },
         { "name": "Notifications", "description": "Customer notification center" },
         { "name": "Products", "description": "Catalog browsing, search, facets, recommendations" },
-        { "name": "Inventory", "description": "Admin inventory summary and movement log" },
+        { "name": "Inventory", "description": "Admin inventory movement log" },
         { "name": "Cart", "description": "Shopping cart" },
         { "name": "Orders", "description": "Checkout, order history, status timeline" },
         { "name": "Reviews", "description": "Product reviews" },
         { "name": "Wishlist", "description": "Customer wishlist" },
         { "name": "Promotions", "description": "Discount codes and promotions" },
         { "name": "Blob", "description": "Vercel Blob file storage" },
-        { "name": "Analytics", "description": "Admin analytics summary" }
+        { "name": "Analytics", "description": "Admin analytics summary" },
+        { "name": "Payments", "description": "PayOS, COD, reconciliation, and payment webhooks" },
+        { "name": "Support", "description": "Authenticated customer and admin support tickets" }
     ],
     "components": {
         "schemas": {
@@ -255,6 +257,59 @@
                     "healthy_stock": { "type": "integer" },
                     "total_units": { "type": "integer" }
                 }
+            },
+            "SupportTicket": {
+                "type": "object",
+                "properties": {
+                    "id": { "type": "integer" },
+                    "user_id": { "type": "string" },
+                    "order_id": { "type": "integer", "nullable": true },
+                    "category": { "type": "string" },
+                    "subject": { "type": "string" },
+                    "message": { "type": "string" },
+                    "status": { "type": "string", "enum": ["OPEN", "IN_PROGRESS", "WAITING_FOR_CUSTOMER", "RESOLVED", "CLOSED"] },
+                    "priority": { "type": "string", "enum": ["LOW", "NORMAL", "HIGH", "URGENT"] },
+                    "admin_note": { "type": "string", "nullable": true },
+                    "created_at": { "type": "string", "format": "date-time" },
+                    "updated_at": { "type": "string", "format": "date-time" }
+                }
+            },
+            "PaymentReconciliationCandidate": {
+                "type": "object",
+                "properties": {
+                    "target_type": { "type": "string", "enum": ["pending_checkout", "order_payment"] },
+                    "target_id": { "type": "integer" },
+                    "provider": { "type": "string", "enum": ["cash", "payos"] },
+                    "local_status": { "type": "string" },
+                    "reconciliation_status": { "type": "string", "enum": ["PENDING", "MATCHED", "MISMATCH", "UNAVAILABLE", "MANUAL_CONFIRMED"] },
+                    "provider_reference": { "type": "string", "nullable": true },
+                    "provider_order_code": { "oneOf": [{ "type": "integer" }, { "type": "string" }, { "type": "null" }] },
+                    "payment_amount": { "oneOf": [{ "type": "integer" }, { "type": "string" }, { "type": "null" }] },
+                    "payment_currency": { "type": "string", "nullable": true, "example": "VND" },
+                    "reservation_expires_at": { "type": "string", "format": "date-time", "nullable": true },
+                    "order_id": { "type": "integer", "nullable": true }
+                }
+            },
+            "PaymentWebhookEvent": {
+                "type": "object",
+                "properties": {
+                    "id": { "type": "integer" },
+                    "provider": { "type": "string", "example": "payos" },
+                    "event_key": { "type": "string" },
+                    "event_type": { "type": "string" },
+                    "payload_hash": { "type": "string" },
+                    "order_code": { "type": "integer", "nullable": true },
+                    "payment_link_id": { "type": "string", "nullable": true },
+                    "amount": { "type": "integer", "nullable": true },
+                    "currency": { "type": "string", "nullable": true, "example": "VND" },
+                    "status": { "type": "string" },
+                    "attempt_count": { "type": "integer" },
+                    "last_error": { "type": "string", "nullable": true },
+                    "received_at": { "type": "string", "format": "date-time" },
+                    "processed_at": { "type": "string", "format": "date-time", "nullable": true },
+                    "created_at": { "type": "string", "format": "date-time" },
+                    "updated_at": { "type": "string", "format": "date-time" }
+                }
             }
         },
         "securitySchemes": {
@@ -263,6 +318,43 @@
                 "in": "cookie",
                 "name": "accessToken",
                 "description": "JWT access token stored in the accessToken HTTP-only cookie."
+            }
+        },
+        "parameters": {
+            "PathId": {
+                "name": "id",
+                "in": "path",
+                "required": true,
+                "schema": { "type": "integer" },
+                "description": "Resource ID"
+            },
+            "PathUid": {
+                "name": "uid",
+                "in": "path",
+                "required": true,
+                "schema": { "type": "string" },
+                "description": "Firebase UID"
+            }
+        },
+        "responses": {
+            "Message": {
+                "description": "Standard message response",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": { "msg": { "type": "string" } }
+                        }
+                    }
+                }
+            },
+            "Error": {
+                "description": "Error response",
+                "content": {
+                    "application/json": {
+                        "schema": { "$ref": "#/components/schemas/Error" }
+                    }
+                }
             }
         }
     },
@@ -313,7 +405,7 @@
                 }
             }
         },
-        "/api/csrf": {
+        "/api/users/csrf": {
             "get": {
                 "tags": ["Health"],
                 "summary": "Issue a CSRF token",
@@ -1085,29 +1177,6 @@
             }
         },
 
-        "/api/products/admin/inventory-summary": {
-            "get": {
-                "tags": ["Inventory"],
-                "summary": "Get inventory summary (admin)",
-                "security": [{ "cookieAuth": [] }],
-                "responses": {
-                    "200": {
-                        "description": "Inventory summary",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "summary": { "$ref": "#/components/schemas/InventorySummary" }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "403": { "$ref": "#/components/responses/Error" }
-                }
-            }
-        },
         "/api/products/admin/inventory-movements": {
             "get": {
                 "tags": ["Inventory"],
@@ -1134,6 +1203,132 @@
             }
         },
 
+        "/api/cart/guest": {
+            "get": {
+                "tags": ["Cart"],
+                "summary": "Read the anonymous cart",
+                "responses": {
+                    "200": {
+                        "description": "Guest cart",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "items": { "type": "array", "items": { "type": "object" } },
+                                        "msg": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/cart/guest/sync": {
+            "post": {
+                "tags": ["Cart"],
+                "summary": "Synchronize the anonymous cart",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["items"],
+                                "properties": {
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "required": ["productId", "quantity"],
+                                            "properties": {
+                                                "productId": { "type": "integer", "minimum": 1 },
+                                                "quantity": { "type": "integer", "minimum": 1, "maximum": 99 }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": { "$ref": "#/components/responses/Message" },
+                    "400": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/cart/guest/clear": {
+            "post": {
+                "tags": ["Cart"],
+                "summary": "Clear the anonymous cart",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": { "converted": { "type": "boolean", "default": false } }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": { "$ref": "#/components/responses/Message" }
+                }
+            }
+        },
+        "/api/cart/guest/preview": {
+            "post": {
+                "tags": ["Cart"],
+                "summary": "Preview authoritative guest cart pricing",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["items"],
+                                "properties": {
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "required": ["productId", "quantity"],
+                                            "properties": {
+                                                "productId": { "type": "integer", "minimum": 1 },
+                                                "quantity": { "type": "integer", "minimum": 1, "maximum": 99 }
+                                            }
+                                        }
+                                    },
+                                    "discountCode": { "type": "string", "maxLength": 50 }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Guest cart preview",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["valid"],
+                                    "properties": {
+                                        "valid": { "type": "boolean" },
+                                        "items": { "type": "array", "items": { "type": "object" } },
+                                        "issues": { "type": "array", "items": { "type": "object" } },
+                                        "msg": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
         "/api/cart/{uid}": {
             "parameters": [{ "$ref": "#/components/parameters/PathUid" }],
             "get": {
@@ -1333,7 +1528,7 @@
             "parameters": [{ "name": "oid", "in": "path", "required": true, "schema": { "type": "integer" } }],
             "get": {
                 "tags": ["Orders"],
-                "summary": "Get an order with timeline events",
+                "summary": "Get an order detail",
                 "security": [{ "cookieAuth": [] }],
                 "responses": {
                     "200": {
@@ -1344,7 +1539,7 @@
                                     "type": "object",
                                     "properties": {
                                         "order": { "$ref": "#/components/schemas/Order" },
-                                        "timeline": { "type": "array", "items": { "$ref": "#/components/schemas/OrderTimelineEvent" } }
+                                        "msg": { "type": "string" }
                                     }
                                 }
                             }
@@ -1384,6 +1579,7 @@
                                         }
                                     },
                                     "discount": { "type": "number", "minimum": 0, "default": 0 },
+                                    "discountCode": { "type": "string", "maxLength": 50 },
                                     "shippingAddress": { "type": "string" },
                                     "paymentMethod": { "type": "string", "enum": ["cash", "payos"] }
                                 }
@@ -1392,7 +1588,22 @@
                     }
                 },
                 "responses": {
-                    "200": { "$ref": "#/components/responses/Message" },
+                    "201": {
+                        "description": "Order created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "orderId": { "type": "integer" },
+                                        "order": { "$ref": "#/components/schemas/Order" },
+                                        "paymentMethod": { "type": "string", "enum": ["cash", "payos"] },
+                                        "msg": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
                     "400": { "$ref": "#/components/responses/Error" }
                 }
             }
@@ -1450,9 +1661,8 @@
                                 "schema": {
                                     "type": "object",
                                     "properties": {
-                                        "discountCode": { "type": "string" },
-                                        "discountPercent": { "type": "number" },
-                                        "discountedPrice": { "type": "number" }
+                                        "newPrice": { "type": "number", "minimum": 0 },
+                                        "msg": { "type": "string" }
                                     }
                                 }
                             }
@@ -1463,6 +1673,745 @@
             }
         },
 
+        "/api/orders/{oid}/cancel": {
+            "parameters": [
+                { "name": "oid", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+            ],
+            "post": {
+                "tags": ["Orders"],
+                "summary": "Cancel an order",
+                "security": [{ "cookieAuth": [] }],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": { "reason": { "type": "string", "maxLength": 500 } }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Order canceled",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "order": { "$ref": "#/components/schemas/Order" },
+                                        "msg": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": { "$ref": "#/components/responses/Error" },
+                    "404": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/orders/guest/purchase": {
+            "post": {
+                "tags": ["Orders"],
+                "summary": "Create a guest order",
+                "description": "Creates a COD or PayOS guest order after server-side stock and promotion checks.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["cart", "contact", "shipping", "paymentMethod"],
+                                "properties": {
+                                    "cart": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 50,
+                                        "items": {
+                                            "type": "object",
+                                            "required": ["productId", "quantity"],
+                                            "properties": {
+                                                "productId": { "type": "integer", "minimum": 1 },
+                                                "quantity": { "type": "integer", "minimum": 1, "maximum": 99 }
+                                            }
+                                        }
+                                    },
+                                    "contact": {
+                                        "type": "object",
+                                        "required": ["email", "name"],
+                                        "properties": {
+                                            "email": { "type": "string", "format": "email" },
+                                            "name": { "type": "string", "maxLength": 160 },
+                                            "phone": { "type": "string", "maxLength": 40 }
+                                        }
+                                    },
+                                    "shipping": {
+                                        "type": "object",
+                                        "required": ["address", "city", "country"],
+                                        "properties": {
+                                            "address": { "type": "string", "maxLength": 1000 },
+                                            "city": { "type": "string", "maxLength": 160 },
+                                            "country": { "type": "string", "maxLength": 160 }
+                                        }
+                                    },
+                                    "discountCode": { "type": "string", "maxLength": 50 },
+                                    "paymentMethod": { "type": "string", "enum": ["cash", "payos"] }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Guest order created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "orderId": { "type": "integer" },
+                                        "order": { "$ref": "#/components/schemas/Order" },
+                                        "guestOrderToken": { "type": "string" },
+                                        "paymentMethod": { "type": "string", "enum": ["cash", "payos"] },
+                                        "msg": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": { "$ref": "#/components/responses/Error" },
+                    "409": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/orders/guest/lookup": {
+            "post": {
+                "tags": ["Orders"],
+                "summary": "Look up a guest order",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["orderId", "guestOrderToken"],
+                                "properties": {
+                                    "orderId": { "type": "integer", "minimum": 1 },
+                                    "guestOrderToken": { "type": "string", "minLength": 1, "maxLength": 256 }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Guest order detail",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "order": { "$ref": "#/components/schemas/Order" },
+                                        "msg": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/orders/guest/payos-checkout-session": {
+            "post": {
+                "tags": ["Payments"],
+                "summary": "Create a guest PayOS checkout session",
+                "description": "Creates a VND PayOS payment link and a token-protected guest reservation.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["cart", "contact", "shipping", "paymentMethod"],
+                                "properties": {
+                                    "cart": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 50,
+                                        "items": {
+                                            "type": "object",
+                                            "required": ["productId", "quantity"],
+                                            "properties": {
+                                                "productId": { "type": "integer", "minimum": 1 },
+                                                "quantity": { "type": "integer", "minimum": 1, "maximum": 99 }
+                                            }
+                                        }
+                                    },
+                                    "contact": {
+                                        "type": "object",
+                                        "required": ["email", "name"],
+                                        "properties": {
+                                            "email": { "type": "string", "format": "email" },
+                                            "name": { "type": "string", "maxLength": 160 },
+                                            "phone": { "type": "string", "maxLength": 40 }
+                                        }
+                                    },
+                                    "shipping": {
+                                        "type": "object",
+                                        "required": ["address", "city", "country"],
+                                        "properties": {
+                                            "address": { "type": "string", "maxLength": 1000 },
+                                            "city": { "type": "string", "maxLength": 160 },
+                                            "country": { "type": "string", "maxLength": 160 }
+                                        }
+                                    },
+                                    "discountCode": { "type": "string", "maxLength": 50 },
+                                    "paymentMethod": { "type": "string", "enum": ["payos"] }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "PayOS checkout session created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "url": { "type": "string", "format": "uri" },
+                                        "orderCode": { "type": "integer" },
+                                        "paymentLinkId": { "type": "string" },
+                                        "amount": { "type": "integer", "minimum": 1 },
+                                        "currency": { "type": "string", "enum": ["VND"] },
+                                        "guestOrderToken": { "type": "string" },
+                                        "msg": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": { "$ref": "#/components/responses/Error" },
+                    "503": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/orders/mock-payos/confirm": {
+            "post": {
+                "tags": ["Payments"],
+                "summary": "Confirm a local mock PayOS payment",
+                "description": "Local development only. The server checks the exact order code, payment-link ID, and VND amount.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["orderCode", "paymentLinkId", "amount"],
+                                "properties": {
+                                    "orderCode": { "type": "integer", "minimum": 1 },
+                                    "paymentLinkId": { "type": "string", "maxLength": 255 },
+                                    "amount": { "type": "integer", "minimum": 1 }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Mock payment confirmed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "orderId": { "type": "integer" },
+                                        "order": { "$ref": "#/components/schemas/Order" },
+                                        "msg": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": { "$ref": "#/components/responses/Error" },
+                    "409": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/orders/by-payos-order-code/{orderCode}": {
+            "parameters": [
+                { "name": "orderCode", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+            ],
+            "get": {
+                "tags": ["Orders"],
+                "summary": "Read an authenticated PayOS order",
+                "security": [{ "cookieAuth": [] }],
+                "responses": {
+                    "200": {
+                        "description": "Order detail",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "order": { "$ref": "#/components/schemas/Order" },
+                                        "msg": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/orders/payos-checkout-session/{uid}": {
+            "parameters": [{ "$ref": "#/components/parameters/PathUid" }],
+            "post": {
+                "tags": ["Payments"],
+                "summary": "Create an authenticated PayOS checkout session",
+                "security": [{ "cookieAuth": [] }],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["totalPrice", "cart", "discount", "shippingAddress"],
+                                "properties": {
+                                    "totalPrice": { "type": "number", "minimum": 0 },
+                                    "cart": { "type": "array", "minItems": 1, "items": { "type": "object" } },
+                                    "discount": { "type": "number", "minimum": 0 },
+                                    "discountCode": { "type": "string", "maxLength": 50 },
+                                    "shippingAddress": { "type": "string", "minLength": 1 }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "PayOS checkout session created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "url": { "type": "string", "format": "uri" },
+                                        "orderCode": { "type": "integer" },
+                                        "paymentLinkId": { "type": "string" },
+                                        "amount": { "type": "integer", "minimum": 1 },
+                                        "currency": { "type": "string", "enum": ["VND"] },
+                                        "msg": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": { "$ref": "#/components/responses/Error" },
+                    "503": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/orders/guest/by-payos-order-code": {
+            "post": {
+                "tags": ["Orders"],
+                "summary": "Read a guest PayOS order",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["orderCode", "guestOrderToken"],
+                                "properties": {
+                                    "orderCode": { "type": "integer", "minimum": 1 },
+                                    "guestOrderToken": { "type": "string", "minLength": 1, "maxLength": 256 }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Guest PayOS order detail",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "order": { "$ref": "#/components/schemas/Order" },
+                                        "msg": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/orders/webhooks/payos": {
+            "post": {
+                "tags": ["Payments"],
+                "summary": "Receive a PayOS webhook",
+                "description": "Verifies the PayOS signature, stores the event, and finalizes the matching VND payment idempotently.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "code": { "type": "string" },
+                                    "success": { "type": "boolean" },
+                                    "signature": { "type": "string" },
+                                    "data": {
+                                        "type": "object",
+                                        "properties": {
+                                            "orderCode": { "type": "integer" },
+                                            "amount": { "type": "integer" },
+                                            "currency": { "type": "string", "enum": ["VND"] },
+                                            "paymentLinkId": { "type": "string" },
+                                            "code": { "type": "string" }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Webhook accepted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["received", "finalized", "outcome", "success", "requestId"],
+                                    "properties": {
+                                        "received": { "type": "boolean" },
+                                        "finalized": { "type": "boolean" },
+                                        "outcome": { "type": "string", "enum": ["processed", "duplicate", "ignored", "mismatch", "retryable"] },
+                                        "orderId": { "type": "integer" },
+                                        "success": { "const": true },
+                                        "requestId": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": { "$ref": "#/components/responses/Error" },
+                    "500": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/support/tickets": {
+            "get": {
+                "tags": ["Support"],
+                "summary": "List support tickets",
+                "security": [{ "cookieAuth": [] }],
+                "parameters": [
+                    { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["OPEN", "IN_PROGRESS", "WAITING_FOR_CUSTOMER", "RESOLVED", "CLOSED"] } }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Support tickets",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "tickets": { "type": "array", "items": { "$ref": "#/components/schemas/SupportTicket" } },
+                                        "msg": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": ["Support"],
+                "summary": "Create a support ticket",
+                "security": [{ "cookieAuth": [] }],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": ["subject", "message"],
+                                "properties": {
+                                    "subject": { "type": "string", "minLength": 3, "maxLength": 160 },
+                                    "message": { "type": "string", "minLength": 1, "maxLength": 5000 },
+                                    "category": { "type": "string", "maxLength": 32 },
+                                    "orderId": { "type": "integer", "minimum": 1 }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Support ticket created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "ticket": { "$ref": "#/components/schemas/SupportTicket" },
+                                        "msg": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/support/tickets/{id}": {
+            "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+            "patch": {
+                "tags": ["Support"],
+                "summary": "Update a support ticket",
+                "description": "Admin only.",
+                "security": [{ "cookieAuth": [] }],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "minProperties": 1,
+                                "properties": {
+                                    "status": { "type": "string", "enum": ["OPEN", "IN_PROGRESS", "WAITING_FOR_CUSTOMER", "RESOLVED", "CLOSED"] },
+                                    "priority": { "type": "string", "enum": ["LOW", "NORMAL", "HIGH", "URGENT"] },
+                                    "adminNote": { "type": "string", "maxLength": 5000 }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Support ticket updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "ticket": { "$ref": "#/components/schemas/SupportTicket" },
+                                        "msg": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": { "$ref": "#/components/responses/Error" },
+                    "404": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/admin/alerts": {
+            "get": {
+                "tags": ["Analytics"],
+                "summary": "Read admin operational alerts",
+                "security": [{ "cookieAuth": [] }],
+                "responses": {
+                    "200": {
+                        "description": "Admin alerts",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "alerts": { "type": "array", "items": { "type": "object" } },
+                                        "unread": { "type": "integer", "minimum": 0 },
+                                        "msg": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/payments/reconciliation": {
+            "get": {
+                "tags": ["Payments"],
+                "summary": "List payment reconciliation candidates",
+                "security": [{ "cookieAuth": [] }],
+                "parameters": [
+                    { "name": "provider", "in": "query", "schema": { "type": "string", "enum": ["cash", "payos"] } },
+                    { "name": "reconciliationStatus", "in": "query", "schema": { "type": "string", "enum": ["PENDING", "MATCHED", "MISMATCH", "UNAVAILABLE", "MANUAL_CONFIRMED"] } },
+                    { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
+                    { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 } }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Reconciliation candidates",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["candidates", "pagination", "success", "requestId"],
+                                    "properties": {
+                                        "candidates": { "type": "array", "items": { "$ref": "#/components/schemas/PaymentReconciliationCandidate" } },
+                                        "pagination": { "$ref": "#/components/schemas/Pagination" },
+                                        "success": { "const": true },
+                                        "requestId": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/admin/payments/reconciliation/run": {
+            "post": {
+                "tags": ["Payments"],
+                "summary": "Run bounded payment reconciliation",
+                "security": [{ "cookieAuth": [] }],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": { "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 } }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Reconciliation run completed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["results", "limit", "success", "requestId"],
+                                    "properties": {
+                                        "results": { "type": "array", "items": { "type": "object" } },
+                                        "limit": { "type": "integer" },
+                                        "success": { "const": true },
+                                        "requestId": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/admin/payments/{paymentId}/reconcile": {
+            "parameters": [
+                { "name": "paymentId", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+            ],
+            "post": {
+                "tags": ["Payments"],
+                "summary": "Reconcile one payment",
+                "security": [{ "cookieAuth": [] }],
+                "responses": {
+                    "200": {
+                        "description": "Payment reconciled",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["result", "success", "requestId"],
+                                    "properties": {
+                                        "result": { "type": "object" },
+                                        "success": { "const": true },
+                                        "requestId": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": { "$ref": "#/components/responses/Error" },
+                    "404": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/admin/payments/{paymentId}/confirm-cod": {
+            "parameters": [
+                { "name": "paymentId", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+            ],
+            "post": {
+                "tags": ["Payments"],
+                "summary": "Confirm COD collection",
+                "security": [{ "cookieAuth": [] }],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": { "note": { "type": "string", "maxLength": 500 } }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "COD payment confirmed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["payment", "success", "requestId"],
+                                    "properties": {
+                                        "payment": { "type": "object" },
+                                        "success": { "const": true },
+                                        "requestId": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": { "$ref": "#/components/responses/Error" },
+                    "404": { "$ref": "#/components/responses/Error" },
+                    "409": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/admin/payments/{paymentId}/webhook-events": {
+            "parameters": [
+                { "name": "paymentId", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+            ],
+            "get": {
+                "tags": ["Payments"],
+                "summary": "List webhook events for a payment",
+                "security": [{ "cookieAuth": [] }],
+                "responses": {
+                    "200": {
+                        "description": "Payment webhook events",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["events", "success", "requestId"],
+                                    "properties": {
+                                        "events": { "type": "array", "items": { "$ref": "#/components/schemas/PaymentWebhookEvent" } },
+                                        "success": { "const": true },
+                                        "requestId": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": { "$ref": "#/components/responses/Error" },
+                    "404": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
         "/api/reviews/{pid}": {
             "parameters": [{ "name": "pid", "in": "path", "required": true, "schema": { "type": "integer" } }],
             "get": {
@@ -1765,46 +2714,6 @@
                                 }
                             }
                         }
-                    }
-                }
-            }
-        }
-    },
-    "components": {
-        "schemas": {},
-        "parameters": {
-            "PathId": {
-                "name": "id",
-                "in": "path",
-                "required": true,
-                "schema": { "type": "integer" },
-                "description": "Resource ID (user, product, etc.)"
-            },
-            "PathUid": {
-                "name": "uid",
-                "in": "path",
-                "required": true,
-                "schema": { "type": "string" },
-                "description": "Firebase UID"
-            }
-        },
-        "responses": {
-            "Message": {
-                "description": "Standard message response",
-                "content": {
-                    "application/json": {
-                        "schema": {
-                            "type": "object",
-                            "properties": { "msg": { "type": "string" } }
-                        }
-                    }
-                }
-            },
-            "Error": {
-                "description": "Error response",
-                "content": {
-                    "application/json": {
-                        "schema": { "$ref": "#/components/schemas/Error" }
                     }
                 }
             }

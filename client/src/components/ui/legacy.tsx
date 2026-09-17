@@ -112,7 +112,7 @@ function Modal({ show = false, onHide, children, dialogClassName, contentClassNa
 }
 
 Modal.Header = function ModalHeader({ children, closeButton = false, className }: { children?: React.ReactNode; closeButton?: boolean; className?: string }) {
-    return <div className={cn("flex items-center justify-between gap-4 border-b border-border px-5 py-4", className)}>{children}{closeButton ? <button type="button" data-modal-close className="grid size-9 place-items-center rounded-control text-muted-foreground hover:bg-surface-hover hover:text-foreground" aria-label="Close" onClick={(event) => { const dialog = event.currentTarget.closest('[role="dialog"]'); dialog?.dispatchEvent(new CustomEvent("de-close")); }}>Ã—</button> : null}</div>;
+    return <div className={cn("flex items-center justify-between gap-4 border-b border-border px-5 py-4", className)}>{children}{closeButton ? <button type="button" data-modal-close className="grid size-9 place-items-center rounded-control text-muted-foreground hover:bg-surface-hover hover:text-foreground" aria-label="Close" onClick={(event) => { const dialog = event.currentTarget.closest('[role="dialog"]'); dialog?.dispatchEvent(new CustomEvent("de-close")); }}>&times;</button> : null}</div>;
 };
 Modal.Title = function ModalTitle({ children }: { children?: React.ReactNode }) {
     const labelledBy = React.useContext(ModalTitleContext);

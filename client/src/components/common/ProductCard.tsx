@@ -10,6 +10,7 @@ import { normalizeProduct } from "../../utils/product";
 import { normalizeProductImageName } from "../../utils/images";
 import ratingStar from "../../utils/ratingStar";
 import { formatCurrency } from "../../utils/currency";
+import { useT } from "../../hooks/useT";
 
 export type ProductCardProps = {
     product: Product;
@@ -28,6 +29,7 @@ const ProductCard = ({
     onToggleWishlist,
     onAddingCart,
 }: ProductCardProps) => {
+    const t = useT();
     const normalizedProduct = normalizeProduct(product);
     const hasSale =
         normalizedProduct.sale_price !== null &&
@@ -36,25 +38,27 @@ const ProductCard = ({
     const activePrice = hasSale ? normalizedProduct.sale_price ?? normalizedProduct.price : normalizedProduct.price;
     const productPath = `/product?id=${normalizedProduct.id}`;
     const availableStock = normalizedProduct.available_stock ?? normalizedProduct.stock;
-    const stockLabel = availableStock > 0 ? `${availableStock} in stock` : "Out of stock";
+    const discountPercent = hasSale ? Math.round(((normalizedProduct.price - activePrice) / normalizedProduct.price) * 100) : 0;
+    const stockLabel = availableStock > 0 ? t("product.stockIn", availableStock) : t("product.stockOut");
+    const wishlistLabel = isWishlist ? t("product.savedToWishlist") : t("product.saveToWishlist");
 
     return (
         <Card
             data-testid="product-card"
-            className="group flex h-full min-h-[410px] flex-col overflow-hidden rounded-panel border-border bg-card p-2 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-1 hover:border-electric hover:shadow-[var(--de-shadow-sm)]"
+            className="product-card group flex h-full min-h-[410px] flex-col overflow-hidden rounded-panel border-border bg-card p-2 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-1 hover:border-electric hover:shadow-[var(--de-shadow-sm)]"
         >
             <div className="relative">
                 {hasSale ? (
                     <Badge variant="signal" className="absolute left-3 top-3 z-10 rounded-control">
-                        Sale
+                        {t("product.discountBadge", discountPercent)}
                     </Badge>
                 ) : availableStock > 0 ? (
                     <Badge variant="default" className="absolute left-3 top-3 z-10 rounded-control">
-                        In stock
+                        {t("product.stockBadge")}
                     </Badge>
                 ) : (
                     <Badge variant="danger" className="absolute left-3 top-3 z-10 rounded-control">
-                        Out of stock
+                        {t("product.stockValueOut")}
                     </Badge>
                 )}
 
@@ -66,10 +70,10 @@ const ProductCard = ({
                         isWishlist ? "border-signal bg-signal text-primary-foreground" : "text-muted-foreground"
                     }`}
                     onClick={() => onToggleWishlist(uid, normalizedProduct.id)}
-                    aria-label={isWishlist ? "Remove from wishlist" : "Add to wishlist"}
+                    aria-label={wishlistLabel}
                     aria-pressed={isWishlist}
                     disabled={isWishlistPending}
-                    title={isWishlist ? "Remove from wishlist" : "Add to wishlist"}
+                    title={wishlistLabel}
                 >
                     {isWishlist ? <HeartFillIcon size={17} color="currentColor" /> : <HeartIcon size={17} color="currentColor" />}
                 </Button>
@@ -89,49 +93,47 @@ const ProductCard = ({
                 </Link>
             </div>
 
-            <CardContent className="flex flex-1 flex-col gap-2 px-2 pb-2 pt-4">
-                <div className="flex items-center justify-between gap-2 font-mono text-[0.62rem] uppercase tracking-[0.12em] text-muted-foreground">
-                    <span className="truncate">{normalizedProduct.category || "Other"}</span>
-                    <span className="shrink-0 rounded-control border border-border px-2 py-1 text-circuit">
-                        {normalizedProduct.brand || "Digital-E"}
-                    </span>
+            <CardContent className="product-card__content flex flex-1 flex-col gap-2 px-2 pb-2 pt-4">
+                <div className="product-card__meta">
+                    <span className="product-card__category">{normalizedProduct.category || t("product.categoryFallback")}</span>
+                    <span className="product-card__brand">{normalizedProduct.brand || t("product.brandFallback")}</span>
                 </div>
 
                 <Link
                     to={productPath}
-                    className="line-clamp-2 min-h-11 font-display text-base font-bold leading-snug text-foreground transition-colors hover:text-electric focus-visible:text-electric"
+                    className="product-card__title font-display font-bold text-foreground transition-colors hover:text-electric focus-visible:text-electric"
                 >
                     {normalizedProduct.name || "Unnamed product"}
                 </Link>
 
-                <div className="flex min-h-5 items-center justify-between gap-2 font-mono text-[0.65rem] text-success-strong">
-                    <span>{stockLabel}</span>
-                    {availableStock > 0 ? <span className="hidden text-[0.55rem] uppercase text-muted-foreground sm:inline">Ready to ship</span> : null}
-                </div>
-
-                <div className="flex min-h-7 items-baseline gap-2 font-mono">
-                    {hasSale ? <span className="text-xs text-muted-foreground line-through">{formatCurrency(normalizedProduct.price)}</span> : null}
-                    <strong className={`text-lg font-bold ${hasSale ? "text-signal" : "text-foreground"}`}>
-                        {formatCurrency(activePrice)}
-                    </strong>
-                </div>
-
-                <div className="mt-auto flex items-center gap-2 border-t border-border pt-3 font-mono text-[0.65rem] text-muted-foreground">
-                    <span role="img" aria-label={`${normalizedProduct.rating.toFixed(1)} star rating`} className="flex items-center gap-0.5">
+                <div className="product-card__rating" data-testid="product-card-rating">
+                    <span role="img" aria-label={`${normalizedProduct.rating.toFixed(1)} ${t("product.ratingLabel")}`} className="product-card__rating-stars">
                         {ratingStar(normalizedProduct.rating, "var(--de-color-warning)", 15)}
                     </span>
-                    <span>{normalizedProduct.rating.toFixed(1)}</span>
-                    <span className="ml-auto">{normalizedProduct.reviews} reviews</span>
+                    <span className="product-card__rating-value">{normalizedProduct.rating.toFixed(1)}</span>
+                    <span className="product-card__reviews">{t("product.reviewsCount", normalizedProduct.reviews)}</span>
+                </div>
+
+                <div className="product-card__price" data-testid="product-card-price">
+                    <strong className="product-card__price-current">{formatCurrency(activePrice)}</strong>
+                    {hasSale ? <span className="product-card__price-original">{formatCurrency(normalizedProduct.price)}</span> : null}
+                </div>
+
+                <div
+                    className={`product-card__availability ${availableStock > 0 ? "product-card__availability--available" : "product-card__availability--unavailable"}`}
+                    data-testid="product-card-stock"
+                >
+                    <span>{stockLabel}</span>
                 </div>
 
                 <Button
                     type="button"
-                    className="mt-1 w-full"
+                    className="product-card__add-to-cart mt-auto w-full"
                     onClick={() => onAddingCart(uid, normalizedProduct.id)}
                     disabled={availableStock <= 0}
                 >
                     <CartIcon size={16} color="currentColor" />
-                    Add to cart
+                    {t("product.addToCart")}
                 </Button>
             </CardContent>
         </Card>

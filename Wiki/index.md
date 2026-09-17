@@ -39,7 +39,12 @@ The local demo seed creates a linked graph with 28 products across 8 categories 
 
 ### Entities
 
-Domain objects and their relationships belong under `entities/`. Add a page when a domain object needs durable explanation, such as Product, Order, Cart, User, Discount, Review, Address, or Notification.
+Domain objects and their relationships belong under `entities/`. Current pages cover:
+
+- [[product]]: catalog identity, pricing, inventory, and historical snapshots
+- [[order]]: customer and guest identity, lifecycle, order items, and reporting
+- [[payment]]: payment ledger, provider boundary, webhooks, and reconciliation
+- [[support-ticket]]: support ownership and the current after-sales boundary
 
 ### Concepts
 
@@ -52,6 +57,16 @@ Accepted architectural decisions belong under `decisions/`, one decision per fil
 ### Sources and synthesis
 
 Use `sources/` for notes derived from a specific source file or external reference. Use `synthesis/` for summaries that connect several Wiki pages.
+
+Current source notes:
+
+- [[checkout-and-payment-runtime]]: source map for cart, checkout, payment, and reconciliation
+- [[support-and-after-sales-runtime]]: source map for support tickets and deferred guest after-sales work
+
+Current synthesis pages:
+
+- [[commerce-journey]]: end-to-end catalog, cart, checkout, order, payment, and support flow
+- [[vnd-payment-operations]]: VND provider, finalization, reconciliation, and recovery model
 
 ## Maintenance rules
 

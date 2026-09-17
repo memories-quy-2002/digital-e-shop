@@ -59,7 +59,7 @@ describe("shared theme token contract", () => {
     it("binds the storefront header to the Light chrome tokens", () => {
         const headerStyles = readStylesheet("src/styles/layout/_header.scss");
 
-        expect(headerStyles).toContain("background: color-mix(in srgb, var(--de-color-chrome) 94%, transparent);");
+        expect(headerStyles).toContain("background: color-mix(in srgb, var(--de-color-chrome) 96%, transparent);");
         expect(headerStyles).toContain("color: var(--de-color-on-accent);");
         expect(headerStyles).not.toContain("color: var(--de-color-bg);");
     });

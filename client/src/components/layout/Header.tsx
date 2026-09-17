@@ -1,5 +1,5 @@
 import React, { JSX, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { CartIcon, BellIcon, HeartIcon, PersonIcon, SearchIcon, SpeedometerIcon } from "../common/Icons";
+import { BoxSeamIcon, CartIcon, BellIcon, CheckCircleIcon, HeartIcon, PersonIcon, SearchIcon, SpeedometerIcon } from "../common/Icons";
 import ColorSchemeDropdown from "../common/ColorSchemeDropdown";
 import LanguageDropdown from "../common/LanguageDropdown";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -117,27 +117,27 @@ export const Header = (): JSX.Element => {
                 navigate("/");
             }
         } catch {
-            addToast(t("common.logout"), "Please try again.");
+            addToast(t("common.logout"), t("header.tryAgain"));
             setUserData(null);
         }
     };
 
     const handleRequireLogin = (place: string) => {
         if (loading) {
-            addToast("Checking login", "Please wait a moment and try again.");
+            addToast(t("header.checkingLogin"), t("header.pleaseWait"));
             return;
         }
 
         if (userData) {
             navigate(place);
         } else {
-            addToast("Login required", "You need to login to use this feature");
+            addToast(t("header.loginRequired"), t("header.loginRequiredBody"));
         }
     };
 
     const handleNotificationsPageNavigation = () => {
         if (loading) {
-            addToast("Checking login", "Please wait a moment and try again.");
+            addToast(t("header.checkingLogin"), t("header.pleaseWait"));
             return;
         }
 
@@ -149,7 +149,7 @@ export const Header = (): JSX.Element => {
 
     const handleNotificationToggle = () => {
         if (loading) {
-            addToast("Checking login", "Please wait a moment and try again.");
+            addToast(t("header.checkingLogin"), t("header.pleaseWait"));
             return;
         }
 
@@ -163,7 +163,7 @@ export const Header = (): JSX.Element => {
 
     const handleAccountAction = () => {
         if (loading) {
-            addToast("Checking login", "Please wait a moment and try again.");
+            addToast(t("header.checkingLogin"), t("header.pleaseWait"));
             return;
         }
 
@@ -288,6 +288,28 @@ export const Header = (): JSX.Element => {
 
     return (
         <header className="header">
+            <div className="header__signalbar">
+                <div className="header__signalbar__inner">
+                    <span className="header__signalbar__message">
+                        <span className="header__signalbar__pulse" aria-hidden="true">
+                            <span />
+                            <span />
+                            <span />
+                        </span>
+                        {t("header.tagline")}
+                    </span>
+                    <div className="header__signalbar__items">
+                        <span className="header__signalbar__item">
+                            <CheckCircleIcon size={14} />
+                            {t("cart.payos")}
+                        </span>
+                        <span className="header__signalbar__item">
+                            <BoxSeamIcon size={14} />
+                            {t("footer.cashOnDelivery")}
+                        </span>
+                    </div>
+                </div>
+            </div>
             <div className="header__shell">
                 <div className="header__main">
                     <div className="header__brand">
@@ -297,13 +319,13 @@ export const Header = (): JSX.Element => {
                                 <span className="header__brand__mark-dot" />
                             </span>
                             <span className="header__brand__wordmark">
-                                <strong>{t("header.brand")}</strong>
+                                <strong translate="no">{t("header.brand")}</strong>
                                 <small>{t("header.tagline")}</small>
                             </span>
                         </Link>
                     </div>
 
-                    <nav className="header__nav" aria-label="Primary navigation">
+                    <nav className="header__nav" aria-label={t("header.primaryNavigation")}>
                         {primaryLinks.map((link) => (
                             <Link key={link.to} to={link.to} className={activePath === link.to ? "is-active" : ""}>
                                 {t(`header.nav.${link.label.toLowerCase()}`)}
@@ -382,6 +404,8 @@ export const Header = (): JSX.Element => {
                                                             normalizeProductImageName(product.main_image),
                                                         )}
                                                         alt=""
+                                                        width={44}
+                                                        height={44}
                                                         loading="lazy"
                                                     />
                                                 </span>
@@ -389,7 +413,7 @@ export const Header = (): JSX.Element => {
                                                     <span className="header__search__result__top">
                                                         <strong>{product.name}</strong>
                                                         {hasSale ? (
-                                                            <span className="header__search__result__badge">Sale</span>
+                                                            <span className="header__search__result__badge">{t("header.sale")}</span>
                                                         ) : null}
                                                     </span>
                                                     <span>
@@ -403,7 +427,7 @@ export const Header = (): JSX.Element => {
                                         );
                                     })
                                 ) : isSearching ? (
-                                    <div className="header__search__empty">Searching…</div>
+                                    <div className="header__search__empty">{t("header.searching")}</div>
                                 ) : (
                                     <div className="header__search__empty">{t("header.searchNoResults")}</div>
                                 )}
@@ -412,13 +436,13 @@ export const Header = (): JSX.Element => {
                         ) : shouldShowRecent ? (
                             <div className="header__search__results">
                                 <div className="header__search__history">
-                                    <span>Recent searches</span>
+                                    <span>{t("header.recentSearches")}</span>
                                     <button
                                         type="button"
                                         className="header__search__history-clear"
                                         onClick={() => setRecentSearches([])}
                                     >
-                                        Clear
+                                        {t("header.clearRecentSearches")}
                                     </button>
                                 </div>
                                 <div style={{ padding: "0.5rem 0.6rem" }}>
@@ -440,7 +464,7 @@ export const Header = (): JSX.Element => {
                         ) : null}
                     </div>
 
-                    <div className="header__actions" aria-label="Quick account actions">
+                    <div className="header__actions" aria-label={t("header.quickAccountActions")}>
                         <button
                             type="button"
                             className="header__action header__action--badge"
@@ -467,25 +491,25 @@ export const Header = (): JSX.Element => {
                                     id="header-notifications-menu"
                                     className="header__notifications__menu"
                                     role="dialog"
-                                    aria-label="Notifications"
+                                    aria-label={t("common.notifications")}
                                 >
                                     <div className="header__notifications__header">
                                         <div>
-                                            <strong>Notifications</strong>
+                                            <strong>{t("common.notifications")}</strong>
                                             {unreadNotifications > 0 ? (
-                                                <span>{unreadNotifications} unread</span>
+                                                <span>{t("header.unreadNotifications", unreadNotifications)}</span>
                                             ) : null}
                                         </div>
                                         <Link
                                             to={CUSTOMER_NOTIFICATIONS_TARGET}
                                             onClick={() => setIsNotificationMenuOpen(false)}
                                         >
-                                            View all
+                                            {t("common.viewAll")}
                                         </Link>
                                     </div>
                                     <div className="header__notifications__list">
                                         {isNotificationsLoading ? (
-                                            <p className="header__notifications__status">Loading notifications...</p>
+                                            <p className="header__notifications__status">{t("header.loadingNotifications")}</p>
                                         ) : notifications.length > 0 ? (
                                             notifications.slice(0, 5).map((notification) => (
                                                 <Link
@@ -506,7 +530,7 @@ export const Header = (): JSX.Element => {
                                                 </Link>
                                             ))
                                         ) : (
-                                            <p className="header__notifications__status">No notifications yet.</p>
+                                            <p className="header__notifications__status">{t("header.noNotifications")}</p>
                                         )}
                                     </div>
                                 </div>
@@ -519,7 +543,7 @@ export const Header = (): JSX.Element => {
                                 type="button"
                                 className={`header__action header__profile__trigger${isProfileMenuOpen ? " is-open" : ""}`}
                                 onClick={() => setIsProfileMenuOpen((prev) => !prev)}
-                                aria-label="Open profile menu"
+                                aria-label={t("header.openProfileMenu")}
                                 aria-expanded={isProfileMenuOpen}
                             >
                                 <PersonIcon size={20} />
@@ -537,7 +561,7 @@ export const Header = (): JSX.Element => {
                                             onClick={handleAdminNavigation}
                                         >
                                             <SpeedometerIcon size={18} />
-                                            <span>Back to Admin</span>
+                                            <span>{t("header.backToAdmin")}</span>
                                         </button>
                                     ) : null}
                                     <button
@@ -592,7 +616,7 @@ export const Header = (): JSX.Element => {
                             className="header__burger"
                             type="button"
                             onClick={() => setIsMenuOpen((prev) => !prev)}
-                            aria-label="Toggle menu"
+                            aria-label={t("header.toggleMenu")}
                             aria-expanded={isMenuOpen}
                             aria-controls={mobileMenuId}
                         >
@@ -605,7 +629,7 @@ export const Header = (): JSX.Element => {
             </div>
 
             <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-                <SheetContent side="right" className="header__mobile is-open" id={mobileMenuId}>
+                <SheetContent side="right" className="header__mobile is-open" id={mobileMenuId} closeLabel={t("header.closeMenu")}>
                 <div className="header__mobile__search" role="search">
                     <label className="header__sr-only" htmlFor={mobileSearchId}>
                         {t("common.search")}
@@ -634,7 +658,7 @@ export const Header = (): JSX.Element => {
                     </button>
                 </div>
 
-                <nav className="header__mobile__links" aria-label="Mobile navigation">
+                <nav className="header__mobile__links" aria-label={t("header.mobileNavigation")}>
                     {primaryLinks.map((link) => (
                         <Link key={link.to} to={link.to} onClick={closeMenu}>
                             {t(`header.nav.${link.label.toLowerCase()}`)}
@@ -650,7 +674,7 @@ export const Header = (): JSX.Element => {
                             onClick={handleAdminNavigation}
                         >
                             <SpeedometerIcon size={18} />
-                            Back to Admin
+                            {t("header.backToAdmin")}
                         </button>
                     ) : null}
                     <button

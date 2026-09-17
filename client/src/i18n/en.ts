@@ -25,6 +25,25 @@ const en = {
       support: 'Support',
       contact: 'Contact',
     },
+    primaryNavigation: 'Primary navigation',
+    quickAccountActions: 'Quick account actions',
+    mobileNavigation: 'Mobile navigation',
+    closeMenu: 'Close menu',
+    toggleMenu: 'Toggle menu',
+    openProfileMenu: 'Open profile menu',
+    sale: 'Sale',
+    searching: 'Searching…',
+    recentSearches: 'Recent searches',
+    clearRecentSearches: 'Clear',
+    unreadNotifications: (count: number) => `${count} unread`,
+    loadingNotifications: 'Loading notifications...',
+    noNotifications: 'No notifications yet.',
+    backToAdmin: 'Back to Admin',
+    checkingLogin: 'Checking login',
+    pleaseWait: 'Please wait a moment and try again.',
+    loginRequired: 'Login required',
+    loginRequiredBody: 'You need to login to use this feature',
+    tryAgain: 'Please try again.',
     searchPlaceholder: 'Search products',
     searchMobilePlaceholder: 'Search products',
     searchEmpty: 'Type something to search.',
@@ -51,9 +70,13 @@ const en = {
     recentlyViewedSubtitle: 'Pick up where you left off',
     heroKicker: 'The everyday electronics desk',
     heroTitle: 'Find gear that keeps up.',
-    heroBody: 'Laptops, cameras, audio, and the pieces between — chosen for real work, play, and everything after.',
+    heroBody:
+      'Laptops, cameras, audio, and the pieces between — chosen for real work, play, and everything after.',
     heroPrimary: 'Browse the collection',
     heroSecondary: 'See what’s new',
+    heroFeaturedLabel: 'Featured deal',
+    heroPreviewLabel: 'Featured product preview',
+    heroAvailability: 'Availability',
     heroReady: 'Ready now',
     heroOutOfStock: 'Out of stock',
     catalogLoading: 'Loading the catalog…',
@@ -61,6 +84,59 @@ const en = {
     spotlightLabel: 'On the bench',
     catalogFallback: 'Catalog pick',
     heroLoading: 'Loading the next good pick…',
+    heroDealLabel: 'Featured deal',
+    heroDealBody: 'A practical pick for creators and everyday setups.',
+    dealDiscount: (percent: number) => percent + '% off',
+    heroCarouselLabel: 'Featured products',
+    heroPrevious: 'Previous featured product',
+    heroNext: 'Next featured product',
+    heroPause: 'Pause featured product rotation',
+    heroPlay: 'Play featured product rotation',
+    heroSlide: (number: number) => 'Show featured product ' + number,
+    heroSignalsLabel: 'Digital-E shopping signals',
+    heroSignalWork: 'Work',
+    heroSignalPlay: 'Play',
+    heroSignalCreate: 'Create',
+    heroSignalLive: 'Live',
+    categoryKicker: 'Explore our collections',
+    categoryTitle: 'Shop by category',
+    categoryGaming: 'Gaming',
+    categoryGamingBody: 'Consoles, games, and accessories.',
+    categoryLaptops: 'Laptops',
+    categoryLaptopsBody: 'Work, study, and create.',
+    categoryAudio: 'Audio',
+    categoryAudioBody: 'Headphones, speakers, and microphones.',
+    categoryComponents: 'Components',
+    categoryComponentsBody: 'GPUs, CPUs, RAM, and storage.',
+    categorySmartHome: 'Smart home',
+    categorySmartHomeBody: 'Cameras, lighting, and everyday automation.',
+    categoryAccessories: 'Accessories',
+    categoryAccessoriesBody: 'Cables, chargers, and useful extras.',
+    viewAllCategories: 'View all categories',
+    trendingKicker: 'Trending products',
+    trendingTitle: 'Good choices, ready now',
+    valueKicker: 'Why shop with Digital-E',
+    valueTitle: 'A better way to shop tech.',
+    valueLink: 'Learn more about us',
+    valueShipping: 'Free shipping',
+    valueShippingBody: 'On orders over 2,000,000 ₫',
+    valueCheckout: 'Fast & easy checkout',
+    valueCheckoutBody: 'Save time, shop faster',
+    valuePayments: 'Secure payments',
+    valuePaymentsBody: 'Multiple trusted methods',
+    valueSupport: 'Expert support',
+    valueSupportBody: 'Get help when you need it',
+    valueReturns: 'Easy returns',
+    valueReturnsBody: '14-day hassle-free',
+    bundleKicker: 'Bundle & save',
+    bundleTitle: 'Level up your setup for less.',
+    bundleBody: 'Curated bundles for gaming, work, and everyday life.',
+    bundleCta: 'Shop bundle deals',
+    bundleDealLabel: 'Gaming starter bundle',
+    bundleDealTitle: 'Keyboard + mouse + headset',
+    bundleDealPrice: '4,990,000 ₫',
+    bundleDealOriginal: '6,470,000 ₫',
+    bundleDealDiscount: '−23%',
     intentTitle: 'Shop by intent',
     intentHeading: 'Start with what you’re making.',
     intentBody: 'Choose a direction first. We’ll keep the shortlist practical.',
@@ -85,9 +161,11 @@ const en = {
     proofStockTitle: 'Stock you can see',
     proofStockBody: 'Check availability before you add anything to the cart.',
     proofCheckoutTitle: 'Checkout without guesswork',
-    proofCheckoutBody: 'Keep shipping, payment, and order status in one clear flow.',
+    proofCheckoutBody:
+      'Keep shipping, payment, and order status in one clear flow.',
     proofSupportTitle: 'Help that gets specific',
-    proofSupportBody: 'Get practical support for products and orders when you need it.',
+    proofSupportBody:
+      'Get practical support for products and orders when you need it.',
   },
   shops: {
     title: 'Shop',
@@ -106,6 +184,8 @@ const en = {
   },
   product: {
     view: 'Product view',
+    discountBadge: (percent: number) => `-${percent}%`,
+    stockBadge: 'In stock',
     singleImage: 'Single product image',
     galleryImages: (count: number) => `${count} gallery images`,
     categoryFallback: 'Catalog item',
@@ -140,7 +220,8 @@ const en = {
     reviewsVisible: (count: number) => `${count} visible`,
     writeReview: 'Write a review',
     loginToReview: 'Login to write a review and rate this product.',
-    reviewPlaceholder: 'Share what stood out, how you used it, and whether you recommend it.',
+    reviewPlaceholder:
+      'Share what stood out, how you used it, and whether you recommend it.',
     selectRating: 'Select rating',
     noReviews: 'No reviews yet. Be the first to rate this product.',
     submitReview: 'Submit review',
@@ -161,18 +242,21 @@ const en = {
     continueShopping: 'Continue shopping',
     removeConfirm: (name: string) => `Remove "${name}" from your cart?`,
     remove: 'Remove',
-    freeDeliveryNote: 'Free delivery in 1-2 business days for orders over 1,250,000 ₫.',
+    freeDeliveryNote:
+      'Free delivery in 1-2 business days for orders over 1,250,000 ₫.',
     qty: 'Qty',
     stock: 'stock',
     checkoutNeedsUpdates: 'Checkout needs updates.',
-    itemsNeedAttention: (count: number) => `${count} cart items need attention.`,
+    itemsNeedAttention: (count: number) =>
+      `${count} cart items need attention.`,
     reviewOrder: 'Review your order',
     orderSummary: 'Order summary',
     itemsInOrder: 'Items in this order',
     merchandise: 'Merchandise',
     discount: 'Discount',
     amountDue: 'Amount due',
-    footnote: 'By placing this order, you agree to our terms of service and privacy policy.',
+    footnote:
+      'By placing this order, you agree to our terms of service and privacy policy.',
     placeOrder: (amount: string) => `Place order — ${amount}`,
     cancelOrder: 'Cancel',
     checkingStock: 'Checking stock...',
@@ -190,7 +274,8 @@ const en = {
     retry: 'Retry',
     guestCart: 'Guest cart',
     guestCartTitle: 'You have items saved from guest browsing.',
-    guestCartDescription: 'Merge them into your account cart to keep shopping from this account.',
+    guestCartDescription:
+      'Merge them into your account cart to keep shopping from this account.',
     mergeGuestCart: 'Merge guest cart',
     mergingGuestCart: 'Merging guest cart...',
     guestCartMergePartial: 'Some items could not be merged. You can retry.',
@@ -198,7 +283,8 @@ const en = {
   guestOrder: {
     title: 'Look up a guest order',
     eyebrow: 'Order tracking',
-    description: 'Enter the order ID and private access token shown after checkout.',
+    description:
+      'Enter the order ID and private access token shown after checkout.',
     orderId: 'Order ID',
     accessToken: 'Access token',
     submit: 'Find order',
@@ -223,7 +309,14 @@ const en = {
     statusUnknown: 'Unknown',
   },
   footer: {
-    brandTagline: 'Dependable electronics, clear checkout, order tracking, and practical support in one place.',
+    brandTagline:
+      'Dependable electronics, clear checkout, order tracking, and practical support in one place.',
+    phone: '(+84) 123 456 7890',
+    address: '123 ABC Street, HCM City, Vietnam',
+    socialLinkLabel: (platform: string) =>
+      `Digital-E on ${platform} (opens in a new tab)`,
+    navigationLabel: 'Footer navigation',
+    legalNavigationLabel: 'Legal and policies',
     shop: 'Shop',
     shopAll: 'All products',
     shopComponents: 'Components',
@@ -245,12 +338,14 @@ const en = {
   },
   notFound: {
     title: 'Page not found',
-    description: 'The page you are looking for might have moved or no longer exists.',
+    description:
+      'The page you are looking for might have moved or no longer exists.',
     backHome: 'Back to home',
   },
   news: {
     title: 'News & buying guides',
-    subtitle: 'Practical insights, product guidance, and updates from the Digital-E team.',
+    subtitle:
+      'Practical insights, product guidance, and updates from the Digital-E team.',
     featureImageAlt: 'Workspace with electronics and productivity gear',
     browseNewArrivals: 'Explore the catalog',
     visitSupport: 'Get support',
@@ -263,7 +358,8 @@ const en = {
     ],
     readArticle: 'Read the guide',
     backToNews: 'Back to News',
-    metaDescription: 'Practical electronics buying guides, product insights, and service updates from Digital-E.',
+    metaDescription:
+      'Practical electronics buying guides, product insights, and service updates from Digital-E.',
     stories: {
       featured: {
         tag: 'Digital-E approach',
@@ -290,7 +386,8 @@ const en = {
       checkout: {
         tag: 'Shopping experience',
         title: 'What to check before you place an electronics order',
-        excerpt: 'A simple pre-check for stock, price, payment, delivery details, and the next step after checkout.',
+        excerpt:
+          'A simple pre-check for stock, price, payment, delivery details, and the next step after checkout.',
         author: 'Digital-E Operations',
         body: [
           'Before an order is placed, review the details that affect the decision: product availability, current pricing, promotion conditions, delivery information, and the payment option you prefer.',
@@ -311,7 +408,8 @@ const en = {
       inventory: {
         tag: 'Trust in every order',
         title: 'Why honest availability matters when you shop online',
-        excerpt: 'Reliable stock information helps you choose confidently and avoid surprises after checkout.',
+        excerpt:
+          'Reliable stock information helps you choose confidently and avoid surprises after checkout.',
         author: 'Digital-E Operations',
         body: [
           'Availability is part of the product experience. When stock information is clear, you can decide whether to buy now, choose an alternative, or wait with the right expectations.',
@@ -329,7 +427,8 @@ const en = {
       'Learn how Digital-E makes electronics shopping clearer with curated products, transparent checkout, order visibility, and practical support.',
     heroAlt: 'Digital-E electronics and mobile technology selection',
     statsAriaLabel: 'Digital-E experience snapshot',
-    subtitle: 'Choose with confidence, checkout with clarity, and get support after the sale.',
+    subtitle:
+      'Choose with confidence, checkout with clarity, and get support after the sale.',
     explore: 'Explore the catalog',
     getSupport: 'Contact support',
     stats: {
@@ -358,27 +457,49 @@ const en = {
     missionText:
       'Make technology shopping feel less uncertain with useful product information, clear checkout decisions, visible order progress, and support that stays practical.',
     milestones: [
-      { year: '01', text: 'Discover products by category, use case, and the details that matter to you.' },
+      {
+        year: '01',
+        text: 'Discover products by category, use case, and the details that matter to you.',
+      },
       {
         year: '02',
         text: 'Compare specifications, availability, warranty information, and customer signals before buying.',
       },
-      { year: '03', text: 'Review stock, price, promotion conditions, delivery details, and payment at checkout.' },
-      { year: '04', text: 'Follow the order afterward and contact support when you need a clear next step.' },
+      {
+        year: '03',
+        text: 'Review stock, price, promotion conditions, delivery details, and payment at checkout.',
+      },
+      {
+        year: '04',
+        text: 'Follow the order afterward and contact support when you need a clear next step.',
+      },
     ],
     teamHeading: 'How we help',
     teamSubtitle: 'Practical support at every stage',
     team: [
-      { name: 'Product guidance', detail: 'Turns specifications and warranty details into clearer buying decisions.' },
-      { name: 'Order operations', detail: 'Keeps pricing, availability, checkout, and order updates aligned.' },
-      { name: 'Customer support', detail: 'Helps with account, delivery, payment, return, and warranty questions.' },
+      {
+        name: 'Product guidance',
+        detail:
+          'Turns specifications and warranty details into clearer buying decisions.',
+      },
+      {
+        name: 'Order operations',
+        detail:
+          'Keeps pricing, availability, checkout, and order updates aligned.',
+      },
+      {
+        name: 'Customer support',
+        detail:
+          'Helps with account, delivery, payment, return, and warranty questions.',
+      },
     ],
   },
   contact: {
     title: 'Contact Digital-E',
     metaDescription:
       'Contact Digital-E about product questions, orders, accounts, payments, delivery, returns, or feedback.',
-    subtitle: "Tell us what you need, and we'll help you find the next useful step.",
+    subtitle:
+      "Tell us what you need, and we'll help you find the next useful step.",
     visitSupport: 'Browse support topics',
     reviewOrders: 'Check an order',
     stats: {
@@ -395,68 +516,85 @@ const en = {
     emailLabel: 'Email address',
     emailPlaceholder: 'you@example.com',
     messageLabel: 'How can we help?',
-    messagePlaceholder: 'Include an order number or product name if it helps us understand your question.',
+    messagePlaceholder:
+      'Include an order number or product name if it helps us understand your question.',
     sendButton: 'Send request',
-    replyNote: "Sign in to submit your request securely. We'll keep the next step clear.",
+    replyNote:
+      "Sign in to submit your request securely. We'll keep the next step clear.",
     directChannelsHeading: 'Prefer a direct channel',
     directChannelsSubtitle: 'Choose the route that fits your question',
     shortcutsHeading: 'Quick routes',
     shortcutsSubtitle: 'Start where your question already lives',
     metaEmailLabel: 'Email',
     metaEmailValue: 'contact@digital-e.com',
-    metaEmailNote: 'Best for detailed questions, screenshots, and warranty documents.',
+    metaEmailNote:
+      'Best for detailed questions, screenshots, and warranty documents.',
     metaPhoneLabel: 'Phone',
     metaPhoneValue: '+84 123 456 789',
-    metaPhoneNote: 'Useful when delivery, payment, or account access needs quick clarification.',
+    metaPhoneNote:
+      'Useful when delivery, payment, or account access needs quick clarification.',
     metaOfficeLabel: 'Office',
     metaOfficeValue: '123 Digital-E Street',
     metaOfficeNote: 'Ho Chi Minh City, Vietnam',
     shortcutOrderTitle: 'Order history',
-    shortcutOrderNote: 'Check status, payment method, delivery details, and items.',
+    shortcutOrderNote:
+      'Check status, payment method, delivery details, and items.',
     shortcutAccountTitle: 'Account',
-    shortcutAccountNote: 'Manage addresses, notifications, and account activity.',
+    shortcutAccountNote:
+      'Manage addresses, notifications, and account activity.',
     shortcutSupportTitle: 'Support center',
     shortcutSupportNote: 'Find common answers before sending a request.',
     submitSuccess: 'Request sent',
-    submitSuccessBody: 'Thanks for reaching out. Your request has been sent to the Digital-E support team.',
+    submitSuccessBody:
+      'Thanks for reaching out. Your request has been sent to the Digital-E support team.',
     pending: 'Sending…',
     loading: 'Preparing your contact form…',
     guestTitle: 'Sign in to send your request',
-    guestBody: 'Your message is saved for this session. Sign in to continue without starting over.',
+    guestBody:
+      'Your message is saved for this session. Sign in to continue without starting over.',
     submitError: "We couldn't send your request",
-    submitErrorBody: 'Please try again, or use the email or phone options on this page.',
+    submitErrorBody:
+      'Please try again, or use the email or phone options on this page.',
   },
   support: {
     title: 'Support Center',
     metaDescription:
       'Find clear help with Digital-E products, orders, payments, delivery, returns, warranties, and account access.',
-    heroSubtitle: 'Clear answers and practical next steps, from product questions to post-order help.',
+    heroSubtitle:
+      'Clear answers and practical next steps, from product questions to post-order help.',
     viewOrderHistory: 'Track an order',
     contactUs: 'Contact Digital-E',
     contactLabel: 'Choose your route',
     contactHeading: 'Get help in the way that suits your question',
     contactFormTitle: 'Send a support request',
-    contactFormText: 'Use the contact form for product, order, payment, delivery, return, or account questions.',
-    contactFormDetail: 'Sign in to submit and keep the request connected to your account',
+    contactFormText:
+      'Use the contact form for product, order, payment, delivery, return, or account questions.',
+    contactFormDetail:
+      'Sign in to submit and keep the request connected to your account',
     contactFormAction: 'Open contact form',
     emailTitle: 'Email support',
-    emailText: 'Share context, screenshots, an order ID, or warranty details when the question needs more detail.',
+    emailText:
+      'Share context, screenshots, an order ID, or warranty details when the question needs more detail.',
     emailDetail: 'support@digital-e.com',
     emailAction: 'Email support',
     hotlineTitle: 'Phone support',
-    hotlineText: 'Use the phone line when delivery, payment, or account access needs a quicker conversation.',
+    hotlineText:
+      'Use the phone line when delivery, payment, or account access needs a quicker conversation.',
     hotlineDetail: '+84 123 456 789',
     hotlineAction: 'Call support',
     selfServiceLabel: 'Find an answer',
     resourcesHeading: 'Start with the most common topics',
     trackOrderTitle: 'Order status',
-    trackOrderText: 'Open your order history to review status, payment, delivery address, and items.',
+    trackOrderText:
+      'Open your order history to review status, payment, delivery address, and items.',
     trackOrderAction: 'Open order history',
     returnsTitle: 'Returns and refunds',
-    returnsText: "Tell us what happened and we'll guide you through the next step for your order.",
+    returnsText:
+      "Tell us what happened and we'll guide you through the next step for your order.",
     returnsAction: 'Ask about a return',
     warrantyTitle: 'Warranty questions',
-    warrantyText: 'Share the product and purchase details so we can help you understand the available path.',
+    warrantyText:
+      'Share the product and purchase details so we can help you understand the available path.',
     warrantyAction: 'Ask about warranty',
     paymentTitle: 'Payment questions',
     paymentText:
@@ -486,7 +624,7 @@ const en = {
     en: 'English',
     vi: 'Tiếng Việt',
   },
-}
+};
 
-export default en
-export type Dictionary = typeof en
+export default en;
+export type Dictionary = typeof en;
