@@ -109,6 +109,10 @@ describe("AdminPaymentReconciliationPage", () => {
         }]);
         render(<AdminPaymentReconciliationPage />);
 
+        expect(await screen.findByRole("columnheader", { name: "Expected amount" })).toBeInTheDocument();
+        expect(screen.getByRole("columnheader", { name: "Provider result" })).toBeInTheDocument();
+        expect(screen.getByText("PayOS and COD prioritized; legacy records retained for audit.")).toBeInTheDocument();
+
         const payosRow = await screen.findByText("Order #42").then((target) => target.closest("tr"));
         expect(payosRow).not.toBeNull();
         fireEvent.click(within(payosRow!).getByRole("button", { name: "Reconcile" }));

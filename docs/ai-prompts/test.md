@@ -60,7 +60,7 @@ Mock network calls through the existing HTTP boundary. Keep test data
 deterministic. Never log real secrets, cookies, tokens, payment credentials, or
 personal contact information.
 
-## Few-shot example
+## Few-shot examples
 
 ```text
 Input:
@@ -82,6 +82,27 @@ Risks:
 Next action:
 - None
 ```
+
+~~~text
+Input:
+target: guest order lookup
+expected: an invalid token returns a safe error without order data
+
+Output:
+Status: findings
+Role: test and QA agent
+Files changed: none
+Findings:
+- [P1] No regression case covers an invalid guest token response
+Verification:
+- existing server tests: valid-token path covered; invalid-token path not found
+Assumptions:
+- The guest lookup route remains token-protected
+Risks:
+- A future change could leak order details on token failure
+Next action:
+- Add deterministic valid, invalid, expired, and reused-token cases
+~~~
 
 ## Verify and report
 

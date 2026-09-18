@@ -18,6 +18,7 @@ import http from "../../../lib/http";
 import { fetchGuestOrderByPayOSOrderCode, lookupGuestOrder } from "../api";
 import { parseShippingAddress } from "../shippingAddress";
 import { formatMoney } from "../../../utils/currency";
+import { CUSTOMER_ROUTES } from "../../../routes/customerRoutes";
 import type { GuestOrderDetail } from "../types";
 import {
     clearPendingCheckout,
@@ -205,7 +206,7 @@ const CheckoutSuccessPage = () => {
                 {payOSOrderCode && !combinedData && pollingTimedOut ? (
                     <div className="checkout__alert">
                         Payment received — we&apos;re finalizing your order. Check{" "}
-                        {isGuestOrder ? <Link to="/guest-order">Guest order lookup</Link> : <Link to="/orders">My Orders</Link>} shortly if it doesn&apos;t appear here.
+                        {isGuestOrder ? <Link to="/guest-order">Guest order lookup</Link> : <Link to={CUSTOMER_ROUTES.orders}>My Orders</Link>} shortly if it doesn&apos;t appear here.
                     </div>
                 ) : null}
                 <article className="success__hero">
@@ -379,7 +380,7 @@ const CheckoutSuccessPage = () => {
                     <Link to="/" className="success__action success__action--primary">
                         Continue shopping <ArrowRightIcon size={18} />
                     </Link>
-                    <Link to={isGuestOrder ? "/guest-order" : "/orders"} className="success__action success__action--secondary">
+                    <Link to={isGuestOrder ? "/guest-order" : CUSTOMER_ROUTES.orders} className="success__action success__action--secondary">
                         {isGuestOrder ? "Look up guest order" : "View order status"}
                     </Link>
                 </div>

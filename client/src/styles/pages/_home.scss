@@ -290,6 +290,7 @@
                     border-top-color: transparent;
                 }
             }
+
         }
 
         &__readout {
@@ -556,41 +557,6 @@
                 margin: 0.85rem 0 0;
                 color: var(--home-muted);
                 line-height: 1.6;
-            }
-        }
-
-        &__tabs {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            margin-bottom: 1.5rem;
-            padding-bottom: 0.85rem;
-            border-bottom: 1px solid var(--home-line);
-
-            button {
-                min-height: 42px;
-                padding: 0.55rem 0.85rem;
-                border: 1px solid var(--home-line);
-                border-radius: 2px;
-                background: transparent;
-                color: var(--home-muted);
-                font-family: var(--de-font-family-mono);
-                font-size: 0.68rem;
-                font-weight: 700;
-                letter-spacing: 0.04em;
-                text-transform: uppercase;
-                cursor: pointer;
-                transition:
-                    background-color 180ms ease,
-                    border-color 180ms ease,
-                    color 180ms ease;
-
-                &:hover,
-                &.is-active {
-                    border-color: var(--home-ink);
-                    background: var(--home-ink);
-                    color: var(--home-bg);
-                }
             }
         }
 
@@ -1980,9 +1946,10 @@
 
         button {
             position: relative;
-            min-height: 42px;
-            padding: 0;
+            min-height: 44px;
+            padding: 0.5rem 0.35rem;
             border: 0;
+            border-radius: var(--de-radius-sm);
             background: transparent;
             color: var(--home-muted);
             cursor: pointer;
@@ -2003,12 +1970,20 @@
             }
 
             &:hover,
+            &:focus-visible,
+            &[aria-selected='true'],
             &.is-active {
+                background-color: transparent;
                 color: var(--home-ink);
 
                 &::after {
                     transform: scaleX(1);
                 }
+            }
+
+            &:disabled {
+                cursor: not-allowed;
+                opacity: 0.55;
             }
         }
     }
@@ -2572,6 +2547,12 @@
                 width: 100%;
             }
         }
+    }
+}
+
+@media (min-width: 1000px) and (max-width: 1100px) {
+    .home__shelf__grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
     }
 }
 

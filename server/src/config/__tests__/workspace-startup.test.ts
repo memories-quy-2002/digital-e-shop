@@ -30,13 +30,20 @@ describe("independent package startup", () => {
         expect(packageJson.scripts?.dev).toBe("vite");
     });
 
-    it("provides a persistent local Auth Emulator command", () => {
+    it("provides a persistent local Auth Emulator command that seeds demo users", () => {
         const packageJson = readPackage(serverPackagePath);
         const emulatorScript = packageJson.scripts?.["firebase:emulator"];
+        const launcherPath = path.resolve(serverPackagePath, "..", "scripts", "start-firebase-emulator.mjs");
+        const launcherSource = fs.readFileSync(launcherPath, "utf8");
 
-        expect(emulatorScript).toContain("firebase emulators:start --only auth");
-        expect(emulatorScript).toContain("--config=../firebase.json");
-        expect(emulatorScript).toContain("--import=../.firebase/emulator-data");
-        expect(emulatorScript).toContain("--export-on-exit");
+        expect(emulatorScript).toBe("node scripts/start-firebase-emulator.mjs");
+        expect(launcherSource).toContain("firebase emulators:start");
+        expect(launcherSource).toContain('"--only"');
+        expect(launcherSource).toContain("--config");
+        expect(launcherSource).toContain("--import");
+        expect(launcherSource).toContain("--export-on-exit");
+        expect(launcherSource).toContain("seedFirebaseEmulatorUsers.js");
+        expect(launcherSource).toContain("waitForPort");
+        expect(launcherSource).toContain('shell: process.platform === "win32"');
     });
 });

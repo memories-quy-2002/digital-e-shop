@@ -11,6 +11,15 @@ const normalizeNotification = (notification: CustomerNotificationRow) => ({
     title: notification.title,
     message: notification.message,
     link: notification.link,
+    metadata: typeof notification.metadata === String.name.toLowerCase()
+        ? (() => {
+            try {
+                return JSON.parse(notification.metadata as string) as Record<string, unknown>;
+            } catch {
+                return null;
+            }
+        })()
+        : notification.metadata || null,
     read_at: notification.read_at,
     created_at: notification.created_at,
     is_read: Boolean(notification.read_at),
@@ -49,7 +58,7 @@ export class NestNotificationsService {
             type: "order",
             title: `Order #${orderId} was placed`,
             message: `Your order total is ${formatPaymentAmount(Number(total || 0), env.storeCurrency)}. We will update this timeline as the order moves forward.`,
-            link: `/orders?order=${orderId}`,
+            link: `/account/orders?order=${orderId}`,
         });
     }
 
@@ -61,7 +70,7 @@ export class NestNotificationsService {
             type: "order",
             title: `Order #${orderId} is ${label}`,
             message: `The order status changed to ${label}. Open your order history to see the full timeline.`,
-            link: `/orders?order=${orderId}`,
+            link: `/account/orders?order=${orderId}`,
         });
     }
 }

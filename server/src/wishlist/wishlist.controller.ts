@@ -1,10 +1,10 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Post, UseGuards, UsePipes } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, UseGuards, UsePipes } from "@nestjs/common";
 import { AuthGuard } from "../guards/auth.guard";
 import { OwnerParam, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestWishlistService } from "./wishlist.service";
 
-import { wishlistAddSchema, wishlistBulkDeleteSchema, wishlistDeleteSchema } from "./wishlist.validator";
+import { wishlistAddSchema, wishlistAlertUpdateSchema, wishlistBulkDeleteSchema, wishlistDeleteSchema } from "./wishlist.validator";
 
 @Controller("wishlist")
 @UseGuards(AuthGuard, RolesGuard)
@@ -28,6 +28,20 @@ export class WishlistController {
     async addItemToWishlist(@Body() body: { uid: string; pid: number }) {
         const msg = await this.wishlistService.addItemToWishlist(body.uid, body.pid);
         return { msg };
+    }
+
+    @Patch(":pid/alerts")
+    @HttpCode(200)
+    @OwnerParam("uid")
+    async updateAlerts(
+        @Param("pid") pid: string,
+        @Body(new ZodValidationPipe(wishlistAlertUpdateSchema)) body: { uid: string; priceDropEnabled: boolean; backInStockEnabled: boolean },
+    ) {
+        const alerts = await this.wishlistService.updateAlerts(body.uid, Number(pid), {
+            priceDropEnabled: body.priceDropEnabled,
+            backInStockEnabled: body.backInStockEnabled,
+        });
+        return { msg: "Wishlist alerts updated successfully", alerts };
     }
 
     @Delete()

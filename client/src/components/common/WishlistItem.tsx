@@ -4,11 +4,19 @@ import { useNavigate } from "react-router-dom";
 import { Product } from "../../utils/interface";
 import loadImage from "../../utils/loadImage";
 import { formatCurrency } from "../../utils/currency";
+import { useT } from "../../hooks/useT";
 
 interface Item {
     id: number;
     product: Product;
+    priceDropAlertEnabled?: boolean;
+    backInStockAlertEnabled?: boolean;
 }
+
+export type WishlistAlertUpdate = {
+    priceDropEnabled: boolean;
+    backInStockEnabled: boolean;
+};
 
 type WishlistItemProps = {
     item: Item;
@@ -16,15 +24,37 @@ type WishlistItemProps = {
     onSelect: (productId: number, checked: boolean) => void;
     onMoveToCart: (product: Product) => void;
     onRemoveWishlist: (productId: number) => void;
+    onAlertChange?: (productId: number, update: WishlistAlertUpdate) => Promise<void>;
 };
 
-const WishlistItem = ({ item, selected, onSelect, onMoveToCart, onRemoveWishlist }: WishlistItemProps) => {
+const WishlistItem = ({ item, selected, onSelect, onMoveToCart, onRemoveWishlist, onAlertChange }: WishlistItemProps) => {
     const { product } = item;
     const navigate = useNavigate();
+    const t = useT();
+    const [isUpdatingAlerts, setIsUpdatingAlerts] = React.useState(false);
+    const [alertError, setAlertError] = React.useState<string | null>(null);
     const imageUrl = product.main_image ? product.main_image.replace(".jpg", "") : null;
     const activePrice = product.sale_price ?? product.price;
     const availableStock = product.available_stock ?? product.stock;
     const hasSale = product.sale_price !== null && product.sale_price < product.price;
+
+    const handleAlertChange = async (field: keyof WishlistAlertUpdate, enabled: boolean) => {
+        setIsUpdatingAlerts(true);
+        setAlertError(null);
+        const update: WishlistAlertUpdate = {
+            priceDropEnabled: Boolean(item.priceDropAlertEnabled),
+            backInStockEnabled: Boolean(item.backInStockAlertEnabled),
+            [field]: enabled,
+        };
+        try {
+            if (!onAlertChange) return;
+            await onAlertChange(product.id, update);
+        } catch {
+            setAlertError(t("wishlistAlerts.updateError"));
+        } finally {
+            setIsUpdatingAlerts(false);
+        }
+    };
 
     return (
         <article className="wishlist__row">
@@ -47,7 +77,32 @@ const WishlistItem = ({ item, selected, onSelect, onMoveToCart, onRemoveWishlist
                 <div className="wishlist__row__product__info">
                     <strong>{product.name}</strong>
                     <span>{product.brand} | {product.category}</span>
-                    <small>{availableStock > 0 ? `${availableStock} in stock` : "Out of stock"}</small>
+                    <small className={availableStock > 0 ? "wishlist__stock is-in" : "wishlist__stock is-out"}>
+                        {availableStock > 0 ? `${availableStock} in stock` : "Out of stock"}
+                    </small>
+                    {onAlertChange ? <section className="wishlist__alerts" aria-label={t("wishlistAlerts.heading")} aria-busy={isUpdatingAlerts}>
+                        <label className={item.priceDropAlertEnabled ? "wishlist__alert is-enabled" : "wishlist__alert"}>
+                            <input
+                                type="checkbox"
+                                checked={item.priceDropAlertEnabled}
+                                disabled={isUpdatingAlerts}
+                                onChange={(event) => void handleAlertChange("priceDropEnabled", event.target.checked)}
+                                aria-label={t("wishlistAlerts.priceDropLabel")}
+                            />
+                            <span>{t("wishlistAlerts.priceDropLabel")}</span>
+                        </label>
+                        <label className={item.backInStockAlertEnabled ? "wishlist__alert is-enabled" : "wishlist__alert"}>
+                            <input
+                                type="checkbox"
+                                checked={item.backInStockAlertEnabled}
+                                disabled={isUpdatingAlerts}
+                                onChange={(event) => void handleAlertChange("backInStockEnabled", event.target.checked)}
+                                aria-label={t("wishlistAlerts.backInStockLabel")}
+                            />
+                            <span>{t("wishlistAlerts.backInStockLabel")}</span>
+                        </label>
+                        {alertError ? <small className="wishlist__alerts__error" role="alert">{alertError}</small> : null}
+                    </section> : null}
                 </div>
             </div>
 
@@ -55,10 +110,6 @@ const WishlistItem = ({ item, selected, onSelect, onMoveToCart, onRemoveWishlist
                 <strong>{formatCurrency(activePrice)}</strong>
                 {hasSale ? <span>Sale from {formatCurrency(product.price)}</span> : <span>No sale change</span>}
             </div>
-
-            <span className={availableStock > 0 ? "wishlist__stock is-in" : "wishlist__stock is-out"}>
-                {availableStock > 0 ? "Available" : "Unavailable"}
-            </span>
 
             <div className="wishlist__row__actions">
                 <button type="button" onClick={() => onMoveToCart(product)} disabled={availableStock <= 0}>

@@ -80,8 +80,29 @@ describe("ProductCard", () => {
         );
 
         expect(screen.getByTestId("product-card-price")).toHaveTextContent("419");
-        expect(screen.getByTestId("product-card-rating")).toHaveTextContent("4.0");
+        expect(screen.getByTestId("product-card-rating")).toHaveTextContent("4.0 (2)");
+        expect(screen.getByRole("img", { name: "4.0 Rating, 2 customer reviews" })).toBeInTheDocument();
         expect(screen.getByTestId("product-card-stock")).toHaveTextContent("39");
         expect(screen.getByText("-7%")).toBeInTheDocument();
+    });
+
+    it("keeps the product media link and image dimensions explicit", () => {
+        render(
+            <LocaleProvider>
+                <MemoryRouter>
+                    <ProductCard
+                        product={product}
+                        uid=""
+                        isWishlist={false}
+                        onToggleWishlist={vi.fn()}
+                        onAddingCart={vi.fn()}
+                    />
+                </MemoryRouter>
+            </LocaleProvider>,
+        );
+
+        expect(screen.getByRole("link", { name: "Product view: Demo Intel Core Ultra Kit" })).toBeInTheDocument();
+        expect(screen.getByRole("img", { name: product.name })).toHaveAttribute("width", "640");
+        expect(screen.getByRole("img", { name: product.name })).toHaveAttribute("height", "640");
     });
 });

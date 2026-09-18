@@ -164,6 +164,24 @@
             color: var(--de-color-text-muted);
             font-size: 0.82rem;
             line-height: 1.5;
+
+            .product-page__reviews-login {
+                color: var(--de-color-electric);
+                font-weight: 800;
+                text-decoration: underline;
+                text-decoration-thickness: 0.1em;
+                text-underline-offset: 0.16em;
+
+                &:hover {
+                    color: var(--de-color-signal);
+                }
+
+                &:focus-visible {
+                    border-radius: var(--de-radius-xs);
+                    outline: 2px solid var(--de-color-circuit);
+                    outline-offset: 3px;
+                }
+            }
         }
 
         &-form {

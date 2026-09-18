@@ -124,7 +124,7 @@
 
     &__row {
         display: grid;
-        grid-template-columns: 36px minmax(0, 1.5fr) 180px 130px 190px;
+        grid-template-columns: 36px minmax(0, 1fr) 190px 220px;
         gap: 1rem;
         align-items: center;
         background: var(--de-color-surface-strong);
@@ -141,13 +141,13 @@
         &__product {
             display: flex;
             gap: 1rem;
-            align-items: center;
+            align-items: flex-start;
             min-width: 0;
 
             &__image {
                 border: none;
-                width: 82px;
-                height: 82px;
+                width: 96px;
+                height: 96px;
                 border-radius: 12px;
                 background: var(--de-color-surface-hover);
                 padding: 0.55rem;
@@ -168,6 +168,9 @@
                 flex-direction: column;
                 gap: 0.25rem;
                 min-width: 0;
+                flex: 1 1 auto;
+                max-width: 42rem;
+                padding-top: 0.15rem;
 
                 strong {
                     color: var(--de-color-text);
@@ -200,6 +203,8 @@
         &__actions {
             display: flex;
             justify-content: flex-end;
+            align-items: center;
+            flex-wrap: nowrap;
             gap: 0.5rem;
 
             button {
@@ -212,8 +217,19 @@
                 align-items: center;
                 gap: 0.4rem;
                 font-weight: 800;
+                min-height: 44px;
+                white-space: nowrap;
+
+                &:first-child {
+                    flex: 1 1 auto;
+                    min-width: 0;
+                }
 
                 &.danger {
+                    flex: 0 0 44px;
+                    justify-content: center;
+                    padding-right: 0;
+                    padding-left: 0;
                     background: var(--de-color-danger-soft);
                     color: var(--de-color-danger-strong);
                 }
@@ -226,8 +242,72 @@
         }
     }
 
+    &__alerts {
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px dashed var(--de-color-border);
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        min-width: 0;
+        width: min(100%, 28rem);
+
+        &__error {
+            flex-basis: 100%;
+            color: var(--de-color-danger-strong);
+            font-size: 0.76rem;
+            font-weight: 700;
+        }
+    }
+
+    &__alert {
+        min-height: 36px;
+        flex: 1 1 9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.35rem 0.55rem;
+        border: 1px solid var(--de-color-border);
+        border-radius: 8px;
+        background: transparent;
+        cursor: pointer;
+
+        input {
+            width: 1rem;
+            height: 1rem;
+            accent-color: var(--de-color-primary-emphasis);
+            flex: 0 0 auto;
+        }
+
+        span {
+            min-width: 0;
+            color: var(--de-color-text);
+            font-size: 0.78rem;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        &:hover {
+            border-color: var(--de-color-primary-emphasis);
+        }
+
+        &:focus-within,
+        &.is-enabled {
+            border-color: var(--de-color-primary-emphasis);
+            background: var(--de-color-primary-emphasis-soft);
+        }
+
+        &:has(input:disabled) {
+            cursor: wait;
+            opacity: 0.68;
+        }
+    }
+
     &__stock {
-        justify-self: start;
+        align-self: flex-start;
+        width: fit-content;
+        margin-top: 0.25rem;
         border-radius: 999px;
         padding: 0.4rem 0.7rem;
         font-size: 0.82rem;
@@ -264,8 +344,7 @@
             grid-template-columns: 36px minmax(0, 1fr);
 
             &__price,
-            &__actions,
-            .wishlist__stock {
+            &__actions {
                 grid-column: 2;
             }
 
@@ -279,6 +358,16 @@
     @media (max-width: 640px) {
         &__summary {
             grid-template-columns: 1fr;
+        }
+
+        &__alerts {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        &__alert {
+            flex-basis: auto;
+            width: 100%;
         }
     }
 }

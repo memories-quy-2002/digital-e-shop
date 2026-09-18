@@ -22,6 +22,7 @@ import { PaymentProviderService } from "../payments/payment-provider.service";
 import { buildPaymentQuote } from "../payments/currency";
 import type { PaymentProviderName, PaymentQuote } from "../payments/payment.types";
 import { generateGuestOrderToken, hashGuestOrderToken, matchesGuestOrderToken } from "./guest-order-token";
+import { WishlistAlertsService } from "../wishlist/wishlist-alerts.service";
 
 export const createCheckoutError = (message: string, statusCode = 409, details: Record<string, unknown> = {}) =>
     Object.assign(new Error(message), { statusCode, details });
@@ -114,7 +115,15 @@ export class NestOrdersService {
         private readonly promotionsRepository: PromotionsRepository,
         private readonly productAttributesRepository: ProductAttributesRepository,
         @Optional() private readonly paymentProviderService?: PaymentProviderService,
+        @Optional() private readonly wishlistAlertsService?: WishlistAlertsService,
     ) {}
+
+    private processWishlistProductChange(tx: TransactionContext, change: Parameters<WishlistAlertsService["processProductChangeInTransaction"]>[1]): Promise<void> {
+        if (!this.wishlistAlertsService || typeof this.wishlistAlertsService.processProductChangeInTransaction !== String.name.toLowerCase()) {
+            return Promise.resolve();
+        }
+        return this.wishlistAlertsService.processProductChangeInTransaction(tx, change);
+    }
 
     private async createPaymentLedgerInTransaction(
         tx: TransactionContext,
@@ -199,12 +208,22 @@ export class NestOrdersService {
                 );
                 const movements: InventoryMovementInput[] = [];
                 for (const item of items) {
-                    const [product] = await tx.query<Array<{ id: number; stock: number }>>(
-                        "SELECT id, stock FROM products WHERE id = ? FOR UPDATE", [item.product_id],
+                    const [product] = await tx.query<Array<{ id: number; name: string; price: number; sale_price: number | null; stock: number }>>(
+                        "SELECT id, name, price, sale_price, stock FROM products WHERE id = ? FOR UPDATE", [item.product_id],
                     );
                     if (!product) throw createCheckoutError("Product for this order no longer exists", 409);
                     const quantity = Number(item.quantity) || 0;
                     await tx.query("UPDATE products SET stock = stock + ? WHERE id = ?", [quantity, item.product_id]);
+                    await this.processWishlistProductChange(tx, {
+                        productId: item.product_id,
+                        productName: String(product.name || `Product #${item.product_id}`),
+                        priceBefore: Number(product.price) || 0,
+                        salePriceBefore: product.sale_price,
+                        stockBefore: Number(product.stock) || 0,
+                        priceAfter: Number(product.price) || 0,
+                        salePriceAfter: product.sale_price,
+                        stockAfter: (Number(product.stock) || 0) + quantity,
+                    });
                     movements.push({ productId: item.product_id, orderId, movementType: "restock_cancelled_order", quantityChange: quantity,
                         stockBefore: Number(product.stock), stockAfter: Number(product.stock) + quantity,
                         note: `Stock restored for canceled order #${orderId}`, actorId });
@@ -495,6 +514,14 @@ export class NestOrdersService {
                     productIds,
                 );
 
+                const alertProducts = this.wishlistAlertsService && !guestLockedProducts
+                    ? await q<LockedProductRow[]>(
+                        `SELECT id, name, price, sale_price, stock FROM products WHERE id IN (${productIds.map(() => "?").join(", ")}) AND stock >= 0 FOR UPDATE`,
+                        productIds,
+                    )
+                    : lockedProducts;
+                const alertProductById = new Map(alertProducts.map((row) => [row.id, row]));
+
                 const stockById = new Map(lockedProducts.map((row) => [row.id, Number(row.stock) || 0]));
                 for (const [productId, quantity] of productQuantities.entries()) {
                     const authoritativeItem = authoritativeItemsById.get(productId);
@@ -566,6 +593,19 @@ export class NestOrdersService {
                     );
                     if (result.affectedRows !== 1) {
                         throw createCheckoutError("Stock changed while placing the order. Please try again.", 409);
+                    }
+                    const product = alertProductById.get(productId);
+                    if (product) {
+                        await this.processWishlistProductChange(tx, {
+                            productId,
+                            productName: String(product.name || `Product #${productId}`),
+                            priceBefore: Number(product.price) || 0,
+                            salePriceBefore: product.sale_price ?? null,
+                            stockBefore: Number(product.stock) || 0,
+                            priceAfter: Number(product.price) || 0,
+                            salePriceAfter: product.sale_price ?? null,
+                            stockAfter: Math.max((Number(product.stock) || 0) - quantity, 0),
+                        });
                     }
                 }
                 await this.inventoryService.createMovementsInTransaction(tx, inventoryMovements);
@@ -967,6 +1007,19 @@ export class NestOrdersService {
                 );
                 if (result.affectedRows !== 1) {
                     throw createCheckoutError("Stock changed while confirming payment. The order was not created.", 409);
+                }
+                const product = lockedProducts.find((row) => row.id === item.productId);
+                if (product) {
+                await this.processWishlistProductChange(tx, {
+                        productId: item.productId,
+                        productName: String(product.name || `Product #${item.productId}`),
+                        priceBefore: Number(product.price) || 0,
+                        salePriceBefore: product.sale_price ?? null,
+                        stockBefore,
+                        priceAfter: Number(product.price) || 0,
+                        salePriceAfter: product.sale_price ?? null,
+                        stockAfter: stockBefore - item.quantity,
+                    });
                 }
                 inventoryMovements.push({
                     productId: item.productId,

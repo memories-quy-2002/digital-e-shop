@@ -99,15 +99,16 @@ Use this startup order in separate terminals:
 pnpm --dir server docker:up
 pnpm --dir server firebase:emulator
 pnpm --dir server seed:demo                 # only when the local DB needs demo rows
-pnpm --dir server firebase:seed:emulator
 pnpm --dir server dev
 pnpm --dir client dev
 ```
 
-The firebase:emulator script persists the local Auth state in the ignored
-.firebase/emulator-data directory, so restarting the emulator preserves user
-UIDs. The guarded Firebase seeder updates only the four deterministic demo users and
-refuses production, remote emulator hosts, or the production Firebase project.
+The firebase:emulator script waits for Auth to become ready, automatically seeds the
+four deterministic demo users, and persists local Auth state in the ignored
+.firebase/emulator-data directory, so restarting the emulator preserves user UIDs.
+The separate firebase:seed:emulator command remains available for manually repairing
+an already-running local emulator. The guarded seeder refuses production, remote
+emulator hosts, or the production Firebase project.
 Restart both apps after changing `.env` files. The local demo DB starts those
 users with `email_verified_at = NULL`; completing an Emulator UI action link
 and signing in again synchronizes the verified Firebase claim.

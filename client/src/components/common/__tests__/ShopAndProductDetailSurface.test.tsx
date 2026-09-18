@@ -160,7 +160,7 @@ describe("shop and product detail surfaces", () => {
         expect(screen.getByTestId("product-reviews-list")).toHaveClass("product-page__reviews-list");
     });
 
-    it("places recommendations before the product detail tabs", async () => {
+    it("places recommendations after the product detail tabs", async () => {
         render(
             <MemoryRouter initialEntries={["/product?id=1"]}>
                 <LocaleProvider>
@@ -172,7 +172,25 @@ describe("shop and product detail surfaces", () => {
         const recommendations = await screen.findByTestId("product-recommendations-shell");
         const tabs = screen.getByTestId("product-tabs");
 
-        expect(recommendations.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(tabs.compareDocumentPosition(recommendations) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
         expect(screen.getByTestId("product-gallery-main")).toHaveClass("product-page__gallery-main--fixed");
+    });
+
+    it("links anonymous reviewers to login with the current product as the return target", async () => {
+        render(
+            <MemoryRouter initialEntries={["/product?id=1"]}>
+                <LocaleProvider>
+                    <ProductPage />
+                </LocaleProvider>
+            </MemoryRouter>,
+        );
+
+        await screen.findByTestId("product-tabs");
+        fireEvent.click(screen.getByRole("button", { name: /Reviews/ }));
+
+        expect(await screen.findByRole("link", { name: "Login" })).toHaveAttribute(
+            "href",
+            "/login?redirect=%2Fproduct%3Fid%3D1",
+        );
     });
 });

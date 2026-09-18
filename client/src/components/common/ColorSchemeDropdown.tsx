@@ -49,11 +49,11 @@ const ColorSchemeDropdown: React.FC<{ align?: "left" | "right" }> = ({ align = "
         <div className="de-dropdown" ref={ref}>
             <button
                 type="button"
-                className="de-dropdown__trigger"
+                className="de-dropdown__trigger de-dropdown__trigger--theme"
                 onClick={() => setOpen((prev) => !prev)}
                 aria-haspopup="listbox"
                 aria-expanded={open}
-                aria-label={t("colorScheme.system")}
+                aria-label={currentLabel}
                 data-resolved={resolved}
                 title={currentLabel}
             >

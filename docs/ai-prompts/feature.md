@@ -107,7 +107,7 @@ For UI changes, use `playwright` to verify a desktop and mobile viewport,
 both locales, both themes, keyboard focus, loading and error recovery, and
 horizontal overflow. Record each route and viewport.
 
-## Few-shot example
+## Few-shot examples
 
 ```text
 Input:
@@ -130,6 +130,28 @@ Risks:
 Next action:
 - None
 ```
+
+~~~text
+Input:
+request: add guest checkout receipt visibility
+expected_user_outcome: guests can find the order reference after checkout
+
+Output:
+Status: blocked
+Role: implementation agent
+Files changed: none
+Findings:
+- [P2] The request needs a product decision about which guest-safe identifier
+  may be shown before implementation can start
+Verification:
+- source inspection: guest checkout and order lookup paths checked
+Assumptions:
+- Existing privacy rules remain unchanged
+Risks:
+- Showing the wrong identifier could expose order data
+Next action:
+- Confirm the approved guest-visible identifier and acceptance criteria
+~~~
 
 ## Return the shared contract
 

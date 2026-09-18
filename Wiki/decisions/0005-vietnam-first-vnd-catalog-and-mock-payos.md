@@ -1,5 +1,7 @@
 # 0005 Vietnam-first VND catalog and mock PayOS checkout
 
+Back to [[index]].
+
 Status: accepted
 Date: 2026-09-10
 

@@ -65,7 +65,7 @@ Use `systematic-debugging` for reproduction, isolation, hypothesis, fix,
 and regression verification. Use `web-design-guidelines` with fresh rules
 for interface findings.
 
-## Few-shot example
+## Few-shot examples
 
 ```text
 Input:
@@ -87,6 +87,27 @@ Risks:
 Next action:
 - Reproduce with a wrong token, move validation earlier, and add a regression test
 ```
+
+~~~text
+Input:
+bug: COD confirmation accepts an amount that differs from the order
+expected: reject the confirmation without changing payment state
+
+Output:
+Status: pass
+Role: debugging agent
+Files changed: none
+Findings:
+- None
+Verification:
+- server regression test: mismatched amount rejected and payment state unchanged
+Assumptions:
+- The fixture uses a whole-number VND order total
+Risks:
+- Provider or database outage behavior was not tested
+Next action:
+- None
+~~~
 
 ## Verify and report
 

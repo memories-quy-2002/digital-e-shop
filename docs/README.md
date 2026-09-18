@@ -14,7 +14,7 @@ This directory contains maintained guides for Digital-E development, API work, v
 
 - [Codex orchestration](./CODEX_ORCHESTRATION.md): bounded delegation and verification roles
 - [BMAD workflow](./bmad/README.md): lightweight product and engineering planning
-- [AI task prompts](./ai-prompts/README.md): reusable prompts for features, fixes, refactors, reviews, tests, and Wiki ingestion
+- [AI task prompts](./ai-prompts/README.md): reusable prompts for features, fixes, refactors, reviews, tests, codebase exploration, docs and Wiki audits, feature discovery, and Wiki ingestion
 - [Superpowers plans and specs](./superpowers/): historical design and implementation records
 
 Completed plans and specs remain historical records. Update maintained guides and Wiki pages when the implementation changes instead of rewriting past decisions.

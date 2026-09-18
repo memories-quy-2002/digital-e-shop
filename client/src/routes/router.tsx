@@ -1,9 +1,10 @@
 import React, { Suspense, lazy } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import withSessionCheck from "../features/auth/components/withSessionCheck";
 import RequireAdmin from "../features/auth/components/RequireAdmin";
 import LoadingScreen from "../components/common/LoadingScreen";
 import ForbiddenPage from "../pages/ForbiddenPage";
+import { CUSTOMER_ROUTES } from "./customerRoutes";
 
 const HomePage = lazy(() => import("../pages/HomePage"));
 const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
@@ -41,6 +42,13 @@ const ProtectedOrderHistoryPage = withSessionCheck(OrderHistoryPage);
 const ProtectedAddressBookPage = withSessionCheck(AddressBookPage);
 const ProtectedWishlistPage = withSessionCheck(WishlistPage);
 
+type LegacyCustomerRedirectProps = { to: string };
+
+const LegacyCustomerRedirect = ({ to }: LegacyCustomerRedirectProps) => {
+    const location = useLocation();
+    return <Navigate to={{ pathname: to, search: location.search }} replace />;
+};
+
 const AppRouter = () => {
     return (
         <Suspense fallback={<LoadingScreen variant="page" />}>
@@ -64,10 +72,13 @@ const AppRouter = () => {
                 <Route path="/checkout-success" element={<CheckoutSuccessPage />} />
                 <Route path="/mock-payos-checkout" element={<MockPayOSCheckoutPage />} />
                 <Route path="/403" element={<ForbiddenPage />} />
-                <Route path="/account" element={<ProtectedCustomerAccountPage />} />
-                <Route path="/orders" element={<ProtectedOrderHistoryPage />} />
-                <Route path="/addresses" element={<ProtectedAddressBookPage />} />
-                <Route path="/notifications" element={<Navigate to="/account#notifications" replace />} />
+                <Route path={CUSTOMER_ROUTES.account} element={<ProtectedCustomerAccountPage />} />
+                <Route path={CUSTOMER_ROUTES.orders} element={<ProtectedOrderHistoryPage />} />
+                <Route path={CUSTOMER_ROUTES.addresses} element={<ProtectedAddressBookPage />} />
+                <Route path={CUSTOMER_ROUTES.notifications} element={<ProtectedCustomerAccountPage />} />
+                <Route path="/orders" element={<LegacyCustomerRedirect to={CUSTOMER_ROUTES.orders} />} />
+                <Route path="/addresses" element={<LegacyCustomerRedirect to={CUSTOMER_ROUTES.addresses} />} />
+                <Route path="/notifications" element={<LegacyCustomerRedirect to={CUSTOMER_ROUTES.notifications} />} />
                 <Route
                     path="/admin"
                     element={

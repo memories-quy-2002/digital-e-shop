@@ -59,7 +59,7 @@ decisions.
 Add the page to `Wiki/index.md`, bump its Last updated date, and append one
 line to `Wiki/log.md`. Keep backlinks working. Do not modify source code.
 
-## Few-shot example
+## Few-shot examples
 
 ```text
 Input:
@@ -81,6 +81,28 @@ Risks:
 Next action:
 - None
 ```
+
+~~~text
+Input:
+area: guest checkout ownership boundary
+goal: document the token-protected lookup and cart merge relationship
+
+Output:
+Status: findings
+Role: Wiki curator
+Files changed: none
+Findings:
+- [P2] Wiki/concepts/guest-checkout.md:1: the page lacks a source link for
+  the guest lookup ownership rule
+Verification:
+- source inspection: guest cart, order lookup, and merge paths checked
+Assumptions:
+- The current token boundary remains accepted
+Risks:
+- Future changes may update the route without updating the durable explanation
+Next action:
+- Add a concise source note and backlink without copying implementation
+~~~
 
 ## Return the shared contract
 

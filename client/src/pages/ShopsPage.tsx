@@ -361,6 +361,7 @@ const ShopsPage = () => {
                             categories={facets.categories}
                             brands={facets.brands}
                             filters={filters}
+                            priceBounds={[facets.minPrice, facets.maxPrice || MAX_PRICE_RANGE]}
                             onCheckboxChange={handleCheckboxChange}
                             onPriceRangeChange={handlePriceRangeChange}
                             onApplyFilters={applyFilters}

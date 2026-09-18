@@ -11,6 +11,7 @@ import { normalizeProductImageName } from "../../utils/images";
 import ratingStar from "../../utils/ratingStar";
 import { formatCurrency } from "../../utils/currency";
 import { useT } from "../../hooks/useT";
+import { getProductCategoryLabel } from "../../utils/productCategory";
 
 export type ProductCardProps = {
     product: Product;
@@ -41,6 +42,7 @@ const ProductCard = ({
     const discountPercent = hasSale ? Math.round(((normalizedProduct.price - activePrice) / normalizedProduct.price) * 100) : 0;
     const stockLabel = availableStock > 0 ? t("product.stockIn", availableStock) : t("product.stockOut");
     const wishlistLabel = isWishlist ? t("product.savedToWishlist") : t("product.saveToWishlist");
+    const categoryLabel = getProductCategoryLabel(normalizedProduct.category, t);
 
     return (
         <Card
@@ -82,20 +84,20 @@ const ProductCard = ({
                     to={productPath}
                     className="de-product-media de-product-media--catalog w-full max-w-none"
                     data-testid="product-card-image"
-                    aria-label={`View ${normalizedProduct.name}`}
+                    aria-label={t("product.view") + ": " + normalizedProduct.name}
                 >
                     {loadImage(normalizeProductImageName(normalizedProduct.main_image), normalizedProduct.name, {
                         width: "100%",
                         height: "100%",
                         objectFit: "contain",
                         display: "block",
-                    })}
+                    }, false, undefined, { width: 640, height: 640 })}
                 </Link>
             </div>
 
             <CardContent className="product-card__content flex flex-1 flex-col gap-2 px-2 pb-2 pt-4">
                 <div className="product-card__meta">
-                    <span className="product-card__category">{normalizedProduct.category || t("product.categoryFallback")}</span>
+                    <span className="product-card__category">{categoryLabel || t("product.categoryFallback")}</span>
                     <span className="product-card__brand">{normalizedProduct.brand || t("product.brandFallback")}</span>
                 </div>
 
@@ -106,17 +108,26 @@ const ProductCard = ({
                     {normalizedProduct.name || "Unnamed product"}
                 </Link>
 
-                <div className="product-card__rating" data-testid="product-card-rating">
-                    <span role="img" aria-label={`${normalizedProduct.rating.toFixed(1)} ${t("product.ratingLabel")}`} className="product-card__rating-stars">
+                <div
+                    className="product-card__rating"
+                    data-testid="product-card-rating"
+                    role="img"
+                    aria-label={`${normalizedProduct.rating.toFixed(1)} ${t("product.ratingLabel")}, ${t("product.reviewsCount", normalizedProduct.reviews)}`}
+                >
+                    <span aria-hidden="true" className="product-card__rating-stars">
                         {ratingStar(normalizedProduct.rating, "var(--de-color-warning)", 15)}
                     </span>
-                    <span className="product-card__rating-value">{normalizedProduct.rating.toFixed(1)}</span>
-                    <span className="product-card__reviews">{t("product.reviewsCount", normalizedProduct.reviews)}</span>
+                    <span aria-hidden="true" className="product-card__rating-value">
+                        {normalizedProduct.rating.toFixed(1)}
+                    </span>
+                    <span aria-hidden="true" className="product-card__rating-count">
+                        {" ("}{normalizedProduct.reviews})
+                    </span>
                 </div>
 
                 <div className="product-card__price" data-testid="product-card-price">
-                    <strong className="product-card__price-current">{formatCurrency(activePrice)}</strong>
                     {hasSale ? <span className="product-card__price-original">{formatCurrency(normalizedProduct.price)}</span> : null}
+                    <strong className="product-card__price-current">{formatCurrency(activePrice)}</strong>
                 </div>
 
                 <div

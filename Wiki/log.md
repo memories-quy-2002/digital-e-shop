@@ -1,6 +1,7 @@
 # Maintenance log
 
-Append-only. One line per notable project maintenance operation. Newest at the bottom.
+Append-only. One line per notable project maintenance operation. New entries go
+at the bottom. Existing entries retain their historical order.
 
 Format: `YYYY-MM-DD — <author> — <what changed>`
 
@@ -70,3 +71,6 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-17 - Codex - Completed the VND PayOS/COD payment rollout: removed active client legacy payment choices, added the guarded admin reconciliation workspace and webhook history, fixed VND runtime configuration, and refreshed payment documentation.
 - 2026-09-17 - Codex - Added Product, Order, Payment, and SupportTicket entity pages plus source notes and synthesis pages for checkout, after-sales, and VND payment operations.
 - 2026-09-17 - Codex - Added index backlinks to the new entity, source, and synthesis pages so the Wiki catalog remains navigable.
+- 2026-09-18 - Codex - Added owner-scoped Wishlist price-drop/back-in-stock preferences, transactional in-app alerts, localized client controls, and API/Wiki documentation.
+- 2026-09-18 — Codex — Added documentation and prompt maintenance guidance with source-of-truth ownership, extensible prompt rules, and Wiki QA checks.
+- 2026-09-18 - Codex - Added canonical customer account routes with legacy redirects and localized Account, Orders, Addresses, and Notifications surfaces in English and Vietnamese.

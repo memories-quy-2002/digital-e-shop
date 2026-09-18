@@ -9,6 +9,8 @@ const LazyLoadImage = ({
     srcSet,
     sizes,
     fetchPriority,
+    width,
+    height,
 }: {
     src: string;
     alt: string;
@@ -18,6 +20,8 @@ const LazyLoadImage = ({
     srcSet?: string;
     sizes?: string;
     fetchPriority?: "high" | "low" | "auto";
+    width?: number;
+    height?: number;
 }) => {
     const imgRef = useRef<HTMLImageElement | null>(null);
 
@@ -72,6 +76,8 @@ const LazyLoadImage = ({
             loading={eager ? "eager" : "lazy"}
             decoding="async"
             fetchPriority={fetchPriority}
+            width={width}
+            height={height}
             style={style}
             onError={onError}
         />

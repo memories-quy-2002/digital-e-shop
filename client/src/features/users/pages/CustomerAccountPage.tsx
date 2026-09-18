@@ -28,23 +28,90 @@ import {
 import { getFirebaseAuthErrorMessage } from "../../auth/authErrors";
 import { formatCurrency } from "../../../utils/currency";
 import { getOrderStatusKey } from "../../orders/orderStatus";
+import { useT, type Translator } from "../../../hooks/useT";
+import { CUSTOMER_ROUTES, customerOrderRoute } from "../../../routes/customerRoutes";
 
 
-const getDisplayName = (customer: CustomerIdentity | null) => {
-    if (!customer) return "Customer";
+const getDisplayName = (customer: CustomerIdentity | null, fallback: string) => {
+    if (!customer) return fallback;
     const fullName = [customer.first_name, customer.last_name].filter(Boolean).join(" ").trim();
-    return fullName || customer.username || "Customer";
+    return fullName || customer.username || fallback;
 };
 
-const getStatusLabel = (status: number) => {
-    const labels = { pending: "Pending", done: "Done", canceled: "Canceled", unknown: "Unknown" };
+const getStatusLabel = (status: number, t: Translator) => {
+    const labels = { pending: t("orders.statusPending"), done: t("orders.statusDone"), canceled: t("orders.statusCanceled"), unknown: t("orders.statusUnknown") };
     return labels[getOrderStatusKey(status)];
+};
+
+const getNotificationCopy = (notification: CustomerNotification, t: Translator) => {
+    const metadata = notification.metadata || {};
+    const productName = typeof metadata.productName === "string" ? metadata.productName : "";
+        if (notification.type === "order") {
+        const placedMatch = notification.title.match(/^Order #(\d+) was placed$/);
+        const completedMatch = notification.title.match(/^Order #(\d+) is completed$/);
+        const canceledMatch = notification.title.match(/^Order #(\d+) is canceled$/);
+        const totalMatch = notification.message.match(/^Your order total is (.+?)\./);
+        const orderId = placedMatch?.[1] || completedMatch?.[1] || canceledMatch?.[1];
+        if (placedMatch && orderId) {
+            return {
+                typeLabel: t("account.notifications.orderType"),
+                title: t("account.notifications.orderPlacedTitle", orderId),
+                message: totalMatch ? t("account.notifications.orderPlacedMessage", totalMatch[1]) : notification.message,
+            };
+        }
+        if (completedMatch && orderId) {
+            return {
+                typeLabel: t("account.notifications.orderType"),
+                title: t("account.notifications.orderCompletedTitle", orderId),
+                message: t("account.notifications.orderCompletedMessage"),
+            };
+        }
+        if (canceledMatch && orderId) {
+            return {
+                typeLabel: t("account.notifications.orderType"),
+                title: t("account.notifications.orderCanceledTitle", orderId),
+                message: t("account.notifications.orderCanceledMessage"),
+            };
+        }
+    }
+
+    if (!productName) {
+        return {
+            typeLabel: notification.type,
+            title: notification.title,
+            message: notification.message,
+        };
+    }
+
+    if (notification.type === "wishlist_price_drop") {
+        const currentPrice = formatCurrency(Number(metadata.currentPrice) || 0);
+        return {
+            typeLabel: t("wishlistAlerts.priceDropType"),
+            title: t("wishlistAlerts.priceDropNotificationTitle", productName),
+            message: t("wishlistAlerts.priceDropNotificationMessage", productName, currentPrice),
+        };
+    }
+
+    if (notification.type === "wishlist_back_in_stock") {
+        return {
+            typeLabel: t("wishlistAlerts.backInStockType"),
+            title: t("wishlistAlerts.backInStockNotificationTitle", productName),
+            message: t("wishlistAlerts.backInStockNotificationMessage", productName),
+        };
+    }
+
+    return {
+        typeLabel: notification.type,
+        title: notification.title,
+        message: notification.message,
+    };
 };
 
 const CustomerAccountPage = () => {
     const { userData } = useAuth();
     const uid = userData?.id || "";
     const { addToast } = useToast();
+    const t = useT();
     const location = useLocation();
     const [customer, setCustomer] = useState<CustomerIdentity | null>(null);
     const [orders, setOrders] = useState<CustomerOrder[]>([]);
@@ -66,9 +133,9 @@ const CustomerAccountPage = () => {
         try {
             setIsSendingVerification(true);
             await sendFirebaseEmailVerification();
-            addToast("Verify your email", "A new verification link has been sent.");
+            addToast(t("account.verifyEmailToast"), t("account.verificationSent"));
         } catch {
-            addToast("Verify your email", "Please sign in again before requesting a new verification link.");
+            addToast(t("account.verifyEmailToast"), t("account.verificationSignIn"));
         } finally {
             setIsSendingVerification(false);
         }
@@ -79,7 +146,7 @@ const CustomerAccountPage = () => {
         const normalizedEmail = newEmail.trim();
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(normalizedEmail)) {
             setEmailChangeError(true);
-            setEmailChangeMessage("Enter a valid new email address.");
+            setEmailChangeMessage(t("account.validEmail"));
             return;
         }
 
@@ -88,8 +155,8 @@ const CustomerAccountPage = () => {
             setEmailChangeError(false);
             await sendFirebaseEmailChangeVerification(normalizedEmail);
             setNewEmail("");
-            setEmailChangeMessage("Check your new email to confirm the change.");
-            addToast("Change email", "A confirmation link has been sent to your new email address.");
+            setEmailChangeMessage(t("account.emailChangeCheck"));
+            addToast(t("account.changeEmail"), t("account.emailChangeSent"));
         } catch (error: unknown) {
             const response = error && typeof error === "object" && "response" in error
                 ? (error as { response?: { data?: { msg?: string } } }).response
@@ -97,7 +164,7 @@ const CustomerAccountPage = () => {
             setEmailChangeError(true);
             setEmailChangeMessage(response?.data?.msg || getFirebaseAuthErrorMessage(
                 error,
-                "Unable to request an email change right now. Please try again.",
+                t("account.emailChangeError"),
             ));
         } finally {
             setIsRequestingEmailChange(false);
@@ -120,7 +187,7 @@ const CustomerAccountPage = () => {
                 setOrders(customerOrders);
                 setAddresses(customerAddresses);
             } catch {
-                addToast("Account", "Unable to load your account overview.");
+                addToast(t("account.title"), t("account.loadError"));
             } finally {
                 setLoading(false);
             }
@@ -142,7 +209,7 @@ const CustomerAccountPage = () => {
                 const response = await fetchCustomerNotifications(uid, 10);
                 setNotifications(response.notifications);
             } catch {
-                addToast("Notifications", "Unable to load notification updates.");
+                addToast(t("account.notifications.title"), t("account.notifications.updateError"));
             } finally {
                 setIsNotificationsLoading(false);
             }
@@ -152,13 +219,14 @@ const CustomerAccountPage = () => {
     }, [addToast, uid]);
 
     useEffect(() => {
-        if (loading || location.hash !== "#notifications") return;
+        const notificationsRouteActive = location.pathname === CUSTOMER_ROUTES.notifications || location.hash === "#notifications";
+        if (loading || !notificationsRouteActive) return;
 
         const notificationsSection = document.getElementById("account-notifications");
         if (notificationsSection && typeof notificationsSection.scrollIntoView === "function") {
             notificationsSection.scrollIntoView({ block: "start" });
         }
-    }, [loading, location.hash]);
+    }, [loading, location.hash, location.pathname]);
 
     const unreadNotificationCount = notifications.filter((notification) => !notification.is_read).length;
 
@@ -177,10 +245,10 @@ const CustomerAccountPage = () => {
             })));
             addToast(
                 "Notifications",
-                result.updated > 0 ? "All notifications marked as read." : "There were no unread notifications.",
+                t("account.notifications.markAllComplete", result.updated),
             );
         } catch {
-            addToast("Notifications", "Unable to update notifications.");
+            addToast(t("account.notifications.title"), t("account.notifications.updateError"));
         } finally {
             setIsMarkingAllNotificationsRead(false);
         }
@@ -202,9 +270,9 @@ const CustomerAccountPage = () => {
             setNotifications((current) => current.map((item) => item.id === notification.id
                 ? { ...item, is_read: true, read_at: item.read_at || new Date().toISOString() }
                 : item));
-            addToast("Notifications", "Notification marked as read.");
+            addToast(t("account.notifications.title"), t("account.notifications.markedRead"));
         } catch {
-            addToast("Notifications", "Unable to update notification.");
+            addToast(t("account.notifications.title"), t("account.notifications.updateError"));
         } finally {
             setIsMarkingNotificationId(null);
         }
@@ -219,14 +287,14 @@ const CustomerAccountPage = () => {
     return (
         <Layout>
             <Helmet>
-                <title>My Account | Digital-E</title>
-                <meta name="description" content="Review your account, orders, and saved addresses." />
+                <title>{t("account.metaTitle")}</title>
+                <meta name="description" content={t("account.metaDescription")} />
             </Helmet>
             <main className="customer-account-page">
                 <CustomerAccountShell
-                    eyebrow="YOUR DIGITAL-E"
-                    title="My account"
-                    description="A quick view of your purchases, delivery details, and account activity."
+                    eyebrow={t("account.eyebrow")}
+                    title={t("account.title")}
+                    description={t("account.description")}
                 />
 
                 {loading ? (
@@ -278,18 +346,18 @@ const CustomerAccountPage = () => {
                             <div className="customer-account-page__identity">
                                 <span className="customer-account-page__identity__badge">
                                     <PersonIcon size={16} />
-                                    Customer account
+                                    {t("account.customerBadge")}
                                 </span>
-                                <h2>{getDisplayName(customer)}</h2>
-                                <p>{customer?.email || userData?.email || "No email available"}</p>
+                                <h2>{getDisplayName(customer, t("account.customerFallback"))}</h2>
+                                <p>{customer?.email || userData?.email || t("account.noEmail")}</p>
                                 {emailIsUnverified ? (
                                     <button type="button" onClick={resendVerification} disabled={isSendingVerification}>
-                                        {isSendingVerification ? "Sending verification..." : "Resend verification email"}
+                                        {isSendingVerification ? t("account.sendingVerification") : t("account.resendVerification")}
                                     </button>
                                 ) : null}
-                                <small>Last active {customer?.last_login ? formatUtcDateTime(customer.last_login) : "recently"}</small>
+                                <small>{t("account.lastActive", customer?.last_login ? formatUtcDateTime(customer.last_login) : t("account.recently"))}</small>
                                 <form className="customer-account-page__email-change" onSubmit={requestEmailChange}>
-                                    <label htmlFor="customer-account-new-email">New email</label>
+                                    <label htmlFor="customer-account-new-email">{t("account.newEmail")}</label>
                                     <div className="customer-account-page__email-change__controls">
                                         <input
                                             id="customer-account-new-email"
@@ -297,11 +365,11 @@ const CustomerAccountPage = () => {
                                             autoComplete="email"
                                             value={newEmail}
                                             onChange={(event) => setNewEmail(event.target.value)}
-                                            placeholder="new@example.com"
+                                            placeholder={t("account.newEmailPlaceholder")}
                                             required
                                         />
                                         <button type="submit" disabled={isRequestingEmailChange}>
-                                            {isRequestingEmailChange ? "Sending..." : "Send email-change link"}
+                                            {isRequestingEmailChange ? t("account.sending") : t("account.sendEmailChange")}
                                         </button>
                                     </div>
                                     {emailChangeMessage ? (
@@ -312,50 +380,50 @@ const CustomerAccountPage = () => {
 
                             <div className="customer-account-page__stats">
                                 <article>
-                                    <span>Orders</span>
+                                    <span>{t("account.ordersLabel")}</span>
                                     <strong>{orders.length}</strong>
                                 </article>
                                 <article>
-                                    <span>Addresses</span>
+                                    <span>{t("account.addressesLabel")}</span>
                                     <strong>{addresses.length}</strong>
                                 </article>
                             </div>
                         </section>
 
-                        <section className="customer-account-page__workflow" aria-label="Customer workflow shortcuts">
-                            <Link to="/orders">
+                        <section className="customer-account-page__workflow" aria-label={t("account.workflowAria")}>
+                            <Link to={CUSTOMER_ROUTES.orders}>
                                 <span>
                                     <CartIcon size={18} />
                                 </span>
-                                <strong>Review orders</strong>
-                                <small>Track purchases and reorder available items.</small>
+                                <strong>{t("account.reviewOrders")}</strong>
+                                <small>{t("account.reviewOrdersDescription")}</small>
                             </Link>
-                            <Link to="/addresses">
+                            <Link to={CUSTOMER_ROUTES.addresses}>
                                 <span>
                                     <HouseIcon size={18} />
                                 </span>
-                                <strong>Manage shipping</strong>
-                                <small>Keep delivery addresses ready for checkout.</small>
+                                <strong>{t("account.manageShipping")}</strong>
+                                <small>{t("account.manageShippingDescription")}</small>
                             </Link>
                         </section>
 
                         <section className="customer-account-page__grid">
                             <article className="customer-account-page__panel">
                                 <div className="customer-account-page__panel__header">
-                                    <h3>Recent orders</h3>
-                                    <Link to="/orders">View all</Link>
+                                    <h3>{t("account.recentOrders")}</h3>
+                                    <Link to={CUSTOMER_ROUTES.orders}>{t("account.viewAll")}</Link>
                                 </div>
                                 <div className="customer-account-page__panel-body">
                                     {recentOrders.length > 0 ? (
                                         <div className="customer-account-page__order-list">
                                             {recentOrders.map((order) => (
-                                                <Link key={order.id} to={`/orders?order=${order.id}`}>
+                                                <Link key={order.id} to={customerOrderRoute(order.id)}>
                                                     <div>
-                                                        <strong>Order #{order.id}</strong>
+                                                        <strong>{t("orders.orderLabel", order.id)}</strong>
                                                         <span>{formatUtcDate(order.date_added)}</span>
                                                     </div>
                                                     <div>
-                                                        <em>{getStatusLabel(order.status)}</em>
+                                                        <em>{getStatusLabel(order.status, t)}</em>
                                                         <small>{formatCurrency(Math.max(order.total_price - order.discount, 0))}</small>
                                                     </div>
                                                 </Link>
@@ -365,9 +433,9 @@ const CustomerAccountPage = () => {
                                         <EmptyState
                                             compact
                                             className="customer-account-page__empty"
-                                            title="No orders yet"
-                                            description="Your recent orders will appear here after checkout."
-                                            actionLabel="Start shopping"
+                                            title={t("account.noOrders")}
+                                            description={t("account.noOrdersDescription")}
+                                            actionLabel={t("account.startShopping")}
                                             actionTo="/shops"
                                         />
                                     )}
@@ -376,8 +444,8 @@ const CustomerAccountPage = () => {
 
                             <article className="customer-account-page__panel">
                                 <div className="customer-account-page__panel__header">
-                                    <h3>Saved address</h3>
-                                    <Link to="/addresses">Manage</Link>
+                                    <h3>{t("account.savedAddress")}</h3>
+                                    <Link to={CUSTOMER_ROUTES.addresses}>{t("account.manage")}</Link>
                                 </div>
                                 <div className="customer-account-page__panel-body">
                                     {primaryAddress ? (
@@ -386,22 +454,22 @@ const CustomerAccountPage = () => {
                                             <p>{primaryAddress.address_line}</p>
                                             <span>
                                                 {[primaryAddress.city, primaryAddress.country].filter(Boolean).join(", ") ||
-                                                    "Location not specified"}
+                                                    t("account.locationNotSpecified")}
                                             </span>
                                             <small>
                                                 {[primaryAddress.recipient_name, primaryAddress.phone_number]
                                                     .filter(Boolean)
-                                                    .join(" | ") || "No recipient details"}
+                                                    .join(" | ") || t("account.noRecipientDetails")}
                                             </small>
                                         </div>
                                     ) : (
                                         <EmptyState
                                             compact
                                             className="customer-account-page__empty"
-                                            title="No saved addresses yet"
-                                            description="Add a delivery address to speed up future checkout."
-                                            actionLabel="Manage addresses"
-                                            actionTo="/addresses"
+                                            title={t("account.noSavedAddresses")}
+                                            description={t("account.noSavedAddressesDescription")}
+                                            actionLabel={t("account.manageAddresses")}
+                                            actionTo={CUSTOMER_ROUTES.addresses}
                                         />
                                     )}
                                 </div>
@@ -417,12 +485,12 @@ const CustomerAccountPage = () => {
                         >
                             <div className="customer-account-page__notifications__header">
                                 <div>
-                                    <span>ACCOUNT SIGNALS</span>
-                                    <h3 id="account-notifications-heading">Notification updates</h3>
+                                    <span>{t("account.notifications.eyebrow")}</span>
+                                    <h3 id="account-notifications-heading">{t("account.notifications.title")}</h3>
                                     <p>
                                         {unreadNotificationCount > 0
-                                            ? `${unreadNotificationCount} unread update${unreadNotificationCount === 1 ? "" : "s"} from your account activity.`
-                                            : "Order, delivery, and account updates appear here."}
+                                            ? t("account.notifications.unreadSummary", unreadNotificationCount)
+                                            : t("account.notifications.emptySummary")}
                                     </p>
                                 </div>
                                 <button
@@ -435,7 +503,7 @@ const CustomerAccountPage = () => {
                                         || isMarkingNotificationId !== null
                                     }
                                 >
-                                    {isMarkingAllNotificationsRead ? "Updating..." : "Mark all read"}
+                                    {isMarkingAllNotificationsRead ? t("account.notifications.updating") : t("account.notifications.markAllRead")}
                                 </button>
                             </div>
 
@@ -448,7 +516,9 @@ const CustomerAccountPage = () => {
                                     </div>
                                 ) : notifications.length > 0 ? (
                                     <div className="customer-account-page__notification-list">
-                                        {notifications.map((notification) => (
+                                        {notifications.map((notification) => {
+                                            const copy = getNotificationCopy(notification, t);
+                                            return (
                                             <article
                                                 key={notification.id}
                                                 className={notification.is_read ? "" : "is-unread"}
@@ -457,7 +527,7 @@ const CustomerAccountPage = () => {
                                                     <button
                                                         type="button"
                                                         className="customer-account-page__notification-trigger"
-                                                        aria-label={notification.title}
+                                                        aria-label={copy.title}
                                                         aria-expanded={expandedNotificationId === notification.id}
                                                         aria-controls={expandedNotificationId === notification.id
                                                             ? `account-notification-details-${notification.id}`
@@ -467,14 +537,14 @@ const CustomerAccountPage = () => {
                                                         )}
                                                     >
                                                         <span className="customer-account-page__notification-meta">
-                                                            <span>{notification.type}</span>
+                                                            <span>{copy.typeLabel}</span>
                                                             <small>{formatUtcDateTime(notification.created_at)}</small>
                                                         </span>
-                                                        <strong>{notification.title}</strong>
+                                                        <strong>{copy.title}</strong>
                                                         <span className="customer-account-page__notification-toggle">
                                                             {expandedNotificationId === notification.id
-                                                                ? "Hide details"
-                                                                : "View details"}
+                                                                ? t("account.notifications.hideDetails")
+                                                                : t("account.notifications.viewDetails")}
                                                         </span>
                                                     </button>
                                                     <button
@@ -487,12 +557,12 @@ const CustomerAccountPage = () => {
                                                             || isMarkingNotificationId !== null
                                                         }
                                                         aria-label={notification.is_read
-                                                            ? `${notification.title} is read`
-                                                            : `Mark ${notification.title} as read`}
+                                                            ? t("account.notifications.notificationIsRead", copy.title)
+                                                            : t("account.notifications.markNotificationRead", copy.title)}
                                                     >
                                                         {isMarkingNotificationId === notification.id
-                                                            ? "Saving..."
-                                                            : notification.is_read ? "Read" : "Mark read"}
+                                                            ? t("account.notifications.saving")
+                                                            : notification.is_read ? t("account.notifications.read") : t("account.notifications.markRead")}
                                                     </button>
                                                 </div>
                                                 {expandedNotificationId === notification.id ? (
@@ -500,22 +570,23 @@ const CustomerAccountPage = () => {
                                                         id={`account-notification-details-${notification.id}`}
                                                         className="customer-account-page__notification-detail"
                                                     >
-                                                        <p>{notification.message}</p>
+                                                        <p>{copy.message}</p>
                                                         {notification.link ? (
-                                                            <Link to={notification.link}>Open details</Link>
+                                                            <Link to={notification.link}>{t("account.notifications.openDetails")}</Link>
                                                         ) : null}
                                                     </div>
                                                 ) : null}
                                             </article>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 ) : (
                                     <EmptyState
                                         compact
                                         className="customer-account-page__empty"
-                                        title="No notifications yet"
-                                        description="Order updates, delivery changes, and account reminders will appear here."
-                                        actionLabel="Browse products"
+                                        title={t("account.notifications.noNotifications")}
+                                        description={t("account.notifications.noNotificationsDescription")}
+                                        actionLabel={t("account.notifications.browseProducts")}
                                         actionTo="/shops"
                                         icon={<BellIcon size={18} />}
                                     />

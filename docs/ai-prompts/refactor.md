@@ -65,7 +65,7 @@ responsive behavior, English and Vietnamese i18n, light and dark themes, and
 reduced motion. Use `frontend-design` and `ui-ux-pro-max` to review
 the visual result without justifying unrelated redesign.
 
-## Few-shot example
+## Few-shot examples
 
 ```text
 Input:
@@ -87,6 +87,28 @@ Risks:
 Next action:
 - None
 ```
+
+~~~text
+Input:
+target: duplicated API error normalization in two client features
+goal: share the helper without changing route-local response behavior
+
+Output:
+Status: findings
+Role: refactoring agent
+Files changed: none
+Findings:
+- [P2] client/src/features/orders/api.ts:41: the helper assumes an error
+  shape that the support feature does not return
+Verification:
+- source inspection: both callers and route contracts checked; tests not run
+Assumptions:
+- The response shapes remain feature-specific
+Risks:
+- A shared helper could hide meaningful route-local error details
+Next action:
+- Define a narrow shared boundary or keep the helpers feature-local
+~~~
 
 ## Verify equivalence
 

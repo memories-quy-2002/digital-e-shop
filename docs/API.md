@@ -133,6 +133,7 @@ user record.
 | POST | /api/users/:id/notifications/:notificationId/read | Owner or admin |
 | GET | /api/wishlist/:uid | Owner or admin |
 | POST | /api/wishlist | Authenticated |
+| PATCH | /api/wishlist/:pid/alerts | Wishlist owner or admin |
 | DELETE | /api/wishlist | Authenticated |
 | DELETE | /api/wishlist/:pid | Authenticated |
 | POST | /api/reviews | Verified customer |
@@ -288,6 +289,28 @@ The current API does not expose dedicated /returns, /warranty, or /refunds
 routes. It also does not expose a guest support-ticket route. A future guest
 after-sales flow should add a token-protected request endpoint with the same
 ownership and privacy guarantees as guest order lookup.
+
+### Wishlist alerts
+
+`GET /api/wishlist/:uid` includes `price_drop_alert_enabled` and
+`back_in_stock_alert_enabled` for each saved product. The owner-scoped
+`PATCH /api/wishlist/:pid/alerts` endpoint accepts:
+
+```json
+{
+  "uid": "customer-id",
+  "priceDropEnabled": true,
+  "backInStockEnabled": false
+}
+```
+
+The server resets the alert baseline from the current VND selling price and
+current stock state. Product edits, checkout stock deductions, PayOS
+finalization, and canceled-order restocks process matching preferences inside
+the same MySQL transaction and create in-app notification types
+`wishlist_price_drop` or `wishlist_back_in_stock`. Notification rows may
+include a `metadata` object with product and current-price/stock details for
+localized client rendering.
 
 ## Compatibility aliases
 

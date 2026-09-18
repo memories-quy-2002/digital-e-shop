@@ -4,7 +4,7 @@ This Wiki records durable Digital-E understanding for maintainers and AI agents.
 
 **Project summary:** Digital-E is an electronics commerce platform built from two independent pnpm packages: a React 19 and Vite storefront/admin client in `client/`, and a NestJS 11 API on the Express 5 adapter in `server/`. MySQL remains the primary runtime database, while Prisma 7 owns a partial forward-migration layer. Firebase is the only auth provider; the Firebase Auth Emulator is a local testing target.
 
-**Last updated:** 2026-09-17
+**Last updated:** 2026-09-18
 
 The current implementation includes authenticated and guest carts, server-authoritative checkout, PayOS and COD payment paths with exact VND amounts, durable verified webhooks and bounded admin reconciliation, Firebase-owned production auth emails, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, customer support tickets, admin analytics, operational alerts, and database-backed demo verification. Legacy payment identifiers remain readable only for historical database compatibility.
 
@@ -23,6 +23,7 @@ The local demo seed creates a linked graph with 28 products across 8 categories 
 - [[0003-payment-ledger-and-usd-canonical-currency]]: historical USD-canonical decision and its current VND status
 - [[0004-guest-cart-and-checkout]]: accepted guest access model and security boundary
 - [[0005-vietnam-first-vnd-catalog-and-mock-payos]]: VND-first demo pricing and explicit local PayOS simulation
+- [[0006-customer-account-routes-and-localization]]: canonical customer account routes and English/Vietnamese UI parity
 - [[log]]: append-only Wiki maintenance history
 
 ## Related guides
@@ -48,7 +49,14 @@ Domain objects and their relationships belong under `entities/`. Current pages c
 
 ### Concepts
 
-Cross-cutting behavior belongs under `concepts/`, such as authentication, validation, inventory movement, API response shapes, guest checkout, and order lifecycle.
+Cross-cutting behavior belongs under `concepts/`, such as authentication,
+validation, inventory movement, API response shapes, guest checkout, order
+lifecycle, and documentation maintenance.
+
+- [[documentation-and-prompt-maintenance]]: source-of-truth ownership, content
+  types, prompt extension, and Wiki maintenance rules
+- [[wishlist-alerts]]: owner-scoped price-drop/back-in-stock preferences and
+  transactional in-app notifications
 
 ### Decisions
 

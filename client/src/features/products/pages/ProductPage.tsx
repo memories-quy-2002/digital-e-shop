@@ -10,6 +10,7 @@ import Layout from "../../../components/layout/Layout";
 import { useAuth } from "../../../context/AuthContext";
 import { useCart } from "../../../context/CartContext";
 import { useToast } from "../../../context/ToastContext";
+import { buildLoginRedirectPath } from "../../auth/authRedirect";
 import productPlaceholder from "../../../assets/images/product_placeholder.jpg";
 import NoPage from "../../../pages/NotFoundPage";
 import "../../../styles/pages/_product.scss";
@@ -644,18 +645,6 @@ const ProductPage = () => {
                     </div>
                 </section>
 
-                <section className="product-page__recommendations-shell" data-testid="product-recommendations-shell">
-                    <div className="product-page__recommendations-head">
-                        <h2 className="product-page__recommendations-title">
-                            {t("product.recommendationsTitle")}
-                        </h2>
-                        <Link to="/shops" className="product-page__recommendations-link">
-                            {t("product.browseCatalog")}
-                        </Link>
-                    </div>
-                    <RecommendedProduct relevantProducts={relevantProducts} />
-                </section>
-
                 <div className="product-page__tabs" data-testid="product-tabs">
                     <div className="product-page__tabs-nav">
                         <button
@@ -761,7 +750,13 @@ const ProductPage = () => {
 
                                 {!uid ? (
                                     <div className="product-page__reviews-state">
-                                        {t("product.loginToReview")}
+                                        <Link
+                                            to={buildLoginRedirectPath(location)}
+                                            className="product-page__reviews-login"
+                                        >
+                                            {t("product.loginToReviewLink")}
+                                        </Link>
+                                        <span>{t("product.loginToReviewAfter")}</span>
                                     </div>
                                 ) : (
                                     <form action={submitReviewAction} className="product-page__reviews-form">
@@ -847,6 +842,18 @@ const ProductPage = () => {
                         </div>
                     </Activity>
                 </div>
+
+                <section className="product-page__recommendations-shell" data-testid="product-recommendations-shell">
+                    <div className="product-page__recommendations-head">
+                        <h2 className="product-page__recommendations-title">
+                            {t("product.recommendationsTitle")}
+                        </h2>
+                        <Link to="/shops" className="product-page__recommendations-link">
+                            {t("product.browseCatalog")}
+                        </Link>
+                    </div>
+                    <RecommendedProduct relevantProducts={relevantProducts} />
+                </section>
 
                 <ImageLightbox
                     show={isLightboxOpen}

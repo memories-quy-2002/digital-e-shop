@@ -50,8 +50,9 @@
     &__rating {
         display: flex;
         min-width: 0;
-        min-height: 1.25rem;
+        min-height: 1.35rem;
         align-items: center;
+        flex-wrap: nowrap;
         gap: 0.35rem;
         color: var(--de-color-text-soft);
         font-family: var(--de-font-family-mono);
@@ -69,26 +70,25 @@
         font-weight: 700;
     }
 
-    &__reviews {
-        min-width: 0;
-        margin-left: auto;
-        overflow: hidden;
-        text-overflow: ellipsis;
+    &__rating-count {
+        color: var(--de-color-text-soft);
+        font-variant-numeric: tabular-nums;
         white-space: nowrap;
     }
 
     &__price {
         display: flex;
-        min-height: 1.8rem;
-        align-items: baseline;
-        flex-wrap: wrap;
-        gap: 0.45rem;
+        min-height: 3.15rem;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: flex-start;
+        gap: 0.15rem;
         font-family: var(--de-font-family-mono);
     }
 
     &__price-current {
         color: var(--de-color-signal);
-        font-size: 1.08rem;
+        font-size: 0.82rem;
         font-weight: 800;
         letter-spacing: -0.03em;
         white-space: nowrap;
@@ -96,7 +96,7 @@
 
     &__price-original {
         color: var(--de-color-text-soft);
-        font-size: 0.68rem;
+        font-size: 0.62rem;
         text-decoration: line-through;
         white-space: nowrap;
     }
@@ -139,10 +139,6 @@
     .product-card {
         &__content {
             padding-inline: 0.65rem;
-        }
-
-        &__reviews {
-            max-width: 11ch;
         }
     }
 }

@@ -11,7 +11,8 @@ Audience: the maintainer, the primary Codex agent, and delegated agents working
 on the client or server package.
 
 Content plan: prompt selection, prompt envelope, injection boundary, role
-mapping, few-shot examples, output contract, skill routing, and delegation.
+mapping, few-shot examples, output contract, skill routing, prompt QA, and
+delegation.
 
 Open questions: none. Record product decisions in the task or the relevant Wiki
 decision page.
@@ -26,6 +27,9 @@ decision page.
 | Review a change | [review.md](./review.md) | Review agent |
 | Add coverage | [test.md](./test.md) | Test and QA agent |
 | Capture knowledge | [wiki-ingest.md](./wiki-ingest.md) | Wiki curator |
+| Understand implementation | [explore-codebase.md](./explore-codebase.md) | Codebase exploration analyst |
+| Audit docs and Wiki | [explore-docs-wiki.md](./explore-docs-wiki.md) | Documentation knowledge analyst |
+| Discover opportunities | [discover-features.md](./discover-features.md) | Product and engineering discovery analyst |
 
 Use one task prompt per agent. If a request contains independent work, split it
 into bounded packets and use [CODEX_ORCHESTRATION.md](../CODEX_ORCHESTRATION.md).
@@ -39,6 +43,9 @@ to expand the user's scope.
 
 | Request shape | Select | Add these skills when relevant |
 | --- | --- | --- |
+| Map or understand implementation structure, runtime flow, or dependencies | `explore-codebase.md` | Structural search or CodeGraph; `context7-mcp` for unfamiliar libraries; `playwright` for rendered behavior |
+| Audit docs, Wiki, links, freshness, or knowledge coverage | `explore-docs-wiki.md` | `writing-guidelines`; structural search; `context7-mcp` for external technical references |
+| Find new features, opportunities, gaps, or improvements | `discover-features.md` | `brainstorming`; `frontend-design` or `ui-ux-pro-max` for UI opportunities; `context7-mcp` for library constraints |
 | New behavior or product capability | `feature.md` | `context7-mcp` for libraries; UI skills for UI; `playwright` for browser evidence |
 | Reproducible defect | `bugfix.md` | `systematic-debugging`; UI skills and `playwright` for UI defects |
 | Behavior-preserving cleanup | `refactor.md` | `vercel-react-best-practices` for React; `context7-mcp` for library behavior |
@@ -50,6 +57,38 @@ Use `find-skills` when the request needs a capability not covered by the
 installed skills, when a matched skill is unavailable, or when the user asks
 for skill discovery. Use the closest existing prompt for small work and keep
 the workflow proportional to the change.
+
+## Extend the prompt library
+
+Use the filename as the stable prompt ID. Add a new prompt only when an
+existing workflow cannot express the task without changing its boundary.
+
+When you add or change a prompt:
+
+1. Give it one primary job, role, and ownership boundary.
+2. Keep trusted instructions separate from task data and untrusted context.
+3. Use descriptive `snake_case` variables and define every input.
+4. Include at least two labeled examples: one successful result and one
+   findings or blocked result.
+5. Return the shared output contract without adding a competing format.
+6. Add the prompt to both the inventory and routing matrix.
+7. Run the prompt QA checks below and record any unavailable verification.
+
+Do not create a prompt for a single short task, a personal preference, or a
+capability already covered by an installed skill.
+
+## Prompt QA checks
+
+Before using a new or changed prompt, confirm:
+
+- the role, task context, untrusted context, and safety boundary are present
+- the prompt states whether it is read-only or allowed to edit
+- examples cover the expected output shape and an edge or blocked case
+- the output contract uses evidence, assumptions, risks, and next action
+- the README route points to the correct prompt ID
+- injection strings in repository text cannot authorize scope changes or
+  destructive actions
+- the prompt does not request secrets, personal data, or unsupported metrics
 
 ## Use the prompt envelope
 

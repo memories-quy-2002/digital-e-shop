@@ -5,11 +5,14 @@ import { NestWishlistService } from "./wishlist.service";
 import { WishlistRepository } from "./wishlist.repository";
 import { createRateLimitMiddleware } from "../middleware/rate-limit.middleware";
 import { NestConfigModule } from "../config/nest-config.module";
+import { WishlistAlertsRepository } from "./wishlist-alerts.repository";
+import { WishlistAlertsService } from "./wishlist-alerts.service";
 
 @Module({
     imports: [NestConfigModule],
     controllers: [WishlistController],
-    providers: [NestWishlistService, WishlistRepository],
+    providers: [NestWishlistService, WishlistRepository, WishlistAlertsRepository, WishlistAlertsService],
+    exports: [WishlistAlertsService, WishlistAlertsRepository],
 })
 export class WishlistModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {

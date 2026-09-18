@@ -121,6 +121,7 @@ pnpm --dir client dev
 
 The emulator command keeps local Auth users in the ignored
 .firebase/emulator-data directory across restarts.
+It waits for Auth to become ready and automatically seeds the four documented demo users.
 
 Default local URLs:
 

@@ -17,3 +17,9 @@ export const wishlistBulkDeleteSchema = z.object({
     uid: requiredText("User id"),
     productIds: z.array(positiveInt("Product id")).min(1, "At least one product is required"),
 });
+
+export const wishlistAlertUpdateSchema = z.object({
+    uid: requiredText("User id"),
+    priceDropEnabled: z.boolean({ error: "Price-drop preference must be a boolean" }),
+    backInStockEnabled: z.boolean({ error: "Back-in-stock preference must be a boolean" }),
+});

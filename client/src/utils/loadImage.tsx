@@ -3,12 +3,18 @@ import productPlaceholder from "../assets/images/product_placeholder.jpg";
 import LazyLoadImage from "./LazyLoadingImage";
 import { PRODUCT_CARD_WIDTHS, getProductImageUrl, getResponsiveImageSource } from "./images";
 
+type ImageDimensions = {
+    width: number;
+    height: number;
+};
+
 export default function loadImage(
     imageUrl: string | null,
     productName: string,
     style?: CSSProperties,
     eager = false,
     sizes = "(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 768px) 50vw, 92vw",
+    dimensions?: ImageDimensions,
 ) {
     if (!imageUrl) {
         const placeholderSource = getResponsiveImageSource(productPlaceholder, {
@@ -23,6 +29,8 @@ export default function loadImage(
                 srcSet={placeholderSource.srcSet}
                 sizes={placeholderSource.sizes}
                 alt={productName}
+                width={dimensions?.width}
+                height={dimensions?.height}
                 style={style}
                 loading="lazy"
                 decoding="async"
@@ -54,6 +62,8 @@ export default function loadImage(
             style={style}
             eager={eager}
             onError={handleError}
+            width={dimensions?.width}
+            height={dimensions?.height}
         />
     );
 }

@@ -57,13 +57,12 @@ Authentication changes should cover Firebase ID-token payloads, Firebase signup 
 Use the local Firebase profile when testing registration, verification,
 password reset, or email change without sending mail:
 
-The firebase:emulator script imports local Auth state from the ignored
-.firebase/emulator-data directory and exports it again when the emulator exits,
-so restarting the emulator does not recreate user UIDs.
+The firebase:emulator script waits for Auth to become ready, automatically seeds the
+four deterministic demo users, and imports/exports local Auth state from the ignored
+.firebase/emulator-data directory so restarting the emulator does not recreate user UIDs.
 
 ```powershell
 pnpm --dir server firebase:emulator
-pnpm --dir server firebase:seed:emulator
 ```
 
 Open `http://127.0.0.1:4001`. Use the `Authentication` tab to inspect users and

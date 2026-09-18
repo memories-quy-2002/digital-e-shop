@@ -34,22 +34,79 @@
         border-top: 1px solid var(--de-color-border);
     }
 
+    .admin__payments__scope-note {
+        display: block;
+        margin-top: 0.25rem;
+        color: var(--de-color-text-muted);
+        font-size: 0.78rem;
+    }
+
+    .admin__payments__workspace > .admin__card__header [aria-live="polite"] {
+        display: none;
+    }
+
+    .admin__payments__table-hint {
+        display: none;
+        margin: 0;
+        padding: 0.65rem 1rem;
+        border-bottom: 1px solid var(--de-color-border);
+        background: var(--de-color-surface-muted);
+        color: var(--de-color-text-muted);
+        font-size: 0.78rem;
+        font-weight: 700;
+    }
+
     .admin__payments__table {
-        min-width: 1160px;
+        min-width: 960px;
+        table-layout: fixed;
     }
 
     .admin__payments__table th,
     .admin__payments__table td {
-        padding-block: 0.9rem;
+        padding-block: 0.8rem;
+        vertical-align: middle;
     }
 
-    .admin__payments__table th:nth-child(1) { min-width: 150px; }
-    .admin__payments__table th:nth-child(2) { min-width: 105px; }
-    .admin__payments__table th:nth-child(3) { min-width: 125px; }
+    .admin__payments__table th:nth-child(1),
+    .admin__payments__table td:nth-child(1) { width: 15%; }
+    .admin__payments__table th:nth-child(2),
+    .admin__payments__table td:nth-child(2) { width: 12%; }
+    .admin__payments__table th:nth-child(3),
+    .admin__payments__table td:nth-child(3) { width: 11%; }
     .admin__payments__table th:nth-child(4),
-    .admin__payments__table th:nth-child(5) { min-width: 130px; }
-    .admin__payments__table th:nth-child(6) { min-width: 140px; }
-    .admin__payments__table th:nth-child(7) { min-width: 180px; }
+    .admin__payments__table td:nth-child(4) { width: 14%; }
+    .admin__payments__table th:nth-child(5),
+    .admin__payments__table td:nth-child(5) { width: 12%; }
+    .admin__payments__table th:nth-child(6),
+    .admin__payments__table td:nth-child(6) { width: 12%; }
+    .admin__payments__table th:nth-child(7),
+    .admin__payments__table td:nth-child(7) { width: 10%; }
+    .admin__payments__table th:nth-child(8),
+    .admin__payments__table td:nth-child(8) { width: 14%; }
+
+    .admin__payments__numeric-heading,
+    .admin__payments__amount-cell {
+        text-align: right !important;
+    }
+
+    .admin__payments__amount {
+        justify-items: end;
+        min-width: 0;
+    }
+
+    .admin__payments__amount strong {
+        white-space: nowrap;
+        overflow-wrap: normal;
+        font-family: var(--de-font-family-mono);
+        font-size: 0.78rem;
+        line-height: 1.2;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .admin__payments__table td:nth-child(5) .admin__table__stack > strong {
+        font-size: 0.78rem;
+        line-height: 1.2;
+    }
 
     .admin__payments__provider {
         display: inline-flex;
@@ -59,14 +116,40 @@
         font-weight: 800;
     }
 
-    .admin__payments__table td > small,
-    .admin__payments__provider + small {
+    .admin__payments__table td > small {
         display: block;
         max-width: 14rem;
         margin-top: 0.25rem;
         color: var(--de-color-text-muted);
         font-size: 0.72rem;
         overflow-wrap: anywhere;
+    }
+
+    .admin__payments__evidence {
+        display: grid;
+        gap: 0.2rem;
+        min-width: 0;
+    }
+
+    .admin__payments__evidence > strong {
+        min-width: 0;
+        overflow-wrap: anywhere;
+        font-size: 0.78rem;
+        line-height: 1.2;
+        font-weight: 700;
+    }
+
+    .admin__payments__empty {
+        color: var(--de-color-text-muted);
+        font-size: 0.78rem;
+        line-height: 1.2;
+    }
+
+    .admin__payments__table td:nth-child(7) > p {
+        max-width: 100%;
+        margin: 0;
+        color: var(--de-color-text-muted) !important;
+        overflow-wrap: break-word;
     }
 
     .admin__payments__table .admin__pill--pending,
@@ -89,18 +172,26 @@
     }
 
     .admin__payments__actions {
-        min-width: 13rem;
+        width: 100%;
+        min-width: 0;
+        flex-direction: column;
         align-items: stretch;
     }
 
     .admin__payments__actions .admin__button,
     .admin__payments__note {
         width: 100%;
+        min-width: 0 !important;
+    }
+
+    .admin__payments__actions .admin__button {
+        min-height: 2.35rem;
+        white-space: nowrap;
     }
 
     .admin__payments__note input {
         width: 100%;
-        min-width: 11rem;
+        min-width: 0;
         min-height: 2.1rem;
         padding: 0.4rem 0.55rem;
         font: inherit;
@@ -109,10 +200,16 @@
 
     .admin__payments__action-note {
         display: block;
-        max-width: 13rem;
+        max-width: 100%;
         color: var(--de-color-text-muted);
         font-size: 0.72rem;
         line-height: 1.35;
+    }
+
+    .admin__payments__no-action {
+        color: var(--de-color-text-muted);
+        font-size: 0.75rem;
+        font-style: italic;
     }
 
     .admin__payments__events-row td {
@@ -181,6 +278,12 @@
     .admin__payments__pagination > div {
         display: flex;
         gap: 0.5rem;
+    }
+}
+
+@media (max-width: 1100px) {
+    .admin__page--payments .admin__payments__table-hint {
+        display: block;
     }
 }
 

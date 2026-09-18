@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { LocaleProvider } from "../../../context/LocaleContext";
 import CustomerAccountPage from "./CustomerAccountPage";
 
 const mocks = vi.hoisted(() => ({
@@ -85,6 +86,7 @@ vi.mock("react-helmet-async", () => ({
 describe("CustomerAccountPage", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        window.localStorage.removeItem("digital-e:locale:v1");
         mocks.users.fetchCurrentCustomer.mockResolvedValue({
             id: "customer-1",
             email: "customer@example.com",
@@ -120,9 +122,11 @@ describe("CustomerAccountPage", () => {
 
     it("renders notification updates inside the account page", async () => {
         render(
-            <MemoryRouter initialEntries={["/account"]}>
-                <CustomerAccountPage />
-            </MemoryRouter>,
+            <LocaleProvider>
+                <MemoryRouter initialEntries={["/account"]}>
+                    <CustomerAccountPage />
+                </MemoryRouter>
+            </LocaleProvider>,
         );
 
         expect(await screen.findByRole("heading", { name: "My account" })).toBeInTheDocument();
@@ -133,9 +137,11 @@ describe("CustomerAccountPage", () => {
 
     it("marks an account notification as read and opens its details", async () => {
         render(
-            <MemoryRouter initialEntries={["/account"]}>
-                <CustomerAccountPage />
-            </MemoryRouter>,
+            <LocaleProvider>
+                <MemoryRouter initialEntries={["/account"]}>
+                    <CustomerAccountPage />
+                </MemoryRouter>
+            </LocaleProvider>,
         );
 
         fireEvent.click(await screen.findByRole("button", { name: "Order #7 was placed" }));
@@ -149,9 +155,11 @@ describe("CustomerAccountPage", () => {
 
     it("requests an email change through Firebase from the account page", async () => {
         render(
-            <MemoryRouter initialEntries={["/account"]}>
-                <CustomerAccountPage />
-            </MemoryRouter>,
+            <LocaleProvider>
+                <MemoryRouter initialEntries={["/account"]}>
+                    <CustomerAccountPage />
+                </MemoryRouter>
+            </LocaleProvider>,
         );
 
         expect(await screen.findByRole("heading", { name: "My account" })).toBeInTheDocument();
@@ -166,14 +174,33 @@ describe("CustomerAccountPage", () => {
 
     it("resends verification through the signed-in Firebase user", async () => {
         render(
-            <MemoryRouter initialEntries={["/account"]}>
-                <CustomerAccountPage />
-            </MemoryRouter>,
+            <LocaleProvider>
+                <MemoryRouter initialEntries={["/account"]}>
+                    <CustomerAccountPage />
+                </MemoryRouter>
+            </LocaleProvider>,
         );
 
         expect(await screen.findByRole("heading", { name: "My account" })).toBeInTheDocument();
         fireEvent.click(screen.getByRole("button", { name: "Resend verification email" }));
 
         await waitFor(() => expect(mocks.firebase.sendFirebaseEmailVerification).toHaveBeenCalledTimes(1));
+    });
+
+    it("renders account content in Vietnamese when the locale is vi", async () => {
+        window.localStorage.setItem("digital-e:locale:v1", JSON.stringify("vi"));
+
+        render(
+            <LocaleProvider>
+                <MemoryRouter initialEntries={["/account"]}>
+                    <CustomerAccountPage />
+                </MemoryRouter>
+            </LocaleProvider>,
+        );
+
+        expect(await screen.findByRole("heading", { name: "\u0054\u00e0i kho\u1ea3n c\u1ee7a t\u00f4i" })).toBeInTheDocument();
+        expect(await screen.findByRole("heading", { name: "C\u1eadp nh\u1eadt th\u00f4ng b\u00e1o" })).toBeInTheDocument();
+
+        window.localStorage.removeItem("digital-e:locale:v1");
     });
 });

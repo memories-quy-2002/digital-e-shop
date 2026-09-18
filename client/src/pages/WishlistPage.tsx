@@ -3,7 +3,7 @@ import { Helmet } from "react-helmet-async";
 import axios from "../api/axios";
 import EmptyState from "../components/common/EmptyState";
 import LoadingScreen from "../components/common/LoadingScreen";
-import WishlistItem from "../components/common/WishlistItem";
+import WishlistItem, { type WishlistAlertUpdate } from "../components/common/WishlistItem";
 import ConfirmActionModal from "../components/common/ConfirmActionModal";
 import Layout from "../components/layout/Layout";
 import { useAuth } from "../context/AuthContext";
@@ -11,10 +11,13 @@ import { useToast } from "../context/ToastContext";
 import { HeartFillIcon } from "../components/common/Icons";
 import "../styles/pages/_wishlist.scss";
 import { Product } from "../utils/interface";
+import { useT } from "../hooks/useT";
 
 interface Wishlist {
     id: number;
     product: Product;
+    priceDropAlertEnabled: boolean;
+    backInStockAlertEnabled: boolean;
 }
 
 const WishlistPage = () => {
@@ -27,6 +30,7 @@ const WishlistPage = () => {
     const { userData } = useAuth();
     const uid = userData?.id || "";
     const { addToast } = useToast();
+    const t = useT();
 
     useEffect(() => {
         const fetchWishlist = async () => {
@@ -44,6 +48,8 @@ const WishlistPage = () => {
 
                         return {
                             id,
+                            priceDropAlertEnabled: Boolean(Number(item.price_drop_alert_enabled)),
+                            backInStockAlertEnabled: Boolean(Number(item.back_in_stock_alert_enabled)),
                             product: {
                                 id: product_id,
                                 ...productProps,
@@ -146,6 +152,25 @@ const WishlistPage = () => {
         } catch {
             addToast("Wishlist", "Unable to move product to cart.");
         }
+    };
+
+    const handleAlertChange = async (productId: number, update: WishlistAlertUpdate) => {
+        const response = await axios.patch(`/api/wishlist/${productId}/alerts`, {
+            uid,
+            ...update,
+        });
+        if (response.status !== 200) {
+            throw new Error("Wishlist alert update failed");
+        }
+        const alerts = response.data?.alerts || update;
+        setWishlist((currentWishlist) => currentWishlist.map((item) => item.product.id === productId
+            ? {
+                ...item,
+                priceDropAlertEnabled: Boolean(Number(alerts.priceDropEnabled)),
+                backInStockAlertEnabled: Boolean(Number(alerts.backInStockEnabled)),
+            }
+            : item));
+        addToast(t("common.notifications"), t("wishlistAlerts.updated"));
     };
 
     const handleMoveSelectedToCart = async () => {
@@ -253,6 +278,7 @@ const WishlistPage = () => {
                                 onSelect={handleSelect}
                                 onMoveToCart={handleMoveToCart}
                                 onRemoveWishlist={handleRemoveWishlist}
+                                onAlertChange={handleAlertChange}
                             />
                         ))}
                     </section>
