@@ -38,6 +38,8 @@ model User {
   reviews                Review[]
   pendingCheckouts       PendingCheckout[]
   supportTickets         SupportTicket[]
+  afterSalesRequests     AfterSalesRequest[] @relation("AfterSalesRequestCustomer")
+  afterSalesEvents       AfterSalesEvent[] @relation("AfterSalesEventActor")
   marketingSubscriptions MarketingSubscription[]
 
   @@map("users")
@@ -266,6 +268,7 @@ model Order {
   discountRedemptions DiscountRedemption[]
   payments            OrderPayment[]
   supportTickets      SupportTicket[]
+  afterSalesRequests  AfterSalesRequest[]
 
   @@index([guestEmail], map: "idx_orders_guest_email")
   @@map("orders")
@@ -360,6 +363,7 @@ model OrderItem {
 
   order   Order   @relation(fields: [orderId], references: [id])
   product Product @relation(fields: [productId], references: [id])
+  afterSalesItems AfterSalesItem[]
 
   @@unique([orderId, productId], map: "uq_order_items_order_id_product_id")
   @@map("order_items")
@@ -468,4 +472,69 @@ model SupportTicket {
   @@index([userId, createdAt], map: "support_tickets_user_created_idx")
   @@index([status, priority, createdAt], map: "support_tickets_queue_idx")
   @@map("support_tickets")
+}
+
+model AfterSalesRequest {
+  id                    Int       @id @default(autoincrement())
+  orderId               Int       @map("order_id")
+  userId                String?   @map("user_id") @db.VarChar(255)
+  guestOrderTokenHash   String?   @map("guest_order_token_hash") @db.Char(64)
+  kind                  String    @db.VarChar(16)
+  status                String    @default("REQUESTED") @db.VarChar(24)
+  reason                String    @db.Text
+  adminNote             String?   @map("admin_note") @db.Text
+  requestIdempotencyKey String    @unique(map: "after_sales_requests_idempotency_key") @map("request_idempotency_key") @db.VarChar(128)
+  refundAmount          Decimal?  @map("refund_amount") @db.Decimal(14, 2)
+  refundCurrency        String?   @map("refund_currency") @db.Char(3)
+  refundReference       String?   @map("refund_reference") @db.VarChar(255)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt             DateTime  @default(now()) @map("updated_at") @db.DateTime(0)
+  approvedAt            DateTime? @map("approved_at") @db.DateTime(0)
+  receivedAt            DateTime? @map("received_at") @db.DateTime(0)
+  refundedAt            DateTime? @map("refunded_at") @db.DateTime(0)
+  closedAt              DateTime? @map("closed_at") @db.DateTime(0)
+
+  order       Order             @relation(fields: [orderId], references: [id])
+  user        User?             @relation("AfterSalesRequestCustomer", fields: [userId], references: [id], onDelete: SetNull)
+  items       AfterSalesItem[]
+  events      AfterSalesEvent[]
+
+  @@index([orderId, status, createdAt], map: "after_sales_requests_order_status_idx")
+  @@index([userId, createdAt], map: "after_sales_requests_user_created_idx")
+  @@index([orderId, guestOrderTokenHash], map: "after_sales_requests_guest_order_idx")
+  @@index([status, kind, createdAt], map: "after_sales_requests_queue_idx")
+  @@map("after_sales_requests")
+}
+
+model AfterSalesItem {
+  id          Int      @id @default(autoincrement())
+  requestId   Int      @map("request_id")
+  orderItemId Int      @map("order_item_id")
+  quantity    Int
+  reason      String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.DateTime(0)
+
+  request   AfterSalesRequest @relation(fields: [requestId], references: [id])
+  orderItem OrderItem         @relation(fields: [orderItemId], references: [id])
+
+  @@unique([requestId, orderItemId], map: "after_sales_items_request_order_item")
+  @@index([orderItemId], map: "after_sales_items_order_item_idx")
+  @@map("after_sales_items")
+}
+
+model AfterSalesEvent {
+  id           Int       @id @default(autoincrement())
+  requestId    Int       @map("request_id")
+  fromStatus   String?   @map("from_status") @db.VarChar(24)
+  toStatus     String    @map("to_status") @db.VarChar(24)
+  actorUserId  String?   @map("actor_user_id") @db.VarChar(255)
+  note         String?   @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+
+  request   AfterSalesRequest @relation(fields: [requestId], references: [id])
+  actorUser User?             @relation("AfterSalesEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([requestId, createdAt], map: "after_sales_events_request_created_idx")
+  @@index([actorUserId, createdAt], map: "after_sales_events_actor_created_idx")
+  @@map("after_sales_events")
 }
