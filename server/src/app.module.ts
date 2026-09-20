@@ -20,6 +20,7 @@ import { AllExceptionsFilter } from "./filters/all-exceptions.filter";
 import { RequestLoggerInterceptor } from "./interceptors/request-logger.interceptor";
 import { SupportModule } from "./support/support.module";
 import { AdminAlertsModule } from "./admin-alerts/admin-alerts.module";
+import { AfterSalesModule } from "./after-sales/after-sales.module";
 
 @Module({
     imports: [
@@ -41,6 +42,7 @@ import { AdminAlertsModule } from "./admin-alerts/admin-alerts.module";
         PayOSWebhookModule,
         SupportModule,
         AdminAlertsModule,
+        AfterSalesModule,
     ],
     providers: [
         { provide: APP_FILTER, useClass: AllExceptionsFilter },

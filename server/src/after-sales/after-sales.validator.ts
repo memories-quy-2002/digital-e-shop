@@ -35,6 +35,15 @@ export const afterSalesListQuerySchema = z.object({
     kind: z.enum(AFTER_SALES_KINDS).optional(),
 }).strict();
 
+export const afterSalesGuestLookupSchema = z.object({
+    orderId: positiveInt("Order id"),
+    guestOrderToken: text("Guest order token", 256),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).transform((value) => Math.min(value, 100)).default(50),
+    status: z.enum(AFTER_SALES_STATUSES).optional(),
+    kind: z.enum(AFTER_SALES_KINDS).optional(),
+}).strict();
+
 export const afterSalesStatusSchema = z.object({
     status: z.enum(AFTER_SALES_STATUSES),
     note: z.string().trim().max(5000, "Note is too long").optional(),
