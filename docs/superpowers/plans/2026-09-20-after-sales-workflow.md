@@ -10,6 +10,11 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-20-after-sales-workflow-design.md`
 
+**Status:** Complete — 2026-09-20. Tasks 1–9 are implemented and verified in
+PR #252. The final runtime includes customer, guest, and admin workflows,
+server-derived eligibility/quantities/refunds, client screens, migrations,
+OpenAPI, and Wiki documentation.
+
 ## Global Constraints
 
 - Use Node.js `24.20.0` and pnpm `12.3.4`; do not add npm/yarn lockfiles.

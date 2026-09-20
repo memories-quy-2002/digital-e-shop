@@ -10,6 +10,11 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-20-after-sales-workflow-design.md`
 
+**Status:** Complete — 2026-09-20. `main` is protected with strict
+`client`, `server`, `dependency-review`, `CodeQL`, and `GitGuardian Security
+Checks` requirements, one approving review, admin enforcement, linear history,
+conversation resolution, and disabled force-push/deletion.
+
 ## Global Constraints
 
 - Never push directly to `main`.
