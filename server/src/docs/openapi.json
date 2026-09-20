@@ -38,16 +38,33 @@
         { "name": "Blob", "description": "Vercel Blob file storage" },
         { "name": "Analytics", "description": "Admin analytics summary" },
         { "name": "Payments", "description": "PayOS, COD, reconciliation, and payment webhooks" },
-        { "name": "Support", "description": "Authenticated customer and admin support tickets" }
+        { "name": "Support", "description": "Authenticated customer and admin support tickets" },
+        { "name": "After-sales", "description": "Returns, warranty requests, status events, and refunds" }
     ],
     "components": {
         "schemas": {
+            "SuccessMetadata": {
+                "type": "object",
+                "required": ["success", "requestId"],
+                "properties": {
+                    "success": { "const": true, "description": "The request completed successfully" },
+                    "requestId": { "type": "string", "description": "Correlation ID returned in the X-Request-Id header" },
+                    "message": { "type": "string", "description": "Canonical human-readable success message when the route provides one" }
+                }
+            },
             "Error": {
                 "type": "object",
+                "required": ["success", "message", "code", "requestId"],
                 "properties": {
-                    "msg": { "type": "string", "description": "Human-readable error message" },
-                    "error": { "type": "string", "description": "Machine-readable error code" }
-                }
+                    "success": { "const": false, "description": "The request failed" },
+                    "message": { "type": "string", "description": "Canonical human-readable error message" },
+                    "code": { "type": "string", "description": "Stable machine-readable error code" },
+                    "requestId": { "type": "string", "description": "Correlation ID returned in the X-Request-Id header" },
+                    "details": { "type": "object", "additionalProperties": true, "description": "Structured error details when available" },
+                    "msg": { "type": "string", "deprecated": true, "description": "Legacy alias for message" },
+                    "error": { "type": "string", "deprecated": true, "description": "Legacy alias for message; use message instead" }
+                },
+                "additionalProperties": true
             },
             "Pagination": {
                 "type": "object",
@@ -55,7 +72,7 @@
                     "page": { "type": "integer", "minimum": 1 },
                     "limit": { "type": "integer", "minimum": 1 },
                     "total": { "type": "integer", "minimum": 0 },
-                    "totalPages": { "type": "integer", "minimum": 1 }
+                    "totalPages": { "type": "integer", "minimum": 0, "description": "Zero when total is zero" }
                 }
             },
             "User": {
@@ -274,6 +291,42 @@
                     "updated_at": { "type": "string", "format": "date-time" }
                 }
             },
+            "AfterSalesRequest": {
+                "type": "object",
+                "properties": {
+                    "id": { "type": "integer" },
+                    "orderId": { "type": "integer" },
+                    "userId": { "type": "string", "nullable": true },
+                    "kind": { "type": "string", "enum": ["RETURN", "WARRANTY"] },
+                    "status": { "type": "string", "enum": ["REQUESTED", "APPROVED", "REJECTED", "RECEIVED", "REFUND_PENDING", "REFUNDED", "CLOSED"] },
+                    "reason": { "type": "string" },
+                    "adminNote": { "type": "string", "nullable": true },
+                    "refundAmount": { "type": "number", "nullable": true },
+                    "refundCurrency": { "type": "string", "nullable": true },
+                    "refundReference": { "type": "string", "nullable": true },
+                    "items": { "type": "array", "items": { "type": "object" } },
+                    "events": { "type": "array", "items": { "type": "object" } }
+                }
+            },
+            "AfterSalesPage": {
+                "type": "object",
+                "required": ["requests", "pagination", "success", "requestId"],
+                "properties": {
+                    "requests": { "type": "array", "items": { "$ref": "#/components/schemas/AfterSalesRequest" } },
+                    "success": { "const": true },
+                    "requestId": { "type": "string" },
+                    "message": { "type": "string" },
+                    "pagination": {
+                        "type": "object",
+                        "properties": {
+                            "page": { "type": "integer" },
+                            "limit": { "type": "integer", "maximum": 100 },
+                            "total": { "type": "integer" },
+                            "totalPages": { "type": "integer" }
+                        }
+                    }
+                }
+            },
             "PaymentReconciliationCandidate": {
                 "type": "object",
                 "properties": {
@@ -342,8 +395,15 @@
                 "content": {
                     "application/json": {
                         "schema": {
-                            "type": "object",
-                            "properties": { "msg": { "type": "string" } }
+                            "allOf": [
+                                { "$ref": "#/components/schemas/SuccessMetadata" },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "msg": { "type": "string", "deprecated": true, "description": "Legacy alias for message" }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }
@@ -2215,6 +2275,104 @@
                     "400": { "$ref": "#/components/responses/Error" },
                     "404": { "$ref": "#/components/responses/Error" }
                 }
+            }
+        },
+        "/api/after-sales/requests": {
+            "get": {
+                "tags": ["After-sales"],
+                "summary": "List the signed-in customer's after-sales requests",
+                "security": [{ "cookieAuth": [] }],
+                "parameters": [
+                    { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
+                    { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 } },
+                    { "name": "status", "in": "query", "schema": { "type": "string" } },
+                    { "name": "kind", "in": "query", "schema": { "type": "string", "enum": ["RETURN", "WARRANTY"] } }
+                ],
+                "responses": { "200": { "description": "After-sales requests", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AfterSalesPage" } } } }, "401": { "$ref": "#/components/responses/Error" } }
+            },
+            "post": {
+                "tags": ["After-sales"],
+                "summary": "Create a signed-in customer's return or warranty request",
+                "security": [{ "cookieAuth": [] }],
+                "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["orderId", "kind", "reason", "items", "idempotencyKey"], "properties": { "orderId": { "type": "integer" }, "kind": { "type": "string", "enum": ["RETURN", "WARRANTY"] }, "reason": { "type": "string" }, "items": { "type": "array", "items": { "type": "object" } }, "idempotencyKey": { "type": "string" } } } } } },
+                "responses": { "201": { "description": "Request created", "content": { "application/json": { "schema": { "type": "object", "properties": { "request": { "$ref": "#/components/schemas/AfterSalesRequest" }, "msg": { "type": "string" } } } } } }, "409": { "$ref": "#/components/responses/Error" } }
+            }
+        },
+        "/api/after-sales/requests/{id}": {
+            "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+            "get": {
+                "tags": ["After-sales"],
+                "summary": "Read one signed-in customer's after-sales request",
+                "security": [{ "cookieAuth": [] }],
+                "responses": { "200": { "description": "After-sales request", "content": { "application/json": { "schema": { "type": "object", "properties": { "request": { "$ref": "#/components/schemas/AfterSalesRequest" } } } } } }, "404": { "$ref": "#/components/responses/Error" } }
+            }
+        },
+        "/api/orders/guest/after-sales/requests": {
+            "post": {
+                "tags": ["After-sales"],
+                "summary": "Create a guest return or warranty request",
+                "description": "The guest order token is accepted in the body and is never placed in a URL.",
+                "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["orderId", "guestOrderToken", "kind", "reason", "items", "idempotencyKey"], "properties": { "orderId": { "type": "integer" }, "guestOrderToken": { "type": "string" }, "kind": { "type": "string", "enum": ["RETURN", "WARRANTY"] }, "reason": { "type": "string" }, "items": { "type": "array", "items": { "type": "object" } }, "idempotencyKey": { "type": "string" } } } } } },
+                "responses": { "201": { "description": "Request created", "content": { "application/json": { "schema": { "type": "object", "properties": { "request": { "$ref": "#/components/schemas/AfterSalesRequest" } } } } } }, "404": { "$ref": "#/components/responses/Error" } }
+            }
+        },
+        "/api/orders/guest/after-sales/requests/lookup": {
+            "post": {
+                "tags": ["After-sales"],
+                "summary": "List guest after-sales requests",
+                "description": "Uses a POST body to keep the guest capability token out of URL logs and referrers.",
+                "responses": { "200": { "description": "Guest after-sales requests", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AfterSalesPage" } } } }, "404": { "$ref": "#/components/responses/Error" } }
+            }
+        },
+        "/api/orders/guest/after-sales/requests/{id}/lookup": {
+            "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+            "post": {
+                "tags": ["After-sales"],
+                "summary": "Read one guest after-sales request",
+                "responses": { "200": { "description": "Guest after-sales request", "content": { "application/json": { "schema": { "type": "object", "properties": { "request": { "$ref": "#/components/schemas/AfterSalesRequest" } } } } } }, "404": { "$ref": "#/components/responses/Error" } }
+            }
+        },
+        "/api/admin/after-sales/requests": {
+            "get": {
+                "tags": ["After-sales"],
+                "summary": "List the admin after-sales queue",
+                "security": [{ "cookieAuth": [] }],
+                "parameters": [
+                    { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
+                    { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 } },
+                    { "name": "status", "in": "query", "schema": { "type": "string" } },
+                    { "name": "kind", "in": "query", "schema": { "type": "string", "enum": ["RETURN", "WARRANTY"] } }
+                ],
+                "responses": { "200": { "description": "Admin after-sales queue", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AfterSalesPage" } } } }, "403": { "$ref": "#/components/responses/Error" } }
+            }
+        },
+        "/api/admin/after-sales/requests/{id}": {
+            "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+            "get": {
+                "tags": ["After-sales"],
+                "summary": "Read an admin after-sales request",
+                "security": [{ "cookieAuth": [] }],
+                "responses": { "200": { "description": "After-sales request", "content": { "application/json": { "schema": { "type": "object", "properties": { "request": { "$ref": "#/components/schemas/AfterSalesRequest" } } } } } }, "403": { "$ref": "#/components/responses/Error" } }
+            }
+        },
+        "/api/admin/after-sales/requests/{id}/status": {
+            "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+            "patch": {
+                "tags": ["After-sales"],
+                "summary": "Transition an after-sales request",
+                "security": [{ "cookieAuth": [] }],
+                "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["status"], "properties": { "status": { "type": "string", "enum": ["REQUESTED", "APPROVED", "REJECTED", "RECEIVED", "REFUND_PENDING", "REFUNDED", "CLOSED"] }, "note": { "type": "string" } } } } } },
+                "responses": { "200": { "description": "Status transitioned" }, "409": { "$ref": "#/components/responses/Error" } }
+            }
+        },
+        "/api/admin/after-sales/requests/{id}/refund": {
+            "parameters": [{ "$ref": "#/components/parameters/PathId" }],
+            "post": {
+                "tags": ["After-sales"],
+                "summary": "Confirm a provider-backed refund",
+                "security": [{ "cookieAuth": [] }],
+                "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["refundReference", "currency", "idempotencyKey"], "properties": { "refundReference": { "type": "string" }, "currency": { "type": "string", "example": "VND" }, "idempotencyKey": { "type": "string" }, "note": { "type": "string" } } } } } },
+                "responses": { "200": { "description": "Refund confirmed" }, "409": { "$ref": "#/components/responses/Error" }, "503": { "$ref": "#/components/responses/Error" } }
             }
         },
         "/api/admin/alerts": {

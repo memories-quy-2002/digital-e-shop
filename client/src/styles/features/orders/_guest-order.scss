@@ -196,6 +196,36 @@
         text-decoration: none;
     }
 
+    &__after-sales {
+        margin-top: 1.25rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--de-color-border);
+
+        h3 { margin: 0.25rem 0; }
+        p { color: var(--de-color-text-muted); }
+
+        form {
+            display: grid;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        label { display: grid; gap: 0.35rem; color: var(--de-color-text-muted); font-size: 0.82rem; font-weight: 800; }
+        input, select, textarea { min-height: 2.6rem; padding: 0.65rem 0.75rem; border: 1px solid var(--de-color-border); border-radius: 10px; background: var(--de-color-surface-muted); color: var(--de-color-text); font: inherit; }
+        textarea { resize: vertical; }
+        button { width: fit-content; padding: 0.65rem 0.9rem; border: 0; border-radius: 10px; background: var(--de-color-electric); color: var(--de-color-on-strong); font-weight: 800; cursor: pointer; }
+        button:disabled { cursor: wait; opacity: 0.65; }
+    }
+
+    &__after-sales-header { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
+    &__after-sales-items { display: grid; gap: 0.6rem; }
+    &__after-sales-items label { display: flex; grid-template-columns: 1fr auto; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.75rem; border: 1px solid var(--de-color-border); border-radius: 12px; }
+    &__after-sales-items small { display: block; margin-top: 0.2rem; font-weight: 400; }
+    &__after-sales-items input { width: 74px; text-align: center; }
+    &__after-sales-list { display: grid; gap: 0.6rem; margin-top: 1rem; }
+    &__after-sales-list article { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; padding: 0.75rem; border: 1px solid var(--de-color-border); border-radius: 12px; }
+    &__after-sales-list p { flex-basis: 100%; margin: 0; }
+
     @media (max-width: 760px) {
         padding: 1.5rem 0.75rem 3rem;
 

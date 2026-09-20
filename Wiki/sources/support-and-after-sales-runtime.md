@@ -1,16 +1,16 @@
 ---
 contentType: Reference
-goal: Trace support ticket behavior and after-sales gaps to source files
+goal: Trace support ticket behavior and after-sales workflow to source files
 audience: Maintainers, support operators, and AI agents
-contentPlan: Routes, validation, persistence, order context, and deferred guest flow
-openQuestions: Which identity proof should a guest use to create an after-sales request?
+contentPlan: Routes, validation, persistence, order context, guest capability flow, and refund ledger
+openQuestions: none
 ---
 
 Back to [[index]]
 
 # Where support and after-sales behavior lives
 
-TL;DR: The current support implementation provides authenticated tickets, not a complete return or warranty state machine. This note records the source-level boundary so future work can extend it without weakening order privacy.
+TL;DR: Support tickets remain authenticated-only, while the dedicated after-sales module now handles customer and guest returns/warranty requests with token-hash ownership and payment-ledger refund coordination.
 
 ## Route and role boundary
 
@@ -41,22 +41,23 @@ one required user and one optional order.
 `server/src/orders/orders.service.ts` own delivery and order status changes.
 The order lifecycle stores `delivered_at` when a Pending order becomes Done.
 The current support validator does not compare that value with a return
-deadline.
+deadline. The dedicated after-sales policy does: the return window is seven
+inclusive UTC calendar days after delivery, while warranty uses the item
+snapshot.
 
-The agreed return rule is 7 calendar days after successful delivery. The
-runtime has no dedicated return request endpoint, eligibility query, return
-status, or refund transition. Admin handling must therefore verify the rule
-manually when a ticket represents an after-sales request.
+## After-sales runtime
 
-## Deferred guest flow
+Guest order lookup protects an order with a one-time token, and after-sales
+requests reuse only its SHA-256 token hash. The raw token is accepted in POST
+bodies for create/list/detail operations and is never persisted or placed in a
+URL. Guest response objects do not expose the token hash.
 
-Guest order lookup protects an order with a one-time token, but support tickets
-require a persisted authenticated user. A guest cannot currently create or read
-a support ticket through this controller.
+`server/src/after-sales/after-sales.policy.ts` owns eligibility and legal
+transitions. `after-sales.service.ts` owns order-item ownership, quantity
+conflict checks, idempotency, and provider fail-closed behavior. The
+repository owns the three after-sales tables and the `refunded_amount` payment
+ledger projection.
 
-A future guest after-sales endpoint should bind the request to an order and a
-token hash, expose only guest-safe fields, enforce the 7-day delivery window,
-and record every operator decision. It should not place raw tokens in URLs or
-reuse the public order lookup response as a ticket write contract.
+Routes are documented in [[after-sales-request]] and `docs/API.md`.
 
 See [[support-ticket]], [[order]], and [[order-lifecycle-and-support]].

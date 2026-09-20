@@ -1,5 +1,6 @@
 import axios, { AxiosRequestHeaders } from "axios";
 import { API_BASE_URL } from "./env";
+import { getApiErrorMessage } from "./api-contract";
 
 declare module "axios" {
     export interface AxiosRequestConfig {
@@ -91,7 +92,7 @@ http.interceptors.response.use(
     async (error) => {
         const config = error.config;
         const status = error.response?.status;
-        const errorMsg = error.response?.data?.error || error.response?.data?.msg;
+        const errorMsg = getApiErrorMessage(error, "");
 
         if (status === 401 && config && !config._authRetry && !isAuthEndpoint(config.url)) {
             config._authRetry = true;

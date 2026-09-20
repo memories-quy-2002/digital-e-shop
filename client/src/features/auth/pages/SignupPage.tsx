@@ -11,6 +11,7 @@ import { createFirebaseUser, sendFirebaseEmailVerification, signInWithFirebaseEm
 import AuthShell from "../components/AuthShell";
 import { registerUser } from "../api";
 import { getFirebaseAuthErrorMessage } from "../authErrors";
+import { getApiErrorMessage } from "../../../lib/api-contract";
 
 interface User {
     username: string;
@@ -165,7 +166,7 @@ const SignupPage = () => {
         } catch (err: unknown) {
             if (err instanceof AxiosError) {
                 const status = err.response?.status;
-                const msg = err.response?.data?.msg || err.response?.data?.error || "We couldn't create your account. Please try again.";
+                const msg = getApiErrorMessage(err, "We couldn't create your account. Please try again.");
                 setErrors([msg]);
                 if (status === 500) {
                     addToast("Sign-up failed", "The account service is temporarily unavailable. Please try again later.");

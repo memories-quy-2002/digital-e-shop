@@ -95,9 +95,10 @@ documented singular/plural aliases where the client contract requires them.
 
 - Successful responses retain feature-specific keys such as `products`,
   `orders`, `order`, `userData`, `notifications`, and `pagination`.
-- The shared response layer adds success/request metadata while preserving
-  legacy `msg` and `error` compatibility. Exceptions include a correlation
-  request ID.
+- The shared response layer adds `success`, `requestId`, and an optional
+  canonical `message` while preserving legacy `msg` and `error` compatibility.
+  Errors also expose a stable `code` and optional `details`; see
+  [[api-response-contract]]. Exceptions include a correlation request ID.
 - `AuthGuard` validates the access-token cookie, active database session, and
   current user state. `RolesGuard` enforces role metadata and `OwnerParam`
   enforces resource ownership.
@@ -136,13 +137,27 @@ application has not been converted to Prisma.
 - The `0_init` migration records the existing baseline; it is metadata-only in
   the reproducible CI/local bootstrap because the legacy SQL dump creates the
   tables first.
+- The current Prisma projection models all 30 application tables. `brands`,
+  `categories`, `customer_addresses`, `customer_notifications`, and `wishlist`
+  are represented as validated read-only projections after DDL/FK/index
+  review, while runtime writes remain raw-MySQL-owned. Addresses and
+  notifications have no Prisma `User` relation because their legacy tables do
+  not declare foreign keys; wishlist preserves its existing `User` and
+  `Product` relations. See
+  [[0001-mysql-primary-prisma-partial]] and
+  [server/README.prisma.md](../server/README.prisma.md).
 - New schema changes must update raw SQL/repositories and any touched Prisma
   schema, services, validators, types, and migration in one reviewable change.
 - Order items snapshot product identity, price, warranty, image, brand,
   category, and typed attributes so historical orders remain stable.
+- New order and payment-ledger defaults are VND. Historical USD rows remain
+  unchanged and are interpreted from their stored currency snapshots.
 - Checkout, inventory reservations/movements, order timeline, addresses,
   notifications, sessions, and promotion redemption writes are transactionally
   coordinated. Never validate a schema change only against an empty database.
+- Prisma Client is currently limited to bounded read-only repository paths;
+  critical writes use the shared `mysql2` transaction context. Do not mix a
+  Prisma transaction client with the raw pool for one business transaction.
 
 ## Checkout, payment, and operations
 
@@ -175,8 +190,10 @@ application has not been converted to Prisma.
 - Client and server CI jobs install with frozen package-local lockfiles and run
   typecheck, lint, test, and build checks.
 - The server CI job starts disposable MySQL, loads the legacy dump and
-  historical compatibility SQL, records the `0_init` baseline, deploys/checks
-  Prisma migrations, and runs the opt-in integration suite.
+  historical compatibility SQL, explicitly validates the partial Prisma
+  schema, records the `0_init` baseline, deploys/checks Prisma migrations, and
+  runs the opt-in integration suite for catalog/customer projections and
+  currency defaults.
 - Security workflow coverage includes dependency review; CodeQL is owned by
   GitHub repository default setup. Workflow actions are pinned to reviewed
   commit SHAs.

@@ -7,6 +7,7 @@ import {
     normalizeCheckoutCartItems,
     type CustomerOrder,
     type CustomerOrderDetail,
+    type CustomerOrderItem,
     type GuestCheckoutSessionResponse,
     type GuestPayOSCheckoutRequest,
     type PayOSCheckoutResponse,
@@ -77,7 +78,8 @@ export async function fetchCustomerOrders(uid: string): Promise<CustomerOrder[]>
 
 export async function fetchCustomerOrderDetail(orderId: number): Promise<CustomerOrderDetail | null> {
     const response = await http.get(`/api/orders/${orderId}`);
-    return response.data.order || null;
+    const order = response.data.order as CustomerOrderDetail | undefined;
+    return order ? { ...order, items: (order.items || []).map((item) => ({ ...item, orderItemId: Number(item.orderItemId ?? (item as CustomerOrderItem & { id?: number }).id ?? 0) })) } : null;
 }
 
 export async function cancelCustomerOrder(orderId: number, reason?: string): Promise<CustomerOrder | null> {
@@ -155,7 +157,9 @@ export async function confirmMockPayOSPayment(payload: {
 
 export async function lookupGuestOrder(orderId: number, guestOrderToken: string): Promise<GuestOrderDetail> {
     const response = await http.post("/api/orders/guest/lookup", { orderId, guestOrderToken });
-    return response.data.order as GuestOrderDetail;
+    const order = response.data.order as GuestOrderDetail | undefined;
+    if (!order) return response.data.order as unknown as GuestOrderDetail;
+    return { ...order, items: (order.items || []).map((item) => ({ ...item, orderItemId: Number(item.orderItemId || 0) })) };
 }
 
 export async function fetchGuestOrderByPayOSOrderCode(

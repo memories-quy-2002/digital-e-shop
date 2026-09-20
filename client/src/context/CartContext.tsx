@@ -25,6 +25,7 @@ import {
 } from "../features/orders/guestCartStorage";
 import type { CartValidationIssue, CheckoutCartItem, GuestCartPreview } from "../features/orders/types";
 import { getCartValidationMessage } from "../features/orders/types";
+import { getApiErrorMessage } from "../lib/api-contract";
 
 export type CartStatus = "loading" | "ready" | "empty" | "validation-error" | "error";
 export type GuestCartMergeStatus = "idle" | "loading" | "complete" | "partial" | "error";
@@ -83,11 +84,7 @@ interface CartContextValue {
 const CartContext = createContext<CartContextValue | null>(null);
 
 const getErrorMessage = (error: unknown, fallback: string) => {
-    if (error && typeof error === "object" && "response" in error) {
-        const response = (error as { response?: { data?: { msg?: string; error?: string } } }).response;
-        return response?.data?.msg || response?.data?.error || fallback;
-    }
-    return fallback;
+    return getApiErrorMessage(error, fallback);
 };
 
 const normalizeContextItems = (items: CheckoutCartItem[]) =>

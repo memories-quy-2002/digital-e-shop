@@ -2,9 +2,9 @@
 
 This Wiki records durable Digital-E understanding for maintainers and AI agents. Use [AGENTS.md](../AGENTS.md) for repository rules and [docs/](../docs/) for task-oriented human guides.
 
-**Project summary:** Digital-E is an electronics commerce platform built from two independent pnpm packages: a React 19 and Vite storefront/admin client in `client/`, and a NestJS 11 API on the Express 5 adapter in `server/`. MySQL remains the primary runtime database, while Prisma 7 owns a partial forward-migration layer. Firebase is the only auth provider; the Firebase Auth Emulator is a local testing target.
+**Project summary:** Digital-E is an electronics commerce platform built from two independent pnpm packages: a React 19 and Vite storefront/admin client in `client/`, and a NestJS 11 API on the Express 5 adapter in `server/`. MySQL remains the primary runtime database, while Prisma 7 owns a complete typed projection and partial forward-migration layer for the 30 application tables. Firebase is the only auth provider; the Firebase Auth Emulator is a local testing target.
 
-**Last updated:** 2026-09-17
+**Last updated:** 2026-09-20
 
 The current implementation includes authenticated and guest carts, server-authoritative checkout, PayOS and COD payment paths with exact VND amounts, durable verified webhooks and bounded admin reconciliation, Firebase-owned production auth emails, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, customer support tickets, admin analytics, operational alerts, and database-backed demo verification. Legacy payment identifiers remain readable only for historical database compatibility.
 
@@ -18,6 +18,7 @@ The local demo seed creates a linked graph with 28 products across 8 categories 
 - Marketing subscriptions and unsubscribe routes are removed; the historical schema remains only for migration compatibility.
 - [[guest-checkout]]: local/server anonymous cart persistence, authoritative preview, guest checkout, token-protected lookup, aggregate funnel analytics, and cart merge
 - [[order-lifecycle-and-support]]: order state transitions, review eligibility, and support-ticket ownership
+- [[after-sales-request]]: customer and guest return/warranty requests, eligibility, status events, and refund boundaries
 - [[0001-mysql-primary-prisma-partial]]: MySQL and partial Prisma ownership
 - [[0002-nestjs-migration]]: accepted NestJS migration and current server structure
 - [[0003-payment-ledger-and-usd-canonical-currency]]: historical USD-canonical decision and its current VND status
@@ -45,10 +46,13 @@ Domain objects and their relationships belong under `entities/`. Current pages c
 - [[order]]: customer and guest identity, lifecycle, order items, and reporting
 - [[payment]]: payment ledger, provider boundary, webhooks, and reconciliation
 - [[support-ticket]]: support ownership and the current after-sales boundary
+- [[after-sales-request]]: after-sales request ownership, guest capability access, and payment-ledger refund state
 
 ### Concepts
 
-Cross-cutting behavior belongs under `concepts/`, such as authentication, validation, inventory movement, API response shapes, guest checkout, and order lifecycle.
+Cross-cutting behavior belongs under `concepts/`, such as authentication, validation, inventory movement, [[api-response-contract]], guest checkout, and order lifecycle.
+
+- [[api-response-contract]]: canonical success/error metadata, compatibility aliases, request IDs, and pagination boundaries
 
 ### Decisions
 
@@ -61,7 +65,7 @@ Use `sources/` for notes derived from a specific source file or external referen
 Current source notes:
 
 - [[checkout-and-payment-runtime]]: source map for cart, checkout, payment, and reconciliation
-- [[support-and-after-sales-runtime]]: source map for support tickets and deferred guest after-sales work
+- [[support-and-after-sales-runtime]]: source map for support tickets and the implemented after-sales workflow
 
 Current synthesis pages:
 

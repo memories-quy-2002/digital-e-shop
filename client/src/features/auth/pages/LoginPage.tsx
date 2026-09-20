@@ -11,6 +11,7 @@ import { loginUser } from "../api";
 import AuthShell from "../components/AuthShell";
 import { getFirebaseAuthErrorMessage } from "../authErrors";
 import { getSafeRedirectTarget } from "../authRedirect";
+import { getApiErrorMessage } from "../../../lib/api-contract";
 
 interface User {
     email: string;
@@ -108,9 +109,9 @@ const LoginPage = () => {
             navigate(destination, { replace: true });
         } catch (err: unknown) {
             if (err && typeof err === "object" && "response" in err) {
-                const axiosError = err as { response?: { status?: number; data?: { msg?: string; error?: string } } };
+                const axiosError = err as { response?: { status?: number } };
                 const status = axiosError.response?.status;
-                const responseMessage = axiosError.response?.data?.msg || axiosError.response?.data?.error;
+                const responseMessage = getApiErrorMessage(err, "");
                 const message = status === 500
                     ? "The account service is temporarily unavailable. Please try again later."
                     : responseMessage || "We couldn't complete sign in. Please try again.";

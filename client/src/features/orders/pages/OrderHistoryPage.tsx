@@ -15,6 +15,7 @@ import type { CustomerOrder, CustomerOrderDetail, CustomerOrderTimelineEvent } f
 import { formatShippingAddress } from "../shippingAddress";
 import { formatCurrency } from "../../../utils/currency";
 import { getOrderStatusKey, ORDER_STATUS } from "../orderStatus";
+import { getApiErrorMessage } from "../../../lib/api-contract";
 
 const getStatusLabel = (status: number) => {
     const labels = { pending: "Pending", done: "Done", canceled: "Canceled", unknown: "Unknown" };
@@ -166,9 +167,7 @@ const OrderHistoryPage = () => {
             }
             addToast("Order canceled", "Your pending order was canceled and inventory was released.");
         } catch (error: unknown) {
-            const message = error && typeof error === "object" && "response" in error
-                ? String((error as { response?: { data?: { msg?: string } } }).response?.data?.msg || "Unable to cancel this order.")
-                : "Unable to cancel this order.";
+            const message = getApiErrorMessage(error, "Unable to cancel this order.");
             addToast("Order cancellation", message);
         } finally {
             setIsCanceling(false);

@@ -8,6 +8,7 @@ import Layout from "../../../components/layout/Layout";
 import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
 import "../../../styles/features/users/_address-book.scss";
 import CustomerAccountShell from "../components/CustomerAccountShell";
+import { getApiErrorMessage } from "../../../lib/api-contract";
 import {
     CustomerAddress,
     CustomerAddressPayload,
@@ -102,15 +103,7 @@ const AddressBookPage = () => {
             setForm(emptyForm);
             loadAddresses();
         } catch (err: unknown) {
-            const maybeMessage =
-                typeof err === "object" &&
-                err !== null &&
-                "response" in err &&
-                typeof (err as { response?: { data?: { msg?: string } } }).response?.data?.msg === "string"
-                    ? (err as { response?: { data?: { msg?: string } } }).response?.data?.msg
-                    : undefined;
-            const message = maybeMessage ?? "Unable to save address.";
-            addToast("Address book", message);
+            addToast("Address book", getApiErrorMessage(err, "Unable to save address."));
         } finally {
             setIsSaving(false);
         }

@@ -21,6 +21,7 @@ import { useLocale } from "../../context/LocaleContext";
 import { useT } from "../../hooks/useT";
 import { formatUtcDateTime } from "../../utils/dateTime";
 import { formatCurrency } from "../../utils/currency";
+import { getApiSuccessMessage } from "../../lib/api-contract";
 
 const RECENT_SEARCH_KEY = "digital-e:recent-searches:v1";
 const MAX_RECENT_SEARCHES = 5;
@@ -113,7 +114,7 @@ export const Header = (): JSX.Element => {
             if (response.status === 200) {
                 await signOutFirebaseUser();
                 setUserData(null);
-                addToast(t("common.logout"), response.data.msg);
+                addToast(t("common.logout"), getApiSuccessMessage(response.data, "Logged out"));
                 navigate("/");
             }
         } catch {

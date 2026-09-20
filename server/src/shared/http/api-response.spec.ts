@@ -6,6 +6,7 @@ describe("API response contract", () => {
         expect(buildSuccessResponse({ products: [{ id: 1 }], msg: "Products loaded" }, "req-123")).toEqual({
             products: [{ id: 1 }],
             msg: "Products loaded",
+            message: "Products loaded",
             success: true,
             requestId: "req-123",
         });
@@ -28,6 +29,7 @@ describe("API response contract", () => {
             requestId: "req-789",
         })).toEqual({
             success: false,
+            message: "Stock changed",
             error: "Stock changed",
             msg: "Stock changed",
             code: "CHECKOUT_CONFLICT",

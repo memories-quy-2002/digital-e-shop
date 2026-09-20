@@ -9,6 +9,7 @@ import AdminStatusPanel from "../components/AdminStatusPanel";
 import AdminTableScrollHint from "../components/AdminTableScrollHint";
 import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
 import { formatCurrency } from "../../../utils/currency";
+import { getApiErrorMessage } from "../../../lib/api-contract";
 
 type Promotion = {
     id: number;
@@ -154,8 +155,8 @@ const AdminPromotionsPage = () => {
             setForm(emptyForm);
             const data = await fetchPromotions();
             setPromotions((data || []).map(normalizePromotion));
-        } catch (err: any) {
-            addToast("Promotions", err?.response?.data?.msg || "Unable to save promotion.");
+        } catch (err: unknown) {
+            addToast("Promotions", getApiErrorMessage(err, "Unable to save promotion."));
         } finally {
             setIsSaving(false);
         }

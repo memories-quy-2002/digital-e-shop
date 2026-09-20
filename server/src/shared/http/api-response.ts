@@ -5,6 +5,7 @@ export type ApiSuccessResponse = Record<string, unknown> & {
 
 export type ApiErrorResponse = Record<string, unknown> & {
     success: false;
+    message: string;
     error: string;
     msg: string;
     code: string;
@@ -47,8 +48,16 @@ export const requestIdFrom = (value: unknown): string => {
 
 export const buildSuccessResponse = (body: unknown, requestId = "unknown"): ApiSuccessResponse => {
     if (body && typeof body === "object" && !Array.isArray(body)) {
+        const payload = body as Record<string, unknown>;
+        const message = typeof payload.message === "string"
+            ? payload.message
+            : typeof payload.msg === "string"
+                ? payload.msg
+                : undefined;
+
         return {
-            ...(body as Record<string, unknown>),
+            ...payload,
+            ...(message ? { message } : {}),
             success: true,
             requestId,
         };
@@ -70,6 +79,7 @@ export const buildErrorResponse = ({
 }: ErrorResponseInput): ApiErrorResponse => ({
     ...details,
     success: false,
+    message,
     error: message,
     msg: message,
     code: code || statusCodes.get(statusCode) || "HTTP_ERROR",
