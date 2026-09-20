@@ -26,6 +26,7 @@ const CheckoutSuccessPage = lazy(() => import("../features/orders/pages/Checkout
 const MockPayOSCheckoutPage = lazy(() => import("../features/orders/pages/MockPayOSCheckoutPage"));
 const GuestOrderLookupPage = lazy(() => import("../features/orders/pages/GuestOrderLookupPage"));
 const OrderHistoryPage = lazy(() => import("../features/orders/pages/OrderHistoryPage"));
+const AfterSalesPage = lazy(() => import("../features/after-sales/pages/AfterSalesPage"));
 const CustomerAccountPage = lazy(() => import("../features/users/pages/CustomerAccountPage"));
 const AddressBookPage = lazy(() => import("../features/users/pages/AddressBookPage"));
 const AdminDashboard = lazy(() => import("../features/admin/pages/AdminDashboard"));
@@ -35,9 +36,11 @@ const AdminPaymentReconciliationPage = lazy(() => import("../features/admin/page
 const AdminAccountPage = lazy(() => import("../features/admin/pages/AdminAccountPage"));
 const AdminPromotionsPage = lazy(() => import("../features/admin/pages/AdminPromotionsPage"));
 const AdminAddProductPage = lazy(() => import("../features/admin/pages/AdminAddProductPage"));
+const AdminAfterSalesPage = lazy(() => import("../features/after-sales/pages/AdminAfterSalesPage"));
 
 const ProtectedCustomerAccountPage = withSessionCheck(CustomerAccountPage);
 const ProtectedOrderHistoryPage = withSessionCheck(OrderHistoryPage);
+const ProtectedAfterSalesPage = withSessionCheck(AfterSalesPage);
 const ProtectedAddressBookPage = withSessionCheck(AddressBookPage);
 const ProtectedWishlistPage = withSessionCheck(WishlistPage);
 
@@ -66,6 +69,7 @@ const AppRouter = () => {
                 <Route path="/403" element={<ForbiddenPage />} />
                 <Route path="/account" element={<ProtectedCustomerAccountPage />} />
                 <Route path="/orders" element={<ProtectedOrderHistoryPage />} />
+                <Route path="/after-sales" element={<ProtectedAfterSalesPage />} />
                 <Route path="/addresses" element={<ProtectedAddressBookPage />} />
                 <Route path="/notifications" element={<Navigate to="/account#notifications" replace />} />
                 <Route
@@ -89,6 +93,14 @@ const AppRouter = () => {
                     element={
                         <RequireAdmin>
                             <AdminSupportPage />
+                        </RequireAdmin>
+                    }
+                />
+                <Route
+                    path="/admin/after-sales"
+                    element={
+                        <RequireAdmin>
+                            <AdminAfterSalesPage />
                         </RequireAdmin>
                     }
                 />

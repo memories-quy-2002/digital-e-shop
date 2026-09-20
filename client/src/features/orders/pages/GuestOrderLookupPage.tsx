@@ -12,6 +12,7 @@ import "../../../styles/features/orders/_guest-order.scss";
 import { useT } from "../../../hooks/useT";
 import { formatMoney } from "../../../utils/currency";
 import { getOrderStatusKey } from "../orderStatus";
+import GuestAfterSalesPanel from "../../after-sales/components/GuestAfterSalesPanel";
 
 const getErrorMessage = (error: unknown, fallback: string) => {
     if (error && typeof error === "object" && "response" in error) {
@@ -161,6 +162,7 @@ const GuestOrderLookupPage = () => {
                                 </ul>
                             </article>
                         </div>
+                        <GuestAfterSalesPanel orderId={order.id} guestOrderToken={guestOrderToken} currency={order.currency} items={order.items} />
                     </section>
                 ) : null}
 

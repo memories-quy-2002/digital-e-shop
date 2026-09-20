@@ -14,6 +14,7 @@ export type CustomerOrder = {
 };
 
 export type CustomerOrderItem = {
+    orderItemId?: number;
     productId: number;
     productName: string;
     brand: string;
@@ -98,6 +99,7 @@ export type GuestPayOSCheckoutRequest = {
 };
 
 export type GuestOrderItem = {
+    orderItemId?: number;
     productId: number;
     sku?: string | null;
     productName: string;
