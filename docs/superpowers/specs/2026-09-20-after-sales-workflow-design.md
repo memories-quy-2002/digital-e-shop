@@ -1,7 +1,7 @@
 # After-sales Workflow Design
 
-**Date:** 2026-09-20  
-**Status:** Approved for implementation planning  
+**Date:** 2026-09-20
+**Status:** Approved for implementation planning
 **Scope:** Customer and guest returns/warranty requests, admin review, and auditable refund confirmation.
 
 ## Goal
