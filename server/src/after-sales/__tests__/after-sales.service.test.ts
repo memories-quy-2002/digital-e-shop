@@ -94,4 +94,13 @@ describe("AfterSalesService", () => {
             code: "IDEMPOTENCY_CONFLICT",
         });
     });
+
+    it("verifies guest order ownership before listing requests", async () => {
+        const repo = repository();
+        vi.mocked(repo.findOrderForIdentity).mockResolvedValue(null);
+        const service = new AfterSalesService(repo);
+
+        await expect(service.listGuestRequests(42, "wrong-token", { page: 1, limit: 50 })).rejects.toMatchObject({ statusCode: 404, code: "ORDER_NOT_FOUND" });
+        expect(repo.listGuestRequests).not.toHaveBeenCalled();
+    });
 });

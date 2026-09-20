@@ -754,6 +754,7 @@ export class NestOrdersService {
             payment_currency: order.payment_currency,
             payment_simulated: order.payment_simulated,
             items: order.items.map((item) => ({
+                orderItemId: item.id,
                 productId: item.productId,
                 sku: item.sku ?? null,
                 productName: item.productName,

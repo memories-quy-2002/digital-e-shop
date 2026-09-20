@@ -183,7 +183,7 @@ export type GuestSafeOrderDetail = Omit<OrderDetail, "user_id" | "customer_name"
     guest_email: string | null;
     guest_name: string | null;
     guest_phone: string | null;
-    items: Array<Omit<OrderDetail["items"][number], "id">>;
+    items: Array<Omit<OrderDetail["items"][number], "id"> & { orderItemId: number }>;
 };
 
 export type GuestContactSnapshot = {

@@ -3,7 +3,6 @@ import pool from "#src/config/database.config";
 import { withTransaction, type TransactionContext } from "#src/database/transaction";
 import type {
     AfterSalesCreateInput,
-    AfterSalesItemInput,
     AfterSalesListPage,
     AfterSalesListQuery,
     AfterSalesOrderContext,
@@ -167,7 +166,7 @@ export class AfterSalesRepository implements AfterSalesRepositoryPort {
                 [requestId, item.orderItemId, item.quantity, item.reason || null],
             );
         }
-        const paymentUpdate = await tx.query<{ affectedRows?: number }>(
+        await tx.query(
             `INSERT INTO after_sales_events (request_id, from_status, to_status, actor_user_id, note, created_at)
              VALUES (?, NULL, 'REQUESTED', ?, ?, UTC_TIMESTAMP())`,
             [requestId, identity.userId || null, input.reason],

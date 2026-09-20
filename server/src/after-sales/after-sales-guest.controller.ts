@@ -26,6 +26,7 @@ export class AfterSalesGuestController {
 
     // POST keeps the bearer token out of URLs, access logs, browser history, and referrers.
     @Post("requests/lookup")
+    @HttpCode(200)
     async list(@Body(new ZodValidationPipe(afterSalesGuestLookupSchema)) body: { orderId: number; guestOrderToken: string } & AfterSalesListQuery) {
         try {
             const { orderId, guestOrderToken, ...query } = body;
@@ -36,6 +37,7 @@ export class AfterSalesGuestController {
     }
 
     @Post("requests/:id/lookup")
+    @HttpCode(200)
     async detail(@Param("id") id: string, @Body(new ZodValidationPipe(afterSalesGuestLookupSchema.pick({ orderId: true, guestOrderToken: true }))) body: { orderId: number; guestOrderToken: string }) {
         try {
             const request = await this.service.getGuestRequest(body.orderId, body.guestOrderToken, Number(id));

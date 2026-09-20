@@ -12,14 +12,14 @@ import type {
     AfterSalesStatusTransition,
     RefundConfirmationInput,
 } from "./after-sales.types";
-import type { AfterSalesRepositoryPort } from "./after-sales.repository";
+import { AfterSalesRepository } from "./after-sales.repository";
 
 const domainError = (message: string, statusCode: number, code?: string) => Object.assign(new Error(message), { statusCode, code });
 
 @Injectable()
 export class AfterSalesService {
     constructor(
-        private readonly repository: AfterSalesRepositoryPort,
+        private readonly repository: AfterSalesRepository,
         @Optional() private readonly paymentProvider?: PaymentProviderService,
     ) {}
 
@@ -75,8 +75,13 @@ export class AfterSalesService {
         return this.repository.listCustomerRequests(userId, query);
     }
 
-    listGuestRequests(orderId: number, guestOrderToken: string, query: AfterSalesListQuery): Promise<AfterSalesListPage> {
-        return this.repository.listGuestRequests(orderId, hashGuestOrderToken(guestOrderToken), query);
+    async listGuestRequests(orderId: number, guestOrderToken: string, query: AfterSalesListQuery): Promise<AfterSalesListPage> {
+        const guestOrderTokenHash = hashGuestOrderToken(guestOrderToken);
+        return this.repository.withTransaction(async (tx) => {
+            const order = await this.repository.findOrderForIdentity(tx, { orderId, guestOrderTokenHash });
+            if (!order) throw domainError("Order not found or does not belong to this access context.", 404, "ORDER_NOT_FOUND");
+            return this.repository.listGuestRequests(orderId, guestOrderTokenHash, query);
+        });
     }
 
     listAdminRequests(query: AfterSalesListQuery): Promise<AfterSalesListPage> {
@@ -102,7 +107,7 @@ export class AfterSalesService {
     }
 
     async transitionRequest(id: number, actorId: string, transition: AfterSalesStatusTransition): Promise<AfterSalesRequest> {
-        return this.repository.withTransaction(async (tx) => {
+        const updated = await this.repository.withTransaction(async (tx) => {
             const current = await this.repository.getAdminRequestForUpdate(tx, id);
             if (!current) throw domainError("After-sales request not found.", 404, "REQUEST_NOT_FOUND");
             assertTransition(current.status as AfterSalesStatus, transition.status);
@@ -110,10 +115,11 @@ export class AfterSalesService {
             if (!updated) throw domainError("After-sales request not found.", 404, "REQUEST_NOT_FOUND");
             return updated;
         });
+        return (await this.repository.getAdminRequest(id)) || updated;
     }
 
     async confirmRefund(id: number, actorId: string, input: RefundConfirmationInput): Promise<AfterSalesRequest> {
-        return this.repository.withTransaction(async (tx) => {
+        const updated = await this.repository.withTransaction(async (tx) => {
             const context = await this.repository.getRefundContextForUpdate(tx, id);
             if (!context) throw domainError("After-sales request not found.", 404, "REQUEST_NOT_FOUND");
             const current = context.request;
@@ -152,5 +158,6 @@ export class AfterSalesService {
             if (!updated) throw domainError("After-sales request not found.", 404, "REQUEST_NOT_FOUND");
             return updated;
         });
+        return (await this.repository.getAdminRequest(id)) || updated;
     }
 }

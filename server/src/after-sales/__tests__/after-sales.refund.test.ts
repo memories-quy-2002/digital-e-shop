@@ -26,6 +26,7 @@ function repository(context = { request, requestedAmount: 120000, payment: { id:
         withTransaction: vi.fn(async (work: (tx: never) => Promise<unknown>) => work({} as never)),
         getRefundContextForUpdate: vi.fn().mockResolvedValue(context),
         confirmRefund: vi.fn().mockResolvedValue({ ...request, status: "REFUNDED", refundAmount: 120000, refundCurrency: "VND", refundReference: "manual-15" }),
+        getAdminRequest: vi.fn().mockResolvedValue({ ...request, status: "REFUNDED", refundAmount: 120000, refundCurrency: "VND", refundReference: "manual-15", items: [], events: [] }),
     } as unknown as AfterSalesRepositoryPort;
 }
 
