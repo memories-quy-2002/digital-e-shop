@@ -71,3 +71,9 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-17 - Codex - Added Product, Order, Payment, and SupportTicket entity pages plus source notes and synthesis pages for checkout, after-sales, and VND payment operations.
 - 2026-09-17 — Codex — Added index backlinks to the new entity, source, and synthesis pages so the Wiki catalog remains navigable.
 - 2026-09-20 — Codex — Implemented dedicated customer and guest after-sales requests, eligibility/state events, admin workflow, snapshot-derived refund ledger coordination, bounded pagination, and capability-safe POST lookup routes.
+- 2026-09-20 — Codex — Standardized the shared API response contract with canonical success/error messages, stable error codes, client-side compatibility helpers, and corrected OpenAPI/Wiki documentation.
+- 2026-09-20 — Codex — Reconciled the Prisma migration ledger with all current forward migrations and documented the 25-table Prisma projection versus the five legacy MySQL-owned tables.
+- 2026-09-20 — Codex — Added validated Prisma read-only projections for existing brands and categories, including Product foreign-key relations and indexes, without changing migration history or runtime transaction ownership.
+- 2026-09-20 — Codex — Added the forward VND-default migration for new orders and payment-ledger rows, preserving historical USD snapshots and adding integration coverage for currency defaults and catalog relations.
+- 2026-09-20 — Codex — Added an explicit Prisma schema validation gate to server CI alongside the migration and integration checks.
+- 2026-09-20 — Codex — Completed the Prisma projection audit for all 30 legacy application tables, adding typed address, notification, and wishlist projections without changing raw-MySQL write ownership.

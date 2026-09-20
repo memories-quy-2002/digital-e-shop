@@ -38,11 +38,45 @@ the returned token in X-CSRF-Token. The middleware ignores GET, HEAD, and
 OPTIONS. Login, registration, and refresh retain their explicit
 authentication-flow exclusions.
 
-Responses preserve route-specific keys such as msg, error, product, products,
-order, orders, pagination, userData, and notifications. Payment reconciliation
-and PayOS webhook responses also include the normalized success and requestId
-fields. Use the X-Request-Id response header to correlate a request with
-server logs.
+### Response contract
+
+Every JSON object returned by a normal API route receives shared success
+metadata without moving the route-specific fields:
+
+```json
+{
+  "success": true,
+  "requestId": "request-correlation-id",
+  "message": "Canonical success message when the route provides one",
+  "products": []
+}
+```
+
+The domain key remains route-specific (`product`, `products`, `order`,
+`orders`, `pagination`, `userData`, `notifications`, and so on). A route that
+does not provide a message does not invent one. The older `msg` success field
+is retained as a compatibility alias.
+
+Expected errors use one shared envelope:
+
+```json
+{
+  "success": false,
+  "message": "Stock changed",
+  "code": "CHECKOUT_CONFLICT",
+  "requestId": "request-correlation-id",
+  "details": { "issues": [] },
+  "msg": "Stock changed",
+  "error": "Stock changed"
+}
+```
+
+Use `message` for display and `code` for machine decisions. `msg` and
+`error` are deprecated compatibility aliases and remain temporarily so older
+clients continue to work. Structured details may also be exposed at the top
+level for legacy consumers. The `X-Request-Id` response header always carries
+the same correlation ID used in the envelope and server logs. The OpenAPI
+document at `/api/openapi.json` defines this shared error schema.
 
 ## Route inventory
 

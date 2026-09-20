@@ -9,13 +9,11 @@ import { fetchCustomerOrderDetail, fetchCustomerOrders } from "../../orders/api"
 import type { CustomerOrder, CustomerOrderDetail } from "../../orders/types";
 import { createCustomerAfterSalesRequest, fetchCustomerAfterSalesRequests } from "../api";
 import type { AfterSalesKind, AfterSalesRequest } from "../types";
+import { getApiErrorMessage } from "../../../lib/api-contract";
 import "../../../styles/features/after-sales/_after-sales.scss";
 
 const errorMessage = (error: unknown, fallback: string) => {
-    if (error && typeof error === "object" && "response" in error) {
-        return String((error as { response?: { data?: { msg?: string } } }).response?.data?.msg || fallback);
-    }
-    return fallback;
+    return getApiErrorMessage(error, fallback);
 };
 
 const idempotencyKey = () => globalThis.crypto?.randomUUID?.() || `after-sales-${Date.now()}-${Math.random().toString(16).slice(2)}`;

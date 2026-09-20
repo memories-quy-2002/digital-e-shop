@@ -2,7 +2,7 @@
 
 This Wiki records durable Digital-E understanding for maintainers and AI agents. Use [AGENTS.md](../AGENTS.md) for repository rules and [docs/](../docs/) for task-oriented human guides.
 
-**Project summary:** Digital-E is an electronics commerce platform built from two independent pnpm packages: a React 19 and Vite storefront/admin client in `client/`, and a NestJS 11 API on the Express 5 adapter in `server/`. MySQL remains the primary runtime database, while Prisma 7 owns a partial forward-migration layer. Firebase is the only auth provider; the Firebase Auth Emulator is a local testing target.
+**Project summary:** Digital-E is an electronics commerce platform built from two independent pnpm packages: a React 19 and Vite storefront/admin client in `client/`, and a NestJS 11 API on the Express 5 adapter in `server/`. MySQL remains the primary runtime database, while Prisma 7 owns a complete typed projection and partial forward-migration layer for the 30 application tables. Firebase is the only auth provider; the Firebase Auth Emulator is a local testing target.
 
 **Last updated:** 2026-09-20
 
@@ -50,7 +50,9 @@ Domain objects and their relationships belong under `entities/`. Current pages c
 
 ### Concepts
 
-Cross-cutting behavior belongs under `concepts/`, such as authentication, validation, inventory movement, API response shapes, guest checkout, and order lifecycle.
+Cross-cutting behavior belongs under `concepts/`, such as authentication, validation, inventory movement, [[api-response-contract]], guest checkout, and order lifecycle.
+
+- [[api-response-contract]]: canonical success/error metadata, compatibility aliases, request IDs, and pagination boundaries
 
 ### Decisions
 

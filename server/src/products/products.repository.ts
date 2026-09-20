@@ -389,22 +389,18 @@ export class NestProductsRepository {
     }> {
         return (async () => {
             const [categories, brands, priceBoundsRows, totalProducts] = await Promise.all([
-                prisma.$queryRawUnsafe(
-                    `SELECT categories.name
-                     FROM categories
-                     JOIN products ON products.category_id = categories.id
-                     WHERE products.stock >= 0
-                     GROUP BY categories.name
-                     ORDER BY categories.name ASC`,
-                ) as Promise<ProductFacetValueRow[]>,
-                prisma.$queryRawUnsafe(
-                    `SELECT brands.name
-                     FROM brands
-                     JOIN products ON products.brand_id = brands.id
-                     WHERE products.stock >= 0
-                     GROUP BY brands.name
-                     ORDER BY brands.name ASC`,
-                ) as Promise<ProductFacetValueRow[]>,
+                prisma.category.findMany({
+                    where: { products: { some: { stock: { gte: 0 } } } },
+                    select: { name: true },
+                    distinct: ["name"],
+                    orderBy: { name: "asc" },
+                }) as Promise<ProductFacetValueRow[]>,
+                prisma.brand.findMany({
+                    where: { products: { some: { stock: { gte: 0 } } } },
+                    select: { name: true },
+                    distinct: ["name"],
+                    orderBy: { name: "asc" },
+                }) as Promise<ProductFacetValueRow[]>,
                 prisma.$queryRawUnsafe(
                     `SELECT
                         COALESCE(MIN(COALESCE(products.sale_price, products.price)), 0) AS min_price,

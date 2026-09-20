@@ -107,6 +107,9 @@ jobs:
       - name: Install dependencies
         working-directory: server
         run: pnpm install --frozen-lockfile
+      - name: Validate Prisma schema
+        working-directory: server
+        run: pnpm prisma:validate
       - name: Verify MySQL connectivity
         working-directory: server
         run: |

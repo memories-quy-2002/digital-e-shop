@@ -41,6 +41,7 @@ model User {
   afterSalesRequests     AfterSalesRequest[] @relation("AfterSalesRequestCustomer")
   afterSalesEvents       AfterSalesEvent[] @relation("AfterSalesEventActor")
   marketingSubscriptions MarketingSubscription[]
+  wishlists              Wishlist[]
 
   @@map("users")
 }
@@ -76,6 +77,68 @@ model AuthSession {
   @@map("customer_sessions")
 }
 
+model CustomerAddress {
+  id            Int      @id @default(autoincrement())
+  userId        String   @map("user_id") @db.VarChar(255)
+  label         String   @default("Shipping address") @db.VarChar(80)
+  recipientName String?  @map("recipient_name") @db.VarChar(160)
+  phoneNumber   String?  @map("phone_number") @db.VarChar(40)
+  addressLine   String   @map("address_line") @db.VarChar(255)
+  city          String?  @db.VarChar(120)
+  country       String?  @db.VarChar(120)
+  isDefault     Boolean  @default(false) @map("is_default") @db.TinyInt
+  createdAt     DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt     DateTime @default(now()) @map("updated_at") @db.DateTime(0)
+
+  @@index([userId], map: "customer_addresses_user_id_idx")
+  @@map("customer_addresses")
+}
+
+model CustomerNotification {
+  id        Int       @id @default(autoincrement())
+  userId    String    @map("user_id") @db.VarChar(255)
+  type      String    @default("order") @db.VarChar(40)
+  title     String    @db.VarChar(160)
+  message   String    @db.VarChar(500)
+  link      String?   @db.VarChar(255)
+  readAt    DateTime? @map("read_at") @db.DateTime(0)
+  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+
+  @@index([userId], map: "customer_notifications_user_id_idx")
+  @@index([createdAt], map: "customer_notifications_created_at_idx")
+  @@map("customer_notifications")
+}
+
+model Brand {
+  id       Int       @id @default(autoincrement())
+  name     String    @db.VarChar(255)
+  products Product[]
+
+  @@map("brands")
+}
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String    @db.VarChar(255)
+  products Product[]
+
+  @@map("categories")
+}
+
+model Wishlist {
+  id        Int     @id @default(autoincrement())
+  userId    String  @map("user_id") @db.VarChar(255)
+  productId Int     @map("product_id")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_wishlist_user_id")
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_wishlist_product_id")
+
+  @@unique([userId, productId], map: "uq_wishlist_user_id_product_id")
+  @@index([productId], map: "FK_WishlistProduct")
+  @@index([userId, productId], map: "idx_wishlist_user_product")
+  @@map("wishlist")
+}
+
 model Product {
   id                     Int      @id @default(autoincrement())
   name                   String   @db.VarChar(255)
@@ -93,13 +156,19 @@ model Product {
   createdAt              DateTime @default(now()) @map("created_at") @db.DateTime(0)
   updatedAt              DateTime @default(now()) @map("updated_at") @db.DateTime(0)
 
+  brand                 Brand                  @relation(fields: [brandId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_products_brand_id_brands")
+  category              Category               @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_products_category_id_categories")
   reviews               Review[]
   cartItems             CartItem[]
   orderItems            OrderItem[]
   inventoryReservations InventoryReservation[]
   attributes            ProductAttribute[]
   guestCartItems        GuestCartItem[]
+  wishlists             Wishlist[]
 
+  @@index([categoryId, brandId, id], map: "idx_products_category_brand_rating")
+  @@index([brandId], map: "idx_products_brand")
+  @@index([categoryId], map: "idx_products_category")
   @@index([manufacturerPartNumber], map: "products_mpn_idx")
   @@map("products")
 }
@@ -259,7 +328,7 @@ model Order {
   dateAdded               DateTime  @default(now()) @map("date_added") @db.DateTime(0)
   deliveredAt             DateTime? @map("delivered_at") @db.DateTime(0)
   status                  Int       @default(0)
-  currency                String    @default("USD") @db.Char(3)
+  currency                String    @default("VND") @db.Char(3)
   inventoryRestoredAt     DateTime? @map("inventory_restored_at") @db.DateTime(0)
   cancellationReason      String?   @map("cancellation_reason") @db.Text
 
@@ -378,7 +447,7 @@ model OrderPayment {
   providerPaymentId       String?   @map("provider_payment_id") @db.VarChar(255)
   idempotencyKey          String    @unique(map: "uq_order_payments_idempotency") @map("idempotency_key") @db.VarChar(128)
   baseAmount              Decimal   @map("base_amount") @db.Decimal(11, 2)
-  baseCurrency            String    @default("USD") @map("base_currency") @db.Char(3)
+  baseCurrency            String    @default("VND") @map("base_currency") @db.Char(3)
   amount                  Decimal   @db.Decimal(14, 2)
   currency                String    @db.Char(3)
   fxRate                  Decimal   @default(1) @map("fx_rate") @db.Decimal(18, 6)

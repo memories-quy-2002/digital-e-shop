@@ -18,7 +18,7 @@ const responseDetails = (response: unknown): { message?: string; code?: string; 
     }
 
     const payload = response as Record<string, unknown>;
-    const messageValue = payload.msg || payload.message || payload.error;
+    const messageValue = payload.message || payload.msg || payload.error;
     const message = Array.isArray(messageValue) ? messageValue.join(", ") : String(messageValue || "Request failed");
     const details = Object.fromEntries(
         Object.entries(payload).filter(([key]) => !["success", "error", "msg", "message", "code", "requestId", "statusCode"].includes(key)),

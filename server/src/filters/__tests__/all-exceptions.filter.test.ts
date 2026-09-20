@@ -27,6 +27,7 @@ describe("AllExceptionsFilter", () => {
         expect(status).toHaveBeenCalledWith(403);
         expect(json).toHaveBeenCalledWith({
             success: false,
+            message: MESSAGES.invalidCsrf,
             error: MESSAGES.invalidCsrf,
             msg: MESSAGES.invalidCsrf,
             code: "INVALID_CSRF_TOKEN",
@@ -44,6 +45,7 @@ describe("AllExceptionsFilter", () => {
         expect(status).toHaveBeenCalledWith(404);
         expect(json).toHaveBeenCalledWith({
             success: false,
+            message: "Not found",
             error: "Not found",
             msg: "Not found",
             code: "NOT_FOUND",
@@ -62,6 +64,7 @@ describe("AllExceptionsFilter", () => {
         expect(status).toHaveBeenCalledWith(500);
         expect(json).toHaveBeenCalledWith({
             success: false,
+            message: MESSAGES.internalServerError,
             error: MESSAGES.internalServerError,
             msg: MESSAGES.internalServerError,
             code: "INTERNAL_SERVER_ERROR",
@@ -79,8 +82,26 @@ describe("AllExceptionsFilter", () => {
         expect(status).toHaveBeenCalledWith(404);
         expect(json).toHaveBeenCalledWith({
             success: false,
+            message: "Cannot GET /does-not-exist",
             error: "Cannot GET /does-not-exist",
             msg: "Cannot GET /does-not-exist",
+            code: "NOT_FOUND",
+            requestId: "filter-test",
+        });
+    });
+
+    it("prefers the canonical message when a legacy payload contains multiple aliases", () => {
+        const filter = new AllExceptionsFilter();
+        const { host, json, status } = buildHost();
+
+        filter.catch(new NotFoundException({ message: "Canonical message", msg: "Legacy message", error: "Other message" }), host);
+
+        expect(status).toHaveBeenCalledWith(404);
+        expect(json).toHaveBeenCalledWith({
+            success: false,
+            message: "Canonical message",
+            error: "Canonical message",
+            msg: "Canonical message",
             code: "NOT_FOUND",
             requestId: "filter-test",
         });

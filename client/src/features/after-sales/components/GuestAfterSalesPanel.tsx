@@ -3,12 +3,11 @@ import { createGuestAfterSalesRequest, fetchGuestAfterSalesRequests } from "../a
 import type { AfterSalesKind, AfterSalesRequest } from "../types";
 import type { GuestOrderItem } from "../../orders/types";
 import { formatMoney } from "../../../utils/currency";
+import { getApiErrorMessage } from "../../../lib/api-contract";
 
 type Props = { orderId: number; guestOrderToken: string; currency?: string | null; items: GuestOrderItem[] };
 
-const errorMessage = (error: unknown) => error && typeof error === "object" && "response" in error
-    ? String((error as { response?: { data?: { msg?: string } } }).response?.data?.msg || "Unable to process this request.")
-    : "Unable to process this request.";
+const errorMessage = (error: unknown) => getApiErrorMessage(error, "Unable to process this request.");
 
 const GuestAfterSalesPanel = ({ orderId, guestOrderToken, currency, items }: Props) => {
     const [kind, setKind] = useState<AfterSalesKind>("RETURN");

@@ -262,6 +262,7 @@ describe("authentication flow response contract", () => {
         expect(response.cookie.mock.calls[1][2]).not.toHaveProperty("maxAge");
         expect(response.json).toHaveBeenCalledWith({
             msg: "Token refreshed successfully",
+            message: "Token refreshed successfully",
             success: true,
             requestId: "auth-refresh-cookie-1",
         });
@@ -319,6 +320,7 @@ describe("authentication flow response contract", () => {
         expect(response.json).toHaveBeenCalledWith({
             sessionActive: true,
             msg: "Session is valid",
+            message: "Session is valid",
             success: true,
             requestId: "auth-session-1",
         });
@@ -332,6 +334,7 @@ describe("authentication flow response contract", () => {
         expect(response.status).toHaveBeenCalledWith(401);
         expect(response.json).toHaveBeenCalledWith({
             success: false,
+            message: "No refresh token",
             error: "No refresh token",
             msg: "No refresh token",
             code: "UNAUTHORIZED",

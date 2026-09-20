@@ -30,6 +30,7 @@ import {
     writePendingCheckout,
 } from "../pages/checkoutSuccessStorage";
 import { normalizeCheckoutEmail, validateCheckoutEmail, validateCheckoutForm } from "../checkoutValidation";
+import { getApiErrorMessage, getApiErrorPayload } from "../../../lib/api-contract";
 import {
     formatShippingAddress,
     getRecentOrderAddresses,
@@ -379,18 +380,21 @@ const CheckoutPaymentPage = ({
             }
         } catch (err: unknown) {
             if (err && typeof err === "object" && "response" in err) {
-                const axiosError = err as {
-                    response: { data: { msg?: string; code?: string; issues?: CartValidationIssue[]; authoritativeCart?: unknown[]; cartItems?: unknown[] } };
-                };
-                const requiresVerification = axiosError.response.data.code === "EMAIL_VERIFICATION_REQUIRED";
+                const payload = getApiErrorPayload(err);
+                const requiresVerification = payload?.code === "EMAIL_VERIFICATION_REQUIRED";
+                const authoritativeCart = Array.isArray(payload?.authoritativeCart)
+                    ? payload.authoritativeCart
+                    : Array.isArray(payload?.cartItems)
+                        ? payload.cartItems
+                        : undefined;
                 setVerificationRequired(requiresVerification);
                 applyValidationPayload({
-                    issues: axiosError.response.data.issues,
-                    cartItems: axiosError.response.data.authoritativeCart || axiosError.response.data.cartItems,
+                    issues: Array.isArray(payload?.issues) ? payload.issues as CartValidationIssue[] : undefined,
+                    cartItems: authoritativeCart,
                 });
                 const message = requiresVerification
                     ? "Please verify your email before placing an authenticated order."
-                    : axiosError.response.data.msg || "Checkout failed.";
+                    : getApiErrorMessage(err, "Checkout failed.");
                 setErrors([message]);
                 addToast("Checkout", message);
             } else {

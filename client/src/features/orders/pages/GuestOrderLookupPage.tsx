@@ -13,13 +13,10 @@ import { useT } from "../../../hooks/useT";
 import { formatMoney } from "../../../utils/currency";
 import { getOrderStatusKey } from "../orderStatus";
 import GuestAfterSalesPanel from "../../after-sales/components/GuestAfterSalesPanel";
+import { getApiErrorMessage } from "../../../lib/api-contract";
 
 const getErrorMessage = (error: unknown, fallback: string) => {
-    if (error && typeof error === "object" && "response" in error) {
-        const response = (error as { response?: { data?: { msg?: string } } }).response;
-        return response?.data?.msg || fallback;
-    }
-    return fallback;
+    return getApiErrorMessage(error, fallback);
 };
 
 const getStatusLabel = (status: number, labels: { pending: string; done: string; canceled: string; unknown: string }) => {

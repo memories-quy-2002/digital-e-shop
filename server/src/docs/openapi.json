@@ -43,12 +43,28 @@
     ],
     "components": {
         "schemas": {
+            "SuccessMetadata": {
+                "type": "object",
+                "required": ["success", "requestId"],
+                "properties": {
+                    "success": { "const": true, "description": "The request completed successfully" },
+                    "requestId": { "type": "string", "description": "Correlation ID returned in the X-Request-Id header" },
+                    "message": { "type": "string", "description": "Canonical human-readable success message when the route provides one" }
+                }
+            },
             "Error": {
                 "type": "object",
+                "required": ["success", "message", "code", "requestId"],
                 "properties": {
-                    "msg": { "type": "string", "description": "Human-readable error message" },
-                    "error": { "type": "string", "description": "Machine-readable error code" }
-                }
+                    "success": { "const": false, "description": "The request failed" },
+                    "message": { "type": "string", "description": "Canonical human-readable error message" },
+                    "code": { "type": "string", "description": "Stable machine-readable error code" },
+                    "requestId": { "type": "string", "description": "Correlation ID returned in the X-Request-Id header" },
+                    "details": { "type": "object", "additionalProperties": true, "description": "Structured error details when available" },
+                    "msg": { "type": "string", "deprecated": true, "description": "Legacy alias for message" },
+                    "error": { "type": "string", "deprecated": true, "description": "Legacy alias for message; use message instead" }
+                },
+                "additionalProperties": true
             },
             "Pagination": {
                 "type": "object",
@@ -56,7 +72,7 @@
                     "page": { "type": "integer", "minimum": 1 },
                     "limit": { "type": "integer", "minimum": 1 },
                     "total": { "type": "integer", "minimum": 0 },
-                    "totalPages": { "type": "integer", "minimum": 1 }
+                    "totalPages": { "type": "integer", "minimum": 0, "description": "Zero when total is zero" }
                 }
             },
             "User": {
@@ -294,8 +310,12 @@
             },
             "AfterSalesPage": {
                 "type": "object",
+                "required": ["requests", "pagination", "success", "requestId"],
                 "properties": {
                     "requests": { "type": "array", "items": { "$ref": "#/components/schemas/AfterSalesRequest" } },
+                    "success": { "const": true },
+                    "requestId": { "type": "string" },
+                    "message": { "type": "string" },
                     "pagination": {
                         "type": "object",
                         "properties": {
@@ -375,8 +395,15 @@
                 "content": {
                     "application/json": {
                         "schema": {
-                            "type": "object",
-                            "properties": { "msg": { "type": "string" } }
+                            "allOf": [
+                                { "$ref": "#/components/schemas/SuccessMetadata" },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "msg": { "type": "string", "deprecated": true, "description": "Legacy alias for message" }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }

@@ -1,7 +1,7 @@
 # ADR 0003: Historical USD-canonical payment ledger decision
 
 Back to [[index]]. Status: **Accepted historical decision; superseded for new
-records**. Current-state refresh: 2026-09-17. Related: [[architecture]],
+records**. Current-state refresh: 2026-09-20. Related: [[architecture]],
 [[0001-mysql-primary-prisma-partial]], [[0005-vietnam-first-vnd-catalog-and-mock-payos]].
 
 ## Decision
@@ -19,6 +19,11 @@ pending checkout snapshots the order code, provider reference, amount, and
 currency before redirect. A verified PayOS webhook, not a return URL, finalizes
 the reservation. Legacy USD and provider identifiers remain readable only for
 historical compatibility.
+
+The current database defaults are also VND for newly inserted
+`orders.currency` and `order_payments.base_currency` rows. Existing USD rows
+and payment snapshots are historical records and are not backfilled or
+reinterpreted.
 
 ## Why
 

@@ -18,6 +18,7 @@ import {
     getAdminAlertReadIds,
     saveAdminAlertReadIds,
 } from "../../features/admin/utils/adminAlertState";
+import { getApiSuccessMessage } from "../../lib/api-contract";
 
 const cookies = new Cookies();
 const POLL_INTERVAL = 60000;
@@ -184,7 +185,7 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
             sessionStorage.removeItem("rememberMe");
             cookies.remove("rememberMe");
             await signOutFirebaseUser();
-            addToast("Logout successfully", response.data?.msg || "Logged out");
+            addToast("Logout successfully", getApiSuccessMessage(response.data, "Logged out"));
         } catch {
             addToast("Logout", "You have been logged out.");
         } finally {

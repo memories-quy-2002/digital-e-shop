@@ -28,6 +28,7 @@ import {
 import { getFirebaseAuthErrorMessage } from "../../auth/authErrors";
 import { formatCurrency } from "../../../utils/currency";
 import { getOrderStatusKey } from "../../orders/orderStatus";
+import { getApiErrorMessage } from "../../../lib/api-contract";
 
 
 const getDisplayName = (customer: CustomerIdentity | null) => {
@@ -91,14 +92,11 @@ const CustomerAccountPage = () => {
             setEmailChangeMessage("Check your new email to confirm the change.");
             addToast("Change email", "A confirmation link has been sent to your new email address.");
         } catch (error: unknown) {
-            const response = error && typeof error === "object" && "response" in error
-                ? (error as { response?: { data?: { msg?: string } } }).response
-                : undefined;
             setEmailChangeError(true);
-            setEmailChangeMessage(response?.data?.msg || getFirebaseAuthErrorMessage(
+            setEmailChangeMessage(getApiErrorMessage(error, getFirebaseAuthErrorMessage(
                 error,
                 "Unable to request an email change right now. Please try again.",
-            ));
+            )));
         } finally {
             setIsRequestingEmailChange(false);
         }

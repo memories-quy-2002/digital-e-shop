@@ -5,6 +5,7 @@ import { CashStackIcon, CheckCircleIcon, ShieldIcon } from "../../../components/
 import Layout from "../../../components/layout/Layout";
 import { confirmMockPayOSPayment } from "../api";
 import { formatCurrency } from "../../../utils/currency";
+import { getApiErrorMessage } from "../../../lib/api-contract";
 import "../../../styles/features/orders/_mock-payos.scss";
 
 const parsePositiveInteger = (value: string | null) => {
@@ -32,10 +33,7 @@ const MockPayOSCheckoutPage = () => {
             await confirmMockPayOSPayment({ orderCode, paymentLinkId, amount });
             navigate(`/checkout-success?payment_provider=payos&payos_order_code=${orderCode}`, { replace: true });
         } catch (requestError: unknown) {
-            const responseMessage = requestError && typeof requestError === "object" && "response" in requestError
-                ? (requestError as { response?: { data?: { msg?: string } } }).response?.data?.msg
-                : undefined;
-            setError(responseMessage || "The simulated payment could not be confirmed. Please start checkout again.");
+            setError(getApiErrorMessage(requestError, "The simulated payment could not be confirmed. Please start checkout again."));
         } finally {
             setIsSubmitting(false);
         }

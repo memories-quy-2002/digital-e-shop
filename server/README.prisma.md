@@ -23,11 +23,59 @@ New deployable migrations live under `src/database/prisma/migrations/`:
 20260906130000_audit_schema_ownership
 20260907100000_order_payments_and_operations
 20260908100000_guest_checkout
+20260910100000_email_verification
+20260910140000_account_security_and_marketing
+20260910150000_provider_neutral_pending_checkout
+20260912100000_guest_carts
+20260916100000_vnd_payment_reconciliation
+20260920100000_after_sales_workflow
+20260920110000_after_sales_refund_ledger
+20260920120000_vnd_defaults
 ```
 
 `0_init` is a metadata-only baseline marker. It must be recorded as applied after the existing legacy schema is loaded and inspected. It is not a create-schema migration.
 
-The forward migrations cover secure auth sessions, inventory reservations and movements, promotion redemptions, product identity and order snapshots, structured attributes, audit tables, order payments and operations, support tickets, and guest checkout identity fields.
+The forward migrations cover secure auth sessions, inventory reservations and movements, promotion redemptions, product identity and order snapshots, structured attributes, audit tables, order payments and operations, support tickets, guest checkout, Firebase-era account fields, provider-neutral pending checkouts, VND reconciliation, after-sales/refund state, and VND defaults for newly inserted order/payment rows.
+
+## Current schema projection
+
+As of 2026-09-20, the checked-in legacy baseline contains 30 application
+tables, excluding Prisma's own `_prisma_migrations` table. The Prisma schema
+now models all 30 of them:
+
+- Identity/session: `users`, `marketing_subscriptions`, `customer_sessions`,
+  `customer_addresses`, `customer_notifications`
+- Catalog lookup: `brands`, `categories`
+- Catalog and cart: `products`, `product_attributes`, `carts`, `cart_items`,
+  `guest_carts`, `guest_cart_items`
+- Commerce and payments: `discounts`, `orders`, `pending_checkouts`,
+  `inventory_reservations`, `discount_redemptions`, `order_items`,
+  `order_payments`, `payment_webhook_events`,
+  `payment_reconciliation_attempts`
+- Operations and support: `inventory_movements`, `order_status_events`,
+  `reviews`, `support_tickets`, `after_sales_requests`, `after_sales_items`,
+  `after_sales_events`, `wishlist`
+
+Phase 2 added the `Brand` and `Category` read-only projection plus the
+existing `Product` foreign-key relations and indexes. Phase 3 added
+`CustomerAddress`, `CustomerNotification`, and `Wishlist` after reviewing
+their columns, indexes, nullability, defaults, and actual foreign keys. No
+baseline projection migration was created: these tables already belong to the
+legacy baseline, and the changes only expand the generated client projection.
+Runtime writes and cross-table transactions remain owned by the raw MySQL
+repositories. Addresses and notifications intentionally have no Prisma
+relation to `User` because the legacy tables do not declare foreign keys;
+`Wishlist` retains its existing `User` and `Product` relations.
+
+The `20260920120000_vnd_defaults` migration changes only the database defaults
+for future `orders.currency` and `order_payments.base_currency` inserts. It
+does not rewrite historical USD rows or mixed-currency payment snapshots.
+
+Do not use `prisma db pull` to overwrite the checked-in partial schema. Adding
+another model still requires deciding how its already-existing table is
+represented in migration history; this projection must not be treated as
+permission to run `migrate dev`, `db push`, or a reset against a data-bearing
+database.
 
 ## Environment contract
 
