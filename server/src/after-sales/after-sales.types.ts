@@ -49,6 +49,24 @@ export type RefundConfirmationInput = {
     note?: string;
 };
 
+export type AfterSalesPaymentContext = {
+    id: number;
+    orderId: number;
+    provider: string;
+    status: string;
+    providerPaymentId: string | null;
+    providerReference: string | null;
+    amount: number;
+    refundedAmount: number;
+    currency: string;
+};
+
+export type AfterSalesRefundContext = {
+    request: AfterSalesRequest;
+    requestedAmount: number;
+    payment: AfterSalesPaymentContext | null;
+};
+
 export type EligibilityResult = {
     eligible: boolean;
     code?: "ORDER_NOT_ELIGIBLE" | "ORDER_NOT_DELIVERED" | "RETURN_WINDOW_EXPIRED" | "WARRANTY_NOT_ACTIVE";

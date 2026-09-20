@@ -383,6 +383,7 @@ model OrderPayment {
   currency                String    @db.Char(3)
   fxRate                  Decimal   @default(1) @map("fx_rate") @db.Decimal(18, 6)
   paidAt                  DateTime? @map("paid_at") @db.DateTime(0)
+  refundedAmount          Decimal   @default(0) @map("refunded_amount") @db.Decimal(14, 2)
   refundedAt              DateTime? @map("refunded_at") @db.DateTime(0)
   refundReference         String?   @map("refund_reference") @db.VarChar(255)
   simulated               Boolean   @default(false) @db.TinyInt

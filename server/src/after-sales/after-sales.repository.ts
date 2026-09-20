@@ -8,11 +8,13 @@ import type {
     AfterSalesListQuery,
     AfterSalesOrderContext,
     AfterSalesOrderItem,
+    AfterSalesRefundContext,
     AfterSalesRequest,
     AfterSalesStatus,
     AfterSalesStatusTransition,
     RefundConfirmationInput,
 } from "./after-sales.types";
+import type { PaymentProviderResult } from "../payments/payment.types";
 
 type QueryResult<T> = { affectedRows?: number; insertId?: number } & T;
 type Queryable = { query: (sql: string | { sql: string; timeout: number }, values: unknown[], callback: (error: Error | null, rows: unknown) => void) => unknown };
@@ -87,8 +89,9 @@ export type AfterSalesRepositoryPort = {
     getGuestRequest(orderId: number, guestOrderTokenHash: string, id: number): Promise<AfterSalesRequest | null>;
     getAdminRequest(id: number): Promise<AfterSalesRequest | null>;
     getAdminRequestForUpdate(tx: TransactionContext, id: number): Promise<AfterSalesRequest | null>;
+    getRefundContextForUpdate(tx: TransactionContext, id: number): Promise<AfterSalesRefundContext | null>;
     transitionRequest(tx: TransactionContext, id: number, status: AfterSalesStatusTransition, actorId: string): Promise<AfterSalesRequest | null>;
-    confirmRefund(tx: TransactionContext, id: number, input: RefundConfirmationInput, actorId: string): Promise<AfterSalesRequest | null>;
+    confirmRefund(tx: TransactionContext, id: number, input: RefundConfirmationInput, actorId: string, paymentId: number, amount: number, providerResult: PaymentProviderResult): Promise<AfterSalesRequest | null>;
 };
 
 @Injectable()
@@ -164,7 +167,7 @@ export class AfterSalesRepository implements AfterSalesRepositoryPort {
                 [requestId, item.orderItemId, item.quantity, item.reason || null],
             );
         }
-        await tx.query(
+        const paymentUpdate = await tx.query<{ affectedRows?: number }>(
             `INSERT INTO after_sales_events (request_id, from_status, to_status, actor_user_id, note, created_at)
              VALUES (?, NULL, 'REQUESTED', ?, ?, UTC_TIMESTAMP())`,
             [requestId, identity.userId || null, input.reason],
@@ -247,6 +250,40 @@ export class AfterSalesRepository implements AfterSalesRepositoryPort {
         return rows[0] ? normalizeRequest(rows[0]) : null;
     }
 
+    async getRefundContextForUpdate(tx: TransactionContext, id: number): Promise<AfterSalesRefundContext | null> {
+        const request = await this.getAdminRequestForUpdate(tx, id);
+        if (!request) return null;
+        const paymentRows = await tx.query<Record<string, unknown>[]>(
+            `SELECT id, order_id, provider, status, provider_payment_id, provider_reference,
+                    amount, COALESCE(refunded_amount, 0) AS refunded_amount, currency
+             FROM order_payments WHERE order_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE`,
+            [request.orderId],
+        );
+        const amountRows = await tx.query<Array<{ requested_amount: number | string | null }>>(
+            `SELECT COALESCE(SUM(asi.quantity * COALESCE(oi.unit_price_snapshot, oi.total_price / NULLIF(oi.quantity, 0))), 0) AS requested_amount
+             FROM after_sales_items asi
+             JOIN order_items oi ON oi.id = asi.order_item_id
+             WHERE asi.request_id = ?`,
+            [id],
+        );
+        const payment = paymentRows[0];
+        return {
+            request,
+            requestedAmount: Number(amountRows[0]?.requested_amount || 0),
+            payment: payment ? {
+                id: Number(payment.id),
+                orderId: Number(payment.order_id),
+                provider: String(payment.provider),
+                status: String(payment.status),
+                providerPaymentId: payment.provider_payment_id ? String(payment.provider_payment_id) : null,
+                providerReference: payment.provider_reference ? String(payment.provider_reference) : null,
+                amount: Number(payment.amount || 0),
+                refundedAmount: Number(payment.refunded_amount || 0),
+                currency: String(payment.currency || "").toUpperCase(),
+            } : null,
+        };
+    }
+
     async transitionRequest(tx: TransactionContext, id: number, transition: AfterSalesStatusTransition, actorId: string): Promise<AfterSalesRequest | null> {
         const current = await this.getAdminRequestForUpdate(tx, id);
         if (!current) return null;
@@ -258,17 +295,26 @@ export class AfterSalesRepository implements AfterSalesRepositoryPort {
         return updated[0] ? normalizeRequest(updated[0]) : null;
     }
 
-    async confirmRefund(tx: TransactionContext, id: number, input: RefundConfirmationInput, actorId: string): Promise<AfterSalesRequest | null> {
-        const rows = await tx.query<Record<string, unknown>[]>(`SELECT ${requestColumns} FROM after_sales_requests r WHERE r.id = ? LIMIT 1 FOR UPDATE`, [id]);
-        const current = rows[0] ? normalizeRequest(rows[0]) : null;
+    async confirmRefund(tx: TransactionContext, id: number, input: RefundConfirmationInput, actorId: string, paymentId: number, amount: number, providerResult: PaymentProviderResult): Promise<AfterSalesRequest | null> {
+        const current = await this.getAdminRequestForUpdate(tx, id);
         if (!current) return null;
+        const providerRefundReference = providerResult.refundReference || input.refundReference;
         await tx.query(
             `UPDATE after_sales_requests
-             SET status = 'REFUNDED', refund_reference = ?, refund_currency = ?, refunded_at = COALESCE(refunded_at, UTC_TIMESTAMP()),
+             SET status = 'REFUNDED', refund_amount = ?, refund_reference = ?, refund_currency = ?, refunded_at = COALESCE(refunded_at, UTC_TIMESTAMP()),
                  admin_note = COALESCE(?, admin_note), updated_at = UTC_TIMESTAMP()
              WHERE id = ?`,
-            [input.refundReference, input.currency, input.note || null, id],
+            [amount, input.refundReference, input.currency, input.note || null, id],
         );
+        const paymentUpdate = await tx.query<{ affectedRows?: number }>(
+            `UPDATE order_payments
+             SET status = CASE WHEN refunded_amount + ? >= amount THEN 'refunded' ELSE 'partially_refunded' END,
+                 refunded_amount = refunded_amount + ?, refunded_at = UTC_TIMESTAMP(), refund_reference = ?,
+                 provider_status = 'REFUNDED', updated_at = UTC_TIMESTAMP()
+             WHERE id = ? AND refunded_amount + ? <= amount`,
+            [amount, amount, providerRefundReference, paymentId, amount],
+        );
+        if (paymentUpdate.affectedRows !== 1) throw new Error("Refund payment ledger update failed");
         await tx.query(`INSERT INTO after_sales_events (request_id, from_status, to_status, actor_user_id, note, created_at) VALUES (?, ?, 'REFUNDED', ?, ?, UTC_TIMESTAMP())`, [id, current.status, actorId, input.note || input.refundReference]);
         const updated = await tx.query<Record<string, unknown>[]>(`SELECT ${requestColumns} FROM after_sales_requests r WHERE r.id = ? LIMIT 1`, [id]);
         return updated[0] ? normalizeRequest(updated[0]) : null;

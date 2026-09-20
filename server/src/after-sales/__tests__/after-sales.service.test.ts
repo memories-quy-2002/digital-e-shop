@@ -41,6 +41,8 @@ function repository(): AfterSalesRepositoryPort {
         getGuestRequest: vi.fn(),
         getAdminRequest: vi.fn(),
         getAdminRequestForUpdate: vi.fn(),
+        getRefundContextForUpdate: vi.fn(),
+        confirmRefund: vi.fn(),
     };
 }
 

@@ -34,6 +34,7 @@ export type RefundPaymentInput = {
     paymentId: string;
     amount: number;
     currency: PaymentCurrency;
+    idempotencyKey?: string;
 };
 
 export type PaymentProviderResult = {

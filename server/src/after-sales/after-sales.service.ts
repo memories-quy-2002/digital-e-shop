@@ -1,5 +1,6 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import { hashGuestOrderToken } from "../orders/guest-order-token";
+import { PaymentProviderService } from "../payments/payment-provider.service";
 import { assertTransition, evaluateEligibility } from "./after-sales.policy";
 import type {
     AfterSalesCreateInput,
@@ -17,7 +18,10 @@ const domainError = (message: string, statusCode: number, code?: string) => Obje
 
 @Injectable()
 export class AfterSalesService {
-    constructor(private readonly repository: AfterSalesRepositoryPort) {}
+    constructor(
+        private readonly repository: AfterSalesRepositoryPort,
+        @Optional() private readonly paymentProvider?: PaymentProviderService,
+    ) {}
 
     createCustomerRequest(userId: string, input: AfterSalesCreateInput): Promise<AfterSalesRequest> {
         return this.createRequest({ userId }, input);
@@ -110,8 +114,9 @@ export class AfterSalesService {
 
     async confirmRefund(id: number, actorId: string, input: RefundConfirmationInput): Promise<AfterSalesRequest> {
         return this.repository.withTransaction(async (tx) => {
-            const current = await this.repository.getAdminRequestForUpdate(tx, id);
-            if (!current) throw domainError("After-sales request not found.", 404, "REQUEST_NOT_FOUND");
+            const context = await this.repository.getRefundContextForUpdate(tx, id);
+            if (!context) throw domainError("After-sales request not found.", 404, "REQUEST_NOT_FOUND");
+            const current = context.request;
             if (current.status === "REFUNDED") {
                 if (current.refundReference === input.refundReference) return current;
                 throw domainError("This after-sales request has already been refunded.", 409, "REFUND_ALREADY_CONFIRMED");
@@ -119,7 +124,31 @@ export class AfterSalesService {
             if (current.status !== "REFUND_PENDING" && current.status !== "RECEIVED") {
                 throw domainError("Only received or refund-pending requests can be refunded.", 409, "REFUND_NOT_READY");
             }
-            const updated = await this.repository.confirmRefund(tx, id, input, actorId);
+            if (!context.payment) throw domainError("No payment ledger exists for this order.", 409, "PAYMENT_LEDGER_NOT_FOUND");
+            const payment = context.payment;
+            const refundableBalance = payment.amount - payment.refundedAmount;
+            if (context.requestedAmount <= 0) throw domainError("The request has no refundable item value.", 409, "REFUND_AMOUNT_INVALID");
+            if (context.requestedAmount > refundableBalance) throw domainError("The requested refund exceeds the remaining payment balance.", 409, "REFUND_AMOUNT_EXCEEDS_BALANCE");
+            const currency = payment.currency.toUpperCase();
+            if (input.currency.toUpperCase() !== currency) throw domainError("Refund currency must match the payment currency.", 409, "REFUND_CURRENCY_MISMATCH");
+            if (!["paid", "partially_refunded"].includes(payment.status)) throw domainError("The payment is not refundable in its current state.", 409, "PAYMENT_NOT_REFUNDABLE");
+            if (!this.paymentProvider) throw domainError("Refund provider is unavailable.", 503, "REFUND_PROVIDER_UNAVAILABLE");
+            let providerResult;
+            try {
+                providerResult = await this.paymentProvider.refundPayment({
+                    provider: payment.provider as "cash" | "payos",
+                    orderId: payment.orderId,
+                    paymentId: payment.providerPaymentId || payment.providerReference || String(payment.id),
+                    amount: context.requestedAmount,
+                    currency: currency as "VND",
+                    idempotencyKey: input.idempotencyKey,
+                });
+            } catch (error) {
+                const message = error instanceof Error ? error.message : "Refund provider failed";
+                throw domainError(message, message.includes("not configured") ? 503 : 502, message.includes("not configured") ? "REFUND_PROVIDER_UNAVAILABLE" : "REFUND_PROVIDER_FAILED");
+            }
+            if (providerResult.status !== "refunded") throw domainError("The payment provider did not confirm the refund.", 502, "REFUND_PROVIDER_REJECTED");
+            const updated = await this.repository.confirmRefund(tx, id, input, actorId, payment.id, context.requestedAmount, providerResult);
             if (!updated) throw domainError("After-sales request not found.", 404, "REQUEST_NOT_FOUND");
             return updated;
         });
