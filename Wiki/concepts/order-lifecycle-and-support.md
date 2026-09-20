@@ -33,6 +33,28 @@ The current routes are:
 Ticket state belongs to the database record; a client-only success toast is not
 the source of truth.
 
+## After-sales workflow
+
+Returns and warranty requests are persisted separately from support tickets in
+`after_sales_requests`, `after_sales_items`, and `after_sales_events`. A
+request is bound to a customer ID or to a hash of the guest order capability
+token. The server rechecks that the order is Done, applies the inclusive
+seven-day UTC return window or the item warranty snapshot, and locks the order
+items before reserving the requested quantity for after-sales processing.
+
+The supported state machine is:
+
+`REQUESTED -> APPROVED|REJECTED -> RECEIVED -> REFUND_PENDING -> REFUNDED -> CLOSED`
+
+Only the admin route can transition or confirm a refund. Refund value is
+derived from order-item price snapshots, never from client input, and the
+payment ledger is locked before a provider refund is attempted. Live provider
+refunds fail closed until the provider adapter is configured. Guest lookup and
+guest after-sales operations use POST bodies so the raw capability token does
+not enter URLs, browser history, or referrer logs.
+
+See [[after-sales-request]] and [[0006-after-sales-capability-and-refund-boundary]].
+
 ## Deferred work
 
 Product comparison is deliberately deferred to a later phase so the order/payment and customer-support flows can stabilize first.

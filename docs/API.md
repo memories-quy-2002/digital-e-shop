@@ -138,6 +138,9 @@ user record.
 | POST | /api/reviews | Verified customer |
 | GET | /api/support/tickets | Customer or admin |
 | POST | /api/support/tickets | Customer or admin |
+| POST | /api/after-sales/requests | Customer or admin |
+| GET | /api/after-sales/requests | Customer or admin |
+| GET | /api/after-sales/requests/:id | Customer or admin |
 
 Authenticated checkout and review creation require a verified Firebase email.
 Customers can still browse, maintain a cart, view order history, and use
@@ -185,6 +188,20 @@ promotions, and creates a one-time guest order token. The database stores only
 the token hash. Public lookup requires the order ID or PayOS order code
 together with that token.
 
+Guest after-sales uses the same capability token but keeps it in POST bodies:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| POST | /api/orders/guest/after-sales/requests | Create a guest return/warranty request |
+| POST | /api/orders/guest/after-sales/requests/lookup | List guest requests |
+| POST | /api/orders/guest/after-sales/requests/:id/lookup | Read one guest request |
+
+The admin after-sales queue is available at
+`/api/admin/after-sales/requests`. Admin status transitions use
+`PATCH /:id/status`; refund confirmation uses `POST /:id/refund`. The server
+calculates refund value from order-item snapshots and rejects requests that
+exceed the payment ledger balance. Pagination is bounded to 100 rows.
+
 The local mock PayOS flow uses POST /api/orders/mock-payos/confirm with the
 exact order code, payment link reference, and VND amount. It does not call an
 external payment provider.
@@ -212,6 +229,10 @@ external payment provider.
 | GET | /api/orders/item | List order items and sales |
 | POST | /api/orders/status/:oid | Update order status |
 | PATCH | /api/support/tickets/:id | Update a support ticket |
+| GET | /api/admin/after-sales/requests | List after-sales requests |
+| GET | /api/admin/after-sales/requests/:id | Read an after-sales request |
+| PATCH | /api/admin/after-sales/requests/:id/status | Transition an after-sales request |
+| POST | /api/admin/after-sales/requests/:id/refund | Confirm a provider-backed refund |
 | POST | /api/blob/upload | Upload a product image |
 
 Admin list endpoints accept bounded pagination where implemented. Admin access
@@ -284,10 +305,9 @@ refund without changing the API.
 }
 ~~~
 
-The current API does not expose dedicated /returns, /warranty, or /refunds
-routes. It also does not expose a guest support-ticket route. A future guest
-after-sales flow should add a token-protected request endpoint with the same
-ownership and privacy guarantees as guest order lookup.
+Support tickets remain the general authenticated customer-care channel. Use the
+dedicated after-sales routes above for return, warranty, and refund workflow;
+they enforce order eligibility, quantity conflicts, and payment-ledger bounds.
 
 ## Compatibility aliases
 
