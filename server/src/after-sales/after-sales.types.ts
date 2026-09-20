@@ -57,7 +57,53 @@ export type EligibilityResult = {
 };
 
 export type AfterSalesOrderContext = {
+    id?: number;
     orderStatus: number;
     deliveredAt: string | Date | null;
     warrantyMonths: number | null;
+    currency?: string | null;
+    paymentMethod?: string | null;
+    guestEmail?: string | null;
+    guestName?: string | null;
+    guestPhone?: string | null;
+};
+
+export type AfterSalesOrderItem = {
+    id: number;
+    orderId: number;
+    productId: number;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    productName: string | null;
+    sku: string | null;
+    warrantyMonths: number | null;
+};
+
+export type AfterSalesRequest = {
+    id: number;
+    orderId: number;
+    userId: string | null;
+    kind: AfterSalesKind;
+    status: AfterSalesStatus;
+    reason: string;
+    adminNote: string | null;
+    refundAmount: number | null;
+    refundCurrency: string | null;
+    refundReference: string | null;
+    createdAt: string;
+    updatedAt: string;
+    approvedAt: string | null;
+    receivedAt: string | null;
+    refundedAt: string | null;
+    closedAt: string | null;
+    items?: Array<AfterSalesItemInput & { id: number; productName?: string | null; unitPrice?: number }>;
+    events?: Array<{ id: number; fromStatus: AfterSalesStatus | null; toStatus: AfterSalesStatus; actorUserId: string | null; note: string | null; createdAt: string }>;
+    order?: AfterSalesOrderContext;
+    guestOrderTokenHash?: string;
+};
+
+export type AfterSalesListPage = {
+    requests: AfterSalesRequest[];
+    pagination: { page: number; limit: number; total: number; totalPages: number };
 };
