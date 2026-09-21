@@ -31,6 +31,16 @@ const en = {
     backInStockNotificationTitle: (productName: string) => `${productName} is back in stock`,
     backInStockNotificationMessage: (productName: string) => `${productName} is available again. Open the product while stock is available.`,
   },
+  comparison: {
+    trayLabel: 'Product comparison selection',
+    selectedCount: (count: number) => `${count} product${count === 1 ? '' : 's'} selected`,
+    trayHint: 'Choose two or more products to compare side by side.',
+    selectedProducts: 'Selected products',
+    productId: (id: number) => `Product #${id}`,
+    removeProduct: (id: number) => `Remove product #${id}`,
+    clear: 'Clear selection',
+    compareNow: 'Compare products',
+  },
   accountNav: {
     ariaLabel: 'Customer account navigation',
     account: 'Account',

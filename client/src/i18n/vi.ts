@@ -33,6 +33,16 @@ const vi: Dictionary = {
     backInStockNotificationTitle: (productName: string) => `${productName} đã có hàng trở lại`,
     backInStockNotificationMessage: (productName: string) => `${productName} đã sẵn sàng để mua. Mở sản phẩm khi hàng còn sẵn.`,
   },
+  comparison: {
+    trayLabel: 'Sản phẩm đang chọn để so sánh',
+    selectedCount: (count: number) => `Đã chọn ${count} sản phẩm`,
+    trayHint: 'Chọn từ hai sản phẩm để so sánh song song.',
+    selectedProducts: 'Sản phẩm đã chọn',
+    productId: (id: number) => `Sản phẩm #${id}`,
+    removeProduct: (id: number) => `Xóa sản phẩm #${id}`,
+    clear: 'Bỏ chọn tất cả',
+    compareNow: 'So sánh sản phẩm',
+  },
   accountNav: {
     ariaLabel: 'Điều hướng tài khoản khách hàng',
     account: 'Tài khoản',

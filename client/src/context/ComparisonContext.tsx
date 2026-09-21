@@ -41,12 +41,26 @@ export const ComparisonProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const categories = useRef(new Map<number, string>());
 
     useEffect(() => {
-        if (Array.isArray(storedIds) && storedIds.length === selectedIds.length &&
-            storedIds.every((id, index) => id === selectedIds[index])) {
+        if (typeof window === "undefined") {
             return;
         }
+
+        const raw = window.localStorage.getItem(STORAGE_KEY);
+        let parsed: unknown = [];
+        let parsedSuccessfully = true;
+        try {
+            parsed = raw === null ? [] : JSON.parse(raw);
+        } catch {
+            parsed = [];
+            parsedSuccessfully = false;
+        }
+
+        const isAlreadySanitized = parsedSuccessfully && Array.isArray(parsed) && parsed.length === selectedIds.length &&
+            parsed.every((id, index) => id === selectedIds[index]);
+        if (isAlreadySanitized) return;
+
         setStoredIds(selectedIds);
-    }, [selectedIds, setStoredIds, storedIds]);
+    }, [selectedIds, setStoredIds]);
 
     const isSelected = useCallback((productId: number) => selectedIds.includes(productId), [selectedIds]);
 

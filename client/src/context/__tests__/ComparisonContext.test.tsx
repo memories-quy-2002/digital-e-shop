@@ -14,6 +14,8 @@ const Probe = () => {
             <button onClick={() => comparison.add(24, "Phones")}>add-phone</button>
             <button onClick={() => comparison.add(30, "Laptops")}>add-30</button>
             <button onClick={() => comparison.add(31, "Laptops")}>add-31</button>
+            <button onClick={() => comparison.add(32, "Laptops")}>add-32</button>
+            <button onClick={() => comparison.add(33, "Laptops")}>add-33</button>
             <button onClick={() => comparison.remove(12)}>remove-12</button>
             <button onClick={comparison.clear}>clear</button>
         </>
@@ -31,6 +33,14 @@ describe("ComparisonContext", () => {
 
         expect(screen.getByTestId("ids")).toHaveTextContent("12,18,24,30");
         expect(screen.getByTestId("can-compare")).toHaveTextContent("true");
+    });
+
+    it("rewrites malformed persisted data to an empty selection", () => {
+        window.localStorage.setItem("digital-e:comparison:v1", "not-json");
+        renderProbe();
+
+        expect(screen.getByTestId("ids")).toHaveTextContent("");
+        expect(window.localStorage.getItem("digital-e:comparison:v1")).toBe("[]");
     });
 
     it("adds same-category products, rejects a different category, and enforces the limit", () => {
