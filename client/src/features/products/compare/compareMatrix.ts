@@ -6,6 +6,7 @@ import type { ComparisonMatrixRow } from "./types";
 export const COMPARISON_MISSING_VALUE = String.fromCharCode(0x2014);
 
 type MatrixValue = {
+    key: string;
     label: string;
     unit: string;
     value: string;
@@ -22,6 +23,7 @@ const normalizedComparisonValue = (value: string) => value.trim().toLocaleLowerC
 const attributeValuesForProduct = (product: ProductWithAttributes): MatrixValue[] => {
     if (product.attributes.length > 0) {
         return product.attributes.map((attribute) => ({
+            key: normalizeAttributeKey(attribute.key),
             label: attribute.label.trim(),
             unit: attribute.unit.trim(),
             value: attribute.value.trim(),
@@ -29,6 +31,7 @@ const attributeValuesForProduct = (product: ProductWithAttributes): MatrixValue[
     }
 
     return parseProductDetails(product.specifications).specifications.map((specification) => ({
+        key: normalizeAttributeKey(specification.label),
         label: specification.label.trim(),
         unit: "",
         value: specification.value.trim(),
@@ -41,7 +44,7 @@ export const buildComparisonRows = (products: ProductWithAttributes[]): Comparis
     for (const product of products) {
         const valuesForProduct = new Map<string, MatrixValue>();
         for (const attribute of attributeValuesForProduct(product)) {
-            const key = normalizeAttributeKey(attribute.label);
+            const key = attribute.key;
             if (!key || valuesForProduct.has(key)) {
                 continue;
             }

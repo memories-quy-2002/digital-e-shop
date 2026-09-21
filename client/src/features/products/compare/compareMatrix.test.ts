@@ -58,4 +58,15 @@ describe("comparison matrix", () => {
         expect(filterComparisonRows(rows, true)).toEqual([]);
         expect(filterComparisonRows(rows, false)).toEqual(rows);
     });
+
+    it("uses the canonical attribute key when labels differ", () => {
+        const rows = buildComparisonRows([
+            product(50, [{ id: "a", key: "memory_type", label: "Memory", type: "text", value: "DDR5", unit: "", filterable: true }]),
+            product(51, [{ id: "b", key: "memory_type", label: "Memory type", type: "text", value: "DDR5", unit: "", filterable: true }]),
+        ]);
+
+        expect(rows).toEqual([
+            { key: "memory_type", label: "Memory", values: { "50": "DDR5", "51": "DDR5" }, isDifferent: false },
+        ]);
+    });
 });
