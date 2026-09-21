@@ -51,7 +51,6 @@ export const ComparisonProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         try {
             parsed = raw === null ? [] : JSON.parse(raw);
         } catch {
-            parsed = [];
             parsedSuccessfully = false;
         }
 

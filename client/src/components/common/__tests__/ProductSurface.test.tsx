@@ -1,7 +1,9 @@
 import { MemoryRouter } from "react-router-dom";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { ComparisonProvider } from "../../../context/ComparisonContext";
 import { LocaleProvider } from "../../../context/LocaleContext";
+import ToastProvider from "../../../context/ToastContext";
 import RecommendedProduct from "../../../features/products/components/RecommendedProduct";
 import { Product } from "../../../types/product";
 import ProductCard from "../ProductCard";
@@ -29,17 +31,21 @@ describe("catalog product media surfaces", () => {
     it("uses the shared fixed media frame across cards, recently viewed, and recommendations", () => {
         render(
             <LocaleProvider>
-                <MemoryRouter>
-                    <ProductCard
-                        product={product}
-                        uid=""
-                        isWishlist={false}
-                        onToggleWishlist={vi.fn()}
-                        onAddingCart={vi.fn()}
-                    />
-                    <RecentlyViewedStrip items={[product]} />
-                    <RecommendedProduct relevantProducts={[product]} />
-                </MemoryRouter>
+                <ToastProvider>
+                    <ComparisonProvider>
+                        <MemoryRouter>
+                            <ProductCard
+                                product={product}
+                                uid=""
+                                isWishlist={false}
+                                onToggleWishlist={vi.fn()}
+                                onAddingCart={vi.fn()}
+                            />
+                            <RecentlyViewedStrip items={[product]} />
+                            <RecommendedProduct relevantProducts={[product]} />
+                        </MemoryRouter>
+                    </ComparisonProvider>
+                </ToastProvider>
             </LocaleProvider>,
         );
 

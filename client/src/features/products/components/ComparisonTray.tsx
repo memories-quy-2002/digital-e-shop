@@ -3,6 +3,7 @@ import { useComparison } from "../../../context/ComparisonContext";
 import { useT } from "../../../hooks/useT";
 import { Button, buttonVariants } from "../../../components/ui/button";
 import { XCircleIcon } from "../../../components/common/Icons";
+import "../../../styles/pages/_comparison.scss";
 
 const ComparisonTray = () => {
     const t = useT();
@@ -13,8 +14,8 @@ const ComparisonTray = () => {
     }
 
     return (
-        <aside className="pointer-events-none relative z-[90] mt-4 w-full px-3 sm:fixed sm:inset-x-0 sm:bottom-4 sm:mt-0 sm:px-6" aria-label={t("comparison.trayLabel")}>
-            <div className="pointer-events-auto mx-auto flex max-w-6xl flex-wrap items-center gap-3 rounded-panel border border-border-strong bg-card/95 p-3 shadow-[var(--de-shadow-md)] backdrop-blur">
+        <aside className="comparison-tray pointer-events-none relative z-[90] mt-4 w-full px-3 sm:fixed sm:inset-x-0 sm:bottom-4 sm:mt-0 sm:px-6" aria-label={t("comparison.trayLabel")}>
+            <div className="comparison-tray__surface pointer-events-auto mx-auto flex flex-wrap items-center gap-3 rounded-panel border border-border-strong bg-card/95 p-3 shadow-[var(--de-shadow-md)] backdrop-blur">
                 <div className="mr-auto min-w-0">
                     <p className="truncate text-sm font-semibold text-foreground">{t("comparison.selectedCount", selectedIds.length)}</p>
                     <p className="text-xs text-muted-foreground">{t("comparison.trayHint")}</p>
