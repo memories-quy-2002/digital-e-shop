@@ -1,6 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import PaginatedItems from "../PaginatedItems";
 import HomePage from "../../../pages/HomePage";
@@ -30,6 +30,8 @@ const mocks = vi.hoisted(() => ({
         fetchRelevantProducts: vi.fn(),
         fetchWishlist: vi.fn(),
         fetchReviews: vi.fn(),
+        fetchProductAlert: vi.fn(),
+        updateProductAlert: vi.fn(),
         submitReview: vi.fn(),
         addToWishlist: vi.fn(),
         removeFromWishlist: vi.fn(),
@@ -160,6 +162,11 @@ const product = {
     attributes: [],
 };
 
+const LocationProbe = () => {
+    const location = useLocation();
+    return <output data-testid="location">{location.pathname}{location.search}</output>;
+};
+
 describe("guest cart entry points", () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -175,6 +182,11 @@ describe("guest cart entry points", () => {
         mocks.productsApi.fetchReviews.mockResolvedValue({
             reviews: [],
             summary: { total: 0, average: 0, distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } },
+        });
+        mocks.productsApi.fetchProductAlert.mockResolvedValue({
+            productId: 1,
+            priceDropEnabled: false,
+            backInStockEnabled: false,
         });
     });
 
@@ -295,5 +307,21 @@ describe("guest cart entry points", () => {
             "Add cart item",
             expect.stringContaining("success"),
         );
+    });
+
+    it("redirects a guest to login when they try to subscribe to a product alert", async () => {
+        render(
+            <MemoryRouter initialEntries={["/product?id=1"]}>
+                <LocaleProvider>
+                    <LocationProbe />
+                    <ProductPage />
+                </LocaleProvider>
+            </MemoryRouter>,
+        );
+
+        fireEvent.click(await screen.findByRole("switch", { name: "Price drop" }));
+
+        expect(screen.getByTestId("location")).toHaveTextContent("/login?redirect=%2Fproduct%3Fid%3D1");
+        expect(mocks.productsApi.updateProductAlert).not.toHaveBeenCalled();
     });
 });

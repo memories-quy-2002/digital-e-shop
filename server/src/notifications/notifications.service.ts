@@ -4,6 +4,23 @@ import { NotificationsRepository } from "./notifications.repository";
 import { env } from "#src/config/env.config";
 import { formatPaymentAmount } from "../payments/currency";
 
+const parseNotificationMetadata = (metadata: CustomerNotificationRow["metadata"]): Record<string, unknown> | null => {
+    let value: unknown = metadata;
+    if (typeof value === "string") {
+        try {
+            value = JSON.parse(value);
+        } catch {
+            return null;
+        }
+    }
+
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const prototype = Object.getPrototypeOf(value);
+    return prototype === Object.prototype || prototype === null
+        ? value as Record<string, unknown>
+        : null;
+};
+
 const normalizeNotification = (notification: CustomerNotificationRow) => ({
     id: Number(notification.id),
     user_id: notification.user_id,
@@ -11,6 +28,8 @@ const normalizeNotification = (notification: CustomerNotificationRow) => ({
     title: notification.title,
     message: notification.message,
     link: notification.link,
+    metadata: parseNotificationMetadata(notification.metadata),
+    alert_event_id: notification.alert_event_id ?? null,
     read_at: notification.read_at,
     created_at: notification.created_at,
     is_read: Boolean(notification.read_at),

@@ -37,7 +37,7 @@ export class NotificationsRepository {
     getNotificationsByUserId(uid: string, limit: number): Promise<CustomerNotificationRow[]> {
         return new Promise((resolve, reject) => {
             this.query(
-                `SELECT id, user_id, type, title, message, link,
+                `SELECT id, user_id, type, title, message, link, metadata, alert_event_id,
                     DATE_FORMAT(read_at, '%Y-%m-%dT%H:%i:%s.000Z') AS read_at,
                     DATE_FORMAT(created_at, '%Y-%m-%dT%H:%i:%s.000Z') AS created_at
                 FROM customer_notifications

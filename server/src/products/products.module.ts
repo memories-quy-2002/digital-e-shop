@@ -7,9 +7,10 @@ import { createRateLimitMiddleware } from "../middleware/rate-limit.middleware";
 import { NestConfigModule } from "../config/nest-config.module";
 import { InventoryModule } from "../inventory/inventory.module";
 import { ProductAttributesRepository } from "./product-attributes.repository";
+import { ProductAlertsModule } from "../product-alerts/product-alerts.module";
 
 @Module({
-    imports: [NestConfigModule, InventoryModule],
+    imports: [NestConfigModule, InventoryModule, ProductAlertsModule],
     controllers: [ProductsController],
     providers: [NestProductsService, NestProductsRepository, ProductAttributesRepository],
     exports: [NestProductsRepository, NestProductsService, ProductAttributesRepository],

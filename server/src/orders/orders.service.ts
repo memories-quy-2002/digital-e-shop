@@ -22,6 +22,8 @@ import { PaymentProviderService } from "../payments/payment-provider.service";
 import { buildPaymentQuote } from "../payments/currency";
 import type { PaymentProviderName, PaymentQuote } from "../payments/payment.types";
 import { generateGuestOrderToken, hashGuestOrderToken, matchesGuestOrderToken } from "./guest-order-token";
+import { ProductAlertsService } from "../product-alerts/product-alerts.service";
+import { getProductAlertTransitions } from "../product-alerts/product-alerts.policy";
 
 export const createCheckoutError = (message: string, statusCode = 409, details: Record<string, unknown> = {}) =>
     Object.assign(new Error(message), { statusCode, details });
@@ -114,6 +116,7 @@ export class NestOrdersService {
         private readonly promotionsRepository: PromotionsRepository,
         private readonly productAttributesRepository: ProductAttributesRepository,
         @Optional() private readonly paymentProviderService?: PaymentProviderService,
+        @Optional() private readonly productAlertsService?: ProductAlertsService,
     ) {}
 
     private async createPaymentLedgerInTransaction(
@@ -199,12 +202,37 @@ export class NestOrdersService {
                 );
                 const movements: InventoryMovementInput[] = [];
                 for (const item of items) {
-                    const [product] = await tx.query<Array<{ id: number; stock: number }>>(
-                        "SELECT id, stock FROM products WHERE id = ? FOR UPDATE", [item.product_id],
+                    const [product] = await tx.query<Array<{ id: number; price: number; sale_price: number | null; stock: number }>>(
+                        "SELECT id, price, sale_price, stock FROM products WHERE id = ? FOR UPDATE", [item.product_id],
                     );
                     if (!product) throw createCheckoutError("Product for this order no longer exists", 409);
                     const quantity = Number(item.quantity) || 0;
-                    await tx.query("UPDATE products SET stock = stock + ? WHERE id = ?", [quantity, item.product_id]);
+                    const stockUpdate = await tx.query<{ affectedRows: number }>(
+                        "UPDATE products SET stock = stock + ? WHERE id = ?",
+                        [quantity, item.product_id],
+                    );
+                    if (stockUpdate.affectedRows !== 1) {
+                        throw createCheckoutError("Product stock could not be restored", 409);
+                    }
+                    if (this.productAlertsService) {
+                        const transitions = getProductAlertTransitions(
+                            {
+                                productId: item.product_id,
+                                price: Number(product.price),
+                                salePrice: product.sale_price === null || product.sale_price === undefined ? null : Number(product.sale_price),
+                                stock: Number(product.stock),
+                            },
+                            {
+                                productId: item.product_id,
+                                price: Number(product.price),
+                                salePrice: product.sale_price === null || product.sale_price === undefined ? null : Number(product.sale_price),
+                                stock: Number(product.stock) + quantity,
+                            },
+                        );
+                        if (transitions.length > 0) {
+                            await this.productAlertsService.recordTransitionsInTransaction(tx, transitions);
+                        }
+                    }
                     movements.push({ productId: item.product_id, orderId, movementType: "restock_cancelled_order", quantityChange: quantity,
                         stockBefore: Number(product.stock), stockAfter: Number(product.stock) + quantity,
                         note: `Stock restored for canceled order #${orderId}`, actorId });

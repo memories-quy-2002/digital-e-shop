@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { Product } from "../../utils/interface";
 import loadImage from "../../utils/loadImage";
 import { formatCurrency } from "../../utils/currency";
+import ProductAlertControls from "../../features/productAlerts/components/ProductAlertControls";
+import type { ProductAlertKey, ProductAlertPreference } from "../../features/productAlerts/types";
 
 interface Item {
     id: number;
@@ -16,15 +18,34 @@ type WishlistItemProps = {
     onSelect: (productId: number, checked: boolean) => void;
     onMoveToCart: (product: Product) => void;
     onRemoveWishlist: (productId: number) => void;
+    alertPreference?: ProductAlertPreference;
+    alertSaving?: boolean;
+    alertError?: string | null;
+    onAlertToggle?: (productId: number, key: ProductAlertKey, enabled: boolean) => void;
 };
 
-const WishlistItem = ({ item, selected, onSelect, onMoveToCart, onRemoveWishlist }: WishlistItemProps) => {
+const WishlistItem = ({
+    item,
+    selected,
+    onSelect,
+    onMoveToCart,
+    onRemoveWishlist,
+    alertPreference,
+    alertSaving = false,
+    alertError = null,
+    onAlertToggle,
+}: WishlistItemProps) => {
     const { product } = item;
     const navigate = useNavigate();
     const imageUrl = product.main_image ? product.main_image.replace(".jpg", "") : null;
     const activePrice = product.sale_price ?? product.price;
     const availableStock = product.available_stock ?? product.stock;
     const hasSale = product.sale_price !== null && product.sale_price < product.price;
+    const resolvedAlertPreference: ProductAlertPreference = alertPreference ?? {
+        productId: product.id,
+        priceDropEnabled: false,
+        backInStockEnabled: false,
+    };
 
     return (
         <article className="wishlist__row">
@@ -59,6 +80,16 @@ const WishlistItem = ({ item, selected, onSelect, onMoveToCart, onRemoveWishlist
             <span className={availableStock > 0 ? "wishlist__stock is-in" : "wishlist__stock is-out"}>
                 {availableStock > 0 ? "Available" : "Unavailable"}
             </span>
+
+            <div className="wishlist__row__alerts">
+                <ProductAlertControls
+                    preference={resolvedAlertPreference}
+                    variant="wishlist"
+                    saving={alertSaving}
+                    error={alertError}
+                    onToggle={(key, enabled) => onAlertToggle?.(product.id, key, enabled)}
+                />
+            </div>
 
             <div className="wishlist__row__actions">
                 <button type="button" onClick={() => onMoveToCart(product)} disabled={availableStock <= 0}>
