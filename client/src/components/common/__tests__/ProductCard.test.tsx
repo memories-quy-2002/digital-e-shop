@@ -1,7 +1,12 @@
 import { MemoryRouter } from "react-router-dom";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "../../../context/LocaleContext";
+import { ComparisonProvider } from "../../../context/ComparisonContext";
+
+vi.mock("../../../context/ToastContext", () => ({
+    useToast: () => ({ addToast: vi.fn() }),
+}));
 import ProductCard from "../ProductCard";
 
 const product = {
@@ -26,7 +31,7 @@ describe("ProductCard", () => {
     it("exposes one shared product link and accessible card actions", () => {
         render(
             <LocaleProvider>
-                <MemoryRouter>
+                <ComparisonProvider><MemoryRouter>
                     <ProductCard
                         product={product}
                         uid=""
@@ -34,7 +39,7 @@ describe("ProductCard", () => {
                         onToggleWishlist={vi.fn()}
                         onAddingCart={vi.fn()}
                     />
-                </MemoryRouter>
+                </MemoryRouter></ComparisonProvider>
             </LocaleProvider>,
         );
 
@@ -46,7 +51,7 @@ describe("ProductCard", () => {
     it("keeps the product media full-width without a hover border treatment", () => {
         render(
             <LocaleProvider>
-                <MemoryRouter>
+                <ComparisonProvider><MemoryRouter>
                     <ProductCard
                         product={product}
                         uid=""
@@ -54,7 +59,7 @@ describe("ProductCard", () => {
                         onToggleWishlist={vi.fn()}
                         onAddingCart={vi.fn()}
                     />
-                </MemoryRouter>
+                </MemoryRouter></ComparisonProvider>
             </LocaleProvider>,
         );
 
@@ -67,7 +72,7 @@ describe("ProductCard", () => {
     it("keeps product content scannable with discount, rating, price, and stock", () => {
         render(
             <LocaleProvider>
-                <MemoryRouter>
+                <ComparisonProvider><MemoryRouter>
                     <ProductCard
                         product={product}
                         uid=""
@@ -75,7 +80,7 @@ describe("ProductCard", () => {
                         onToggleWishlist={vi.fn()}
                         onAddingCart={vi.fn()}
                     />
-                </MemoryRouter>
+                </MemoryRouter></ComparisonProvider>
             </LocaleProvider>,
         );
 
@@ -83,5 +88,27 @@ describe("ProductCard", () => {
         expect(screen.getByTestId("product-card-rating")).toHaveTextContent("4.0");
         expect(screen.getByTestId("product-card-stock")).toHaveTextContent("39");
         expect(screen.getByText("-7%")).toBeInTheDocument();
+    });
+
+    it("toggles comparison selection with an accessible pressed state", () => {
+        render(
+            <LocaleProvider>
+                <ComparisonProvider><MemoryRouter>
+                    <ProductCard
+                        product={product}
+                        uid=""
+                        isWishlist={false}
+                        onToggleWishlist={vi.fn()}
+                        onAddingCart={vi.fn()}
+                    />
+                </MemoryRouter></ComparisonProvider>
+            </LocaleProvider>,
+        );
+
+        const addButton = screen.getByRole("button", { name: "Add to compare" });
+        expect(addButton).toHaveAttribute("aria-pressed", "false");
+        fireEvent.click(addButton);
+
+        expect(screen.getByRole("button", { name: "Remove from compare" })).toHaveAttribute("aria-pressed", "true");
     });
 });

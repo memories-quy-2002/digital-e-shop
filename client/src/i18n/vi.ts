@@ -42,6 +42,12 @@ const vi: Dictionary = {
     removeProduct: (id: number) => `Xóa sản phẩm #${id}`,
     clear: 'Bỏ chọn tất cả',
     compareNow: 'So sánh sản phẩm',
+    addToCompare: 'Thêm vào so sánh',
+    removeFromCompare: 'Bỏ khỏi so sánh',
+    categoryMismatchTitle: 'Hãy chọn sản phẩm cùng danh mục',
+    categoryMismatchMessage: 'Không thể so sánh các sản phẩm thuộc danh mục khác nhau.',
+    limitTitle: 'Danh sách so sánh đã đầy',
+    limitMessage: 'Bạn có thể so sánh tối đa bốn sản phẩm cùng lúc.',
   },
   accountNav: {
     ariaLabel: 'Điều hướng tài khoản khách hàng',

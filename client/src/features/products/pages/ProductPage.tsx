@@ -10,6 +10,7 @@ import Layout from "../../../components/layout/Layout";
 import { useAuth } from "../../../context/AuthContext";
 import { useCart } from "../../../context/CartContext";
 import { useToast } from "../../../context/ToastContext";
+import { useComparison } from "../../../context/ComparisonContext";
 import productPlaceholder from "../../../assets/images/product_placeholder.jpg";
 import NoPage from "../../../pages/NotFoundPage";
 import "../../../styles/pages/_product.scss";
@@ -72,6 +73,7 @@ const ProductPage = () => {
     const { addToast } = useToast();
     const { userData } = useAuth();
     const { addItem } = useCart();
+    const { isSelected, toggle: toggleComparison } = useComparison();
     const uid = userData?.id || "";
     const productId = url.get("id");
     const pid = productId !== null ? parseInt(productId) : 0;
@@ -341,6 +343,15 @@ const ProductPage = () => {
         }
     };
 
+    const handleComparisonToggle = () => {
+        const result = toggleComparison(productDetail.id, productDetail.category);
+        if (result === "category-mismatch") {
+            addToast(t("comparison.categoryMismatchTitle"), t("comparison.categoryMismatchMessage"));
+        } else if (result === "limit-reached") {
+            addToast(t("comparison.limitTitle"), t("comparison.limitMessage"));
+        }
+    };
+
     const toggleWishlist = async (user_id: string, product_id: number) => {
         if (uid === "") {
             addToast("Login required", "You need to login to use this feature.");
@@ -420,6 +431,7 @@ const ProductPage = () => {
     }
 
     const isWishlisted = wishlistIdSet.has(pid);
+    const isComparisonSelected = isSelected(productDetail.id);
     const activeImageUrl = activeImage ? getProductImageUrl(activeImage) : "";
     const activeResponsiveImage = activeImageUrl
         ? getResponsiveImageSource(activeImageUrl, {
@@ -615,6 +627,17 @@ const ProductPage = () => {
                                             : t("product.stockOut")}
                                     </span>
                                 </div>
+                                <button
+                                    className={`product-page__button product-page__button--secondary${
+                                        isComparisonSelected ? " product-page__button--active" : ""
+                                    }`}
+                                    type="button"
+                                    onClick={handleComparisonToggle}
+                                    aria-label={isComparisonSelected ? t("comparison.removeFromCompare") : t("comparison.addToCompare")}
+                                    aria-pressed={isComparisonSelected}
+                                >
+                                    {isComparisonSelected ? t("comparison.removeFromCompare") : t("comparison.addToCompare")}
+                                </button>
                                 <button
                                     className="product-page__button product-page__button--primary"
                                     type="button"

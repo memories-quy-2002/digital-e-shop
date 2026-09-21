@@ -14,7 +14,11 @@ const apiMocks = vi.hoisted(() => ({
     submitReview: vi.fn(),
     addToWishlist: vi.fn(),
     removeFromWishlist: vi.fn(),
+    fetchProductAlert: vi.fn(),
+    updateProductAlert: vi.fn(),
 }));
+
+const authMocks = vi.hoisted(() => ({ userData: null as { id: string } | null }));
 
 const toastMocks = vi.hoisted(() => ({
     addToast: vi.fn(),
@@ -44,7 +48,7 @@ vi.mock("../../../api/axios", () => ({
 vi.mock("../../../features/products/api", () => apiMocks);
 
 vi.mock("../../../context/AuthContext", () => ({
-    useAuth: () => ({ userData: null, loading: false, setUserData: vi.fn() }),
+    useAuth: () => ({ userData: authMocks.userData, loading: false, setUserData: vi.fn() }),
 }));
 
 vi.mock("../../../context/CartContext", () => ({
@@ -58,6 +62,19 @@ vi.mock("../../../context/ToastContext", async () => {
         useToast: () => toastMocks,
     };
 });
+
+vi.mock("../../../context/ComparisonContext", () => ({
+    useComparison: () => ({
+        selectedIds: [],
+        canCompare: false,
+        isSelected: () => false,
+        add: () => "added",
+        remove: vi.fn(),
+        toggle: () => "added",
+        clear: vi.fn(),
+        replace: vi.fn(),
+    }),
+}));
 
 vi.mock("../../../components/layout/Layout", () => ({
     default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -117,6 +134,17 @@ describe("shop and product detail surfaces", () => {
             reviews: [],
             summary: { total: 0, average: 0, distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } },
         });
+        apiMocks.fetchProductAlert.mockResolvedValue({
+            productId: 1,
+            priceDropEnabled: false,
+            backInStockEnabled: false,
+        });
+        apiMocks.updateProductAlert.mockResolvedValue({
+            productId: 1,
+            priceDropEnabled: true,
+            backInStockEnabled: false,
+        });
+        authMocks.userData = null;
     });
 
     it("renders pagination with styles that match react-paginate output", () => {
@@ -174,5 +202,53 @@ describe("shop and product detail surfaces", () => {
 
         expect(recommendations.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
         expect(screen.getByTestId("product-gallery-main")).toHaveClass("product-page__gallery-main--fixed");
+    });
+
+    it("loads and updates authenticated product alert preferences", async () => {
+        authMocks.userData = { id: "user-1" };
+        apiMocks.fetchProductAlert.mockResolvedValue({
+            productId: 1,
+            priceDropEnabled: false,
+            backInStockEnabled: true,
+        });
+
+        render(
+            <MemoryRouter initialEntries={["/product?id=1"]}>
+                <LocaleProvider><ProductPage /></LocaleProvider>
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByRole("switch", { name: "Back in stock" })).toHaveAttribute("aria-checked", "true");
+        expect(apiMocks.fetchProductAlert).toHaveBeenCalledWith("user-1", 1);
+
+        fireEvent.click(screen.getByRole("switch", { name: "Price drop" }));
+        await vi.waitFor(() => expect(apiMocks.updateProductAlert).toHaveBeenCalledWith("user-1", 1, {
+            priceDropEnabled: true,
+            backInStockEnabled: true,
+        }));
+    });
+
+    it("rolls back a failed alert toggle and allows retry", async () => {
+        authMocks.userData = { id: "user-1" };
+        apiMocks.updateProductAlert.mockRejectedValueOnce(new Error("network"));
+
+        render(
+            <MemoryRouter initialEntries={["/product?id=1"]}>
+                <LocaleProvider><ProductPage /></LocaleProvider>
+            </MemoryRouter>,
+        );
+
+        const priceSwitch = await screen.findByRole("switch", { name: "Price drop" });
+        fireEvent.click(priceSwitch);
+        await vi.waitFor(() => expect(priceSwitch).toHaveAttribute("aria-checked", "false"));
+        expect(screen.getByRole("alert")).toBeInTheDocument();
+
+        apiMocks.updateProductAlert.mockResolvedValueOnce({
+            productId: 1,
+            priceDropEnabled: true,
+            backInStockEnabled: false,
+        });
+        fireEvent.click(priceSwitch);
+        await vi.waitFor(() => expect(priceSwitch).toHaveAttribute("aria-checked", "true"));
     });
 });

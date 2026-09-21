@@ -40,6 +40,12 @@ const en = {
     removeProduct: (id: number) => `Remove product #${id}`,
     clear: 'Clear selection',
     compareNow: 'Compare products',
+    addToCompare: 'Add to compare',
+    removeFromCompare: 'Remove from compare',
+    categoryMismatchTitle: 'Choose products from one category',
+    categoryMismatchMessage: 'Products from different categories cannot be compared together.',
+    limitTitle: 'Comparison list is full',
+    limitMessage: 'You can compare up to four products at a time.',
   },
   accountNav: {
     ariaLabel: 'Customer account navigation',
