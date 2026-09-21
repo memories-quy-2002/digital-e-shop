@@ -8,7 +8,7 @@ Digital-E uses GitHub Actions for validation and Vercel for hosting. The reposit
 
 ### Client job
 
-The client job runs on Ubuntu 24.04 with Node.js `24.20.0` and pnpm `12.3.4`. It installs from `client/pnpm-lock.yaml`, then runs:
+The client job runs on Ubuntu 24.04 with Node.js `24.20.0` and pnpm `12.4.2`. It installs from `client/pnpm-lock.yaml`, then runs:
 
 - TypeScript typecheck
 - ESLint

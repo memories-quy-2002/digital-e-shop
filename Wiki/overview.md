@@ -5,7 +5,7 @@ Back to [[index]].
 ## Runtime baseline
 
 - Node.js `24.20.0` is selected by `.node-version`.
-- pnpm `12.3.4` is declared by both package manifests and CI.
+- pnpm `12.4.2` is declared by both package manifests and CI.
 - `client/` and `server/` are independent pnpm packages. The repository root
   is not a workspace and has no supported root install or filter command.
 - Production client builds require `VITE_API_BASE_URL`.
@@ -29,7 +29,7 @@ authenticated checkout, and an admin operations dashboard.
 
 | Area | Tools |
 | --- | --- |
-| Package management | Independent pnpm packages, pnpm `12.3.4`, no root workspace |
+| Package management | Independent pnpm packages, pnpm `12.4.2`, no root workspace |
 | Frontend | React `19.2.8`, React Router DOM `7.18.3`, Vite `8.2.2`, TypeScript `6.0.3`, Tailwind CSS `4.3.3`, Radix UI, SCSS/Sass, Axios, Firebase client auth, Recharts |
 | Backend | NestJS `11.2.3` on Express `5.2.1`, TypeScript `6.0.3`, MySQL (`mysql`/`mysql2`), Prisma `7.10.0` partial layer, Zod, cookie/CSRF middleware, JWT, rate limiting, PayOS, Firebase Admin, Redis support, Pino, Vercel Blob |
 | Delivery and verification | Vercel configs, GitHub Actions, Vitest, disposable MySQL integration checks, read-only k6 scripts |

@@ -9,7 +9,7 @@ Digital-E is an electronics commerce platform with two independent pnpm packages
 - `client/`: React 19, Vite 8, TypeScript, Tailwind CSS, Radix UI, and SCSS
 - `server/`: NestJS 11 on the Express 5 adapter, TypeScript, MySQL, and partial Prisma ownership
 
-Use Node.js `24.20.0` and pnpm `12.3.4`. The package-local lockfiles and workspace policies are independent. The applications deploy separately to Vercel, and GitHub Actions validates both packages.
+Use Node.js `24.20.0` and pnpm `12.4.2`. The package-local lockfiles and workspace policies are independent. The applications deploy separately to Vercel, and GitHub Actions validates both packages.
 
 ## Setup and commands
 

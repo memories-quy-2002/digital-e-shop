@@ -77,3 +77,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-20 — Codex — Added the forward VND-default migration for new orders and payment-ledger rows, preserving historical USD snapshots and adding integration coverage for currency defaults and catalog relations.
 - 2026-09-20 — Codex — Added an explicit Prisma schema validation gate to server CI alongside the migration and integration checks.
 - 2026-09-20 — Codex — Completed the Prisma projection audit for all 30 legacy application tables, adding typed address, notification, and wishlist projections without changing raw-MySQL write ownership.
+- 2026-09-21 - Codex - Upgraded active pnpm pins and regenerated independent client/server lockfiles to resolve Dependabot's pnpm minimumReleaseAge strict-mode incompatibility while preserving the repository cooldown policy.
