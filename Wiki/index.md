@@ -24,6 +24,7 @@ The local demo seed creates a linked graph with 28 products across 8 categories 
 - [[0003-payment-ledger-and-usd-canonical-currency]]: historical USD-canonical decision and its current VND status
 - [[0004-guest-cart-and-checkout]]: accepted guest access model and security boundary
 - [[0005-vietnam-first-vnd-catalog-and-mock-payos]]: VND-first demo pricing and explicit local PayOS simulation
+- [[0006-customer-account-routes-and-localization]]: canonical customer account routes and bilingual storefront localization
 - [[log]]: append-only Wiki maintenance history
 
 ## Related guides

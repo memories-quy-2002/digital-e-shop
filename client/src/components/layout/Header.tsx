@@ -22,10 +22,11 @@ import { useT } from "../../hooks/useT";
 import { formatUtcDateTime } from "../../utils/dateTime";
 import { formatCurrency } from "../../utils/currency";
 import { getApiSuccessMessage } from "../../lib/api-contract";
+import { CUSTOMER_ROUTES } from "../../routes/customerRoutes";
 
 const RECENT_SEARCH_KEY = "digital-e:recent-searches:v1";
 const MAX_RECENT_SEARCHES = 5;
-const CUSTOMER_NOTIFICATIONS_TARGET = "/account#notifications";
+const CUSTOMER_NOTIFICATIONS_TARGET = CUSTOMER_ROUTES.notifications;
 
 const primaryLinks = [
     { label: "Home", to: "/" },

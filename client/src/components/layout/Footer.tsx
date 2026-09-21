@@ -8,6 +8,7 @@ import {
     TwitterIcon,
 } from "../common/Icons";
 import { useT } from "../../hooks/useT";
+import { CUSTOMER_ROUTES } from "../../routes/customerRoutes";
 
 const socialLinks = [
     {
@@ -90,7 +91,7 @@ const Footer = () => {
                                 <h2 className="footer__col__heading">{t("footer.customerCare")}</h2>
                                 <Link to="/support">{t("footer.helpCenter")}</Link>
                                 <Link to="/contact-us">{t("footer.contactUs")}</Link>
-                                <Link to="/orders">{t("footer.orderTracking")}</Link>
+                                <Link to={CUSTOMER_ROUTES.orders}>{t("footer.orderTracking")}</Link>
                             </div>
 
                             <div className="footer__col">

@@ -37,6 +37,7 @@ export type CustomerNotification = {
     title: string;
     message: string;
     link: string | null;
+    metadata?: Record<string, unknown> | null;
     read_at: string | null;
     created_at: string;
     is_read: boolean;

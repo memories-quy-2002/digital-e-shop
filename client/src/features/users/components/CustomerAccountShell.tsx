@@ -1,6 +1,8 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { BellIcon, CartIcon, HouseIcon, PersonIcon } from "../../../components/common/Icons";
+import { useT } from "../../../hooks/useT";
+import { CUSTOMER_ROUTES } from "../../../routes/customerRoutes";
 import "../../../styles/features/users/_customer-account-shell.scss";
 
 type CustomerAccountShellProps = {
@@ -10,13 +12,6 @@ type CustomerAccountShellProps = {
     actions?: React.ReactNode;
 };
 
-const navItems = [
-    { to: "/account", label: "Account", helper: "Overview", icon: <PersonIcon size={16} /> },
-    { to: "/orders", label: "Orders", helper: "History", icon: <CartIcon size={16} /> },
-    { to: "/addresses", label: "Addresses", helper: "Shipping", icon: <HouseIcon size={16} /> },
-    { to: "/account#notifications", label: "Notifications", helper: "Updates", icon: <BellIcon size={16} /> },
-];
-
 const CustomerAccountShell = ({
     eyebrow,
     title,
@@ -24,6 +19,13 @@ const CustomerAccountShell = ({
     actions,
 }: CustomerAccountShellProps) => {
     const location = useLocation();
+    const t = useT();
+    const navItems = [
+        { to: CUSTOMER_ROUTES.account, label: t("accountNav.account"), helper: t("accountNav.accountHelper"), icon: <PersonIcon size={16} /> },
+        { to: CUSTOMER_ROUTES.orders, label: t("accountNav.orders"), helper: t("accountNav.ordersHelper"), icon: <CartIcon size={16} /> },
+        { to: CUSTOMER_ROUTES.addresses, label: t("accountNav.addresses"), helper: t("accountNav.addressesHelper"), icon: <HouseIcon size={16} /> },
+        { to: CUSTOMER_ROUTES.notifications, label: t("accountNav.notifications"), helper: t("accountNav.notificationsHelper"), icon: <BellIcon size={16} /> },
+    ];
 
     return (
         <section className="customer-account-shell">
@@ -36,14 +38,15 @@ const CustomerAccountShell = ({
                 {actions ? <div className="customer-account-shell__actions">{actions}</div> : null}
             </div>
 
-            <nav className="customer-account-shell__nav" aria-label="Customer account navigation">
+            <nav className="customer-account-shell__nav" aria-label={t("accountNav.ariaLabel")}>
                 {navItems.map((item, index) => {
-                    const isNotifications = item.to === "/account#notifications";
-                    const isAccountOverview = item.to === "/account";
+                    const isNotifications = item.to === CUSTOMER_ROUTES.notifications;
+                    const isAccountOverview = item.to === CUSTOMER_ROUTES.account;
                     const isActive = isNotifications
-                        ? location.pathname === "/account" && location.hash === "#notifications"
+                        ? (location.pathname === CUSTOMER_ROUTES.notifications
+                            || (location.pathname === CUSTOMER_ROUTES.account && location.hash === "#notifications"))
                         : isAccountOverview
-                            ? location.pathname === "/account" && location.hash !== "#notifications"
+                            ? location.pathname === CUSTOMER_ROUTES.account && location.hash !== "#notifications"
                             : location.pathname === item.to;
 
                     return (
