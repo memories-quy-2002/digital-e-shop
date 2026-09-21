@@ -3,7 +3,7 @@ import pool from "#src/config/database.config";
 import util from "node:util";
 import { randomUUID } from "node:crypto";
 import { logger } from "#src/shared/utils/logger";
-import type { ProductEditorRow } from "./products.types";
+import type { ComparisonResponse, ProductComparisonRow, ProductEditorRow } from "./products.types";
 import type { ProductCreateInput, ProductUpdateInput } from "./products.dto";
 import type { ProductAttributeInput } from "./product-attributes.types";
 import type { UploadedFile } from "../blob/blob.types";
@@ -11,6 +11,11 @@ import type { IdNameRow, InsertResult, UpdateResult } from "#src/shared/interfac
 import { NestProductsRepository } from "./products.repository";
 import { NestInventoryService } from "../inventory/inventory.service";
 import { ProductAttributesRepository } from "./product-attributes.repository";
+import {
+    assertComparisonCategory,
+    ComparisonValidationError,
+    normalizeComparisonAttributes,
+} from "./products.compare";
 import { withTransaction } from "../database/transaction";
 import type { TransactionContext } from "../database/transaction";
 
@@ -47,6 +52,32 @@ export class NestProductsService {
         private readonly inventoryService: NestInventoryService,
         private readonly productAttributesRepository: ProductAttributesRepository,
     ) {}
+
+    async getProductsForComparison(ids: number[]): Promise<ComparisonResponse> {
+        const rows = await this.productsRepository.getProductsForComparison(ids);
+        const foundIds = new Set(rows.map((row) => row.id));
+        const missingIds = ids.filter((id) => !foundIds.has(id));
+
+        if (missingIds.length > 0) {
+            throw new ComparisonValidationError(
+                "COMPARE_PRODUCTS_NOT_FOUND",
+                "One or more products could not be found.",
+                404,
+                { missingIds },
+            );
+        }
+
+        const ordered = ids.map((id) => rows.find((row) => row.id === id) as ProductComparisonRow);
+        assertComparisonCategory(ordered);
+
+        return {
+            category: { name: ordered[0].category },
+            products: ordered.map(({ categoryId: _categoryId, ...row }) => ({
+                ...row,
+                attributes: normalizeComparisonAttributes(row.attributes),
+            })),
+        };
+    }
 
     async addSingleProductService(data: ProductCreateInput, file?: UploadedFile) {
         const {

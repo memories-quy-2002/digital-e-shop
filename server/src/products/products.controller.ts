@@ -28,6 +28,7 @@ import { getValidationMessage } from "#src/shared/validation/requestSchemas";
 import type { ProductCreateInput } from "./products.dto";
 import { attributeFilterSchema, productCreateSchema, productUpdateSchema, inventoryUpdateSchema } from "./products.validator";
 import type { AttributeFilter } from "./product-attributes.types";
+import { ComparisonValidationError, parseComparisonIds } from "./products.compare";
 
 const uploadsDir = resolve(process.cwd(), "src", "uploads");
 
@@ -125,6 +126,23 @@ export class ProductsController {
 
         const stream = createReadStream(resolvedImage.imagePath);
         return new StreamableFile(stream);
+    }
+
+    @Get("compare")
+    async compareProducts(@Query("ids") idsQuery: string) {
+        try {
+            const ids = parseComparisonIds(idsQuery);
+            const comparison = await this.productsService.getProductsForComparison(ids);
+            return { comparison, msg: "Products ready for comparison" };
+        } catch (error) {
+            if (error instanceof ComparisonValidationError) {
+                throw new HttpException(
+                    { code: error.code, msg: error.message, ...error.details },
+                    error.statusCode,
+                );
+            }
+            throw error;
+        }
     }
 
     @Get(":id")
