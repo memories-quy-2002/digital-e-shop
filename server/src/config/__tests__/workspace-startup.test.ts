@@ -12,7 +12,7 @@ const readPackage = (packagePath: string) => JSON.parse(fs.readFileSync(packageP
 describe("independent package startup", () => {
     it("generates Prisma before development and keeps migrations and seeds explicit", () => {
         const packageJson = readPackage(serverPackagePath);
-        const pnpmCommand = "corepack pnpm@12.3.4";
+        const pnpmCommand = "corepack pnpm@12.4.2";
 
         expect(packageJson.scripts?.predev).toBe(`${pnpmCommand} prisma:generate`);
         expect(packageJson.scripts?.prestart).toBe(

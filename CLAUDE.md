@@ -16,7 +16,7 @@ If this file and `AGENTS.md` disagree, `AGENTS.md` wins.
 - `server/` is an independent NestJS 11 API on the Express 5 adapter
 - MySQL is the primary runtime database; Prisma 7 is a partial, forward-migration-owned layer
 - The current server source tree uses feature directories such as `auth`, `cart`, `orders`, `payments`, `products`, `support`, and `users`
-- The package manager is pnpm `12.3.4`; the runtime is Node.js `24.20.0`
+- The package manager is pnpm `12.4.2`; the runtime is Node.js `24.20.0`
 - Run client and server commands with `pnpm --dir client ...` and `pnpm --dir server ...`
 - The client and server both have Vitest coverage; server integration tests require a disposable MySQL database
 

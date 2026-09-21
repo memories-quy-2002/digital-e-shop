@@ -4,7 +4,7 @@ This guide explains how to prepare a change, work within the current client and 
 
 ## Before you start
 
-Use Node.js `24.20.0` and pnpm `12.3.4`. The repository has one long-lived branch, `main`; do not push directly to it.
+Use Node.js `24.20.0` and pnpm `12.4.2`. The repository has one long-lived branch, `main`; do not push directly to it.
 
 Create a focused branch from `main`, then install each package independently:
 

@@ -84,7 +84,7 @@ The repository root intentionally has no package manifest or root lockfile. Inst
 ## Prerequisites
 
 - Node.js `24.20.0`, selected from `.node-version`
-- pnpm `12.3.4`
+- pnpm `12.4.2`
 - Docker with WSL support for the local MySQL setup
 - k6 only when running performance scenarios
 
