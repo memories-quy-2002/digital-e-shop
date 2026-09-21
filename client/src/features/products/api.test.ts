@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import http from "../../lib/http";
 import {
   fetchProduct,
+  fetchProductComparison,
   normalizeProductAttributes,
   productAttributeRowsToInputs,
   type ProductAttributeRow,
@@ -147,5 +148,41 @@ describe("product lookup", () => {
     vi.mocked(http.get).mockRejectedValueOnce({ response: { status: 404 } });
 
     await expect(fetchProduct(901)).resolves.toBeNull();
+  });
+
+  it("fetches comparison products with the exact ordered ids query", async () => {
+    vi.mocked(http.get).mockResolvedValueOnce({
+      data: {
+        comparison: {
+          category: { name: "Laptops" },
+          products: [{
+            id: 12,
+            name: "Laptop A",
+            sku: "A",
+            category: "Laptops",
+            brand: "Digital-E",
+            price: 20000000,
+            sale_price: null,
+            rating: 4.5,
+            reviews: 2,
+            main_image: null,
+            stock: 0,
+            description: "",
+            specifications: null,
+            attributes: {
+              memory: { label: "Memory", type: "text", value: "16 GB" },
+            },
+          }],
+        },
+      },
+    } as never);
+
+    await expect(fetchProductComparison([18, 12])).resolves.toMatchObject({
+      category: { name: "Laptops" },
+      products: [{ id: 12, attributes: [{ key: "memory", value: "16 GB" }] }],
+    });
+    expect(http.get).toHaveBeenLastCalledWith("/api/products/compare", {
+      params: { ids: "18,12" },
+    });
   });
 });

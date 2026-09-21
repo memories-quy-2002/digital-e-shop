@@ -1,6 +1,7 @@
 import http from "../../lib/http";
 import type { Product, Review, ReviewSummary, Wishlist } from "../../types/product";
 import { normalizeProduct } from "../../utils/product";
+import type { ProductComparison } from "./compare/types";
 
 export type ProductAttributeType = "text" | "number";
 
@@ -235,6 +236,20 @@ export async function fetchProduct(productId: number): Promise<ProductWithAttrib
 
         throw error;
     }
+}
+
+export async function fetchProductComparison(ids: number[]): Promise<ProductComparison> {
+    const response = await http.get("/api/products/compare", {
+        params: { ids: ids.join(",") },
+    });
+    const comparison = response.data.comparison;
+
+    return {
+        category: { name: String(comparison?.category?.name ?? "") },
+        products: Array.isArray(comparison?.products)
+            ? comparison.products.map(normalizeProductWithAttributes)
+            : [],
+    };
 }
 
 export async function fetchRelevantProducts(productId: number): Promise<Product[]> {
