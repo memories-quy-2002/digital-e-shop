@@ -37,6 +37,14 @@ vi.mock("../features/users/pages/CustomerAccountPage", () => ({
     default: () => <div data-testid="account-page">Account page</div>,
 }));
 
+vi.mock("../features/users/pages/AddressBookPage", () => ({
+    default: () => <div data-testid="address-book-page">Address book page</div>,
+}));
+
+vi.mock("../features/orders/pages/OrderHistoryPage", () => ({
+    default: () => <div data-testid="order-history-page">Order history page</div>,
+}));
+
 vi.mock("../pages/WishlistPage", () => ({
     default: () => <div data-testid="wishlist-page">Wishlist page</div>,
 }));
@@ -104,7 +112,7 @@ describe("cart routing", () => {
         expect(screen.queryByTestId("protected-route")).not.toBeInTheDocument();
     });
 
-    it("keeps account routes protected", async () => {
+    it("keeps the canonical account routes protected", async () => {
         render(
             <MemoryRouter initialEntries={["/account"]}>
                 <AppRouter />
@@ -115,7 +123,50 @@ describe("cart routing", () => {
         expect(await screen.findByTestId("account-page")).toBeInTheDocument();
     });
 
-    it("redirects the legacy customer notifications route to the account section", async () => {
+    it("renders canonical orders and addresses routes", async () => {
+        const ordersView = render(
+            <MemoryRouter initialEntries={["/account/orders?order=42"]}>
+                <AppRouter />
+                <RouteLocationProbe />
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByTestId("order-history-page")).toBeInTheDocument();
+        expect(screen.getByTestId("route-location")).toHaveTextContent("/account/orders?order=42");
+        ordersView.unmount();
+
+        render(
+            <MemoryRouter initialEntries={["/account/addresses"]}>
+                <AppRouter />
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByTestId("address-book-page")).toBeInTheDocument();
+    });
+
+    it("redirects legacy customer routes to canonical account routes", async () => {
+        const legacyOrdersView = render(
+            <MemoryRouter initialEntries={["/orders?order=42"]}>
+                <AppRouter />
+                <RouteLocationProbe />
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByTestId("order-history-page")).toBeInTheDocument();
+        expect(screen.getByTestId("route-location")).toHaveTextContent("/account/orders?order=42");
+        legacyOrdersView.unmount();
+
+        const addressView = render(
+            <MemoryRouter initialEntries={["/addresses"]}>
+                <AppRouter />
+                <RouteLocationProbe />
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByTestId("address-book-page")).toBeInTheDocument();
+        expect(screen.getByTestId("route-location")).toHaveTextContent("/account/addresses");
+        addressView.unmount();
+
         render(
             <MemoryRouter initialEntries={["/notifications"]}>
                 <AppRouter />
@@ -124,7 +175,7 @@ describe("cart routing", () => {
         );
 
         expect(await screen.findByTestId("account-page")).toBeInTheDocument();
-        expect(screen.getByTestId("route-location")).toHaveTextContent("/account#notifications");
+        expect(screen.getByTestId("route-location")).toHaveTextContent("/account/notifications");
     });
 
     it("keeps wishlist routes protected", async () => {

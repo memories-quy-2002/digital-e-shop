@@ -8,6 +8,7 @@ import { useToast } from "../context/ToastContext";
 import { createSupportTicket } from "../features/support/api";
 import { BellIcon, HouseIcon, PersonIcon } from "../components/common/Icons";
 import { useT } from "../hooks/useT";
+import { CUSTOMER_ROUTES } from "../routes/customerRoutes";
 import { HERO_IMAGE_WIDTHS, getResponsiveImageSource } from "../utils/images";
 import "../styles/pages/_contact.scss";
 
@@ -134,7 +135,7 @@ const ContactUsPage: React.FC = () => {
                         <p>{t("contact.subtitle")}</p>
                         <div className="info-page__actions">
                             <Link to="/support">{t("contact.visitSupport")}</Link>
-                            <Link to="/orders" className="ghost contact__hero__action--ghost">
+                            <Link to={CUSTOMER_ROUTES.orders} className="ghost contact__hero__action--ghost">
                                 {t("contact.reviewOrders")}
                             </Link>
                         </div>
@@ -244,7 +245,7 @@ const ContactUsPage: React.FC = () => {
                                 <h2>{t("contact.shortcutsSubtitle")}</h2>
                             </div>
                             <div className="contact__shortcut-list">
-                                <Link to="/orders">
+                                <Link to={CUSTOMER_ROUTES.orders}>
                                     <span>
                                         <BellIcon size={18} />
                                     </span>

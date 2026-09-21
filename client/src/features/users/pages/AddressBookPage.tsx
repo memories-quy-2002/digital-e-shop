@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "../../../context/AuthContext";
+import { useT } from "../../../hooks/useT";
 import { useToast } from "../../../context/ToastContext";
 import { HouseIcon } from "../../../components/common/Icons";
 import EmptyState from "../../../components/common/EmptyState";
@@ -8,7 +9,6 @@ import Layout from "../../../components/layout/Layout";
 import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
 import "../../../styles/features/users/_address-book.scss";
 import CustomerAccountShell from "../components/CustomerAccountShell";
-import { getApiErrorMessage } from "../../../lib/api-contract";
 import {
     CustomerAddress,
     CustomerAddressPayload,
@@ -29,22 +29,22 @@ type AddressForm = {
     isDefault: boolean;
 };
 
-const emptyForm: AddressForm = {
-    label: "Home",
+const createEmptyForm = (homeLabel: string): AddressForm => ({
+    label: homeLabel,
     recipientName: "",
     phoneNumber: "",
     addressLine: "",
     city: "",
     country: "",
     isDefault: false,
-};
-
+});
 const AddressBookPage = () => {
     const { userData } = useAuth();
     const uid = userData?.id || "";
     const { addToast } = useToast();
+    const t = useT();
     const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
-    const [form, setForm] = useState<AddressForm>(emptyForm);
+    const [form, setForm] = useState<AddressForm>(() => createEmptyForm(t("addresses.home")));
     const [isSaving, setIsSaving] = useState(false);
     const [pendingDeleteAddress, setPendingDeleteAddress] = useState<CustomerAddress | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -54,7 +54,7 @@ const AddressBookPage = () => {
         try {
             setAddresses(await fetchCustomerAddresses(uid));
         } catch {
-            addToast("Address book", "Unable to load saved addresses.");
+            addToast(t("addresses.toastTitle"), t("addresses.loadError"));
         }
     };
 
@@ -65,7 +65,7 @@ const AddressBookPage = () => {
     const handleEdit = (address: CustomerAddress) => {
         setForm({
             id: address.id,
-            label: address.label || "Shipping address",
+            label: address.label || t("addresses.shippingAddress"),
             recipientName: address.recipient_name || "",
             phoneNumber: address.phone_number || "",
             addressLine: address.address_line || "",
@@ -78,7 +78,7 @@ const AddressBookPage = () => {
     const handleSubmit = async () => {
         if (!uid) return;
         if (!form.addressLine.trim()) {
-            addToast("Address book", "Address line is required.");
+            addToast(t("addresses.toastTitle"), t("addresses.required"));
             return;
         }
 
@@ -95,15 +95,23 @@ const AddressBookPage = () => {
             };
             if (form.id) {
                 await updateCustomerAddress(uid, form.id, payload);
-                addToast("Address book", "Address updated.");
+                addToast(t("addresses.toastTitle"), t("addresses.updated"));
             } else {
                 await createCustomerAddress(uid, payload);
-                addToast("Address book", "Address saved.");
+                addToast(t("addresses.toastTitle"), t("addresses.saved"));
             }
-            setForm(emptyForm);
+            setForm(createEmptyForm(t("addresses.home")));
             loadAddresses();
         } catch (err: unknown) {
-            addToast("Address book", getApiErrorMessage(err, "Unable to save address."));
+            const maybeMessage =
+                typeof err === "object" &&
+                err !== null &&
+                "response" in err &&
+                typeof (err as { response?: { data?: { msg?: string } } }).response?.data?.msg === "string"
+                    ? (err as { response?: { data?: { msg?: string } } }).response?.data?.msg
+                    : undefined;
+            const message = maybeMessage ?? t("addresses.saveError");
+            addToast(t("addresses.toastTitle"), message);
         } finally {
             setIsSaving(false);
         }
@@ -114,11 +122,11 @@ const AddressBookPage = () => {
         try {
             setIsDeleting(true);
             await deleteCustomerAddress(uid, pendingDeleteAddress.id);
-            addToast("Address book", "Address removed.");
+            addToast(t("addresses.toastTitle"), t("addresses.removed"));
             setPendingDeleteAddress(null);
             loadAddresses();
         } catch {
-            addToast("Address book", "Unable to remove address.");
+            addToast(t("addresses.toastTitle"), t("addresses.removeError"));
         } finally {
             setIsDeleting(false);
         }
@@ -132,28 +140,28 @@ const AddressBookPage = () => {
     return (
         <Layout>
             <Helmet>
-                <title>Address Book | Digital-E</title>
-                <meta name="description" content="Manage saved shipping addresses." />
+                <title>{t("addresses.metaTitle")}</title>
+                <meta name="description" content={t("addresses.metaDescription")} />
             </Helmet>
             <main className="address-book">
                 <CustomerAccountShell
-                    eyebrow="DELIVERY DETAILS"
-                    title="Address book"
-                    description="Save reliable delivery details once, then use them again at checkout."
+                    eyebrow={t("addresses.eyebrow")}
+                    title={t("addresses.title")}
+                    description={t("addresses.description")}
                 />
 
-                <section className="address-book__summary" aria-label="Address book summary">
+                <section className="address-book__summary" aria-label={t("addresses.summaryAria")}>
                     <article>
-                        <span>Saved addresses</span>
+                        <span>{t("addresses.savedAddresses")}</span>
                         <strong>{addresses.length}</strong>
                     </article>
                     <article>
-                        <span>Default address</span>
-                        <strong>{addresses.some((address) => address.is_default) ? "Configured" : "Not set"}</strong>
+                        <span>{t("addresses.defaultAddress")}</span>
+                        <strong>{addresses.some((address) => address.is_default) ? t("addresses.configured") : t("addresses.notSet")}</strong>
                     </article>
                     <article>
-                        <span>Checkout ready</span>
-                        <strong>{addresses.length > 0 ? "Yes" : "Add one"}</strong>
+                        <span>{t("addresses.checkoutReady")}</span>
+                        <strong>{addresses.length > 0 ? t("addresses.yes") : t("addresses.addOne")}</strong>
                     </article>
                 </section>
 
@@ -161,44 +169,44 @@ const AddressBookPage = () => {
                     <div className="address-book__form">
                         <div className="address-book__form-header">
                             <div>
-                                <span>{form.id ? "Editing address" : "New address"}</span>
-                                <h2>{form.id ? form.label || "Saved address" : "Add address"}</h2>
-                                <p>Keep recipient details and delivery locations ready for future checkout.</p>
+                                <span>{form.id ? t("addresses.editingAddress") : t("addresses.newAddress")}</span>
+                                <h2>{form.id ? form.label || t("addresses.savedAddress") : t("addresses.addAddress")}</h2>
+                                <p>{t("addresses.formDescription")}</p>
                             </div>
                             {form.id ? (
-                                <button type="button" onClick={() => setForm(emptyForm)}>
-                                    Cancel edit
+                                <button type="button" onClick={() => setForm(createEmptyForm(t("addresses.home")))}>
+                                    {t("addresses.cancelEdit")}
                                 </button>
                             ) : null}
                         </div>
                         <div className="address-book__form-section">
-                            <h3>Recipient</h3>
+                            <h3>{t("addresses.recipientSection")}</h3>
                         <label>
-                            Label
+                            {t("addresses.label")}
                             <input value={form.label} onChange={(event) => setForm((current) => ({ ...current, label: event.target.value }))} />
                         </label>
                         <label>
-                            Recipient
+                            {t("addresses.recipient")}
                             <input value={form.recipientName} onChange={(event) => setForm((current) => ({ ...current, recipientName: event.target.value }))} />
                         </label>
                         <label>
-                            Phone
+                            {t("addresses.phone")}
                             <input value={form.phoneNumber} onChange={(event) => setForm((current) => ({ ...current, phoneNumber: event.target.value }))} />
                         </label>
                         </div>
                         <div className="address-book__form-section">
-                            <h3>Delivery location</h3>
+                            <h3>{t("addresses.deliveryLocation")}</h3>
                         <label>
-                            Address
+                            {t("addresses.address")}
                             <input value={form.addressLine} onChange={(event) => setForm((current) => ({ ...current, addressLine: event.target.value }))} />
                         </label>
                         <div className="address-book__form__grid">
                             <label>
-                                City
+                                {t("addresses.city")}
                                 <input value={form.city} onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))} />
                             </label>
                             <label>
-                                Country
+                                {t("addresses.country")}
                                 <input value={form.country} onChange={(event) => setForm((current) => ({ ...current, country: event.target.value }))} />
                             </label>
                         </div>
@@ -209,14 +217,14 @@ const AddressBookPage = () => {
                                 checked={form.isDefault}
                                 onChange={(event) => setForm((current) => ({ ...current, isDefault: event.target.checked }))}
                             />
-                            Use as default shipping address
+                            {t("addresses.useDefault")}
                         </label>
                         <div className="address-book__actions">
                             <button type="button" onClick={handleSubmit} disabled={isSaving}>
-                                {isSaving ? "Saving..." : form.id ? "Save address" : "Add address"}
+                                {isSaving ? t("addresses.saving") : form.id ? t("addresses.saveAddress") : t("addresses.addAddress")}
                             </button>
-                            <button type="button" className="secondary" onClick={() => setForm(emptyForm)}>
-                                Reset
+                            <button type="button" className="secondary" onClick={() => setForm(createEmptyForm(t("addresses.home")))}>
+                                {t("addresses.reset")}
                             </button>
                         </div>
                     </div>
@@ -227,20 +235,20 @@ const AddressBookPage = () => {
                                 <article key={address.id} className={address.is_default ? "is-default" : ""}>
                                     <div>
                                         <strong>{address.label}</strong>
-                                        {address.is_default ? <span>Default</span> : null}
+                                        {address.is_default ? <span>{t("addresses.default")}</span> : null}
                                     </div>
                                     <p>{address.address_line}</p>
-                                    <small>{[address.city, address.country].filter(Boolean).join(", ") || "Location not specified"}</small>
+                                    <small>{[address.city, address.country].filter(Boolean).join(", ") || t("addresses.locationNotSpecified")}</small>
                                     <small>
                                         {[address.recipient_name, address.phone_number].filter(Boolean).join(" | ") ||
-                                            "No recipient details"}
+                                            t("addresses.noRecipientDetails")}
                                     </small>
                                     <div className="address-book__list__actions">
                                         <button type="button" onClick={() => handleEdit(address)}>
-                                            Edit
+                                            {t("addresses.edit")}
                                         </button>
                                         <button type="button" className="danger" onClick={() => handleRequestDelete(address.id)}>
-                                            Delete
+                                            {t("addresses.delete")}
                                         </button>
                                     </div>
                                 </article>
@@ -248,8 +256,8 @@ const AddressBookPage = () => {
                         ) : (
                             <EmptyState
                                 className="address-book__empty"
-                                title="No saved addresses yet"
-                                description="Add your first delivery location to make checkout faster and keep shipping details consistent."
+                                title={t("addresses.noSavedAddresses")}
+                                description={t("addresses.emptyDescription")}
                                 icon={<HouseIcon size={20} />}
                                 compact
                             />
@@ -258,9 +266,9 @@ const AddressBookPage = () => {
                 </section>
                 <ConfirmActionModal
                     show={pendingDeleteAddress !== null}
-                    title="Delete address"
-                    message={`Delete "${pendingDeleteAddress?.label || "this address"}" from your address book?`}
-                    confirmLabel="Delete"
+                    title={t("addresses.deleteAddress")}
+                    message={t("addresses.deleteMessage", pendingDeleteAddress?.label || t("addresses.shippingAddress"))}
+                    confirmLabel={t("addresses.delete")}
                     isConfirming={isDeleting}
                     onCancel={() => setPendingDeleteAddress(null)}
                     onConfirm={handleDelete}

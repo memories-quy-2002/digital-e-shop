@@ -4,11 +4,12 @@ import { Link } from "react-router-dom";
 import supportImage from "../assets/images/support.jpg";
 import Layout from "../components/layout/Layout";
 import { useT } from "../hooks/useT";
+import { CUSTOMER_ROUTES } from "../routes/customerRoutes";
 import { HERO_IMAGE_WIDTHS, getResponsiveImageSource } from "../utils/images";
 import "../styles/pages/_support.scss";
 
 type SupportChannel = { title: string; text: string; detail: string; action: string; href: string };
-type SupportResource = { title: string; text: string; action: string; href: "/orders" | "/contact-us" };
+type SupportResource = { title: string; text: string; action: string; href: string };
 
 const SupportPage: React.FC = () => {
     const t = useT();
@@ -25,7 +26,7 @@ const SupportPage: React.FC = () => {
         { title: t("support.hotlineTitle"), text: t("support.hotlineText"), detail: t("support.hotlineDetail"), action: t("support.hotlineAction"), href: "tel:+84123456789" },
     ];
     const resources: SupportResource[] = [
-        { title: t("support.trackOrderTitle"), text: t("support.trackOrderText"), action: t("support.trackOrderAction"), href: "/orders" },
+        { title: t("support.trackOrderTitle"), text: t("support.trackOrderText"), action: t("support.trackOrderAction"), href: CUSTOMER_ROUTES.orders },
         { title: t("support.returnsTitle"), text: t("support.returnsText"), action: t("support.returnsAction"), href: "/contact-us" },
         { title: t("support.warrantyTitle"), text: t("support.warrantyText"), action: t("support.warrantyAction"), href: "/contact-us" },
         { title: t("support.paymentTitle"), text: t("support.paymentText"), action: t("support.paymentAction"), href: "/contact-us" },
@@ -50,7 +51,7 @@ const SupportPage: React.FC = () => {
                         <h1>{t("support.title")}</h1>
                         <p>{t("support.heroSubtitle")}</p>
                         <div className="support__hero__actions info-page__actions">
-                            <Link to="/orders">{t("support.viewOrderHistory")}</Link>
+                            <Link to={CUSTOMER_ROUTES.orders}>{t("support.viewOrderHistory")}</Link>
                             <Link to="/contact-us" className="ghost">{t("support.contactUs")}</Link>
                         </div>
                     </div>

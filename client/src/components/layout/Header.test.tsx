@@ -81,7 +81,7 @@ describe("Header navigation controls", () => {
 
         fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
 
-        expect(screen.getByTestId("location")).toHaveTextContent("/login?redirect=%2Faccount%23notifications");
+        expect(screen.getByTestId("location")).toHaveTextContent("/login?redirect=%2Faccount%2Fnotifications");
         expect(mocks.toast.addToast).not.toHaveBeenCalledWith("Login required", expect.anything());
     });
 
@@ -111,7 +111,7 @@ describe("Header navigation controls", () => {
 
         fireEvent.click(screen.getByRole("link", { name: "View all" }));
 
-        expect(screen.getByTestId("location")).toHaveTextContent("/account#notifications");
+        expect(screen.getByTestId("location")).toHaveTextContent("/account/notifications");
     });
 
     it("lets a guest open the cart from the desktop control", () => {

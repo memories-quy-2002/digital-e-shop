@@ -7,6 +7,7 @@ import LoadingScreen from "../../../components/common/LoadingScreen";
 import Layout from "../../../components/layout/Layout";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
+import { useT } from "../../../hooks/useT";
 import "../../../styles/features/orders/_order-history.scss";
 import { formatUtcDate, formatUtcDateTime } from "../../../utils/dateTime";
 import CustomerAccountShell from "../../users/components/CustomerAccountShell";
@@ -15,21 +16,19 @@ import type { CustomerOrder, CustomerOrderDetail, CustomerOrderTimelineEvent } f
 import { formatShippingAddress } from "../shippingAddress";
 import { formatCurrency } from "../../../utils/currency";
 import { getOrderStatusKey, ORDER_STATUS } from "../orderStatus";
-import { getApiErrorMessage } from "../../../lib/api-contract";
 
-const getStatusLabel = (status: number) => {
-    const labels = { pending: "Pending", done: "Done", canceled: "Canceled", unknown: "Unknown" };
+const getStatusLabel = (status: number, t: ReturnType<typeof useT>) => {
+    const labels = { pending: t("orders.statusPending"), done: t("orders.statusDone"), canceled: t("orders.statusCanceled"), unknown: t("orders.statusUnknown") };
     return labels[getOrderStatusKey(status)];
 };
 
-const getPaymentLabel = (payment?: CustomerOrder["payment_method"]) => {
-    if (payment === "bank_transfer") return "Historical bank transfer";
-    if (payment === "cash") return "Cash on delivery";
-    if (payment === "payos") return "PayOS (VND)";
-    if (payment === "stripe" || payment === "card") return "Historical card payment";
-    return "Not recorded";
+const getPaymentLabel = (payment: CustomerOrder["payment_method"] | undefined, t: ReturnType<typeof useT>) => {
+    if (payment === "bank_transfer") return t("orders.paymentBankTransfer");
+    if (payment === "cash") return t("orders.paymentCash");
+    if (payment === "payos") return t("orders.paymentPayos");
+    if (payment === "stripe" || payment === "card") return t("orders.paymentCard");
+    return t("orders.paymentNotRecorded");
 };
-
 const formatPaymentAmount = (value: number | null | undefined, currency?: string | null) => {
     if (value === null || value === undefined || !currency) return null;
     return new Intl.NumberFormat(currency === "VND" ? "vi-VN" : "en-US", {
@@ -45,6 +44,7 @@ const OrderHistoryPage = () => {
     const [searchParams] = useSearchParams();
     const uid = userData?.id || "";
     const { addToast } = useToast();
+    const t = useT();
     const [orders, setOrders] = useState<CustomerOrder[]>([]);
     const [isLoadingOrders, setIsLoadingOrders] = useState(true);
     const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
@@ -64,7 +64,7 @@ const OrderHistoryPage = () => {
                 setIsLoadingOrders(true);
                 setOrders(await fetchCustomerOrders(uid));
             } catch {
-                addToast("Orders", "Unable to load order history.");
+                addToast(t("orders.listTitle"), t("orders.loadError"));
             } finally {
                 setIsLoadingOrders(false);
             }
@@ -84,7 +84,7 @@ const OrderHistoryPage = () => {
                 setLoadingDetail(true);
                 setOrderDetail(await fetchCustomerOrderDetail(selectedOrderId));
             } catch {
-                addToast("Orders", "Unable to load order detail.");
+                addToast(t("orders.listTitle"), t("orders.detailError"));
             } finally {
                 setLoadingDetail(false);
             }
@@ -143,15 +143,15 @@ const OrderHistoryPage = () => {
 
         const availableItems = orderDetail.items.filter((item) => item.stock > 0);
         if (availableItems.length === 0) {
-            addToast("Reorder", "None of the items in this order are currently available.");
+            addToast(t("orders.reorderToastTitle"), t("orders.reorderNone"));
             return;
         }
 
         try {
             await addItemsToCustomerCart(uid, availableItems);
-            addToast("Reorder", "Available items were added to your cart.");
+            addToast(t("orders.reorderToastTitle"), t("orders.reorderSuccess"));
         } catch {
-            addToast("Reorder", "Unable to add the order items to your cart.");
+            addToast(t("orders.reorderToastTitle"), t("orders.reorderError"));
         }
     };
 
@@ -165,10 +165,12 @@ const OrderHistoryPage = () => {
                 setOrders((current) => current.map((order) => order.id === canceledOrder.id ? { ...order, ...canceledOrder } : order));
                 setOrderDetail(await fetchCustomerOrderDetail(orderDetail.id));
             }
-            addToast("Order canceled", "Your pending order was canceled and inventory was released.");
+            addToast(t("orders.cancelSuccessTitle"), t("orders.cancelSuccess"));
         } catch (error: unknown) {
-            const message = getApiErrorMessage(error, "Unable to cancel this order.");
-            addToast("Order cancellation", message);
+            const message = error && typeof error === "object" && "response" in error
+                ? String((error as { response?: { data?: { msg?: string } } }).response?.data?.msg || t("orders.cancelError"))
+                : t("orders.cancelError");
+            addToast(t("orders.cancelErrorTitle"), message);
         } finally {
             setIsCanceling(false);
         }
@@ -185,37 +187,37 @@ const OrderHistoryPage = () => {
     return (
         <Layout>
             <Helmet>
-                <title>Order History | Digital-E</title>
-                <meta name="description" content="Review previous orders and reorder available items." />
+                <title>{t("orders.metaTitle")}</title>
+                <meta name="description" content={t("orders.metaDescription")} />
             </Helmet>
             <main className="order-history">
                 <CustomerAccountShell
-                    eyebrow="PURCHASE LOG"
-                    title="Order history"
-                    description="Track recent purchases, review payment details, and reorder items that are still available."
+                    eyebrow={t("orders.eyebrow")}
+                    title={t("orders.title")}
+                    description={t("orders.description")}
                 />
 
-                <section className="order-history__summary" aria-label="Order history summary">
+                <section className="order-history__summary" aria-label={t("orders.summaryAria")}>
                     <article>
-                        <span>Total orders</span>
+                        <span>{t("orders.totalOrders")}</span>
                         <strong>{orders.length}</strong>
                     </article>
                     <article>
-                        <span>Current page</span>
+                        <span>{t("orders.currentPage")}</span>
                         <strong>{currentPage}</strong>
                     </article>
                     <article>
-                        <span>Selected order</span>
-                        <strong>{selectedOrder ? `#${selectedOrder.id}` : "None"}</strong>
+                        <span>{t("orders.selectedOrder")}</span>
+                        <strong>{selectedOrder ? t("orders.orderLabel", selectedOrder.id) : t("orders.none")}</strong>
                     </article>
                 </section>
 
                 {orders.length === 0 ? (
                     <section className="order-history__empty">
                         <EmptyState
-                            title="No orders yet"
-                            description="Your completed checkout history will appear here once you place your first order."
-                            actionLabel="Start shopping"
+                            title={t("orders.noOrders")}
+                            description={t("orders.noOrdersDescription")}
+                            actionLabel={t("orders.startShopping")}
                             actionTo="/shops"
                             compact
                         />
@@ -225,13 +227,13 @@ const OrderHistoryPage = () => {
                         <div className="order-history__list">
                             <div className="order-history__list-header">
                                 <div>
-                                    <h2>Orders</h2>
+                                    <h2>{t("orders.listTitle")}</h2>
                                     <p>
-                                        {orders.length} total order{orders.length === 1 ? "" : "s"}
+                                        {t("orders.totalOrdersCount", orders.length)}
                                     </p>
                                 </div>
                                 <span>
-                                    Page {currentPage} / {totalPages}
+                                    {t("orders.pageOf", currentPage, totalPages)}
                                 </span>
                             </div>
                             <div className="order-history__list-body">
@@ -244,10 +246,10 @@ const OrderHistoryPage = () => {
                                         }`}
                                         onClick={() => setSelectedOrderId(order.id)}
                                     >
-                                        <strong>Order #{order.id}</strong>
+                                        <strong>{t("orders.orderLabel", order.id)}</strong>
                                         <span>{formatUtcDate(order.date_added)}</span>
                                         <div className="order-history__order-button-meta">
-                                            <em>{getStatusLabel(order.status)}</em>
+                                            <em>{getStatusLabel(order.status, t)}</em>
                                             <small>{formatCurrency(Math.max(order.total_price - order.discount, 0))}</small>
                                         </div>
                                     </button>
@@ -260,17 +262,17 @@ const OrderHistoryPage = () => {
                                         onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
                                         disabled={currentPage === 1}
                                     >
-                                        Previous
+                                        {t("orders.previous")}
                                     </button>
                                     <span>
-                                        Page {currentPage} of {totalPages}
+                                        {t("orders.pageOf", currentPage, totalPages)}
                                     </span>
                                     <button
                                         type="button"
                                         onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
                                         disabled={currentPage === totalPages}
                                     >
-                                        Next
+                                        {t("orders.next")}
                                     </button>
                                 </div>
                             ) : null}
@@ -297,19 +299,19 @@ const OrderHistoryPage = () => {
                                             <span
                                                 className={`order-history__status order-history__status--${orderDetail.status}`}
                                             >
-                                                {getStatusLabel(orderDetail.status)}
+                                                {getStatusLabel(orderDetail.status, t)}
                                             </span>
-                                            <h2>Order #{orderDetail.id}</h2>
+                                            <h2>{t("orders.orderLabel", orderDetail.id)}</h2>
                                             <p>{formatUtcDateTime(orderDetail.date_added)}</p>
                                         </div>
                                         <div className="order-history__detail-actions">
                                             <button type="button" onClick={handleReorder}>
                                                 <CartIcon size={18} />
-                                                Reorder
+                                                {t("orders.reorder")}
                                             </button>
                                             {orderDetail.status === ORDER_STATUS.PENDING ? (
                                                 <button type="button" className="order-history__cancel" onClick={handleCancel} disabled={isCanceling}>
-                                                    {isCanceling ? "Canceling..." : "Cancel order"}
+                                                    {isCanceling ? t("orders.canceling") : t("orders.cancelOrder")}
                                                 </button>
                                             ) : null}
                                         </div>
@@ -317,23 +319,23 @@ const OrderHistoryPage = () => {
 
                                     <div className="order-history__meta">
                                         <div className="order-history__meta-card">
-                                            <span>Payment</span>
-                                            <strong>{getPaymentLabel(orderDetail.payment_method)}</strong>
+                                            <span>{t("orders.payment")}</span>
+                                            <strong>{getPaymentLabel(orderDetail.payment_method, t)}</strong>
                                         </div>
                                         <div className="order-history__meta-card">
-                                            <span>Total</span>
+                                            <span>{t("orders.total")}</span>
                                             <strong>
                                                 {formatCurrency(
                                                     Math.max(orderDetail.total_price - orderDetail.discount, 0),
                                                 )}
                                             </strong>
                                             {formatPaymentAmount(orderDetail.payment_amount, orderDetail.payment_currency) ? (
-                                                <small>{formatPaymentAmount(orderDetail.payment_amount, orderDetail.payment_currency)} settlement amount</small>
+                                                <small>{t("orders.settlementAmount", formatPaymentAmount(orderDetail.payment_amount, orderDetail.payment_currency) || "")}</small>
                                             ) : null}
                                         </div>
                                         <div className="order-history__meta-card">
-                                            <span>Address</span>
-                                            <strong>{formatShippingAddress(orderDetail.shipping_address) || "Not recorded"}</strong>
+                                            <span>{t("orders.address")}</span>
+                                            <strong>{formatShippingAddress(orderDetail.shipping_address) || t("orders.notRecorded")}</strong>
                                         </div>
                                     </div>
 
@@ -343,8 +345,8 @@ const OrderHistoryPage = () => {
                                             : [
                                                   {
                                                       id: 0,
-                                                      label: "Placed",
-                                                      note: "Order was placed.",
+                                                      label: t("orders.placed"),
+                                                      note: t("orders.placedNote"),
                                                       created_at: orderDetail.date_added,
                                                       status: orderDetail.status,
                                                   },

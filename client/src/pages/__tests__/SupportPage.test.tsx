@@ -120,7 +120,7 @@ describe("SupportPage", () => {
         );
         expect(screen.getByRole("link", { name: "Translated track order action" })).toHaveAttribute(
             "href",
-            "/orders",
+            "/account/orders",
         );
         expect(screen.getByRole("link", { name: "Translated returns action" })).toHaveAttribute(
             "href",
