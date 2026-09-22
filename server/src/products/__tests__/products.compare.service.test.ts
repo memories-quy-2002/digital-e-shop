@@ -28,13 +28,15 @@ describe("NestProductsService.getProductsForComparison", () => {
         };
         const service = createProductsService(repository);
 
-        await expect(service.getProductsForComparison([12, 18])).resolves.toMatchObject({
+        const comparison = await service.getProductsForComparison([12, 18]);
+        expect(comparison).toMatchObject({
             category: { name: "Laptops" },
             products: [
                 { id: 12, stock: 0, attributes: [{ key: "screen_size", value: "15.6" }] },
                 { id: 18, attributes: [{ key: "memory", value: "16 GB" }] },
             ],
         });
+        expect(comparison.products.every((item) => !Object.hasOwn(item, "categoryId"))).toBe(true);
         expect(repository.getProductsForComparison).toHaveBeenCalledOnce();
         expect(repository.getProductsForComparison).toHaveBeenCalledWith([12, 18]);
     });

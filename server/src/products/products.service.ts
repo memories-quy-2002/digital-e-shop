@@ -75,10 +75,15 @@ export class NestProductsService {
 
         return {
             category: { name: ordered[0].category },
-            products: ordered.map(({ categoryId: _categoryId, ...row }) => ({
-                ...row,
-                attributes: normalizeComparisonAttributes(row.attributes),
-            })),
+            products: ordered.map((product) => {
+                const { categoryId, ...row } = product;
+                void categoryId;
+
+                return {
+                    ...row,
+                    attributes: normalizeComparisonAttributes(row.attributes),
+                };
+            }),
         };
     }
 
