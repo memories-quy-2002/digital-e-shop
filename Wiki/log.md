@@ -79,3 +79,5 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-20 — Codex — Completed the Prisma projection audit for all 30 legacy application tables, adding typed address, notification, and wishlist projections without changing raw-MySQL write ownership.
 - 2026-09-21 - Codex - Upgraded active pnpm pins and regenerated independent client/server lockfiles to resolve Dependabot's pnpm minimumReleaseAge strict-mode incompatibility while preserving the repository cooldown policy.
 - 2026-09-21 - Codex - Added canonical customer account routes, compatibility redirects, and bilingual English/Vietnamese localization for customer account flows.
+- 2026-09-21 - Codex - Completed product alerts with owner-scoped preferences, transactional price/stock transition events, localized customer notifications, responsive Product Detail/Wishlist controls, and maintained API/Wiki documentation.
+- 2026-09-21 - Codex - Completed guest-friendly product comparison with bounded same-category API reads, local ID-only selection, responsive bilingual comparison UI, and documented error contracts.

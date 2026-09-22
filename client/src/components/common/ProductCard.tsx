@@ -11,6 +11,8 @@ import { normalizeProductImageName } from "../../utils/images";
 import ratingStar from "../../utils/ratingStar";
 import { formatCurrency } from "../../utils/currency";
 import { useT } from "../../hooks/useT";
+import { useToast } from "../../context/ToastContext";
+import { useComparison } from "../../context/ComparisonContext";
 
 export type ProductCardProps = {
     product: Product;
@@ -30,6 +32,8 @@ const ProductCard = ({
     onAddingCart,
 }: ProductCardProps) => {
     const t = useT();
+    const { addToast } = useToast();
+    const { isSelected, toggle } = useComparison();
     const normalizedProduct = normalizeProduct(product);
     const hasSale =
         normalizedProduct.sale_price !== null &&
@@ -41,6 +45,17 @@ const ProductCard = ({
     const discountPercent = hasSale ? Math.round(((normalizedProduct.price - activePrice) / normalizedProduct.price) * 100) : 0;
     const stockLabel = availableStock > 0 ? t("product.stockIn", availableStock) : t("product.stockOut");
     const wishlistLabel = isWishlist ? t("product.savedToWishlist") : t("product.saveToWishlist");
+    const isComparisonSelected = isSelected(normalizedProduct.id);
+    const comparisonLabel = isComparisonSelected ? t("comparison.removeFromCompare") : t("comparison.addToCompare");
+
+    const handleComparisonToggle = () => {
+        const result = toggle(normalizedProduct.id, normalizedProduct.category);
+        if (result === "category-mismatch") {
+            addToast(t("comparison.categoryMismatchTitle"), t("comparison.categoryMismatchMessage"));
+        } else if (result === "limit-reached") {
+            addToast(t("comparison.limitTitle"), t("comparison.limitMessage"));
+        }
+    };
 
     return (
         <Card
@@ -126,6 +141,16 @@ const ProductCard = ({
                     <span>{stockLabel}</span>
                 </div>
 
+                <Button
+                    type="button"
+                    variant={isComparisonSelected ? "secondary" : "outline"}
+                    className={`w-full whitespace-nowrap ${isComparisonSelected ? "border-electric text-electric" : ""}`}
+                    onClick={handleComparisonToggle}
+                    aria-label={comparisonLabel}
+                    aria-pressed={isComparisonSelected}
+                >
+                    {comparisonLabel}
+                </Button>
                 <Button
                     type="button"
                     className="product-card__add-to-cart mt-auto w-full"

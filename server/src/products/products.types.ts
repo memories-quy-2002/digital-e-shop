@@ -1,5 +1,6 @@
 import type { ProductCreateInput, ProductUpdateInput } from "./products.dto";
 import type { AttributeFilter, ProductAttribute } from "./product-attributes.types";
+import type { ProductAttributeType } from "./product-attributes.types";
 
 export type ProductEditorRow = {
     id: number;
@@ -19,6 +20,27 @@ export type ProductEditorRow = {
     main_image?: string;
     rating?: number;
     reviews?: number;
+};
+
+export type ProductComparisonAttribute = {
+    key: string;
+    label: string;
+    type: ProductAttributeType;
+    value: string;
+    unit: string;
+};
+
+export type ProductComparisonRow = ProductEditorRow & {
+    categoryId: number;
+};
+
+export type ProductComparisonItem = Omit<ProductComparisonRow, "categoryId" | "attributes"> & {
+    attributes: ProductComparisonAttribute[];
+};
+
+export type ComparisonResponse = {
+    category: { name: string };
+    products: ProductComparisonItem[];
 };
 
 export type ProductFacetValueRow = {

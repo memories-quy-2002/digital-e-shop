@@ -1,6 +1,6 @@
 import React, { Activity, useActionState, useEffect, useEffectEvent, useMemo, useOptimistic, useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
     StarFillIcon,
     StarIcon,
@@ -10,6 +10,7 @@ import Layout from "../../../components/layout/Layout";
 import { useAuth } from "../../../context/AuthContext";
 import { useCart } from "../../../context/CartContext";
 import { useToast } from "../../../context/ToastContext";
+import { useComparison } from "../../../context/ComparisonContext";
 import productPlaceholder from "../../../assets/images/product_placeholder.jpg";
 import NoPage from "../../../pages/NotFoundPage";
 import "../../../styles/pages/_product.scss";
@@ -38,6 +39,9 @@ import {
 } from "../api";
 import { useRecentlyViewed } from "../../../hooks/useRecentlyViewed";
 import { useT } from "../../../hooks/useT";
+import ProductAlertControls from "../../productAlerts/components/ProductAlertControls";
+import { fetchProductAlert, updateProductAlert } from "../../productAlerts/api";
+import type { ProductAlertKey, ProductAlertPreference } from "../../productAlerts/types";
 
 type ReviewActionState = {
     status: "idle" | "success" | "error";
@@ -66,12 +70,20 @@ const initialReviewActionState: ReviewActionState = {
     status: "idle",
 };
 
+const createDefaultProductAlertPreference = (productId: number): ProductAlertPreference => ({
+    productId,
+    priceDropEnabled: false,
+    backInStockEnabled: false,
+});
+
 const ProductPage = () => {
     const location = useLocation();
+    const navigate = useNavigate();
     const url = new URLSearchParams(location.search);
     const { addToast } = useToast();
     const { userData } = useAuth();
     const { addItem } = useCart();
+    const { isSelected, toggle: toggleComparison } = useComparison();
     const uid = userData?.id || "";
     const productId = url.get("id");
     const pid = productId !== null ? parseInt(productId) : 0;
@@ -119,6 +131,13 @@ const ProductPage = () => {
         (currentReviews: Review[], newReview: Review) => [newReview, ...currentReviews],
     );
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const [productAlertPreference, setProductAlertPreference] = useState<ProductAlertPreference>(() =>
+        createDefaultProductAlertPreference(pid),
+    );
+    const [isProductAlertLoading, setIsProductAlertLoading] = useState(false);
+    const [isProductAlertSaving, setIsProductAlertSaving] = useState(false);
+    const [isProductAlertSaved, setIsProductAlertSaved] = useState(false);
+    const [productAlertError, setProductAlertError] = useState<string | null>(null);
     const recentlyViewed = useRecentlyViewed();
     const trackRecentlyViewed = useEffectEvent((product: Product) => {
         recentlyViewed.track(product);
@@ -255,6 +274,44 @@ const ProductPage = () => {
     }, [addToast, uid]);
 
     useEffect(() => {
+        let isActive = true;
+        const defaultPreference = createDefaultProductAlertPreference(pid);
+
+        setProductAlertPreference(defaultPreference);
+        setProductAlertError(null);
+        setIsProductAlertSaved(false);
+
+        if (!uid || pid <= 0) {
+            setIsProductAlertLoading(false);
+            return () => {
+                isActive = false;
+            };
+        }
+
+        setIsProductAlertLoading(true);
+        fetchProductAlert(uid, pid)
+            .then((preference) => {
+                if (isActive) {
+                    setProductAlertPreference(preference);
+                }
+            })
+            .catch(() => {
+                if (isActive) {
+                    setProductAlertError(t("wishlistAlerts.updateError"));
+                }
+            })
+            .finally(() => {
+                if (isActive) {
+                    setIsProductAlertLoading(false);
+                }
+            });
+
+        return () => {
+            isActive = false;
+        };
+    }, [pid, t, uid]);
+
+    useEffect(() => {
         const loadRelevantProducts = async () => {
             try {
                 const products = await fetchRelevantProducts(pid);
@@ -341,6 +398,52 @@ const ProductPage = () => {
         }
     };
 
+    const handleComparisonToggle = () => {
+        const result = toggleComparison(productDetail.id, productDetail.category);
+        if (result === "category-mismatch") {
+            addToast(t("comparison.categoryMismatchTitle"), t("comparison.categoryMismatchMessage"));
+        } else if (result === "limit-reached") {
+            addToast(t("comparison.limitTitle"), t("comparison.limitMessage"));
+        }
+    };
+
+    const handleProductAlertToggle = (key: ProductAlertKey, enabled: boolean) => {
+        if (!uid) {
+            const redirect = location.pathname + location.search;
+            addToast(t("wishlistAlerts.loginRequiredTitle"), t("wishlistAlerts.loginRequiredMessage"));
+            navigate("/login?redirect=" + encodeURIComponent(redirect));
+            return;
+        }
+
+        const previousPreference = productAlertPreference;
+        const nextPreference = {
+            ...previousPreference,
+            [key]: enabled,
+        } satisfies ProductAlertPreference;
+
+        setProductAlertPreference(nextPreference);
+        setProductAlertError(null);
+        setIsProductAlertSaved(false);
+        setIsProductAlertSaving(true);
+
+        updateProductAlert(uid, pid, {
+            priceDropEnabled: nextPreference.priceDropEnabled,
+            backInStockEnabled: nextPreference.backInStockEnabled,
+        })
+            .then((savedPreference) => {
+                setProductAlertPreference(savedPreference);
+                setIsProductAlertSaved(true);
+            })
+            .catch(() => {
+                setProductAlertPreference(previousPreference);
+                setIsProductAlertSaved(false);
+                setProductAlertError(t("wishlistAlerts.updateError"));
+            })
+            .finally(() => {
+                setIsProductAlertSaving(false);
+            });
+    };
+
     const toggleWishlist = async (user_id: string, product_id: number) => {
         if (uid === "") {
             addToast("Login required", "You need to login to use this feature.");
@@ -420,6 +523,7 @@ const ProductPage = () => {
     }
 
     const isWishlisted = wishlistIdSet.has(pid);
+    const isComparisonSelected = isSelected(productDetail.id);
     const activeImageUrl = activeImage ? getProductImageUrl(activeImage) : "";
     const activeResponsiveImage = activeImageUrl
         ? getResponsiveImageSource(activeImageUrl, {
@@ -616,6 +720,17 @@ const ProductPage = () => {
                                     </span>
                                 </div>
                                 <button
+                                    className={`product-page__button product-page__button--secondary${
+                                        isComparisonSelected ? " product-page__button--active" : ""
+                                    }`}
+                                    type="button"
+                                    onClick={handleComparisonToggle}
+                                    aria-label={isComparisonSelected ? t("comparison.removeFromCompare") : t("comparison.addToCompare")}
+                                    aria-pressed={isComparisonSelected}
+                                >
+                                    {isComparisonSelected ? t("comparison.removeFromCompare") : t("comparison.addToCompare")}
+                                </button>
+                                <button
                                     className="product-page__button product-page__button--primary"
                                     type="button"
                                     onClick={() => handleAddingCart(uid, productDetail)}
@@ -640,6 +755,13 @@ const ProductPage = () => {
                                     {isWishlisted ? t("product.savedToWishlist") : t("product.saveToWishlist")}
                                 </button>
                             </div>
+                            <ProductAlertControls
+                                preference={productAlertPreference}
+                                saving={Boolean(uid) && (isProductAlertLoading || isProductAlertSaving)}
+                                saved={isProductAlertSaved}
+                                error={productAlertError}
+                                onToggle={handleProductAlertToggle}
+                            />
                         </div>
                     </div>
                 </section>

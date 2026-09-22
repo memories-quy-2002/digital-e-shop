@@ -2,7 +2,12 @@ import { Injectable } from "@nestjs/common";
 import pool from "#src/config/database.config";
 const prisma = require("#src/database/prisma/client");
 import type { CountRow, IdNameRow, UpdateResult } from "#src/shared/interfaces/domain";
-import type { ProductEditorRow, ProductFacetValueRow, ProductPriceBoundsRow } from "./products.types";
+import type {
+    ProductComparisonRow,
+    ProductEditorRow,
+    ProductFacetValueRow,
+    ProductPriceBoundsRow,
+} from "./products.types";
 import type { AttributeFilter } from "./product-attributes.types";
 
 type ProductInsertRecord = {
@@ -294,6 +299,49 @@ export class NestProductsRepository {
                     resolve(rows.length > 0 ? rows[0] : null);
                 },
             );
+        });
+    }
+
+    getProductsForComparison(productIds: number[]): Promise<ProductComparisonRow[]> {
+        if (productIds.length === 0) {
+            return Promise.resolve([]);
+        }
+
+        const placeholders = productIds.map(() => "?").join(", ");
+        const selectFragments = [
+            "products.id",
+            "products.name",
+            "products.description",
+            "products.category_id AS categoryId",
+            "categories.name AS category",
+            "brands.name AS brand",
+            "products.sku",
+            "products.manufacturer_part_number",
+            "products.warranty_months",
+            "products.price",
+            "products.sale_price",
+            "products.stock",
+            "GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock",
+            "products.main_image",
+            "products.specifications",
+            productAttributesSelect("products"),
+            productRatingSelect,
+        ].join(", ");
+        const sql = [
+            `SELECT ${selectFragments}`,
+            "FROM products",
+            "JOIN categories ON categories.id = products.category_id",
+            "JOIN brands ON brands.id = products.brand_id",
+            productRatingJoin,
+            productAvailabilityJoin,
+            `WHERE products.id IN (${placeholders}) AND products.stock >= 0`,
+        ].join("\\n");
+
+        return new Promise((resolve, reject) => {
+            pool.query(sql, productIds, (err: Error | null, rows: ProductComparisonRow[]) => {
+                if (err) return reject(err);
+                resolve(rows || []);
+            });
         });
     }
 

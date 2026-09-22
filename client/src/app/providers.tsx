@@ -4,6 +4,7 @@ import { HelmetProvider } from "react-helmet-async";
 import ToastProvider from "../context/ToastContext";
 import { AuthProvider } from "../context/AuthContext";
 import { CartProvider } from "../context/CartContext";
+import { ComparisonProvider } from "../context/ComparisonContext";
 import { LocaleProvider } from "../context/LocaleContext";
 import ThemeSync from "../components/common/ThemeSync";
 
@@ -77,7 +78,7 @@ const AppProviders = ({ children }: AppProvidersProps) => {
                         <HelmetProvider>
                             <BrowserRouter>
                                 <ThemeSync />
-                                {children}
+                                <ComparisonProvider>{children}</ComparisonProvider>
                                 <Observability />
                             </BrowserRouter>
                         </HelmetProvider>

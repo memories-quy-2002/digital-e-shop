@@ -33,15 +33,16 @@ model User {
   createdAt                  DateTime  @default(now()) @map("created_at") @db.DateTime(0)
   lastLogin                  DateTime  @default(now()) @map("last_login") @db.DateTime(0)
 
-  orders                 Order[]
-  carts                  Cart[]
-  reviews                Review[]
-  pendingCheckouts       PendingCheckout[]
-  supportTickets         SupportTicket[]
-  afterSalesRequests     AfterSalesRequest[] @relation("AfterSalesRequestCustomer")
-  afterSalesEvents       AfterSalesEvent[] @relation("AfterSalesEventActor")
-  marketingSubscriptions MarketingSubscription[]
-  wishlists              Wishlist[]
+  orders                    Order[]
+  carts                     Cart[]
+  reviews                   Review[]
+  pendingCheckouts          PendingCheckout[]
+  supportTickets            SupportTicket[]
+  afterSalesRequests        AfterSalesRequest[]        @relation("AfterSalesRequestCustomer")
+  afterSalesEvents          AfterSalesEvent[]          @relation("AfterSalesEventActor")
+  marketingSubscriptions    MarketingSubscription[]
+  wishlists                 Wishlist[]
+  productAlertSubscriptions ProductAlertSubscription[]
 
   @@map("users")
 }
@@ -95,14 +96,16 @@ model CustomerAddress {
 }
 
 model CustomerNotification {
-  id        Int       @id @default(autoincrement())
-  userId    String    @map("user_id") @db.VarChar(255)
-  type      String    @default("order") @db.VarChar(40)
-  title     String    @db.VarChar(160)
-  message   String    @db.VarChar(500)
-  link      String?   @db.VarChar(255)
-  readAt    DateTime? @map("read_at") @db.DateTime(0)
-  createdAt DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  id           Int       @id @default(autoincrement())
+  userId       String    @map("user_id") @db.VarChar(255)
+  type         String    @default("order") @db.VarChar(40)
+  title        String    @db.VarChar(160)
+  message      String    @db.VarChar(500)
+  link         String?   @db.VarChar(255)
+  metadata     Json?
+  alertEventId Int?      @map("alert_event_id")
+  readAt       DateTime? @map("read_at") @db.DateTime(0)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.DateTime(0)
 
   @@index([userId], map: "customer_notifications_user_id_idx")
   @@index([createdAt], map: "customer_notifications_created_at_idx")
@@ -126,9 +129,9 @@ model Category {
 }
 
 model Wishlist {
-  id        Int     @id @default(autoincrement())
-  userId    String  @map("user_id") @db.VarChar(255)
-  productId Int     @map("product_id")
+  id        Int    @id @default(autoincrement())
+  userId    String @map("user_id") @db.VarChar(255)
+  productId Int    @map("product_id")
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_wishlist_user_id")
   product Product @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_wishlist_product_id")
@@ -156,21 +159,56 @@ model Product {
   createdAt              DateTime @default(now()) @map("created_at") @db.DateTime(0)
   updatedAt              DateTime @default(now()) @map("updated_at") @db.DateTime(0)
 
-  brand                 Brand                  @relation(fields: [brandId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_products_brand_id_brands")
-  category              Category               @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_products_category_id_categories")
-  reviews               Review[]
-  cartItems             CartItem[]
-  orderItems            OrderItem[]
-  inventoryReservations InventoryReservation[]
-  attributes            ProductAttribute[]
-  guestCartItems        GuestCartItem[]
-  wishlists             Wishlist[]
+  brand                     Brand                      @relation(fields: [brandId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_products_brand_id_brands")
+  category                  Category                   @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_products_category_id_categories")
+  reviews                   Review[]
+  cartItems                 CartItem[]
+  orderItems                OrderItem[]
+  inventoryReservations     InventoryReservation[]
+  attributes                ProductAttribute[]
+  guestCartItems            GuestCartItem[]
+  wishlists                 Wishlist[]
+  productAlertSubscriptions ProductAlertSubscription[]
+  productAlertEvents        ProductAlertEvent[]
 
   @@index([categoryId, brandId, id], map: "idx_products_category_brand_rating")
   @@index([brandId], map: "idx_products_brand")
   @@index([categoryId], map: "idx_products_category")
   @@index([manufacturerPartNumber], map: "products_mpn_idx")
   @@map("products")
+}
+
+model ProductAlertSubscription {
+  id                 Int      @id @default(autoincrement())
+  userId             String   @map("user_id") @db.VarChar(255)
+  productId          Int      @map("product_id")
+  priceDropEnabled   Boolean  @default(false) @map("price_drop_enabled") @db.TinyInt
+  backInStockEnabled Boolean  @default(false) @map("back_in_stock_enabled") @db.TinyInt
+  createdAt          DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime(0)
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([userId, productId], map: "uq_product_alert_subscriptions_user_product")
+  @@index([productId], map: "product_alert_subscriptions_product_idx")
+  @@map("product_alert_subscriptions")
+}
+
+model ProductAlertEvent {
+  id            Int      @id @default(autoincrement())
+  productId     Int      @map("product_id")
+  alertType     String   @map("alert_type") @db.VarChar(24)
+  previousPrice Decimal  @map("previous_price") @db.Decimal(10, 2)
+  currentPrice  Decimal  @map("current_price") @db.Decimal(10, 2)
+  previousStock Int      @map("previous_stock")
+  currentStock  Int      @map("current_stock")
+  createdAt     DateTime @default(now()) @map("created_at") @db.DateTime(0)
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([productId, alertType, createdAt], map: "product_alert_events_product_type_created_idx")
+  @@map("product_alert_events")
 }
 
 model ProductAttribute {
@@ -430,8 +468,8 @@ model OrderItem {
   warrantyMonthsSnapshot Int?     @map("warranty_months_snapshot")
   specificationsSnapshot Json?    @map("specifications_snapshot")
 
-  order   Order   @relation(fields: [orderId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
+  order           Order            @relation(fields: [orderId], references: [id])
+  product         Product          @relation(fields: [productId], references: [id])
   afterSalesItems AfterSalesItem[]
 
   @@unique([orderId, productId], map: "uq_order_items_order_id_product_id")
@@ -564,10 +602,10 @@ model AfterSalesRequest {
   refundedAt            DateTime? @map("refunded_at") @db.DateTime(0)
   closedAt              DateTime? @map("closed_at") @db.DateTime(0)
 
-  order       Order             @relation(fields: [orderId], references: [id])
-  user        User?             @relation("AfterSalesRequestCustomer", fields: [userId], references: [id], onDelete: SetNull)
-  items       AfterSalesItem[]
-  events      AfterSalesEvent[]
+  order  Order             @relation(fields: [orderId], references: [id])
+  user   User?             @relation("AfterSalesRequestCustomer", fields: [userId], references: [id], onDelete: SetNull)
+  items  AfterSalesItem[]
+  events AfterSalesEvent[]
 
   @@index([orderId, status, createdAt], map: "after_sales_requests_order_status_idx")
   @@index([userId, createdAt], map: "after_sales_requests_user_created_idx")
@@ -593,13 +631,13 @@ model AfterSalesItem {
 }
 
 model AfterSalesEvent {
-  id           Int       @id @default(autoincrement())
-  requestId    Int       @map("request_id")
-  fromStatus   String?   @map("from_status") @db.VarChar(24)
-  toStatus     String    @map("to_status") @db.VarChar(24)
-  actorUserId  String?   @map("actor_user_id") @db.VarChar(255)
-  note         String?   @db.Text
-  createdAt    DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  id          Int      @id @default(autoincrement())
+  requestId   Int      @map("request_id")
+  fromStatus  String?  @map("from_status") @db.VarChar(24)
+  toStatus    String   @map("to_status") @db.VarChar(24)
+  actorUserId String?  @map("actor_user_id") @db.VarChar(255)
+  note        String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.DateTime(0)
 
   request   AfterSalesRequest @relation(fields: [requestId], references: [id])
   actorUser User?             @relation("AfterSalesEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)

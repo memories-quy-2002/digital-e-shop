@@ -1,9 +1,9 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import pool from "#src/config/database.config";
 import util from "node:util";
 import { randomUUID } from "node:crypto";
 import { logger } from "#src/shared/utils/logger";
-import type { ProductEditorRow } from "./products.types";
+import type { ComparisonResponse, ProductComparisonRow, ProductEditorRow } from "./products.types";
 import type { ProductCreateInput, ProductUpdateInput } from "./products.dto";
 import type { ProductAttributeInput } from "./product-attributes.types";
 import type { UploadedFile } from "../blob/blob.types";
@@ -11,8 +11,15 @@ import type { IdNameRow, InsertResult, UpdateResult } from "#src/shared/interfac
 import { NestProductsRepository } from "./products.repository";
 import { NestInventoryService } from "../inventory/inventory.service";
 import { ProductAttributesRepository } from "./product-attributes.repository";
+import {
+    assertComparisonCategory,
+    ComparisonValidationError,
+    normalizeComparisonAttributes,
+} from "./products.compare";
 import { withTransaction } from "../database/transaction";
 import type { TransactionContext } from "../database/transaction";
+import { ProductAlertsService } from "../product-alerts/product-alerts.service";
+import { getProductAlertTransitions } from "../product-alerts/product-alerts.policy";
 
 const query = util.promisify(pool.query).bind(pool);
 const dbQuery = <T = unknown>(sql: string, values?: unknown[]): Promise<T> => query(sql, values) as Promise<T>;
@@ -46,7 +53,39 @@ export class NestProductsService {
         private readonly productsRepository: NestProductsRepository,
         private readonly inventoryService: NestInventoryService,
         private readonly productAttributesRepository: ProductAttributesRepository,
+        @Optional() private readonly productAlertsService?: ProductAlertsService,
     ) {}
+
+    async getProductsForComparison(ids: number[]): Promise<ComparisonResponse> {
+        const rows = await this.productsRepository.getProductsForComparison(ids);
+        const foundIds = new Set(rows.map((row) => row.id));
+        const missingIds = ids.filter((id) => !foundIds.has(id));
+
+        if (missingIds.length > 0) {
+            throw new ComparisonValidationError(
+                "COMPARE_PRODUCTS_NOT_FOUND",
+                "One or more products could not be found.",
+                404,
+                { missingIds },
+            );
+        }
+
+        const ordered = ids.map((id) => rows.find((row) => row.id === id) as ProductComparisonRow);
+        assertComparisonCategory(ordered);
+
+        return {
+            category: { name: ordered[0].category },
+            products: ordered.map((product) => {
+                const { categoryId, ...row } = product;
+                void categoryId;
+
+                return {
+                    ...row,
+                    attributes: normalizeComparisonAttributes(row.attributes),
+                };
+            }),
+        };
+    }
 
     async addSingleProductService(data: ProductCreateInput, file?: UploadedFile) {
         const {
@@ -182,28 +221,60 @@ export class NestProductsService {
 
         try {
             const result = await withTransaction(async (tx) => {
+                const lockedRows = await tx.query<Array<{ price: number; sale_price: number | null; stock: number }>>(
+                    "SELECT price, sale_price, stock FROM products WHERE id = ? AND stock >= 0 FOR UPDATE",
+                    [pid],
+                );
+                const locked = lockedRows[0];
+                if (!locked) {
+                    throw Object.assign(new Error("Product not found"), { statusCode: 404 });
+                }
+                const lockedBefore = {
+                    productId: pid,
+                    price: Number(locked.price),
+                    salePrice: locked.sale_price === null || locked.sale_price === undefined ? null : Number(locked.sale_price),
+                    stock: Number(locked.stock),
+                };
+                const nextPrice = updates.price === undefined ? lockedBefore.price : Number(updates.price);
+                const nextSalePrice = updates.salePrice === undefined
+                    ? lockedBefore.salePrice
+                    : updates.salePrice === "" || updates.salePrice === null
+                      ? null
+                      : Number(updates.salePrice);
+                const nextStock = updates.stock === undefined ? lockedBefore.stock : Number(updates.stock);
                 const categoryId = await this.ensureNamedId("categories", category, tx);
                 const brandId = await this.ensureNamedId("brands", brand, tx);
                 const updateResult = await tx.query<UpdateResult>(
                     `UPDATE products
                     SET name = ?, description = ?, category_id = ?, brand_id = ?, specifications = ?, sku = ?, manufacturer_part_number = ?, warranty_months = ?, price = ?, sale_price = ?, stock = ?
                     WHERE id = ? AND stock >= 0`,
-                    [name, description, categoryId, brandId, specifications, sku, manufacturerPartNumber, warrantyMonths, price, salePrice, stock, pid],
+                    [name, description, categoryId, brandId, specifications, sku, manufacturerPartNumber, warrantyMonths, nextPrice, nextSalePrice, nextStock, pid],
                 );
                 if (updateResult.affectedRows === 0) return updateResult;
                 if (updates.attributes !== undefined) {
                     await this.productAttributesRepository.replaceForProduct(tx, pid, updates.attributes);
                 }
-                if (Number(current.stock) !== stock) {
+                if (lockedBefore.stock !== nextStock) {
                     await this.inventoryService.createMovementsInTransaction(tx, [{
                         productId: pid,
                         movementType: "manual_adjustment",
-                        quantityChange: stock - (Number(current.stock) || 0),
-                        stockBefore: Number(current.stock) || 0,
-                        stockAfter: stock,
+                        quantityChange: nextStock - lockedBefore.stock,
+                        stockBefore: lockedBefore.stock,
+                        stockAfter: nextStock,
                         note: "Product stock changed in product editor",
                         actorId: updates.actorId || "admin",
                     }]);
+                }
+                if (this.productAlertsService) {
+                    const transitions = getProductAlertTransitions(lockedBefore, {
+                        productId: pid,
+                        price: nextPrice,
+                        salePrice: nextSalePrice,
+                        stock: nextStock,
+                    });
+                    if (transitions.length > 0) {
+                        await this.productAlertsService.recordTransitionsInTransaction(tx, transitions);
+                    }
                 }
                 return updateResult;
             });
@@ -228,8 +299,8 @@ export class NestProductsService {
 
     async updateInventoryService(pid: number, stock: number): Promise<ProductEditorRow> {
         await withTransaction(async (tx) => {
-            const rows = await tx.query<Array<{ stock: number }>>(
-                "SELECT stock FROM products WHERE id = ? AND stock >= 0 FOR UPDATE",
+            const rows = await tx.query<Array<{ price: number; sale_price: number | null; stock: number }>>(
+                "SELECT price, sale_price, stock FROM products WHERE id = ? AND stock >= 0 FOR UPDATE",
                 [pid],
             );
             const before = rows[0];
@@ -237,6 +308,12 @@ export class NestProductsService {
                 throw Object.assign(new Error("Product not found"), { statusCode: 404 });
             }
             const stockBefore = Number(before.stock) || 0;
+            const beforeSnapshot = {
+                productId: pid,
+                price: Number(before.price),
+                salePrice: before.sale_price === null || before.sale_price === undefined ? null : Number(before.sale_price),
+                stock: stockBefore,
+            };
             const result = await tx.query<UpdateResult>(
                 "UPDATE products SET stock = ? WHERE id = ? AND stock >= 0",
                 [stock, pid],
@@ -254,6 +331,17 @@ export class NestProductsService {
                     note: "Inventory updated from admin quick restock",
                     actorId: "admin",
                 }]);
+            }
+            if (this.productAlertsService && stockBefore !== stock) {
+                const transitions = getProductAlertTransitions(beforeSnapshot, {
+                    productId: pid,
+                    price: beforeSnapshot.price,
+                    salePrice: beforeSnapshot.salePrice,
+                    stock,
+                });
+                if (transitions.length > 0) {
+                    await this.productAlertsService.recordTransitionsInTransaction(tx, transitions);
+                }
             }
         });
 

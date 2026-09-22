@@ -55,6 +55,16 @@ not enter URLs, browser history, or referrer logs.
 
 See [[after-sales-request]] and [[0006-after-sales-capability-and-refund-boundary]].
 
-## Deferred work
+## Product comparison
 
-Product comparison is deliberately deferred to a later phase so the order/payment and customer-support flows can stabilize first.
+Product comparison is now a public, guest-friendly catalog flow. The client
+keeps only two to four positive product IDs in the versioned local selection
+(`digital-e:comparison:v1`) and opens `/compare?ids=...`; no account or cart
+record is created. `GET /api/products/compare` validates same-category IDs and
+returns current VND prices, available stock, review summary, warranty, and
+normalized attributes. The client maps `COMPARE_INVALID_IDS`,
+`COMPARE_PRODUCTS_NOT_FOUND`, and `COMPARE_CATEGORY_MISMATCH` to readable
+English/Vietnamese states, while checkout and cart remain authoritative for
+the final price and stock decision.
+
+See [[architecture]], [[api-response-contract]], and the maintained [API guide](../../docs/API.md).

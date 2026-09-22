@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import axios from "../api/axios";
 import EmptyState from "../components/common/EmptyState";
@@ -8,9 +8,12 @@ import ConfirmActionModal from "../components/common/ConfirmActionModal";
 import Layout from "../components/layout/Layout";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useT } from "../hooks/useT";
 import { HeartFillIcon } from "../components/common/Icons";
 import "../styles/pages/_wishlist.scss";
 import { Product } from "../utils/interface";
+import { fetchProductAlerts, updateProductAlert } from "../features/productAlerts/api";
+import type { ProductAlertKey, ProductAlertPreference } from "../features/productAlerts/types";
 
 interface Wishlist {
     id: number;
@@ -24,9 +27,33 @@ const WishlistPage = () => {
     const [pendingRemoveProductId, setPendingRemoveProductId] = useState<number | null>(null);
     const [showBulkRemoveConfirm, setShowBulkRemoveConfirm] = useState(false);
     const [isRemoving, setIsRemoving] = useState(false);
+    const [alertPreferences, setAlertPreferences] = useState<Record<number, ProductAlertPreference>>({});
+    const [alertSavingByProductId, setAlertSavingByProductId] = useState<Record<number, boolean>>({});
+    const [alertSavedByProductId, setAlertSavedByProductId] = useState<Record<number, boolean>>({});
+    const [alertErrors, setAlertErrors] = useState<Record<number, string | null>>({});
+    const [alertLoadError, setAlertLoadError] = useState<string | null>(null);
     const { userData } = useAuth();
     const uid = userData?.id || "";
     const { addToast } = useToast();
+    const t = useT();
+
+    const loadAlertPreferences = useCallback(async () => {
+        if (!uid) {
+            setAlertLoadError(null);
+            return;
+        }
+
+        try {
+            const preferences = await fetchProductAlerts(uid);
+            setAlertPreferences(preferences.reduce<Record<number, ProductAlertPreference>>((accumulator, preference) => {
+                accumulator[preference.productId] = preference;
+                return accumulator;
+            }, {}));
+            setAlertLoadError(null);
+        } catch {
+            setAlertLoadError(t("wishlistAlerts.loadError"));
+        }
+    }, [t, uid]);
 
     useEffect(() => {
         const fetchWishlist = async () => {
@@ -65,6 +92,10 @@ const WishlistPage = () => {
         fetchWishlist();
     }, [addToast, uid]);
 
+    useEffect(() => {
+        void loadAlertPreferences();
+    }, [loadAlertPreferences]);
+
     const selectedProducts = useMemo(() => wishlist.filter((item) => selectedIds.includes(item.product.id)), [selectedIds, wishlist]);
 
     const handleSelect = (productId: number, checked: boolean) => {
@@ -101,6 +132,40 @@ const WishlistPage = () => {
 
     const handleRemoveWishlist = (productId: number) => {
         setPendingRemoveProductId(productId);
+    };
+
+    const handleAlertToggle = async (productId: number, key: ProductAlertKey, enabled: boolean) => {
+        if (!uid || alertSavingByProductId[productId]) return;
+
+        const previousPreference = alertPreferences[productId] || {
+            productId,
+            priceDropEnabled: false,
+            backInStockEnabled: false,
+        };
+        const nextPreference = { ...previousPreference, [key]: enabled } satisfies ProductAlertPreference;
+
+        setAlertPreferences((current) => ({ ...current, [productId]: nextPreference }));
+        setAlertErrors((current) => ({ ...current, [productId]: null }));
+        setAlertSavedByProductId((current) => ({ ...current, [productId]: false }));
+        setAlertSavingByProductId((current) => ({ ...current, [productId]: true }));
+
+        try {
+            const savedPreference = await updateProductAlert(uid, productId, {
+                priceDropEnabled: nextPreference.priceDropEnabled,
+                backInStockEnabled: nextPreference.backInStockEnabled,
+            });
+            setAlertPreferences((current) => ({ ...current, [productId]: savedPreference }));
+            setAlertSavedByProductId((current) => ({ ...current, [productId]: true }));
+        } catch {
+            setAlertPreferences((current) => ({ ...current, [productId]: previousPreference }));
+            setAlertSavedByProductId((current) => ({ ...current, [productId]: false }));
+            setAlertErrors((current) => ({
+                ...current,
+                [productId]: t("wishlistAlerts.updateError"),
+            }));
+        } finally {
+            setAlertSavingByProductId((current) => ({ ...current, [productId]: false }));
+        }
     };
 
     const handleBulkRemove = async () => {
@@ -235,6 +300,15 @@ const WishlistPage = () => {
                     </section>
                 ) : null}
 
+                {alertLoadError ? (
+                    <div className="wishlist__alerts-error" role="alert">
+                        <span>{alertLoadError}</span>
+                        <button type="button" onClick={() => void loadAlertPreferences()}>
+                            {t("wishlistAlerts.retry")}
+                        </button>
+                    </div>
+                ) : null}
+
                 {wishlist.length === 0 ? (
                     <EmptyState
                         className="wishlist__empty"
@@ -253,6 +327,11 @@ const WishlistPage = () => {
                                 onSelect={handleSelect}
                                 onMoveToCart={handleMoveToCart}
                                 onRemoveWishlist={handleRemoveWishlist}
+                                alertPreference={alertPreferences[item.product.id]}
+                                alertSaving={Boolean(alertSavingByProductId[item.product.id])}
+                                alertSaved={Boolean(alertSavedByProductId[item.product.id])}
+                                alertError={alertErrors[item.product.id]}
+                                onAlertToggle={handleAlertToggle}
                             />
                         ))}
                     </section>

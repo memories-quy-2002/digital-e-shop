@@ -21,6 +21,7 @@ import { RequestLoggerInterceptor } from "./interceptors/request-logger.intercep
 import { SupportModule } from "./support/support.module";
 import { AdminAlertsModule } from "./admin-alerts/admin-alerts.module";
 import { AfterSalesModule } from "./after-sales/after-sales.module";
+import { ProductAlertsModule } from "./product-alerts/product-alerts.module";
 
 @Module({
     imports: [
@@ -43,6 +44,7 @@ import { AfterSalesModule } from "./after-sales/after-sales.module";
         SupportModule,
         AdminAlertsModule,
         AfterSalesModule,
+        ProductAlertsModule,
     ],
     providers: [
         { provide: APP_FILTER, useClass: AllExceptionsFilter },
