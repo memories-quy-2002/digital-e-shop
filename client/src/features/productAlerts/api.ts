@@ -1,12 +1,6 @@
 import http from "../../lib/http";
 import type { ProductAlertPreference, ProductAlertUpdateInput } from "./types";
 
-const preferenceFallback = (productId: number): ProductAlertPreference => ({
-    productId,
-    priceDropEnabled: false,
-    backInStockEnabled: false,
-});
-
 const normalizePreference = (value: unknown, fallbackProductId: number): ProductAlertPreference => {
     const source = value && typeof value === "object" ? value as Record<string, unknown> : {};
     return {

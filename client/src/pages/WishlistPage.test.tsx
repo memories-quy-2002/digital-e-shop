@@ -60,7 +60,7 @@ vi.mock("../components/common/WishlistItem", () => ({
         onRemoveWishlist,
     }: {
         item: { product: { id: number; name: string } };
-        alertPreference: { priceDropEnabled: boolean; backInStockEnabled: boolean };
+        alertPreference?: { priceDropEnabled: boolean; backInStockEnabled: boolean };
         onAlertToggle: (productId: number, key: "priceDropEnabled" | "backInStockEnabled", enabled: boolean) => void;
         onRemoveWishlist: (productId: number) => void;
     }) => (
@@ -70,15 +70,15 @@ vi.mock("../components/common/WishlistItem", () => ({
                 type="button"
                 role="switch"
                 aria-label="Price drop"
-                aria-checked={alertPreference.priceDropEnabled}
-                onClick={() => onAlertToggle(item.product.id, "priceDropEnabled", !alertPreference.priceDropEnabled)}
+                aria-checked={alertPreference?.priceDropEnabled ?? false}
+                onClick={() => onAlertToggle(item.product.id, "priceDropEnabled", !(alertPreference?.priceDropEnabled ?? false))}
             />
             <button
                 type="button"
                 role="switch"
                 aria-label="Back in stock"
-                aria-checked={alertPreference.backInStockEnabled}
-                onClick={() => onAlertToggle(item.product.id, "backInStockEnabled", !alertPreference.backInStockEnabled)}
+                aria-checked={alertPreference?.backInStockEnabled ?? false}
+                onClick={() => onAlertToggle(item.product.id, "backInStockEnabled", !(alertPreference?.backInStockEnabled ?? false))}
             />
             <button type="button" onClick={() => onRemoveWishlist(item.product.id)}>
                 Remove {item.product.name}
@@ -180,5 +180,21 @@ describe("Wishlist alert controls", () => {
         expect(mocks.alerts.fetchProductAlerts).toHaveBeenCalledTimes(1);
         expect(screen.getByTestId("wishlist-2")).toBeInTheDocument();
         expect(screen.getByRole("switch", { name: "Back in stock" })).toHaveAttribute("aria-checked", "true");
+    });
+
+    it("shows an alert loading error and retries without blocking the wishlist", async () => {
+        mocks.alerts.fetchProductAlerts
+            .mockRejectedValueOnce(new Error("unavailable"))
+            .mockResolvedValueOnce([]);
+
+        renderWishlist();
+
+        expect(await screen.findByTestId("wishlist-1")).toBeInTheDocument();
+        expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load product alerts.");
+
+        fireEvent.click(screen.getByRole("button", { name: "Retry product alerts" }));
+
+        await waitFor(() => expect(mocks.alerts.fetchProductAlerts).toHaveBeenCalledTimes(2));
+        await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
     });
 });

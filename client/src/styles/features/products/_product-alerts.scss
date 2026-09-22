@@ -81,11 +81,24 @@
         }
     }
 
+    &__state {
+        flex: 0 0 auto;
+        color: var(--de-color-text-muted);
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
     &__switch {
         position: relative;
+        display: inline-grid;
+        place-items: center;
         flex: 0 0 auto;
         width: 2.75rem;
-        height: 1.55rem;
+        min-width: 44px;
+        height: 2.75rem;
+        min-height: 44px;
         padding: 0.18rem;
         border: 1px solid var(--de-color-border-strong);
         border-radius: 999px;
@@ -150,6 +163,13 @@
     @media (max-width: 640px) {
         &__options {
             grid-template-columns: 1fr;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        &__switch,
+        &__thumb {
+            transition: none;
         }
     }
 }

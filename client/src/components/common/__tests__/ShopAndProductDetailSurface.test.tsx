@@ -47,6 +47,11 @@ vi.mock("../../../api/axios", () => ({
 
 vi.mock("../../../features/products/api", () => apiMocks);
 
+vi.mock("../../../features/productAlerts/api", () => ({
+    fetchProductAlert: apiMocks.fetchProductAlert,
+    updateProductAlert: apiMocks.updateProductAlert,
+}));
+
 vi.mock("../../../context/AuthContext", () => ({
     useAuth: () => ({ userData: authMocks.userData, loading: false, setUserData: vi.fn() }),
 }));
@@ -218,7 +223,7 @@ describe("shop and product detail surfaces", () => {
             </MemoryRouter>,
         );
 
-        expect(await screen.findByRole("switch", { name: "Back in stock" })).toHaveAttribute("aria-checked", "true");
+        await vi.waitFor(() => expect(screen.getByRole("switch", { name: "Back in stock" })).toHaveAttribute("aria-checked", "true"));
         expect(apiMocks.fetchProductAlert).toHaveBeenCalledWith("user-1", 1);
 
         fireEvent.click(screen.getByRole("switch", { name: "Price drop" }));
@@ -241,7 +246,7 @@ describe("shop and product detail surfaces", () => {
         const priceSwitch = await screen.findByRole("switch", { name: "Price drop" });
         fireEvent.click(priceSwitch);
         await vi.waitFor(() => expect(priceSwitch).toHaveAttribute("aria-checked", "false"));
-        expect(screen.getByRole("alert")).toBeInTheDocument();
+        expect(await screen.findByRole("alert")).toBeInTheDocument();
 
         apiMocks.updateProductAlert.mockResolvedValueOnce({
             productId: 1,

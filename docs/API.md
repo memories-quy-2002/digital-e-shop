@@ -104,6 +104,16 @@ GET /api/products accepts pagination, term, category, brand, price, sort, and
 JSON-encoded typed attribute filters. The server bounds pagination and
 recalculates the catalog query from the request.
 
+### GET /api/products/compare?ids=12,18,24
+
+- Public read-only endpoint; no authentication required.
+- `ids` is a comma-separated list of two to four distinct positive product IDs.
+- Products must exist in the public catalog and share one category.
+- The response uses current product data, available stock, VND prices, review
+  summary, warranty, and normalized attributes.
+- Errors: `COMPARE_INVALID_IDS` (400), `COMPARE_PRODUCTS_NOT_FOUND` (404),
+  and `COMPARE_CATEGORY_MISMATCH` (422).
+
 Guest cart synchronization accepts
 { "items": [{ "productId": 10, "quantity": 2 }] }. The server assigns an
 HttpOnly digitalEGuestCartId cookie and stores only product IDs and quantities.
@@ -165,6 +175,9 @@ user record.
 | GET | /api/users/:id/notifications | Owner or admin |
 | POST | /api/users/:id/notifications/read-all | Owner or admin |
 | POST | /api/users/:id/notifications/:notificationId/read | Owner or admin |
+| GET | /api/users/:id/product-alerts | Owner or admin |
+| GET | /api/users/:id/product-alerts/:productId | Owner or admin |
+| PUT | /api/users/:id/product-alerts/:productId | Owner or admin |
 | GET | /api/wishlist/:uid | Owner or admin |
 | POST | /api/wishlist | Authenticated |
 | DELETE | /api/wishlist | Authenticated |
@@ -179,6 +192,35 @@ user record.
 Authenticated checkout and review creation require a verified Firebase email.
 Customers can still browse, maintain a cart, view order history, and use
 support while unverified.
+
+### Product alerts
+
+Product alerts are authenticated, owner-scoped preferences for a saved
+product. The client may use the singular `/api/user/:id/product-alerts`
+compatibility alias, but new clients should use the plural `/api/users` path.
+
+The list and single-product endpoints return an `alerts` or `alert` payload
+with this normalized shape:
+
+~~~json
+{
+  "productId": 42,
+  "priceDropEnabled": true,
+  "backInStockEnabled": false
+}
+~~~
+
+`PUT /api/users/:id/product-alerts/:productId` requires both boolean fields;
+omitting or disabling both fields removes the subscription row. The server
+does not accept a target price. Product and order writes record authoritative
+price/stock transitions in the same MySQL transaction. A price-drop event only
+fires when the effective positive price decreases, and a back-in-stock event
+only fires when stock crosses from zero-or-less to positive. Each event and
+user notification is idempotent through `alert_event_id` plus the user ID.
+Notifications use `price_drop` and `back_in_stock` types and carry product
+metadata for localized customer rendering. Alert reads join the product
+catalog and exclude invalid rows with negative raw stock; stock `0` remains
+visible so customers can manage back-in-stock alerts.
 
 ### Guest checkout
 

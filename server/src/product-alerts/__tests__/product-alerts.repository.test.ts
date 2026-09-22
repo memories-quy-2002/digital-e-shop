@@ -11,6 +11,15 @@ import { ProductAlertsRepository } from "../product-alerts.repository";
 describe("ProductAlertsRepository", () => {
     beforeEach(() => vi.clearAllMocks());
 
+    it("lists only alert subscriptions for valid product rows", () => {
+        new ProductAlertsRepository().listByUser("user-1").then(() => undefined).catch(() => undefined);
+
+        const [sql, params] = poolQuery.mock.calls[0];
+        expect(sql).toContain("JOIN products ON products.id = product_alert_subscriptions.product_id");
+        expect(sql).toContain("products.stock >= 0");
+        expect(params).toEqual(["user-1"]);
+    });
+
     it("scopes preference reads to the authenticated user and product", () => {
         const callback = vi.fn();
         new ProductAlertsRepository().findByUserAndProduct("user-1", 42).then(() => undefined).catch(() => undefined);
@@ -21,6 +30,14 @@ describe("ProductAlertsRepository", () => {
         expect(sql).toContain("product_id = ?");
         expect(params).toEqual(["user-1", 42]);
         expect(callback).not.toHaveBeenCalled();
+    });
+
+    it("does not expose an alert preference for an unavailable product row", () => {
+        new ProductAlertsRepository().findByUserAndProduct("user-1", 42).then(() => undefined).catch(() => undefined);
+
+        const [sql] = poolQuery.mock.calls[0];
+        expect(sql).toContain("JOIN products ON products.id = product_alert_subscriptions.product_id");
+        expect(sql).toContain("products.stock >= 0");
     });
 
     it("deletes a subscription when both alert preferences are disabled", async () => {

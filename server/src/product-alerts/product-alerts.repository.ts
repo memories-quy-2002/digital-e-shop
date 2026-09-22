@@ -28,7 +28,9 @@ export class ProductAlertsRepository {
             this.query(
                 `SELECT product_id, price_drop_enabled, back_in_stock_enabled
                 FROM product_alert_subscriptions
-                WHERE user_id = ?
+                JOIN products ON products.id = product_alert_subscriptions.product_id
+                WHERE product_alert_subscriptions.user_id = ?
+                    AND products.stock >= 0
                 ORDER BY product_id ASC`,
                 [uid],
                 (error, rows: ProductAlertPreferenceRow[] = []) => {
@@ -44,7 +46,10 @@ export class ProductAlertsRepository {
             this.query(
                 `SELECT product_id, price_drop_enabled, back_in_stock_enabled
                 FROM product_alert_subscriptions
-                WHERE user_id = ? AND product_id = ?
+                JOIN products ON products.id = product_alert_subscriptions.product_id
+                WHERE product_alert_subscriptions.user_id = ?
+                    AND product_alert_subscriptions.product_id = ?
+                    AND products.stock >= 0
                 LIMIT 1`,
                 [uid, productId],
                 (error, rows: ProductAlertPreferenceRow[] = []) => {

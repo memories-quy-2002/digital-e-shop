@@ -153,6 +153,84 @@ describe("CustomerAccountPage", () => {
         expect(screen.getByRole("button", { name: "Order #7 was placed is read" })).toBeDisabled();
     });
 
+    it("localizes product alert notifications from typed metadata", async () => {
+        mocks.users.fetchCustomerNotifications.mockResolvedValue({
+            notifications: [
+                {
+                    id: 21,
+                    type: "price_drop",
+                    title: "Product alert",
+                    message: "A saved product changed price.",
+                    link: "/product?id=42",
+                    metadata: {
+                        productName: "Camera One",
+                        currentPrice: 1234567,
+                        previousPrice: 1400000,
+                    },
+                    read_at: null,
+                    created_at: "2026-09-10T08:00:00.000Z",
+                    is_read: false,
+                },
+                {
+                    id: 22,
+                    type: "back_in_stock",
+                    title: "Product alert",
+                    message: "A saved product is available again.",
+                    link: "/product?id=43",
+                    metadata: { productName: "Keyboard Two" },
+                    read_at: null,
+                    created_at: "2026-09-10T08:00:00.000Z",
+                    is_read: false,
+                },
+            ],
+            unread: 2,
+        });
+
+        render(
+            <LocaleProvider>
+                <MemoryRouter initialEntries={["/account/notifications"]}>
+                    <CustomerAccountPage />
+                </MemoryRouter>
+            </LocaleProvider>,
+        );
+
+        expect(await screen.findByRole("button", { name: "Camera One price dropped" })).toBeInTheDocument();
+        expect(await screen.findByRole("button", { name: "Keyboard Two is back in stock" })).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole("button", { name: "Camera One price dropped" }));
+        expect(await screen.findByText(/Camera One is now 1\.234\.567/)).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "Open details" })).toHaveAttribute("href", "/product?id=42");
+    });
+
+    it("falls back to server copy when product alert metadata is incomplete", async () => {
+        mocks.users.fetchCustomerNotifications.mockResolvedValue({
+            notifications: [{
+                id: 23,
+                type: "price_drop",
+                title: "Saved product update",
+                message: "The product alert could not be expanded.",
+                link: "/product?id=44",
+                metadata: { productName: "Camera Three", currentPrice: "not-a-price" },
+                read_at: null,
+                created_at: "2026-09-10T08:00:00.000Z",
+                is_read: false,
+            }],
+            unread: 1,
+        });
+
+        render(
+            <LocaleProvider>
+                <MemoryRouter initialEntries={["/account/notifications"]}>
+                    <CustomerAccountPage />
+                </MemoryRouter>
+            </LocaleProvider>,
+        );
+
+        fireEvent.click(await screen.findByRole("button", { name: "Saved product update" }));
+        expect(await screen.findByText("The product alert could not be expanded.")).toBeInTheDocument();
+        expect(screen.queryByText(/undefined|0 ₫/i)).not.toBeInTheDocument();
+    });
+
     it("requests an email change through Firebase from the account page", async () => {
         render(
             <LocaleProvider>

@@ -49,4 +49,12 @@ describe("ProductAlertControls", () => {
         expect(screen.getByRole("alert")).toHaveTextContent("Unable to save alerts.");
         expect(screen.getByTestId("product-alert-controls")).toHaveAttribute("aria-busy", "true");
     });
+
+    it("shows explicit switch state and only announces saved after an update", () => {
+        renderControls({ saved: true });
+
+        expect(screen.getAllByText("On")).toHaveLength(1);
+        expect(screen.getAllByText("Off")).toHaveLength(1);
+        expect(screen.getByText("Alert preferences updated.")).toBeInTheDocument();
+    });
 });

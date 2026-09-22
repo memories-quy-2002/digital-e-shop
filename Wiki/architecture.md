@@ -122,6 +122,8 @@ documented singular/plural aliases where the client contract requires them.
   the guarded seeder never targets the production project.
 - Account security is Firebase-owned in every environment: Firebase sends verification, password-reset, and email-change action links. The server has no MySQL password-authentication or server-owned reset/email-change token flow.
 - Customer order state changes create database-backed in-app notifications. No external order-email provider is configured, so order success is independent of email delivery.
+- Product alerts use an authenticated `product-alerts` feature boundary. Product and order services pass authoritative snapshots/transitions into the feature's transaction-aware repository; the repository records durable `price_drop`/`back_in_stock` events and inserts localized-ready customer notifications with product metadata. Preferences remain owner-scoped and do not support target prices, email, SMS, or push delivery. See [[product-alert]].
+- Product comparison is a guest-friendly read-only catalog flow. The bounded `GET /api/products/compare?ids=...` contract validates two to four same-category products, returns current VND/stock/review/warranty/attribute snapshots, and maps fixed validation codes to the bilingual client state. See [[api-response-contract]] and [the API guide](../docs/API.md).
 - Marketing subscription and unsubscribe runtime routes were removed. The historical table and migration remain only for database compatibility.
 
 ## Data and migration boundaries

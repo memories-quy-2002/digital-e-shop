@@ -8,6 +8,7 @@ type ProductAlertControlsProps = {
     preference: ProductAlertPreference;
     variant?: "product" | "wishlist";
     saving?: boolean;
+    saved?: boolean;
     error?: string | null;
     onToggle: (key: ProductAlertKey, enabled: boolean) => void;
 };
@@ -16,6 +17,7 @@ const ProductAlertControls = ({
     preference,
     variant = "product",
     saving = false,
+    saved = false,
     error = null,
     onToggle,
 }: ProductAlertControlsProps) => {
@@ -56,6 +58,9 @@ const ProductAlertControls = ({
                                 <strong>{label}</strong>
                                 <span>{description}</span>
                             </div>
+                            <span className="product-alert-controls__state">
+                                {enabled ? t("wishlistAlerts.enabled") : t("wishlistAlerts.disabled")}
+                            </span>
                             <button
                                 type="button"
                                 role="switch"
@@ -73,7 +78,7 @@ const ProductAlertControls = ({
             </div>
 
             <div className="product-alert-controls__status" aria-live="polite">
-                {saving ? t("wishlistAlerts.updating") : t("wishlistAlerts.updated")}
+                {saving ? t("wishlistAlerts.updating") : saved ? t("wishlistAlerts.updated") : null}
             </div>
             {error ? <div className="product-alert-controls__error" role="alert">{error}</div> : null}
         </section>

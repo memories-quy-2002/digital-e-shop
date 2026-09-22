@@ -20,6 +20,7 @@ type WishlistItemProps = {
     onRemoveWishlist: (productId: number) => void;
     alertPreference?: ProductAlertPreference;
     alertSaving?: boolean;
+    alertSaved?: boolean;
     alertError?: string | null;
     onAlertToggle?: (productId: number, key: ProductAlertKey, enabled: boolean) => void;
 };
@@ -32,6 +33,7 @@ const WishlistItem = ({
     onRemoveWishlist,
     alertPreference,
     alertSaving = false,
+    alertSaved = false,
     alertError = null,
     onAlertToggle,
 }: WishlistItemProps) => {
@@ -86,6 +88,7 @@ const WishlistItem = ({
                     preference={resolvedAlertPreference}
                     variant="wishlist"
                     saving={alertSaving}
+                    saved={alertSaved}
                     error={alertError}
                     onToggle={(key, enabled) => onAlertToggle?.(product.id, key, enabled)}
                 />

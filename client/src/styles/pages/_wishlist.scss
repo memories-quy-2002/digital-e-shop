@@ -124,7 +124,7 @@
 
     &__row {
         display: grid;
-        grid-template-columns: 36px minmax(0, 1.5fr) 180px 130px 190px;
+        grid-template-columns: 36px minmax(220px, 1.45fr) minmax(130px, 0.7fr) minmax(110px, 0.6fr) minmax(250px, 1.25fr) auto;
         gap: 1rem;
         align-items: center;
         background: var(--de-color-surface-strong);
@@ -224,6 +224,33 @@
                 }
             }
         }
+
+        &__alerts {
+            min-width: 0;
+        }
+    }
+
+    &__alerts-error {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.8rem 1rem;
+        border: 1px solid var(--de-color-danger-soft);
+        border-radius: var(--de-radius-sm);
+        background: var(--de-color-surface-strong);
+        color: var(--de-color-danger-strong);
+        font-size: 0.86rem;
+
+        button {
+            min-height: 44px;
+            padding: 0.55rem 0.85rem;
+            border: 1px solid currentColor;
+            border-radius: 999px;
+            background: transparent;
+            color: inherit;
+            font-weight: 800;
+        }
     }
 
     &__stock {
@@ -244,7 +271,7 @@
         }
     }
 
-    @media (max-width: 980px) {
+    @media (max-width: 1180px) {
         &__header {
             align-items: flex-start;
             flex-direction: column;
@@ -264,6 +291,7 @@
             grid-template-columns: 36px minmax(0, 1fr);
 
             &__price,
+            &__alerts,
             &__actions,
             .wishlist__stock {
                 grid-column: 2;
@@ -277,6 +305,11 @@
     }
 
     @media (max-width: 640px) {
+        &__alerts-error {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
         &__summary {
             grid-template-columns: 1fr;
         }

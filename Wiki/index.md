@@ -6,7 +6,7 @@ This Wiki records durable Digital-E understanding for maintainers and AI agents.
 
 **Last updated:** 2026-09-21
 
-The current implementation includes authenticated and guest carts, server-authoritative checkout, PayOS and COD payment paths with exact VND amounts, durable verified webhooks and bounded admin reconciliation, Firebase-owned production auth emails, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, customer support tickets, admin analytics, operational alerts, and database-backed demo verification. Legacy payment identifiers remain readable only for historical database compatibility.
+The current implementation includes authenticated and guest carts, server-authoritative checkout, PayOS and COD payment paths with exact VND amounts, durable verified webhooks and bounded admin reconciliation, Firebase-owned production auth emails, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, guest-friendly product comparison, customer support tickets, admin analytics, operational alerts, and database-backed demo verification. Legacy payment identifiers remain readable only for historical database compatibility.
 
 The local demo seed creates a linked graph with 28 products across 8 categories and 16 brands. It verifies image URLs, order totals, reviews, wishlists, addresses, notifications, the seeded session baseline, discounts, inventory movements, and orphan relationships. Runtime logins may add sessions after seeding without invalidating verification. Normal seeding is guarded and non-destructive for demo-owned rows; full reset is an explicit local or protected production workflow.
 
@@ -18,6 +18,7 @@ The local demo seed creates a linked graph with 28 products across 8 categories 
 - Marketing subscriptions and unsubscribe routes are removed; the historical schema remains only for migration compatibility.
 - [[guest-checkout]]: local/server anonymous cart persistence, authoritative preview, guest checkout, token-protected lookup, aggregate funnel analytics, and cart merge
 - [[order-lifecycle-and-support]]: order state transitions, review eligibility, and support-ticket ownership
+- [[architecture]]: product comparison API/state boundaries and other runtime architecture decisions
 - [[after-sales-request]]: customer and guest return/warranty requests, eligibility, status events, and refund boundaries
 - [[0001-mysql-primary-prisma-partial]]: MySQL and partial Prisma ownership
 - [[0002-nestjs-migration]]: accepted NestJS migration and current server structure
@@ -48,6 +49,7 @@ Domain objects and their relationships belong under `entities/`. Current pages c
 - [[payment]]: payment ledger, provider boundary, webhooks, and reconciliation
 - [[support-ticket]]: support ownership and the current after-sales boundary
 - [[after-sales-request]]: after-sales request ownership, guest capability access, and payment-ledger refund state
+- [[product-alert]]: authenticated price-drop/back-in-stock subscriptions, durable transition events, and customer notifications
 
 ### Concepts
 

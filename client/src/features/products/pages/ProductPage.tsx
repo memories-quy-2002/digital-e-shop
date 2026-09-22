@@ -136,6 +136,7 @@ const ProductPage = () => {
     );
     const [isProductAlertLoading, setIsProductAlertLoading] = useState(false);
     const [isProductAlertSaving, setIsProductAlertSaving] = useState(false);
+    const [isProductAlertSaved, setIsProductAlertSaved] = useState(false);
     const [productAlertError, setProductAlertError] = useState<string | null>(null);
     const recentlyViewed = useRecentlyViewed();
     const trackRecentlyViewed = useEffectEvent((product: Product) => {
@@ -278,6 +279,7 @@ const ProductPage = () => {
 
         setProductAlertPreference(defaultPreference);
         setProductAlertError(null);
+        setIsProductAlertSaved(false);
 
         if (!uid || pid <= 0) {
             setIsProductAlertLoading(false);
@@ -408,6 +410,7 @@ const ProductPage = () => {
     const handleProductAlertToggle = (key: ProductAlertKey, enabled: boolean) => {
         if (!uid) {
             const redirect = location.pathname + location.search;
+            addToast(t("wishlistAlerts.loginRequiredTitle"), t("wishlistAlerts.loginRequiredMessage"));
             navigate("/login?redirect=" + encodeURIComponent(redirect));
             return;
         }
@@ -420,6 +423,7 @@ const ProductPage = () => {
 
         setProductAlertPreference(nextPreference);
         setProductAlertError(null);
+        setIsProductAlertSaved(false);
         setIsProductAlertSaving(true);
 
         updateProductAlert(uid, pid, {
@@ -428,9 +432,11 @@ const ProductPage = () => {
         })
             .then((savedPreference) => {
                 setProductAlertPreference(savedPreference);
+                setIsProductAlertSaved(true);
             })
             .catch(() => {
                 setProductAlertPreference(previousPreference);
+                setIsProductAlertSaved(false);
                 setProductAlertError(t("wishlistAlerts.updateError"));
             })
             .finally(() => {
@@ -752,6 +758,7 @@ const ProductPage = () => {
                             <ProductAlertControls
                                 preference={productAlertPreference}
                                 saving={Boolean(uid) && (isProductAlertLoading || isProductAlertSaving)}
+                                saved={isProductAlertSaved}
                                 error={productAlertError}
                                 onToggle={handleProductAlertToggle}
                             />

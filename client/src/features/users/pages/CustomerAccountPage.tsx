@@ -44,9 +44,13 @@ const getStatusLabel = (status: number, t: Translator) => {
 };
 
 const getNotificationCopy = (notification: CustomerNotification, t: Translator) => {
-    const metadata = notification.metadata || {};
-    const productName = typeof metadata.productName === "string" ? metadata.productName : "";
-        if (notification.type === "order") {
+    const metadata = notification.metadata && typeof notification.metadata === "object" && !Array.isArray(notification.metadata)
+        ? notification.metadata
+        : {};
+    const productName = typeof metadata.productName === "string" ? metadata.productName.trim() : "";
+    const currentPriceValue = Number(metadata.currentPrice);
+
+    if (notification.type === "order") {
         const placedMatch = notification.title.match(/^Order #(\d+) was placed$/);
         const completedMatch = notification.title.match(/^Order #(\d+) is completed$/);
         const canceledMatch = notification.title.match(/^Order #(\d+) is canceled$/);
@@ -83,8 +87,13 @@ const getNotificationCopy = (notification: CustomerNotification, t: Translator) 
         };
     }
 
-    if (notification.type === "wishlist_price_drop") {
-        const currentPrice = formatCurrency(Number(metadata.currentPrice) || 0);
+    if (
+        (notification.type === "price_drop" || notification.type === "wishlist_price_drop")
+        && productName
+        && Number.isFinite(currentPriceValue)
+        && currentPriceValue > 0
+    ) {
+        const currentPrice = formatCurrency(currentPriceValue);
         return {
             typeLabel: t("wishlistAlerts.priceDropType"),
             title: t("wishlistAlerts.priceDropNotificationTitle", productName),
@@ -92,7 +101,10 @@ const getNotificationCopy = (notification: CustomerNotification, t: Translator) 
         };
     }
 
-    if (notification.type === "wishlist_back_in_stock") {
+    if (
+        (notification.type === "back_in_stock" || notification.type === "wishlist_back_in_stock")
+        && productName
+    ) {
         return {
             typeLabel: t("wishlistAlerts.backInStockType"),
             title: t("wishlistAlerts.backInStockNotificationTitle", productName),
