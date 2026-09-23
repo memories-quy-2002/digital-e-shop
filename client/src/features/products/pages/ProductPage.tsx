@@ -135,9 +135,12 @@ const ProductPage = () => {
         createDefaultProductAlertPreference(pid),
     );
     const [isProductAlertLoading, setIsProductAlertLoading] = useState(false);
+    const [isProductAlertPreferenceLoaded, setIsProductAlertPreferenceLoaded] = useState(!uid);
+    const [productAlertLoadAttempt, setProductAlertLoadAttempt] = useState(0);
     const [isProductAlertSaving, setIsProductAlertSaving] = useState(false);
     const [isProductAlertSaved, setIsProductAlertSaved] = useState(false);
     const [productAlertError, setProductAlertError] = useState<string | null>(null);
+    const [productAlertLoadError, setProductAlertLoadError] = useState<string | null>(null);
     const recentlyViewed = useRecentlyViewed();
     const trackRecentlyViewed = useEffectEvent((product: Product) => {
         recentlyViewed.track(product);
@@ -279,25 +282,29 @@ const ProductPage = () => {
 
         setProductAlertPreference(defaultPreference);
         setProductAlertError(null);
+        setProductAlertLoadError(null);
         setIsProductAlertSaved(false);
 
         if (!uid || pid <= 0) {
+            setIsProductAlertPreferenceLoaded(true);
             setIsProductAlertLoading(false);
             return () => {
                 isActive = false;
             };
         }
 
+        setIsProductAlertPreferenceLoaded(false);
         setIsProductAlertLoading(true);
         fetchProductAlert(uid, pid)
             .then((preference) => {
                 if (isActive) {
                     setProductAlertPreference(preference);
+                    setIsProductAlertPreferenceLoaded(true);
                 }
             })
             .catch(() => {
                 if (isActive) {
-                    setProductAlertError(t("wishlistAlerts.updateError"));
+                    setProductAlertLoadError(t("wishlistAlerts.loadError"));
                 }
             })
             .finally(() => {
@@ -309,7 +316,7 @@ const ProductPage = () => {
         return () => {
             isActive = false;
         };
-    }, [pid, t, uid]);
+    }, [pid, productAlertLoadAttempt, t, uid]);
 
     useEffect(() => {
         const loadRelevantProducts = async () => {
@@ -414,6 +421,7 @@ const ProductPage = () => {
             navigate("/login?redirect=" + encodeURIComponent(redirect));
             return;
         }
+        if (!isProductAlertPreferenceLoaded) return;
 
         const previousPreference = productAlertPreference;
         const nextPreference = {
@@ -423,6 +431,7 @@ const ProductPage = () => {
 
         setProductAlertPreference(nextPreference);
         setProductAlertError(null);
+        setProductAlertLoadError(null);
         setIsProductAlertSaved(false);
         setIsProductAlertSaving(true);
 
@@ -757,9 +766,13 @@ const ProductPage = () => {
                             </div>
                             <ProductAlertControls
                                 preference={productAlertPreference}
-                                saving={Boolean(uid) && (isProductAlertLoading || isProductAlertSaving)}
+                                saving={Boolean(uid) && isProductAlertSaving}
+                                preferenceLoaded={isProductAlertPreferenceLoaded}
+                                preferenceLoading={Boolean(uid) && isProductAlertLoading}
                                 saved={isProductAlertSaved}
                                 error={productAlertError}
+                                loadError={productAlertLoadError}
+                                onRetryLoad={() => setProductAlertLoadAttempt((attempt) => attempt + 1)}
                                 onToggle={handleProductAlertToggle}
                             />
                         </div>
