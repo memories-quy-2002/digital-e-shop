@@ -60,6 +60,16 @@
 
         @media (min-width: 1100px) {
             grid-template-columns: repeat(4, minmax(0, 1fr));
+
+            &[data-product-count="2"] {
+                max-width: 52rem;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                margin-inline: auto;
+            }
+
+            &[data-product-count="3"] {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
         }
     }
 

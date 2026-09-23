@@ -335,7 +335,7 @@ export class NestProductsRepository {
             productRatingJoin,
             productAvailabilityJoin,
             `WHERE products.id IN (${placeholders}) AND products.stock >= 0`,
-        ].join("\\n");
+        ].join("\n");
 
         return new Promise((resolve, reject) => {
             pool.query(sql, productIds, (err: Error | null, rows: ProductComparisonRow[]) => {
