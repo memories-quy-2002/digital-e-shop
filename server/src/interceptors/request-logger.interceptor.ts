@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type { CallHandler, ExecutionContext, NestInterceptor } from "@nestjs/common";
+import { context as telemetryContext, trace } from "@opentelemetry/api";
 import type { Request, Response } from "express";
 import { Observable } from "rxjs";
 import { logger } from "#src/shared/utils/logger";
@@ -19,13 +20,18 @@ export class RequestLoggerInterceptor implements NestInterceptor {
 
         res.on("finish", () => {
             const durationMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+            const spanContext = trace.getSpan(telemetryContext.active())?.spanContext();
+            const traceFields = spanContext && !/^0+$/.test(spanContext.traceId)
+                ? { trace_id: spanContext.traceId, span_id: spanContext.spanId }
+                : {};
             logger.info(
                 {
                     method: req.method,
-                    url: req.originalUrl || req.url,
+                    url: req.path || "/",
                     statusCode: res.statusCode,
                     durationMs: Number(durationMs.toFixed(1)),
                     requestId,
+                    ...traceFields,
                 },
                 "http request",
             );

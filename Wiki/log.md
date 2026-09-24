@@ -81,3 +81,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-21 - Codex - Added canonical customer account routes, compatibility redirects, and bilingual English/Vietnamese localization for customer account flows.
 - 2026-09-21 - Codex - Completed product alerts with owner-scoped preferences, transactional price/stock transition events, localized customer notifications, responsive Product Detail/Wishlist controls, and maintained API/Wiki documentation.
 - 2026-09-21 - Codex - Completed guest-friendly product comparison with bounded same-category API reads, local ID-only selection, responsive bilingual comparison UI, and documented error contracts.
+- 2026-09-24 - Codex - Added a bounded read-only k6 API smoke profile, opt-in OTLP traces and metrics with URL/SQL scrubbing and log trace correlation, and a concise portfolio README.

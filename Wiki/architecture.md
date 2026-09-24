@@ -205,6 +205,17 @@ application has not been converted to Prisma.
 - Local Docker uses `digital_e_shop_local` on `127.0.0.1:3307`; runtime,
   Prisma, and demo-seed guards reject remote targets by default.
 
+## Observability
+
+- `server/src/observability/telemetry.ts` starts OpenTelemetry before Nest and
+  Express modules load. It exports HTTP traces/metrics and Express/MySQL2 spans
+  to an OTLP/HTTP collector when `OTEL_ENABLED=true`.
+- HTTP URL query strings and credentials are removed, optional header capture is
+  disabled, and MySQL statement literals are masked before export.
+- Request logs keep the existing `requestId` field and add `trace_id` and `span_id`
+  when a trace is active. Logged URLs omit query strings.
+- The SDK is disabled by default and shuts down through Nest lifecycle hooks.
+
 ## Risks and unknowns
 
 - Route payloads are not globally uniform; changing a response key can break

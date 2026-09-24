@@ -98,3 +98,19 @@ Guest order access uses a raw token only at creation and lookup. The database st
 The client and server deploy independently to Vercel. `client/vercel.json` serves the single-page application through the Vite build output. `server/vercel.json` installs from the server package root, builds the compiled Nest application, and rewrites requests to `server/api/index.ts`.
 
 Local server startup runs Prisma generation and `prisma migrate deploy` before compilation and the watcher. CI validates both packages, loads a disposable MySQL baseline, runs unit and integration suites, exercises the demo reset on disposable data, builds the Vercel server entrypoint, and checks the client preview and `/api/health`.
+
+## Observability
+
+OpenTelemetry is opt-in through `OTEL_ENABLED=true`. The SDK starts from
+`server/src/observability/telemetry.ts` before Nest loads the Express adapter or
+feature modules. OTLP/HTTP exports server traces and metrics; HTTP and Express
+instrumentation covers request handling, and MySQL2 instrumentation adds
+database spans. The default collector base URL is `http://localhost:4318`; trace
+and metric endpoints and headers can be configured independently with the
+standard `OTEL_EXPORTER_OTLP_*` variables.
+
+HTTP span URLs omit query strings and credentials, optional HTTP header capture
+is disabled, and MySQL statement literals are masked. Request logs omit query
+strings and include `requestId`, `trace_id`, and `span_id` when a trace is active.
+The API starts without a collector when telemetry is disabled. Nest shutdown
+hooks flush the SDK during process shutdown.

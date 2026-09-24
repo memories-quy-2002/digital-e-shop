@@ -1,6 +1,6 @@
-import http from "k6/http";
 import { check, group, sleep } from "k6";
 import { Trend } from "k6/metrics";
+import { getJson as requestJson, jsonBody, requireEnv } from "./k6-config.js";
 
 export const options = {
     stages: [
@@ -15,8 +15,8 @@ export const options = {
     },
 };
 
-const BASE_URL = __ENV.BASE_URL || "http://localhost:4000";
 const COOKIE = __ENV.COOKIE || "";
+requireEnv(["COOKIE"], "admin read-only tests");
 
 const ordersTrend = new Trend("admin_orders_duration");
 const orderItemsTrend = new Trend("admin_order_items_duration");
@@ -27,27 +27,17 @@ const inventorySummaryTrend = new Trend("admin_inventory_summary_duration");
 const inventoryMovementsTrend = new Trend("admin_inventory_movements_duration");
 const promotionsTrend = new Trend("admin_promotions_duration");
 
-const authHeaders = () => ({
-    headers: COOKIE ? { Cookie: COOKIE } : {},
-});
-
 const getJson = (path, tags = {}) =>
-    http.get(`${BASE_URL}${path}`, {
-        headers: COOKIE ? { Cookie: COOKIE } : {},
-        tags: { endpoint: path, ...tags },
-    });
+    requestJson(path, tags, { Cookie: COOKIE });
 
 export default function () {
-    if (!COOKIE) {
-        throw new Error("COOKIE env var is required for admin read-only tests.");
-    }
-
     group("admin orders", () => {
         const orders = getJson("/api/orders?page=1&limit=20");
         ordersTrend.add(orders.timings.duration);
         check(orders, {
             "orders endpoint authorized": (res) => res.status === 200,
-            "orders returns array": (res) => Array.isArray(res.json("orders")),
+            "orders returns array": (res) =>
+                Array.isArray(jsonBody(res, "orders")),
         });
 
         const orderItems = getJson("/api/orders/item?limit=20");
@@ -55,7 +45,7 @@ export default function () {
         check(orderItems, {
             "order items endpoint authorized": (res) => res.status === 200,
             "order items returns array": (res) =>
-                Array.isArray(res.json("orderItems")),
+                Array.isArray(jsonBody(res, "orderItems")),
         });
     });
 
@@ -64,14 +54,17 @@ export default function () {
         usersTrend.add(users.timings.duration);
         check(users, {
             "users endpoint authorized": (res) => res.status === 200,
-            "users returns accounts": (res) => Array.isArray(res.json("accounts")),
+            "users returns accounts": (res) =>
+                Array.isArray(jsonBody(res, "accounts")),
         });
 
-        const accounts = users.json("accounts") || [];
+        const accounts = jsonBody(users, "accounts") || [];
         if (accounts.length > 0) {
             const userId = accounts[0].id;
             if (userId) {
-                const userProfile = getJson(`/api/users/${userId}/profile`);
+                const userProfile = getJson(
+                    `/api/users/${encodeURIComponent(String(userId))}/profile`,
+                );
                 userProfileTrend.add(userProfile.timings.duration);
                 check(userProfile, {
                     "user profile endpoint authorized": (res) =>
@@ -86,7 +79,8 @@ export default function () {
         analyticsTrend.add(analytics.timings.duration);
         check(analytics, {
             "analytics endpoint authorized": (res) => res.status === 200,
-            "analytics has overview": (res) => Boolean(res.json("overview")),
+            "analytics has overview": (res) =>
+                Boolean(jsonBody(res, "overview")),
         });
     });
 
@@ -108,7 +102,7 @@ export default function () {
             "inventory movements endpoint authorized": (res) =>
                 res.status === 200,
             "inventory movements returns array": (res) =>
-                Array.isArray(res.json("movements")),
+                Array.isArray(jsonBody(res, "movements")),
         });
     });
 
