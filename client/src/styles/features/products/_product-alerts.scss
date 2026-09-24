@@ -113,6 +113,16 @@
             color: var(--de-color-on-accent);
         }
 
+        &.is-unknown {
+            border-color: var(--de-color-border);
+            background: var(--de-color-surface-muted);
+        }
+
+        &.is-unknown .product-alert-controls__thumb {
+            opacity: 0.45;
+            transform: translateX(0.575rem);
+        }
+
         &:focus-visible {
             outline: 3px solid var(--de-color-primary-emphasis);
             outline-offset: 2px;
@@ -150,6 +160,25 @@
 
     &__error {
         color: var(--de-color-danger-strong);
+    }
+
+    &__retry {
+        justify-self: start;
+        min-height: 44px;
+        padding: 0.55rem 0.8rem;
+        border: 1px solid var(--de-color-border-strong);
+        border-radius: var(--de-radius-sm);
+        background: var(--de-color-surface);
+        color: var(--de-color-primary-strong);
+        font: inherit;
+        font-size: 0.82rem;
+        font-weight: 700;
+        cursor: pointer;
+
+        &:focus-visible {
+            outline: 3px solid var(--de-color-primary-emphasis);
+            outline-offset: 2px;
+        }
     }
 
     &--wishlist {
