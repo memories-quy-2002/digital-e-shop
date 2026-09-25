@@ -4,39 +4,41 @@ import { AuthGuard } from "../guards/auth.guard";
 import { Roles, RolesGuard } from "../guards/roles.guard";
 import { NestBlobService } from "./blob.service";
 import type { UploadRequestFile } from "./blob.types";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
+import { createHttpException } from "#src/core/errors/http-exception";
 
 @Controller("blob")
 export class BlobController {
     constructor(private readonly blobService: NestBlobService) {}
 
     @Get("health")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     async blobHealthCheck(@Query("cleanup") cleanup?: string) {
         try {
             const result = await this.blobService.blobHealthCheck(cleanup);
             return result;
         } catch (err) {
-            const error = err as Error;
-            throw new HttpException({ msg: error?.message || "Blob health check failed" }, 500);
+            if (err instanceof HttpException) throw err;
+            throw createHttpException(err, { msg: "Unable to check blob storage health" }, HTTP_STATUS.INTERNAL_SERVER_ERROR);
         }
     }
 
     @Post("upload")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @UseGuards(AuthGuard, RolesGuard)
     @Roles("admin")
     @UseInterceptors(FileInterceptor("file"))
     async uploadImage(@UploadedFile() file: UploadRequestFile) {
         if (!file) {
-            throw new HttpException({ msg: "No file provided" }, 400);
+            throw new HttpException({ msg: "No file provided" }, HTTP_STATUS.BAD_REQUEST);
         }
 
         try {
             const result = await this.blobService.uploadImage(file);
             return result;
         } catch (err) {
-            const error = err as Error;
-            throw new HttpException({ msg: error?.message || "Upload failed" }, 500);
+            if (err instanceof HttpException) throw err;
+            throw createHttpException(err, { msg: "Unable to upload image" }, HTTP_STATUS.INTERNAL_SERVER_ERROR);
         }
     }
 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
+import { HTTP_STATUS } from "../constants/http-status";
 import { Helmet } from "react-helmet-async";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "../api/axios";
@@ -24,6 +25,7 @@ import { formatCurrency } from "../utils/currency";
 import { normalizeProduct, normalizeProducts } from "../utils/product";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { useT } from "../hooks/useT";
+import type { RawWishlistItem } from "../features/products/api";
 
 const MAX_PRICE_RANGE: number = 100_000_000;
 const ITEMS_PER_PAGE = 6;
@@ -298,7 +300,7 @@ const ShopsPage = () => {
     const fetchFacets = async () => {
       try {
         const response = await axios.get("/api/products/facets");
-        if (response.status === 200) {
+        if (response.status === HTTP_STATUS.OK) {
           const nextFacets = response.data.facets as ProductFacets;
           setFacets(nextFacets);
           setFilters((current) => {
@@ -353,7 +355,7 @@ const ShopsPage = () => {
         const response = await axios.get(
           `/api/products?${requestParams.toString()}`,
         );
-        if (response.status === 200) {
+        if (response.status === HTTP_STATUS.OK) {
           setProducts(normalizeProducts(response.data.products));
           setPagination(
             response.data.pagination || {
@@ -387,10 +389,10 @@ const ShopsPage = () => {
     const fetchWishlist = async () => {
       try {
         if (uid) {
-          const response = await axios.get(`/api/wishlist/${uid}`);
-          if (response.status === 200) {
+          const response = await axios.get<{ wishlist: RawWishlistItem[] }>(`/api/wishlist/${uid}`);
+          if (response.status === HTTP_STATUS.OK) {
             const newWishlist: Wishlist[] = response.data.wishlist.map(
-              (item: any) => {
+              (item) => {
                 const { id, product_id, ...productProps } = item;
                 return {
                   id,

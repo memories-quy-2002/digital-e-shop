@@ -5,6 +5,7 @@ import loadImage from "../../utils/loadImage";
 import type { CartValidationIssue, CheckoutCartItem } from "../../features/orders/types";
 import { useT } from "../../hooks/useT";
 import { formatCurrency } from "../../utils/currency";
+import { LOW_STOCK_THRESHOLD } from "../../features/products/constants";
 
 type StockTranslator = (issue: CartValidationIssue) => string;
 
@@ -51,7 +52,7 @@ const CartItem = ({
               : validationIssue.reason === "out_of_stock"
                 ? t("cart.outOfStock")
                 : t("cart.insufficientStock", validationIssue.availableStock, validationIssue.requestedQuantity)
-        : item.stock <= 5
+        : item.stock <= LOW_STOCK_THRESHOLD
           ? t("cart.stockLeft", item.stock)
           : null;
     return (

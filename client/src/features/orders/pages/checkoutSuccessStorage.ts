@@ -1,3 +1,6 @@
+import type { PaymentMethod } from "../constants";
+import type { CurrencyCode } from "../../../constants/currency";
+
 export type CheckoutSuccessData = {
     orderId: string;
     totalPrice: number;
@@ -5,8 +8,8 @@ export type CheckoutSuccessData = {
     subtotal: number;
     itemsCount: number;
     placedAt: string;
-    currency?: "USD" | "VND";
-    paymentMethod?: "cash" | "payos";
+    currency?: CurrencyCode;
+    paymentMethod?: PaymentMethod;
     email?: string;
     name?: string;
     address?: string;

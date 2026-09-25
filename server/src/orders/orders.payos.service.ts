@@ -1,10 +1,13 @@
 import { Injectable } from "@nestjs/common";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { randomUUID } from "node:crypto";
 import { env } from "#src/config/env.config";
 import { logger } from "#src/shared/utils/logger";
 import type { CartCheckoutItem } from "../cart/cart.dto";
 import { NestCartService } from "../cart/cart.service";
 import { buildPaymentQuote } from "../payments/currency";
+import { PAYMENT_CURRENCY, PAYMENT_PROVIDER, type PaymentCurrency } from "../payments/payment.types";
+import { CHECKOUT_RESERVATION_WINDOW_MS } from "#src/shared/constants/checkout-reservation";
 import { PayOSService } from "../payments/payos.service";
 import { NestOrdersService, createCheckoutError } from "./orders.service";
 import { calculatePromotionDiscount } from "./orders.pricing";
@@ -35,13 +38,13 @@ export type PayOSCheckoutResult = {
     orderCode: number;
     paymentLinkId: string;
     amount: number;
-    currency: "VND";
+    currency: PaymentCurrency;
 };
 
 export const createPayOSOrderCode = (pendingCheckoutId: number, now = Date.now()): number => {
     const orderCode = now * 1000 + pendingCheckoutId;
     if (!Number.isSafeInteger(orderCode) || orderCode <= 0) {
-        throw createCheckoutError("Unable to create a PayOS order code.", 500);
+        throw createCheckoutError("Unable to create a PayOS order code.", HTTP_STATUS.INTERNAL_SERVER_ERROR);
     }
     return orderCode;
 };
@@ -59,7 +62,7 @@ export class NestOrdersPayOSService {
         const checkoutValidation = await this.cartService.validateCheckoutSubmission(uid, input.cart, input.totalPrice);
 
         if (checkoutValidation.cartItems.length === 0) {
-            throw createCheckoutError("Your cart is empty. Refresh your cart and try again.", 400);
+            throw createCheckoutError("Your cart is empty. Refresh your cart and try again.", HTTP_STATUS.BAD_REQUEST);
         }
         if (checkoutValidation.issues.length > 0) {
             throw createCheckoutError(
@@ -78,7 +81,7 @@ export class NestOrdersPayOSService {
 
         const promotion = input.discountCode ? await this.ordersService.applyDiscount(input.discountCode) : null;
         if (input.discountCode && !promotion) {
-            throw createCheckoutError("Discount code is no longer valid.", 400);
+            throw createCheckoutError("Discount code is no longer valid.", HTTP_STATUS.BAD_REQUEST);
         }
 
         return this.createPaymentLinkForIdentity(
@@ -96,7 +99,7 @@ export class NestOrdersPayOSService {
     async createGuestCheckoutSession(payload: GuestPayOSCheckoutPayload): Promise<PayOSCheckoutResult & { guestOrderToken: string }> {
         const preview = await this.cartService.previewGuestCart(payload.cart, payload.discountCode);
         if (preview.cartItems.length === 0) {
-            throw createCheckoutError("Your cart is empty. Refresh your cart and try again.", 400);
+            throw createCheckoutError("Your cart is empty. Refresh your cart and try again.", HTTP_STATUS.BAD_REQUEST);
         }
         if (preview.issues.length > 0) {
             throw createCheckoutError(
@@ -106,7 +109,7 @@ export class NestOrdersPayOSService {
             );
         }
         if (payload.discountCode && !preview.promotion.valid) {
-            throw createCheckoutError(preview.promotion.message || "Discount code is no longer valid.", 400);
+            throw createCheckoutError(preview.promotion.message || "Discount code is no longer valid.", HTTP_STATUS.BAD_REQUEST);
         }
 
         const guestOrderToken = generateGuestOrderToken();
@@ -140,7 +143,7 @@ export class NestOrdersPayOSService {
             discount: input.discount,
             discountCode: input.discountCode,
             shippingAddress: input.shippingAddress,
-            databaseExpiresAt: new Date((Math.ceil(Date.now() / 1000) + 35 * 60) * 1000),
+            databaseExpiresAt: new Date(Date.now() + CHECKOUT_RESERVATION_WINDOW_MS),
         };
         const reservation = identity.kind === "authenticated"
             ? await this.checkoutReservationService.reserveInventory({ ...reservationBase, uid: identity.userId })
@@ -150,18 +153,21 @@ export class NestOrdersPayOSService {
         try {
             const payableTotal = Math.max(input.authoritativeTotalPrice - reservation.pricingSnapshot.discount, 0);
             if (payableTotal <= 0) {
-                throw createCheckoutError("Order total must be greater than zero to pay with PayOS.", 400);
+                throw createCheckoutError("Order total must be greater than zero to pay with PayOS.", HTTP_STATUS.BAD_REQUEST);
             }
-            const quote = buildPaymentQuote(payableTotal, "payos");
+            const quote = buildPaymentQuote(payableTotal, PAYMENT_PROVIDER.PAYOS);
             const orderCode = createPayOSOrderCode(reservation.pendingCheckoutId);
-            const returnUrl = `${env.clientUrl}/checkout-success?payment_provider=payos&payos_order_code=${orderCode}`;
+            const returnUrl = `${env.clientUrl}/checkout-success?payment_provider=${PAYMENT_PROVIDER.PAYOS}&payos_order_code=${orderCode}`;
             const cancelUrl = `${env.clientUrl}/cart?payment=cancelled`;
             const description = `DE${String(orderCode).slice(-7)}`;
 
             if (env.paymentProviderMode === "mock") {
+                if (env.nodeEnv === "production") {
+                    throw createCheckoutError("Mock PayOS checkout is disabled in production.", HTTP_STATUS.SERVICE_UNAVAILABLE);
+                }
                 paymentLinkId = `mock_payos_${randomUUID()}`;
                 await this.checkoutReservationService.attachPaymentProvider(reservation.reservationToken, {
-                    provider: "payos",
+                    provider: PAYMENT_PROVIDER.PAYOS,
                     providerReference: paymentLinkId,
                     providerOrderCode: orderCode,
                     paymentAmount: quote.amount,
@@ -169,7 +175,7 @@ export class NestOrdersPayOSService {
                     paymentFxRate: quote.fxRate,
                 });
                 const mockUrl = `${env.clientUrl}/mock-payos-checkout?payos_order_code=${orderCode}&payment_link_id=${encodeURIComponent(paymentLinkId)}&amount=${quote.amount}`;
-                return { url: mockUrl, orderCode, paymentLinkId, amount: quote.amount, currency: "VND" };
+                return { url: mockUrl, orderCode, paymentLinkId, amount: quote.amount, currency: PAYMENT_CURRENCY.VND };
             }
 
             const link = await this.payosService.createPaymentLink({
@@ -185,13 +191,13 @@ export class NestOrdersPayOSService {
                 !link.checkoutUrl
                 || link.orderCode !== orderCode
                 || link.amount !== quote.amount
-                || link.currency !== "VND"
+                || link.currency !== PAYMENT_CURRENCY.VND
             ) {
                 throw new Error("PayOS returned an invalid payment link quote.");
             }
 
             await this.checkoutReservationService.attachPaymentProvider(reservation.reservationToken, {
-                provider: "payos",
+                provider: PAYMENT_PROVIDER.PAYOS,
                 providerReference: link.paymentLinkId,
                 providerOrderCode: link.orderCode,
                 paymentAmount: quote.amount,
@@ -204,7 +210,7 @@ export class NestOrdersPayOSService {
                 orderCode: link.orderCode,
                 paymentLinkId: link.paymentLinkId,
                 amount: quote.amount,
-                currency: "VND",
+                currency: PAYMENT_CURRENCY.VND,
             };
         } catch (error) {
             if (paymentLinkId && env.paymentProviderMode === "live") {
@@ -216,18 +222,18 @@ export class NestOrdersPayOSService {
                 logger.error({ err: releaseError }, "[createPayOSCheckout] failed to release reservation");
             });
             if ((error as { statusCode?: number }).statusCode) throw error;
-            throw createCheckoutError(`Unable to start PayOS checkout right now. ${(error as Error)?.message || "Please try again."}`, 502);
+            throw createCheckoutError(`Unable to start PayOS checkout right now. ${(error as Error)?.message || "Please try again."}`, HTTP_STATUS.BAD_GATEWAY);
         }
     }
 
     async confirmMockPayment(orderCode: number, paymentLinkId: string, amount: number): Promise<{ id: number; date_added: string }> {
-        if (env.paymentProviderMode !== "mock") {
-            throw createCheckoutError("The PayOS simulator is disabled outside mock payment mode.", 404);
+        if (env.nodeEnv === "production" || env.paymentProviderMode !== "mock") {
+            throw createCheckoutError("The PayOS simulator is disabled in production and outside mock payment mode.", HTTP_STATUS.NOT_FOUND);
         }
 
         const order = await this.ordersService.finalizePayOSCheckout(orderCode, paymentLinkId, amount);
         if (!order) {
-            throw createCheckoutError("Mock PayOS checkout was not found.", 404);
+            throw createCheckoutError("Mock PayOS checkout was not found.", HTTP_STATUS.NOT_FOUND);
         }
         return order;
     }

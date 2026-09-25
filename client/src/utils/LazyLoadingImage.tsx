@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, CSSProperties } from "react";
 
-const LazyLoadImage = ({
+const LazyLoadingImage = ({
     src,
     alt,
     style,
@@ -77,4 +77,4 @@ const LazyLoadImage = ({
         />
     );
 };
-export default LazyLoadImage;
+export default LazyLoadingImage;

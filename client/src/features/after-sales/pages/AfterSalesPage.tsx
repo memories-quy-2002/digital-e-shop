@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link, useSearchParams } from "react-router-dom";
 import Layout from "../../../components/layout/Layout";
@@ -8,7 +8,8 @@ import { useToast } from "../../../context/ToastContext";
 import { fetchCustomerOrderDetail, fetchCustomerOrders } from "../../orders/api";
 import type { CustomerOrder, CustomerOrderDetail } from "../../orders/types";
 import { createCustomerAfterSalesRequest, fetchCustomerAfterSalesRequests } from "../api";
-import type { AfterSalesKind, AfterSalesRequest } from "../types";
+import { AFTER_SALES_PAGINATION, AFTER_SALES_REQUEST_REASON_MAX_LENGTH } from "../constants";
+import { AFTER_SALES_KIND, type AfterSalesKind, type AfterSalesRequest } from "../types";
 import { getApiErrorMessage } from "../../../lib/api-contract";
 import "../../../styles/features/after-sales/_after-sales.scss";
 
@@ -28,7 +29,7 @@ const AfterSalesPage = () => {
     const [requests, setRequests] = useState<AfterSalesRequest[]>([]);
     const [orderDetail, setOrderDetail] = useState<CustomerOrderDetail | null>(null);
     const [orderId, setOrderId] = useState(searchParams.get("order") || "");
-    const [kind, setKind] = useState<AfterSalesKind>("RETURN");
+    const [kind, setKind] = useState<AfterSalesKind>(AFTER_SALES_KIND.RETURN);
     const [reason, setReason] = useState("");
     const [quantities, setQuantities] = useState<Record<number, number>>({});
     const [isLoading, setIsLoading] = useState(true);
@@ -36,11 +37,11 @@ const AfterSalesPage = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const loadRequests = async () => {
+    const loadRequests = useCallback(async () => {
         try {
             setIsLoading(true);
             const [orderPage, orderRows] = await Promise.all([
-                fetchCustomerAfterSalesRequests({ page: 1, limit: 50 }),
+                fetchCustomerAfterSalesRequests({ page: AFTER_SALES_PAGINATION.FIRST_PAGE, limit: AFTER_SALES_PAGINATION.DEFAULT_PAGE_SIZE }),
                 userData?.id ? fetchCustomerOrders(userData.id) : Promise.resolve([]),
             ]);
             setRequests(orderPage.requests);
@@ -50,9 +51,9 @@ const AfterSalesPage = () => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [userData?.id]);
 
-    useEffect(() => { void loadRequests(); }, [userData?.id]);
+    useEffect(() => { void loadRequests(); }, [loadRequests]);
 
     const loadOrder = async () => {
         const parsed = Number(orderId);
@@ -112,9 +113,9 @@ const AfterSalesPage = () => {
                         <div className="after-sales__card-header"><div><span className="after-sales__eyebrow">NEW REQUEST</span><h2>Start a return or warranty review</h2></div></div>
                         <label>Order ID<input value={orderId} onChange={(event) => setOrderId(event.target.value)} inputMode="numeric" placeholder="e.g. 1042" /></label>
                         <button type="button" className="after-sales__secondary" onClick={() => void loadOrder()} disabled={isLoadingOrder}>{isLoadingOrder ? "Loading items…" : "Load order items"}</button>
-                        <label>Request type<select value={kind} onChange={(event) => setKind(event.target.value as AfterSalesKind)}><option value="RETURN">Return within the return window</option><option value="WARRANTY">Warranty review</option></select></label>
+                        <label>Request type<select value={kind} onChange={(event) => setKind(event.target.value as AfterSalesKind)}><option value={AFTER_SALES_KIND.RETURN}>Return within the return window</option><option value={AFTER_SALES_KIND.WARRANTY}>Warranty review</option></select></label>
                         {orderDetail ? <div className="after-sales__items"><span className="after-sales__label">Items</span>{orderDetail.items.map((item) => { const itemId = Number(item.orderItemId || (item as typeof item & { id?: number }).id || 0); return <label className="after-sales__item" key={itemId}><span><strong>{item.productName}</strong><small>Ordered quantity: {item.quantity}</small></span><input aria-label={`Quantity for ${item.productName}`} type="number" min="0" max={item.quantity} value={quantities[itemId] || 0} onChange={(event) => setQuantities((current) => ({ ...current, [itemId]: Number(event.target.value) || 0 }))} /></label>; })}</div> : <p className="after-sales__hint">Load an order to select the affected items.</p>}
-                        <label>What happened?<textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={5} maxLength={5000} placeholder="Tell us what went wrong and what outcome you expect." /></label>
+                        <label>What happened?<textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={5} maxLength={AFTER_SALES_REQUEST_REASON_MAX_LENGTH} placeholder="Tell us what went wrong and what outcome you expect." /></label>
                         <button type="submit" className="after-sales__primary" disabled={isSubmitting || !orderDetail}>{isSubmitting ? "Submitting…" : "Submit request"}</button>
                     </form>
                     <aside className="after-sales__card after-sales__card--guide"><span className="after-sales__eyebrow">HOW IT WORKS</span><h2>Clear next steps</h2><ol><li>Choose a delivered order and the affected quantities.</li><li>We review eligibility and update the request timeline.</li><li>Refunds are confirmed by the admin team after review.</li></ol><Link to="/support">Need help first? Contact support →</Link></aside>

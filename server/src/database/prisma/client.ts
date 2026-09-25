@@ -1,6 +1,6 @@
 import { PrismaClient } from "#src/generated/prisma/client";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
-import { requireDatabaseUrl } from "./requireDatabaseUrl";
+import { requireDatabaseUrl } from "./require-database-url";
 
 declare global {
     var __prisma: PrismaClient | undefined;

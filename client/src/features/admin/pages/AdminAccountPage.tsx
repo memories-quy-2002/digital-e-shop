@@ -45,17 +45,16 @@ const AdminAccountPage = () => {
             setIsLoading(true);
             setLoadError(null);
             const users = await fetchAllUsers();
-                const newAccounts: Account[] = (users || []).map((account: any) => ({
+            const newAccounts: Account[] = users.map((account) => ({
                     ...account,
                     status: account.status || "Active",
                     order_count: Number(account.order_count) || 0,
                     created_at: new Date(account.created_at),
-                }));
+            }));
             setAccounts(
-                    newAccounts.sort(
-                        (a: Account, b: Account) =>
-                            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-                    ),
+                newAccounts.sort(
+                    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+                ),
             );
             setHasLoaded(true);
             hasLoadedRef.current = true;

@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { InsertResult } from "#src/shared/interfaces/domain";
 import type { TransactionContext } from "../database/transaction";
+import { CHECKOUT_RESERVATION_STATUS } from "#src/shared/constants/checkout-reservation";
 import { assertGuestOrderTokenHash } from "./guest-order-token";
 import type {
     CheckoutReservationItem,
@@ -53,7 +54,7 @@ export class CheckoutReservationRepository {
              FROM inventory_reservations ir
              JOIN pending_checkouts pc ON pc.id = ir.pending_checkout_id
              WHERE ir.product_id IN (${placeholders})
-               AND pc.status = 'PENDING'
+               AND pc.status = '${CHECKOUT_RESERVATION_STATUS.PENDING}'
                AND pc.expires_at > UTC_TIMESTAMP()
              GROUP BY ir.product_id`,
             productIds,
@@ -69,7 +70,7 @@ export class CheckoutReservationRepository {
             `INSERT INTO pending_checkouts
                 (reservation_token, user_id, guest_email, guest_name, guest_phone, guest_order_token_hash,
                  cart_json, total_price, discount, shipping_address, status, expires_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '${CHECKOUT_RESERVATION_STATUS.PENDING}', ?)`,
             [
                 input.reservationToken,
                 input.userId,
@@ -146,7 +147,7 @@ export class CheckoutReservationRepository {
             `UPDATE pending_checkouts
              SET payment_provider = ?, provider_reference = ?, provider_order_code = ?,
                  payment_amount = ?, payment_currency = ?, payment_fx_rate = ?
-             WHERE reservation_token = ? AND status = 'PENDING' AND expires_at > UTC_TIMESTAMP()`,
+             WHERE reservation_token = ? AND status = '${CHECKOUT_RESERVATION_STATUS.PENDING}' AND expires_at > UTC_TIMESTAMP()`,
             [
                 attachment.provider,
                 attachment.providerReference,
@@ -174,8 +175,8 @@ export class CheckoutReservationRepository {
     async consumeReservation(tx: TransactionContext, pendingCheckoutId: number): Promise<number> {
         const result = await tx.query<{ affectedRows: number }>(
             `UPDATE pending_checkouts
-             SET status = 'CONSUMED', consumed_at = UTC_TIMESTAMP()
-             WHERE id = ? AND status = 'PENDING'`,
+             SET status = '${CHECKOUT_RESERVATION_STATUS.CONSUMED}', consumed_at = UTC_TIMESTAMP()
+             WHERE id = ? AND status = '${CHECKOUT_RESERVATION_STATUS.PENDING}'`,
             [pendingCheckoutId],
         );
         return result.affectedRows;
@@ -188,8 +189,8 @@ export class CheckoutReservationRepository {
     ): Promise<number> {
         const result = await tx.query<{ affectedRows: number }>(
             `UPDATE pending_checkouts
-             SET status = 'EXPIRED'
-             WHERE payment_provider = ? AND provider_order_code = ? AND status = 'PENDING'`,
+             SET status = '${CHECKOUT_RESERVATION_STATUS.EXPIRED}'
+             WHERE payment_provider = ? AND provider_order_code = ? AND status = '${CHECKOUT_RESERVATION_STATUS.PENDING}'`,
             [provider, providerOrderCode],
         );
         return result.affectedRows;
@@ -199,8 +200,8 @@ export class CheckoutReservationRepository {
         void reason;
         await tx.query(
             `UPDATE pending_checkouts
-             SET status = 'RELEASED'
-             WHERE reservation_token = ? AND status = 'PENDING'`,
+             SET status = '${CHECKOUT_RESERVATION_STATUS.RELEASED}'
+             WHERE reservation_token = ? AND status = '${CHECKOUT_RESERVATION_STATUS.PENDING}'`,
             [reservationToken],
         );
     }
@@ -209,7 +210,7 @@ export class CheckoutReservationRepository {
         const rows = await tx.query<Array<{ available_quantity: number | string | null }>>(
             `SELECT GREATEST(p.stock - COALESCE(SUM(
                     CASE
-                        WHEN pc.status = 'PENDING' AND pc.expires_at > UTC_TIMESTAMP() THEN ir.quantity
+                        WHEN pc.status = '${CHECKOUT_RESERVATION_STATUS.PENDING}' AND pc.expires_at > UTC_TIMESTAMP() THEN ir.quantity
                         ELSE 0
                     END
                 ), 0), 0) AS available_quantity

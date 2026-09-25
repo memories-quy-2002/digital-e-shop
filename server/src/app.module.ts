@@ -15,7 +15,7 @@ import { UsersModule } from "./users/users.module";
 import { AnalyticsModule } from "./analytics/analytics.module";
 import { BlobModule } from "./blob/blob.module";
 import { AuthModule } from "./auth/auth.module";
-import { PayOSWebhookModule } from "./payments/payosWebhook.module";
+import { PayOSWebhookModule } from "./payments/payos-webhook.module";
 import { AllExceptionsFilter } from "./filters/all-exceptions.filter";
 import { RequestLoggerInterceptor } from "./interceptors/request-logger.interceptor";
 import { SupportModule } from "./support/support.module";

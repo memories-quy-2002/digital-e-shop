@@ -21,7 +21,7 @@ The order controller owns the public route surface:
   validation, and local mock confirmation
 - `server/src/cart/cart.controller.ts` handles guest cart persistence and
   authoritative preview
-- `server/src/payments/payosWebhook.controller.ts` receives the unauthenticated
+- `server/src/payments/payos-webhook.controller.ts` receives the unauthenticated
   provider callback and delegates signature verification and finalization
 - `server/src/payments/admin-payments.controller.ts` exposes reconciliation,
   COD confirmation, and webhook history to admins
@@ -49,12 +49,15 @@ commits a reservation or order.
 
 `server/src/orders/orders.payos.service.ts` creates PayOS links and owns the
 local mock confirmation boundary. The mock path requires the exact order code,
-payment-link reference, and whole-number VND amount.
+payment-link reference, and whole-number VND amount. The simulator is disabled
+in production, and simulated PayOS ledger rows cannot transition to delivered.
 
 `server/src/payments/payos.service.ts` verifies provider signatures and queries
 PayOS when reconciliation runs. `server/src/payments/payment-reconciliation.service.ts`
 normalizes provider data, checks amount and reference equality, claims
-webhook events idempotently, and records terminal or retryable outcomes.
+webhook events idempotently, and records terminal or retryable outcomes. Only
+SDK-verified signed `data` affects payment state; unsigned outer envelope fields
+are ignored.
 
 `server/src/payments/payment-reconciliation.repository.ts` persists webhook
 events and append-only reconciliation attempts. The database migration
@@ -66,6 +69,7 @@ defines the operational tables and indexes.
 The runtime currently enforces these guarantees:
 
 - PayOS and COD are the only active checkout providers
+- Production requires live PayOS mode and server-side provider credentials
 - New payment amounts use exact whole-number VND
 - Successful PayOS finalization requires verified data
 - Duplicate webhook delivery does not create a second payment effect

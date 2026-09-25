@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { HTTP_STATUS } from "../../../constants/http-status";
+import { PAYMENT_METHOD, type PaymentMethod } from "../constants";
 import { Form } from "../../../components/ui/legacy";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate } from "react-router-dom";
@@ -12,7 +14,6 @@ import type { CustomerAddress } from "../../users/api";
 import {
     createGuestPayOSCheckoutSession,
     createGuestPurchase,
-    clearGuestCartServer,
     createPayOSCheckoutSession,
     fetchCustomerOrders,
 } from "../api";
@@ -47,8 +48,18 @@ interface CheckoutForm {
     city: string;
     country: string | null;
     phone_number: string | null;
-    payment_method: "payos" | "cash";
+    payment_method: PaymentMethod;
 }
+
+type CheckoutSubmissionContext = {
+    latestCart: CheckoutCartItem[];
+    latestTotalPrice: number;
+    normalizedEmail: string;
+    normalizedName: string;
+    guestCart: Array<{ productId: number; quantity: number }>;
+    guestContact: { email: string; name: string; phone?: string };
+    guestShipping: { address: string; city: string; country: string };
+};
 
 type CheckoutPaymentProps = {
     setIsPayment: (isPayment: boolean) => void;
@@ -83,7 +94,7 @@ const CheckoutPaymentPage = ({
         city: "",
         country: null,
         phone_number: null,
-        payment_method: "payos",
+        payment_method: PAYMENT_METHOD.PAYOS,
     });
     const [errors, setErrors] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -112,8 +123,8 @@ const CheckoutPaymentPage = ({
     );
 
     const paymentOptions = [
-        { value: "payos" as const, title: "PayOS (VND)", description: "Vietnam-first QR payment", icon: <CashStackIcon size={22} /> },
-        { value: "cash" as const, title: "Cash on delivery", description: "Pay when it arrives", icon: <CashStackIcon size={22} /> },
+        { value: PAYMENT_METHOD.PAYOS, title: "PayOS (VND)", description: "Vietnam-first QR payment", icon: <CashStackIcon size={22} /> },
+        { value: PAYMENT_METHOD.CASH, title: "Cash on delivery", description: "Pay when it arrives", icon: <CashStackIcon size={22} /> },
     ];
 
     const selectedPayment = paymentOptions.find((option) => option.value === formCheckout.payment_method) || paymentOptions[0];
@@ -135,20 +146,32 @@ const CheckoutPaymentPage = ({
         }
 
         const loadAddressSources = async () => {
-            const [addresses, orders] = await Promise.all([
-                fetchCustomerAddresses(uid).catch(() => []),
-                fetchCustomerOrders(uid).catch(() => []),
+            const [addressesResult, ordersResult] = await Promise.allSettled([
+                fetchCustomerAddresses(uid),
+                fetchCustomerOrders(uid),
             ]);
             if (!isActive) return;
-            setSavedAddresses(addresses || []);
-            setRecentOrderAddresses(getRecentOrderAddresses(orders || []));
+
+            if (addressesResult.status === "fulfilled") {
+                setSavedAddresses(addressesResult.value || []);
+            } else {
+                setSavedAddresses([]);
+                addToast("Saved addresses", getApiErrorMessage(addressesResult.reason, "Unable to load saved addresses."));
+            }
+
+            if (ordersResult.status === "fulfilled") {
+                setRecentOrderAddresses(getRecentOrderAddresses(ordersResult.value || []));
+            } else {
+                setRecentOrderAddresses([]);
+                addToast("Recent orders", getApiErrorMessage(ordersResult.reason, "Unable to load recent order addresses."));
+            }
         };
 
         void loadAddressSources();
         return () => {
             isActive = false;
         };
-    }, [uid]);
+    }, [uid, addToast]);
 
     useEffect(() => {
         if (!userData?.email || formCheckout.email) return;
@@ -207,12 +230,12 @@ const CheckoutPaymentPage = ({
                 const nextCart = normalizeCheckoutCartItems(response.data.cartItems);
                 cartRef.current = nextCart;
                 onValidationRefresh(nextCart, []);
-                if (response.status === 200 && response.data.valid === true) return nextCart;
+                if (response.status === HTTP_STATUS.OK && response.data.valid === true) return nextCart;
             }
-            return response.status === 200 && response.data.valid === true ? cartRef.current : null;
+            return response.status === HTTP_STATUS.OK && response.data.valid === true ? cartRef.current : null;
         } catch (err: unknown) {
             if (err && typeof err === "object" && "response" in err) {
-                const response = (err as { response?: { data?: { issues?: CartValidationIssue[]; msg?: string; cartItems?: any[] } } }).response;
+                const response = (err as { response?: { data?: { issues?: CartValidationIssue[]; msg?: string; cartItems?: unknown[] } } }).response;
                 const issues = response?.data?.issues || [];
                 applyValidationPayload(response?.data);
                 const message = getCartValidationMessage(issues);
@@ -227,6 +250,171 @@ const CheckoutPaymentPage = ({
             setIsValidatingCart(false);
         }
     }, [addToast, applyValidationPayload, onValidationRefresh, uid]);
+
+    const createSubmissionContext = (latestCart: CheckoutCartItem[]): CheckoutSubmissionContext => {
+        const normalizedEmail = normalizeCheckoutEmail(formCheckout.email);
+        const normalizedName = `${formCheckout.first_name} ${formCheckout.last_name}`.trim();
+
+        return {
+            latestCart,
+            latestTotalPrice: latestCart.reduce(
+                (sum, item) => sum + (item.sale_price ?? item.price) * item.quantity,
+                0,
+            ),
+            normalizedEmail,
+            normalizedName,
+            guestCart: latestCart.map(({ productId, quantity }) => ({ productId, quantity })),
+            guestContact: {
+                email: normalizedEmail,
+                name: normalizedName,
+                ...(formCheckout.phone_number?.trim() ? { phone: formCheckout.phone_number.trim() } : {}),
+            },
+            guestShipping: {
+                address: formCheckout.address.trim(),
+                city: formCheckout.city.trim(),
+                country: formCheckout.country?.trim() || "",
+            },
+        };
+    };
+
+    const submitPayOSCheckout = async (submission: CheckoutSubmissionContext) => {
+        const pendingCheckout = {
+            totalPrice: submission.latestTotalPrice,
+            discount,
+            subtotal: submission.latestTotalPrice - discount,
+            itemsCount: submission.latestCart.reduce((sum, item) => sum + item.quantity, 0),
+            paymentMethod: formCheckout.payment_method,
+            email: submission.normalizedEmail,
+            name: submission.normalizedName,
+            address: formCheckout.address,
+            city: formCheckout.city,
+            country: formCheckout.country || "",
+            phone: formCheckout.phone_number ? maskPhoneNumber(formCheckout.phone_number) : "",
+        };
+        const sessionResponse = uid
+            ? await createPayOSCheckoutSession(uid, {
+                cart: submission.latestCart,
+                totalPrice: submission.latestTotalPrice,
+                discount,
+                discountCode: discountCode || undefined,
+                shippingAddress: serializeShippingAddress(submission.guestShipping),
+            })
+            : await createGuestPayOSCheckoutSession({
+                cart: submission.guestCart,
+                contact: submission.guestContact,
+                shipping: submission.guestShipping,
+                discountCode: discountCode || undefined,
+                paymentMethod: PAYMENT_METHOD.PAYOS,
+            });
+
+        writePendingCheckout({
+            ...pendingCheckout,
+            ...(sessionResponse.guestOrderToken ? { guestOrderToken: sessionResponse.guestOrderToken } : {}),
+        });
+        if (sessionResponse.url) {
+            window.location.href = sessionResponse.url;
+            return;
+        }
+
+        setErrors(["Checkout did not return a payment URL. Please try again."]);
+    };
+
+    const submitGuestOrder = async (submission: CheckoutSubmissionContext) => {
+        const response = await createGuestPurchase({
+            cart: submission.guestCart,
+            contact: submission.guestContact,
+            shipping: submission.guestShipping,
+            discountCode: discountCode || undefined,
+            paymentMethod: formCheckout.payment_method,
+        });
+        const orderTotal = Number(response.order?.total_price);
+        const orderDiscount = Number(response.order?.discount);
+        const resolvedTotal = Number.isFinite(orderTotal) ? orderTotal : submission.latestTotalPrice;
+        const resolvedDiscount = Number.isFinite(orderDiscount) ? orderDiscount : discount;
+        const payload = {
+            orderId: String(response.orderId || response.order?.id),
+            totalPrice: resolvedTotal,
+            discount: resolvedDiscount,
+            subtotal: Math.max(0, resolvedTotal - resolvedDiscount),
+            itemsCount: submission.latestCart.reduce((sum, item) => sum + item.quantity, 0),
+            placedAt: response.order?.date_added || toUtcIsoString(),
+            paymentMethod: formCheckout.payment_method,
+            email: submission.normalizedEmail,
+            name: submission.normalizedName,
+            address: formCheckout.address,
+            city: formCheckout.city,
+            country: formCheckout.country || "",
+            phone: formCheckout.phone_number ? maskPhoneNumber(formCheckout.phone_number) : "",
+            guestOrderToken: response.guestOrderToken,
+        } as const;
+
+        writeCheckoutSuccess(payload);
+        clearPendingCheckout();
+        clearGuestCart();
+        navigate("/checkout-success", { state: { checkoutSuccess: payload } });
+    };
+
+    const submitAuthenticatedOrder = async (submission: CheckoutSubmissionContext) => {
+        const response = await http.post(`/api/orders/purchase/${uid}`, {
+            cart: submission.latestCart,
+            totalPrice: submission.latestTotalPrice,
+            discount,
+            discountCode: discountCode || undefined,
+            shippingAddress: serializeShippingAddress(submission.guestShipping),
+            paymentMethod: formCheckout.payment_method,
+        });
+        if (response.status !== HTTP_STATUS.CREATED) return;
+
+        const orderId = response.data?.order?.id || response.data?.orderId || response.data?.id || `ORD-${Date.now()}`;
+        const placedAt = response.data?.order?.date_added || response.data?.placedAt || toUtcIsoString();
+        const payload = {
+            orderId,
+            totalPrice: submission.latestTotalPrice,
+            discount,
+            subtotal: submission.latestTotalPrice - discount,
+            itemsCount: submission.latestCart.reduce((sum, item) => sum + item.quantity, 0),
+            placedAt,
+            paymentMethod: formCheckout.payment_method,
+        };
+        const payloadSensitive = {
+            ...payload,
+            email: submission.normalizedEmail,
+            name: submission.normalizedName,
+            address: formCheckout.address,
+            city: formCheckout.city,
+            country: formCheckout.country || "",
+            phone: formCheckout.phone_number ? maskPhoneNumber(formCheckout.phone_number) : "",
+        };
+
+        writeCheckoutSuccess(payload);
+        navigate("/checkout-success", { state: { checkoutSuccess: payloadSensitive } });
+    };
+
+    const handlePurchaseFailure = (err: unknown) => {
+        if (err && typeof err === "object" && "response" in err) {
+            const payload = getApiErrorPayload(err);
+            const requiresVerification = payload?.code === "EMAIL_VERIFICATION_REQUIRED";
+            const authoritativeCart = Array.isArray(payload?.authoritativeCart)
+                ? payload.authoritativeCart
+                : Array.isArray(payload?.cartItems)
+                    ? payload.cartItems
+                    : undefined;
+            setVerificationRequired(requiresVerification);
+            applyValidationPayload({
+                issues: Array.isArray(payload?.issues) ? payload.issues as CartValidationIssue[] : undefined,
+                cartItems: authoritativeCart,
+            });
+            const message = requiresVerification
+                ? "Please verify your email before placing an authenticated order."
+                : getApiErrorMessage(err, "Checkout failed.");
+            setErrors([message]);
+            addToast("Checkout", message);
+            return;
+        }
+
+        setErrors(["An unexpected error occurred."]);
+        addToast("Checkout", "An unexpected error occurred.");
+    };
 
     const handlePurchase = async () => {
         setErrors([]);
@@ -249,158 +437,18 @@ const CheckoutPaymentPage = ({
 
         try {
             setIsSubmitting(true);
-            const normalizedEmail = normalizeCheckoutEmail(formCheckout.email);
-            const latestTotalPrice = latestCart.reduce(
-                (sum, item) => sum + (item.sale_price ?? item.price) * item.quantity,
-                0,
-            );
-            const normalizedName = `${formCheckout.first_name} ${formCheckout.last_name}`.trim();
-            const guestCart = latestCart.map(({ productId, quantity }) => ({ productId, quantity }));
-            const guestContact = {
-                email: normalizedEmail,
-                name: normalizedName,
-                ...(formCheckout.phone_number?.trim() ? { phone: formCheckout.phone_number.trim() } : {}),
-            };
-            const guestShipping = {
-                address: formCheckout.address.trim(),
-                city: formCheckout.city.trim(),
-                country: formCheckout.country?.trim() || "",
-            };
-
-            if (formCheckout.payment_method === "payos") {
-                const pendingCheckout = {
-                    totalPrice: latestTotalPrice,
-                    discount,
-                    subtotal: latestTotalPrice - discount,
-                    itemsCount: latestCart.reduce((sum, item) => sum + item.quantity, 0),
-                    paymentMethod: formCheckout.payment_method,
-                    email: normalizedEmail,
-                    name: normalizedName,
-                    address: formCheckout.address,
-                    city: formCheckout.city,
-                    country: formCheckout.country || "",
-                    phone: formCheckout.phone_number ? maskPhoneNumber(formCheckout.phone_number) : "",
-                };
-                const sessionResponse = uid
-                    ? await createPayOSCheckoutSession(uid, {
-                        cart: latestCart,
-                        totalPrice: latestTotalPrice,
-                        discount,
-                        discountCode: discountCode || undefined,
-                        shippingAddress: serializeShippingAddress(guestShipping),
-                    })
-                    : await createGuestPayOSCheckoutSession({
-                        cart: guestCart,
-                        contact: guestContact,
-                        shipping: guestShipping,
-                        discountCode: discountCode || undefined,
-                        paymentMethod: "payos",
-                    });
-                const checkoutUrl = sessionResponse.url;
-                const guestOrderToken = sessionResponse.guestOrderToken;
-                writePendingCheckout({
-                    ...pendingCheckout,
-                    ...(guestOrderToken ? { guestOrderToken } : {}),
-                });
-                if (checkoutUrl) {
-                    window.location.href = checkoutUrl;
-                    return;
-                }
-                setErrors(["Checkout did not return a payment URL. Please try again."]);
+            const submission = createSubmissionContext(latestCart);
+            if (formCheckout.payment_method === PAYMENT_METHOD.PAYOS) {
+                await submitPayOSCheckout(submission);
                 return;
             }
-
             if (!uid) {
-                const response = await createGuestPurchase({
-                    cart: guestCart,
-                    contact: guestContact,
-                    shipping: guestShipping,
-                    discountCode: discountCode || undefined,
-                    paymentMethod: formCheckout.payment_method,
-                });
-                const orderTotal = Number(response.order?.total_price);
-                const orderDiscount = Number(response.order?.discount);
-                const resolvedTotal = Number.isFinite(orderTotal) ? orderTotal : latestTotalPrice;
-                const resolvedDiscount = Number.isFinite(orderDiscount) ? orderDiscount : discount;
-                const payload = {
-                    orderId: String(response.orderId || response.order?.id),
-                    totalPrice: resolvedTotal,
-                    discount: resolvedDiscount,
-                    subtotal: Math.max(0, resolvedTotal - resolvedDiscount),
-                    itemsCount: latestCart.reduce((sum, item) => sum + item.quantity, 0),
-                    placedAt: response.order?.date_added || toUtcIsoString(),
-                    paymentMethod: formCheckout.payment_method,
-                    email: normalizedEmail,
-                    name: normalizedName,
-                    address: formCheckout.address,
-                    city: formCheckout.city,
-                    country: formCheckout.country || "",
-                    phone: formCheckout.phone_number ? maskPhoneNumber(formCheckout.phone_number) : "",
-                    guestOrderToken: response.guestOrderToken,
-                } as const;
-                writeCheckoutSuccess(payload);
-                clearPendingCheckout();
-                clearGuestCart();
-                void clearGuestCartServer(true).catch(() => undefined);
-                navigate("/checkout-success", { state: { checkoutSuccess: payload } });
+                await submitGuestOrder(submission);
                 return;
             }
-
-            const response = await http.post(`/api/orders/purchase/${uid}`, {
-                cart: latestCart,
-                totalPrice: latestTotalPrice,
-                discount,
-                discountCode: discountCode || undefined,
-                shippingAddress: serializeShippingAddress(guestShipping),
-                paymentMethod: formCheckout.payment_method,
-            });
-            if (response.status === 201) {
-                const orderId = response.data?.order?.id || response.data?.orderId || response.data?.id || `ORD-${Date.now()}`;
-                const placedAt = response.data?.order?.date_added || response.data?.placedAt || toUtcIsoString();
-                const payload = {
-                    orderId,
-                    totalPrice: latestTotalPrice,
-                    discount,
-                    subtotal: latestTotalPrice - discount,
-                    itemsCount: latestCart.reduce((sum, item) => sum + item.quantity, 0),
-                    placedAt,
-                    paymentMethod: formCheckout.payment_method,
-                };
-                const payloadSensitive = {
-                    ...payload,
-                    email: normalizedEmail,
-                    name: `${formCheckout.first_name} ${formCheckout.last_name}`.trim(),
-                    address: formCheckout.address,
-                    city: formCheckout.city,
-                    country: formCheckout.country || "",
-                    phone: formCheckout.phone_number ? maskPhoneNumber(formCheckout.phone_number) : "",
-                };
-                writeCheckoutSuccess(payload);
-                navigate("/checkout-success", { state: { checkoutSuccess: payloadSensitive } });
-            }
+            await submitAuthenticatedOrder(submission);
         } catch (err: unknown) {
-            if (err && typeof err === "object" && "response" in err) {
-                const payload = getApiErrorPayload(err);
-                const requiresVerification = payload?.code === "EMAIL_VERIFICATION_REQUIRED";
-                const authoritativeCart = Array.isArray(payload?.authoritativeCart)
-                    ? payload.authoritativeCart
-                    : Array.isArray(payload?.cartItems)
-                        ? payload.cartItems
-                        : undefined;
-                setVerificationRequired(requiresVerification);
-                applyValidationPayload({
-                    issues: Array.isArray(payload?.issues) ? payload.issues as CartValidationIssue[] : undefined,
-                    cartItems: authoritativeCart,
-                });
-                const message = requiresVerification
-                    ? "Please verify your email before placing an authenticated order."
-                    : getApiErrorMessage(err, "Checkout failed.");
-                setErrors([message]);
-                addToast("Checkout", message);
-            } else {
-                setErrors(["An unexpected error occurred."]);
-                addToast("Checkout", "An unexpected error occurred.");
-            }
+            handlePurchaseFailure(err);
         } finally {
             setIsSubmitting(false);
         }
@@ -577,7 +625,7 @@ const CheckoutPaymentPage = ({
                                 ))}
                             </div>
                             <div className="checkout__payment__selected"><span>Selected method</span><strong>{selectedPayment.title}</strong></div>
-                            {formCheckout.payment_method === "payos" ? (
+                            {formCheckout.payment_method === PAYMENT_METHOD.PAYOS ? (
                                 <div className="checkout__payment__details">
                                     <h3>PayOS payment</h3>
                                     <p>

@@ -3,6 +3,7 @@ import { AuthGuard } from "../guards/auth.guard";
 import { OwnerParam, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestWishlistService } from "./wishlist.service";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
 
 import { wishlistAddSchema, wishlistBulkDeleteSchema, wishlistDeleteSchema } from "./wishlist.validator";
 
@@ -22,7 +23,7 @@ export class WishlistController {
     }
 
     @Post()
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @OwnerParam("uid")
     @UsePipes(new ZodValidationPipe(wishlistAddSchema))
     async addItemToWishlist(@Body() body: { uid: string; pid: number }) {
@@ -31,7 +32,7 @@ export class WishlistController {
     }
 
     @Delete()
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @OwnerParam("uid")
     @UsePipes(new ZodValidationPipe(wishlistBulkDeleteSchema))
     async deleteWishlistItems(@Body() body: { uid: string; productIds: number[] }) {
@@ -40,7 +41,7 @@ export class WishlistController {
     }
 
     @Delete(":pid")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @OwnerParam("uid")
     async deleteWishlistItem(@Param("pid") pid: string, @Body("uid") uid: string) {
         const payload = new ZodValidationPipe(wishlistDeleteSchema).transform({ uid, pid });

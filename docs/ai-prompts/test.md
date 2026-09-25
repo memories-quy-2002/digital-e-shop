@@ -70,7 +70,7 @@ expected: a duplicate event produces one payment effect
 Output:
 Status: pass
 Role: test and QA agent
-Files changed: server/src/payments/payosWebhook.controller.test.ts
+Files changed: server/src/payments/payos-webhook.controller.test.ts
 Findings:
 - None
 Verification:

@@ -9,11 +9,14 @@ import { cartAddItemSchema, cartDeleteItemSchema, cartUpdateQuantitySchema, gues
 import type { GuestCartPreviewInput, GuestCartSyncInput } from "./cart.types";
 import { createGuestCartId, GUEST_CART_COOKIE, GUEST_CART_TTL_DAYS, isGuestCartId } from "./guest-cart";
 import { isProduction } from "#src/config/env.config";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
+import { createHttpException } from "#src/core/errors/http-exception";
 
 function toHttpException(err: { statusCode?: number; message?: string }, fallbackMessage: string): HttpException {
-    const statusCode = err.statusCode || 500;
-    const msg = err.statusCode ? err.message : fallbackMessage;
-    return new HttpException({ msg }, statusCode);
+    if (err instanceof HttpException) return err;
+    const statusCode = err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+    const msg = statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? fallbackMessage : err.message || fallbackMessage;
+    return createHttpException(err, { msg }, statusCode);
 }
 
 @Controller("cart")
@@ -39,7 +42,7 @@ export class CartController {
     }
 
     @Get("guest")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     async getGuestCart(@Req() request: Request) {
         try {
             const guestCartId = request.cookies?.[GUEST_CART_COOKIE];
@@ -51,7 +54,7 @@ export class CartController {
     }
 
     @Post("guest/sync")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @UsePipes(new ZodValidationPipe(guestCartSyncSchema))
     async syncGuestCart(
         @Req() request: Request,
@@ -68,7 +71,7 @@ export class CartController {
     }
 
     @Post("guest/clear")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @UsePipes(new ZodValidationPipe(guestCartClearSchema))
     async clearGuestCart(
         @Req() request: Request,
@@ -94,7 +97,7 @@ export class CartController {
     }
 
     @Post("guest/preview")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @UsePipes(new ZodValidationPipe(guestCartPreviewSchema))
     async previewGuestCart(@Body() body: GuestCartPreviewInput) {
         try {
@@ -138,7 +141,7 @@ export class CartController {
     }
 
     @Post()
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @UseGuards(AuthGuard, RolesGuard)
     @OwnerParam("uid")
     @UsePipes(new ZodValidationPipe(cartAddItemSchema))
@@ -149,14 +152,14 @@ export class CartController {
             return { msg };
         } catch (err) {
             if (err instanceof Error && err.name === "ZodError") {
-                throw new HttpException({ msg: (err as Error).message }, 400);
+                throw new HttpException({ msg: (err as Error).message }, HTTP_STATUS.BAD_REQUEST);
             }
             throw toHttpException(err as Error, "Error adding item to cart");
         }
     }
 
     @Put()
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @UseGuards(AuthGuard, RolesGuard)
     @OwnerParam("uid")
     @UsePipes(new ZodValidationPipe(cartUpdateQuantitySchema))
@@ -167,14 +170,14 @@ export class CartController {
             return { msg };
         } catch (err) {
             if (err instanceof Error && err.name === "ZodError") {
-                throw new HttpException({ msg: (err as Error).message }, 400);
+                throw new HttpException({ msg: (err as Error).message }, HTTP_STATUS.BAD_REQUEST);
             }
             throw toHttpException(err as Error, "Error updating cart item");
         }
     }
 
     @Delete()
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @UseGuards(AuthGuard, RolesGuard)
     @OwnerParam("uid")
     @UsePipes(new ZodValidationPipe(cartDeleteItemSchema))
@@ -185,7 +188,7 @@ export class CartController {
             return { msg };
         } catch (err) {
             if (err instanceof Error && err.name === "ZodError") {
-                throw new HttpException({ msg: (err as Error).message }, 400);
+                throw new HttpException({ msg: (err as Error).message }, HTTP_STATUS.BAD_REQUEST);
             }
             throw toHttpException(err as Error, "Error deleting cart item");
         }

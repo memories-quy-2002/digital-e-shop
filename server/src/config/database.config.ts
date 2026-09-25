@@ -84,7 +84,7 @@ pool.query = (sql: QueryInput, values?: QueryParams | QueryCallback, callback?: 
             const explainSql = `EXPLAIN ANALYZE ${compactSql}`;
             originalQuery(explainSql, params || [], (explainErr: Error | null, rows: unknown) => {
                 if (explainErr) {
-                    logger.warn(`[db] EXPLAIN failed: ${explainErr.message}`);
+                    logger.warn({ err: explainErr, event: "database query plan capture failed" });
                     return;
                 }
 

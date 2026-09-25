@@ -1,6 +1,8 @@
 import type { GuestPurchasePayload, PurchasePayload, GuestPayOSCheckoutPayload } from "./orders.dto";
 import type { CartItemRow } from "../cart/cart.types";
 import type { GuestOrderTokenHash } from "./guest-order-token";
+import type { CheckoutReservationStatus } from "#src/shared/constants/checkout-reservation";
+import type { PayOSPaymentProvider } from "../payments/payment.types";
 
 export type OrderSummaryRow = {
     id: number;
@@ -140,7 +142,7 @@ export type PendingCheckoutRow = {
     total_price: string;
     discount: string;
     shipping_address: string;
-    status: "PENDING" | "CONSUMED" | "RELEASED" | "EXPIRED" | string;
+    status: CheckoutReservationStatus | string;
     expires_at: string | Date;
     discount_id?: number | null;
     created_at: string;
@@ -248,7 +250,7 @@ export type CheckoutReservation = {
 };
 
 export type PaymentProviderAttachment = {
-    provider: "payos";
+    provider: PayOSPaymentProvider;
     providerReference: string;
     providerOrderCode?: number | null;
     paymentAmount?: number | null;

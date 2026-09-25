@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import AdminLayout from "../../../components/layout/AdminLayout";
 import AdminStatusPanel from "../components/AdminStatusPanel";
@@ -6,9 +6,13 @@ import AdminTableScrollHint from "../components/AdminTableScrollHint";
 import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
 import { useToast } from "../../../context/ToastContext";
 import { fetchSupportTickets, updateSupportTicket, type SupportTicket } from "../../support/api";
-
-const statuses = ["OPEN", "IN_PROGRESS", "WAITING_FOR_CUSTOMER", "RESOLVED", "CLOSED"] as const;
-const priorities = ["LOW", "NORMAL", "HIGH", "URGENT"] as const;
+import {
+    SUPPORT_PRIORITIES,
+    SUPPORT_STATUSES,
+    SUPPORT_STATUS,
+    type SupportPriority,
+    type SupportStatus,
+} from "../../support/constants";
 
 const formatDate = (value: string) =>
     new Intl.DateTimeFormat("en-US", {
@@ -20,29 +24,31 @@ const AdminSupportPage = () => {
     const { addToast } = useToast();
     const [tickets, setTickets] = useState<SupportTicket[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
-    const [statusFilter, setStatusFilter] = useState("");
+    const [statusFilter, setStatusFilter] = useState<SupportStatus | "">("");
     const [isLoading, setIsLoading] = useState(true);
     const [hasLoaded, setHasLoaded] = useState(false);
     const [loadError, setLoadError] = useState<AdminRequestError | null>(null);
     const [updatingId, setUpdatingId] = useState<number | null>(null);
+    const hasLoadedRef = useRef(false);
 
-    const loadTickets = async () => {
+    const loadTickets = useCallback(async () => {
         try {
             setIsLoading(true);
             setLoadError(null);
             setTickets(await fetchSupportTickets(statusFilter || undefined));
             setHasLoaded(true);
+            hasLoadedRef.current = true;
         } catch (error) {
             setLoadError(getAdminRequestError(error));
-            if (hasLoaded) addToast("Support", "Refresh failed. Showing the latest saved tickets.");
+            if (hasLoadedRef.current) addToast("Support", "Refresh failed. Showing the latest saved tickets.");
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [addToast, statusFilter]);
 
     useEffect(() => {
-        loadTickets();
-    }, [statusFilter]);
+        void loadTickets();
+    }, [loadTickets]);
 
     const filteredTickets = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
@@ -64,11 +70,15 @@ const AdminSupportPage = () => {
     }, [searchTerm, tickets]);
 
     const openCount = useMemo(
-        () => filteredTickets.filter((ticket) => ["OPEN", "IN_PROGRESS", "WAITING_FOR_CUSTOMER"].includes(ticket.status)).length,
+        () => filteredTickets.filter((ticket) =>
+            ticket.status === SUPPORT_STATUS.OPEN
+            || ticket.status === SUPPORT_STATUS.IN_PROGRESS
+            || ticket.status === SUPPORT_STATUS.WAITING_FOR_CUSTOMER,
+        ).length,
         [filteredTickets],
     );
 
-    const handleUpdate = async (ticket: SupportTicket, input: { status?: string; priority?: string }) => {
+    const handleUpdate = async (ticket: SupportTicket, input: { status?: SupportStatus; priority?: SupportPriority }) => {
         try {
             setUpdatingId(ticket.id);
             const updated = await updateSupportTicket(ticket.id, input);
@@ -95,9 +105,9 @@ const AdminSupportPage = () => {
                         <p className="admin__page__subtitle">Manage the customer requests stored by the support workflow.</p>
                     </div>
                     <div className="admin__page__actions">
-                        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter support tickets">
+                        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as SupportStatus | "")} aria-label="Filter support tickets">
                             <option value="">All statuses</option>
-                            {statuses.map((status) => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}
+                            {SUPPORT_STATUSES.map((status) => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}
                         </select>
                         <button type="button" className="admin__button admin__button--ghost" onClick={loadTickets}>Refresh</button>
                     </div>
@@ -161,20 +171,20 @@ const AdminSupportPage = () => {
                                             <select
                                                 value={ticket.status}
                                                 disabled={updatingId === ticket.id}
-                                                onChange={(event) => handleUpdate(ticket, { status: event.target.value })}
+                                                onChange={(event) => handleUpdate(ticket, { status: event.target.value as SupportStatus })}
                                                 aria-label={`Status for ticket ${ticket.id}`}
                                             >
-                                                {statuses.map((status) => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}
+                                                {SUPPORT_STATUSES.map((status) => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}
                                             </select>
                                         </td>
                                         <td>
                                             <select
                                                 value={ticket.priority}
                                                 disabled={updatingId === ticket.id}
-                                                onChange={(event) => handleUpdate(ticket, { priority: event.target.value })}
+                                                onChange={(event) => handleUpdate(ticket, { priority: event.target.value as SupportPriority })}
                                                 aria-label={`Priority for ticket ${ticket.id}`}
                                             >
-                                                {priorities.map((priority) => <option key={priority} value={priority}>{priority}</option>)}
+                            {SUPPORT_PRIORITIES.map((priority) => <option key={priority} value={priority}>{priority}</option>)}
                                             </select>
                                         </td>
                                         <td>{formatDate(ticket.created_at)}</td>

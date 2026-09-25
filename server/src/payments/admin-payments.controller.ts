@@ -6,11 +6,21 @@ import { Roles, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { buildSuccessResponse, requestIdFrom } from "#src/shared/http/api-response";
 import { PaymentReconciliationService } from "./payment-reconciliation.service";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
+import { PAYMENT_PROVIDER, PAYMENT_RECONCILIATION_STATUS } from "./payment.types";
+import { PAYMENT_RECONCILIATION_LIMIT } from "./payment-reconciliation.constants";
+import { createHttpException } from "#src/core/errors/http-exception";
 
 const positiveInteger = z.coerce.number().int().positive();
 export const paymentReconciliationQuerySchema = z.object({
-    provider: z.enum(["cash", "payos"]).optional(),
-    reconciliationStatus: z.enum(["PENDING", "MATCHED", "MISMATCH", "UNAVAILABLE", "MANUAL_CONFIRMED"]).optional(),
+    provider: z.enum([PAYMENT_PROVIDER.CASH, PAYMENT_PROVIDER.PAYOS]).optional(),
+    reconciliationStatus: z.enum([
+        PAYMENT_RECONCILIATION_STATUS.PENDING,
+        PAYMENT_RECONCILIATION_STATUS.MATCHED,
+        PAYMENT_RECONCILIATION_STATUS.MISMATCH,
+        PAYMENT_RECONCILIATION_STATUS.UNAVAILABLE,
+        PAYMENT_RECONCILIATION_STATUS.MANUAL_CONFIRMED,
+    ]).optional(),
     page: positiveInteger.optional(),
     limit: positiveInteger.optional(),
 }).strict();
@@ -21,13 +31,16 @@ type AdminRequest = Request & { user?: { id?: string | number } };
 
 const paymentIdFrom = (value: string): number => {
     const paymentId = Number(value);
-    if (!Number.isSafeInteger(paymentId) || paymentId < 1) throw new HttpException({ msg: "Payment id must be a positive integer" }, 400);
+    if (!Number.isSafeInteger(paymentId) || paymentId < 1) throw new HttpException({ msg: "Payment id must be a positive integer" }, HTTP_STATUS.BAD_REQUEST);
     return paymentId;
 };
 
 const toHttpException = (error: unknown, fallback: string): HttpException => {
-    const statusCode = Number((error as { statusCode?: number })?.statusCode) || 500;
-    return new HttpException({ msg: statusCode === 500 ? fallback : (error as Error).message }, statusCode);
+    if (error instanceof HttpException) return error;
+    const statusCode = Number((error as { statusCode?: number })?.statusCode) || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+    const errorMessage = (error as { message?: string })?.message;
+    const msg = statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? fallback : errorMessage || fallback;
+    return createHttpException(error, { msg }, statusCode);
 };
 
 @Controller("admin/payments")
@@ -50,7 +63,7 @@ export class AdminPaymentsController {
     }
 
     @Post("reconciliation/run")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @UseGuards(AuthGuard, RolesGuard)
     @Roles("admin")
     async runReconciliation(
@@ -58,7 +71,7 @@ export class AdminPaymentsController {
         @Req() req: AdminRequest,
     ) {
         try {
-            const limit = Math.min(100, Math.max(1, Math.floor(Number(body.limit) || 50)));
+            const limit = Math.min(PAYMENT_RECONCILIATION_LIMIT.MAX, Math.max(1, Math.floor(Number(body.limit) || PAYMENT_RECONCILIATION_LIMIT.DEFAULT)));
             const result = await this.service.runReconciliation({ limit, requestedBy: String(req.user?.id || "") });
             return buildSuccessResponse({ ...result, msg: "Payment reconciliation run completed successfully" }, requestIdFrom(req));
         } catch (error) {
@@ -67,7 +80,7 @@ export class AdminPaymentsController {
     }
 
     @Post(":paymentId/reconcile")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @UseGuards(AuthGuard, RolesGuard)
     @Roles("admin")
     async reconcilePayment(@Param("paymentId") paymentId: string, @Req() req: AdminRequest) {
@@ -80,7 +93,7 @@ export class AdminPaymentsController {
     }
 
     @Post(":paymentId/confirm-cod")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @UseGuards(AuthGuard, RolesGuard)
     @Roles("admin")
     async confirmCod(

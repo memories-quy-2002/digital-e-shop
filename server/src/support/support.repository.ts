@@ -1,7 +1,15 @@
 import { Injectable } from "@nestjs/common";
 import pool from "#src/config/database.config";
 import type { InsertResult, QueryCallback, UpdateResult } from "#src/shared/interfaces/domain";
-import type { CreateSupportTicketInput, SupportTicket, UpdateSupportTicketInput } from "./support.types";
+import {
+    SUPPORT_DEFAULT_CATEGORY,
+    SUPPORT_PRIORITY,
+    SUPPORT_STATUS,
+    type CreateSupportTicketInput,
+    type SupportTicket,
+    type UpdateSupportTicketInput,
+} from "./support.types";
+import { SUPPORT_TICKETS_LIMIT } from "#src/shared/constants/operational-limits";
 
 const ticketColumns = `id, user_id, order_id, category, subject, message, status, priority,
     admin_note, DATE_FORMAT(created_at, '%Y-%m-%dT%H:%i:%s.000Z') AS created_at,
@@ -14,9 +22,9 @@ export class SupportTicketRepository {
             pool.query(
                 `INSERT INTO support_tickets
                     (user_id, order_id, category, subject, message, status, priority, created_at, updated_at)
-                 SELECT ?, id, ?, ?, ?, 'OPEN', 'NORMAL', UTC_TIMESTAMP(), UTC_TIMESTAMP()
+                 SELECT ?, id, ?, ?, ?, '${SUPPORT_STATUS.OPEN}', '${SUPPORT_PRIORITY.NORMAL}', UTC_TIMESTAMP(), UTC_TIMESTAMP()
                  FROM orders WHERE id = ? AND user_id = ?`,
-                [userId, input.category || "general", input.subject, input.message, input.orderId, userId],
+                [userId, input.category || SUPPORT_DEFAULT_CATEGORY, input.subject, input.message, input.orderId, userId],
                 callback,
             );
             return;
@@ -25,8 +33,8 @@ export class SupportTicketRepository {
         pool.query(
             `INSERT INTO support_tickets
                 (user_id, category, subject, message, status, priority, created_at, updated_at)
-             VALUES (?, ?, ?, ?, 'OPEN', 'NORMAL', UTC_TIMESTAMP(), UTC_TIMESTAMP())`,
-            [userId, input.category || "general", input.subject, input.message],
+             VALUES (?, ?, ?, ?, '${SUPPORT_STATUS.OPEN}', '${SUPPORT_PRIORITY.NORMAL}', UTC_TIMESTAMP(), UTC_TIMESTAMP())`,
+            [userId, input.category || SUPPORT_DEFAULT_CATEGORY, input.subject, input.message],
             callback,
         );
     }
@@ -51,7 +59,7 @@ export class SupportTicketRepository {
         const statusClause = status ? " WHERE status = ?" : "";
         if (status) values.push(status);
         pool.query(
-            `SELECT ${ticketColumns} FROM support_tickets${statusClause} ORDER BY created_at DESC LIMIT 200`,
+            `SELECT ${ticketColumns} FROM support_tickets${statusClause} ORDER BY created_at DESC LIMIT ${SUPPORT_TICKETS_LIMIT}`,
             values,
             callback,
         );

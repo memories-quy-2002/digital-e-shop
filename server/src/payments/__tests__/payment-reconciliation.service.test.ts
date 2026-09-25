@@ -203,7 +203,6 @@ const { withTransaction } = vi.hoisted(() => ({ withTransaction: vi.fn() }));
 vi.mock("../../database/transaction", () => ({ withTransaction }));
 
 const validInput = {
-    envelope: { code: "00", success: true },
     data: {
         orderCode: 123456,
         paymentLinkId: "link-123",
@@ -322,16 +321,21 @@ describe("PaymentReconciliationService", () => {
         expect(repository.completeWebhookEvent).toHaveBeenCalledWith(expect.anything(), 7, "PROCESSED", null, { expectedStatus: "PROCESSING", expectedAttemptCount: 4 });
     });
 
-    it.each(["true", "false", 1, 0, null])("does not finalize when envelope.success is not literal true: %s", async (success) => {
+    it("uses verified PayOS data and ignores unsigned envelope fields", async () => {
         const repository = buildRepository();
         const ordersService = { finalizePayOSCheckout: vi.fn().mockResolvedValue({ id: 42 }) };
         const service = new PaymentReconciliationService(repository as never, ordersService as never);
-
-        await expect(service.handleVerifiedPayOSWebhook({
+        const webhookWithUntrustedEnvelope = {
             ...validInput,
-            envelope: { code: "00", success: success as never },
-        })).resolves.toMatchObject({ kind: "ignored", httpStatus: 200 });
-        expect(ordersService.finalizePayOSCheckout).not.toHaveBeenCalled();
+            envelope: { code: "99", success: false },
+        };
+
+        await expect(service.handleVerifiedPayOSWebhook(webhookWithUntrustedEnvelope)).resolves.toMatchObject({
+            kind: "processed",
+            httpStatus: 200,
+            orderId: 42,
+        });
+        expect(ordersService.finalizePayOSCheckout).toHaveBeenCalledTimes(1);
     });
 
     it("does not let a stale worker overwrite a same-key payload mismatch", async () => {

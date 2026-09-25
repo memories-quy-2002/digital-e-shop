@@ -1,3 +1,5 @@
+import type { PaymentMethod, PayOSPaymentMethod } from "./constants";
+
 export type CustomerOrder = {
     id: number;
     date_added: string;
@@ -68,7 +70,7 @@ export type GuestCartItemInput = {
     quantity: number;
 };
 
-export type GuestPaymentMethod = "cash" | "payos";
+export type GuestPaymentMethod = PaymentMethod;
 
 export type GuestCheckoutContact = {
     email: string;
@@ -95,7 +97,7 @@ export type GuestPayOSCheckoutRequest = {
     contact: GuestCheckoutContact;
     shipping: GuestCheckoutShipping;
     discountCode?: string;
-    paymentMethod: "payos";
+    paymentMethod: PayOSPaymentMethod;
 };
 
 export type GuestOrderItem = {
@@ -190,23 +192,34 @@ const normalizeOptionalSalePrice = (value: unknown) => {
     return numericValue;
 };
 
-export const normalizeCheckoutCartItems = (items: any[] = []): CheckoutCartItem[] =>
-    items.map((item: any) => ({
-        cartItemId: Number(item.cart_item_id || item.id || 0),
-        productId: Number(item.product_id || 0),
-        productName: String(item.product_name || `Product #${item.product_id || 0}`),
-        category: String(item.category || "Unavailable"),
-        brand: String(item.brand || "Unavailable"),
-        price: Number(item.price) || 0,
-        sale_price: normalizeOptionalSalePrice(item.sale_price),
-        main_image: String(item.main_image || ""),
-        quantity: Number(item.quantity) || 0,
-        stock: item.stock === null || item.stock === undefined ? 0 : Number(item.stock) || 0,
-        available_stock:
-            item.available_stock === null || item.available_stock === undefined
-                ? (item.stock === null || item.stock === undefined ? 0 : Number(item.stock) || 0)
-                : Number(item.available_stock) || 0,
-    }));
+const asRecord = (value: unknown): Record<string, unknown> =>
+    value !== null && typeof value === "object" && !Array.isArray(value)
+        ? value as Record<string, unknown>
+        : {};
+
+export const normalizeCheckoutCartItems = (items: unknown[] = []): CheckoutCartItem[] =>
+    items.map((value) => {
+        const item = asRecord(value);
+        const productId = item.product_id;
+        const stock = item.stock;
+
+        return {
+            cartItemId: Number(item.cart_item_id || item.id || 0),
+            productId: Number(productId || 0),
+            productName: String(item.product_name || `Product #${productId || 0}`),
+            category: String(item.category || "Unavailable"),
+            brand: String(item.brand || "Unavailable"),
+            price: Number(item.price) || 0,
+            sale_price: normalizeOptionalSalePrice(item.sale_price),
+            main_image: String(item.main_image || ""),
+            quantity: Number(item.quantity) || 0,
+            stock: stock === null || stock === undefined ? 0 : Number(stock) || 0,
+            available_stock:
+                item.available_stock === null || item.available_stock === undefined
+                    ? (stock === null || stock === undefined ? 0 : Number(stock) || 0)
+                    : Number(item.available_stock) || 0,
+        };
+    });
 
 export const getCartValidationMessage = (issues: CartValidationIssue[]) => {
     const firstIssue = issues[0];

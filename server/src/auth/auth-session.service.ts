@@ -7,6 +7,7 @@ import type { UserRow } from "../users/users.types";
 import { toPublicUser } from "../users/user-public";
 import { AuthRepository } from "./auth.repository";
 import type { AuthSessionPayload } from "./auth.types";
+import { USER_ACCOUNT_STATUS } from "#src/shared/constants/user";
 
 export const ACCESS_TTL = "15m" as const;
 export const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
@@ -92,7 +93,7 @@ export class AuthSessionService {
         if (!user) {
             throw new UnauthorizedException({ msg: "Account is not registered" });
         }
-        if (user.status && user.status !== "Active") {
+        if (user.status && user.status !== USER_ACCOUNT_STATUS.ACTIVE) {
             throw new UnauthorizedException({ msg: "Account is suspended" });
         }
 

@@ -2,7 +2,7 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import type { IncrementResponse, Store } from "express-rate-limit";
 import type { Request, RequestHandler } from "express";
 import { env, isProduction } from "#src/config/env.config";
-import { getRouteLimit } from "#src/shared/utils/rateLimit";
+import { getRouteLimit } from "#src/shared/utils/rate-limit";
 import { RedisFixedWindowLimiter } from "#src/shared/rate-limit/redis-rate-limit";
 
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;

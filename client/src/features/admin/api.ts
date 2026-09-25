@@ -1,7 +1,16 @@
 import http from "../../lib/http";
 import { normalizeProductWithAttributes, type ProductWithAttributes } from "../products/api";
-import type { AdminOrder, AdminOrderDetail, AdminOrderItem, AdminCustomerProfile } from "../../types/order";
+import type { AdminAccount, AdminOrder, AdminOrderDetail, AdminOrderItem, AdminCustomerProfile } from "../../types/order";
 import type { DashboardRange } from "./utils/dashboardRange";
+import type { AdminAnalyticsSummary, AdminInventoryMovement, AdminPromotion } from "./types";
+import type { PaymentMethod } from "../orders/constants";
+import {
+    PAYMENT_RECONCILIATION_LIMIT,
+    PAYMENT_RECONCILIATION_STATUS,
+    PAYMENT_RECONCILIATION_TARGET_TYPE,
+    type PaymentReconciliationStatus,
+    type PaymentReconciliationTargetType,
+} from "./payment-reconciliation.constants";
 
 const ADMIN_PAGE_LIMIT = 100;
 
@@ -26,8 +35,8 @@ const fetchAllPages = async <T>(
     return rows;
 };
 
-export async function fetchAnalyticsSummary(range: DashboardRange = "30d"): Promise<any> {
-    const response = await http.get("/api/analytics/summary", { params: { range } });
+export async function fetchAnalyticsSummary(range: DashboardRange = "30d"): Promise<AdminAnalyticsSummary> {
+    const response = await http.get<AdminAnalyticsSummary>("/api/analytics/summary", { params: { range } });
     return response.data;
 }
 
@@ -50,13 +59,13 @@ export async function fetchAllOrders(): Promise<AdminOrder[]> {
     return fetchAllPages<AdminOrder>("/api/orders", "orders");
 }
 
-export async function fetchAdminUsers(page = 1, limit = 80): Promise<any[]> {
-    const response = await http.get(`/api/users?page=${page}&limit=${limit}`);
+export async function fetchAdminUsers(page = 1, limit = 80): Promise<AdminAccount[]> {
+    const response = await http.get<{ accounts?: AdminAccount[] }>(`/api/users?page=${page}&limit=${limit}`);
     return response.data.accounts || [];
 }
 
-export async function fetchAllUsers(): Promise<any[]> {
-    return fetchAllPages<any>("/api/users", "accounts");
+export async function fetchAllUsers(): Promise<AdminAccount[]> {
+    return fetchAllPages<AdminAccount>("/api/users", "accounts");
 }
 
 export async function fetchOrderItems(page = 1, limit = ADMIN_PAGE_LIMIT): Promise<AdminOrderItem[]> {
@@ -93,8 +102,8 @@ export async function updateProductInventory(productId: number, stock: number): 
     return normalizeProductWithAttributes(response.data.product);
 }
 
-export async function fetchInventoryMovements(limit = 12): Promise<any[]> {
-    const response = await http.get(`/api/products/admin/inventory-movements?limit=${limit}`);
+export async function fetchInventoryMovements(limit = 12): Promise<AdminInventoryMovement[]> {
+    const response = await http.get<{ movements?: AdminInventoryMovement[] }>(`/api/products/admin/inventory-movements?limit=${limit}`);
     return response.data.movements || [];
 }
 
@@ -151,8 +160,8 @@ export async function bulkUpdateOrderStatus(
 export async function updateAccount(
     userId: string,
     data: { role?: string; status?: string },
-): Promise<any> {
-    const response = await http.put(`/api/users/${userId}`, data);
+): Promise<{ account?: Partial<AdminAccount> }> {
+    const response = await http.put<{ account?: Partial<AdminAccount> }>(`/api/users/${userId}`, data);
     return response.data;
 }
 
@@ -161,8 +170,8 @@ export async function fetchCustomerProfile(userId: string): Promise<AdminCustome
     return response.data.profile || null;
 }
 
-export async function fetchPromotions(): Promise<any[]> {
-    const response = await http.get("/api/promotions");
+export async function fetchPromotions(): Promise<AdminPromotion[]> {
+    const response = await http.get<{ promotions?: AdminPromotion[] }>("/api/promotions");
     return response.data.promotions || [];
 }
 
@@ -195,17 +204,12 @@ export async function fetchAdminAlerts(): Promise<{ alerts: AdminAlert[]; unread
     return { alerts: response.data.alerts || [], unread: Number(response.data.unread || 0) };
 }
 
-export type PaymentReconciliationStatus =
-    | "PENDING"
-    | "MATCHED"
-    | "MISMATCH"
-    | "UNAVAILABLE"
-    | "MANUAL_CONFIRMED";
+export type { PaymentReconciliationStatus } from "./payment-reconciliation.constants";
 
 export type PaymentReconciliationCandidate = {
-    targetType: "pending_checkout" | "order_payment";
+    targetType: PaymentReconciliationTargetType;
     targetId: number;
-    provider: "cash" | "payos" | string;
+    provider: string;
     localStatus: string;
     reconciliationStatus: PaymentReconciliationStatus | string;
     providerReference: string | null;
@@ -235,7 +239,7 @@ export type PaymentReconciliationPage = {
 };
 
 export type PaymentReconciliationResult = {
-    targetType: "pending_checkout" | "order_payment" | string;
+    targetType: PaymentReconciliationTargetType | string;
     targetId: number;
     paymentId?: number;
     outcome: string;
@@ -263,7 +267,7 @@ export type PaymentWebhookEvent = {
 };
 
 type PaymentReconciliationFilters = {
-    provider?: "cash" | "payos";
+    provider?: PaymentMethod;
     reconciliationStatus?: PaymentReconciliationStatus;
     page?: number;
     limit?: number;
@@ -281,13 +285,14 @@ const stringOrNull = (value: unknown): string | null => {
 };
 
 const normalizePaymentCandidate = (candidate: Record<string, unknown>): PaymentReconciliationCandidate => ({
-    targetType: candidate.targetType === "order_payment" || candidate.target_type === "order_payment"
-        ? "order_payment"
-        : "pending_checkout",
+    targetType: candidate.targetType === PAYMENT_RECONCILIATION_TARGET_TYPE.ORDER_PAYMENT
+        || candidate.target_type === PAYMENT_RECONCILIATION_TARGET_TYPE.ORDER_PAYMENT
+        ? PAYMENT_RECONCILIATION_TARGET_TYPE.ORDER_PAYMENT
+        : PAYMENT_RECONCILIATION_TARGET_TYPE.PENDING_CHECKOUT,
     targetId: numberOrNull(candidate.targetId ?? candidate.target_id) || 0,
     provider: String(candidate.provider || "unknown"),
     localStatus: String(candidate.localStatus ?? candidate.local_status ?? "UNKNOWN"),
-    reconciliationStatus: String(candidate.reconciliationStatus ?? candidate.reconciliation_status ?? "PENDING"),
+    reconciliationStatus: String(candidate.reconciliationStatus ?? candidate.reconciliation_status ?? PAYMENT_RECONCILIATION_STATUS.PENDING),
     providerReference: stringOrNull(candidate.providerReference ?? candidate.provider_reference),
     providerOrderCode: numberOrNull(candidate.providerOrderCode ?? candidate.provider_order_code),
     expectedAmount: numberOrNull(candidate.expectedAmount ?? candidate.payment_amount),
@@ -330,7 +335,7 @@ export async function fetchPaymentReconciliationCandidates(
     };
 }
 
-export async function runPaymentReconciliation(limit = 100): Promise<{ results: PaymentReconciliationResult[]; limit: number }> {
+export async function runPaymentReconciliation(limit = PAYMENT_RECONCILIATION_LIMIT.MAX): Promise<{ results: PaymentReconciliationResult[]; limit: number }> {
     const response = await http.post("/api/admin/payments/reconciliation/run", { limit });
     return {
         results: Array.isArray(response.data?.results)
@@ -350,7 +355,7 @@ export async function reconcileAdminPayment(paymentId: number): Promise<PaymentR
     const response = await http.post(`/api/admin/payments/${paymentId}/reconcile`);
     const result = response.data?.result || {};
     return {
-        targetType: String(result.targetType || "order_payment") as PaymentReconciliationResult["targetType"],
+        targetType: String(result.targetType || PAYMENT_RECONCILIATION_TARGET_TYPE.ORDER_PAYMENT) as PaymentReconciliationResult["targetType"],
         targetId: numberOrNull(result.targetId) || paymentId,
         paymentId: numberOrNull(result.paymentId) || paymentId,
         outcome: String(result.outcome || "UNKNOWN"),

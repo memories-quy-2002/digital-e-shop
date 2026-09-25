@@ -146,8 +146,8 @@ if (telemetryEnabled) {
     } catch (error) {
         sdk = undefined;
         const errorName = error instanceof Error ? error.name : "UnknownError";
-        console.error(
-            `OpenTelemetry could not start (${errorName}); the API will continue without telemetry.`,
+        process.stderr.write(
+            `OpenTelemetry could not start (${errorName}); the API will continue without telemetry.\n`,
         );
     }
 }
@@ -160,8 +160,8 @@ export const shutdownTelemetry = async () => {
     try {
         await sdk.shutdown();
     } catch {
-        console.error(
-            "OpenTelemetry shutdown failed; pending telemetry may not have been exported.",
+        process.stderr.write(
+            "OpenTelemetry shutdown failed; pending telemetry may not have been exported.\n",
         );
     }
 };

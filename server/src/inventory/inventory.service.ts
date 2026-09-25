@@ -4,6 +4,7 @@ import type { InventoryMovementInput } from "./inventory.dto";
 import { logger } from "#src/shared/utils/logger";
 import { InventoryRepository } from "./inventory.repository";
 import type { TransactionContext } from "../database/transaction";
+import { INVENTORY_MOVEMENT_LIMIT } from "#src/shared/constants/operational-limits";
 
 export const normalizeMovement = (movement: LooseRecord = {}) => ({
     id: Number(movement.id),
@@ -23,8 +24,11 @@ export const normalizeMovement = (movement: LooseRecord = {}) => ({
 export class NestInventoryService {
     constructor(private readonly inventoryRepository: InventoryRepository) {}
 
-    async getMovements(limit = 50): Promise<ReturnType<typeof normalizeMovement>[]> {
-        const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
+    async getMovements(limit: number = INVENTORY_MOVEMENT_LIMIT.DEFAULT): Promise<ReturnType<typeof normalizeMovement>[]> {
+        const safeLimit = Math.min(
+            Math.max(Number(limit) || INVENTORY_MOVEMENT_LIMIT.DEFAULT, INVENTORY_MOVEMENT_LIMIT.MIN),
+            INVENTORY_MOVEMENT_LIMIT.MAX,
+        );
         return new Promise((resolve, reject) => {
             this.inventoryRepository.getMovements(safeLimit, (err: DbError | null, rows: LooseRecord[]) => {
                 if (err) return reject(err);

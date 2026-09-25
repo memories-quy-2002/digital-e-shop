@@ -168,8 +168,9 @@ function Toast({ children, onClose, delay = 3000, autohide = false, className }:
     }, [autohide, delay, onClose]);
     React.useEffect(() => {
         const handleCloseEvent = () => onClose?.();
-        toastRef.current?.addEventListener("de-toast-close", handleCloseEvent);
-        return () => toastRef.current?.removeEventListener("de-toast-close", handleCloseEvent);
+        const toast = toastRef.current;
+        toast?.addEventListener("de-toast-close", handleCloseEvent);
+        return () => toast?.removeEventListener("de-toast-close", handleCloseEvent);
     }, [onClose]);
     return <div ref={toastRef} data-toast="true" className={cn("w-[min(24rem,calc(100vw-2rem))] rounded-panel border border-border-strong bg-mineral p-4 shadow-[var(--de-shadow-md)]", className)}>{children}</div>;
 }

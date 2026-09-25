@@ -2,6 +2,8 @@ import { Injectable } from "@nestjs/common";
 import pool from "#src/config/database.config";
 import type { CountRow, DbError, QueryCallback, UpdateResult } from "#src/shared/interfaces/database";
 import type { CustomerProfileRow, CustomerRecentOrderRow, UserRow } from "./users.types";
+import { ORDER_STATUS } from "#src/shared/constants/order-status";
+import { USER_RECENT_ORDERS_LIMIT } from "#src/shared/constants/operational-limits";
 
 /** Compatibility hook for legacy imports; schema changes are migration-owned. */
 export const ensureUserAuthColumns = (callback: QueryCallback<void>) => callback();
@@ -53,7 +55,7 @@ export class UsersRepository {
             pool.query(
                 `SELECT users.*, COUNT(orders.id) AS order_count
                  FROM users
-                 LEFT JOIN orders ON orders.user_id = users.id AND orders.status <> 2
+                 LEFT JOIN orders ON orders.user_id = users.id AND orders.status <> ${ORDER_STATUS.CANCELED}
                  GROUP BY users.id
                  ORDER BY users.created_at DESC`,
                 (queryErr: DbError | null, results?: UserRow[]) => {
@@ -69,7 +71,7 @@ export class UsersRepository {
             pool.query(
                 `SELECT users.*, COUNT(orders.id) AS order_count
                  FROM users
-                 LEFT JOIN orders ON orders.user_id = users.id AND orders.status <> 2
+                 LEFT JOIN orders ON orders.user_id = users.id AND orders.status <> ${ORDER_STATUS.CANCELED}
                  GROUP BY users.id
                  ORDER BY users.created_at DESC
                  LIMIT ? OFFSET ?`,
@@ -104,11 +106,11 @@ export class UsersRepository {
                     u.status,
                     u.created_at,
                     COUNT(DISTINCT o.id) AS order_count,
-                    COALESCE(SUM(CASE WHEN o.status = 1 THEN o.total_price - o.discount ELSE 0 END), 0) AS total_spent,
+                    COALESCE(SUM(CASE WHEN o.status = ${ORDER_STATUS.DONE} THEN o.total_price - o.discount ELSE 0 END), 0) AS total_spent,
                     MAX(o.date_added) AS last_order_at,
                     COUNT(DISTINCT w.id) AS wishlist_count
                 FROM users u
-                LEFT JOIN orders o ON o.user_id = u.id AND o.status <> 2
+                LEFT JOIN orders o ON o.user_id = u.id AND o.status <> ${ORDER_STATUS.CANCELED}
                 LEFT JOIN wishlist w ON w.user_id = u.id
                 WHERE u.id = ?
                 GROUP BY u.id`,
@@ -134,7 +136,7 @@ export class UsersRepository {
                 FROM orders
                 WHERE user_id = ?
                 ORDER BY date_added DESC
-                LIMIT 8`,
+                LIMIT ${USER_RECENT_ORDERS_LIMIT}`,
                 [uid],
                 (err: DbError | null, results?: CustomerRecentOrderRow[]) => {
                     if (err) return reject(err);

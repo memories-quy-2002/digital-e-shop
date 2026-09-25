@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { PAYMENT_METHOD } from "../constants";
+import { CURRENCY_CODE } from "../../../constants/currency";
 import { Helmet } from "react-helmet-async";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
@@ -40,7 +42,7 @@ const guestOrderToCheckoutSuccess = (order: GuestOrderDetail, guestOrderToken: s
         subtotal: Math.max(0, totalPrice - discount),
         itemsCount: order.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
         placedAt: order.date_added,
-        currency: order.currency === "USD" ? "USD" : "VND",
+        currency: order.currency === CURRENCY_CODE.USD ? CURRENCY_CODE.USD : CURRENCY_CODE.VND,
         paymentMethod: order.payment_method
             ? order.payment_method as CheckoutSuccessData["paymentMethod"]
             : undefined,
@@ -138,7 +140,7 @@ const CheckoutSuccessPage = () => {
                             subtotal: pending?.subtotal ?? pending?.totalPrice ?? 0,
                             itemsCount: pending?.itemsCount ?? 0,
                             placedAt: order.date_added,
-                            paymentMethod: pending?.paymentMethod || "payos",
+                            paymentMethod: pending?.paymentMethod || PAYMENT_METHOD.PAYOS,
                             email: pending?.email,
                             name: pending?.name,
                             address: pending?.address,
@@ -169,9 +171,9 @@ const CheckoutSuccessPage = () => {
     const combinedData = routeData || polledOrder || orderData;
     const isGuestOrder = Boolean(combinedData?.guestOrderToken || guestOrderToken);
     const paymentLabel =
-        combinedData?.paymentMethod === "cash"
+        combinedData?.paymentMethod === PAYMENT_METHOD.CASH
               ? "Cash on delivery"
-              : combinedData?.paymentMethod === "payos"
+              : combinedData?.paymentMethod === PAYMENT_METHOD.PAYOS
                 ? "PayOS (VND)"
                 : "Payment method pending";
     const summaryCards = [

@@ -8,9 +8,12 @@ Back to [[index]].
 - pnpm `12.4.2` is declared by both package manifests and CI.
 - `client/` and `server/` are independent pnpm packages. The repository root
   is not a workspace and has no supported root install or filter command.
-- Production client builds require `VITE_API_BASE_URL`.
-- Production server startup validates database, authentication, and origin
-  configuration before serving requests.
+- Production client builds require `VITE_API_BASE_URL` and the Firebase web
+  configuration; Vite embeds `VITE_*` values in browser assets.
+- Production server startup validates database, session, PayOS, and origin
+  configuration. Firebase Admin credentials have a separate validation path;
+  configure `DB_PASSWORD` even though the current missing-key check omits it.
+  See [[production-environment]] for the production variable matrix.
 - Firebase is the only authentication provider in every environment. Local
   development uses the Firebase Auth Emulator; new sessions can be
   unverified, with Firebase-owned email verification and checkout/review

@@ -26,6 +26,10 @@ describe("production environment validation", () => {
             JWT_SECRET_KEY: "access-secret",
             JWT_REFRESH_SECRET_KEY: "refresh-secret",
             CSRF_SECRET: "csrf-secret",
+            PAYMENT_PROVIDER_MODE: "live",
+            PAYOS_CLIENT_ID: "client-id",
+            PAYOS_API_KEY: "api-key",
+            PAYOS_CHECKSUM_KEY: "checksum-key",
             CLIENT_URL: "https://digital-e.vercel.app",
             SERVER_URL: "https://e-commerce-express-server-app.vercel.app",
         })).toEqual([]);
@@ -44,6 +48,10 @@ describe("production environment validation", () => {
             "JWT_SECRET_KEY",
             "JWT_REFRESH_SECRET_KEY",
             "CSRF_SECRET",
+            "PAYMENT_PROVIDER_MODE",
+            "PAYOS_CLIENT_ID",
+            "PAYOS_API_KEY",
+            "PAYOS_CHECKSUM_KEY",
             "CLIENT_URL",
             "SERVER_URL",
         ]);

@@ -7,6 +7,7 @@ vi.mock("#src/config/database.config", () => ({
 }));
 
 import { NestAnalyticsService } from "../analytics.service";
+import { AnalyticsRepository } from "../analytics.repository";
 
 describe("admin analytics reporting scope", () => {
     it("excludes canceled orders from financial trend metrics and exposes guest-cart funnel data", async () => {
@@ -17,7 +18,7 @@ describe("admin analytics reporting scope", () => {
                 : [{}]);
         });
 
-        const result = await new NestAnalyticsService().getAnalyticsSummary({ range: "30d" });
+        const result = await new NestAnalyticsService(new AnalyticsRepository()).getAnalyticsSummary({ range: "30d" });
         const sqlByMatch = (match: string) => {
             const call = poolQuery.mock.calls.find(([config]) => {
                 const sql = typeof config === "string" ? config : config?.sql;

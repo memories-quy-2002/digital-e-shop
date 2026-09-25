@@ -79,4 +79,24 @@ export type GuestCartAnalyticsRow = {
     expired_carts?: number;
 };
 
+export type PromotionPerformanceRow = {
+    discount_id: number;
+    discount_code: string;
+    redemption_count: number | string;
+    discount_total: number | string;
+};
+
+export type AnalyticsSummaryRows = {
+    overviewRows: OverviewRow[];
+    revenueTrendRows: RevenueTrendRow[];
+    categoryPerformanceRows: CategoryPerformanceRow[];
+    customerSegmentRows: CustomerSegmentRow[];
+    inventoryRiskRows: InventoryRiskRow[];
+    paymentMethodRows: PaymentMethodRow[];
+    promotionCatalogRows: PromotionCatalogRow[];
+    discountOrderRows: DiscountOrderRow[];
+    promotionPerformanceRows: PromotionPerformanceRow[];
+    guestCartAnalyticsRows: GuestCartAnalyticsRow[];
+};
+
 export type AnalyticsRecord = LooseRecord;

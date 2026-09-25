@@ -21,6 +21,7 @@ import { CheckCircleIcon, PersonIcon } from "../../../components/common/Icons";
 import AdminTableScrollHint from "./AdminTableScrollHint";
 import type { DashboardAvailability } from "../utils/dashboardAvailability";
 import { ORDER_STATUS } from "../../orders/orderStatus";
+import type { AdminAnalyticsSummary } from "../types";
 
 type ChartDatum = {
     name: string;
@@ -28,49 +29,6 @@ type ChartDatum = {
     revenue?: number;
     orders?: number;
     stock?: number;
-};
-
-type AnalyticsSummaryLike = {
-    kpis?: {
-        revenue?: {
-            averageOrderValue?: number;
-        };
-        inventory?: {
-            lowStock?: number;
-            outOfStock?: number;
-        };
-        customers?: {
-            total?: number;
-        };
-    };
-    overview?: {
-        average_order_value?: number;
-        low_stock?: number;
-        out_of_stock?: number;
-        customers?: number;
-    };
-    operations?: {
-        promotions?: {
-            discountedOrders?: number;
-            totalDiscountGiven?: number;
-            discountedRevenue?: number;
-            performance?: Array<{
-                id: number;
-                code: string;
-                discountPercent: number;
-                discountGiven: number;
-                estimatedOrders: number;
-                active: boolean;
-            }>;
-        };
-        guestCarts?: {
-            active?: number;
-            activeItems?: number;
-            abandoned?: number;
-            converted?: number;
-            expired?: number;
-        };
-    };
 };
 
 type TopRevenueProduct = {
@@ -107,7 +65,7 @@ type DashboardStats = {
 
 type AdminDashboardChartsProps = {
     availability: DashboardAvailability;
-    analyticsSummary: AnalyticsSummaryLike | null;
+    analyticsSummary: AdminAnalyticsSummary | null;
     analyticsTrend: Array<{ name: string; revenue: number; orders: number }>;
     analyticsPaymentMix: ChartDatum[];
     paymentMix: ChartDatum[];
@@ -232,7 +190,7 @@ const AdminDashboardCharts = ({
                                     <XAxis dataKey="name" tickLine={false} axisLine={false} />
                                     <YAxis tickLine={false} axisLine={false} />
                                     <Tooltip
-                                        formatter={(value: any, name: any) => [
+                                        formatter={(value, name) => [
                                             name === "revenue" ? formatCurrency(Number(value || 0)) : Number(value || 0),
                                             name === "revenue" ? "Revenue" : "Orders",
                                         ]}
@@ -321,7 +279,7 @@ const AdminDashboardCharts = ({
                                             <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                                         ))}
                                     </Pie>
-                                    <Tooltip formatter={(value: any) => [Number(value || 0), "Orders"]} />
+                                    <Tooltip formatter={(value) => [Number(value || 0), "Orders"]} />
                                 </PieChart>
                             </ResponsiveContainer>
                             <div className="admin__chart-legend">
@@ -357,7 +315,7 @@ const AdminDashboardCharts = ({
                                             <Cell key={entry.name} fill={CHART_COLORS[(index + 2) % CHART_COLORS.length]} />
                                         ))}
                                     </Pie>
-                                    <Tooltip formatter={(value: any) => [Number(value || 0), "Orders"]} />
+                                    <Tooltip formatter={(value) => [Number(value || 0), "Orders"]} />
                                 </PieChart>
                             </ResponsiveContainer>
                             <div className="admin__chart-legend">
@@ -439,7 +397,7 @@ const AdminDashboardCharts = ({
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--de-color-border-strong)" />
                                 <XAxis dataKey="name" tickLine={false} axisLine={false} />
                                 <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
-                                <Tooltip formatter={(value: any) => [Number(value || 0), "Sales"]} />
+                                <Tooltip formatter={(value) => [Number(value || 0), "Sales"]} />
                                 <Line type="monotone" dataKey="sales" stroke="var(--de-color-primary-emphasis)" strokeWidth={3} dot={false} />
                             </LineChart>
                         </ResponsiveContainer>
@@ -479,7 +437,7 @@ const AdminDashboardCharts = ({
                                     width={120}
                                     tickFormatter={(value) => String(value).slice(0, 18)}
                                 />
-                                <Tooltip formatter={(value: any) => [formatCurrency(Number(value || 0)), "Revenue"]} />
+                                <Tooltip formatter={(value) => [formatCurrency(Number(value || 0)), "Revenue"]} />
                                 <Bar dataKey="value" fill="var(--de-color-electric)" radius={[0, 8, 8, 0]} />
                             </BarChart>
                         </ResponsiveContainer>

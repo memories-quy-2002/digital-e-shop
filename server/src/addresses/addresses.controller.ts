@@ -1,4 +1,6 @@
 import { Body, Controller, Delete, Get, HttpException, Param, Post, Put, UseGuards } from "@nestjs/common";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
+import { createHttpException } from "#src/core/errors/http-exception";
 import { AuthGuard } from "../guards/auth.guard";
 import { OwnerParam, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
@@ -10,9 +12,10 @@ import { addressSchema } from "./addresses.validator";
 // returns { msg } with the error's own statusCode (defaulting to 500 with a
 // generic message), not the AllExceptionsFilter's default { error } shape.
 function toHttpException(err: { statusCode?: number; message?: string }, fallbackMessage: string): HttpException {
-    const statusCode = err.statusCode || 500;
-    const msg = err.statusCode ? err.message : fallbackMessage;
-    return new HttpException({ msg }, statusCode);
+    if (err instanceof HttpException) return err;
+    const statusCode = err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+    const msg = statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? fallbackMessage : err.message || fallbackMessage;
+    return createHttpException(err, { msg }, statusCode);
 }
 
 @Controller(["users/:id/addresses", "user/:id/addresses"])

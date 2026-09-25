@@ -179,10 +179,10 @@ const ProductComparisonPage = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const comparison = useComparison();
+    const { remove: removeComparison, replace: replaceComparison } = comparison;
     const { addItem } = useCart();
     const { addToast } = useToast();
     const requested = useMemo(() => parseComparisonIds(location.search), [location.search]);
-    const requestedKey = requested.ids.join(",");
     const [comparisonData, setComparisonData] = useState<Awaited<ReturnType<typeof fetchProductComparison>> | null>(null);
     const [loading, setLoading] = useState(false);
     const [errorKey, setErrorKey] = useState<string | null>(null);
@@ -193,8 +193,8 @@ const ProductComparisonPage = () => {
         if (requested.invalid) {
             return;
         }
-        comparison.replace(requested.ids);
-    }, [comparison.replace, requested.invalid, requestedKey]);
+        replaceComparison(requested.ids);
+    }, [replaceComparison, requested.ids, requested.invalid]);
 
     useEffect(() => {
         let cancelled = false;
@@ -229,9 +229,9 @@ const ProductComparisonPage = () => {
         return () => {
             cancelled = true;
         };
-    }, [requested.invalid, requestedKey, retryCount]);
+    }, [requested.ids, requested.invalid, retryCount]);
 
-    const products = comparisonData?.products ?? [];
+    const products = useMemo(() => comparisonData?.products ?? [], [comparisonData]);
     const rows = useMemo(
         () => filterComparisonRows(buildComparisonRows(products), differencesOnly),
         [differencesOnly, products],
@@ -239,10 +239,10 @@ const ProductComparisonPage = () => {
 
     const handleRemove = useCallback((productId: number) => {
         const nextIds = requested.ids.filter((id) => id !== productId);
-        comparison.remove(productId);
+        removeComparison(productId);
         navigate(nextIds.length > 0 ? `/compare?ids=${nextIds.join(",")}` : "/compare", { replace: true });
         addToast(t("comparison.removed"), t("comparison.productId", productId));
-    }, [addToast, comparison.remove, navigate, requested.ids, t]);
+    }, [addToast, removeComparison, navigate, requested.ids, t]);
 
     const handleAddToCart = useCallback(async (product: ProductWithAttributes) => {
         const added = await addItem(product.id, 1);

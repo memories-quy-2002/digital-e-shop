@@ -223,8 +223,10 @@ application has not been converted to Prisma.
 - Prisma and raw MySQL must remain aligned while Prisma adoption is partial.
 - Shared multi-instance rate limiting requires `REDIS_URL`; otherwise the
   process-local fallback is not a cross-instance security boundary.
-- Production Firebase, PayOS, Blob, database, CORS, and Redis settings are
-  deployment concerns and must come from environment secrets.
+- Production Firebase, PayOS, Blob, database, CORS, and Redis settings belong
+  in deployment environment configuration. Keep credentials secret; client
+  `VITE_*` Firebase web configuration is public. See
+  [[production-environment]].
 - Product listing/search/facets, cart validation/checkout, analytics, order
   history, and notification reads are performance-sensitive paths.
 

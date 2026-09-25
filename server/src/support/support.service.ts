@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import type { DbError, InsertResult, UpdateResult } from "#src/shared/interfaces/domain";
 import { SupportTicketRepository } from "./support.repository";
 import type { CreateSupportTicketInput, SupportTicket, UpdateSupportTicketInput } from "./support.types";
@@ -13,10 +14,10 @@ export class SupportTicketService {
         return new Promise((resolve, reject) => {
             this.repository.create(userId, input, (error: DbError | null, result: InsertResult) => {
                 if (error) return reject(error);
-                if (!result?.insertId) return reject(domainError("The selected order does not belong to this account.", 404));
+                if (!result?.insertId) return reject(domainError("The selected order does not belong to this account.", HTTP_STATUS.NOT_FOUND));
                 this.repository.findById(result.insertId, (findError: DbError | null, rows: SupportTicket[]) => {
                     if (findError) return reject(findError);
-                    if (!rows[0]) return reject(domainError("Support ticket was not created.", 500));
+                    if (!rows[0]) return reject(domainError("Support ticket was not created.", HTTP_STATUS.INTERNAL_SERVER_ERROR));
                     resolve(rows[0]);
                 });
             });
@@ -35,10 +36,10 @@ export class SupportTicketService {
         return new Promise((resolve, reject) => {
             this.repository.update(id, input, (error: DbError | null, result: UpdateResult) => {
                 if (error) return reject(error);
-                if (!result?.affectedRows) return reject(domainError("Support ticket not found.", 404));
+                if (!result?.affectedRows) return reject(domainError("Support ticket not found.", HTTP_STATUS.NOT_FOUND));
                 this.repository.findById(id, (findError: DbError | null, rows: SupportTicket[]) => {
                     if (findError) return reject(findError);
-                    if (!rows[0]) return reject(domainError("Support ticket not found.", 404));
+                    if (!rows[0]) return reject(domainError("Support ticket not found.", HTTP_STATUS.NOT_FOUND));
                     resolve(rows[0]);
                 });
             });

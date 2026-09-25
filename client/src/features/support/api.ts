@@ -1,4 +1,5 @@
 import http from "../../lib/http";
+import type { SupportPriority, SupportStatus } from "./constants";
 
 export type SupportTicket = {
     id: number;
@@ -7,8 +8,8 @@ export type SupportTicket = {
     category: string;
     subject: string;
     message: string;
-    status: string;
-    priority: string;
+    status: SupportStatus;
+    priority: SupportPriority;
     admin_note?: string | null;
     created_at: string;
     updated_at: string;
@@ -22,8 +23,8 @@ export type CreateSupportTicketInput = {
 };
 
 export type UpdateSupportTicketInput = {
-    status?: string;
-    priority?: string;
+    status?: SupportStatus;
+    priority?: SupportPriority;
     adminNote?: string;
 };
 
@@ -32,7 +33,7 @@ export async function createSupportTicket(input: CreateSupportTicketInput): Prom
     return response.data.ticket;
 }
 
-export async function fetchSupportTickets(status?: string): Promise<SupportTicket[]> {
+export async function fetchSupportTickets(status?: SupportStatus): Promise<SupportTicket[]> {
     const response = await http.get(status ? `/api/support/tickets?status=${encodeURIComponent(status)}` : "/api/support/tickets");
     return response.data.tickets || [];
 }

@@ -3,6 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import dotenv from "dotenv";
 import { assertSafeDatabaseTarget } from "./database-target.js";
+import { CURRENCY_CODE } from "#src/shared/constants/currency";
 
 export const resolveServerRoot = (moduleDirectory: string) => {
     const nearbyRoot = path.resolve(moduleDirectory, "../..");
@@ -94,6 +95,10 @@ const requiredProductionEnvironmentKeys = [
     "JWT_SECRET_KEY",
     "JWT_REFRESH_SECRET_KEY",
     "CSRF_SECRET",
+    "PAYMENT_PROVIDER_MODE",
+    "PAYOS_CLIENT_ID",
+    "PAYOS_API_KEY",
+    "PAYOS_CHECKSUM_KEY",
     "CLIENT_URL",
     "SERVER_URL",
 ] as const;
@@ -124,6 +129,11 @@ dotenv.config(
         : undefined,
 );
 
+const configuredPaymentProviderMode = process.env.PAYMENT_PROVIDER_MODE?.trim().toLowerCase();
+if (configuredPaymentProviderMode && configuredPaymentProviderMode !== "mock" && configuredPaymentProviderMode !== "live") {
+    throw new Error('PAYMENT_PROVIDER_MODE must be either "mock" or "live"');
+}
+
 export const env = {
     nodeEnv: process.env.NODE_ENV || "development",
     port: Number(process.env.PORT || 4000),
@@ -153,8 +163,8 @@ export const env = {
     payosChecksumKey: process.env.PAYOS_CHECKSUM_KEY || "",
     payosPartnerCode: process.env.PAYOS_PARTNER_CODE || "",
     payosBaseUrl: process.env.PAYOS_BASE_URL || "https://api-merchant.payos.vn",
-    storeCurrency: "VND" as const,
-    paymentProviderMode: process.env.PAYMENT_PROVIDER_MODE === "live" ? "live" : "mock",
+    storeCurrency: CURRENCY_CODE.VND,
+    paymentProviderMode: configuredPaymentProviderMode === "live" ? "live" : "mock",
     redisUrl: process.env.REDIS_URL || "",
 };
 
@@ -174,6 +184,9 @@ if (env.nodeEnv === "production" && missingProductionEnvironmentKeys.length > 0)
     throw new Error(
         `Missing required production environment variables: ${missingProductionEnvironmentKeys.join(", ")}`,
     );
+}
+if (env.nodeEnv === "production" && env.paymentProviderMode !== "live") {
+    throw new Error('PAYMENT_PROVIDER_MODE must be "live" when NODE_ENV=production');
 }
 
 assertSafeDatabaseTarget({

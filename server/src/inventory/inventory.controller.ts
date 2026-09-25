@@ -4,6 +4,8 @@ import { Roles, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestInventoryService } from "./inventory.service";
 import { inventoryMovementsQuerySchema } from "./inventory.validator";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
+import { createHttpException } from "#src/core/errors/http-exception";
 
 @Controller("products/admin/inventory-movements")
 @UseGuards(AuthGuard, RolesGuard)
@@ -19,8 +21,8 @@ export class InventoryController {
             const movements = await this.inventoryService.getMovements(limit);
             return { movements, msg: "Inventory movements retrieved successfully" };
         } catch (err) {
-            const error = err as Error;
-            throw new HttpException({ msg: "Unable to load inventory movements", error: error.message }, 500);
+            if (err instanceof HttpException) throw err;
+            throw createHttpException(err, { msg: "Unable to load inventory movements" }, HTTP_STATUS.INTERNAL_SERVER_ERROR);
         }
     }
 }

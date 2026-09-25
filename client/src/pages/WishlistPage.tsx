@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { HTTP_STATUS } from "../constants/http-status";
 import { Helmet } from "react-helmet-async";
 import axios from "../api/axios";
 import EmptyState from "../components/common/EmptyState";
@@ -12,6 +13,8 @@ import { useT } from "../hooks/useT";
 import { HeartFillIcon } from "../components/common/Icons";
 import "../styles/pages/_wishlist.scss";
 import { Product } from "../utils/interface";
+import { normalizeProduct } from "../utils/product";
+import type { RawWishlistItem } from "../features/products/api";
 import { fetchProductAlerts, updateProductAlert } from "../features/productAlerts/api";
 import type { ProductAlertKey, ProductAlertPreference } from "../features/productAlerts/types";
 
@@ -73,20 +76,17 @@ const WishlistPage = () => {
 
             try {
                 setIsLoadingWishlist(true);
-                const response = await axios.get(`/api/wishlist/${uid}`);
-                if (response.status === 200) {
-                    const newWishlist: Wishlist[] = response.data.wishlist.map((item: any) => {
+                const response = await axios.get<{ wishlist: RawWishlistItem[] }>(`/api/wishlist/${uid}`);
+                if (response.status === HTTP_STATUS.OK) {
+                    const newWishlist: Wishlist[] = response.data.wishlist.map((item) => {
                         const { id, product_id, ...productProps } = item;
 
                         return {
                             id,
-                            product: {
+                            product: normalizeProduct({
                                 id: product_id,
                                 ...productProps,
-                                price: Number(productProps.price) || 0,
-                                sale_price: productProps.sale_price === null ? null : Number(productProps.sale_price) || null,
-                                stock: Number(productProps.stock) || 0,
-                            },
+                            }),
                         };
                     });
 
@@ -126,7 +126,7 @@ const WishlistPage = () => {
             const response = await axios.delete(`/api/wishlist/${productId}`, {
                 data: { uid },
             });
-            if (response.status === 200) {
+            if (response.status === HTTP_STATUS.OK) {
                 setWishlist((currentWishlist) => currentWishlist.filter((item) => item.product.id !== productId));
                 setSelectedIds((currentIds) => currentIds.filter((id) => id !== productId));
                 addToast("Wishlist", "Item removed from wishlist.");
@@ -188,7 +188,7 @@ const WishlistPage = () => {
             const response = await axios.delete("/api/wishlist/", {
                 data: { uid, productIds: selectedIds },
             });
-            if (response.status === 200) {
+            if (response.status === HTTP_STATUS.OK) {
                 setWishlist((currentWishlist) => currentWishlist.filter((item) => !selectedIds.includes(item.product.id)));
                 setSelectedIds([]);
                 addToast("Wishlist", "Selected wishlist items were removed.");
@@ -213,7 +213,7 @@ const WishlistPage = () => {
                 pid: product.id,
                 quantity: 1,
             });
-            if (response.status === 200) {
+            if (response.status === HTTP_STATUS.OK) {
                 setSelectedIds((currentIds) => currentIds.filter((id) => id !== product.id));
                 addToast("Wishlist", "Product added to cart.");
             }

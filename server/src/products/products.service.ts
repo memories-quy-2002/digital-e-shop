@@ -3,6 +3,7 @@ import pool from "#src/config/database.config";
 import util from "node:util";
 import { randomUUID } from "node:crypto";
 import { logger } from "#src/shared/utils/logger";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import type { ComparisonResponse, ProductComparisonRow, ProductEditorRow } from "./products.types";
 import type { ProductCreateInput, ProductUpdateInput } from "./products.dto";
 import type { ProductAttributeInput } from "./product-attributes.types";
@@ -42,7 +43,7 @@ const normalizeWarrantyMonths = (value: unknown): number | null => {
     if (value === undefined || value === null || value === "") return null;
     const normalized = Number(value);
     if (!Number.isInteger(normalized) || normalized < 0) {
-        throw Object.assign(new Error("Warranty must be a non-negative whole number"), { statusCode: 400 });
+        throw Object.assign(new Error("Warranty must be a non-negative whole number"), { statusCode: HTTP_STATUS.BAD_REQUEST });
     }
     return normalized;
 };
@@ -159,7 +160,7 @@ export class NestProductsService {
             return { msg: "Product added successfully" };
         } catch (err) {
             if ((err as { code?: string }).code === "ER_DUP_ENTRY") {
-                throw Object.assign(new Error("SKU already exists"), { statusCode: 409 });
+                throw Object.assign(new Error("SKU already exists"), { statusCode: HTTP_STATUS.CONFLICT });
             }
             throw err;
         }
@@ -168,7 +169,7 @@ export class NestProductsService {
     private async ensureNamedId(tableName: "categories" | "brands", name: string, tx?: TransactionContext) {
         const safeName = String(name || "").trim();
         if (!safeName) {
-            throw Object.assign(new Error(`${tableName} is required`), { statusCode: 400 });
+            throw Object.assign(new Error(`${tableName} is required`), { statusCode: HTTP_STATUS.BAD_REQUEST });
         }
 
         const rows = tx
@@ -187,7 +188,7 @@ export class NestProductsService {
     async updateProductDetailsService(pid: number, updates: ProductUpdateInput): Promise<ProductEditorRow> {
         const current = await this.productsRepository.getProductById(pid);
         if (!current) {
-            throw Object.assign(new Error("Product not found"), { statusCode: 404 });
+            throw Object.assign(new Error("Product not found"), { statusCode: HTTP_STATUS.NOT_FOUND });
         }
 
         const name = String(updates.name ?? current.name).trim();
@@ -212,11 +213,11 @@ export class NestProductsService {
         const stock = Number(updates.stock ?? current.stock);
 
         if (!name || !category || !brand || !sku || Number.isNaN(price) || Number.isNaN(stock) || price < 0 || stock < 0) {
-            throw Object.assign(new Error("Name, category, brand, SKU, price, and quantity must be valid"), { statusCode: 400 });
+            throw Object.assign(new Error("Name, category, brand, SKU, price, and quantity must be valid"), { statusCode: HTTP_STATUS.BAD_REQUEST });
         }
 
         if (salePrice !== null && (Number.isNaN(salePrice) || salePrice < 0)) {
-            throw Object.assign(new Error("Sale price cannot be negative"), { statusCode: 400 });
+            throw Object.assign(new Error("Sale price cannot be negative"), { statusCode: HTTP_STATUS.BAD_REQUEST });
         }
 
         try {
@@ -227,7 +228,7 @@ export class NestProductsService {
                 );
                 const locked = lockedRows[0];
                 if (!locked) {
-                    throw Object.assign(new Error("Product not found"), { statusCode: 404 });
+                    throw Object.assign(new Error("Product not found"), { statusCode: HTTP_STATUS.NOT_FOUND });
                 }
                 const lockedBefore = {
                     productId: pid,
@@ -280,18 +281,18 @@ export class NestProductsService {
             });
 
             if (result.affectedRows === 0) {
-                throw Object.assign(new Error("Product not found"), { statusCode: 404 });
+                throw Object.assign(new Error("Product not found"), { statusCode: HTTP_STATUS.NOT_FOUND });
             }
 
             const refreshed = await this.productsRepository.getProductById(pid);
             if (!refreshed) {
-                throw Object.assign(new Error("Product not found"), { statusCode: 404 });
+                throw Object.assign(new Error("Product not found"), { statusCode: HTTP_STATUS.NOT_FOUND });
             }
 
             return refreshed;
         } catch (error) {
             if ((error as { code?: string }).code === "ER_DUP_ENTRY") {
-                throw Object.assign(new Error("SKU already exists"), { statusCode: 409 });
+                throw Object.assign(new Error("SKU already exists"), { statusCode: HTTP_STATUS.CONFLICT });
             }
             throw error;
         }
@@ -305,7 +306,7 @@ export class NestProductsService {
             );
             const before = rows[0];
             if (!before) {
-                throw Object.assign(new Error("Product not found"), { statusCode: 404 });
+                throw Object.assign(new Error("Product not found"), { statusCode: HTTP_STATUS.NOT_FOUND });
             }
             const stockBefore = Number(before.stock) || 0;
             const beforeSnapshot = {
@@ -319,7 +320,7 @@ export class NestProductsService {
                 [stock, pid],
             );
             if (result.affectedRows === 0) {
-                throw Object.assign(new Error("Product not found"), { statusCode: 404 });
+                throw Object.assign(new Error("Product not found"), { statusCode: HTTP_STATUS.NOT_FOUND });
             }
             if (stockBefore !== stock) {
                 await this.inventoryService.createMovementsInTransaction(tx, [{

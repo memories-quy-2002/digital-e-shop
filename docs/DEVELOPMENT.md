@@ -37,8 +37,46 @@ reads `server/.env`. Prisma CLI reads the same `server/.env`, so the application
 and seed commands use one explicit database target. The loader also supports an
 explicit `DIGITAL_E_ENV_FILE` or mode-specific overrides when a deployment needs
 them.
-Production validates database, JWT, refresh, CSRF, client-origin, and
-server-origin variables before startup.
+Production startup validates the configured database, JWT, CSRF, PayOS, and
+origin variables. Firebase Admin credentials are checked separately. Set
+`DB_PASSWORD` as well: the MySQL pool uses it, but the current startup
+missing-key check does not include it.
+
+### Production deployment variables
+
+Configure these values in the Production environment for the matching Vercel
+project. The client values are available at build time; server values are
+available to the API runtime.
+
+| Application | Required variables | Handling |
+| --- | --- | --- |
+| Client build | `VITE_API_BASE_URL`; `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID` | These `VITE_*` values are embedded in browser assets. Firebase web config and its API key are public; restrict the API key to the Firebase APIs and app origins you use. The production project ID is fixed to `graduation-project-5bbfb`. |
+| Server database | `DATABASE_URL`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Keep the URL and password in server-side deployment settings. Set `DB_PORT` when the database does not use the default port. Set `DB_SSL=true` and provide `DB_SSL_CA_PATH` when the managed database requires a custom CA. |
+| Server sessions | `JWT_SECRET_KEY`, `JWT_REFRESH_SECRET_KEY`, `CSRF_SECRET` | Use separate, high-entropy server-side secrets. |
+| Server Firebase Admin | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` | Use the production Firebase project. Keep the service-account private key server-side; production must not use the Firebase Auth Emulator. |
+| Server payments | `PAYMENT_PROVIDER_MODE=live`, `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY` | Keep PayOS credentials server-side. Production rejects mock mode. |
+| Server origins | `CLIENT_URL`, `SERVER_URL` | Set the deployed client and API origins used by CORS and callback generation. |
+
+The client also accepts optional `VITE_FIREBASE_MEASUREMENT_ID`. Do not set
+`VITE_FIREBASE_AUTH_EMULATOR_URL` or `FIREBASE_AUTH_EMULATOR_HOST` in
+production. `BLOB_READ_WRITE_TOKEN` is needed for Blob-backed image upload
+operations. `REDIS_URL` enables shared rate-limit counters across server
+instances; without it, counters are process-local. `PAYOS_BASE_URL` defaults to
+PayOS's production endpoint; `PAYOS_PARTNER_CODE` is optional. Set
+`OTEL_ENABLED` and `OTEL_EXPORTER_OTLP_ENDPOINT` only when using a collector;
+`OTEL_EXPORTER_OTLP_HEADERS` is needed only when that collector requires
+authentication. Do not use local emulator, seed-count, or database-debug
+settings in production.
+
+Mark server credentials as Sensitive in Vercel and scope them to Production.
+Scope the client build values to Production too, but treat them as public
+configuration. Vercel applies changed environment values to new deployments,
+so redeploy after changing them. Vercel requires an existing variable to be
+removed and re-added to change it to Sensitive. Never put server credentials in
+a `VITE_*` variable or commit them to an `.env` file. See the [Vercel environment variable guide](https://vercel.com/docs/environment-variables/managing-environment-variables),
+[Vercel sensitive variables](https://vercel.com/docs/environment-variables/sensitive-environment-variables),
+[Vite environment variables](https://vite.dev/guide/env-and-mode), and
+[Firebase API key guidance](https://firebase.google.com/docs/projects/api-keys).
 
 Firebase Email/Password verification is client-owned in production. After
 Firebase creates the account, the client calls `sendEmailVerification`; Firebase
@@ -58,11 +96,14 @@ action codes and guest-order access tokens are never logged.
 Vietnam-first payments use PayOS payment links and whole-number VND catalog
 values, plus cash on delivery. Keep `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, and
 `PAYOS_CHECKSUM_KEY` server-side. New runtime records use VND without an FX
-configuration. Use `PAYMENT_PROVIDER_MODE=mock` for the local PayOS simulator;
+configuration. Production startup requires `PAYMENT_PROVIDER_MODE=live` and
+PayOS credentials. Use `PAYMENT_PROVIDER_MODE=mock` only for the local PayOS
+simulator;
 it redirects to `/mock-payos-checkout` and waits for an explicit simulated
-confirmation. Use `live` only with real PayOS channel credentials and a
-configured `/api/orders/webhooks/payos` URL. In live mode, only a verified
-webhook creates the order; the browser return URL is not a payment confirmation.
+confirmation. The mock confirmation endpoint is disabled in production. Use
+`live` with real PayOS channel credentials and a configured
+`/api/orders/webhooks/payos` URL. In live mode, only SDK-verified webhook data
+creates the order; the browser return URL is not a payment confirmation.
 The guarded admin reconciliation workspace can run at most 100 candidates per
 request, retry PayOS records, confirm COD collection, and inspect webhook
 history. Run `pnpm --dir server seed:demo` after changing the demo seed so local

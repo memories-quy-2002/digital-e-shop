@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useOptimistic, useState } from "react";
+import { HTTP_STATUS } from "../../constants/http-status";
 import ReactPaginate from "react-paginate";
 import axios from "../../api/axios";
 import { useCart } from "../../context/CartContext";
@@ -133,7 +134,7 @@ const PaginatedItems = ({
                         uid: user_id,
                     },
                 });
-                if (response.status !== 200) {
+                if (response.status !== HTTP_STATUS.OK) {
                     throw new Error("Wishlist delete failed");
                 }
                 if (mutation) {
@@ -144,7 +145,7 @@ const PaginatedItems = ({
                     uid: user_id,
                     pid: product_id,
                 });
-                if (response.status !== 200) {
+                if (response.status !== HTTP_STATUS.OK) {
                     throw new Error("Wishlist add failed");
                 }
                 if (mutation) {
@@ -165,7 +166,7 @@ const PaginatedItems = ({
                     uid: user_id,
                 },
             });
-            if (response.status === 200) {
+            if (response.status === HTTP_STATUS.OK) {
                 addToast("Remove wishlist item", "Item removed from wishlist successfully.");
                 setBaseWishlist((prevWishlist) => prevWishlist.filter((item) => item.product.id !== product_id));
             }

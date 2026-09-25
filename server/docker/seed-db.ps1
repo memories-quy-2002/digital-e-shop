@@ -14,7 +14,7 @@ $env:MOCK_REVIEW_COUNT = $ReviewCount
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $serverDir = Split-Path -Parent $scriptDir
-$seedScript = Join-Path $serverDir "src/database/seeders/seedMockOrdersReviews.js"
+$seedScript = Join-Path $serverDir "src/database/seeders/seed-mock-orders-reviews.js"
 
 Write-Host "Seeding $OrderCount orders and $ReviewCount reviews..."
 

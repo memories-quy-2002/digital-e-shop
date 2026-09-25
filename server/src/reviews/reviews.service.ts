@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { DbError } from "#src/shared/interfaces/domain";
 import type { RatingSummaryRow, ReviewRow } from "./reviews.types";
 import { ReviewsRepository } from "./reviews.repository";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
 
 const normalizeSummary = (row: RatingSummaryRow = {}) => ({
     total: Number(row.total) || 0,
@@ -25,7 +26,7 @@ export class NestReviewsService {
 
         const eligible = await this.reviewsRepository.hasCompletedPurchase(uid, pid);
         if (!eligible) {
-            throw Object.assign(new Error("You can review this product after a completed order."), { statusCode: 403 });
+            throw Object.assign(new Error("You can review this product after a completed order."), { statusCode: HTTP_STATUS.FORBIDDEN });
         }
 
         return new Promise((resolve, reject) => {

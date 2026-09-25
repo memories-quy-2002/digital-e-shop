@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, HttpException, HttpStatus, Post, Req, Res } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { isProduction } from "#src/config/env.config";
 import { NestAuthService } from "./auth.service";
@@ -11,6 +11,8 @@ import {
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import type { AuthSessionPayload } from "./auth.types";
 import { buildErrorResponse, buildSuccessResponse, requestIdFrom } from "#src/shared/http/api-response";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
+import { logger } from "#src/shared/utils/logger";
 
 const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
 
@@ -58,15 +60,15 @@ export class NestAuthController {
         const requestId = requestIdFrom(req);
         const { valid, message } = await this.authService.verifySessionToken(req);
         if (!valid) {
-            return res.status(401).json(buildErrorResponse({
-                statusCode: 401,
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json(buildErrorResponse({
+                statusCode: HTTP_STATUS.UNAUTHORIZED,
                 code: "UNAUTHORIZED",
                 message: message || "Not authenticated",
                 details: { sessionActive: false },
                 requestId,
             }));
         }
-        return res.status(200).json(buildSuccessResponse({ sessionActive: true, msg: "Session is valid" }, requestId));
+        return res.status(HTTP_STATUS.OK).json(buildSuccessResponse({ sessionActive: true, msg: "Session is valid" }, requestId));
     }
 
     @Post("register")
@@ -80,7 +82,7 @@ export class NestAuthController {
         const { user: createdUser, token } = sessionPayload;
         setAuthCookies(res, sessionPayload, false);
 
-        return res.status(200).json(buildSuccessResponse(
+        return res.status(HTTP_STATUS.OK).json(buildSuccessResponse(
             {
                 uid: createdUser.id,
                 token,
@@ -103,7 +105,7 @@ export class NestAuthController {
         const { user, token: accessToken, sessionId, refreshToken } = sessionPayload;
         setAuthCookies(res, { user, token: accessToken, sessionId, refreshToken }, Boolean(body.rememberMe));
 
-        return res.status(200).json(buildSuccessResponse({
+        return res.status(HTTP_STATUS.OK).json(buildSuccessResponse({
             userData: user,
             token: accessToken,
             msg: "Login successfully",
@@ -116,8 +118,8 @@ export class NestAuthController {
         const refreshTokenCookie = req.cookies.refreshToken;
         const sessionId = req.cookies.session;
         if (!refreshTokenCookie || !sessionId) {
-            return res.status(401).json(buildErrorResponse({
-                statusCode: 401,
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json(buildErrorResponse({
+                statusCode: HTTP_STATUS.UNAUTHORIZED,
                 code: "UNAUTHORIZED",
                 message: !refreshTokenCookie ? "No refresh token" : "No session",
                 requestId: requestIdFrom(req),
@@ -132,13 +134,25 @@ export class NestAuthController {
                 rotated.refreshToken,
                 rotated.rememberMe ? withMaxAge(THIRTY_DAYS) : baseCookieOptions,
             );
-            return res.status(200).json(buildSuccessResponse({
+            return res.status(HTTP_STATUS.OK).json(buildSuccessResponse({
                 msg: "Token refreshed successfully",
             }, requestIdFrom(req)));
-        } catch {
+        } catch (error) {
+            if (!(error instanceof HttpException) || error.getStatus() >= HTTP_STATUS.INTERNAL_SERVER_ERROR) {
+                throw error;
+            }
+
+            logger.warn({
+                requestId: requestIdFrom(req),
+                method: req.method,
+                route: req.route?.path ?? "users/refresh",
+                statusCode: HTTP_STATUS.FORBIDDEN,
+                code: "INVALID_REFRESH_TOKEN",
+                event: "http request rejected",
+            });
             res.clearCookie("refreshToken", baseCookieOptions);
-            return res.status(403).json(buildErrorResponse({
-                statusCode: 403,
+            return res.status(HTTP_STATUS.FORBIDDEN).json(buildErrorResponse({
+                statusCode: HTTP_STATUS.FORBIDDEN,
                 code: "INVALID_REFRESH_TOKEN",
                 message: "Invalid refresh token",
                 requestId: requestIdFrom(req),
@@ -153,7 +167,7 @@ export class NestAuthController {
 
         if (!sessionId || sessionId === "undefined") {
             clearAuthCookies(res);
-            return res.status(200).json(buildSuccessResponse(
+            return res.status(HTTP_STATUS.OK).json(buildSuccessResponse(
                 { msg: "You have been logout successfully (no session)" },
                 requestIdFrom(req),
             ));
@@ -163,13 +177,13 @@ export class NestAuthController {
         clearAuthCookies(res);
 
         if (!session) {
-            return res.status(200).json(buildSuccessResponse(
+            return res.status(HTTP_STATUS.OK).json(buildSuccessResponse(
                 { msg: "You have been logout successfully (session not found)" },
                 requestIdFrom(req),
             ));
         }
 
-        return res.status(200).json(buildSuccessResponse(
+        return res.status(HTTP_STATUS.OK).json(buildSuccessResponse(
             { msg: "You have been logout successfully" },
             requestIdFrom(req),
         ));
@@ -180,6 +194,6 @@ export class NestAuthController {
     async getCsrfToken(@Req() req: Request, @Res() res: Response) {
         const { generateCsrfToken } = await import("#src/middleware/csrf.middleware");
         const token = generateCsrfToken(req as Request, res as Response);
-        return res.status(HttpStatus.OK).json(buildSuccessResponse({ csrfToken: token }, requestIdFrom(req)));
+        return res.status(HTTP_STATUS.OK).json(buildSuccessResponse({ csrfToken: token }, requestIdFrom(req)));
     }
 }

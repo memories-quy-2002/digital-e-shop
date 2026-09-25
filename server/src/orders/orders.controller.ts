@@ -6,7 +6,10 @@ import { RequireVerifiedEmail, VerifiedEmailGuard } from "../guards/verified-ema
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestOrdersService } from "./orders.service";
 import { NestOrdersPayOSService } from "./orders.payos.service";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
+import { createHttpException } from "#src/core/errors/http-exception";
 import { calculatePromotionDiscount } from "./orders.pricing";
+import { PAYMENT_PROVIDER, type PaymentProviderName } from "../payments/payment.types";
 import type { GuestOrderLookupPayload, GuestPurchasePayload, GuestPayOSCheckoutPayload, GuestPayOSOrderLookupPayload, MockPayOSConfirmPayload } from "./orders.dto";
 import { orderStatusSchema, purchaseSchema, checkoutSessionSchema, applyDiscountSchema, cancelOrderSchema, guestOrderLookupSchema, guestPurchaseSchema, guestPayOSCheckoutSchema, guestPayOSOrderLookupSchema, mockPayOSConfirmSchema } from "./orders.validator";
 
@@ -15,9 +18,10 @@ type AuthenticatedRequest = Request & {
 };
 
 function toHttpException(err: { statusCode?: number; message?: string }, fallbackMessage: string): HttpException {
-    const statusCode = err.statusCode || 500;
-    const msg = err.statusCode ? err.message : fallbackMessage;
-    return new HttpException({ msg }, statusCode);
+    if (err instanceof HttpException) return err;
+    const statusCode = err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+    const msg = statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? fallbackMessage : err.message || fallbackMessage;
+    return createHttpException(err, { msg }, statusCode);
 }
 
 function canAccessOrder(req: AuthenticatedRequest, ownerId: string | number): boolean {
@@ -122,7 +126,7 @@ export class OrdersController {
         try {
             const order = await this.ordersService.getOrderDetail(Number(oid));
             if (!order || !canAccessOrder(req, order.user_id)) {
-                throw new HttpException({ msg: "Order not found" }, 404);
+                throw new HttpException({ msg: "Order not found" }, HTTP_STATUS.NOT_FOUND);
             }
             return { order, msg: "Order detail retrieved successfully" };
         } catch (err) {
@@ -132,7 +136,7 @@ export class OrdersController {
     }
 
     @Post("/status/:oid")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @UseGuards(AuthGuard, RolesGuard)
     @Roles("admin")
     async changeOrderStatus(
@@ -143,7 +147,7 @@ export class OrdersController {
         try {
             const order = await this.ordersService.changeOrderStatus(Number(oid), body.status, String(req.user?.id || ""));
             if (!order) {
-                throw new HttpException({ msg: "Order not found" }, 404);
+                throw new HttpException({ msg: "Order not found" }, HTTP_STATUS.NOT_FOUND);
             }
             return {
                 order,
@@ -156,7 +160,7 @@ export class OrdersController {
     }
 
     @Post(":oid/cancel")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @UseGuards(AuthGuard, RolesGuard)
     async cancelOrder(
         @Param("oid") oid: string,
@@ -175,7 +179,7 @@ export class OrdersController {
     }
 
     @Post("/guest/purchase")
-    @HttpCode(201)
+    @HttpCode(HTTP_STATUS.CREATED)
     async makeGuestPurchase(
         @Body(new ZodValidationPipe(guestPurchaseSchema)) body: GuestPurchasePayload,
     ) {
@@ -191,11 +195,12 @@ export class OrdersController {
         } catch (err) {
             if (err instanceof HttpException) throw err;
             const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
-            const statusCode = error.statusCode || 500;
-            throw new HttpException(
+            const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+            throw createHttpException(
+                err,
                 {
-                    msg: statusCode === 500 ? "Unable to place order right now" : error.message,
-                    ...(statusCode === 500 ? {} : error.details || {}),
+                    msg: statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to place order right now" : error.message,
+                    ...(statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? {} : error.details || {}),
                 },
                 statusCode,
             );
@@ -203,7 +208,7 @@ export class OrdersController {
     }
 
     @Post("/guest/lookup")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     async lookupGuestOrder(
         @Body(new ZodValidationPipe(guestOrderLookupSchema)) body: GuestOrderLookupPayload,
     ) {
@@ -213,21 +218,22 @@ export class OrdersController {
         } catch (err) {
             if (err instanceof HttpException) throw err;
             const error = err as Error & { statusCode?: number };
-            const statusCode = error.statusCode || 500;
-            throw new HttpException(
-                { msg: statusCode === 500 ? "Unable to retrieve guest order right now" : error.message },
+            const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+            throw createHttpException(
+                err,
+                { msg: statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to retrieve guest order" : error.message },
                 statusCode,
             );
         }
     }
 
     @Post("/guest/payos-checkout-session")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     async createGuestPayOSCheckoutSession(
         @Body(new ZodValidationPipe(guestPayOSCheckoutSchema)) body: GuestPayOSCheckoutPayload,
     ) {
         try {
-            if (!this.ordersPayOSService) throw new HttpException({ msg: "PayOS checkout is not configured" }, 503);
+            if (!this.ordersPayOSService) throw new HttpException({ msg: "PayOS checkout is not configured" }, HTTP_STATUS.SERVICE_UNAVAILABLE);
             const result = await this.ordersPayOSService.createGuestCheckoutSession(body);
             return {
                 url: result.url,
@@ -239,12 +245,14 @@ export class OrdersController {
                 msg: "PayOS checkout session created",
             };
         } catch (err) {
+            if (err instanceof HttpException) throw err;
             const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
-            const statusCode = error.statusCode || 500;
-            throw new HttpException(
+            const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+            throw createHttpException(
+                err,
                 {
-                    msg: statusCode === 500 ? "Unable to start PayOS checkout right now" : error.message,
-                    ...(statusCode === 500 ? {} : error.details || {}),
+                    msg: statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to start guest PayOS checkout" : error.message,
+                    ...(statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? {} : error.details || {}),
                 },
                 statusCode,
             );
@@ -252,22 +260,23 @@ export class OrdersController {
     }
 
     @Post("/mock-payos/confirm")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     async confirmMockPayOSPayment(
         @Body(new ZodValidationPipe(mockPayOSConfirmSchema)) body: MockPayOSConfirmPayload,
     ) {
         try {
-            if (!this.ordersPayOSService) throw new HttpException({ msg: "PayOS checkout is not configured" }, 503);
+            if (!this.ordersPayOSService) throw new HttpException({ msg: "PayOS checkout is not configured" }, HTTP_STATUS.SERVICE_UNAVAILABLE);
             const order = await this.ordersPayOSService.confirmMockPayment(body.orderCode, body.paymentLinkId, body.amount);
             return { orderId: order.id, order, msg: "Mock PayOS payment confirmed" };
         } catch (err) {
             if (err instanceof HttpException) throw err;
             const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
-            const statusCode = error.statusCode || 500;
-            throw new HttpException(
+            const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+            throw createHttpException(
+                err,
                 {
-                    msg: statusCode === 500 ? "Unable to confirm mock PayOS payment" : error.message,
-                    ...(statusCode === 500 ? {} : error.details || {}),
+                    msg: statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to confirm mock PayOS payment" : error.message,
+                    ...(statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? {} : error.details || {}),
                 },
                 statusCode,
             );
@@ -283,7 +292,7 @@ export class OrdersController {
                 ? await this.ordersService.getOrderByPayOSOrderCode(parsedOrderCode)
                 : null;
             if (!order || !canAccessOrder(req, order.user_id)) {
-                throw new HttpException({ msg: "Order not ready yet" }, 404);
+                throw new HttpException({ msg: "Order not ready yet" }, HTTP_STATUS.NOT_FOUND);
             }
             return { order, msg: "Order retrieved successfully" };
         } catch (err) {
@@ -293,7 +302,7 @@ export class OrdersController {
     }
 
     @Post("/purchase/:uid")
-    @HttpCode(201)
+    @HttpCode(HTTP_STATUS.CREATED)
     @UseGuards(AuthGuard, RolesGuard, VerifiedEmailGuard)
     @OwnerParam("uid")
     @RequireVerifiedEmail()
@@ -305,22 +314,22 @@ export class OrdersController {
             discount: number;
             discountCode?: string;
             shippingAddress: string;
-            paymentMethod: "cash" | "payos";
+            paymentMethod: PaymentProviderName;
         },
     ) {
         const { totalPrice, cart, discountCode, shippingAddress, paymentMethod } = body;
 
         if (!cart || cart.length === 0) {
-            throw new HttpException({ msg: "Cart cannot be empty" }, 400);
+            throw new HttpException({ msg: "Cart cannot be empty" }, HTTP_STATUS.BAD_REQUEST);
         }
-        if (!["cash", "payos"].includes(paymentMethod)) {
-            throw new HttpException({ msg: "Unsupported payment method" }, 400);
+        if (paymentMethod !== PAYMENT_PROVIDER.CASH && paymentMethod !== PAYMENT_PROVIDER.PAYOS) {
+            throw new HttpException({ msg: "Unsupported payment method" }, HTTP_STATUS.BAD_REQUEST);
         }
 
         try {
             const promotion = discountCode ? await this.ordersService.applyDiscount(discountCode) : null;
             if (discountCode && !promotion) {
-                throw new HttpException({ msg: "Discount code is no longer valid." }, 400);
+                throw new HttpException({ msg: "Discount code is no longer valid." }, HTTP_STATUS.BAD_REQUEST);
             }
             const discount = calculatePromotionDiscount(promotion, totalPrice);
             const order = await this.ordersService.makePurchase(uid, {
@@ -340,11 +349,12 @@ export class OrdersController {
         } catch (err) {
             if (err instanceof HttpException) throw err;
             const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
-            const statusCode = error.statusCode || 500;
-            throw new HttpException(
+            const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+            throw createHttpException(
+                err,
                 {
-                    msg: statusCode === 500 ? "Unable to place order right now" : error.message,
-                    ...(statusCode === 500 ? {} : error.details || {}),
+                    msg: statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to place order right now" : error.message,
+                    ...(statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? {} : error.details || {}),
                 },
                 statusCode,
             );
@@ -352,7 +362,7 @@ export class OrdersController {
     }
 
     @Post("/payos-checkout-session/:uid")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @UseGuards(AuthGuard, RolesGuard, VerifiedEmailGuard)
     @OwnerParam("uid")
     @RequireVerifiedEmail()
@@ -367,7 +377,7 @@ export class OrdersController {
         },
     ) {
         try {
-            if (!this.ordersPayOSService) throw new HttpException({ msg: "PayOS checkout is not configured" }, 503);
+            if (!this.ordersPayOSService) throw new HttpException({ msg: "PayOS checkout is not configured" }, HTTP_STATUS.SERVICE_UNAVAILABLE);
             const result = await this.ordersPayOSService.createCheckoutSession(uid, body);
             return {
                 url: result.url,
@@ -378,12 +388,14 @@ export class OrdersController {
                 msg: "PayOS checkout session created",
             };
         } catch (err) {
+            if (err instanceof HttpException) throw err;
             const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
-            const statusCode = error.statusCode || 500;
-            throw new HttpException(
+            const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+            throw createHttpException(
+                err,
                 {
-                    msg: statusCode === 500 ? "Unable to start PayOS checkout right now" : error.message,
-                    ...(statusCode === 500 ? {} : error.details || {}),
+                    msg: statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to start authenticated PayOS checkout" : error.message,
+                    ...(statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? {} : error.details || {}),
                 },
                 statusCode,
             );
@@ -391,7 +403,7 @@ export class OrdersController {
     }
 
     @Post("/guest/by-payos-order-code")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     async getGuestOrderByPayOSOrderCode(
         @Body(new ZodValidationPipe(guestPayOSOrderLookupSchema)) body: GuestPayOSOrderLookupPayload,
     ) {
@@ -401,23 +413,24 @@ export class OrdersController {
         } catch (err) {
             if (err instanceof HttpException) throw err;
             const error = err as Error & { statusCode?: number };
-            const statusCode = error.statusCode || 500;
-            throw new HttpException(
-                { msg: statusCode === 500 ? "Unable to retrieve guest order right now" : error.message },
+            const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+            throw createHttpException(
+                err,
+                { msg: statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to retrieve guest order" : error.message },
                 statusCode,
             );
         }
     }
 
     @Post("/discount")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @UseGuards(AuthGuard, RolesGuard)
     @Roles("customer", "admin")
     async applyDiscount(@Body(new ZodValidationPipe(applyDiscountSchema)) body: { discountCode: string; price: number }) {
         try {
             const promotion = await this.ordersService.applyDiscount(body.discountCode);
             if (!promotion) {
-                throw new HttpException({ msg: "Discount code not found" }, 404);
+                throw new HttpException({ msg: "Discount code not found" }, HTTP_STATUS.NOT_FOUND);
             }
 
             const discount = calculatePromotionDiscount(promotion, Number(body.price));
@@ -427,11 +440,7 @@ export class OrdersController {
             };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            const error = err as Error & { statusCode?: number };
-            if (error.statusCode) {
-                throw new HttpException({ msg: error.message }, error.statusCode);
-            }
-            throw toHttpException(error, "Internal server error");
+            throw toHttpException(err, "Unable to apply discount code");
         }
     }
 }

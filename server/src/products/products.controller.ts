@@ -16,6 +16,7 @@ import {
     UseInterceptors,
 } from "@nestjs/common";
 import type { Request, Response } from "express";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { createReadStream } from "node:fs";
 import { basename, isAbsolute, relative, resolve } from "node:path";
 import { FileInterceptor } from "@nestjs/platform-express";
@@ -24,11 +25,12 @@ import { Roles, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestProductsService } from "./products.service";
 import { NestProductsRepository } from "./products.repository";
-import { getValidationMessage } from "#src/shared/validation/requestSchemas";
+import { getValidationMessage } from "#src/shared/validation/request-schemas";
 import type { ProductCreateInput } from "./products.dto";
 import { attributeFilterSchema, productCreateSchema, productUpdateSchema, inventoryUpdateSchema } from "./products.validator";
 import type { AttributeFilter } from "./product-attributes.types";
 import { ComparisonValidationError, parseComparisonIds } from "./products.compare";
+import { createHttpException } from "#src/core/errors/http-exception";
 
 const uploadsDir = resolve(process.cwd(), "src", "uploads");
 
@@ -100,7 +102,7 @@ export class ProductsController {
     async retrieveRelevantProducts(@Param("pid") pidParam: string) {
         const pid = parseInt(pidParam, 10);
         if (!pid) {
-            throw new HttpException({ msg: "Invalid product id" }, 400);
+            throw new HttpException({ msg: "Invalid product id" }, HTTP_STATUS.BAD_REQUEST);
         }
 
         const results = await this.productsRepository.getRelevantProductsByProductId(pid, 8);
@@ -111,12 +113,12 @@ export class ProductsController {
     async getImage(@Param("filename") filename: string, @Res({ passthrough: true }) res: Response) {
         const resolvedImage = resolveProductImagePath(filename);
         if (!resolvedImage) {
-            throw new HttpException({ msg: "Image not found" }, 404);
+            throw new HttpException({ msg: "Image not found" }, HTTP_STATUS.NOT_FOUND);
         }
 
         const fs = await import("node:fs");
         if (!fs.existsSync(resolvedImage.imagePath)) {
-            throw new HttpException({ msg: "Image not found" }, 404);
+            throw new HttpException({ msg: "Image not found" }, HTTP_STATUS.NOT_FOUND);
         }
 
         res.set({
@@ -136,7 +138,8 @@ export class ProductsController {
             return { comparison, msg: "Products ready for comparison" };
         } catch (error) {
             if (error instanceof ComparisonValidationError) {
-                throw new HttpException(
+                throw createHttpException(
+                    error,
                     { code: error.code, msg: error.message, ...error.details },
                     error.statusCode,
                 );
@@ -150,7 +153,7 @@ export class ProductsController {
         const numericId = Number(id);
         const product = await this.productsRepository.getProductById(numericId);
         if (!product) {
-            throw new HttpException({ msg: "Product not found" }, 404);
+            throw new HttpException({ msg: "Product not found" }, HTTP_STATUS.NOT_FOUND);
         }
         return { product, msg: "Get product successfully" };
     }
@@ -185,11 +188,11 @@ export class ProductsController {
             try {
                 rawAttributeFilters = JSON.parse(attributeFilters);
             } catch {
-                throw new HttpException({ msg: "Invalid attribute filters" }, 400);
+                throw new HttpException({ msg: "Invalid attribute filters" }, HTTP_STATUS.BAD_REQUEST);
             }
             const parsed = attributeFilterSchema.array().safeParse(rawAttributeFilters);
             if (!parsed.success) {
-                throw new HttpException({ msg: "Invalid attribute filters" }, 400);
+                throw new HttpException({ msg: "Invalid attribute filters" }, HTTP_STATUS.BAD_REQUEST);
             }
             parsedAttributeFilters = parsed.data as AttributeFilter[];
         }
@@ -262,7 +265,7 @@ export class ProductsController {
     }
 
     @Post("add")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @UseGuards(AuthGuard, RolesGuard)
     @Roles("admin")
     @UseInterceptors(FileInterceptor("image"))
@@ -275,20 +278,19 @@ export class ProductsController {
             const result = await this.productsService.addSingleProductService(body as ProductCreateInput, file);
             return result;
         } catch (err) {
+            if (err instanceof HttpException) throw err;
             if (err instanceof Error && err.name === "ZodError") {
-                throw new HttpException({ msg: getValidationMessage(err) }, 400);
+                throw new HttpException({ msg: getValidationMessage(err) }, HTTP_STATUS.BAD_REQUEST);
             }
             const error = err as Error & { statusCode?: number };
-            const statusCode = error?.statusCode || 500;
-            throw new HttpException(
-                { msg: statusCode === 500 ? "Internal server error" : error.message },
-                statusCode,
-            );
+            const statusCode = error?.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+            const msg = statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to create product" : error.message;
+            throw createHttpException(err, { msg }, statusCode);
         }
     }
 
     @Put(":id/inventory")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @UseGuards(AuthGuard, RolesGuard)
     @Roles("admin")
     async updateInventory(
@@ -298,7 +300,7 @@ export class ProductsController {
         const pid = Number(id);
 
         if (!Number.isInteger(pid) || pid <= 0) {
-            throw new HttpException({ msg: "Product id and stock must be valid" }, 400);
+            throw new HttpException({ msg: "Product id and stock must be valid" }, HTTP_STATUS.BAD_REQUEST);
         }
 
         try {
@@ -306,15 +308,19 @@ export class ProductsController {
             return { product, msg: "Inventory updated successfully" };
         } catch (err) {
             const error = err as Error & { statusCode?: number };
-            if (error?.statusCode === 404) {
-                throw new HttpException({ msg: "Product not found" }, 404);
-            }
-            throw new HttpException({ msg: "Internal server error", error: error?.message }, 500);
+            if (err instanceof HttpException) throw err;
+            const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+            const msg = statusCode === HTTP_STATUS.NOT_FOUND
+                ? "Product not found"
+                : statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR
+                    ? "Unable to update product inventory"
+                    : error.message;
+            throw createHttpException(err, { msg }, statusCode);
         }
     }
 
     @Put(":id")
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @UseGuards(AuthGuard, RolesGuard)
     @Roles("admin")
     async updateProduct(
@@ -337,7 +343,7 @@ export class ProductsController {
         const pid = Number(id);
 
         if (!Number.isInteger(pid) || pid <= 0) {
-            throw new HttpException({ msg: "Invalid product id" }, 400);
+            throw new HttpException({ msg: "Invalid product id" }, HTTP_STATUS.BAD_REQUEST);
         }
 
         try {
@@ -347,20 +353,19 @@ export class ProductsController {
             });
             return { product, msg: "Product has been updated successfully" };
         } catch (err) {
+            if (err instanceof HttpException) throw err;
             if (err instanceof Error && err.name === "ZodError") {
-                throw new HttpException({ msg: getValidationMessage(err) }, 400);
+                throw new HttpException({ msg: getValidationMessage(err) }, HTTP_STATUS.BAD_REQUEST);
             }
             const error = err as Error & { statusCode?: number };
-            const statusCode = error?.statusCode || 500;
-            throw new HttpException(
-                { msg: statusCode === 500 ? "Internal server error" : error.message },
-                statusCode,
-            );
+            const statusCode = error?.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+            const msg = statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to update product" : error.message;
+            throw createHttpException(err, { msg }, statusCode);
         }
     }
 
     @Delete()
-    @HttpCode(200)
+    @HttpCode(HTTP_STATUS.OK)
     @UseGuards(AuthGuard, RolesGuard)
     @Roles("admin")
     async deleteProduct(@Body("pid") pid: number) {

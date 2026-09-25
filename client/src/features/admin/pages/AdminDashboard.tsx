@@ -1,7 +1,7 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Product } from "../../../types/product";
-import type { AdminOrder as Order, AdminOrderItem as OrderItem } from "../../../types/order";
+import type { AdminAccount, AdminOrder as Order, AdminOrderItem as OrderItem } from "../../../types/order";
 import { formatUtcDateTime } from "../../../utils/dateTime";
 import AdminLayout from "../../../components/layout/AdminLayout";
 import { Helmet } from "react-helmet-async";
@@ -28,6 +28,9 @@ import { groupAdminAlerts } from "../utils/dashboardAlerts";
 import { getDashboardRangeLabel, parseDashboardRange, type DashboardRange } from "../utils/dashboardRange";
 import { formatCurrency } from "../../../utils/currency";
 import { ORDER_STATUS } from "../../orders/orderStatus";
+import { PAYMENT_METHOD } from "../../orders/constants";
+import { LOW_STOCK_THRESHOLD } from "../../products/constants";
+import type { AdminAnalyticsSummary } from "../types";
 
 type TrendPoint = {
     name: string;
@@ -42,8 +45,6 @@ type ChartDatum = {
     orders?: number;
     stock?: number;
 };
-
-type AnalyticsSummary = Record<string, any>;
 
 const AdminDashboardCharts = React.lazy(() => import("../components/AdminDashboardCharts"));
 
@@ -63,16 +64,18 @@ const formatUtcDay = (date: Date) =>
         day: "numeric",
     }).format(date);
 
-const normalizeOrder = (order: any): Order => ({
+type RawDashboardOrder = Omit<Order, "date_added"> & { date_added: string | Date };
+
+const normalizeOrder = (order: RawDashboardOrder): Order => ({
     ...order,
     id: Number(order.id),
     status: Number(order.status),
     total_price: Number(order.total_price) || 0,
     discount: Number(order.discount) || 0,
-    date_added: new Date(order.date_added),
+    date_added: order.date_added instanceof Date ? order.date_added : new Date(order.date_added),
 });
 
-const normalizeOrderItem = (orderItem: any): OrderItem => ({
+const normalizeOrderItem = (orderItem: OrderItem): OrderItem => ({
     ...orderItem,
     id: Number(orderItem.id),
     order_id: Number(orderItem.order_id),
@@ -81,9 +84,9 @@ const normalizeOrderItem = (orderItem: any): OrderItem => ({
     price: Number(orderItem.price) || 0,
 });
 
-const normalizeUser = (user: any): { id: string; email: string; username: string; first_name: string | null; last_name: string | null; role: string; created_at: Date } => ({
+const normalizeUser = (user: AdminAccount): AdminAccount => ({
     ...user,
-    created_at: new Date(user.created_at),
+    created_at: user.created_at instanceof Date ? user.created_at : new Date(user.created_at),
 });
 
 const getNetRevenue = (order: Order) => order.status === ORDER_STATUS.CANCELED
@@ -148,10 +151,10 @@ const getTopRevenueProducts = (orderItems: OrderItem[]) => {
 
 const buildPaymentMix = (orders: Order[]): ChartDatum[] => {
     const activeOrders = orders.filter((order) => order.status !== ORDER_STATUS.CANCELED);
-    const cashOrders = activeOrders.filter((order) => order.payment_method === "cash").length;
-    const payosOrders = activeOrders.filter((order) => order.payment_method === "payos").length;
+    const cashOrders = activeOrders.filter((order) => order.payment_method === PAYMENT_METHOD.CASH).length;
+    const payosOrders = activeOrders.filter((order) => order.payment_method === PAYMENT_METHOD.PAYOS).length;
     const historicalPaymentOrders = activeOrders.filter(
-        (order) => Boolean(order.payment_method) && order.payment_method !== "cash" && order.payment_method !== "payos",
+        (order) => Boolean(order.payment_method) && order.payment_method !== PAYMENT_METHOD.CASH && order.payment_method !== PAYMENT_METHOD.PAYOS,
     ).length;
     const notRecordedOrders = activeOrders.filter((order) => !order.payment_method).length;
 
@@ -168,9 +171,9 @@ const normalizePaymentMix = (points: Array<{ name?: unknown; value?: unknown }>)
 
     points.forEach((point) => {
         const normalizedName = String(point.name || "").toLowerCase();
-        const name = normalizedName === "cash"
+        const name = normalizedName === PAYMENT_METHOD.CASH
             ? "Cash"
-            : normalizedName === "payos"
+            : normalizedName === PAYMENT_METHOD.PAYOS
               ? "PayOS"
               : normalizedName === "" || normalizedName === "unknown"
                 ? "Not recorded"
@@ -266,9 +269,9 @@ const AdminDashboard = () => {
     const range = parseDashboardRange(searchParams.get("range"));
     const [products, setProducts] = useState<Product[]>([]);
     const [orders, setOrders] = useState<Order[]>([]);
-    const [users, setUsers] = useState<Array<{ id: string; email: string; username: string; first_name: string | null; last_name: string | null; role: string; created_at: Date }>>([]);
+    const [users, setUsers] = useState<AdminAccount[]>([]);
     const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-    const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary | null>(null);
+    const [analyticsSummary, setAnalyticsSummary] = useState<AdminAnalyticsSummary | null>(null);
     const [alerts, setAlerts] = useState<AdminAlert[]>([]);
     const [loading, setLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -379,7 +382,7 @@ const AdminDashboard = () => {
     const categoryRevenue = useMemo(() => (availability.products === "success" && availability.orderItems === "success" ? buildCategoryRevenue(products, orderItems) : []), [availability.products, availability.orderItems, products, orderItems]);
     const analyticsTrend = useMemo(
         () =>
-            (availability.analytics === "success" ? analyticsSummary?.charts?.revenueTrend || analyticsSummary?.revenueTrend || [] : []).map((point: any) => ({
+            (availability.analytics === "success" ? analyticsSummary?.charts?.revenueTrend || analyticsSummary?.revenueTrend || [] : []).map((point) => ({
                 name: formatUtcDay(new Date(`${point.date}T00:00:00Z`)),
                 revenue: Number(point.netRevenue ?? point.revenue) || 0,
                 orders: Number(point.orders) || 0,
@@ -388,7 +391,7 @@ const AdminDashboard = () => {
     );
     const analyticsCategoryRevenue = useMemo(
         () =>
-            (availability.analytics === "success" ? analyticsSummary?.charts?.categoryPerformance || analyticsSummary?.categoryRevenue || [] : []).map((point: any) => ({
+            (availability.analytics === "success" ? analyticsSummary?.charts?.categoryPerformance || analyticsSummary?.categoryRevenue || [] : []).map((point) => ({
                 name: point.name,
                 value: Number(point.revenue ?? point.value) || 0,
                 units: Number(point.units) || 0,
@@ -403,7 +406,7 @@ const AdminDashboard = () => {
     );
     const analyticsStatusMix = useMemo(
         () =>
-            (availability.analytics === "success" ? analyticsSummary?.charts?.orderStatusBreakdown || [] : []).map((point: any) => ({
+            (availability.analytics === "success" ? analyticsSummary?.charts?.orderStatusBreakdown || [] : []).map((point) => ({
                 name: point.name,
                 value: Number(point.value) || 0,
             })),
@@ -419,8 +422,8 @@ const AdminDashboard = () => {
     const selectedPeriodMetrics = useMemo(() => {
         const revenueComparison = analyticsSummary?.kpis?.revenue?.comparison;
         const orderComparison = analyticsSummary?.kpis?.orders?.comparison;
-        const trendRevenue = analyticsTrend.reduce((sum: number, point: ChartDatum) => sum + (point.revenue || 0), 0);
-        const trendOrders = analyticsTrend.reduce((sum: number, point: ChartDatum) => sum + (point.orders || 0), 0);
+        const trendRevenue = analyticsTrend.reduce((sum, point) => sum + (point.revenue || 0), 0);
+        const trendOrders = analyticsTrend.reduce((sum, point) => sum + (point.orders || 0), 0);
         const currentRevenue = revenueComparison?.current !== undefined ? Number(revenueComparison.current) : trendRevenue;
         const previousRevenue = revenueComparison?.previous !== undefined ? Number(revenueComparison.previous) : 0;
         const currentOrders = orderComparison?.current !== undefined ? Number(orderComparison.current) : trendOrders;
@@ -451,21 +454,21 @@ const AdminDashboard = () => {
         const cancelledOrders = availability.analytics === "success" && analyticsSummary?.kpis?.orders?.cancelled !== undefined
             ? Number(analyticsSummary.kpis.orders.cancelled)
             : orders.filter((order) => order.status === ORDER_STATUS.CANCELED).length;
-        const cashOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Cash")?.value ?? nonCancelledOrders.filter((order) => order.payment_method === "cash").length;
-        const payosOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "PayOS")?.value ?? nonCancelledOrders.filter((order) => order.payment_method === "payos").length;
+        const cashOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Cash")?.value ?? nonCancelledOrders.filter((order) => order.payment_method === PAYMENT_METHOD.CASH).length;
+        const payosOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "PayOS")?.value ?? nonCancelledOrders.filter((order) => order.payment_method === PAYMENT_METHOD.PAYOS).length;
         const historicalPaymentOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Historical methods")?.value
-            ?? nonCancelledOrders.filter((order) => Boolean(order.payment_method) && order.payment_method !== "cash" && order.payment_method !== "payos").length;
+            ?? nonCancelledOrders.filter((order) => Boolean(order.payment_method) && order.payment_method !== PAYMENT_METHOD.CASH && order.payment_method !== PAYMENT_METHOD.PAYOS).length;
         const notRecordedOrders = analyticsPaymentMix.find((item: ChartDatum) => item.name === "Not recorded")?.value
             ?? nonCancelledOrders.filter((order) => !order.payment_method).length;
         const totalRevenue = availability.analytics === "success" && analyticsSummary?.kpis?.revenue?.net !== undefined
             ? Number(analyticsSummary.kpis.revenue.net)
             : orders.reduce((sum, order) => sum + getNetRevenue(order), 0);
         const lowStockProducts = (availability.analytics === "success" ? analyticsSummary?.operations?.inventoryRisk || [] : [])
-            .filter((product: any) => Number(product.stock) <= 5)
-            .sort((a: any, b: any) => Number(a.stock) - Number(b.stock))
+            .filter((product) => Number(product.stock) <= LOW_STOCK_THRESHOLD)
+            .sort((a, b) => Number(a.stock) - Number(b.stock))
             .slice(0, 5);
         const fallbackLowStockProducts = availability.products === "success" ? products
-            .filter((product) => product.stock <= 5)
+            .filter((product) => product.stock <= LOW_STOCK_THRESHOLD)
             .sort((a, b) => a.stock - b.stock)
             .slice(0, 5) : [];
         const latestOrders = [...orders]
@@ -588,7 +591,7 @@ const AdminDashboard = () => {
                 ? ["- Unavailable"]
                 : dashboardStats.lowStockProducts.length > 0
                   ? dashboardStats.lowStockProducts.map(
-                      (product: any, index: number) => `${index + 1}. ${product.name} | Remaining stock: ${product.stock}`,
+                      (product, index) => `${index + 1}. ${product.name} | Remaining stock: ${product.stock}`,
                     )
                   : ["- No products are currently below the low-stock threshold."]),
             "",

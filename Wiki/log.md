@@ -84,3 +84,6 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-23 - Codex - Prevented unknown product alert preferences from being overwritten, rejected subscriptions for unavailable products, and aligned comparison sale pricing with storefront rules.
 - 2026-09-24 - Codex - Added a bounded read-only k6 API smoke profile, opt-in OTLP traces and metrics with URL/SQL scrubbing and log trace correlation, and a concise portfolio README.
 - 2026-09-25 - Codex - Integrated observability documentation with product alert and comparison updates while updating the feature branch to current main.
+- 2026-09-25 - Codex - Adopted kebab-case for server source filenames, updated their path references, and aligned client/server ESLint naming rule configuration.
+- 2026-09-25 - Codex - Required live PayOS mode and credentials in production, based webhook state only on signed data, and blocked simulated PayOS orders from delivery.
+- 2026-09-25 - Codex - Documented production client/server environment variables, public Firebase web config, secret handling, Vercel redeploy behavior, and the DB password validation gap.

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { LOW_STOCK_THRESHOLD } from "../../products/constants";
 import { Button, Modal, Table } from "../../../components/ui/legacy";
 import ReactPaginate from "react-paginate";
 import { useNavigate } from "react-router-dom";
@@ -18,6 +19,7 @@ import {
 import AdminStatusPanel from "../components/AdminStatusPanel";
 import AdminTableScrollHint from "../components/AdminTableScrollHint";
 import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
+import { getApiErrorMessage } from "../../../lib/api-contract";
 import {
     createProductAttributeRow,
     productAttributeRowsToInputs,
@@ -167,7 +169,7 @@ const AdminProductPage = () => {
     }, [currentPage, filteredProducts]);
 
     const inventoryWatch = useMemo(
-        () => [...products].filter((product) => product.stock <= 5).sort((a, b) => a.stock - b.stock).slice(0, 8),
+        () => [...products].filter((product) => product.stock <= LOW_STOCK_THRESHOLD).sort((a, b) => a.stock - b.stock).slice(0, 8),
         [products],
     );
 
@@ -321,8 +323,8 @@ const AdminProductPage = () => {
             await loadMovements();
             addToast("Update product", `${updatedProduct.name} has been updated.`);
             handleClose();
-        } catch {
-            addToast("Update product", "Unable to update product.");
+        } catch (error: unknown) {
+            addToast("Update product", getApiErrorMessage(error, "Unable to update product."));
         } finally {
             setIsSaving(false);
         }
@@ -340,8 +342,8 @@ const AdminProductPage = () => {
             addToast("Hide product", `${selectedProduct.name} has been hidden from the catalog.`);
             setShowDeleteConfirm(false);
             handleClose();
-        } catch {
-            addToast("Hide product", "Unable to hide product.");
+        } catch (error: unknown) {
+            addToast("Hide product", getApiErrorMessage(error, "Unable to hide product."));
         } finally {
             setIsDeleting(false);
         }
@@ -367,8 +369,8 @@ const AdminProductPage = () => {
             setRestockValues((current) => ({ ...current, [product.id]: "" }));
             await loadMovements();
             addToast("Inventory", `${updatedProduct.name} stock updated.`);
-        } catch {
-            addToast("Inventory", "Unable to update stock.");
+        } catch (error: unknown) {
+            addToast("Inventory", getApiErrorMessage(error, "Unable to update stock."));
         }
     };
 
@@ -432,7 +434,7 @@ const AdminProductPage = () => {
                     </div>
                     <div className="admin__summary-card">
                         <span>Low stock</span>
-                        <strong>{products.filter((product) => product.stock <= 5).length}</strong>
+                        <strong>{products.filter((product) => product.stock <= LOW_STOCK_THRESHOLD).length}</strong>
                         <p>Need attention</p>
                     </div>
                 </section>
@@ -735,4 +737,3 @@ const AdminProductPage = () => {
 };
 
 export default AdminProductPage;
-

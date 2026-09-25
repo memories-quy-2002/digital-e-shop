@@ -1,4 +1,5 @@
 import axios, { AxiosRequestHeaders } from "axios";
+import { HTTP_STATUS } from "../constants/http-status";
 import { API_BASE_URL } from "./env";
 import { getApiErrorMessage } from "./api-contract";
 
@@ -94,7 +95,7 @@ http.interceptors.response.use(
         const status = error.response?.status;
         const errorMsg = getApiErrorMessage(error, "");
 
-        if (status === 401 && config && !config._authRetry && !isAuthEndpoint(config.url)) {
+        if (status === HTTP_STATUS.UNAUTHORIZED && config && !config._authRetry && !isAuthEndpoint(config.url)) {
             config._authRetry = true;
             try {
                 await refreshAccessToken();
@@ -104,7 +105,7 @@ http.interceptors.response.use(
             }
         }
 
-        if (status === 403 && !config?._retry && String(errorMsg).includes("CSRF")) {
+        if (status === HTTP_STATUS.FORBIDDEN && !config?._retry && String(errorMsg).includes("CSRF")) {
             try {
                 config._retry = true;
                 csrfTokenCache = "";

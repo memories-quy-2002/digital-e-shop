@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { HTTP_STATUS } from "../../../constants/http-status";
 import { Helmet } from "react-helmet-async";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { EyeIcon, EyeOffIcon } from "../../../components/common/Icons";
@@ -112,7 +113,7 @@ const LoginPage = () => {
                 const axiosError = err as { response?: { status?: number } };
                 const status = axiosError.response?.status;
                 const responseMessage = getApiErrorMessage(err, "");
-                const message = status === 500
+                const message = status === HTTP_STATUS.INTERNAL_SERVER_ERROR
                     ? "The account service is temporarily unavailable. Please try again later."
                     : responseMessage || "We couldn't complete sign in. Please try again.";
                 setErrors([message]);

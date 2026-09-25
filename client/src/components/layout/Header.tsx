@@ -1,4 +1,5 @@
 import React, { JSX, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { HTTP_STATUS } from "../../constants/http-status";
 import { BoxSeamIcon, CartIcon, BellIcon, CheckCircleIcon, HeartIcon, PersonIcon, SearchIcon, SpeedometerIcon } from "../common/Icons";
 import ColorSchemeDropdown from "../common/ColorSchemeDropdown";
 import LanguageDropdown from "../common/LanguageDropdown";
@@ -112,7 +113,7 @@ export const Header = (): JSX.Element => {
     const handleLogout = async () => {
         try {
             const response = await axios.post("/api/users/logout");
-            if (response.status === 200) {
+            if (response.status === HTTP_STATUS.OK) {
                 await signOutFirebaseUser();
                 setUserData(null);
                 addToast(t("common.logout"), getApiSuccessMessage(response.data, "Logged out"));
@@ -235,7 +236,7 @@ export const Header = (): JSX.Element => {
             axios
                 .get(`/api/products/search?q=${encodeURIComponent(normalizedTerm)}&limit=6`)
                 .then((response) => {
-                    if (response.status === 200) {
+                    if (response.status === HTTP_STATUS.OK) {
                         setSearchResults(response.data.products || []);
                     } else {
                         setSearchResults([]);

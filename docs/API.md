@@ -280,7 +280,8 @@ exceed the payment ledger balance. Pagination is bounded to 100 rows.
 
 The local mock PayOS flow uses POST /api/orders/mock-payos/confirm with the
 exact order code, payment link reference, and VND amount. It does not call an
-external payment provider.
+external payment provider and is disabled in production. Orders whose payment
+ledger is marked simulated cannot transition to delivered status.
 
 ### Admin operations
 
@@ -338,8 +339,10 @@ payment. The verified webhook is the payment finalization signal.
 
 PayOS webhook processing verifies the signature, stores the event, claims it
 idempotently, and checks the exact VND amount, order code, and payment-link
-reference. The response reports processed, ignored, mismatch, or retryable
-outcomes. PayOS configuration requires PAYOS_CLIENT_ID, PAYOS_API_KEY, and
+reference. Only the SDK-verified signed `data` determines payment state; outer
+envelope status fields are ignored. The response reports processed, ignored,
+mismatch, or retryable outcomes. Production requires
+`PAYMENT_PROVIDER_MODE=live` and PAYOS_CLIENT_ID, PAYOS_API_KEY, and
 PAYOS_CHECKSUM_KEY.
 
 Payment reconciliation accepts these provider values:

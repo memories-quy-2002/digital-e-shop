@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "../../../context/AuthContext";
 import { useT } from "../../../hooks/useT";
@@ -49,18 +49,18 @@ const AddressBookPage = () => {
     const [pendingDeleteAddress, setPendingDeleteAddress] = useState<CustomerAddress | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const loadAddresses = async () => {
+    const loadAddresses = useCallback(async () => {
         if (!uid) return;
         try {
             setAddresses(await fetchCustomerAddresses(uid));
         } catch {
             addToast(t("addresses.toastTitle"), t("addresses.loadError"));
         }
-    };
+    }, [addToast, t, uid]);
 
     useEffect(() => {
-        loadAddresses();
-    }, [uid]);
+        void loadAddresses();
+    }, [loadAddresses]);
 
     const handleEdit = (address: CustomerAddress) => {
         setForm({

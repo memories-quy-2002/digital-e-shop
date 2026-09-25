@@ -1,6 +1,17 @@
 import { Injectable } from "@nestjs/common";
 import type { TransactionContext } from "../database/transaction";
 import type { InsertResult } from "../shared/interfaces/domain";
+import {
+    PAYMENT_PROVIDER,
+    PAYMENT_STATUS,
+    PAYMENT_RECONCILIATION_STATUS,
+    PAYMENT_RECONCILIATION_TARGET_TYPE,
+    PAYMENT_WEBHOOK_EVENT_STATUS,
+    PAYMENT_PROVIDER_STATUS,
+    type PaymentReconciliationTargetType,
+} from "./payment.types";
+import { CHECKOUT_RESERVATION_STATUS } from "#src/shared/constants/checkout-reservation";
+import { PAYMENT_RECONCILIATION_LIMIT } from "./payment-reconciliation.constants";
 
 export type WebhookEventInput = {
     provider: string; eventKey: string; eventType: string; payloadHash: string;
@@ -11,7 +22,7 @@ export type WebhookClaim = { inserted: boolean; eventId: number; status: string;
 export type WebhookCompletionGuard = { expectedStatus: string; expectedAttemptCount: number };
 export const PAYOS_PROCESSING_LEASE_SECONDS = 15 * 60;
 export type ReconciliationCandidate = {
-    target_type: "pending_checkout" | "order_payment"; target_id: number; provider: string;
+    target_type: PaymentReconciliationTargetType; target_id: number; provider: string;
     local_status: string; reconciliation_status: string; provider_reference: string | null;
     provider_order_code: number | string | null; payment_amount: number | string | null;
     payment_currency: string | null; reservation_expires_at?: string | Date | null; order_id?: number | null;
@@ -56,26 +67,26 @@ export class PaymentReconciliationRepository {
         if (!event) throw new Error("Webhook event claim disappeared");
         const matches = event.payload_hash === input.payloadHash;
         const attemptCount = Number(event.attempt_count || 0);
-        if (matches && event.status === "PROCESSING") {
+        if (matches && event.status === PAYMENT_WEBHOOK_EVENT_STATUS.PROCESSING) {
             const recovery = await tx.query<{ affectedRows?: number }>(
                 `UPDATE payment_webhook_events
                  SET attempt_count = attempt_count + 1, last_error = NULL, updated_at = UTC_TIMESTAMP()
-                 WHERE id = ? AND status = 'PROCESSING' AND payload_hash = ? AND attempt_count = ?
+                 WHERE id = ? AND status = '${PAYMENT_WEBHOOK_EVENT_STATUS.PROCESSING}' AND payload_hash = ? AND attempt_count = ?
                    AND updated_at <= UTC_TIMESTAMP() - INTERVAL ? SECOND`,
                 [event.id, input.payloadHash, attemptCount, PAYOS_PROCESSING_LEASE_SECONDS],
             );
             if (recovery.affectedRows === 1) {
-                return { inserted: false, eventId: Number(event.id), status: "PROCESSING", payloadHashMatches: true, attemptCount: attemptCount + 1, reclaimed: true };
+                return { inserted: false, eventId: Number(event.id), status: PAYMENT_WEBHOOK_EVENT_STATUS.PROCESSING, payloadHashMatches: true, attemptCount: attemptCount + 1, reclaimed: true };
             }
         }
-        return { inserted: result.affectedRows === 1, eventId: Number(event.id), status: event.status, payloadHashMatches: matches, attemptCount, ...(matches && event.status === "PROCESSING" ? { reclaimed: false } : {}), ...(matches ? {} : { conflict: true }) };
+        return { inserted: result.affectedRows === 1, eventId: Number(event.id), status: event.status, payloadHashMatches: matches, attemptCount, ...(matches && event.status === PAYMENT_WEBHOOK_EVENT_STATUS.PROCESSING ? { reclaimed: false } : {}), ...(matches ? {} : { conflict: true }) };
     }
 
     async completeWebhookEvent(tx: TransactionContext, eventId: number, status: string, error: string | null, guard: WebhookCompletionGuard): Promise<boolean> {
         const result = await tx.query<{ affectedRows?: number }>(
             `UPDATE payment_webhook_events
-             SET status = ?, last_error = ?, attempt_count = attempt_count + CASE WHEN ? = 'PROCESSING' THEN 1 ELSE 0 END,
-                 processed_at = CASE WHEN ? IN ('PROCESSED', 'IGNORED', 'MISMATCH') THEN UTC_TIMESTAMP() ELSE processed_at END,
+             SET status = ?, last_error = ?, attempt_count = attempt_count + CASE WHEN ? = '${PAYMENT_WEBHOOK_EVENT_STATUS.PROCESSING}' THEN 1 ELSE 0 END,
+                 processed_at = CASE WHEN ? IN ('${PAYMENT_WEBHOOK_EVENT_STATUS.PROCESSED}', '${PAYMENT_WEBHOOK_EVENT_STATUS.IGNORED}', '${PAYMENT_WEBHOOK_EVENT_STATUS.MISMATCH}') THEN UTC_TIMESTAMP() ELSE processed_at END,
                  updated_at = UTC_TIMESTAMP()
              WHERE id = ? AND status = ? AND attempt_count = ?`,
             [status, error ?? null, status, status, eventId, guard.expectedStatus, guard.expectedAttemptCount],
@@ -85,10 +96,10 @@ export class PaymentReconciliationRepository {
 
     async listCandidates(filters: CandidateFilters, tx: TransactionContext): Promise<CandidatePage> {
         const page = Math.max(1, Math.floor(filters.page || 1));
-        const limit = Math.min(100, Math.max(1, Math.floor(filters.limit || 50)));
+        const limit = Math.min(PAYMENT_RECONCILIATION_LIMIT.MAX, Math.max(1, Math.floor(filters.limit || PAYMENT_RECONCILIATION_LIMIT.DEFAULT)));
         const orderConditions: string[] = [];
         const orderValues: unknown[] = [];
-        const pendingConditions: string[] = ["pc.status = 'PENDING'"];
+        const pendingConditions: string[] = [`pc.status = '${CHECKOUT_RESERVATION_STATUS.PENDING}'`];
         const pendingValues: unknown[] = [];
 
         if (filters.provider) {
@@ -100,11 +111,11 @@ export class PaymentReconciliationRepository {
         if (filters.reconciliationStatus) {
             orderConditions.push("op.reconciliation_status = ?");
             orderValues.push(filters.reconciliationStatus);
-            if (filters.reconciliationStatus !== "PENDING") {
+            if (filters.reconciliationStatus !== PAYMENT_RECONCILIATION_STATUS.PENDING) {
                 pendingConditions.push("1 = 0");
             }
         } else {
-            orderConditions.push("(op.provider <> 'payos' OR op.reconciliation_status <> 'MATCHED')");
+            orderConditions.push(`(op.provider <> '${PAYMENT_PROVIDER.PAYOS}' OR op.reconciliation_status <> '${PAYMENT_RECONCILIATION_STATUS.MATCHED}')`);
         }
 
         const orderWhere = orderConditions.length ? `WHERE ${orderConditions.join(" AND ")}` : "";
@@ -120,13 +131,13 @@ export class PaymentReconciliationRepository {
         const total = Number(countRows[0]?.total || 0);
         const rows = await tx.query<ReconciliationCandidate[]>(
             `SELECT * FROM (
-                SELECT 'order_payment' AS target_type, op.id AS target_id, op.provider, op.status AS local_status,
+                SELECT '${PAYMENT_RECONCILIATION_TARGET_TYPE.ORDER_PAYMENT}' AS target_type, op.id AS target_id, op.provider, op.status AS local_status,
                        op.reconciliation_status, op.provider_reference, NULL AS provider_order_code,
                        op.amount AS payment_amount, op.currency AS payment_currency, NULL AS reservation_expires_at, op.order_id
                 FROM order_payments op ${orderWhere}
                 UNION ALL
-                SELECT 'pending_checkout' AS target_type, pc.id AS target_id, pc.payment_provider AS provider, pc.status AS local_status,
-                       'PENDING' AS reconciliation_status, pc.provider_reference, pc.provider_order_code,
+                SELECT '${PAYMENT_RECONCILIATION_TARGET_TYPE.PENDING_CHECKOUT}' AS target_type, pc.id AS target_id, pc.payment_provider AS provider, pc.status AS local_status,
+                       '${PAYMENT_RECONCILIATION_STATUS.PENDING}' AS reconciliation_status, pc.provider_reference, pc.provider_order_code,
                        pc.payment_amount, pc.payment_currency, pc.expires_at AS reservation_expires_at, NULL AS order_id
                 FROM pending_checkouts pc ${pendingWhere}
             ) candidates ORDER BY target_id DESC LIMIT ? OFFSET ?`, [...values, limit, (page - 1) * limit],
@@ -164,11 +175,11 @@ export class PaymentReconciliationRepository {
     async confirmCashPayment(tx: TransactionContext, orderPaymentId: number) {
         await tx.query(
             `UPDATE order_payments
-             SET status = 'paid', paid_at = COALESCE(paid_at, UTC_TIMESTAMP()),
-                 reconciliation_status = 'MANUAL_CONFIRMED', provider_status = 'COLLECTED',
+             SET status = '${PAYMENT_STATUS.PAID}', paid_at = COALESCE(paid_at, UTC_TIMESTAMP()),
+                 reconciliation_status = '${PAYMENT_RECONCILIATION_STATUS.MANUAL_CONFIRMED}', provider_status = '${PAYMENT_PROVIDER_STATUS.CASH_COLLECTED}',
                  last_reconciled_at = UTC_TIMESTAMP(), last_reconciliation_error = NULL,
                  updated_at = UTC_TIMESTAMP()
-             WHERE id = ? AND provider = 'cash' AND status IN ('pending', 'paid')`,
+             WHERE id = ? AND provider = '${PAYMENT_PROVIDER.CASH}' AND status IN ('${PAYMENT_STATUS.PENDING}', '${PAYMENT_STATUS.PAID}')`,
             [orderPaymentId],
         );
         return this.getOrderPaymentForUpdate(tx, orderPaymentId);

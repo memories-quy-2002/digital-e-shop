@@ -1,4 +1,5 @@
 import React, { useEffect, useEffectEvent } from "react";
+import { HTTP_STATUS } from "../../../constants/http-status";
 import { AxiosError } from "axios";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import http from "../../../lib/http";
@@ -21,7 +22,7 @@ const withSessionCheck = (WrappedComponent: React.ComponentType) => {
                     await http.get("/api/users/session/check");
                 }
             } catch (err: unknown) {
-                if (err instanceof AxiosError && err.response?.status === 401) {
+                if (err instanceof AxiosError && err.response?.status === HTTP_STATUS.UNAUTHORIZED) {
                     setUserData(null);
                     addToast("Session expired", "Please login again.");
                     navigate(buildLoginRedirectPath(location), { replace: true });
@@ -35,7 +36,7 @@ const withSessionCheck = (WrappedComponent: React.ComponentType) => {
             void checkSession();
             const intervalId = setInterval(checkSession, 300000);
             return () => clearInterval(intervalId);
-        }, [checkSession, loading, userData]);
+        }, [loading, userData]);
 
         if (loading) {
             return <LoadingScreen variant="page" />;
