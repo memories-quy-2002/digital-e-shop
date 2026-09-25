@@ -56,11 +56,13 @@ vi.mock("../components/common/WishlistItem", () => ({
     default: ({
         item,
         alertPreference,
+        alertPreferencesLoaded,
         onAlertToggle,
         onRemoveWishlist,
     }: {
         item: { product: { id: number; name: string } };
         alertPreference?: { priceDropEnabled: boolean; backInStockEnabled: boolean };
+        alertPreferencesLoaded?: boolean;
         onAlertToggle: (productId: number, key: "priceDropEnabled" | "backInStockEnabled", enabled: boolean) => void;
         onRemoveWishlist: (productId: number) => void;
     }) => (
@@ -71,6 +73,7 @@ vi.mock("../components/common/WishlistItem", () => ({
                 role="switch"
                 aria-label="Price drop"
                 aria-checked={alertPreference?.priceDropEnabled ?? false}
+                disabled={alertPreferencesLoaded === false}
                 onClick={() => onAlertToggle(item.product.id, "priceDropEnabled", !(alertPreference?.priceDropEnabled ?? false))}
             />
             <button
@@ -78,6 +81,7 @@ vi.mock("../components/common/WishlistItem", () => ({
                 role="switch"
                 aria-label="Back in stock"
                 aria-checked={alertPreference?.backInStockEnabled ?? false}
+                disabled={alertPreferencesLoaded === false}
                 onClick={() => onAlertToggle(item.product.id, "backInStockEnabled", !(alertPreference?.backInStockEnabled ?? false))}
             />
             <button type="button" onClick={() => onRemoveWishlist(item.product.id)}>
@@ -196,5 +200,19 @@ describe("Wishlist alert controls", () => {
 
         await waitFor(() => expect(mocks.alerts.fetchProductAlerts).toHaveBeenCalledTimes(2));
         await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    });
+
+    it("keeps alert controls unavailable after preference loading fails", async () => {
+        mocks.alerts.fetchProductAlerts.mockRejectedValueOnce(new Error("unavailable"));
+
+        renderWishlist();
+
+        expect(await screen.findByTestId("wishlist-1")).toBeInTheDocument();
+        expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load product alerts.");
+        expect(screen.getAllByRole("switch", { name: "Price drop" })[0]).toBeDisabled();
+        expect(screen.getAllByRole("switch", { name: "Back in stock" })[0]).toBeDisabled();
+
+        fireEvent.click(screen.getAllByRole("switch", { name: "Back in stock" })[0]);
+        expect(mocks.alerts.updateProductAlert).not.toHaveBeenCalled();
     });
 });

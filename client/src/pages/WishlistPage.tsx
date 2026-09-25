@@ -32,6 +32,8 @@ const WishlistPage = () => {
     const [alertSavedByProductId, setAlertSavedByProductId] = useState<Record<number, boolean>>({});
     const [alertErrors, setAlertErrors] = useState<Record<number, string | null>>({});
     const [alertLoadError, setAlertLoadError] = useState<string | null>(null);
+    const [alertPreferencesLoaded, setAlertPreferencesLoaded] = useState(false);
+    const [isLoadingAlertPreferences, setIsLoadingAlertPreferences] = useState(false);
     const { userData } = useAuth();
     const uid = userData?.id || "";
     const { addToast } = useToast();
@@ -40,9 +42,13 @@ const WishlistPage = () => {
     const loadAlertPreferences = useCallback(async () => {
         if (!uid) {
             setAlertLoadError(null);
+            setAlertPreferencesLoaded(true);
+            setIsLoadingAlertPreferences(false);
             return;
         }
 
+        setAlertPreferencesLoaded(false);
+        setIsLoadingAlertPreferences(true);
         try {
             const preferences = await fetchProductAlerts(uid);
             setAlertPreferences(preferences.reduce<Record<number, ProductAlertPreference>>((accumulator, preference) => {
@@ -50,8 +56,11 @@ const WishlistPage = () => {
                 return accumulator;
             }, {}));
             setAlertLoadError(null);
+            setAlertPreferencesLoaded(true);
         } catch {
             setAlertLoadError(t("wishlistAlerts.loadError"));
+        } finally {
+            setIsLoadingAlertPreferences(false);
         }
     }, [t, uid]);
 
@@ -135,7 +144,7 @@ const WishlistPage = () => {
     };
 
     const handleAlertToggle = async (productId: number, key: ProductAlertKey, enabled: boolean) => {
-        if (!uid || alertSavingByProductId[productId]) return;
+        if (!uid || !alertPreferencesLoaded || alertSavingByProductId[productId]) return;
 
         const previousPreference = alertPreferences[productId] || {
             productId,
@@ -328,6 +337,8 @@ const WishlistPage = () => {
                                 onMoveToCart={handleMoveToCart}
                                 onRemoveWishlist={handleRemoveWishlist}
                                 alertPreference={alertPreferences[item.product.id]}
+                                alertPreferencesLoaded={alertPreferencesLoaded}
+                                alertPreferencesLoading={isLoadingAlertPreferences}
                                 alertSaving={Boolean(alertSavingByProductId[item.product.id])}
                                 alertSaved={Boolean(alertSavedByProductId[item.product.id])}
                                 alertError={alertErrors[item.product.id]}

@@ -1,52 +1,52 @@
-import { Injectable } from '@nestjs/common'
-import pool from '#src/config/database.config'
-const prisma = require('#src/database/prisma/client')
-import type { CountRow, IdNameRow, UpdateResult } from '#src/shared/interfaces/domain'
+import { Injectable } from "@nestjs/common";
+import pool from "#src/config/database.config";
+const prisma = require("#src/database/prisma/client");
+import type { CountRow, IdNameRow, UpdateResult } from "#src/shared/interfaces/domain";
 import type {
     ProductComparisonRow,
     ProductEditorRow,
     ProductFacetValueRow,
     ProductPriceBoundsRow,
-} from './products.types'
-import type { AttributeFilter } from './product-attributes.types'
+} from "./products.types";
+import type { AttributeFilter } from "./product-attributes.types";
 
 type ProductInsertRecord = {
-    name: string
-    description: string
-    fileName: string
-    categoryId: number
-    brandId: number
-    specifications?: string
-    sku: string
-    manufacturerPartNumber?: string | null
-    warrantyMonths?: number | null
-    price: number
-    inventory: number
-}
+    name: string;
+    description: string;
+    fileName: string;
+    categoryId: number;
+    brandId: number;
+    specifications?: string;
+    sku: string;
+    manufacturerPartNumber?: string | null;
+    warrantyMonths?: number | null;
+    price: number;
+    inventory: number;
+};
 
 type ProductUpdateRecord = {
-    name: string
-    description: string
-    categoryId: number
-    brandId: number
-    specifications?: string
-    sku: string
-    manufacturerPartNumber?: string | null
-    warrantyMonths?: number | null
-    price: number
-    salePrice?: number | null
-    stock: number
-}
+    name: string;
+    description: string;
+    categoryId: number;
+    brandId: number;
+    specifications?: string;
+    sku: string;
+    manufacturerPartNumber?: string | null;
+    warrantyMonths?: number | null;
+    price: number;
+    salePrice?: number | null;
+    stock: number;
+};
 
 type ProductListFilters = {
-    term?: string
-    categories?: string[]
-    brands?: string[]
-    minPrice?: number
-    maxPrice?: number
-    sortBy?: 'relevance' | 'price-asc' | 'price-desc' | 'rating-desc' | 'newest'
-    attributeFilters?: AttributeFilter[]
-}
+    term?: string;
+    categories?: string[];
+    brands?: string[];
+    minPrice?: number;
+    maxPrice?: number;
+    sortBy?: "relevance" | "price-asc" | "price-desc" | "rating-desc" | "newest";
+    attributeFilters?: AttributeFilter[];
+};
 
 const productRatingJoin = `
     LEFT JOIN (
@@ -54,12 +54,12 @@ const productRatingJoin = `
         FROM reviews
         GROUP BY product_id
     ) review_summary ON review_summary.product_id = products.id
-`
+`;
 
 const productRatingSelect = `
     COALESCE(review_summary.rating, 0) AS rating,
     COALESCE(review_summary.reviews, 0) AS reviews
-`
+`;
 
 const productAttributesSelect = (productAlias: string) => `
     COALESCE((
@@ -76,7 +76,7 @@ const productAttributesSelect = (productAlias: string) => `
         FROM product_attributes pa
         WHERE pa.product_id = ${productAlias}.id
     ), JSON_OBJECT()) AS attributes
-`
+`;
 
 const productAvailabilityJoin = `
     LEFT JOIN (
@@ -86,7 +86,7 @@ const productAvailabilityJoin = `
         WHERE pc.status = 'PENDING' AND pc.expires_at > UTC_TIMESTAMP()
         GROUP BY ir.product_id
     ) active_reservations ON active_reservations.product_id = products.id
-`
+`;
 
 const productBaseFrom = `
     FROM products
@@ -94,15 +94,15 @@ const productBaseFrom = `
     JOIN brands ON brands.id = products.brand_id
     ${productRatingJoin}
     ${productAvailabilityJoin}
-`
+`;
 
 const getProductListWhere = (filters: ProductListFilters = {}) => {
-    const conditions = ['products.stock >= 0']
-    const params: Array<string | number> = []
-    const normalizedTerm = filters.term?.trim().toLowerCase() || ''
+    const conditions = ["products.stock >= 0"];
+    const params: Array<string | number> = [];
+    const normalizedTerm = filters.term?.trim().toLowerCase() || "";
 
     if (normalizedTerm) {
-        const wildcard = `%${normalizedTerm}%`
+        const wildcard = `%${normalizedTerm}%`;
         conditions.push(`
             (
                 LOWER(products.name) LIKE ?
@@ -110,32 +110,32 @@ const getProductListWhere = (filters: ProductListFilters = {}) => {
                 OR LOWER(categories.name) LIKE ?
                 OR LOWER(COALESCE(products.description, '')) LIKE ?
             )
-        `)
-        params.push(wildcard, wildcard, wildcard, wildcard)
+        `);
+        params.push(wildcard, wildcard, wildcard, wildcard);
     }
 
     if (filters.categories && filters.categories.length > 0) {
-        conditions.push(`categories.name IN (${filters.categories.map(() => '?').join(', ')})`)
-        params.push(...filters.categories)
+        conditions.push(`categories.name IN (${filters.categories.map(() => "?").join(", ")})`);
+        params.push(...filters.categories);
     }
 
     if (filters.brands && filters.brands.length > 0) {
-        conditions.push(`brands.name IN (${filters.brands.map(() => '?').join(', ')})`)
-        params.push(...filters.brands)
+        conditions.push(`brands.name IN (${filters.brands.map(() => "?").join(", ")})`);
+        params.push(...filters.brands);
     }
 
-    if (typeof filters.minPrice === 'number' && Number.isFinite(filters.minPrice)) {
-        conditions.push('COALESCE(products.sale_price, products.price) >= ?')
-        params.push(filters.minPrice)
+    if (typeof filters.minPrice === "number" && Number.isFinite(filters.minPrice)) {
+        conditions.push("COALESCE(products.sale_price, products.price) >= ?");
+        params.push(filters.minPrice);
     }
 
-    if (typeof filters.maxPrice === 'number' && Number.isFinite(filters.maxPrice)) {
-        conditions.push('COALESCE(products.sale_price, products.price) <= ?')
-        params.push(filters.maxPrice)
+    if (typeof filters.maxPrice === "number" && Number.isFinite(filters.maxPrice)) {
+        conditions.push("COALESCE(products.sale_price, products.price) <= ?");
+        params.push(filters.maxPrice);
     }
 
     for (const filter of filters.attributeFilters || []) {
-        if ('textValues' in filter && filter.textValues.length > 0) {
+        if ("textValues" in filter && filter.textValues.length > 0) {
             conditions.push(`EXISTS (
                 SELECT 1
                 FROM product_attributes pa
@@ -143,12 +143,12 @@ const getProductListWhere = (filters: ProductListFilters = {}) => {
                   AND pa.attribute_key = ?
                   AND pa.value_type = 'text'
                   AND pa.filterable = 1
-                  AND pa.text_value IN (${filter.textValues.map(() => '?').join(', ')})
-            )`)
-            params.push(filter.key, ...filter.textValues)
+                  AND pa.text_value IN (${filter.textValues.map(() => "?").join(", ")})
+            )`);
+            params.push(filter.key, ...filter.textValues);
         }
 
-        if ('min' in filter && Number.isFinite(filter.min)) {
+        if ("min" in filter && Number.isFinite(filter.min)) {
             conditions.push(`EXISTS (
                 SELECT 1
                 FROM product_attributes pa
@@ -157,29 +157,29 @@ const getProductListWhere = (filters: ProductListFilters = {}) => {
                   AND pa.value_type = 'number'
                   AND pa.filterable = 1
                   AND pa.number_value >= ?
-                  ${typeof filter.max === 'number' && Number.isFinite(filter.max) ? 'AND pa.number_value <= ?' : ''}
-            )`)
-            params.push(filter.key, filter.min)
-            if (typeof filter.max === 'number' && Number.isFinite(filter.max)) params.push(filter.max)
+                  ${typeof filter.max === "number" && Number.isFinite(filter.max) ? "AND pa.number_value <= ?" : ""}
+            )`);
+            params.push(filter.key, filter.min);
+            if (typeof filter.max === "number" && Number.isFinite(filter.max)) params.push(filter.max);
         }
     }
 
-    return { normalizedTerm, whereClause: `WHERE ${conditions.join(' AND ')}`, params }
-}
+    return { normalizedTerm, whereClause: `WHERE ${conditions.join(" AND ")}`, params };
+};
 
 const getProductListOrderBy = (filters: ProductListFilters = {}) => {
-    const normalizedTerm = filters.term?.trim().toLowerCase() || ''
+    const normalizedTerm = filters.term?.trim().toLowerCase() || "";
 
-    if (filters.sortBy === 'price-asc') {
-        return 'ORDER BY COALESCE(products.sale_price, products.price) ASC, products.id DESC'
+    if (filters.sortBy === "price-asc") {
+        return "ORDER BY COALESCE(products.sale_price, products.price) ASC, products.id DESC";
     }
 
-    if (filters.sortBy === 'price-desc') {
-        return 'ORDER BY COALESCE(products.sale_price, products.price) DESC, products.id DESC'
+    if (filters.sortBy === "price-desc") {
+        return "ORDER BY COALESCE(products.sale_price, products.price) DESC, products.id DESC";
     }
 
-    if (filters.sortBy === 'rating-desc') {
-        return 'ORDER BY COALESCE(review_summary.rating, 0) DESC, COALESCE(review_summary.reviews, 0) DESC, products.id DESC'
+    if (filters.sortBy === "rating-desc") {
+        return "ORDER BY COALESCE(review_summary.rating, 0) DESC, COALESCE(review_summary.reviews, 0) DESC, products.id DESC";
     }
 
     if (normalizedTerm) {
@@ -196,25 +196,25 @@ const getProductListOrderBy = (filters: ProductListFilters = {}) => {
                     + CASE WHEN products.sale_price IS NOT NULL AND products.sale_price < products.price THEN 3 ELSE 0 END
                 ) DESC,
                 products.id DESC
-        `
+        `;
     }
 
-    return 'ORDER BY products.id DESC'
-}
+    return "ORDER BY products.id DESC";
+};
 
 const getProductListOrderParams = (filters: ProductListFilters = {}) => {
-    const normalizedTerm = filters.term?.trim().toLowerCase() || ''
+    const normalizedTerm = filters.term?.trim().toLowerCase() || "";
     if (
         !normalizedTerm ||
-        filters.sortBy === 'price-asc' ||
-        filters.sortBy === 'price-desc' ||
-        filters.sortBy === 'rating-desc'
+        filters.sortBy === "price-asc" ||
+        filters.sortBy === "price-desc" ||
+        filters.sortBy === "rating-desc"
     ) {
-        return []
+        return [];
     }
 
-    return [normalizedTerm, `${normalizedTerm}%`, normalizedTerm, normalizedTerm, `%${normalizedTerm}%`]
-}
+    return [normalizedTerm, `${normalizedTerm}%`, normalizedTerm, normalizedTerm, `%${normalizedTerm}%`];
+};
 
 @Injectable()
 export class NestProductsRepository {
@@ -237,55 +237,47 @@ export class NestProductsRepository {
                     product.inventory,
                 ],
                 (err: Error | null, result: UpdateResult) => {
-                    if (err) return reject(err)
-                    resolve(result)
+                    if (err) return reject(err);
+                    resolve(result);
                 },
-            )
-        })
+            );
+        });
     }
 
     findCategoryByName(category: string): Promise<IdNameRow[]> {
         return new Promise((resolve, reject) => {
-            pool.query(
-                'SELECT id FROM categories WHERE name = ?',
-                [category],
-                (err: Error | null, rows: IdNameRow[]) => {
-                    if (err) return reject(err)
-                    resolve(rows)
-                },
-            )
-        })
+            pool.query("SELECT id FROM categories WHERE name = ?", [category], (err: Error | null, rows: IdNameRow[]) => {
+                if (err) return reject(err);
+                resolve(rows);
+            });
+        });
     }
 
     insertCategory(category: string): Promise<UpdateResult> {
         return new Promise((resolve, reject) => {
-            pool.query(
-                'INSERT INTO categories (name) VALUES (?)',
-                [category],
-                (err: Error | null, result: UpdateResult) => {
-                    if (err) return reject(err)
-                    resolve(result)
-                },
-            )
-        })
+            pool.query("INSERT INTO categories (name) VALUES (?)", [category], (err: Error | null, result: UpdateResult) => {
+                if (err) return reject(err);
+                resolve(result);
+            });
+        });
     }
 
     findBrandByName(brand: string): Promise<IdNameRow[]> {
         return new Promise((resolve, reject) => {
-            pool.query('SELECT id FROM brands WHERE name = ?', [brand], (err: Error | null, rows: IdNameRow[]) => {
-                if (err) return reject(err)
-                resolve(rows)
-            })
-        })
+            pool.query("SELECT id FROM brands WHERE name = ?", [brand], (err: Error | null, rows: IdNameRow[]) => {
+                if (err) return reject(err);
+                resolve(rows);
+            });
+        });
     }
 
     insertBrand(brand: string): Promise<UpdateResult> {
         return new Promise((resolve, reject) => {
-            pool.query('INSERT INTO brands (name) VALUES (?)', [brand], (err: Error | null, result: UpdateResult) => {
-                if (err) return reject(err)
-                resolve(result)
-            })
-        })
+            pool.query("INSERT INTO brands (name) VALUES (?)", [brand], (err: Error | null, result: UpdateResult) => {
+                if (err) return reject(err);
+                resolve(result);
+            });
+        });
     }
 
     getProductById(pid: number): Promise<ProductEditorRow | null> {
@@ -294,7 +286,7 @@ export class NestProductsRepository {
                 `SELECT products.id, products.name, description, categories.name AS category,
                     brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, price, sale_price, stock,
                     GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
-                    specifications, ${productAttributesSelect('products')}, ${productRatingSelect}
+                    specifications, ${productAttributesSelect("products")}, ${productRatingSelect}
                 FROM products
                 JOIN categories ON categories.id = products.category_id
                 JOIN brands ON brands.id = products.brand_id
@@ -303,54 +295,54 @@ export class NestProductsRepository {
                 WHERE products.id = ? AND products.stock >= 0`,
                 [pid],
                 (err: Error | null, rows: ProductEditorRow[]) => {
-                    if (err) return reject(err)
-                    resolve(rows.length > 0 ? rows[0] : null)
+                    if (err) return reject(err);
+                    resolve(rows.length > 0 ? rows[0] : null);
                 },
-            )
-        })
+            );
+        });
     }
 
     getProductsForComparison(productIds: number[]): Promise<ProductComparisonRow[]> {
         if (productIds.length === 0) {
-            return Promise.resolve([])
+            return Promise.resolve([]);
         }
 
-        const placeholders = productIds.map(() => '?').join(', ')
+        const placeholders = productIds.map(() => "?").join(", ");
         const selectFragments = [
-            'products.id',
-            'products.name',
-            'products.description',
-            'products.category_id AS categoryId',
-            'categories.name AS category',
-            'brands.name AS brand',
-            'products.sku',
-            'products.manufacturer_part_number',
-            'products.warranty_months',
-            'products.price',
-            'products.sale_price',
-            'products.stock',
-            'GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock',
-            'products.main_image',
-            'products.specifications',
-            productAttributesSelect('products'),
+            "products.id",
+            "products.name",
+            "products.description",
+            "products.category_id AS categoryId",
+            "categories.name AS category",
+            "brands.name AS brand",
+            "products.sku",
+            "products.manufacturer_part_number",
+            "products.warranty_months",
+            "products.price",
+            "products.sale_price",
+            "products.stock",
+            "GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock",
+            "products.main_image",
+            "products.specifications",
+            productAttributesSelect("products"),
             productRatingSelect,
-        ].join(', ')
+        ].join(", ");
         const sql = [
             `SELECT ${selectFragments}`,
-            'FROM products',
-            'JOIN categories ON categories.id = products.category_id',
-            'JOIN brands ON brands.id = products.brand_id',
+            "FROM products",
+            "JOIN categories ON categories.id = products.category_id",
+            "JOIN brands ON brands.id = products.brand_id",
             productRatingJoin,
             productAvailabilityJoin,
             `WHERE products.id IN (${placeholders}) AND products.stock >= 0`,
-        ].join('\n')
+        ].join("\n");
 
         return new Promise((resolve, reject) => {
             pool.query(sql, productIds, (err: Error | null, rows: ProductComparisonRow[]) => {
-                if (err) return reject(err)
-                resolve(rows || [])
-            })
-        })
+                if (err) return reject(err);
+                resolve(rows || []);
+            });
+        });
     }
 
     getAllProducts(): Promise<ProductEditorRow[]> {
@@ -359,16 +351,16 @@ export class NestProductsRepository {
                 `SELECT products.id, products.name, description, categories.name AS category,
                     brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, price, sale_price, stock,
                     GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
-                    specifications, ${productAttributesSelect('products')}, ${productRatingSelect}
+                    specifications, ${productAttributesSelect("products")}, ${productRatingSelect}
                 ${productBaseFrom}
                 WHERE products.stock >= 0
                 ORDER BY products.id DESC`,
                 (err: Error | null, rows: ProductEditorRow[]) => {
-                    if (err) return reject(err)
-                    resolve(rows)
+                    if (err) return reject(err);
+                    resolve(rows);
                 },
-            )
-        })
+            );
+        });
     }
 
     getAllProductsPaginated(limit: number, offset: number): Promise<ProductEditorRow[]> {
@@ -377,46 +369,46 @@ export class NestProductsRepository {
                 `SELECT products.id, products.name, description, categories.name AS category,
                     brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, price, sale_price, stock,
                     GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
-                    specifications, ${productAttributesSelect('products')}, ${productRatingSelect}
+                    specifications, ${productAttributesSelect("products")}, ${productRatingSelect}
                 ${productBaseFrom}
                 WHERE products.stock >= 0
                 ORDER BY products.id DESC
                 LIMIT ? OFFSET ?`,
                 [limit, offset],
                 (err: Error | null, rows: ProductEditorRow[]) => {
-                    if (err) return reject(err)
-                    resolve(rows)
+                    if (err) return reject(err);
+                    resolve(rows);
                 },
-            )
-        })
+            );
+        });
     }
 
     getProductsByFilters(filters: ProductListFilters, limit: number, offset: number): Promise<ProductEditorRow[]> {
-        const { whereClause, params } = getProductListWhere(filters)
-        const orderByClause = getProductListOrderBy(filters)
-        const orderParams = getProductListOrderParams(filters)
+        const { whereClause, params } = getProductListWhere(filters);
+        const orderByClause = getProductListOrderBy(filters);
+        const orderParams = getProductListOrderParams(filters);
 
         return new Promise((resolve, reject) => {
             pool.query(
                 `SELECT products.id, products.name, description, categories.name AS category,
                     brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, price, sale_price, stock,
                     GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
-                    specifications, ${productAttributesSelect('products')}, ${productRatingSelect}
+                    specifications, ${productAttributesSelect("products")}, ${productRatingSelect}
                 ${productBaseFrom}
                 ${whereClause}
                 ${orderByClause}
                 LIMIT ? OFFSET ?`,
                 [...params, ...orderParams, limit, offset],
                 (err: Error | null, rows: ProductEditorRow[]) => {
-                    if (err) return reject(err)
-                    resolve(rows)
+                    if (err) return reject(err);
+                    resolve(rows);
                 },
-            )
-        })
+            );
+        });
     }
 
     countProductsByFilters(filters: ProductListFilters): Promise<number> {
-        const { whereClause, params } = getProductListWhere(filters)
+        const { whereClause, params } = getProductListWhere(filters);
 
         return new Promise((resolve, reject) => {
             pool.query(
@@ -425,37 +417,37 @@ export class NestProductsRepository {
                 ${whereClause}`,
                 params,
                 (err: Error | null, rows: CountRow[]) => {
-                    if (err) return reject(err)
-                    resolve(rows?.[0]?.total || 0)
+                    if (err) return reject(err);
+                    resolve(rows?.[0]?.total || 0);
                 },
-            )
-        })
+            );
+        });
     }
 
     searchProducts(term: string, limit: number): Promise<ProductEditorRow[]> {
-        return this.getProductsByFilters({ term, sortBy: 'relevance' }, limit, 0)
+        return this.getProductsByFilters({ term, sortBy: "relevance" }, limit, 0);
     }
 
     getProductFacets(): Promise<{
-        categories: string[]
-        brands: string[]
-        minPrice: number
-        maxPrice: number
-        totalProducts: number
+        categories: string[];
+        brands: string[];
+        minPrice: number;
+        maxPrice: number;
+        totalProducts: number;
     }> {
         return (async () => {
             const [categories, brands, priceBoundsRows, totalProducts] = await Promise.all([
                 prisma.category.findMany({
                     where: { products: { some: { stock: { gte: 0 } } } },
                     select: { name: true },
-                    distinct: ['name'],
-                    orderBy: { name: 'asc' },
+                    distinct: ["name"],
+                    orderBy: { name: "asc" },
                 }) as Promise<ProductFacetValueRow[]>,
                 prisma.brand.findMany({
                     where: { products: { some: { stock: { gte: 0 } } } },
                     select: { name: true },
-                    distinct: ['name'],
-                    orderBy: { name: 'asc' },
+                    distinct: ["name"],
+                    orderBy: { name: "asc" },
                 }) as Promise<ProductFacetValueRow[]>,
                 prisma.$queryRawUnsafe(
                     `SELECT
@@ -465,9 +457,9 @@ export class NestProductsRepository {
                      WHERE products.stock >= 0`,
                 ) as Promise<ProductPriceBoundsRow[]>,
                 prisma.product.count({ where: { stock: { gte: 0 } } }),
-            ])
+            ]);
 
-            const priceBounds = priceBoundsRows?.[0] || { min_price: 0, max_price: 0 }
+            const priceBounds = priceBoundsRows?.[0] || { min_price: 0, max_price: 0 };
 
             return {
                 categories: (categories || []).map((item) => item.name),
@@ -475,20 +467,17 @@ export class NestProductsRepository {
                 minPrice: Number(priceBounds.min_price) || 0,
                 maxPrice: Number(priceBounds.max_price) || 0,
                 totalProducts: Number(totalProducts) || 0,
-            }
-        })()
+            };
+        })();
     }
 
     getProductsCount(): Promise<number> {
         return new Promise((resolve, reject) => {
-            pool.query(
-                'SELECT COUNT(*) AS total FROM products WHERE stock >= 0',
-                (err: Error | null, rows: CountRow[]) => {
-                    if (err) return reject(err)
-                    resolve(rows?.[0]?.total || 0)
-                },
-            )
-        })
+            pool.query("SELECT COUNT(*) AS total FROM products WHERE stock >= 0", (err: Error | null, rows: CountRow[]) => {
+                if (err) return reject(err);
+                resolve(rows?.[0]?.total || 0);
+            });
+        });
     }
 
     getInventorySummary(): Promise<Record<string, number>> {
@@ -503,33 +492,29 @@ export class NestProductsRepository {
                 FROM products
                 WHERE stock >= 0`,
                 (err: Error | null, rows: Array<Record<string, number>>) => {
-                    if (err) return reject(err)
-                    resolve(rows?.[0] || {})
+                    if (err) return reject(err);
+                    resolve(rows?.[0] || {});
                 },
-            )
-        })
+            );
+        });
     }
 
     updateProductStock(pid: number, stock: number): Promise<UpdateResult> {
         return new Promise((resolve, reject) => {
-            pool.query(
-                'UPDATE products SET stock = ? WHERE id = ? AND stock >= 0',
-                [stock, pid],
-                (err: Error | null, result: UpdateResult) => {
-                    if (err) return reject(err)
-                    resolve(result)
-                },
-            )
-        })
+            pool.query("UPDATE products SET stock = ? WHERE id = ? AND stock >= 0", [stock, pid], (err: Error | null, result: UpdateResult) => {
+                if (err) return reject(err);
+                resolve(result);
+            });
+        });
     }
 
     deleteProduct(pid: number): Promise<void> {
         return new Promise((resolve, reject) => {
-            pool.query('UPDATE products SET stock = -1 WHERE id = ?', [pid], (err: Error | null) => {
-                if (err) return reject(err)
-                resolve()
-            })
-        })
+            pool.query("UPDATE products SET stock = -1 WHERE id = ?", [pid], (err: Error | null) => {
+                if (err) return reject(err);
+                resolve();
+            });
+        });
     }
 
     updateProductDetails(pid: number, product: ProductUpdateRecord): Promise<UpdateResult> {
@@ -550,11 +535,11 @@ export class NestProductsRepository {
                     pid,
                 ],
                 (err: Error | null, result: UpdateResult) => {
-                    if (err) return reject(err)
-                    resolve(result)
+                    if (err) return reject(err);
+                    resolve(result);
                 },
-            )
-        })
+            );
+        });
     }
 
     getRelevantProductsByProductId(pid: number, limit: number): Promise<ProductEditorRow[]> {
@@ -573,7 +558,7 @@ export class NestProductsRepository {
                 p.stock,
                 p.main_image,
                 p.specifications,
-                ${productAttributesSelect('p')},
+                ${productAttributesSelect("p")},
                 COALESCE(review_summary.rating, 0) AS rating,
                 COALESCE(review_summary.reviews, 0) AS reviews
             FROM products p
@@ -614,13 +599,13 @@ export class NestProductsRepository {
                 ) DESC,
                 p.id DESC
             LIMIT ?
-        `
+        `;
         return new Promise((resolve, reject) => {
             pool.query(sql, [pid, pid, limit], (err: Error | null, rows: ProductEditorRow[]) => {
-                if (err) return reject(err)
-                resolve(rows)
-            })
-        })
+                if (err) return reject(err);
+                resolve(rows);
+            });
+        });
     }
 
     getRecommendedProductsByUserId(uid: string, limit: number): Promise<ProductEditorRow[]> {
@@ -639,7 +624,7 @@ export class NestProductsRepository {
                 p.stock,
                 p.main_image,
                 p.specifications,
-                ${productAttributesSelect('p')},
+                ${productAttributesSelect("p")},
                 COALESCE(review_summary.rating, 0) AS rating,
                 COALESCE(review_summary.reviews, 0) AS reviews
             FROM products p
@@ -719,12 +704,12 @@ export class NestProductsRepository {
                 ) DESC,
                 p.id DESC
             LIMIT ?
-        `
+        `;
         return new Promise((resolve, reject) => {
             pool.query(sql, [uid, uid, uid, uid, uid, uid, limit], (err: Error | null, rows: ProductEditorRow[]) => {
-                if (err) return reject(err)
-                resolve(rows)
-            })
-        })
+                if (err) return reject(err);
+                resolve(rows);
+            });
+        });
     }
 }

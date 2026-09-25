@@ -19,6 +19,8 @@ type WishlistItemProps = {
     onMoveToCart: (product: Product) => void;
     onRemoveWishlist: (productId: number) => void;
     alertPreference?: ProductAlertPreference;
+    alertPreferencesLoaded?: boolean;
+    alertPreferencesLoading?: boolean;
     alertSaving?: boolean;
     alertSaved?: boolean;
     alertError?: string | null;
@@ -32,6 +34,8 @@ const WishlistItem = ({
     onMoveToCart,
     onRemoveWishlist,
     alertPreference,
+    alertPreferencesLoaded = true,
+    alertPreferencesLoading = false,
     alertSaving = false,
     alertSaved = false,
     alertError = null,
@@ -87,6 +91,8 @@ const WishlistItem = ({
                 <ProductAlertControls
                     preference={resolvedAlertPreference}
                     variant="wishlist"
+                    preferenceLoaded={alertPreferencesLoaded}
+                    preferenceLoading={alertPreferencesLoading}
                     saving={alertSaving}
                     saved={alertSaved}
                     error={alertError}

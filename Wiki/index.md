@@ -4,7 +4,7 @@ This Wiki records durable Digital-E understanding for maintainers and AI agents.
 
 **Project summary:** Digital-E is an electronics commerce platform built from two independent pnpm packages: a React 19 and Vite storefront/admin client in `client/`, and a NestJS 11 API on the Express 5 adapter in `server/`. MySQL remains the primary runtime database, while Prisma 7 owns a complete typed projection and partial forward-migration layer for the 30 application tables. Firebase is the only auth provider; the Firebase Auth Emulator is a local testing target.
 
-**Last updated:** 2026-09-24
+**Last updated:** 2026-09-25
 
 The current implementation includes authenticated and guest carts, server-authoritative checkout, PayOS and COD payment paths with exact VND amounts, durable verified webhooks and bounded admin reconciliation, Firebase-owned production auth emails, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, guest-friendly product comparison, customer support tickets, admin analytics, operational alerts, database-backed demo verification, read-only k6 smoke coverage, and opt-in OTLP observability. Legacy payment identifiers remain readable only for historical database compatibility.
 

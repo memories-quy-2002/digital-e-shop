@@ -57,4 +57,34 @@ describe("ProductAlertControls", () => {
         expect(screen.getAllByText("Off")).toHaveLength(1);
         expect(screen.getByText("Alert preferences updated.")).toBeInTheDocument();
     });
+
+    it("keeps unknown preferences disabled and offers a retry after a failed load", () => {
+        const onRetryLoad = vi.fn();
+        renderControls({
+            preferenceLoaded: false,
+            loadError: "Unable to load product alerts.",
+            onRetryLoad,
+        });
+
+        expect(screen.getByRole("button", { name: "Price drop" })).toBeDisabled();
+        expect(screen.getByRole("button", { name: "Back in stock" })).toBeDisabled();
+        expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+        expect(screen.queryByText("On")).not.toBeInTheDocument();
+        expect(screen.queryByText("Off")).not.toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole("button", { name: "Retry product alerts" }));
+        expect(onRetryLoad).toHaveBeenCalledOnce();
+    });
+
+    it("shows a loading state without presenting unknown preferences as off", () => {
+        renderControls({ preferenceLoaded: false, preferenceLoading: true });
+
+        expect(screen.getByRole("button", { name: "Price drop" })).toBeDisabled();
+        expect(screen.getAllByText("Loading...")).toHaveLength(2);
+        expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+        expect(screen.queryByText("On")).not.toBeInTheDocument();
+        expect(screen.queryByText("Off")).not.toBeInTheDocument();
+        expect(screen.getByTestId("product-alert-controls")).toHaveAttribute("aria-busy", "true");
+        expect(screen.queryByText("Updating alerts...")).not.toBeInTheDocument();
+    });
 });
