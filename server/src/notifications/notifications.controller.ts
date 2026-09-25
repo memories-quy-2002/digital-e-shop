@@ -5,9 +5,11 @@ import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestNotificationsService } from "./notifications.service";
 import type { CustomerNotificationRow } from "./notifications.types";
 import { notificationRouteParamsSchema, notificationsQuerySchema } from "./notifications.validator";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
+import { createHttpException } from "#src/core/errors/http-exception";
 
-function toHttpException(fallbackMessage: string): HttpException {
-    return new HttpException({ msg: fallbackMessage }, 500);
+function toHttpException(error: unknown, fallbackMessage: string): HttpException {
+    return createHttpException(error, { msg: fallbackMessage }, HTTP_STATUS.INTERNAL_SERVER_ERROR);
 }
 
 @Controller(["users/:id/notifications", "user/:id/notifications"])
@@ -29,7 +31,7 @@ export class NotificationsController {
             return { notifications, unread, msg: "Notifications retrieved successfully" };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            throw toHttpException("Unable to load notifications");
+            throw toHttpException(err, "Unable to load notifications");
         }
     }
 
@@ -40,7 +42,7 @@ export class NotificationsController {
             return { result, msg: "Notifications marked as read" };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            throw toHttpException("Unable to update notifications");
+            throw toHttpException(err, "Unable to mark notifications as read");
         }
     }
 
@@ -53,7 +55,7 @@ export class NotificationsController {
             return { result, msg: "Notification marked as read" };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            throw toHttpException("Unable to update notification");
+            throw toHttpException(err, "Unable to mark notification as read");
         }
     }
 }

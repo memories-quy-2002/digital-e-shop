@@ -3,6 +3,7 @@ import type { DbError, InsertResult, UpdateResult } from "#src/shared/interfaces
 import type { PromotionInput, PromotionPayload } from "./promotions.dto";
 import type { PromotionRow } from "./promotions.types";
 import { PromotionsRepository } from "./promotions.repository";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
 
 type LooseRecord = Record<string, unknown>;
 type HttpError = Error & { statusCode?: number };
@@ -26,21 +27,21 @@ const normalizePromotionPayload = (data: PromotionInput): PromotionPayload => {
     const usageLimit = usageLimitValue === "" || usageLimitValue === null || usageLimitValue === undefined ? null : Number(usageLimitValue);
 
     if (!discountCode || Number.isNaN(discountPercent) || discountPercent <= 0 || discountPercent > 90) {
-        throw createHttpError("Code and discount percent must be valid", 400);
+        throw createHttpError("Code and discount percent must be valid", HTTP_STATUS.BAD_REQUEST);
     }
 
     if (Number.isNaN(minOrderValue) || minOrderValue < 0) {
-        throw createHttpError("Minimum order value cannot be negative", 400);
+        throw createHttpError("Minimum order value cannot be negative", HTTP_STATUS.BAD_REQUEST);
     }
 
     if (usageLimit !== null && (Number.isNaN(usageLimit) || usageLimit < 1)) {
-        throw createHttpError("Usage limit must be empty or greater than zero", 400);
+        throw createHttpError("Usage limit must be empty or greater than zero", HTTP_STATUS.BAD_REQUEST);
     }
 
     const startsAt = normalizeDateInput(data.startsAt ?? data.starts_at);
     const expiresAt = normalizeDateInput(data.expiresAt ?? data.expires_at);
     if (startsAt && expiresAt && new Date(expiresAt) <= new Date(startsAt)) {
-        throw createHttpError("Expiry date must be after the start date", 400);
+        throw createHttpError("Expiry date must be after the start date", HTTP_STATUS.BAD_REQUEST);
     }
 
     return {
@@ -59,27 +60,27 @@ const normalizeDatabaseError = (err?: PromotionError | null) => {
     if (err.statusCode) return err;
 
     if (err.code === "ER_DUP_ENTRY") {
-        return createHttpError("Promotion code already exists", 409);
+        return createHttpError("Promotion code already exists", HTTP_STATUS.CONFLICT);
     }
 
     if (err.code === "ER_NO_SUCH_TABLE") {
-        return createHttpError("Discounts table is missing. Please run the database setup before creating promotions.", 500);
+        return createHttpError("Discounts table is missing. Please run the database setup before creating promotions.", HTTP_STATUS.INTERNAL_SERVER_ERROR);
     }
 
     if (err.code === "ER_BAD_FIELD_ERROR") {
-        return createHttpError("Discounts table is missing a required promotion column.", 500);
+        return createHttpError("Discounts table is missing a required promotion column.", HTTP_STATUS.INTERNAL_SERVER_ERROR);
     }
 
     if (err.code === "ER_NO_DEFAULT_FOR_FIELD") {
-        return createHttpError(`Discounts table requires a value for ${err.sqlMessage || "a column without a default"}`, 500);
+        return createHttpError(`Discounts table requires a value for ${err.sqlMessage || "a column without a default"}`, HTTP_STATUS.INTERNAL_SERVER_ERROR);
     }
 
     if (err.code === "ER_DATA_TOO_LONG") {
-        return createHttpError("Promotion data is too long for the discounts table.", 400);
+        return createHttpError("Promotion data is too long for the discounts table.", HTTP_STATUS.BAD_REQUEST);
     }
 
     if (err.code === "ER_TRUNCATED_WRONG_VALUE" || err.code === "ER_TRUNCATED_WRONG_VALUE_FOR_FIELD") {
-        return createHttpError("Promotion contains a value that does not match the discounts table column type.", 400);
+        return createHttpError("Promotion contains a value that does not match the discounts table column type.", HTTP_STATUS.BAD_REQUEST);
     }
 
     return err;
@@ -124,7 +125,7 @@ export class NestPromotionsService {
         return new Promise((resolve, reject) => {
             this.promotionsRepository.updatePromotion(id, promotion, (err: DbError | null, result: UpdateResult) => {
                 if (err) return reject(normalizeDatabaseError(err));
-                if (result.affectedRows === 0) return reject(createHttpError("Promotion not found", 404));
+                if (result.affectedRows === 0) return reject(createHttpError("Promotion not found", HTTP_STATUS.NOT_FOUND));
                 resolve({ id: Number(id), ...promotion });
             });
         });
@@ -134,7 +135,7 @@ export class NestPromotionsService {
         return new Promise((resolve, reject) => {
             this.promotionsRepository.deletePromotion(id, (err: DbError | null, result: UpdateResult) => {
                 if (err) return reject(normalizeDatabaseError(err));
-                if (result.affectedRows === 0) return reject(createHttpError("Promotion not found", 404));
+                if (result.affectedRows === 0) return reject(createHttpError("Promotion not found", HTTP_STATUS.NOT_FOUND));
                 resolve({ id: Number(id), active: false });
             });
         });

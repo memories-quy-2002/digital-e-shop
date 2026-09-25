@@ -62,7 +62,7 @@ vi.mock("../features/admin/pages/AdminPromotionsPage", () => ({ default: () => <
 vi.mock("../features/admin/pages/AdminAddProductPage", () => ({ default: () => <div>Admin add product</div> }));
 
 vi.mock("../features/auth/pages/LoginPage", () => ({
-    default: () => {
+    default: function MockLoginPage() {
         const location = useLocation();
         return <div data-testid="login-location">{location.pathname + location.search}</div>;
     },

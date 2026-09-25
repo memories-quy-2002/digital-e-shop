@@ -8,14 +8,103 @@ import type {
     UpdateResult,
 } from "#src/shared/interfaces/domain";
 import type { GuestOrderIdentityRow, OrderBySessionRow, OrderDetailRow, OrderSummaryRow, PendingCheckoutRow } from "./orders.types";
+import type { LockedProductRow } from "./orders.types";
 import type { PromotionRow } from "../promotions/promotions.types";
 import { PromotionsRepository } from "../promotions/promotions.repository";
+import type { TransactionContext } from "../database/transaction";
+import { ORDER_STATUS } from "#src/shared/constants/order-status";
+import { PAYMENT_PROVIDER } from "../payments/payment.types";
 
 const QUERY_TIMEOUT = 8000;
 
 @Injectable()
 export class OrdersRepository {
     constructor(private readonly promotionsRepository: PromotionsRepository) {}
+
+    insertOrderInTransaction(
+        tx: TransactionContext,
+        order: {
+            userId: string | null;
+            guestEmail: string | null;
+            guestName: string | null;
+            guestPhone: string | null;
+            guestOrderTokenHash: string | null;
+            totalPrice: number;
+            discount: number;
+            shippingAddress: string;
+            paymentMethod: string;
+            currency: string;
+        },
+    ): Promise<InsertResult> {
+        return tx.query<InsertResult>(
+            `INSERT INTO orders
+                (user_id, guest_email, guest_name, guest_phone, guest_order_token_hash,
+                 total_price, discount, shipping_address, payment_method, currency, date_added)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
+            [
+                order.userId,
+                order.guestEmail,
+                order.guestName,
+                order.guestPhone,
+                order.guestOrderTokenHash,
+                order.totalPrice,
+                order.discount,
+                order.shippingAddress,
+                order.paymentMethod,
+                order.currency,
+            ],
+        );
+    }
+
+    updateOrderDiscountInTransaction(tx: TransactionContext, orderId: number, discount: number): Promise<unknown> {
+        return tx.query("UPDATE orders SET discount = ? WHERE id = ?", [discount, orderId]);
+    }
+
+    insertOrderItemsInTransaction(tx: TransactionContext, values: unknown[][]): Promise<unknown> {
+        return tx.query(
+            `INSERT INTO order_items
+                (order_id, product_id, quantity, total_price, sku_snapshot, product_name_snapshot,
+                 image_snapshot, unit_price_snapshot, brand_snapshot, category_snapshot,
+                 warranty_months_snapshot, specifications_snapshot)
+             VALUES ?`,
+            [values],
+        );
+    }
+
+    lockProductsForOrderInTransaction(tx: TransactionContext, productIds: number[]): Promise<LockedProductRow[]> {
+        if (productIds.length === 0) return Promise.resolve([]);
+        return tx.query<LockedProductRow[]>(
+            `SELECT id, name, stock FROM products WHERE id IN (${productIds.map(() => "?").join(", ")}) AND stock >= 0 FOR UPDATE`,
+            productIds,
+        );
+    }
+
+    decrementProductStockInTransaction(
+        tx: TransactionContext,
+        productId: number,
+        quantity: number,
+    ): Promise<UpdateResult> {
+        return tx.query<UpdateResult>(
+            "UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?",
+            [quantity, productId, quantity],
+        );
+    }
+
+    markOpenCartCompleteInTransaction(tx: TransactionContext, uid: string): Promise<unknown> {
+        return tx.query("UPDATE carts SET done = 1 WHERE user_id = ? AND done = 0", [uid]);
+    }
+
+    getOrderDateAddedInTransaction(
+        tx: TransactionContext,
+        orderId: number,
+    ): Promise<Array<{ id: number; date_added: string }>> {
+        return tx.query<Array<{ id: number; date_added: string }>>(
+            `SELECT id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
+             FROM orders
+             WHERE id = ?`,
+            [orderId],
+        );
+    }
 
     private query(sql: string, params?: QueryParams, callback?: QueryCallback) {
         if (typeof params === "function") {
@@ -188,7 +277,7 @@ export class OrdersRepository {
                 order_items oi ON p.id = oi.product_id
             JOIN
                 orders o ON oi.order_id = o.id
-            WHERE o.status <> 2
+            WHERE o.status <> ${ORDER_STATUS.CANCELED}
             GROUP BY
                 p.id, p.name, p.price, oi.order_id
             ORDER BY
@@ -213,7 +302,7 @@ export class OrdersRepository {
                 order_items oi ON p.id = oi.product_id
             JOIN
                 orders o ON oi.order_id = o.id
-            WHERE o.status <> 2
+            WHERE o.status <> ${ORDER_STATUS.CANCELED}
             GROUP BY
                 p.id, p.name, p.price, oi.order_id
             ORDER BY
@@ -232,7 +321,7 @@ export class OrdersRepository {
                 FROM products p
                 JOIN order_items oi ON p.id = oi.product_id
                 JOIN orders o ON oi.order_id = o.id
-                WHERE o.status <> 2
+                WHERE o.status <> ${ORDER_STATUS.CANCELED}
                 GROUP BY p.id, p.name, p.price, oi.order_id
             ) AS grouped_items`,
             callback,
@@ -251,7 +340,7 @@ export class OrdersRepository {
                     guest_order_token_hash, cart_json, total_price, discount,
                     shipping_address, status, expires_at, discount_id, created_at, consumed_at
             FROM pending_checkouts
-            WHERE payment_provider = 'payos' AND provider_order_code = ?
+            WHERE payment_provider = '${PAYMENT_PROVIDER.PAYOS}' AND provider_order_code = ?
             LIMIT 1`,
             [providerOrderCode],
             callback,
@@ -263,7 +352,7 @@ export class OrdersRepository {
             `SELECT o.id, o.user_id, o.guest_email, o.guest_name, o.guest_phone, o.guest_order_token_hash
              FROM orders o
              JOIN order_payments op ON op.order_id = o.id
-             WHERE op.provider = 'payos' AND op.provider_reference = ? AND o.user_id IS NULL
+             WHERE op.provider = '${PAYMENT_PROVIDER.PAYOS}' AND op.provider_reference = ? AND o.user_id IS NULL
              LIMIT 1`,
             [String(providerOrderCode)],
             callback,
@@ -275,7 +364,7 @@ export class OrdersRepository {
             `SELECT o.id, o.user_id, DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added, o.payment_method
             FROM orders o
             JOIN order_payments op ON op.order_id = o.id
-            WHERE op.provider = 'payos' AND op.provider_reference = ?
+            WHERE op.provider = '${PAYMENT_PROVIDER.PAYOS}' AND op.provider_reference = ?
             LIMIT 1`,
             [String(providerOrderCode)],
             callback,

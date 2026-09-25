@@ -1,0 +1,11 @@
+export const CHECKOUT_RESERVATION_STATUS = {
+    PENDING: "PENDING",
+    CONSUMED: "CONSUMED",
+    RELEASED: "RELEASED",
+    EXPIRED: "EXPIRED",
+} as const;
+
+export const CHECKOUT_RESERVATION_WINDOW_MS = 35 * 60_000;
+
+export type CheckoutReservationStatus =
+    (typeof CHECKOUT_RESERVATION_STATUS)[keyof typeof CHECKOUT_RESERVATION_STATUS];

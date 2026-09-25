@@ -16,6 +16,8 @@ import type { CustomerOrder, CustomerOrderDetail, CustomerOrderTimelineEvent } f
 import { formatShippingAddress } from "../shippingAddress";
 import { formatCurrency } from "../../../utils/currency";
 import { getOrderStatusKey, ORDER_STATUS } from "../orderStatus";
+import { HISTORICAL_PAYMENT_METHOD, PAYMENT_METHOD } from "../constants";
+import { CURRENCY_CODE, CURRENCY_FORMATTING } from "../../../constants/currency";
 
 const getStatusLabel = (status: number, t: ReturnType<typeof useT>) => {
     const labels = { pending: t("orders.statusPending"), done: t("orders.statusDone"), canceled: t("orders.statusCanceled"), unknown: t("orders.statusUnknown") };
@@ -23,18 +25,21 @@ const getStatusLabel = (status: number, t: ReturnType<typeof useT>) => {
 };
 
 const getPaymentLabel = (payment: CustomerOrder["payment_method"] | undefined, t: ReturnType<typeof useT>) => {
-    if (payment === "bank_transfer") return t("orders.paymentBankTransfer");
-    if (payment === "cash") return t("orders.paymentCash");
-    if (payment === "payos") return t("orders.paymentPayos");
-    if (payment === "stripe" || payment === "card") return t("orders.paymentCard");
+    if (payment === HISTORICAL_PAYMENT_METHOD.BANK_TRANSFER) return t("orders.paymentBankTransfer");
+    if (payment === PAYMENT_METHOD.CASH) return t("orders.paymentCash");
+    if (payment === PAYMENT_METHOD.PAYOS) return t("orders.paymentPayos");
+    if (payment === HISTORICAL_PAYMENT_METHOD.STRIPE || payment === HISTORICAL_PAYMENT_METHOD.CARD) return t("orders.paymentCard");
     return t("orders.paymentNotRecorded");
 };
 const formatPaymentAmount = (value: number | null | undefined, currency?: string | null) => {
     if (value === null || value === undefined || !currency) return null;
-    return new Intl.NumberFormat(currency === "VND" ? "vi-VN" : "en-US", {
+    const formatting = currency === CURRENCY_CODE.VND
+        ? CURRENCY_FORMATTING[CURRENCY_CODE.VND]
+        : CURRENCY_FORMATTING[CURRENCY_CODE.USD];
+    return new Intl.NumberFormat(formatting.locale, {
         style: "currency",
         currency,
-        maximumFractionDigits: currency === "VND" ? 0 : 2,
+        maximumFractionDigits: formatting.fractionDigits,
     }).format(Number(value) || 0);
 };
 const ORDER_PAGE_SIZE = 8;
@@ -71,7 +76,7 @@ const OrderHistoryPage = () => {
         };
 
         fetchOrders();
-    }, [addToast, uid]);
+    }, [addToast, t, uid]);
 
     useEffect(() => {
         const fetchDetail = async () => {
@@ -91,7 +96,7 @@ const OrderHistoryPage = () => {
         };
 
         fetchDetail();
-    }, [addToast, selectedOrderId]);
+    }, [addToast, selectedOrderId, t]);
 
     const selectedOrder = useMemo(
         () => orders.find((order) => order.id === selectedOrderId) || orders[0] || null,

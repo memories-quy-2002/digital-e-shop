@@ -1,4 +1,5 @@
 import http from "../../lib/http";
+import { HTTP_STATUS } from "../../constants/http-status";
 import type { Product, Review, ReviewSummary, Wishlist } from "../../types/product";
 import { normalizeProduct } from "../../utils/product";
 import type { ProductComparison } from "./compare/types";
@@ -178,7 +179,7 @@ export const normalizeProductWithAttributes = (value: unknown): ProductWithAttri
     };
 };
 
-type RawWishlistItem = {
+export type RawWishlistItem = {
     id: number;
     product_id: number;
     name: string;
@@ -194,8 +195,24 @@ type RawWishlistItem = {
     specifications: string | null;
 };
 
-const normalizeReviews = (items: any[] = []): Review[] =>
-    items.map((review: any) => ({
+type RawReview = {
+    id?: number;
+    username: string;
+    rating: number | string;
+    review_text?: string | null;
+    reviewText?: string | null;
+    created_at: string;
+    verified_purchase?: boolean | number | null;
+};
+
+type RawReviewSummary = {
+    total?: number | string | null;
+    average?: number | string | null;
+    distribution?: Partial<Record<1 | 2 | 3 | 4 | 5, number | string | null>>;
+};
+
+const normalizeReviews = (items: RawReview[] = []): Review[] =>
+    items.map((review) => ({
         id: review.id,
         username: review.username,
         rating: Number(review.rating) || 0,
@@ -204,7 +221,7 @@ const normalizeReviews = (items: any[] = []): Review[] =>
         verified_purchase: Boolean(review.verified_purchase),
     }));
 
-const normalizeSummary = (summary?: any): ReviewSummary => ({
+const normalizeSummary = (summary?: RawReviewSummary): ReviewSummary => ({
     total: Number(summary?.total) || 0,
     average: Number(summary?.average) || 0,
     distribution: {
@@ -222,7 +239,7 @@ const isNotFoundError = (error: unknown): boolean => {
     }
 
     const response = (error as { response?: { status?: unknown } }).response;
-    return response?.status === 404;
+    return response?.status === HTTP_STATUS.NOT_FOUND;
 };
 
 export async function fetchProduct(productId: number): Promise<ProductWithAttributes | null> {
@@ -271,7 +288,7 @@ export async function fetchWishlist(uid: string): Promise<Wishlist[]> {
 }
 
 export async function fetchReviews(productId: number): Promise<{ reviews: Review[]; summary: ReviewSummary }> {
-    const response = await http.get(`/api/reviews/${productId}`);
+    const response = await http.get<{ reviews?: RawReview[]; summary?: RawReviewSummary }>(`/api/reviews/${productId}`);
     return {
         reviews: normalizeReviews(response.data.reviews || []),
         summary: normalizeSummary(response.data.summary),
@@ -293,9 +310,8 @@ export async function submitReview(
     });
 }
 
-export async function addToWishlist(uid: string, productId: number): Promise<any> {
-    const response = await http.post("/api/wishlist/", { uid, pid: productId });
-    return response.data;
+export async function addToWishlist(uid: string, productId: number): Promise<void> {
+    await http.post("/api/wishlist/", { uid, pid: productId });
 }
 
 export async function removeFromWishlist(productId: number): Promise<void> {

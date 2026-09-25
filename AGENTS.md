@@ -223,12 +223,24 @@ MOCK_ORDER_COUNT=<seed-order-count>
 MOCK_REVIEW_COUNT=<seed-review-count>
 ```
 
+Production also requires `PAYMENT_PROVIDER_MODE=live` and the PayOS credentials.
+Firebase Admin requires `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and
+`FIREBASE_PRIVATE_KEY` when the Auth Emulator is not in use; the emulator is
+rejected in production. The MySQL pool uses `DB_PASSWORD`, although the current
+startup missing-key list does not check it. See the
+[production environment guide](docs/DEVELOPMENT.md#production-deployment-variables)
+for the full client/server variable matrix.
+
 ### Client
 
-The client reads `VITE_API_BASE_URL` from Vite environment variables. Development
-defaults to `http://localhost:4000`; production builds require the variable to
-be set explicitly.
-- Firebase web config is currently embedded in source, not sourced from env.
+- The client reads `VITE_API_BASE_URL` from Vite environment variables.
+  Development defaults to `http://localhost:4000`; production builds require
+  the variable to be set explicitly.
+- Firebase web config comes from six required `VITE_FIREBASE_*` build variables;
+  `VITE_FIREBASE_MEASUREMENT_ID` is optional. These values are bundled into the
+  browser app, so Firebase web config is public rather than server-side secret
+  material. Production uses project `graduation-project-5bbfb` and rejects the
+  client Auth Emulator URL.
 - Images are served from Vercel Blob (`PRODUCT_IMAGE_BASE_URL` in `client/src/utils/images.ts`), not Cloudinary — an unused Cloudinary image-transform path was removed from that file.
 
 ## Coding conventions
@@ -244,7 +256,7 @@ be set explicitly.
 
 - React components and pages: `PascalCase` files and component names.
 - Hooks and utilities: `camelCase`.
-- Backend feature files use `camelCase` filenames with explicit suffixes such as `products.controller.ts`, `orders.service.ts`, `wishlist.repository.ts`.
+- Server source files use `kebab-case` filenames. Nest feature files keep their role suffix in dot notation, such as `payment-reconciliation.service.ts` and `admin-after-sales.controller.ts`.
 - Route path names stay descriptive and mostly noun-based.
 
 ### Folder and module boundaries

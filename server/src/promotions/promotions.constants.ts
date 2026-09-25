@@ -1,0 +1,5 @@
+export const DISCOUNT_REDEMPTION_STATUS = {
+    RESERVED: "RESERVED",
+    CONSUMED: "CONSUMED",
+    RELEASED: "RELEASED",
+} as const;

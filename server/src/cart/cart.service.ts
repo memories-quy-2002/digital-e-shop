@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import type { DbError, ServiceResultMessage } from "#src/shared/interfaces/domain";
 import type {
     CartCheckoutItem,
@@ -106,7 +107,7 @@ export function buildCartStockConflictMessage(
 }
 
 export class CartStockConflictError extends Error {
-    readonly statusCode = 409;
+    readonly statusCode = HTTP_STATUS.CONFLICT;
 
     constructor(message: string) {
         super(message);
@@ -115,7 +116,7 @@ export class CartStockConflictError extends Error {
 }
 
 export class CartItemNotFoundError extends Error {
-    readonly statusCode = 404;
+    readonly statusCode = HTTP_STATUS.NOT_FOUND;
 
     constructor() {
         super("Cart item not found for this customer");

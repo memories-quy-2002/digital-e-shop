@@ -1,14 +1,15 @@
-import type { PaymentCurrency, PaymentProviderName, PaymentQuote } from "./payment.types";
+import { PAYMENT_CURRENCY, type PaymentCurrency, type PaymentProviderName, type PaymentQuote } from "./payment.types";
+import { CURRENCY_CODE, CURRENCY_FORMATTING } from "#src/shared/constants/currency";
 
-type HistoricalPaymentCurrency = PaymentCurrency | "USD";
+type HistoricalPaymentCurrency = PaymentCurrency | typeof CURRENCY_CODE.USD;
 
-export function formatPaymentAmount(value: number, currency: HistoricalPaymentCurrency = "VND"): string {
-    const fractionDigits = currency === "VND" ? 0 : 2;
-    return new Intl.NumberFormat(currency === "VND" ? "vi-VN" : "en-US", {
+export function formatPaymentAmount(value: number, currency: HistoricalPaymentCurrency = PAYMENT_CURRENCY.VND): string {
+    const formatting = CURRENCY_FORMATTING[currency];
+    return new Intl.NumberFormat(formatting.locale, {
         style: "currency",
         currency,
-        minimumFractionDigits: fractionDigits,
-        maximumFractionDigits: fractionDigits,
+        minimumFractionDigits: formatting.fractionDigits,
+        maximumFractionDigits: formatting.fractionDigits,
     }).format(Number(value) || 0);
 }
 
@@ -26,9 +27,9 @@ export function buildPaymentQuote(
     }
     return {
         baseAmount: amount,
-        baseCurrency: "VND",
+        baseCurrency: PAYMENT_CURRENCY.VND,
         amount,
-        currency: "VND",
+        currency: PAYMENT_CURRENCY.VND,
         fxRate: 1,
     };
 }

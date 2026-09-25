@@ -11,6 +11,7 @@ import type { AuthSessionPayload, JwtPayload } from "./auth.types";
 import { AuthRepository } from "./auth.repository";
 import { AuthSessionService } from "./auth-session.service";
 import { FirebaseAdminAuthService, type FirebaseIdentity } from "./firebase-admin.service";
+import { USER_ACCOUNT_STATUS, USER_ROLE } from "#src/shared/constants/user";
 
 @Injectable()
 export class NestAuthService {
@@ -84,7 +85,7 @@ export class NestAuthService {
             return null;
         }
 
-        if (existingUser.status === "Suspended") return existingUser;
+        if (existingUser.status === USER_ACCOUNT_STATUS.SUSPENDED) return existingUser;
 
         const rebound = await this.usersRepository.rebindFirebaseIdentity(
             existingUser.id,
@@ -159,7 +160,7 @@ export class NestAuthService {
     async registerUser(idToken: string, input: RegisterUserInput): Promise<AuthSessionPayload> {
         const identity = await this.firebaseAdminAuthService.verifyIdToken(idToken);
         const existing = await this.findFirebaseUser(identity);
-        if (existing?.status === "Suspended") {
+        if (existing?.status === USER_ACCOUNT_STATUS.SUSPENDED) {
             throw new UnauthorizedException({ msg: "Account is suspended" });
         }
         if (existing) {
@@ -192,7 +193,7 @@ export class NestAuthService {
             input.username,
             identity.email,
             firebasePasswordPlaceholder,
-            "Customer",
+            USER_ROLE.CUSTOMER,
         );
 
         if (typeof this.usersRepository.updateAuthIdentity === "function") {
@@ -213,7 +214,7 @@ export class NestAuthService {
         if (!user) {
             throw new UnauthorizedException({ msg: "Account is not registered" });
         }
-        if (user.status === "Suspended") {
+        if (user.status === USER_ACCOUNT_STATUS.SUSPENDED) {
             throw new UnauthorizedException({ msg: "Account is suspended" });
         }
 

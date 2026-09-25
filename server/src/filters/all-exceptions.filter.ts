@@ -1,8 +1,8 @@
 import { Catch, HttpException } from "@nestjs/common";
 import type { ArgumentsHost, ExceptionFilter } from "@nestjs/common";
-import type { Response } from "express";
-import { AppError } from "#src/core/errors/AppError";
-import { HTTP_STATUS } from "#src/shared/constants/httpStatus";
+import type { Request, Response } from "express";
+import { AppError } from "#src/core/errors/app-error";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { MESSAGES } from "#src/shared/constants/messages";
 import type { DbError } from "#src/shared/interfaces/database";
 import { logger } from "#src/shared/utils/logger";
@@ -44,11 +44,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
                 ? exception.statusCode
                 : HTTP_STATUS.INTERNAL_SERVER_ERROR;
         const requestId = requestIdFrom(req);
+        const requestContext = {
+            requestId,
+            method: req.method,
+            route: req.route?.path ?? "unmatched route",
+        };
 
         res.setHeader("X-Request-Id", requestId);
 
         if (err && (err.code === "EBADCSRFTOKEN" || err.message === MESSAGES.invalidCsrf)) {
-            logger.warn({ requestId, statusCode: HTTP_STATUS.FORBIDDEN }, "http request rejected");
+            logger.warn({ ...requestContext, statusCode: HTTP_STATUS.FORBIDDEN, event: "http request rejected" });
             res.status(HTTP_STATUS.FORBIDDEN).json(buildErrorResponse({
                 statusCode: HTTP_STATUS.FORBIDDEN,
                 code: "INVALID_CSRF_TOKEN",
@@ -66,7 +71,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
                 details: err.details,
                 requestId,
             });
-            logger.warn({ requestId, statusCode: err.statusCode, code: response.code }, "http request rejected");
+            const logContext = {
+                ...requestContext,
+                statusCode: err.statusCode,
+                code: response.code,
+                event: err.statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "http request failed" : "http request rejected",
+            };
+            if (err.statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR) {
+                logger.error({ ...logContext, err });
+            } else {
+                logger.warn(logContext);
+            }
             res.status(err.statusCode).json(response);
             return;
         }
@@ -84,7 +99,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
                 details: normalized.details,
                 requestId,
             });
-            logger.warn({ requestId, statusCode, code: response.code }, "http request rejected");
+            const cause = (exception as HttpException & { cause?: unknown }).cause;
+            const logContext = {
+                ...requestContext,
+                statusCode,
+                code: response.code,
+            };
+            if (statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR) {
+                logger.error({
+                    ...logContext,
+                    err: cause instanceof Error ? cause : exception,
+                    event: "http request failed",
+                });
+            } else {
+                logger.warn({ ...logContext, event: "http request rejected" });
+            }
             res.status(statusCode).json(response);
             return;
         }
@@ -92,11 +121,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
         logger.error(
             {
                 err: exception instanceof Error ? exception : new Error(String(exception)),
-                requestId,
+                ...requestContext,
                 statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,
                 code: "INTERNAL_SERVER_ERROR",
+                event: "http request failed",
             },
-            "http request failed",
         );
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json(buildErrorResponse({
             statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR,

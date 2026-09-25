@@ -1,4 +1,8 @@
 import { Injectable, Optional } from "@nestjs/common";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
+import { ORDER_STATUS } from "#src/shared/constants/order-status";
+import { CHECKOUT_RESERVATION_STATUS } from "#src/shared/constants/checkout-reservation";
+import { CURRENCY_CODE } from "#src/shared/constants/currency";
 import { env } from "#src/config/env.config";
 import { logger } from "#src/shared/utils/logger";
 import type { InsertResult } from "#src/shared/interfaces/domain";
@@ -20,12 +24,12 @@ import { ProductAttributesRepository } from "../products/product-attributes.repo
 import { attributeMapToSnapshot, type ProductAttribute } from "../products/product-attributes.types";
 import { PaymentProviderService } from "../payments/payment-provider.service";
 import { buildPaymentQuote } from "../payments/currency";
-import type { PaymentProviderName, PaymentQuote } from "../payments/payment.types";
+import { PAYMENT_PROVIDER, PAYMENT_STATUS, PAYMENT_RECONCILIATION_STATUS, PAYMENT_PROVIDER_STATUS, type PaymentProviderName, type PaymentQuote } from "../payments/payment.types";
 import { generateGuestOrderToken, hashGuestOrderToken, matchesGuestOrderToken } from "./guest-order-token";
 import { ProductAlertsService } from "../product-alerts/product-alerts.service";
 import { getProductAlertTransitions } from "../product-alerts/product-alerts.policy";
 
-export const createCheckoutError = (message: string, statusCode = 409, details: Record<string, unknown> = {}) =>
+export const createCheckoutError = (message: string, statusCode: number = HTTP_STATUS.CONFLICT, details: Record<string, unknown> = {}) =>
     Object.assign(new Error(message), { statusCode, details });
 
 const parseSpecificationsSnapshot = (value: unknown): Record<string, unknown> => {
@@ -128,7 +132,7 @@ export class NestOrdersService {
             providerPaymentId = null,
             providerReference = null,
             paymentQuote,
-            status = "pending",
+            status = PAYMENT_STATUS.PENDING,
         }: {
             orderId: number;
             paymentMethod: PaymentProviderName;
@@ -136,7 +140,7 @@ export class NestOrdersService {
             providerPaymentId?: string | null;
             providerReference?: string | null;
             paymentQuote?: PaymentQuote;
-            status?: "pending" | "paid";
+            status?: typeof PAYMENT_STATUS.PENDING | typeof PAYMENT_STATUS.PAID;
         },
     ) {
         const provider = normalizePaymentProvider(paymentMethod);
@@ -151,13 +155,13 @@ export class NestOrdersService {
                 providerReference,
             })
             : null;
-        const paymentStatus = status === "paid" ? "paid" : providerResult?.status || "pending";
+        const paymentStatus = status === PAYMENT_STATUS.PAID ? PAYMENT_STATUS.PAID : providerResult?.status || PAYMENT_STATUS.PENDING;
 
         await tx.query(
             `INSERT INTO order_payments
                 (order_id, provider, status, provider_reference, provider_payment_id, idempotency_key,
                  base_amount, base_currency, amount, currency, fx_rate, paid_at, simulated, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${paymentStatus === "paid" ? "UTC_TIMESTAMP()" : "NULL"}, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP())
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${paymentStatus === PAYMENT_STATUS.PAID ? "UTC_TIMESTAMP()" : "NULL"}, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP())
              ON DUPLICATE KEY UPDATE updated_at = UTC_TIMESTAMP()`,
             [
                 orderId,
@@ -180,7 +184,7 @@ export class NestOrdersService {
         return new Promise((resolve, reject) => {
             this.ordersRepository.getOrderById(orderId, (error: Error | null, rows: OrderSummaryRow[]) => {
                 if (error) return reject(error);
-                if (!rows?.[0]) return reject(createCheckoutError("Order not found", 404));
+                if (!rows?.[0]) return reject(createCheckoutError("Order not found", HTTP_STATUS.NOT_FOUND));
                 resolve(rows[0]);
             });
         });
@@ -192,10 +196,10 @@ export class NestOrdersService {
                 "SELECT user_id, status, inventory_restored_at FROM orders WHERE id = ? FOR UPDATE",
                 [orderId],
             );
-            if (!order) throw createCheckoutError("Order not found", 404);
-            if (!admin && String(order.user_id) !== String(actorId)) throw createCheckoutError("You cannot cancel this order", 403);
-            if (Number(order.status) === 2) return { userId: order.user_id, changed: false };
-            if (Number(order.status) !== 0) throw createCheckoutError("Only pending orders can be canceled", 409);
+            if (!order) throw createCheckoutError("Order not found", HTTP_STATUS.NOT_FOUND);
+            if (!admin && String(order.user_id) !== String(actorId)) throw createCheckoutError("You cannot cancel this order", HTTP_STATUS.FORBIDDEN);
+            if (Number(order.status) === ORDER_STATUS.CANCELED) return { userId: order.user_id, changed: false };
+            if (Number(order.status) !== ORDER_STATUS.PENDING) throw createCheckoutError("Only pending orders can be canceled", HTTP_STATUS.CONFLICT);
             if (!order.inventory_restored_at) {
                 const items = await tx.query<Array<{ product_id: number; quantity: number }>>(
                     "SELECT product_id, quantity FROM order_items WHERE order_id = ? ORDER BY product_id FOR UPDATE", [orderId],
@@ -205,14 +209,14 @@ export class NestOrdersService {
                     const [product] = await tx.query<Array<{ id: number; price: number; sale_price: number | null; stock: number }>>(
                         "SELECT id, price, sale_price, stock FROM products WHERE id = ? FOR UPDATE", [item.product_id],
                     );
-                    if (!product) throw createCheckoutError("Product for this order no longer exists", 409);
+                    if (!product) throw createCheckoutError("Product for this order no longer exists", HTTP_STATUS.CONFLICT);
                     const quantity = Number(item.quantity) || 0;
                     const stockUpdate = await tx.query<{ affectedRows: number }>(
                         "UPDATE products SET stock = stock + ? WHERE id = ?",
                         [quantity, item.product_id],
                     );
                     if (stockUpdate.affectedRows !== 1) {
-                        throw createCheckoutError("Product stock could not be restored", 409);
+                        throw createCheckoutError("Product stock could not be restored", HTTP_STATUS.CONFLICT);
                     }
                     if (this.productAlertsService) {
                         const transitions = getProductAlertTransitions(
@@ -241,16 +245,16 @@ export class NestOrdersService {
             }
             await tx.query(
                 `UPDATE orders
-                 SET status = 2, inventory_restored_at = COALESCE(inventory_restored_at, UTC_TIMESTAMP()), cancellation_reason = ?
-                 WHERE id = ? AND status = 0`,
+                 SET status = ${ORDER_STATUS.CANCELED}, inventory_restored_at = COALESCE(inventory_restored_at, UTC_TIMESTAMP()), cancellation_reason = ?
+                 WHERE id = ? AND status = ${ORDER_STATUS.PENDING}`,
                 [reason || null, orderId],
             );
             await this.orderTimelineService.createTimelineEventInTransaction(tx, {
-                orderId, status: 2, note: reason ? `Order canceled: ${reason}` : "Order was canceled.", actorId,
+                orderId, status: ORDER_STATUS.CANCELED, note: reason ? `Order canceled: ${reason}` : "Order was canceled.", actorId,
             });
             return { userId: order.user_id, changed: true };
         });
-        if (result.changed && result.userId) this.notificationsService.notifyOrderStatus(result.userId, orderId, 2);
+        if (result.changed && result.userId) this.notificationsService.notifyOrderStatus(result.userId, orderId, ORDER_STATUS.CANCELED);
         return this.getOrderSummary(orderId);
     }
 
@@ -373,6 +377,262 @@ export class NestOrdersService {
         return { cart, merchandiseTotal, lockedProducts };
     }
 
+    private async resolveOrderCartForTransaction(
+        tx: TransactionContext,
+        {
+            identity,
+            authoritativeCart,
+            authoritativeTotalPrice,
+            guestQuote,
+        }: {
+            identity: OrderIdentity;
+            authoritativeCart: CartItemRow[];
+            authoritativeTotalPrice: number;
+            guestQuote?: CreateOrderFromCartInputBase["guestQuote"];
+        },
+    ): Promise<{
+        cart: CartItemRow[];
+        merchandiseTotal: number;
+        lockedProducts: LockedProductRow[] | null;
+    }> {
+        if (identity.kind !== "guest") {
+            return {
+                cart: authoritativeCart,
+                merchandiseTotal: authoritativeTotalPrice,
+                lockedProducts: null,
+            };
+        }
+        if (!guestQuote) {
+            throw createCheckoutError("Guest checkout quote is missing. Refresh your cart and try again.", HTTP_STATUS.CONFLICT);
+        }
+
+        const guestTransaction = await this.loadGuestTransactionalCart(
+            tx,
+            guestQuote.cart,
+            guestQuote.merchandiseTotal,
+        );
+        return {
+            cart: guestTransaction.cart,
+            merchandiseTotal: guestTransaction.merchandiseTotal,
+            lockedProducts: guestTransaction.lockedProducts,
+        };
+    }
+
+    private async createOrderHeaderInTransaction(
+        tx: TransactionContext,
+        {
+            identity,
+            transactionCart,
+            transactionMerchandiseTotal,
+            requestedDiscount,
+            shippingAddress,
+            paymentMethod,
+            discountCode,
+            guestQuote,
+        }: {
+            identity: OrderIdentity;
+            transactionCart: CartItemRow[];
+            transactionMerchandiseTotal: number;
+            requestedDiscount: number;
+            shippingAddress: string;
+            paymentMethod: PaymentProviderName;
+            discountCode?: string;
+            guestQuote?: CreateOrderFromCartInputBase["guestQuote"];
+        },
+    ) {
+        const orderResult = await this.ordersRepository.insertOrderInTransaction(tx, {
+            userId: identity.userId,
+            guestEmail: identity.kind === "guest" ? identity.guestContact.guestEmail : null,
+            guestName: identity.kind === "guest" ? identity.guestContact.guestName : null,
+            guestPhone: identity.kind === "guest" ? identity.guestContact.guestPhone ?? null : null,
+            guestOrderTokenHash: identity.kind === "guest" ? identity.guestOrderTokenHash : null,
+            totalPrice: transactionMerchandiseTotal,
+            discount: identity.kind === "guest" ? 0 : requestedDiscount,
+            shippingAddress,
+            paymentMethod,
+            currency: env.storeCurrency,
+        });
+        const orderId = orderResult.insertId;
+        logger.debug({ orderId }, "[createOrderFromValidatedCart] order inserted");
+
+        let appliedDiscount = requestedDiscount;
+        if (discountCode) {
+            const promotion = await this.promotionsRepository.consumePromotion(
+                tx,
+                discountCode,
+                identity.userId,
+                orderId,
+                transactionMerchandiseTotal,
+            );
+            appliedDiscount = promotion.discount;
+            if (
+                identity.kind === "guest"
+                && guestQuote
+                && Math.abs(appliedDiscount - Number(guestQuote.discount)) > 0.01
+            ) {
+                throw createCheckoutError(
+                    "The promotion changed while placing the order. Refresh your cart and try again.",
+                    409,
+                    {
+                        authoritativeCart: transactionCart,
+                        authoritativeTotalPrice: transactionMerchandiseTotal,
+                    },
+                );
+            }
+            if (appliedDiscount !== (identity.kind === "guest" ? 0 : requestedDiscount)) {
+                await this.ordersRepository.updateOrderDiscountInTransaction(tx, orderId, appliedDiscount);
+            }
+        }
+
+        await this.createPaymentLedgerInTransaction(tx, {
+            orderId,
+            paymentMethod,
+            baseAmount: Math.max(transactionMerchandiseTotal - appliedDiscount, 0),
+        });
+
+        return { orderId, appliedDiscount };
+    }
+
+    private async buildOrderItemRows(
+        tx: TransactionContext,
+        orderId: number,
+        transactionCart: CartItemRow[],
+    ): Promise<{ values: unknown[][]; productQuantities: Map<number, number> }> {
+        const productIdsForSnapshot = [...new Set(transactionCart.map((item) => Number(item.product_id || 0)).filter(Boolean))];
+        const productAttributes = await this.productAttributesRepository.getForProducts(tx, productIdsForSnapshot);
+        const orderItemSnapshots = transactionCart.map((item) =>
+            buildOrderItemSnapshot(item, productAttributes.get(Number(item.product_id || 0))),
+        );
+        const values = orderItemSnapshots.map((snapshot) => [
+            orderId,
+            snapshot.productId,
+            snapshot.quantity,
+            snapshot.unitPrice * snapshot.quantity,
+            snapshot.sku,
+            snapshot.productName,
+            snapshot.image,
+            snapshot.unitPrice,
+            snapshot.brand,
+            snapshot.category,
+            snapshot.warrantyMonths,
+            JSON.stringify(snapshot.specifications),
+        ]);
+        const productQuantities = transactionCart.reduce((acc: Map<number, number>, product: CartItemRow) => {
+            const productId = Number(product.product_id || 0);
+            const quantity = Number(product.quantity) || 0;
+            const currentQuantity = acc.get(productId) || 0;
+            acc.set(productId, currentQuantity + quantity);
+            return acc;
+        }, new Map<number, number>());
+
+        return { values, productQuantities };
+    }
+
+    private async recordOrderInventorySale(
+        tx: TransactionContext,
+        {
+            orderId,
+            userId,
+            transactionCart,
+            transactionMerchandiseTotal,
+            productQuantities,
+            guestLockedProducts,
+        }: {
+            orderId: number;
+            userId: string | null;
+            transactionCart: CartItemRow[];
+            transactionMerchandiseTotal: number;
+            productQuantities: Map<number, number>;
+            guestLockedProducts: LockedProductRow[] | null;
+        },
+    ): Promise<InventoryMovementInput[]> {
+        const productIds = [...productQuantities.keys()].sort((left, right) => left - right);
+        const authoritativeItemsById = new Map(
+            transactionCart.map((item: CartItemRow) => [Number(item.product_id || 0), item] as const),
+        );
+        const lockedProducts = guestLockedProducts || await this.ordersRepository.lockProductsForOrderInTransaction(tx, productIds);
+        const stockById = new Map(lockedProducts.map((row) => [row.id, Number(row.stock) || 0]));
+
+        for (const [productId, quantity] of productQuantities.entries()) {
+            const authoritativeItem = authoritativeItemsById.get(productId);
+            const productName = String(authoritativeItem?.product_name || `Product #${productId}`);
+            const stock = stockById.get(productId);
+            if (stock == null) {
+                const issues: CartValidationIssue[] = [{
+                    cartItemId: Number(authoritativeItem?.cart_item_id || 0),
+                    productId,
+                    productName,
+                    requestedQuantity: quantity,
+                    availableStock: 0,
+                    reason: "unavailable",
+                }];
+                throw createCheckoutError(
+                    `${productName} is no longer available. Remove it from your cart and try again.`,
+                    409,
+                    {
+                        issues,
+                        authoritativeCart: transactionCart,
+                        authoritativeTotalPrice: transactionMerchandiseTotal,
+                    },
+                );
+            }
+            if (stock < quantity) {
+                const issues: CartValidationIssue[] = [{
+                    cartItemId: Number(authoritativeItem?.cart_item_id || 0),
+                    productId,
+                    productName,
+                    requestedQuantity: quantity,
+                    availableStock: Number(stock) || 0,
+                    reason: stock <= 0 ? "out_of_stock" : "insufficient_stock",
+                }];
+                throw createCheckoutError(
+                    `${productName} only has ${stock} item(s) left. Update your cart and try again.`,
+                    409,
+                    {
+                        issues,
+                        authoritativeCart: transactionCart,
+                        authoritativeTotalPrice: transactionMerchandiseTotal,
+                    },
+                );
+            }
+        }
+
+        const inventoryMovements = [...productQuantities.entries()].reduce(
+            (movements: InventoryMovementInput[], [productId, quantity]) => {
+                if (!stockById.has(productId)) {
+                    logger.warn(
+                        { userId, productId, orderId },
+                        "[createOrderFromValidatedCart] skipping inventory movement — no locked stock row for product",
+                    );
+                    return movements;
+                }
+                const stockBefore = Number(stockById.get(productId)) || 0;
+                movements.push({
+                    productId,
+                    orderId,
+                    movementType: "sale",
+                    quantityChange: -quantity,
+                    stockBefore,
+                    stockAfter: Math.max(stockBefore - quantity, 0),
+                    note: `Stock deducted for order #${orderId}`,
+                    actorId: userId,
+                });
+                return movements;
+            },
+            [],
+        );
+
+        for (const productId of productIds) {
+            const quantity = productQuantities.get(productId) || 0;
+            const result = await this.ordersRepository.decrementProductStockInTransaction(tx, productId, quantity);
+            if (result.affectedRows !== 1) {
+                throw createCheckoutError("Stock changed while placing the order. Please try again.", HTTP_STATUS.CONFLICT);
+            }
+        }
+        await this.inventoryService.createMovementsInTransaction(tx, inventoryMovements);
+        return inventoryMovements;
+    }
+
     async createOrderFromValidatedCart({
         uid,
         identity: suppliedIdentity,
@@ -397,231 +657,59 @@ export class NestOrdersService {
         }, "[createOrderFromValidatedCart] start");
 
         const transactionResult = await withTransaction(async (tx) => {
-            const q = <T = unknown>(sql: string, values?: unknown[]) => tx.query<T>(sql, values);
-            logger.debug("[createOrderFromValidatedCart] transaction started");
-
-            let transactionCart = authoritativeCart;
-            let transactionMerchandiseTotal = authoritativeTotalPrice;
-            let guestLockedProducts: LockedProductRow[] | null = null;
-            if (identity.kind === "guest") {
-                if (!guestQuote) {
-                    throw createCheckoutError("Guest checkout quote is missing. Refresh your cart and try again.", 409);
-                }
-                const guestTransaction = await this.loadGuestTransactionalCart(
-                    tx,
-                    guestQuote.cart,
-                    guestQuote.merchandiseTotal,
-                );
-                transactionCart = guestTransaction.cart;
-                transactionMerchandiseTotal = guestTransaction.merchandiseTotal;
-                guestLockedProducts = guestTransaction.lockedProducts;
-            }
-
-            const orderResult = await q<InsertResult>(
-                `INSERT INTO orders
-                    (user_id, guest_email, guest_name, guest_phone, guest_order_token_hash,
-                     total_price, discount, shipping_address, payment_method, currency, date_added)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
-                [
-                    userId,
-                    identity.kind === "guest" ? identity.guestContact.guestEmail : null,
-                    identity.kind === "guest" ? identity.guestContact.guestName : null,
-                    identity.kind === "guest" ? identity.guestContact.guestPhone ?? null : null,
-                    identity.kind === "guest" ? identity.guestOrderTokenHash : null,
-                    transactionMerchandiseTotal,
-                    identity.kind === "guest" ? 0 : requestedDiscount,
-                    shippingAddress,
-                    paymentMethod,
-                    env.storeCurrency,
-                ],
-            );
-            const orderId = orderResult.insertId;
-            logger.debug({ orderId }, "[createOrderFromValidatedCart] order inserted");
-
-            let appliedDiscount = requestedDiscount;
-            if (discountCode) {
-                const promotion = await this.promotionsRepository.consumePromotion(
-                    tx,
-                    discountCode,
-                    userId,
-                    orderId,
-                    transactionMerchandiseTotal,
-                );
-                appliedDiscount = promotion.discount;
-                if (
-                    identity.kind === "guest"
-                    && guestQuote
-                    && Math.abs(appliedDiscount - Number(guestQuote.discount)) > 0.01
-                ) {
-                    throw createCheckoutError(
-                        "The promotion changed while placing the order. Refresh your cart and try again.",
-                        409,
-                        {
-                            authoritativeCart: transactionCart,
-                            authoritativeTotalPrice: transactionMerchandiseTotal,
-                        },
-                    );
-                }
-                if (appliedDiscount !== (identity.kind === "guest" ? 0 : requestedDiscount)) {
-                    await q("UPDATE orders SET discount = ? WHERE id = ?", [appliedDiscount, orderId]);
-                }
-            }
-
-            await this.createPaymentLedgerInTransaction(tx, {
-                orderId,
-                paymentMethod,
-                baseAmount: Math.max(transactionMerchandiseTotal - appliedDiscount, 0),
+            const cart = await this.resolveOrderCartForTransaction(tx, {
+                identity,
+                authoritativeCart,
+                authoritativeTotalPrice,
+                guestQuote,
             });
-
-            const productIdsForSnapshot = [...new Set(transactionCart.map((item) => Number(item.product_id || 0)).filter(Boolean))];
-            const productAttributes = await this.productAttributesRepository.getForProducts(tx, productIdsForSnapshot);
-            const orderItemSnapshots = transactionCart.map((item) =>
-                buildOrderItemSnapshot(item, productAttributes.get(Number(item.product_id || 0))),
-            );
-            const orderItemsValues = orderItemSnapshots.map((snapshot) => [
-                orderId,
-                snapshot.productId,
-                snapshot.quantity,
-                snapshot.unitPrice * snapshot.quantity,
-                snapshot.sku,
-                snapshot.productName,
-                snapshot.image,
-                snapshot.unitPrice,
-                snapshot.brand,
-                snapshot.category,
-                snapshot.warrantyMonths,
-                JSON.stringify(snapshot.specifications),
-            ]);
-
-            const productQuantities = transactionCart.reduce((acc: Map<number, number>, product: CartItemRow) => {
-                const productId = Number(product.product_id || 0);
-                const quantity = Number(product.quantity) || 0;
-                const currentQuantity = acc.get(productId) || 0;
-                acc.set(productId, currentQuantity + quantity);
-                return acc;
-            }, new Map<number, number>());
-
+            const orderHeader = await this.createOrderHeaderInTransaction(tx, {
+                identity,
+                transactionCart: cart.cart,
+                transactionMerchandiseTotal: cart.merchandiseTotal,
+                requestedDiscount,
+                shippingAddress,
+                paymentMethod,
+                discountCode,
+                guestQuote,
+            });
+            const orderItems = await this.buildOrderItemRows(tx, orderHeader.orderId, cart.cart);
             let inventoryMovements: InventoryMovementInput[] = [];
-            if (orderItemsValues.length > 0) {
-                logger.debug({ orderId, count: orderItemsValues.length }, "[createOrderFromValidatedCart] insertOrderItems");
-                await q(
-                    `INSERT INTO order_items
-                        (order_id, product_id, quantity, total_price, sku_snapshot, product_name_snapshot,
-                         image_snapshot, unit_price_snapshot, brand_snapshot, category_snapshot,
-                         warranty_months_snapshot, specifications_snapshot)
-                     VALUES ?`,
-                    [orderItemsValues],
+
+            if (orderItems.values.length > 0) {
+                logger.debug(
+                    { orderId: orderHeader.orderId, count: orderItems.values.length },
+                    "[createOrderFromValidatedCart] insertOrderItems",
                 );
-
-                const productIds = [...productQuantities.keys()].sort((left, right) => left - right);
-                const authoritativeItemsById = new Map(
-                    transactionCart.map((item: CartItemRow) => [Number(item.product_id || 0), item] as const),
-                );
-
-                const lockedProducts = guestLockedProducts || await q<LockedProductRow[]>(
-                    `SELECT id, name, stock FROM products WHERE id IN (${productIds.map(() => "?").join(", ")}) AND stock >= 0 FOR UPDATE`,
-                    productIds,
-                );
-
-                const stockById = new Map(lockedProducts.map((row) => [row.id, Number(row.stock) || 0]));
-                for (const [productId, quantity] of productQuantities.entries()) {
-                    const authoritativeItem = authoritativeItemsById.get(productId);
-                    const productName = String(authoritativeItem?.product_name || `Product #${productId}`);
-                    const stock = stockById.get(productId);
-                    if (stock == null) {
-                        const issues: CartValidationIssue[] = [{
-                            cartItemId: Number(authoritativeItem?.cart_item_id || 0),
-                            productId,
-                            productName,
-                            requestedQuantity: quantity,
-                            availableStock: 0,
-                            reason: "unavailable",
-                        }];
-                        throw createCheckoutError(
-                            `${productName} is no longer available. Remove it from your cart and try again.`,
-                            409,
-                            { issues, authoritativeCart: transactionCart, authoritativeTotalPrice: transactionMerchandiseTotal },
-                        );
-                    }
-                    if (stock < quantity) {
-                        const issues: CartValidationIssue[] = [{
-                            cartItemId: Number(authoritativeItem?.cart_item_id || 0),
-                            productId,
-                            productName,
-                            requestedQuantity: quantity,
-                            availableStock: Number(stock) || 0,
-                            reason: stock <= 0 ? "out_of_stock" : "insufficient_stock",
-                        }];
-                        throw createCheckoutError(
-                            `${productName} only has ${stock} item(s) left. Update your cart and try again.`,
-                            409,
-                            { issues, authoritativeCart: transactionCart, authoritativeTotalPrice: transactionMerchandiseTotal },
-                        );
-                    }
-                }
-
-                inventoryMovements = [...productQuantities.entries()].reduce(
-                    (movements: InventoryMovementInput[], [productId, quantity]) => {
-                        if (!stockById.has(productId)) {
-                            logger.warn(
-                                { userId, productId, orderId },
-                                "[createOrderFromValidatedCart] skipping inventory movement — no locked stock row for product",
-                            );
-                            return movements;
-                        }
-                        const stockBefore = Number(stockById.get(productId)) || 0;
-                        movements.push({
-                            productId,
-                            orderId,
-                            movementType: "sale",
-                            quantityChange: -quantity,
-                            stockBefore,
-                            stockAfter: Math.max(stockBefore - quantity, 0),
-                            note: `Stock deducted for order #${orderId}`,
-                            actorId: userId,
-                        });
-                        return movements;
-                    },
-                    [],
-                );
-
-                logger.debug({ count: productIds.length }, "[createOrderFromValidatedCart] updateProductStock");
-                for (const productId of productIds) {
-                    const quantity = productQuantities.get(productId) || 0;
-                    const result = await q<{ affectedRows: number }>(
-                        "UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?",
-                        [quantity, productId, quantity],
-                    );
-                    if (result.affectedRows !== 1) {
-                        throw createCheckoutError("Stock changed while placing the order. Please try again.", 409);
-                    }
-                }
-                await this.inventoryService.createMovementsInTransaction(tx, inventoryMovements);
+                await this.ordersRepository.insertOrderItemsInTransaction(tx, orderItems.values);
+                inventoryMovements = await this.recordOrderInventorySale(tx, {
+                    orderId: orderHeader.orderId,
+                    userId,
+                    transactionCart: cart.cart,
+                    transactionMerchandiseTotal: cart.merchandiseTotal,
+                    productQuantities: orderItems.productQuantities,
+                    guestLockedProducts: cart.lockedProducts,
+                });
             }
 
             if (identity.kind === "authenticated") {
-                await q("UPDATE carts SET done = 1 WHERE user_id = ? AND done = 0", [identity.userId]);
+                await this.ordersRepository.markOpenCartCompleteInTransaction(tx, identity.userId);
             }
             logger.debug("[createOrderFromValidatedCart] cart updated");
             await this.orderTimelineService.createTimelineEventInTransaction(tx, {
-                orderId,
-                status: 0,
+                orderId: orderHeader.orderId,
+                status: ORDER_STATUS.PENDING,
                 note: "Order was placed by the customer.",
                 actorId: userId,
             });
 
-            const [order] = await q<Array<{ id: number; date_added: string }>>(
-                `SELECT id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
-                FROM orders
-                WHERE id = ?`,
-                [orderId],
-            );
+            const [order] = await this.ordersRepository.getOrderDateAddedInTransaction(tx, orderHeader.orderId);
             return {
-                orderId,
+                orderId: orderHeader.orderId,
                 inventoryMovements,
-                appliedDiscount,
-                authoritativeTotalPrice: transactionMerchandiseTotal,
-                order: order || { id: orderId, date_added: new Date().toISOString() },
+                appliedDiscount: orderHeader.appliedDiscount,
+                authoritativeTotalPrice: cart.merchandiseTotal,
+                order: order || { id: orderHeader.orderId, date_added: new Date().toISOString() },
             };
         });
 
@@ -648,7 +736,7 @@ export class NestOrdersService {
 
         const checkoutValidation = await this.cartService.validateCheckoutSubmission(uid, cart, totalPrice);
         if (checkoutValidation.cartItems.length === 0) {
-            throw createCheckoutError("Your cart is empty. Refresh your cart and try again.", 400);
+            throw createCheckoutError("Your cart is empty. Refresh your cart and try again.", HTTP_STATUS.BAD_REQUEST);
         }
         if (checkoutValidation.issues.length > 0) {
             throw createCheckoutError(
@@ -662,14 +750,11 @@ export class NestOrdersService {
             );
         }
         if (checkoutValidation.mismatches.length > 0) {
-            logger.error({
-                uid,
-                submittedCart: cart,
-                submittedTotalPrice: totalPrice,
-                mismatches: checkoutValidation.mismatches,
-                authoritativeCart: checkoutValidation.cartItems,
-                authoritativeTotalPrice: checkoutValidation.authoritativeTotalPrice,
-            }, "[makePurchase] checkout mismatches");
+            logger.warn({
+                event: "checkout submission rejected because cart values changed",
+                cartItemCount: cart.length,
+                mismatchCount: checkoutValidation.mismatches.length,
+            });
             throw createCheckoutError(
                 "Your cart changed before checkout. Refresh your cart and confirm the latest prices and quantities.",
                 409,
@@ -698,7 +783,7 @@ export class NestOrdersService {
     }> {
         const preview = await this.cartService.previewGuestCart(payload.cart, payload.discountCode);
         if (preview.cartItems.length === 0) {
-            throw createCheckoutError("Your cart is empty. Refresh your cart and try again.", 400);
+            throw createCheckoutError("Your cart is empty. Refresh your cart and try again.", HTTP_STATUS.BAD_REQUEST);
         }
         if (preview.issues.length > 0) {
             throw createCheckoutError(
@@ -712,7 +797,7 @@ export class NestOrdersService {
             );
         }
         if (payload.discountCode && !preview.promotion.valid) {
-            throw createCheckoutError(preview.promotion.message || "Discount code is no longer valid.", 400);
+            throw createCheckoutError(preview.promotion.message || "Discount code is no longer valid.", HTTP_STATUS.BAD_REQUEST);
         }
 
         const guestOrderToken = generateGuestOrderToken();
@@ -747,7 +832,7 @@ export class NestOrdersService {
     async lookupGuestOrder(orderId: number, guestOrderToken: string): Promise<GuestSafeOrderDetail> {
         const normalizedToken = String(guestOrderToken || "").trim();
         if (!Number.isSafeInteger(orderId) || orderId <= 0 || !normalizedToken) {
-            throw createCheckoutError("Order not found", 404);
+            throw createCheckoutError("Order not found", HTTP_STATUS.NOT_FOUND);
         }
 
         const identity = await new Promise<GuestOrderIdentityRow | null>((resolve, reject) => {
@@ -757,12 +842,12 @@ export class NestOrdersService {
             });
         });
         if (!identity || !matchesGuestOrderToken(normalizedToken, identity.guest_order_token_hash)) {
-            throw createCheckoutError("Order not found", 404);
+            throw createCheckoutError("Order not found", HTTP_STATUS.NOT_FOUND);
         }
 
         const order = await this.getOrderDetail(orderId);
         if (!order || order.user_id !== null) {
-            throw createCheckoutError("Order not found", 404);
+            throw createCheckoutError("Order not found", HTTP_STATUS.NOT_FOUND);
         }
 
         return {
@@ -803,7 +888,7 @@ export class NestOrdersService {
     async getGuestOrderByPayOSOrderCode(orderCode: number, guestOrderToken: string): Promise<GuestSafeOrderDetail> {
         const normalizedToken = String(guestOrderToken || "").trim();
         if (!Number.isSafeInteger(orderCode) || orderCode <= 0 || !normalizedToken) {
-            throw createCheckoutError("Order not ready yet", 404);
+            throw createCheckoutError("Order not ready yet", HTTP_STATUS.NOT_FOUND);
         }
 
         const pending = await new Promise<PendingCheckoutRow | null>((resolve, reject) => {
@@ -813,7 +898,7 @@ export class NestOrdersService {
             });
         });
         if (pending && (pending.user_id !== null || !matchesGuestOrderToken(normalizedToken, pending.guest_order_token_hash))) {
-            throw createCheckoutError("Order not ready yet", 404);
+            throw createCheckoutError("Order not ready yet", HTTP_STATUS.NOT_FOUND);
         }
 
         const identity = await new Promise<GuestOrderIdentityRow | null>((resolve, reject) => {
@@ -823,7 +908,7 @@ export class NestOrdersService {
             });
         });
         if (!identity || !matchesGuestOrderToken(normalizedToken, identity.guest_order_token_hash)) {
-            throw createCheckoutError("Order not ready yet", 404);
+            throw createCheckoutError("Order not ready yet", HTTP_STATUS.NOT_FOUND);
         }
         return this.lookupGuestOrder(identity.id, normalizedToken);
     }
@@ -834,13 +919,13 @@ export class NestOrdersService {
         paymentAmount: number,
     ): Promise<{ id: number; date_added: string } | null> {
         const transactionResult = await withTransaction(async (tx) => {
-            const pending = await this.checkoutReservationRepository.getPendingCheckoutByProviderOrderCodeForUpdate(tx, "payos", orderCode);
+            const pending = await this.checkoutReservationRepository.getPendingCheckoutByProviderOrderCodeForUpdate(tx, PAYMENT_PROVIDER.PAYOS, orderCode);
             const [existingOrder] = await tx.query<Array<{ id: number; date_added: string }>>(
                 `SELECT o.id, DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
                  FROM orders o
                  JOIN order_payments op ON op.order_id = o.id
-                 WHERE op.provider = 'payos' AND op.provider_reference = ?
-                   AND op.provider_payment_id = ? AND op.amount = ? AND op.currency = 'VND'
+                 WHERE op.provider = '${PAYMENT_PROVIDER.PAYOS}' AND op.provider_reference = ?
+                   AND op.provider_payment_id = ? AND op.amount = ? AND op.currency = '${CURRENCY_CODE.VND}'
                  LIMIT 1`,
                 [String(orderCode), String(paymentLinkId), Number(paymentAmount)],
             );
@@ -852,22 +937,22 @@ export class NestOrdersService {
 
             const expectedAmount = Number(pending.payment_amount);
             if (
-                pending.payment_provider !== "payos"
+                pending.payment_provider !== PAYMENT_PROVIDER.PAYOS
                 || String(pending.provider_order_code) !== String(orderCode)
                 || String(pending.provider_reference || "") !== String(paymentLinkId)
-                || pending.payment_currency !== "VND"
+                || pending.payment_currency !== CURRENCY_CODE.VND
                 || !Number.isFinite(expectedAmount)
                 || Math.abs(expectedAmount - Number(paymentAmount)) > 0.001
             ) {
-                throw createCheckoutError("PayOS payment amount or reference does not match the checkout reservation.", 409);
+                throw createCheckoutError("PayOS payment amount or reference does not match the checkout reservation.", HTTP_STATUS.CONFLICT);
             }
 
             if (existingOrder) {
-                if (pending.status === "PENDING" && !pending.consumed_at) {
+                if (pending.status === CHECKOUT_RESERVATION_STATUS.PENDING && !pending.consumed_at) {
                     if (pending.discount_id) {
                         const consumedRows = await this.promotionsRepository.consumePromotionReservation(tx, pending.id, existingOrder.id);
                         if (consumedRows !== 1) {
-                            throw createCheckoutError("Promotion reservation was already finalized.", 409);
+                            throw createCheckoutError("Promotion reservation was already finalized.", HTTP_STATUS.CONFLICT);
                         }
                     }
                     await this.checkoutReservationRepository.consumeReservation(tx, pending.id);
@@ -882,20 +967,20 @@ export class NestOrdersService {
             }
 
             const reservationExpired = !pending.expires_at || new Date(pending.expires_at).getTime() <= Date.now();
-            if (pending.status !== "PENDING" || pending.consumed_at || reservationExpired) {
-                throw createCheckoutError("Checkout reservation is no longer payable.", 409);
+            if (pending.status !== CHECKOUT_RESERVATION_STATUS.PENDING || pending.consumed_at || reservationExpired) {
+                throw createCheckoutError("Checkout reservation is no longer payable.", HTTP_STATUS.CONFLICT);
             }
 
             let authoritativeCart: CartItemRow[];
             try {
                 authoritativeCart = JSON.parse(pending.cart_json) as CartItemRow[];
             } catch (error) {
-                throw createCheckoutError("Checkout reservation contains invalid cart data.", 500, { cause: String(error) });
+                throw createCheckoutError("Checkout reservation contains invalid cart data.", HTTP_STATUS.INTERNAL_SERVER_ERROR, { cause: String(error) });
             }
 
             const reservationItems = await this.checkoutReservationRepository.getReservationItems(tx, pending.id);
             if (reservationItems.length === 0) {
-                throw createCheckoutError("Checkout reservation has no inventory items.", 409);
+                throw createCheckoutError("Checkout reservation has no inventory items.", HTTP_STATUS.CONFLICT);
             }
             const productIds = reservationItems.map((item) => item.productId).sort((left, right) => left - right);
             const lockedProducts = await this.checkoutReservationRepository.lockProducts(tx, productIds);
@@ -929,7 +1014,7 @@ export class NestOrdersService {
                     Number(pending.total_price),
                     Number(pending.discount),
                     pending.shipping_address,
-                    "payos",
+                    PAYMENT_PROVIDER.PAYOS,
                     env.storeCurrency,
                 ],
             );
@@ -937,25 +1022,25 @@ export class NestOrdersService {
             if (pending.discount_id) {
                 const consumedRows = await this.promotionsRepository.consumePromotionReservation(tx, pending.id, orderId);
                 if (consumedRows !== 1) {
-                    throw createCheckoutError("Promotion reservation was already finalized.", 409);
+                    throw createCheckoutError("Promotion reservation was already finalized.", HTTP_STATUS.CONFLICT);
                 }
             }
 
             const payableAmount = Math.max(Number(pending.total_price) - Number(pending.discount), 0);
             await this.createPaymentLedgerInTransaction(tx, {
                 orderId,
-                paymentMethod: "payos",
+                paymentMethod: PAYMENT_PROVIDER.PAYOS,
                 baseAmount: payableAmount,
                 providerPaymentId: paymentLinkId,
                 providerReference: String(orderCode),
                 paymentQuote: {
                     baseAmount: Number(payableAmount.toFixed(2)),
-                    baseCurrency: "VND",
+                    baseCurrency: CURRENCY_CODE.VND,
                     amount: expectedAmount,
-                    currency: "VND",
+                    currency: CURRENCY_CODE.VND,
                     fxRate: Number(pending.payment_fx_rate) || 1,
                 },
-                status: "paid",
+                status: PAYMENT_STATUS.PAID,
             });
 
             const productAttributes = await this.productAttributesRepository.getForProducts(tx, productIds);
@@ -995,7 +1080,7 @@ export class NestOrdersService {
                     [item.quantity, item.productId, item.quantity],
                 );
                 if (result.affectedRows !== 1) {
-                    throw createCheckoutError("Stock changed while confirming payment. The order was not created.", 409);
+                    throw createCheckoutError("Stock changed while confirming payment. The order was not created.", HTTP_STATUS.CONFLICT);
                 }
                 inventoryMovements.push({
                     productId: item.productId,
@@ -1015,11 +1100,11 @@ export class NestOrdersService {
 
             const consumedRows = await this.checkoutReservationRepository.consumeReservation(tx, pending.id);
             if (consumedRows !== 1) {
-                throw createCheckoutError("Checkout reservation was already finalized.", 409);
+                throw createCheckoutError("Checkout reservation was already finalized.", HTTP_STATUS.CONFLICT);
             }
             await this.orderTimelineService.createTimelineEventInTransaction(tx, {
                 orderId,
-                status: 0,
+                status: ORDER_STATUS.PENDING,
                 note: "Order was placed by the customer.",
                 actorId: pending.user_id,
             });
@@ -1107,7 +1192,7 @@ export class NestOrdersService {
                     discount: Number(first.discount) || 0,
                     shipping_address: first.shipping_address,
                     payment_method: first.payment_method,
-                    currency: first.currency || "USD",
+                    currency: first.currency || CURRENCY_CODE.USD,
                     payment_status: first.payment_status || null,
                     payment_amount: first.payment_amount === null || first.payment_amount === undefined ? null : Number(first.payment_amount),
                     payment_currency: first.payment_currency || null,
@@ -1137,7 +1222,7 @@ export class NestOrdersService {
                 this.orderTimelineService
                     .getTimeline(orderId, order)
                     .then((timeline: OrderTimelineRow[]) => resolve({ ...order, timeline }))
-                    .catch(() => resolve(order));
+                    .catch(reject);
             });
         });
     }
@@ -1147,11 +1232,11 @@ export class NestOrdersService {
         status: number,
         actorId: string | number | null = null,
     ): Promise<OrderSummaryRow> {
-        if (Number(status) === 2) {
+        if (Number(status) === ORDER_STATUS.CANCELED) {
             return this.cancelOrder(orderId, String(actorId || "admin"), true);
         }
-        if (Number(status) !== 1) {
-            return Promise.reject(createCheckoutError("Only pending orders can transition to Done", 409));
+        if (Number(status) !== ORDER_STATUS.DONE) {
+            return Promise.reject(createCheckoutError("Only pending orders can transition to Done", HTTP_STATUS.CONFLICT));
         }
 
         return withTransaction(async (tx) => {
@@ -1159,42 +1244,45 @@ export class NestOrdersService {
                 "SELECT user_id, status, delivered_at FROM orders WHERE id = ? FOR UPDATE",
                 [orderId],
             );
-            if (!current) throw createCheckoutError("Order not found", 404);
-            const [payment] = await tx.query<Array<{ id: number; provider: string; status: string }>>(
-                "SELECT id, provider, status FROM order_payments WHERE order_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE",
+            if (!current) throw createCheckoutError("Order not found", HTTP_STATUS.NOT_FOUND);
+            const [payment] = await tx.query<Array<{ id: number; provider: string; status: string; simulated?: number | boolean | null }>>(
+                "SELECT id, provider, status, simulated FROM order_payments WHERE order_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE",
                 [orderId],
             );
-            if (Number(current.status) === 1) {
+            if (payment?.provider === PAYMENT_PROVIDER.PAYOS && Boolean(payment.simulated)) {
+                throw createCheckoutError("Simulated PayOS payments cannot be marked delivered", HTTP_STATUS.CONFLICT);
+            }
+            if (Number(current.status) === ORDER_STATUS.DONE) {
                 if (!current.delivered_at) {
                     await tx.query("UPDATE orders SET delivered_at = COALESCE(delivered_at, UTC_TIMESTAMP()) WHERE id = ?", [orderId]);
                 }
                 return { userId: current.user_id, changed: false };
             }
-            if (Number(current.status) !== 0) {
-                throw createCheckoutError("Canceled orders cannot transition to Done", 409);
+            if (Number(current.status) !== ORDER_STATUS.PENDING) {
+                throw createCheckoutError("Canceled orders cannot transition to Done", HTTP_STATUS.CONFLICT);
             }
-            if (payment?.provider === "payos" && payment.status !== "paid") {
-                throw createCheckoutError("PayOS payment must be paid before delivery", 409);
+            if (payment?.provider === PAYMENT_PROVIDER.PAYOS && payment.status !== PAYMENT_STATUS.PAID) {
+                throw createCheckoutError("PayOS payment must be paid before delivery", HTTP_STATUS.CONFLICT);
             }
             await tx.query(
-                "UPDATE orders SET status = 1, delivered_at = COALESCE(delivered_at, UTC_TIMESTAMP()) WHERE id = ? AND status = 0",
+                `UPDATE orders SET status = ${ORDER_STATUS.DONE}, delivered_at = COALESCE(delivered_at, UTC_TIMESTAMP()) WHERE id = ? AND status = ${ORDER_STATUS.PENDING}`,
                 [orderId],
             );
-            if (payment?.provider === "cash" && payment.status === "pending") {
+            if (payment?.provider === PAYMENT_PROVIDER.CASH && payment.status === PAYMENT_STATUS.PENDING) {
                 await tx.query(
-                    "UPDATE order_payments SET status = 'paid', paid_at = COALESCE(paid_at, UTC_TIMESTAMP()), reconciliation_status = 'MANUAL_CONFIRMED', last_reconciled_at = UTC_TIMESTAMP(), provider_status = 'COLLECTED', updated_at = UTC_TIMESTAMP() WHERE id = ? AND provider = 'cash' AND status = 'pending'",
+                    `UPDATE order_payments SET status = '${PAYMENT_STATUS.PAID}', paid_at = COALESCE(paid_at, UTC_TIMESTAMP()), reconciliation_status = '${PAYMENT_RECONCILIATION_STATUS.MANUAL_CONFIRMED}', last_reconciled_at = UTC_TIMESTAMP(), provider_status = '${PAYMENT_PROVIDER_STATUS.CASH_COLLECTED}', updated_at = UTC_TIMESTAMP() WHERE id = ? AND provider = '${PAYMENT_PROVIDER.CASH}' AND status = '${PAYMENT_STATUS.PENDING}'`,
                     [payment.id],
                 );
             }
             await this.orderTimelineService.createTimelineEventInTransaction(tx, {
                 orderId,
-                status: 1,
+                status: ORDER_STATUS.DONE,
                 note: "Order was completed by an admin.",
                 actorId,
             });
             return { userId: current.user_id, changed: true };
         }).then(async (result) => {
-            if (result.changed && result.userId) this.notificationsService.notifyOrderStatus(result.userId, orderId, 1);
+            if (result.changed && result.userId) this.notificationsService.notifyOrderStatus(result.userId, orderId, ORDER_STATUS.DONE);
             return this.getOrderSummary(orderId);
         });
     }

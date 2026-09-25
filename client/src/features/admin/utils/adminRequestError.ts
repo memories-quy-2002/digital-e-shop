@@ -1,3 +1,5 @@
+import { HTTP_STATUS } from "../../../constants/http-status";
+
 export type AdminRequestErrorKind = "auth" | "forbidden" | "network" | "unknown";
 
 export type AdminRequestError = {
@@ -15,11 +17,11 @@ export const getAdminRequestError = (error: unknown): AdminRequestError => {
     const candidate = error && typeof error === "object" ? (error as AxiosLikeError) : {};
     const status = candidate.response?.status;
 
-    if (status === 401) {
+    if (status === HTTP_STATUS.UNAUTHORIZED) {
         return { kind: "auth", title: "Admin session required", message: "Sign in again to load this admin data." };
     }
 
-    if (status === 403) {
+    if (status === HTTP_STATUS.FORBIDDEN) {
         return { kind: "forbidden", title: "Access denied", message: "Your account is not allowed to view this admin data." };
     }
 

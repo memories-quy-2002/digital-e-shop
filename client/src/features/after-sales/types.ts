@@ -1,5 +1,30 @@
-export type AfterSalesKind = "RETURN" | "WARRANTY";
-export type AfterSalesStatus = "REQUESTED" | "APPROVED" | "REJECTED" | "RECEIVED" | "REFUND_PENDING" | "REFUNDED" | "CLOSED";
+export const AFTER_SALES_KIND = {
+    RETURN: "RETURN",
+    WARRANTY: "WARRANTY",
+} as const;
+
+export const AFTER_SALES_STATUS = {
+    REQUESTED: "REQUESTED",
+    APPROVED: "APPROVED",
+    REJECTED: "REJECTED",
+    RECEIVED: "RECEIVED",
+    REFUND_PENDING: "REFUND_PENDING",
+    REFUNDED: "REFUNDED",
+    CLOSED: "CLOSED",
+} as const;
+
+export const AFTER_SALES_STATUSES = [
+    AFTER_SALES_STATUS.REQUESTED,
+    AFTER_SALES_STATUS.APPROVED,
+    AFTER_SALES_STATUS.REJECTED,
+    AFTER_SALES_STATUS.RECEIVED,
+    AFTER_SALES_STATUS.REFUND_PENDING,
+    AFTER_SALES_STATUS.REFUNDED,
+    AFTER_SALES_STATUS.CLOSED,
+] as const;
+
+export type AfterSalesKind = (typeof AFTER_SALES_KIND)[keyof typeof AFTER_SALES_KIND];
+export type AfterSalesStatus = (typeof AFTER_SALES_STATUS)[keyof typeof AFTER_SALES_STATUS];
 
 export type AfterSalesRequestItem = {
     id: number;

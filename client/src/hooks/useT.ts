@@ -11,9 +11,6 @@ const resolvePath = (source: Dictionary, path: string): unknown => {
     }, source);
 };
 
-const isFormatter = (value: unknown): value is (...args: any[]) => string =>
-    typeof value === "function";
-
 export const useT = () => {
     const { t } = useLocale();
 
@@ -23,9 +20,9 @@ export const useT = () => {
             if (typeof resolved === "string") {
                 return resolved;
             }
-            if (isFormatter(resolved)) {
+            if (typeof resolved === "function") {
                 try {
-                    const formatted = resolved(...args);
+                    const formatted: unknown = Reflect.apply(resolved, undefined, args);
                     if (typeof formatted === "string") {
                         return formatted;
                     }

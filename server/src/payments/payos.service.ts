@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PayOS, type CreatePaymentLinkRequest, type Webhook, type WebhookData } from "@payos/node";
 import { NestConfigService } from "../config/nest-config.service";
-import type { PayOSPaymentLookup } from "./payment.types";
+import { PAYMENT_CURRENCY, type PayOSPaymentLookup } from "./payment.types";
 
 export type PayOSPaymentLinkResult = {
     orderCode: number;
@@ -69,7 +69,7 @@ export class PayOSService {
             amount: link.amount,
             amountPaid: link.amountPaid,
             status: link.status,
-            currency: "VND",
+            currency: PAYMENT_CURRENCY.VND,
         };
     }
     cancelPaymentLink(paymentLinkId: string, reason: string) {

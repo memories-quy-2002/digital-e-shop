@@ -6,7 +6,6 @@ vi.mock("../../database/transaction", () => ({ withTransaction: transactionRunne
 vi.mock("#src/shared/utils/logger", () => ({
     logger: { info: vi.fn(), error: vi.fn(), debug: vi.fn(), warn: vi.fn() },
 }));
-vi.mock("../orders.repository", () => ({ OrdersRepository: class {} }));
 vi.mock("../orders.timeline.service", () => ({ NestOrderTimelineService: class {} }));
 vi.mock("../../cart/cart.service", () => ({ NestCartService: class {} }));
 vi.mock("../../inventory/inventory.service", () => ({ NestInventoryService: class {} }));
@@ -14,6 +13,7 @@ vi.mock("../../notifications/notifications.service", () => ({ NestNotificationsS
 vi.mock("../checkout-reservation.repository", () => ({ CheckoutReservationRepository: class {} }));
 
 import { OrdersController } from "../orders.controller";
+import { OrdersRepository } from "../orders.repository";
 import { NestOrdersService } from "../orders.service";
 import { guestOrderLookupSchema, guestPurchaseSchema } from "../orders.validator";
 import { hashGuestOrderToken } from "../guest-order-token";
@@ -44,10 +44,11 @@ function buildController() {
 function buildService() {
     const tx = { query: vi.fn() };
     const cartService = { previewGuestCart: vi.fn(), validateCheckoutSubmission: vi.fn() };
-    const ordersRepository = {
+    const promotions = { consumePromotion: vi.fn() };
+    const ordersRepository = Object.assign(new OrdersRepository(promotions as never), {
         getGuestOrderIdentity: vi.fn(),
         getGuestOrderByPayOSOrderCode: vi.fn(),
-    };
+    });
     const checkoutReservations = {
         lockProducts: vi.fn(),
         lockProductsForPurchase: vi.fn().mockResolvedValue([{
@@ -69,7 +70,6 @@ function buildService() {
     const inventory = { createMovementsInTransaction: vi.fn().mockResolvedValue(undefined) };
     const notifications = { notifyOrderPlaced: vi.fn() };
     const productAttributes = { getForProducts: vi.fn().mockResolvedValue(new Map()) };
-    const promotions = { consumePromotion: vi.fn() };
 
     tx.query.mockImplementation(async (sql: string) => {
         if (sql.startsWith("INSERT INTO orders")) return { insertId: 91 };

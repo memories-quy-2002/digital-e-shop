@@ -30,7 +30,7 @@ export default defineConfig({
     schema: "src/database/prisma/schema.prisma",
     migrations: {
         path: "src/database/prisma/migrations",
-        seed: "node src/database/seeders/seedDemo.js",
+        seed: "node src/database/seeders/seed-demo.js",
     },
     datasource: {
         url: process.env.DATABASE_URL || "mysql://user:password@localhost:3306/placeholder",

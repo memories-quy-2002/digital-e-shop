@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import type { CustomerAddressInput, CustomerAddressRow } from "./addresses.types";
 import { AddressesRepository } from "./addresses.repository";
 
@@ -13,7 +14,7 @@ const normalizeAddressInput = (data: CustomerAddressInput = {}) => {
     const country = String(data.country || "").trim() || null;
 
     if (!addressLine) {
-        throw createHttpError("Address line is required", 400);
+        throw createHttpError("Address line is required", HTTP_STATUS.BAD_REQUEST);
     }
 
     return {
@@ -59,13 +60,13 @@ export class NestAddressesService {
     async updateAddress(uid: string, addressId: number | string, data: CustomerAddressInput) {
         const address = normalizeAddressInput(data);
         const result = await this.addressesRepository.updateAddress(uid, Number(addressId), address);
-        if (result.affectedRows === 0) throw createHttpError("Address not found", 404);
+        if (result.affectedRows === 0) throw createHttpError("Address not found", HTTP_STATUS.NOT_FOUND);
         return { id: Number(addressId), user_id: uid, ...address };
     }
 
     async deleteAddress(uid: string, addressId: number | string) {
         const result = await this.addressesRepository.deleteAddress(uid, Number(addressId));
-        if (result.affectedRows === 0) throw createHttpError("Address not found", 404);
+        if (result.affectedRows === 0) throw createHttpError("Address not found", HTTP_STATUS.NOT_FOUND);
         return { id: Number(addressId) };
     }
 }

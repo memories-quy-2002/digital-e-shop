@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { HTTP_STATUS } from "../../../constants/http-status";
 import { Button, Modal, Table } from "../../../components/ui/legacy";
 import ReactPaginate from "react-paginate";
 import type { AdminOrder as Order, AdminOrderDetail as OrderDetail } from "../../../types/order";
@@ -23,25 +24,26 @@ import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequ
 import { formatShippingAddress } from "../../orders/shippingAddress";
 import { formatCurrency } from "../../../utils/currency";
 import { getOrderStatusKey, ORDER_STATUS } from "../../orders/orderStatus";
+import { HISTORICAL_PAYMENT_METHOD, PAYMENT_METHOD, type PaymentMethod } from "../../orders/constants";
 
 const ITEMS_PER_PAGE = 8;
 
 type StatusFilter = "all" | "pending" | "done" | "canceled";
-type PaymentFilter = "all" | "cash" | "payos" | "none";
+type PaymentFilter = "all" | PaymentMethod | "none";
 
-const normalizeOrder = (order: any): Order => ({
+const normalizeOrder = (order: Order): Order => ({
     ...order,
     id: Number(order.id),
     total_price: Number(order.total_price) || 0,
     discount: Number(order.discount) || 0,
-    date_added: new Date(order.date_added),
+    date_added: order.date_added instanceof Date ? order.date_added : new Date(order.date_added),
 });
 
 const getPaymentMethodLabel = (paymentMethod?: Order["payment_method"]) => {
-    if (paymentMethod === "cash") return "Cash on delivery";
-    if (paymentMethod === "payos") return "PayOS (VND)";
-    if (paymentMethod === "bank_transfer") return "Historical bank transfer";
-    if (paymentMethod === "stripe" || paymentMethod === "card") return "Historical card payment";
+    if (paymentMethod === PAYMENT_METHOD.CASH) return "Cash on delivery";
+    if (paymentMethod === PAYMENT_METHOD.PAYOS) return "PayOS (VND)";
+    if (paymentMethod === HISTORICAL_PAYMENT_METHOD.BANK_TRANSFER) return "Historical bank transfer";
+    if (paymentMethod === HISTORICAL_PAYMENT_METHOD.STRIPE || paymentMethod === HISTORICAL_PAYMENT_METHOD.CARD) return "Historical card payment";
     return "Not recorded";
 };
 
@@ -111,7 +113,7 @@ const AdminOrderPage = () => {
 
         return orders.filter((order) => {
             if (statusFilter !== "all") {
-                const expected = statusFilter === "pending" ? 0 : statusFilter === "done" ? 1 : 2;
+                const expected = statusFilter === "pending" ? ORDER_STATUS.PENDING : statusFilter === "done" ? ORDER_STATUS.DONE : ORDER_STATUS.CANCELED;
                 if (order.status !== expected) {
                     return false;
                 }
@@ -151,7 +153,7 @@ const AdminOrderPage = () => {
         const completed = orders.filter((order) => order.status === ORDER_STATUS.DONE).length;
         const canceled = orders.filter((order) => order.status === ORDER_STATUS.CANCELED).length;
         const historicalPaymentMethods = orders.filter(
-            (order) => Boolean(order.payment_method) && order.payment_method !== "cash" && order.payment_method !== "payos",
+            (order) => Boolean(order.payment_method) && order.payment_method !== PAYMENT_METHOD.CASH && order.payment_method !== PAYMENT_METHOD.PAYOS,
         ).length;
         const revenue = orders.reduce((sum, order) => sum + getNetRevenue(order), 0);
 
@@ -192,11 +194,11 @@ const AdminOrderPage = () => {
         } catch (err) {
             if (err && typeof err === "object" && "response" in err) {
                 const errorResponse = (err as { response: { status: number; data: { msg: string } } }).response;
-                if (errorResponse.status === 400) {
+                if (errorResponse.status === HTTP_STATUS.BAD_REQUEST) {
                     addToast("Update Order Status", "Status is required");
-                } else if (errorResponse.status === 404) {
+                } else if (errorResponse.status === HTTP_STATUS.NOT_FOUND) {
                     addToast("Update Order Status", "Order not found");
-                } else if (errorResponse.status === 500) {
+                } else if (errorResponse.status === HTTP_STATUS.INTERNAL_SERVER_ERROR) {
                     addToast("Update Order Status", "Internal server error, please try again later");
                 }
             }
@@ -249,7 +251,7 @@ const AdminOrderPage = () => {
     const pageAllPendingSelected =
         selectedPendingIds.length > 0 && selectedPendingIds.every((id) => selectedIds.has(id));
 
-    const requestBulk = (status: 1 | 2) => {
+    const requestBulk = (status: typeof ORDER_STATUS.DONE | typeof ORDER_STATUS.CANCELED) => {
         const ids = currentOrders
             .filter((order) => selectedIds.has(order.id) && order.status === ORDER_STATUS.PENDING)
             .map((order) => order.id);
@@ -432,8 +434,8 @@ const AdminOrderPage = () => {
                                     onChange={(event) => setPaymentFilter(event.target.value as PaymentFilter)}
                                 >
                                     <option value="all">All payments</option>
-                                    <option value="cash">Cash on delivery</option>
-                                    <option value="payos">PayOS (VND)</option>
+                                    <option value={PAYMENT_METHOD.CASH}>Cash on delivery</option>
+                                    <option value={PAYMENT_METHOD.PAYOS}>PayOS (VND)</option>
                                     <option value="none">No payment</option>
                                 </select>
                                 <button
@@ -541,9 +543,9 @@ const AdminOrderPage = () => {
                                         <td width="180px">
                                             <span
                                                 className={
-                                                    order.payment_method === "payos"
+                                                    order.payment_method === PAYMENT_METHOD.PAYOS
                                                         ? "admin__pill admin__pill--info"
-                                                        : order.payment_method === "cash"
+                                                        : order.payment_method === PAYMENT_METHOD.CASH
                                                           ? "admin__pill admin__pill--success"
                                                           : "admin__pill admin__pill--muted"
                                                 }

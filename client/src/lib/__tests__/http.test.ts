@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { AxiosError, AxiosHeaders, type InternalAxiosRequestConfig } from "axios";
+import { AxiosError, AxiosHeaders, type AxiosResponse, type InternalAxiosRequestConfig } from "axios";
 
 const mockGet = vi.fn();
 const mockRequestUse = vi.fn();
@@ -25,10 +25,13 @@ vi.mock("axios", async (importOriginal) => {
     };
 });
 
-let requestSuccess: (config: any) => any;
-let responseError: (error: any) => any;
-
 type TestRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
+type RequestSuccess = (config: TestRequestConfig) => Promise<TestRequestConfig>;
+type ResponseSuccess = (response: AxiosResponse) => AxiosResponse;
+type ResponseFailure = (error: AxiosError) => Promise<unknown>;
+
+let requestSuccess: RequestSuccess;
+let responseError: ResponseFailure;
 
 const createConfig = (method: string): TestRequestConfig =>
     ({
@@ -49,10 +52,10 @@ const createError = (message: string, status: number, data: Record<string, strin
 };
 
 const setupInterceptors = () => {
-    mockRequestUse.mockImplementation((success: any) => {
+    mockRequestUse.mockImplementation((success: RequestSuccess) => {
         requestSuccess = success;
     });
-    mockResponseUse.mockImplementation((_: any, error: any) => {
+    mockResponseUse.mockImplementation((_success: ResponseSuccess, error: ResponseFailure) => {
         responseError = error;
     });
 };
@@ -74,8 +77,12 @@ const mockCsrf = (token: string | null) => {
         return Promise.resolve({ data: { ok: true } });
     };
     mockGet.mockImplementation(impl);
-    mockRequest.mockImplementation((config: any) => {
-        const url = typeof config === "string" ? config : config?.url || "";
+    mockRequest.mockImplementation((config: unknown) => {
+        const url = typeof config === "string"
+            ? config
+            : config && typeof config === "object" && "url" in config && typeof config.url === "string"
+                ? config.url
+                : "";
         return impl(url);
     });
 };

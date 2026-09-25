@@ -3,6 +3,7 @@ import pool from "#src/config/database.config";
 const prisma = require("#src/database/prisma/client");
 import type { CountRow, QueryCallback, UpdateResult } from "#src/shared/interfaces/domain";
 import type { RatingSummaryRow, ReviewRow } from "./reviews.types";
+import { ORDER_STATUS } from "#src/shared/constants/order-status";
 
 const toUtcIsoSecondString = (value: Date) => value.toISOString().replace(/\.\d{3}Z$/, ".000Z");
 
@@ -14,7 +15,7 @@ export class ReviewsRepository {
                 `SELECT 1 AS eligible
                  FROM orders o
                  JOIN order_items oi ON oi.order_id = o.id
-                 WHERE o.user_id = ? AND oi.product_id = ? AND o.status = 1
+                 WHERE o.user_id = ? AND oi.product_id = ? AND o.status = ${ORDER_STATUS.DONE}
                  LIMIT 1`,
                 [uid, pid],
                 (error: Error | null, rows: Array<{ eligible?: number }> = []) => {
@@ -60,7 +61,7 @@ export class ReviewsRepository {
                      FROM orders o
                      JOIN order_items oi ON oi.order_id = o.id
                      WHERE oi.product_id = ?
-                     AND o.status = 1
+                     AND o.status = ${ORDER_STATUS.DONE}
                      AND o.user_id IN (${userIds.map(() => "?").join(",")})`,
                     pid,
                     ...userIds,
@@ -103,7 +104,7 @@ export class ReviewsRepository {
                      FROM orders o
                      JOIN order_items oi ON oi.order_id = o.id
                      WHERE oi.product_id = ?
-                     AND o.status = 1
+                     AND o.status = ${ORDER_STATUS.DONE}
                      AND o.user_id IN (${userIds.map(() => "?").join(",")})`,
                     pid,
                     ...userIds,

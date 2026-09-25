@@ -1,6 +1,6 @@
 import React, { CSSProperties } from "react";
 import productPlaceholder from "../assets/images/product_placeholder.jpg";
-import LazyLoadImage from "./LazyLoadingImage";
+import LazyLoadingImage from "./LazyLoadingImage";
 import { PRODUCT_CARD_WIDTHS, getProductImageUrl, getResponsiveImageSource } from "./images";
 
 export default function loadImage(
@@ -46,7 +46,7 @@ export default function loadImage(
     };
 
     return (
-        <LazyLoadImage
+        <LazyLoadingImage
             src={responsiveSource.src}
             srcSet={responsiveSource.srcSet}
             sizes={responsiveSource.sizes}

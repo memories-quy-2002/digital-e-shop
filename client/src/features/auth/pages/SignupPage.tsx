@@ -1,5 +1,6 @@
 import { AxiosError } from "axios";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { HTTP_STATUS } from "../../../constants/http-status";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate } from "react-router-dom";
 import type { UserCredential } from "firebase/auth";
@@ -168,7 +169,7 @@ const SignupPage = () => {
                 const status = err.response?.status;
                 const msg = getApiErrorMessage(err, "We couldn't create your account. Please try again.");
                 setErrors([msg]);
-                if (status === 500) {
+                if (status === HTTP_STATUS.INTERNAL_SERVER_ERROR) {
                     addToast("Sign-up failed", "The account service is temporarily unavailable. Please try again later.");
                 } else {
                     addToast("Sign-up failed", msg);

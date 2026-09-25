@@ -61,6 +61,16 @@ const write = (target: PinoLogger, level: LogLevel, ...values: unknown[]) => {
         return;
     }
 
+    if (
+        values.length === 2
+        && typeof values[0] === "object"
+        && values[0] !== null
+        && typeof values[1] === "string"
+    ) {
+        target[level](formatValue(values[0]), values[1]);
+        return;
+    }
+
     const [first, ...rest] = values;
     if (typeof first === "string") {
         if (rest.length === 1 && typeof rest[0] === "object" && rest[0] !== null) {

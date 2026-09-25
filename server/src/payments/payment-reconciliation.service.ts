@@ -4,7 +4,22 @@ import { withTransaction, type TransactionContext } from "../database/transactio
 import { NestOrdersService } from "../orders/orders.service";
 import { PaymentReconciliationRepository, type CandidateFilters, type CandidatePage, type WebhookEventInput } from "./payment-reconciliation.repository";
 import { PayOSService } from "./payos.service";
-import type { PayOSPaymentLookup } from "./payment.types";
+import {
+    PAYMENT_PROVIDER,
+    PAYMENT_STATUS,
+    PAYMENT_RECONCILIATION_STATUS,
+    PAYMENT_RECONCILIATION_OUTCOME,
+    PAYMENT_RECONCILIATION_TARGET_TYPE,
+    PAYMENT_WEBHOOK_EVENT_STATUS,
+    PAYMENT_PROVIDER_STATUS,
+    PAYMENT_CURRENCY,
+    PAYOS_SUCCESS_CODE,
+    type PaymentReconciliationOutcome,
+    type PaymentReconciliationTargetType,
+    type PayOSPaymentLookup,
+} from "./payment.types";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
+import { PAYMENT_RECONCILIATION_LIMIT } from "./payment-reconciliation.constants";
 
 export type VerifiedPayOSWebhookData = {
     orderCode?: number | string | null;
@@ -18,24 +33,18 @@ export type VerifiedPayOSWebhookData = {
 };
 
 export type VerifiedPayOSWebhook = {
-    envelope: {
-        code?: string | null;
-        success?: unknown;
-    };
     data: VerifiedPayOSWebhookData;
 };
 
 export type PayOSWebhookOutcome = {
     kind: "processed" | "duplicate" | "ignored" | "mismatch" | "retryable";
-    httpStatus: 200 | 500;
+    httpStatus: typeof HTTP_STATUS.OK | typeof HTTP_STATUS.INTERNAL_SERVER_ERROR;
     eventId: number;
     orderId?: number;
     message?: string;
 };
 
 type NormalizedPayOSWebhook = {
-    envelopeCode: string | null;
-    envelopeSuccess: boolean | null;
     orderCode: number | null;
     paymentLinkId: string | null;
     amount: number | null;
@@ -50,7 +59,7 @@ const sha256 = (value: string): string => createHash("sha256").update(value).dig
 
 export const buildPayOSEventKey = (data: VerifiedPayOSWebhookData & { status?: string | null }): string => {
     const reference = String(data.reference || "").trim();
-    if (reference) return "payos:" + reference;
+    if (reference) return `${PAYMENT_PROVIDER.PAYOS}:` + reference;
 
     const normalized = {
         orderCode: data.orderCode == null || data.orderCode === "" ? null : Number(data.orderCode),
@@ -58,17 +67,15 @@ export const buildPayOSEventKey = (data: VerifiedPayOSWebhookData & { status?: s
         amount: data.amount == null || data.amount === "" ? null : Number(data.amount),
         currency: data.currency ? String(data.currency) : null,
         code: data.code ? String(data.code) : null,
-        status: data.status ? String(data.status) : (data.code === "00" ? "PAID" : "FAILED"),
+        status: data.status ? String(data.status) : (data.code === PAYOS_SUCCESS_CODE ? PAYMENT_PROVIDER_STATUS.PAYOS_PAID : PAYMENT_PROVIDER_STATUS.PAYOS_FAILED),
         transactionDateTime: data.transactionDateTime ? String(data.transactionDateTime) : null,
     };
-    return "payos:sha256:" + sha256(JSON.stringify(normalized));
+    return `${PAYMENT_PROVIDER.PAYOS}:sha256:` + sha256(JSON.stringify(normalized));
 };
 const normalize = (input: VerifiedPayOSWebhook): NormalizedPayOSWebhook => {
     const data = input.data || {};
     const code = data.code == null ? null : String(data.code);
     return {
-        envelopeCode: input.envelope?.code == null ? null : String(input.envelope.code),
-        envelopeSuccess: input.envelope?.success === true ? true : null,
         orderCode: data.orderCode == null || data.orderCode === "" ? null : Number(data.orderCode),
         paymentLinkId: data.paymentLinkId ? String(data.paymentLinkId).trim() : null,
         amount: data.amount == null || data.amount === "" ? null : Number(data.amount),
@@ -76,19 +83,18 @@ const normalize = (input: VerifiedPayOSWebhook): NormalizedPayOSWebhook => {
         reference: data.reference ? String(data.reference).trim() : null,
         transactionDateTime: data.transactionDateTime ? String(data.transactionDateTime).trim() : null,
         code,
-        status: data.status ? String(data.status).trim().toUpperCase() : (code === "00" ? "PAID" : "FAILED"),
+        status: data.status ? String(data.status).trim().toUpperCase() : (code === PAYOS_SUCCESS_CODE ? PAYMENT_PROVIDER_STATUS.PAYOS_PAID : PAYMENT_PROVIDER_STATUS.PAYOS_FAILED),
     };
 };
 
-const isSuccessful = (data: NormalizedPayOSWebhook): boolean =>
-    data.envelopeSuccess === true && data.envelopeCode === "00" && data.code === "00";
+const isSuccessful = (data: NormalizedPayOSWebhook): boolean => data.code === PAYOS_SUCCESS_CODE;
 
 const isValidSuccessfulData = (data: NormalizedPayOSWebhook): boolean =>
     Number.isSafeInteger(data.orderCode)
     && Number(data.orderCode) > 0
     && Number.isSafeInteger(data.amount)
     && Number(data.amount) > 0
-    && data.currency === "VND"
+    && data.currency === PAYMENT_CURRENCY.VND
     && Boolean(data.paymentLinkId);
 
 const safeErrorMessage = (error: unknown): string => {
@@ -102,7 +108,7 @@ const errorStatusCode = (error: unknown): number | undefined => {
 };
 
 const isPayOSReservationMismatch = (error: unknown): boolean =>
-    errorStatusCode(error) === 409
+    errorStatusCode(error) === HTTP_STATUS.CONFLICT
     && safeErrorMessage(error) === "PayOS payment amount or reference does not match the checkout reservation.";
 const adminPaymentError = (message: string, statusCode: number, details?: unknown) => Object.assign(new Error(message), { statusCode, ...(details === undefined ? {} : { details }) });
 const toPositiveSafeInteger = (value: unknown): number | null => {
@@ -118,7 +124,7 @@ const normalizeNote = (value: unknown): string | null => {
     return note || null;
 };
 type PayOSTarget = {
-    targetType: "pending_checkout" | "order_payment";
+    targetType: PaymentReconciliationTargetType;
     targetId: number;
     pendingCheckoutId?: number;
     orderPaymentId?: number;
@@ -153,12 +159,10 @@ export class PaymentReconciliationService {
     async handleVerifiedPayOSWebhook(input: VerifiedPayOSWebhook): Promise<PayOSWebhookOutcome> {
         const data = normalize(input);
         if (isSuccessful(data) && !isValidSuccessfulData(data)) {
-            throw Object.assign(new Error("Invalid PayOS payment data"), { statusCode: 400 });
+            throw Object.assign(new Error("Invalid PayOS payment data"), { statusCode: HTTP_STATUS.BAD_REQUEST });
         }
 
         const normalizedPayload = {
-            envelopeCode: data.envelopeCode,
-            envelopeSuccess: data.envelopeSuccess,
             orderCode: data.orderCode,
             paymentLinkId: data.paymentLinkId,
             amount: data.amount,
@@ -169,7 +173,7 @@ export class PaymentReconciliationService {
             status: data.status,
         };
         const eventInput: WebhookEventInput = {
-            provider: "payos",
+            provider: PAYMENT_PROVIDER.PAYOS,
             eventKey: buildPayOSEventKey(data),
             eventType: isSuccessful(data) ? "PAYMENT_SUCCESS" : "PAYMENT_STATUS",
             payloadHash: sha256(JSON.stringify(normalizedPayload)),
@@ -186,19 +190,22 @@ export class PaymentReconciliationService {
             const complete = (status: string, error: string | null, expectedStatus: string, attemptCount: number) =>
                 this.repository.completeWebhookEvent(tx, claim.eventId, status, error, { expectedStatus, expectedAttemptCount: attemptCount });
             if (claim.conflict || !claim.payloadHashMatches) {
-                const completed = await complete("MISMATCH", "PayOS event key was reused with a different payload.", claim.status, expectedAttemptCount);
+                const completed = await complete(PAYMENT_WEBHOOK_EVENT_STATUS.MISMATCH, "PayOS event key was reused with a different payload.", claim.status, expectedAttemptCount);
                 return completed
                     ? { kind: "mismatch" as const, eventId: claim.eventId, message: "PayOS event key conflict" }
                     : { kind: "retryable" as const, eventId: claim.eventId, message: "PayOS event conflict transition was superseded." };
             }
-            if (!claim.inserted && ["PROCESSED", "IGNORED", "MISMATCH"].includes(claim.status)) {
+            const isFinalStatus = claim.status === PAYMENT_WEBHOOK_EVENT_STATUS.PROCESSED
+                || claim.status === PAYMENT_WEBHOOK_EVENT_STATUS.IGNORED
+                || claim.status === PAYMENT_WEBHOOK_EVENT_STATUS.MISMATCH;
+            if (!claim.inserted && isFinalStatus) {
                 return { kind: "duplicate" as const, eventId: claim.eventId };
             }
-            if (!claim.inserted && claim.status === "PROCESSING" && !claim.reclaimed) {
+            if (!claim.inserted && claim.status === PAYMENT_WEBHOOK_EVENT_STATUS.PROCESSING && !claim.reclaimed) {
                 return { kind: "retryable" as const, eventId: claim.eventId, message: "PayOS webhook is already being processed." };
             }
             if (!isSuccessful(data)) {
-                const completed = await complete("IGNORED", "PayOS event did not report a successful payment.", claim.status, expectedAttemptCount);
+                const completed = await complete(PAYMENT_WEBHOOK_EVENT_STATUS.IGNORED, "PayOS event did not report a successful payment.", claim.status, expectedAttemptCount);
                 return completed
                     ? { kind: "ignored" as const, eventId: claim.eventId }
                     : { kind: "retryable" as const, eventId: claim.eventId, message: "PayOS event transition was superseded." };
@@ -206,7 +213,7 @@ export class PaymentReconciliationService {
             if (claim.reclaimed) {
                 return { kind: "processing" as const, eventId: claim.eventId, attemptCount: expectedAttemptCount };
             }
-            const completed = await complete("PROCESSING", null, claim.status, expectedAttemptCount);
+            const completed = await complete(PAYMENT_WEBHOOK_EVENT_STATUS.PROCESSING, null, claim.status, expectedAttemptCount);
             return completed
                 ? { kind: "processing" as const, eventId: claim.eventId, attemptCount: expectedAttemptCount + 1 }
                 : { kind: "retryable" as const, eventId: claim.eventId, message: "PayOS event claim transition was superseded." };
@@ -215,12 +222,12 @@ export class PaymentReconciliationService {
         if (claimResult.kind !== "processing") {
             return {
                 ...claimResult,
-                httpStatus: claimResult.kind === "retryable" ? 500 : 200,
+                httpStatus: claimResult.kind === "retryable" ? HTTP_STATUS.INTERNAL_SERVER_ERROR : HTTP_STATUS.OK,
             };
         }
 
         const processingAttemptCount = claimResult.attemptCount;
-        const completionGuard = { expectedStatus: "PROCESSING", expectedAttemptCount: processingAttemptCount };
+        const completionGuard = { expectedStatus: PAYMENT_WEBHOOK_EVENT_STATUS.PROCESSING, expectedAttemptCount: processingAttemptCount };
         const completeTerminal = (tx: TransactionContext, status: string, error: string | null) =>
             this.repository.completeWebhookEvent(tx, claimResult.eventId, status, error, completionGuard);
 
@@ -231,42 +238,42 @@ export class PaymentReconciliationService {
                 data.amount as number,
             );
             if (!order) {
-                const completed = await withTransaction((tx) => completeTerminal(tx, "IGNORED", "No matching local PayOS reservation or order was found."));
+                const completed = await withTransaction((tx) => completeTerminal(tx, PAYMENT_WEBHOOK_EVENT_STATUS.IGNORED, "No matching local PayOS reservation or order was found."));
                 return completed
-                    ? { kind: "ignored", httpStatus: 200, eventId: claimResult.eventId }
-                    : { kind: "retryable", httpStatus: 500, eventId: claimResult.eventId, message: "PayOS webhook transition was superseded." };
+                    ? { kind: "ignored", httpStatus: HTTP_STATUS.OK, eventId: claimResult.eventId }
+                    : { kind: "retryable", httpStatus: HTTP_STATUS.INTERNAL_SERVER_ERROR, eventId: claimResult.eventId, message: "PayOS webhook transition was superseded." };
             }
-            const completed = await withTransaction((tx) => completeTerminal(tx, "PROCESSED", null));
+            const completed = await withTransaction((tx) => completeTerminal(tx, PAYMENT_WEBHOOK_EVENT_STATUS.PROCESSED, null));
             return completed
-                ? { kind: "processed", httpStatus: 200, eventId: claimResult.eventId, orderId: order.id }
-                : { kind: "retryable", httpStatus: 500, eventId: claimResult.eventId, message: "PayOS webhook transition was superseded." };
+                ? { kind: "processed", httpStatus: HTTP_STATUS.OK, eventId: claimResult.eventId, orderId: order.id }
+                : { kind: "retryable", httpStatus: HTTP_STATUS.INTERNAL_SERVER_ERROR, eventId: claimResult.eventId, message: "PayOS webhook transition was superseded." };
         } catch (error) {
             const message = safeErrorMessage(error);
             if (isPayOSReservationMismatch(error)) {
-                const completed = await withTransaction((tx) => completeTerminal(tx, "MISMATCH", message));
+                const completed = await withTransaction((tx) => completeTerminal(tx, PAYMENT_WEBHOOK_EVENT_STATUS.MISMATCH, message));
                 return completed
-                    ? { kind: "mismatch", httpStatus: 200, eventId: claimResult.eventId, message }
-                    : { kind: "retryable", httpStatus: 500, eventId: claimResult.eventId, message: "PayOS webhook transition was superseded." };
+                    ? { kind: "mismatch", httpStatus: HTTP_STATUS.OK, eventId: claimResult.eventId, message }
+                    : { kind: "retryable", httpStatus: HTTP_STATUS.INTERNAL_SERVER_ERROR, eventId: claimResult.eventId, message: "PayOS webhook transition was superseded." };
             }
-            const completed = await withTransaction((tx) => completeTerminal(tx, "FAILED", message));
+            const completed = await withTransaction((tx) => completeTerminal(tx, PAYMENT_WEBHOOK_EVENT_STATUS.FAILED, message));
             return completed
-                ? { kind: "retryable", httpStatus: 500, eventId: claimResult.eventId, message: "PayOS webhook processing failed." }
-                : { kind: "retryable", httpStatus: 500, eventId: claimResult.eventId, message: "PayOS webhook transition was superseded." };
+                ? { kind: "retryable", httpStatus: HTTP_STATUS.INTERNAL_SERVER_ERROR, eventId: claimResult.eventId, message: "PayOS webhook processing failed." }
+                : { kind: "retryable", httpStatus: HTTP_STATUS.INTERNAL_SERVER_ERROR, eventId: claimResult.eventId, message: "PayOS webhook transition was superseded." };
         }
     }
     async listCandidates(filters: CandidateFilters): Promise<CandidatePage> {
-        return withTransaction((tx) => this.repository.listCandidates({ ...filters, page: Math.max(1, Math.floor(filters.page || 1)), limit: Math.min(100, Math.max(1, Math.floor(filters.limit || 50))) }, tx));
+        return withTransaction((tx) => this.repository.listCandidates({ ...filters, page: Math.max(1, Math.floor(filters.page || 1)), limit: Math.min(PAYMENT_RECONCILIATION_LIMIT.MAX, Math.max(1, Math.floor(filters.limit || PAYMENT_RECONCILIATION_LIMIT.DEFAULT))) }, tx));
     }
 
     async runReconciliation(input: { limit?: number; requestedBy?: string | null }) {
-        const limit = Math.min(100, Math.max(1, Math.floor(input.limit || 50)));
-        const page = await this.listCandidates({ provider: "payos", page: 1, limit });
+        const limit = Math.min(PAYMENT_RECONCILIATION_LIMIT.MAX, Math.max(1, Math.floor(input.limit || PAYMENT_RECONCILIATION_LIMIT.DEFAULT)));
+        const page = await this.listCandidates({ provider: PAYMENT_PROVIDER.PAYOS, page: 1, limit });
         const results = [];
         for (const candidate of page.candidates) {
             try {
-                results.push(candidate.target_type === "pending_checkout" ? await this.reconcilePendingCheckout(candidate.target_id, input.requestedBy || null, false) : await this.reconcilePayment(candidate.target_id, input.requestedBy || null, false));
+                results.push(candidate.target_type === PAYMENT_RECONCILIATION_TARGET_TYPE.PENDING_CHECKOUT ? await this.reconcilePendingCheckout(candidate.target_id, input.requestedBy || null, false) : await this.reconcilePayment(candidate.target_id, input.requestedBy || null, false));
             } catch (error) {
-                results.push({ targetType: candidate.target_type, targetId: candidate.target_id, outcome: "FAILED", error: safeErrorMessage(error) });
+                results.push({ targetType: candidate.target_type, targetId: candidate.target_id, outcome: PAYMENT_RECONCILIATION_OUTCOME.FAILED, error: safeErrorMessage(error) });
             }
         }
         return { results, limit };
@@ -274,20 +281,21 @@ export class PaymentReconciliationService {
 
     async reconcilePayment(paymentId: number, requestedBy?: string | null, throwUnavailable = true) {
         const payment = await withTransaction((tx) => this.repository.getOrderPaymentForUpdate(tx, paymentId));
-        if (!payment) throw adminPaymentError("Payment not found", 404);
-        if (String(payment.provider).toLowerCase() !== "payos") throw adminPaymentError("Payment cannot be reconciled with PayOS", 409);
-        return this.reconcilePayOSTarget({ targetType: "order_payment", targetId: paymentId, orderPaymentId: paymentId, providerOrderCode: toPositiveSafeInteger(payment.provider_reference), paymentLinkId: payment.provider_payment_id ? String(payment.provider_payment_id) : null, expectedAmount: Number(payment.amount), expectedCurrency: String(payment.currency || "").toUpperCase(), localStatus: String(payment.status || ""), requestedBy: requestedBy || null, throwUnavailable });
+        if (!payment) throw adminPaymentError("Payment not found", HTTP_STATUS.NOT_FOUND);
+        if (String(payment.provider).toLowerCase() !== PAYMENT_PROVIDER.PAYOS) throw adminPaymentError("Payment cannot be reconciled with PayOS", HTTP_STATUS.CONFLICT);
+        return this.reconcilePayOSTarget({ targetType: PAYMENT_RECONCILIATION_TARGET_TYPE.ORDER_PAYMENT, targetId: paymentId, orderPaymentId: paymentId, providerOrderCode: toPositiveSafeInteger(payment.provider_reference), paymentLinkId: payment.provider_payment_id ? String(payment.provider_payment_id) : null, expectedAmount: Number(payment.amount), expectedCurrency: String(payment.currency || "").toUpperCase(), localStatus: String(payment.status || ""), requestedBy: requestedBy || null, throwUnavailable });
     }
 
     async confirmCod(paymentId: number, input: { note?: string } = {}, requestedBy?: string | null) {
         return withTransaction(async (tx) => {
             const payment = await this.repository.getOrderPaymentForUpdate(tx, paymentId);
-            if (!payment) throw adminPaymentError("Payment not found", 404);
-            if (String(payment.provider).toLowerCase() !== "cash") throw adminPaymentError("Only cash payments can be confirmed as COD", 409);
-            if (!["pending", "paid"].includes(String(payment.status).toLowerCase())) throw adminPaymentError("COD payment is not pending or paid", 409);
+            if (!payment) throw adminPaymentError("Payment not found", HTTP_STATUS.NOT_FOUND);
+            if (String(payment.provider).toLowerCase() !== PAYMENT_PROVIDER.CASH) throw adminPaymentError("Only cash payments can be confirmed as COD", HTTP_STATUS.CONFLICT);
+            const currentStatus = String(payment.status).toLowerCase();
+            if (![PAYMENT_STATUS.PENDING, PAYMENT_STATUS.PAID].some((status) => status === currentStatus)) throw adminPaymentError("COD payment is not pending or paid", HTTP_STATUS.CONFLICT);
             const confirmed = await this.repository.confirmCashPayment(tx, paymentId);
-            if (!confirmed) throw adminPaymentError("Payment not found", 404);
-            await this.repository.recordAttempt(tx, { provider: "cash", orderPaymentId: paymentId, requestedBy: requestedBy || null, outcome: "MANUAL_CONFIRMED", localStatus: String(payment.status), providerStatus: "COLLECTED", expectedAmount: toIntegerOrNull(payment.amount), expectedCurrency: String(payment.currency || "").toUpperCase() || null, mismatchReason: normalizeNote(input.note) });
+            if (!confirmed) throw adminPaymentError("Payment not found", HTTP_STATUS.NOT_FOUND);
+            await this.repository.recordAttempt(tx, { provider: PAYMENT_PROVIDER.CASH, orderPaymentId: paymentId, requestedBy: requestedBy || null, outcome: PAYMENT_RECONCILIATION_STATUS.MANUAL_CONFIRMED, localStatus: String(payment.status), providerStatus: PAYMENT_PROVIDER_STATUS.CASH_COLLECTED, expectedAmount: toIntegerOrNull(payment.amount), expectedCurrency: String(payment.currency || "").toUpperCase() || null, mismatchReason: normalizeNote(input.note) });
             return confirmed;
         });
     }
@@ -295,61 +303,61 @@ export class PaymentReconciliationService {
     async listWebhookEvents(paymentId: number) {
         return withTransaction(async (tx) => {
             const payment = await this.repository.getOrderPaymentForUpdate(tx, paymentId);
-            if (!payment) throw adminPaymentError("Payment not found", 404);
+            if (!payment) throw adminPaymentError("Payment not found", HTTP_STATUS.NOT_FOUND);
             return this.repository.listWebhookEvents(tx, paymentId);
         });
     }
 
     private async reconcilePendingCheckout(pendingCheckoutId: number, requestedBy: string | null, throwUnavailable: boolean) {
         const checkout = await withTransaction((tx) => this.repository.getPendingCheckoutForUpdate(tx, pendingCheckoutId));
-        if (!checkout) throw adminPaymentError("Payment not found", 404);
-        if (String(checkout.payment_provider).toLowerCase() !== "payos") throw adminPaymentError("Payment cannot be reconciled with PayOS", 409);
-        return this.reconcilePayOSTarget({ targetType: "pending_checkout", targetId: pendingCheckoutId, pendingCheckoutId, providerOrderCode: toPositiveSafeInteger(checkout.provider_order_code), paymentLinkId: checkout.provider_reference ? String(checkout.provider_reference) : null, expectedAmount: Number(checkout.payment_amount), expectedCurrency: String(checkout.payment_currency || "").toUpperCase(), localStatus: String(checkout.status || ""), requestedBy, throwUnavailable });
+        if (!checkout) throw adminPaymentError("Payment not found", HTTP_STATUS.NOT_FOUND);
+        if (String(checkout.payment_provider).toLowerCase() !== PAYMENT_PROVIDER.PAYOS) throw adminPaymentError("Payment cannot be reconciled with PayOS", HTTP_STATUS.CONFLICT);
+        return this.reconcilePayOSTarget({ targetType: PAYMENT_RECONCILIATION_TARGET_TYPE.PENDING_CHECKOUT, targetId: pendingCheckoutId, pendingCheckoutId, providerOrderCode: toPositiveSafeInteger(checkout.provider_order_code), paymentLinkId: checkout.provider_reference ? String(checkout.provider_reference) : null, expectedAmount: Number(checkout.payment_amount), expectedCurrency: String(checkout.payment_currency || "").toUpperCase(), localStatus: String(checkout.status || ""), requestedBy, throwUnavailable });
     }
 
     private async reconcilePayOSTarget(target: PayOSTarget & { throwUnavailable: boolean }) {
-        if (!this.payosService) throw adminPaymentError("PayOS payments are not configured", 503);
+        if (!this.payosService) throw adminPaymentError("PayOS payments are not configured", HTTP_STATUS.SERVICE_UNAVAILABLE);
         const identifier = target.providerOrderCode ? { orderCode: target.providerOrderCode } : (target.paymentLinkId ? { paymentLinkId: target.paymentLinkId } : null);
-        if (!identifier) throw adminPaymentError("Payment has no PayOS provider reference", 409);
+        if (!identifier) throw adminPaymentError("Payment has no PayOS provider reference", HTTP_STATUS.CONFLICT);
         let provider: PayOSPaymentLookup;
         try { provider = await this.payosService.getPaymentLink(identifier); }
-        catch { const result = await this.persistReconciliationOutcome(target, "UNAVAILABLE", "PayOS provider lookup was unavailable."); if (target.throwUnavailable) throw adminPaymentError("PayOS provider is unavailable", 503, result); return result; }
+        catch { const result = await this.persistReconciliationOutcome(target, PAYMENT_RECONCILIATION_OUTCOME.UNAVAILABLE, "PayOS provider lookup was unavailable."); if (target.throwUnavailable) throw adminPaymentError("PayOS provider is unavailable", HTTP_STATUS.SERVICE_UNAVAILABLE, result); return result; }
         const mismatchReason = comparePayOSPayment(target, provider);
-        if (mismatchReason) return this.persistReconciliationOutcome(target, "MISMATCH", mismatchReason, provider);
+        if (mismatchReason) return this.persistReconciliationOutcome(target, PAYMENT_RECONCILIATION_OUTCOME.MISMATCH, mismatchReason, provider);
         if (target.orderPaymentId) {
             const currentPayment = await withTransaction((tx) => this.repository.getOrderPaymentForUpdate(tx, target.orderPaymentId!));
             const localChanged = !currentPayment
-                || String(currentPayment.provider).toLowerCase() !== "payos"
+                || String(currentPayment.provider).toLowerCase() !== PAYMENT_PROVIDER.PAYOS
                 || toPositiveSafeInteger(currentPayment.provider_reference) !== target.providerOrderCode
                 || String(currentPayment.provider_payment_id || "") !== String(target.paymentLinkId || "")
                 || toIntegerOrNull(currentPayment.amount) !== toIntegerOrNull(target.expectedAmount)
                 || String(currentPayment.currency || "").toUpperCase() !== target.expectedCurrency
                 || String(currentPayment.status || "") !== target.localStatus;
-            if (localChanged) return this.persistReconciliationOutcome(target, "MISMATCH", "The local order-payment changed during PayOS reconciliation.", provider);
+            if (localChanged) return this.persistReconciliationOutcome(target, PAYMENT_RECONCILIATION_OUTCOME.MISMATCH, "The local order-payment changed during PayOS reconciliation.", provider);
         }
         try {
             const order = await this.ordersService.finalizePayOSCheckout(provider.orderCode, provider.paymentLinkId, provider.amount);
-            if (!order) return this.persistReconciliationOutcome(target, "MISMATCH", "No matching local PayOS reservation or order was found.", provider);
+            if (!order) return this.persistReconciliationOutcome(target, PAYMENT_RECONCILIATION_OUTCOME.MISMATCH, "No matching local PayOS reservation or order was found.", provider);
             let orderPaymentId = target.orderPaymentId;
             if (!orderPaymentId) {
                 const payment = await withTransaction((tx) => this.repository.getOrderPaymentByOrderId(tx, Number(order.id)));
                 orderPaymentId = payment?.id ? Number(payment.id) : undefined;
             }
-            if (!orderPaymentId) return this.persistReconciliationOutcome(target, "FAILED", "Finalized PayOS order has no payment ledger row.", provider);
-            return this.persistReconciliationOutcome({ ...target, pendingCheckoutId: undefined, orderPaymentId }, "MATCHED", null, provider);
+            if (!orderPaymentId) return this.persistReconciliationOutcome(target, PAYMENT_RECONCILIATION_OUTCOME.FAILED, "Finalized PayOS order has no payment ledger row.", provider);
+            return this.persistReconciliationOutcome({ ...target, pendingCheckoutId: undefined, orderPaymentId }, PAYMENT_RECONCILIATION_OUTCOME.MATCHED, null, provider);
         } catch (error) {
             const reason = safeErrorMessage(error);
-            const outcome = isPayOSReservationMismatch(error) ? "MISMATCH" : "FAILED";
+            const outcome = isPayOSReservationMismatch(error) ? PAYMENT_RECONCILIATION_OUTCOME.MISMATCH : PAYMENT_RECONCILIATION_OUTCOME.FAILED;
             const result = await this.persistReconciliationOutcome(target, outcome, reason, provider);
-            if (outcome === "FAILED") throw adminPaymentError("Unable to reconcile PayOS payment", 500, result);
+            if (outcome === PAYMENT_RECONCILIATION_OUTCOME.FAILED) throw adminPaymentError("Unable to reconcile PayOS payment", HTTP_STATUS.INTERNAL_SERVER_ERROR, result);
             return result;
         }
     }
 
-    private persistReconciliationOutcome(target: PayOSTarget & { orderPaymentId?: number }, outcome: "MATCHED" | "MISMATCH" | "UNAVAILABLE" | "FAILED", reason: string | null, provider?: PayOSPaymentLookup) {
+    private persistReconciliationOutcome(target: PayOSTarget & { orderPaymentId?: number }, outcome: PaymentReconciliationOutcome, reason: string | null, provider?: PayOSPaymentLookup) {
         return withTransaction(async (tx) => {
-            await this.repository.recordAttempt(tx, { provider: "payos", pendingCheckoutId: target.pendingCheckoutId, orderPaymentId: target.orderPaymentId, requestedBy: target.requestedBy, outcome, localStatus: target.localStatus, providerStatus: provider?.status || null, expectedAmount: toIntegerOrNull(target.expectedAmount), providerAmount: provider ? toIntegerOrNull(provider.amount) : null, expectedCurrency: target.expectedCurrency || null, providerCurrency: provider?.currency || null, providerReference: provider?.paymentLinkId || null, mismatchReason: reason });
-            if (outcome === "MATCHED" && target.orderPaymentId) await this.repository.projectReconciliation(tx, { orderPaymentId: target.orderPaymentId, reconciliationStatus: outcome, providerStatus: provider?.status || null, error: reason });
+            await this.repository.recordAttempt(tx, { provider: PAYMENT_PROVIDER.PAYOS, pendingCheckoutId: target.pendingCheckoutId, orderPaymentId: target.orderPaymentId, requestedBy: target.requestedBy, outcome, localStatus: target.localStatus, providerStatus: provider?.status || null, expectedAmount: toIntegerOrNull(target.expectedAmount), providerAmount: provider ? toIntegerOrNull(provider.amount) : null, expectedCurrency: target.expectedCurrency || null, providerCurrency: provider?.currency || null, providerReference: provider?.paymentLinkId || null, mismatchReason: reason });
+            if (outcome === PAYMENT_RECONCILIATION_OUTCOME.MATCHED && target.orderPaymentId) await this.repository.projectReconciliation(tx, { orderPaymentId: target.orderPaymentId, reconciliationStatus: outcome, providerStatus: provider?.status || null, error: reason });
             return { targetType: target.targetType, targetId: target.targetId, ...(target.orderPaymentId ? { paymentId: target.orderPaymentId } : {}), outcome, ...(reason ? { error: reason } : {}) };
         });
 }

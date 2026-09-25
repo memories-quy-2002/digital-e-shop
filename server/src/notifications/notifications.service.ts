@@ -3,6 +3,7 @@ import type { CustomerNotificationRow } from "./notifications.types";
 import { NotificationsRepository } from "./notifications.repository";
 import { env } from "#src/config/env.config";
 import { formatPaymentAmount } from "../payments/currency";
+import { ORDER_STATUS } from "#src/shared/constants/order-status";
 
 const parseNotificationMetadata = (metadata: CustomerNotificationRow["metadata"]): Record<string, unknown> | null => {
     let value: unknown = metadata;
@@ -36,8 +37,8 @@ const normalizeNotification = (notification: CustomerNotificationRow) => ({
 });
 
 const statusLabel = (status: number) => {
-    if (Number(status) === 1) return "completed";
-    if (Number(status) === 2) return "canceled";
+    if (Number(status) === ORDER_STATUS.DONE) return "completed";
+    if (Number(status) === ORDER_STATUS.CANCELED) return "canceled";
     return "pending";
 };
 

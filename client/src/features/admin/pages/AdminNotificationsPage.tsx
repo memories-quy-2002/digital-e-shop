@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../../../context/ToastContext";
@@ -42,6 +42,7 @@ const AdminNotificationsPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [hasLoaded, setHasLoaded] = useState(false);
     const [loadError, setLoadError] = useState<AdminRequestError | null>(null);
+    const hasLoadedRef = useRef(false);
     const deferredSearchTerm = useDeferredValue(searchTerm);
     const adminId = userData?.id;
 
@@ -55,24 +56,25 @@ const AdminNotificationsPage = () => {
         return () => window.removeEventListener(ADMIN_ALERT_READ_STATE_EVENT, handleReadStateChange);
     }, [adminId]);
 
-    const loadNotifications = async () => {
+    const loadNotifications = useCallback(async () => {
         try {
             setIsLoading(true);
             setLoadError(null);
             const { alerts } = await fetchAdminAlerts();
             setServerAlerts(alerts);
             setHasLoaded(true);
+            hasLoadedRef.current = true;
         } catch (error) {
             setLoadError(getAdminRequestError(error));
-            if (hasLoaded) addToast("Notifications", "Refresh failed. Showing the latest saved notifications.");
+            if (hasLoadedRef.current) addToast("Notifications", "Refresh failed. Showing the latest saved notifications.");
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [addToast]);
 
     useEffect(() => {
-        loadNotifications();
-    }, []);
+        void loadNotifications();
+    }, [loadNotifications]);
 
     const notifications = applyAdminAlertReadState(serverAlerts, readAlertIds);
 

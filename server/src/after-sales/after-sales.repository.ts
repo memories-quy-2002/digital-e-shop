@@ -1,19 +1,21 @@
 import { Injectable } from "@nestjs/common";
 import pool from "#src/config/database.config";
 import { withTransaction, type TransactionContext } from "#src/database/transaction";
-import type {
-    AfterSalesCreateInput,
-    AfterSalesListPage,
-    AfterSalesListQuery,
-    AfterSalesOrderContext,
-    AfterSalesOrderItem,
-    AfterSalesRefundContext,
-    AfterSalesRequest,
-    AfterSalesStatus,
-    AfterSalesStatusTransition,
-    RefundConfirmationInput,
+import {
+    AFTER_SALES_STATUS,
+    type AfterSalesCreateInput,
+    type AfterSalesListPage,
+    type AfterSalesListQuery,
+    type AfterSalesOrderContext,
+    type AfterSalesOrderItem,
+    type AfterSalesRefundContext,
+    type AfterSalesRequest,
+    type AfterSalesStatus,
+    type AfterSalesStatusTransition,
+    type RefundConfirmationInput,
 } from "./after-sales.types";
-import type { PaymentProviderResult } from "../payments/payment.types";
+import { PAYMENT_STATUS, type PaymentProviderResult } from "../payments/payment.types";
+import { AFTER_SALES_PAGINATION } from "./after-sales.constants";
 
 type QueryResult<T> = { affectedRows?: number; insertId?: number } & T;
 type Queryable = { query: (sql: string | { sql: string; timeout: number }, values: unknown[], callback: (error: Error | null, rows: unknown) => void) => unknown };
@@ -144,7 +146,7 @@ export class AfterSalesRepository implements AfterSalesRepositoryPort {
             `SELECT asi.order_item_id, SUM(asi.quantity) AS requested_quantity
              FROM after_sales_items asi
              JOIN after_sales_requests r ON r.id = asi.request_id
-             WHERE asi.order_item_id IN (${placeholders}) AND r.status NOT IN ('REJECTED', 'CLOSED')
+             WHERE asi.order_item_id IN (${placeholders}) AND r.status NOT IN ('${AFTER_SALES_STATUS.REJECTED}', '${AFTER_SALES_STATUS.CLOSED}')
              GROUP BY asi.order_item_id`,
             itemIds,
         );
@@ -155,7 +157,7 @@ export class AfterSalesRepository implements AfterSalesRepositoryPort {
         const result = await tx.query<QueryResult<Record<string, never>>>(
             `INSERT INTO after_sales_requests
                 (order_id, user_id, guest_order_token_hash, kind, status, reason, request_idempotency_key, created_at, updated_at)
-             VALUES (?, ?, ?, ?, 'REQUESTED', ?, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP())`,
+             VALUES (?, ?, ?, ?, '${AFTER_SALES_STATUS.REQUESTED}', ?, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP())`,
             [input.orderId, identity.userId || null, identity.guestOrderTokenHash || null, input.kind, input.reason, input.idempotencyKey],
         );
         const requestId = Number(result.insertId);
@@ -168,7 +170,7 @@ export class AfterSalesRepository implements AfterSalesRepositoryPort {
         }
         await tx.query(
             `INSERT INTO after_sales_events (request_id, from_status, to_status, actor_user_id, note, created_at)
-             VALUES (?, NULL, 'REQUESTED', ?, ?, UTC_TIMESTAMP())`,
+             VALUES (?, NULL, '${AFTER_SALES_STATUS.REQUESTED}', ?, ?, UTC_TIMESTAMP())`,
             [requestId, identity.userId || null, input.reason],
         );
         const row = await tx.query<Record<string, unknown>[]>(`SELECT ${requestColumns} FROM after_sales_requests r WHERE r.id = ? LIMIT 1`, [requestId]);
@@ -187,8 +189,8 @@ export class AfterSalesRepository implements AfterSalesRepositoryPort {
         if (queryInput.status) { filters.push("r.status = ?"); filterValues.push(queryInput.status); }
         if (queryInput.kind) { filters.push("r.kind = ?"); filterValues.push(queryInput.kind); }
         const clause = [where, ...filters].filter(Boolean).join(" AND ");
-        const page = Math.max(1, queryInput.page);
-        const limit = Math.min(100, Math.max(1, queryInput.limit));
+        const page = Math.max(AFTER_SALES_PAGINATION.FIRST_PAGE, queryInput.page);
+        const limit = Math.min(AFTER_SALES_PAGINATION.MAX_PAGE_SIZE, Math.max(AFTER_SALES_PAGINATION.MIN_PAGE_SIZE, queryInput.limit));
         const countRows = await query<Array<{ total: number | string }>>(`SELECT COUNT(*) AS total FROM after_sales_requests r WHERE ${clause}`, filterValues);
         const total = Number(countRows[0]?.total || 0);
         const rows = await query<Record<string, unknown>[]>(
@@ -286,7 +288,7 @@ export class AfterSalesRepository implements AfterSalesRepositoryPort {
     async transitionRequest(tx: TransactionContext, id: number, transition: AfterSalesStatusTransition, actorId: string): Promise<AfterSalesRequest | null> {
         const current = await this.getAdminRequestForUpdate(tx, id);
         if (!current) return null;
-        const timestampColumn = transition.status === "APPROVED" ? "approved_at" : transition.status === "RECEIVED" ? "received_at" : transition.status === "CLOSED" ? "closed_at" : null;
+        const timestampColumn = transition.status === AFTER_SALES_STATUS.APPROVED ? "approved_at" : transition.status === AFTER_SALES_STATUS.RECEIVED ? "received_at" : transition.status === AFTER_SALES_STATUS.CLOSED ? "closed_at" : null;
         const timestampUpdate = timestampColumn ? `, ${timestampColumn} = COALESCE(${timestampColumn}, UTC_TIMESTAMP())` : "";
         await tx.query(`UPDATE after_sales_requests SET status = ?, admin_note = COALESCE(?, admin_note), updated_at = UTC_TIMESTAMP()${timestampUpdate} WHERE id = ?`, [transition.status, transition.note || null, id]);
         await tx.query(`INSERT INTO after_sales_events (request_id, from_status, to_status, actor_user_id, note, created_at) VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP())`, [id, current.status, transition.status, actorId, transition.note || null]);
@@ -300,21 +302,21 @@ export class AfterSalesRepository implements AfterSalesRepositoryPort {
         const providerRefundReference = providerResult.refundReference || input.refundReference;
         await tx.query(
             `UPDATE after_sales_requests
-             SET status = 'REFUNDED', refund_amount = ?, refund_reference = ?, refund_currency = ?, refunded_at = COALESCE(refunded_at, UTC_TIMESTAMP()),
+             SET status = '${AFTER_SALES_STATUS.REFUNDED}', refund_amount = ?, refund_reference = ?, refund_currency = ?, refunded_at = COALESCE(refunded_at, UTC_TIMESTAMP()),
                  admin_note = COALESCE(?, admin_note), updated_at = UTC_TIMESTAMP()
              WHERE id = ?`,
             [amount, input.refundReference, input.currency, input.note || null, id],
         );
         const paymentUpdate = await tx.query<{ affectedRows?: number }>(
             `UPDATE order_payments
-             SET status = CASE WHEN refunded_amount + ? >= amount THEN 'refunded' ELSE 'partially_refunded' END,
+             SET status = CASE WHEN refunded_amount + ? >= amount THEN '${PAYMENT_STATUS.REFUNDED}' ELSE '${PAYMENT_STATUS.PARTIALLY_REFUNDED}' END,
                  refunded_amount = refunded_amount + ?, refunded_at = UTC_TIMESTAMP(), refund_reference = ?,
-                 provider_status = 'REFUNDED', updated_at = UTC_TIMESTAMP()
+                 provider_status = '${PAYMENT_STATUS.REFUNDED}', updated_at = UTC_TIMESTAMP()
              WHERE id = ? AND refunded_amount + ? <= amount`,
             [amount, amount, providerRefundReference, paymentId, amount],
         );
         if (paymentUpdate.affectedRows !== 1) throw new Error("Refund payment ledger update failed");
-        await tx.query(`INSERT INTO after_sales_events (request_id, from_status, to_status, actor_user_id, note, created_at) VALUES (?, ?, 'REFUNDED', ?, ?, UTC_TIMESTAMP())`, [id, current.status, actorId, input.note || input.refundReference]);
+        await tx.query(`INSERT INTO after_sales_events (request_id, from_status, to_status, actor_user_id, note, created_at) VALUES (?, ?, '${AFTER_SALES_STATUS.REFUNDED}', ?, ?, UTC_TIMESTAMP())`, [id, current.status, actorId, input.note || input.refundReference]);
         const updated = await tx.query<Record<string, unknown>[]>(`SELECT ${requestColumns} FROM after_sales_requests r WHERE r.id = ? LIMIT 1`, [id]);
         return updated[0] ? normalizeRequest(updated[0]) : null;
     }

@@ -6,7 +6,7 @@ This Wiki records durable Digital-E understanding for maintainers and AI agents.
 
 **Last updated:** 2026-09-25
 
-The current implementation includes authenticated and guest carts, server-authoritative checkout, PayOS and COD payment paths with exact VND amounts, durable verified webhooks and bounded admin reconciliation, Firebase-owned production auth emails, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, guest-friendly product comparison, customer support tickets, admin analytics, operational alerts, database-backed demo verification, read-only k6 smoke coverage, and opt-in OTLP observability. Legacy payment identifiers remain readable only for historical database compatibility.
+The current implementation includes authenticated and guest carts, server-authoritative checkout, PayOS and COD payment paths with exact VND amounts, production-only live PayOS configuration, signed webhook processing, simulated-payment delivery protection, bounded admin reconciliation, Firebase-owned production auth emails, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, guest-friendly product comparison, customer support tickets, admin analytics, operational alerts, database-backed demo verification, read-only k6 smoke coverage, and opt-in OTLP observability. Legacy payment identifiers remain readable only for historical database compatibility.
 
 The local demo seed creates a linked graph with 28 products across 8 categories and 16 brands. It verifies image URLs, order totals, reviews, wishlists, addresses, notifications, the seeded session baseline, discounts, inventory movements, and orphan relationships. Runtime logins may add sessions after seeding without invalidating verification. Normal seeding is guarded and non-destructive for demo-owned rows; full reset is an explicit local or protected production workflow.
 
@@ -68,6 +68,7 @@ Use `sources/` for notes derived from a specific source file or external referen
 Current source notes:
 
 - [[checkout-and-payment-runtime]]: source map for cart, checkout, payment, and reconciliation
+- [[production-environment]]: production client/server variables, secret boundaries, and startup validation
 - [[support-and-after-sales-runtime]]: source map for support tickets and the implemented after-sales workflow
 
 Current synthesis pages:

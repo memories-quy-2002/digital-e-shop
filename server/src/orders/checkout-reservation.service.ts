@@ -1,5 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
+import { PAYMENT_PROVIDER } from "../payments/payment.types";
+import { CHECKOUT_RESERVATION_WINDOW_MS } from "#src/shared/constants/checkout-reservation";
 import { withTransaction } from "../database/transaction";
 import { CheckoutReservationRepository } from "./checkout-reservation.repository";
 import { PromotionsRepository } from "../promotions/promotions.repository";
@@ -19,11 +22,9 @@ type ReservationError = Error & {
 
 export const createReservationError = (
     message: string,
-    statusCode = 409,
+    statusCode: number = HTTP_STATUS.CONFLICT,
     details: Record<string, unknown> = {},
 ): ReservationError => Object.assign(new Error(message), { statusCode, details });
-
-const DEFAULT_RESERVATION_WINDOW_MS = 35 * 60_000;
 
 type ReservationCartItem = CartItemRow & {
     productId?: number;
@@ -43,12 +44,12 @@ export class CheckoutReservationService {
     async reserveInventory(input: CheckoutReservationInput): Promise<CheckoutReservation> {
         const aggregatedItems = this.aggregateItems(input.authoritativeCart);
         if (aggregatedItems.length === 0) {
-            throw createReservationError("Cart cannot be empty", 400);
+            throw createReservationError("Cart cannot be empty", HTTP_STATUS.BAD_REQUEST);
         }
 
-        const expiresAt = input.databaseExpiresAt ?? new Date(Date.now() + DEFAULT_RESERVATION_WINDOW_MS);
+        const expiresAt = input.databaseExpiresAt ?? new Date(Date.now() + CHECKOUT_RESERVATION_WINDOW_MS);
         if (expiresAt.getTime() <= Date.now()) {
-            throw createReservationError("Checkout reservation expiry must be in the future", 400);
+            throw createReservationError("Checkout reservation expiry must be in the future", HTTP_STATUS.BAD_REQUEST);
         }
 
         const reservationToken = randomUUID();
@@ -139,17 +140,17 @@ export class CheckoutReservationService {
         await withTransaction(async (tx) => {
             const affectedRows = await this.repository.attachPaymentProvider(tx, reservationToken, attachment);
             if (affectedRows !== 1) {
-                throw createReservationError("Checkout reservation is no longer available.", 409);
+                throw createReservationError("Checkout reservation is no longer available.", HTTP_STATUS.CONFLICT);
             }
         });
     }
 
     async expirePayOSOrder(providerOrderCode: number): Promise<number> {
         return withTransaction(async (tx) => {
-            const pendingCheckout = await this.repository.getPendingCheckoutByProviderOrderCodeForUpdate(tx, "payos", providerOrderCode);
+            const pendingCheckout = await this.repository.getPendingCheckoutByProviderOrderCodeForUpdate(tx, PAYMENT_PROVIDER.PAYOS, providerOrderCode);
             if (!pendingCheckout) return 0;
 
-            const affectedRows = await this.repository.expireReservationByProviderOrderCode(tx, "payos", providerOrderCode);
+            const affectedRows = await this.repository.expireReservationByProviderOrderCode(tx, PAYMENT_PROVIDER.PAYOS, providerOrderCode);
             if (affectedRows === 1 && pendingCheckout.discount_id) {
                 await this.promotionsRepository.releasePromotionReservation(tx, pendingCheckout.id);
             }
@@ -167,7 +168,7 @@ export class CheckoutReservationService {
             const productId = getProductId(item as ReservationCartItem);
             const quantity = getQuantity(item as ReservationCartItem);
             if (!Number.isInteger(productId) || productId <= 0 || !Number.isInteger(quantity) || quantity <= 0) {
-                throw createReservationError("Cart contains an invalid product quantity", 400);
+                throw createReservationError("Cart contains an invalid product quantity", HTTP_STATUS.BAD_REQUEST);
             }
             quantities.set(productId, (quantities.get(productId) ?? 0) + quantity);
         }
@@ -177,6 +178,6 @@ export class CheckoutReservationService {
     private resolveIdentity(input: CheckoutReservationInput): OrderIdentity {
         if (input.identity) return input.identity;
         if (input.uid) return { kind: "authenticated", userId: input.uid };
-        throw createReservationError("Checkout identity is required", 400);
+        throw createReservationError("Checkout identity is required", HTTP_STATUS.BAD_REQUEST);
     }
 }

@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { ORDER_STATUS } from "#src/shared/constants/order-status";
+import { PAYMENT_PROVIDER } from "../payments/payment.types";
 
 const requiredText = (field: string) => z.string({ error: `${field} is required` }).trim().min(1, `${field} is required`);
 const positiveInt = (field: string) => z.coerce.number({ error: `${field} must be a number` }).int(`${field} must be a whole number`).positive(`${field} must be greater than zero`);
@@ -58,7 +60,7 @@ const validateGuestCartQuantities = (
 };
 
 export const orderStatusSchema = z.object({
-    status: z.coerce.number().int().refine((value) => [0, 1, 2].includes(value), "Status is required"),
+    status: z.coerce.number().int().refine((value) => Object.values(ORDER_STATUS).includes(value as (typeof ORDER_STATUS)[keyof typeof ORDER_STATUS]), "Status is required"),
 });
 
 export const cancelOrderSchema = z.object({
@@ -80,7 +82,7 @@ export const purchaseSchema = z.object({
     discount: nonNegativeNumber("Discount").default(0),
     discountCode: optionalDiscountCode,
     shippingAddress: requiredText("Shipping address"),
-    paymentMethod: z.enum(["cash", "payos"], { error: "Unsupported payment method" }),
+    paymentMethod: z.enum([PAYMENT_PROVIDER.CASH, PAYMENT_PROVIDER.PAYOS], { error: "Unsupported payment method" }),
 });
 
 export const checkoutSessionSchema = z.object({
@@ -104,11 +106,11 @@ export const applyDiscountSchema = z.object({
 });
 
 export const guestPurchaseSchema = guestCheckoutBaseSchema.extend({
-    paymentMethod: z.enum(["cash", "payos"], { error: "Unsupported payment method" }),
+    paymentMethod: z.enum([PAYMENT_PROVIDER.CASH, PAYMENT_PROVIDER.PAYOS], { error: "Unsupported payment method" }),
 }).superRefine(validateGuestCartQuantities);
 
 export const guestPayOSCheckoutSchema = guestCheckoutBaseSchema.extend({
-    paymentMethod: z.literal("payos"),
+    paymentMethod: z.literal(PAYMENT_PROVIDER.PAYOS),
 }).superRefine(validateGuestCartQuantities);
 
 export const guestOrderLookupSchema = z.object({

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { HISTORICAL_PAYMENT_METHOD, PAYMENT_METHOD } from "../constants";
 import { Helmet } from "react-helmet-async";
 import { Link, useSearchParams } from "react-router-dom";
 import Layout from "../../../components/layout/Layout";
@@ -14,6 +15,7 @@ import { formatMoney } from "../../../utils/currency";
 import { getOrderStatusKey } from "../orderStatus";
 import GuestAfterSalesPanel from "../../after-sales/components/GuestAfterSalesPanel";
 import { getApiErrorMessage } from "../../../lib/api-contract";
+import { CURRENCY_CODE } from "../../../constants/currency";
 
 const getErrorMessage = (error: unknown, fallback: string) => {
     return getApiErrorMessage(error, fallback);
@@ -24,10 +26,10 @@ const getStatusLabel = (status: number, labels: { pending: string; done: string;
 };
 
 const getPaymentLabel = (paymentMethod?: string | null) => {
-    if (paymentMethod === "bank_transfer") return "Historical bank transfer";
-    if (paymentMethod === "cash") return "Cash on delivery";
-    if (paymentMethod === "payos") return "PayOS (VND)";
-    if (paymentMethod === "card" || paymentMethod === "stripe") return "Historical card payment";
+    if (paymentMethod === HISTORICAL_PAYMENT_METHOD.BANK_TRANSFER) return "Historical bank transfer";
+    if (paymentMethod === PAYMENT_METHOD.CASH) return "Cash on delivery";
+    if (paymentMethod === PAYMENT_METHOD.PAYOS) return "PayOS (VND)";
+    if (paymentMethod === HISTORICAL_PAYMENT_METHOD.CARD || paymentMethod === HISTORICAL_PAYMENT_METHOD.STRIPE) return "Historical card payment";
     return "Payment method pending";
 };
 
@@ -135,8 +137,8 @@ const GuestOrderLookupPage = () => {
 
                         <div className="guest-order__summary">
                             <div><span>{t("guestOrder.payment")}</span><strong>{getPaymentLabel(order.payment_method)}</strong></div>
-                            <div><span>{t("guestOrder.total")}</span><strong>{formatMoney(order.total_price, order.currency === "USD" ? "USD" : "VND")}</strong></div>
-                            <div><span>{t("guestOrder.discount")}</span><strong>{formatMoney(order.discount, order.currency === "USD" ? "USD" : "VND")}</strong></div>
+                            <div><span>{t("guestOrder.total")}</span><strong>{formatMoney(order.total_price, order.currency === CURRENCY_CODE.USD ? CURRENCY_CODE.USD : CURRENCY_CODE.VND)}</strong></div>
+                            <div><span>{t("guestOrder.discount")}</span><strong>{formatMoney(order.discount, order.currency === CURRENCY_CODE.USD ? CURRENCY_CODE.USD : CURRENCY_CODE.VND)}</strong></div>
                             <div><span>{t("guestOrder.email")}</span><strong>{order.guest_email || "-"}</strong></div>
                         </div>
 
@@ -153,7 +155,7 @@ const GuestOrderLookupPage = () => {
                                     {order.items.map((item) => (
                                         <li key={`${item.productId}-${item.productName}`}>
                                             <span>{item.productName} x{item.quantity}</span>
-                                            <strong>{formatMoney(item.totalPrice, order.currency === "USD" ? "USD" : "VND")}</strong>
+                                            <strong>{formatMoney(item.totalPrice, order.currency === CURRENCY_CODE.USD ? CURRENCY_CODE.USD : CURRENCY_CODE.VND)}</strong>
                                         </li>
                                     ))}
                                 </ul>

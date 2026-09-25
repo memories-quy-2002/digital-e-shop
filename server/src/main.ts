@@ -8,9 +8,10 @@ import type { INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import { isAllowedOrigin } from "#src/config/cors.config";
-import { registerScalarDocs } from "#src/config/scalarDocs";
+import { registerScalarDocs } from "#src/config/scalar-docs";
 import { requestIdMiddleware } from "#src/middleware/request-id.middleware";
 import { buildSuccessResponse, requestIdFrom } from "#src/shared/http/api-response";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -41,13 +42,13 @@ export async function configureHttpApp<T extends INestApplication>(app: T): Prom
     }));
 
     expressApp.get("/api/openapi.json", (_req: express.Request, res: express.Response) => {
-        res.status(200).json(openapiSpec);
+        res.status(HTTP_STATUS.OK).json(openapiSpec);
     });
 
     registerScalarDocs(expressApp, openapiSpec);
 
     expressApp.get("/", (req: express.Request, res: express.Response) => {
-        res.status(200).json(buildSuccessResponse({
+        res.status(HTTP_STATUS.OK).json(buildSuccessResponse({
             status: "ok",
             service: "digital-e-server",
             timestamp: new Date().toISOString(),

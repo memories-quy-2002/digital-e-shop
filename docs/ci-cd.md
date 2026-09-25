@@ -16,6 +16,12 @@ The client job runs on Ubuntu 24.04 with Node.js `24.20.0` and pnpm `12.4.2`. It
 - Production build with `VITE_API_BASE_URL`
 - HTTP smoke check against the Vite preview
 
+The client also needs its six required `VITE_FIREBASE_*` values when the
+application runs. CI supplies the API URL for build and preview checks but does
+not validate the production Firebase project configuration. Set the complete
+client matrix in Vercel as described in the
+[development guide](DEVELOPMENT.md#production-deployment-variables).
+
 ### Server job
 
 The server job starts a disposable MySQL 8.4 service. It installs from `server/pnpm-lock.yaml`, verifies connectivity, loads the checked-in legacy SQL baseline and historical Stripe SQL, records the metadata-only Prisma `0_init` baseline, and deploys forward migrations.
@@ -40,7 +46,7 @@ Workflow actions are pinned to reviewed commit SHAs. Dependabot keeps the client
 
 The repository does not contain a custom Vercel deployment workflow. Vercel projects must be configured externally to deploy only from the intended branch after required checks pass. Keep project IDs and deployment tokens in platform or GitHub Environment secrets.
 
-The client project uses `client/vercel.json` and must define `VITE_API_BASE_URL` in the deployment environment. The server project uses `server/vercel.json`, installs with `pnpm install --frozen-lockfile`, builds with `pnpm run build`, and rewrites requests to `server/api/index.ts`.
+The client project uses `client/vercel.json` and must define `VITE_API_BASE_URL` plus the required Firebase web configuration in the Production build environment. The server project uses `server/vercel.json`, installs with `pnpm install --frozen-lockfile`, builds with `pnpm run build`, and rewrites requests to `server/api/index.ts`. See the [production environment matrix](DEVELOPMENT.md#production-deployment-variables) for exact variable names and secret boundaries.
 
 Vercel deployment status does not prove application health. After a production deployment, check the storefront and the deployed server's `/api/health` endpoint with the actual configured server domain.
 

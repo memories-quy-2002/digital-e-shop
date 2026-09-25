@@ -1,8 +1,9 @@
 import { Injectable, BadRequestException } from "@nestjs/common";
 import { logger } from "#src/shared/utils/logger";
-import { getValidationMessage, parseBody } from "#src/shared/validation/requestSchemas";
+import { getValidationMessage, parseBody } from "#src/shared/validation/request-schemas";
 import { blobHealthQuerySchema } from "./blob.validator";
 import type { UploadRequestFile } from "./blob.types";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
 
 const { put, del } = require("@vercel/blob");
 
@@ -29,7 +30,7 @@ export class NestBlobService {
     async blobHealthCheck(cleanup?: string): Promise<BlobHealthResult> {
         const token = process.env.BLOB_READ_WRITE_TOKEN;
         if (!token) {
-            throw Object.assign(new Error("BLOB_READ_WRITE_TOKEN is not set"), { statusCode: 500 });
+            throw Object.assign(new Error("BLOB_READ_WRITE_TOKEN is not set"), { statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR });
         }
 
         let shouldCleanup: boolean;
@@ -51,8 +52,11 @@ export class NestBlobService {
                 try {
                     await del(blob.url, { token });
                 } catch (err) {
-                    const error = err as Error;
-                    logger.warn({ err: error?.message || err, url: blob.url }, "Failed to auto-delete blob health check");
+                    logger.warn({
+                        err: err instanceof Error ? err : new Error(String(err)),
+                        blobPath: path,
+                        event: "blob health check cleanup failed",
+                    });
                 }
             }, cleanupDelayMs);
         }
@@ -71,7 +75,7 @@ export class NestBlobService {
     async uploadImage(file: UploadRequestFile): Promise<BlobUploadResult> {
         const token = process.env.BLOB_READ_WRITE_TOKEN;
         if (!token) {
-            throw Object.assign(new Error("BLOB_READ_WRITE_TOKEN is not set"), { statusCode: 500 });
+            throw Object.assign(new Error("BLOB_READ_WRITE_TOKEN is not set"), { statusCode: HTTP_STATUS.INTERNAL_SERVER_ERROR });
         }
 
         const original = file.originalname || "upload";

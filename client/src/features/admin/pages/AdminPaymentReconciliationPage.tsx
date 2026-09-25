@@ -5,6 +5,13 @@ import AdminLayout from "../../../components/layout/AdminLayout";
 import AdminStatusPanel from "../components/AdminStatusPanel";
 import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
 import { useToast } from "../../../context/ToastContext";
+import { PAYMENT_METHOD, PAYMENT_STATUS, type PaymentMethod } from "../../orders/constants";
+import { CURRENCY_CODE } from "../../../constants/currency";
+import {
+    PAYMENT_RECONCILIATION_LIMIT,
+    PAYMENT_RECONCILIATION_STATUS,
+    PAYMENT_RECONCILIATION_TARGET_TYPE,
+} from "../payment-reconciliation.constants";
 import {
     confirmAdminCodPayment,
     fetchPaymentReconciliationCandidates,
@@ -17,14 +24,10 @@ import {
     type PaymentWebhookEvent,
 } from "../api";
 
-const PAGE_LIMIT = 50;
+const PAGE_LIMIT = PAYMENT_RECONCILIATION_LIMIT.DEFAULT;
 const reconciliationStatuses: Array<PaymentReconciliationStatus | ""> = [
     "",
-    "PENDING",
-    "MATCHED",
-    "MISMATCH",
-    "UNAVAILABLE",
-    "MANUAL_CONFIRMED",
+    ...Object.values(PAYMENT_RECONCILIATION_STATUS),
 ];
 
 const emptyPage: PaymentReconciliationPage = {
@@ -36,7 +39,7 @@ const formatVnd = (value: number | null) => value === null
     ? "—"
     : new Intl.NumberFormat("vi-VN", {
         style: "currency",
-        currency: "VND",
+        currency: CURRENCY_CODE.VND,
         maximumFractionDigits: 0,
     }).format(value);
 
@@ -49,15 +52,15 @@ const formatDate = (value: string | null) => {
     });
 };
 
-const labelProvider = (provider: string) => provider === "payos" ? "PayOS" : provider === "cash" ? "COD" : provider;
+const labelProvider = (provider: string) => provider === PAYMENT_METHOD.PAYOS ? "PayOS" : provider === PAYMENT_METHOD.CASH ? "COD" : provider;
 const labelTarget = (candidate: PaymentReconciliationCandidate) => candidate.orderId
     ? `Order #${candidate.orderId}`
-    : candidate.targetType === "pending_checkout" ? `Pending checkout #${candidate.targetId}` : `Payment #${candidate.targetId}`;
+    : candidate.targetType === PAYMENT_RECONCILIATION_TARGET_TYPE.PENDING_CHECKOUT ? `Pending checkout #${candidate.targetId}` : `Payment #${candidate.targetId}`;
 const statusClass = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
 const AdminPaymentReconciliationPage = () => {
     const { addToast } = useToast();
-    const [provider, setProvider] = useState<"" | "cash" | "payos">("");
+    const [provider, setProvider] = useState<"" | PaymentMethod>("");
     const [reconciliationStatus, setReconciliationStatus] = useState<"" | PaymentReconciliationStatus>("");
     const [currentPage, setCurrentPage] = useState(1);
     const [paymentPage, setPaymentPage] = useState<PaymentReconciliationPage>(emptyPage);
@@ -96,17 +99,18 @@ const AdminPaymentReconciliationPage = () => {
 
     const counts = useMemo(() => ({
         total: paymentPage.pagination.total,
-        payos: paymentPage.candidates.filter((candidate) => candidate.provider === "payos").length,
-        cash: paymentPage.candidates.filter((candidate) => candidate.provider === "cash").length,
-        attention: paymentPage.candidates.filter((candidate) => ["MISMATCH", "UNAVAILABLE"].includes(candidate.reconciliationStatus)).length,
+        payos: paymentPage.candidates.filter((candidate) => candidate.provider === PAYMENT_METHOD.PAYOS).length,
+        cash: paymentPage.candidates.filter((candidate) => candidate.provider === PAYMENT_METHOD.CASH).length,
+        attention: paymentPage.candidates.filter((candidate) => candidate.reconciliationStatus === PAYMENT_RECONCILIATION_STATUS.MISMATCH
+            || candidate.reconciliationStatus === PAYMENT_RECONCILIATION_STATUS.UNAVAILABLE).length,
     }), [paymentPage]);
 
     const runReconciliation = async () => {
         try {
             setBusyAction("run");
             setActionError(null);
-            const result = await runPaymentReconciliation(100);
-            const matched = result.results.filter((item) => item.outcome === "MATCHED").length;
+            const result = await runPaymentReconciliation(PAYMENT_RECONCILIATION_LIMIT.MAX);
+            const matched = result.results.filter((item) => item.outcome === PAYMENT_RECONCILIATION_STATUS.MATCHED).length;
             addToast("Payments", `${matched} of ${result.results.length} payment checks matched.`);
             await loadCandidates();
         } catch (error) {
@@ -122,7 +126,7 @@ const AdminPaymentReconciliationPage = () => {
             setBusyAction(`reconcile-${candidate.targetId}`);
             setActionError(null);
             const result = await reconcileAdminPayment(candidate.targetId);
-            addToast("Payments", result.outcome === "MATCHED" ? "Payment matched successfully." : `Payment check: ${result.outcome}.`);
+            addToast("Payments", result.outcome === PAYMENT_RECONCILIATION_STATUS.MATCHED ? "Payment matched successfully." : `Payment check: ${result.outcome}.`);
             await loadCandidates();
         } catch (error) {
             setActionError(getAdminRequestError(error).message);
@@ -223,8 +227,8 @@ const AdminPaymentReconciliationPage = () => {
                                 <span>Provider</span>
                                 <select aria-label="Filter by provider" value={provider} onChange={(event) => { setProvider(event.target.value as typeof provider); setCurrentPage(1); }}>
                                     <option value="">All providers</option>
-                                    <option value="payos">PayOS</option>
-                                    <option value="cash">Cash on delivery</option>
+                                    <option value={PAYMENT_METHOD.PAYOS}>PayOS</option>
+                                    <option value={PAYMENT_METHOD.CASH}>Cash on delivery</option>
                                 </select>
                             </label>
                             <label>
@@ -260,11 +264,13 @@ const AdminPaymentReconciliationPage = () => {
                                     </thead>
                                     <tbody>
                                         {paymentPage.candidates.map((candidate) => {
-                                            const isOrderPayment = candidate.targetType === "order_payment";
-                                            const isCod = candidate.provider === "cash";
-                                            const isCodConfirmed = candidate.reconciliationStatus === "MANUAL_CONFIRMED";
-                                            const canConfirmCod = isCod && isOrderPayment && !isCodConfirmed && ["pending", "paid"].includes(candidate.localStatus.toLowerCase());
-                                            const canReconcile = candidate.provider === "payos" && isOrderPayment;
+                                            const isOrderPayment = candidate.targetType === PAYMENT_RECONCILIATION_TARGET_TYPE.ORDER_PAYMENT;
+                                            const isCod = candidate.provider === PAYMENT_METHOD.CASH;
+                                            const isCodConfirmed = candidate.reconciliationStatus === PAYMENT_RECONCILIATION_STATUS.MANUAL_CONFIRMED;
+                                            const localPaymentStatus = candidate.localStatus.toLowerCase();
+                                            const canConfirmCod = isCod && isOrderPayment && !isCodConfirmed
+                                                && (localPaymentStatus === PAYMENT_STATUS.PENDING || localPaymentStatus === PAYMENT_STATUS.PAID);
+                                            const canReconcile = candidate.provider === PAYMENT_METHOD.PAYOS && isOrderPayment;
                                             const rowBusy = busyAction === `reconcile-${candidate.targetId}` || busyAction === `cod-${candidate.targetId}`;
                                             return (
                                                 <React.Fragment key={`${candidate.targetType}-${candidate.targetId}`}>
@@ -288,7 +294,7 @@ const AdminPaymentReconciliationPage = () => {
                                                                     </>
                                                                 ) : isCodConfirmed ? <span className="admin__pill admin__pill--success"><CheckCircleIcon size={13} />Collected</span> : null}
                                                                 {isOrderPayment ? <button type="button" className="admin__button admin__button--ghost admin__button--compact" onClick={() => void toggleWebhookEvents(candidate)} disabled={busyAction !== null}>{busyAction === `events-${candidate.targetId}` ? "Loading..." : expandedPaymentId === candidate.targetId ? "Hide events" : "Webhook events"}</button> : null}
-                                                                {!canReconcile && !canConfirmCod && !isCodConfirmed && candidate.targetType === "pending_checkout" ? <small className="admin__payments__action-note">Run the queue check to process this reservation.</small> : null}
+                                                                {!canReconcile && !canConfirmCod && !isCodConfirmed && candidate.targetType === PAYMENT_RECONCILIATION_TARGET_TYPE.PENDING_CHECKOUT ? <small className="admin__payments__action-note">Run the queue check to process this reservation.</small> : null}
                                                             </div>
                                                         </td>
                                                     </tr>

@@ -6,6 +6,7 @@ import { NestConfigService } from "../config/nest-config.service";
 import { NestAuthService } from "../auth/auth.service";
 import { UsersRepository } from "../users/users.repository";
 import { AuthRepository } from "../auth/auth.repository";
+import { USER_ACCOUNT_STATUS } from "#src/shared/constants/user";
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -49,7 +50,7 @@ export class AuthGuard implements CanActivate {
             if (!user) {
                 throw new UnauthorizedException({ msg: "User not found" });
             }
-            if (user.status && user.status !== "Active") {
+            if (user.status && user.status !== USER_ACCOUNT_STATUS.ACTIVE) {
                 throw new UnauthorizedException({ msg: "Account is suspended" });
             }
 

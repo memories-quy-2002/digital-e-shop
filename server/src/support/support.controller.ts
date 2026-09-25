@@ -1,4 +1,6 @@
 import { Body, Controller, Get, HttpException, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
+import { createHttpException } from "#src/core/errors/http-exception";
 import type { Request } from "express";
 import { AuthGuard } from "../guards/auth.guard";
 import { Roles, RolesGuard } from "../guards/roles.guard";
@@ -11,9 +13,12 @@ type AuthenticatedRequest = Request & { user?: { id?: string | number; role?: st
 
 const userIdFrom = (req: AuthenticatedRequest) => String(req.user?.id || "");
 const isAdmin = (req: AuthenticatedRequest) => String(req.user?.role || "").toLowerCase() === "admin";
-const toHttpException = (error: unknown) => {
+const toHttpException = (error: unknown, fallbackMessage: string) => {
+    if (error instanceof HttpException) return error;
     const typed = error as { statusCode?: number; message?: string };
-    return new HttpException({ msg: typed.statusCode ? typed.message : "Unable to process support ticket" }, typed.statusCode || 500);
+    const statusCode = typed.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+    const msg = statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? fallbackMessage : typed.message || fallbackMessage;
+    return createHttpException(error, { msg }, statusCode);
 };
 
 @Controller("support/tickets")
@@ -31,7 +36,7 @@ export class SupportController {
             const ticket = await this.service.createTicket(userIdFrom(req), body);
             return { ticket, msg: "Support ticket created successfully" };
         } catch (error) {
-            throw toHttpException(error);
+            throw toHttpException(error, "Unable to create support ticket");
         }
     }
 
@@ -45,7 +50,7 @@ export class SupportController {
             const tickets = await this.service.listTickets(userIdFrom(req), isAdmin(req), query.status);
             return { tickets, msg: "Support tickets retrieved successfully" };
         } catch (error) {
-            throw toHttpException(error);
+            throw toHttpException(error, "Unable to retrieve support tickets");
         }
     }
 
@@ -59,7 +64,7 @@ export class SupportController {
             const ticket = await this.service.updateTicket(Number(id), body);
             return { ticket, msg: "Support ticket updated successfully" };
         } catch (error) {
-            throw toHttpException(error);
+            throw toHttpException(error, "Unable to update support ticket");
         }
     }
 }

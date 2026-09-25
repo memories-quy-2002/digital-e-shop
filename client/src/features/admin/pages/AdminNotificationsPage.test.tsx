@@ -5,7 +5,9 @@ import { fetchAdminAlerts } from "../api";
 
 vi.mock("../api", () => ({ fetchAdminAlerts: vi.fn() }));
 vi.mock("../../../components/layout/AdminLayout", () => ({ default: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
-vi.mock("../../../context/ToastContext", () => ({ useToast: () => ({ addToast: vi.fn() }) }));
+const { addToast } = vi.hoisted(() => ({ addToast: vi.fn() }));
+
+vi.mock("../../../context/ToastContext", () => ({ useToast: () => ({ addToast }) }));
 vi.mock("react-router-dom", async () => ({
     ...(await vi.importActual<typeof import("react-router-dom")>("react-router-dom")),
     useNavigate: () => vi.fn(),

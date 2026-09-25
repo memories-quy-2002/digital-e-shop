@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import pool from "#src/config/database.config";
 import type { QueryCallback, UpdateResult } from "#src/shared/interfaces/domain";
 import type { CartItemRow, CartRow } from "./cart.types";
+import { CHECKOUT_RESERVATION_STATUS } from "#src/shared/constants/checkout-reservation";
 
 @Injectable()
 export class CartRepository {
@@ -90,7 +91,7 @@ export class CartRepository {
                 SELECT ir.product_id, SUM(ir.quantity) AS reserved_quantity
                 FROM inventory_reservations ir
                 JOIN pending_checkouts pc ON pc.id = ir.pending_checkout_id
-                WHERE pc.status = 'PENDING' AND pc.expires_at > UTC_TIMESTAMP()
+                WHERE pc.status = '${CHECKOUT_RESERVATION_STATUS.PENDING}' AND pc.expires_at > UTC_TIMESTAMP()
                 GROUP BY ir.product_id
             ) active_reservations ON active_reservations.product_id = p.id
             WHERE ci.cart_id = ? AND p.stock >= 0;  `,
@@ -139,7 +140,7 @@ export class CartRepository {
                 SELECT ir.product_id, SUM(ir.quantity) AS reserved_quantity
                 FROM inventory_reservations ir
                 JOIN pending_checkouts pc ON pc.id = ir.pending_checkout_id
-                WHERE pc.status = 'PENDING' AND pc.expires_at > UTC_TIMESTAMP()
+                WHERE pc.status = '${CHECKOUT_RESERVATION_STATUS.PENDING}' AND pc.expires_at > UTC_TIMESTAMP()
                 GROUP BY ir.product_id
             ) active_reservations ON active_reservations.product_id = p.id
             WHERE ci.cart_id = ?`,
@@ -177,7 +178,7 @@ export class CartRepository {
                 SELECT ir.product_id, SUM(ir.quantity) AS reserved_quantity
                 FROM inventory_reservations ir
                 JOIN pending_checkouts pc ON pc.id = ir.pending_checkout_id
-                WHERE pc.status = 'PENDING' AND pc.expires_at > UTC_TIMESTAMP()
+                WHERE pc.status = '${CHECKOUT_RESERVATION_STATUS.PENDING}' AND pc.expires_at > UTC_TIMESTAMP()
                 GROUP BY ir.product_id
             ) active_reservations ON active_reservations.product_id = p.id
             WHERE p.id IN (${placeholders})`,
@@ -209,7 +210,7 @@ export class CartRepository {
                 SELECT ir.product_id, SUM(ir.quantity) AS reserved_quantity
                 FROM inventory_reservations ir
                 JOIN pending_checkouts pc ON pc.id = ir.pending_checkout_id
-                WHERE pc.status = 'PENDING' AND pc.expires_at > UTC_TIMESTAMP()
+                WHERE pc.status = '${CHECKOUT_RESERVATION_STATUS.PENDING}' AND pc.expires_at > UTC_TIMESTAMP()
                 GROUP BY ir.product_id
             ) active_reservations ON active_reservations.product_id = p.id
             WHERE ci.id = ?`,

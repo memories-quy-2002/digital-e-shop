@@ -1,7 +1,8 @@
 import http from "../../lib/http";
+import { AFTER_SALES_PAGINATION } from "./constants";
 import type { AfterSalesCreateInput, AfterSalesListPage, AfterSalesListQuery, AfterSalesRequest, GuestAfterSalesCreateInput } from "./types";
 
-const normalizeQuery = (query: AfterSalesListQuery = {}) => ({ page: query.page || 1, limit: Math.min(query.limit || 50, 100), ...(query.status ? { status: query.status } : {}), ...(query.kind ? { kind: query.kind } : {}) });
+const normalizeQuery = (query: AfterSalesListQuery = {}) => ({ page: query.page || AFTER_SALES_PAGINATION.FIRST_PAGE, limit: Math.min(query.limit || AFTER_SALES_PAGINATION.DEFAULT_PAGE_SIZE, AFTER_SALES_PAGINATION.MAX_PAGE_SIZE), ...(query.status ? { status: query.status } : {}), ...(query.kind ? { kind: query.kind } : {}) });
 
 export async function fetchCustomerAfterSalesRequests(query: AfterSalesListQuery = {}): Promise<AfterSalesListPage> {
     const response = await http.get("/api/after-sales/requests", { params: normalizeQuery(query) });

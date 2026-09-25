@@ -12,7 +12,9 @@ export type GuestShippingDto = {
     country: string;
 };
 
-export type GuestPaymentMethod = "cash" | "payos";
+import type { PaymentProviderName, PayOSPaymentProvider } from "../payments/payment.types";
+
+export type GuestPaymentMethod = PaymentProviderName;
 export type GuestPurchasePayload = {
     cart: GuestCartItemInput[];
     contact: GuestContactDto;
@@ -22,7 +24,7 @@ export type GuestPurchasePayload = {
 };
 
 export type GuestPayOSCheckoutPayload = Omit<GuestPurchasePayload, "paymentMethod"> & {
-    paymentMethod: "payos";
+    paymentMethod: PayOSPaymentProvider;
 };
 
 export type GuestOrderLookupPayload = {
@@ -47,5 +49,5 @@ export type PurchasePayload = {
     discount: number;
     discountCode?: string;
     shippingAddress: string;
-    paymentMethod: "cash" | "payos";
+    paymentMethod: PaymentProviderName;
 };

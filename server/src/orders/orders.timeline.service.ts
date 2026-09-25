@@ -4,10 +4,11 @@ import type { OrderDetail, OrderTimelineInput, OrderTimelineRow } from "./orders
 import { logger } from "#src/shared/utils/logger";
 import { OrderTimelineRepository } from "./orders.timeline.repository";
 import type { TransactionContext } from "../database/transaction";
+import { ORDER_STATUS } from "#src/shared/constants/order-status";
 
 const statusLabel = (status: number) => {
-    if (Number(status) === 1) return "Completed";
-    if (Number(status) === 2) return "Canceled";
+    if (Number(status) === ORDER_STATUS.DONE) return "Completed";
+    if (Number(status) === ORDER_STATUS.CANCELED) return "Canceled";
     return "Placed";
 };
 

@@ -16,7 +16,7 @@ import NoPage from "../../../pages/NotFoundPage";
 import "../../../styles/pages/_product.scss";
 import { formatUtcDate } from "../../../utils/dateTime";
 import type { Product, Review, ReviewSummary, Wishlist } from "../../../types/product";
-import LazyLoadImage from "../../../utils/LazyLoadingImage";
+import LazyLoadingImage from "../../../utils/LazyLoadingImage";
 import {
     PRODUCT_GALLERY_WIDTHS,
     getProductImageUrl,
@@ -609,7 +609,7 @@ const ProductPage = () => {
                                     onClick={() => setIsLightboxOpen(true)}
                                     aria-label={`Open ${productDetail.name} image in full size`}
                                 >
-                                    <LazyLoadImage
+                                    <LazyLoadingImage
                                         src={activeResponsiveImage?.src || activeImageUrl}
                                         srcSet={activeResponsiveImage?.srcSet}
                                         sizes={activeResponsiveImage?.sizes}

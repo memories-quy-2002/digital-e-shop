@@ -9,11 +9,13 @@ export type ComparisonErrorCode =
     | "COMPARE_PRODUCTS_NOT_FOUND"
     | "COMPARE_CATEGORY_MISMATCH";
 
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
+
 export class ComparisonValidationError extends Error {
     constructor(
         public readonly code: ComparisonErrorCode,
         message: string,
-        public readonly statusCode: 400 | 404 | 422,
+        public readonly statusCode: typeof HTTP_STATUS.BAD_REQUEST | typeof HTTP_STATUS.NOT_FOUND | typeof HTTP_STATUS.UNPROCESSABLE_ENTITY,
         public readonly details: Record<string, unknown> = {},
     ) {
         super(message);

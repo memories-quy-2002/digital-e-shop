@@ -206,7 +206,7 @@ const CustomerAccountPage = () => {
         };
 
         loadAccount();
-    }, [addToast, uid]);
+    }, [addToast, t, uid]);
 
     useEffect(() => {
         const loadNotifications = async () => {
@@ -228,7 +228,7 @@ const CustomerAccountPage = () => {
         };
 
         loadNotifications();
-    }, [addToast, uid]);
+    }, [addToast, t, uid]);
 
     useEffect(() => {
         const notificationsRouteActive = location.pathname === CUSTOMER_ROUTES.notifications || location.hash === "#notifications";

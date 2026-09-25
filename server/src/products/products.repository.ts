@@ -9,6 +9,9 @@ import type {
     ProductPriceBoundsRow,
 } from "./products.types";
 import type { AttributeFilter } from "./product-attributes.types";
+import { ORDER_STATUS } from "#src/shared/constants/order-status";
+import { LOW_STOCK_THRESHOLD } from "#src/shared/constants/product";
+import { CHECKOUT_RESERVATION_STATUS } from "#src/shared/constants/checkout-reservation";
 
 type ProductInsertRecord = {
     name: string;
@@ -83,7 +86,7 @@ const productAvailabilityJoin = `
         SELECT ir.product_id, SUM(ir.quantity) AS reserved_quantity
         FROM inventory_reservations ir
         JOIN pending_checkouts pc ON pc.id = ir.pending_checkout_id
-        WHERE pc.status = 'PENDING' AND pc.expires_at > UTC_TIMESTAMP()
+        WHERE pc.status = '${CHECKOUT_RESERVATION_STATUS.PENDING}' AND pc.expires_at > UTC_TIMESTAMP()
         GROUP BY ir.product_id
     ) active_reservations ON active_reservations.product_id = products.id
 `;
@@ -486,7 +489,7 @@ export class NestProductsRepository {
                 `SELECT
                     COUNT(*) AS total_products,
                     SUM(CASE WHEN stock = 0 THEN 1 ELSE 0 END) AS out_of_stock,
-                    SUM(CASE WHEN stock > 0 AND stock <= 5 THEN 1 ELSE 0 END) AS low_stock,
+                    SUM(CASE WHEN stock > 0 AND stock <= ${LOW_STOCK_THRESHOLD} THEN 1 ELSE 0 END) AS low_stock,
                     SUM(CASE WHEN stock > 5 THEN 1 ELSE 0 END) AS healthy_stock,
                     SUM(stock) AS total_units
                 FROM products
@@ -574,7 +577,7 @@ export class NestProductsRepository {
                 SELECT oi.product_id, SUM(oi.quantity) AS sales
                 FROM order_items oi
                 JOIN orders o ON o.id = oi.order_id
-                WHERE o.status <> 2
+                WHERE o.status <> ${ORDER_STATUS.CANCELED}
                 GROUP BY oi.product_id
             ) sales_summary ON sales_summary.product_id = p.id
             LEFT JOIN (
@@ -582,7 +585,7 @@ export class NestProductsRepository {
                 FROM order_items oi
                 JOIN order_items oi2 ON oi2.order_id = oi.order_id AND oi2.product_id <> oi.product_id
                 JOIN orders o ON o.id = oi.order_id
-                WHERE oi.product_id = ? AND o.status <> 2
+                WHERE oi.product_id = ? AND o.status <> ${ORDER_STATUS.CANCELED}
                 GROUP BY oi2.product_id
             ) copurchase ON copurchase.product_id = p.id
             WHERE p.id <> base.id
@@ -639,7 +642,7 @@ export class NestProductsRepository {
                 SELECT oi.product_id, SUM(oi.quantity) AS sales
                 FROM order_items oi
                 JOIN orders o ON o.id = oi.order_id
-                WHERE o.status <> 2
+                WHERE o.status <> ${ORDER_STATUS.CANCELED}
                 GROUP BY oi.product_id
             ) sales_summary ON sales_summary.product_id = p.id
             LEFT JOIN (
@@ -649,7 +652,7 @@ export class NestProductsRepository {
                     FROM orders o
                     JOIN order_items oi ON oi.order_id = o.id
                     JOIN products purchased ON purchased.id = oi.product_id
-                    WHERE o.user_id = ? AND o.status <> 2
+                    WHERE o.user_id = ? AND o.status <> ${ORDER_STATUS.CANCELED}
                     GROUP BY purchased.category_id
                     UNION ALL
                     SELECT wished.category_id, COUNT(*) * 2 AS weight
@@ -674,7 +677,7 @@ export class NestProductsRepository {
                     FROM orders o
                     JOIN order_items oi ON oi.order_id = o.id
                     JOIN products purchased ON purchased.id = oi.product_id
-                    WHERE o.user_id = ? AND o.status <> 2
+                    WHERE o.user_id = ? AND o.status <> ${ORDER_STATUS.CANCELED}
                     GROUP BY purchased.brand_id
                     UNION ALL
                     SELECT wished.brand_id, COUNT(*) * 2 AS weight

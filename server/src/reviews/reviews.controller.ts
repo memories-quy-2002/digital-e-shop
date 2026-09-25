@@ -4,9 +4,11 @@ import { OwnerParam, RolesGuard } from "../guards/roles.guard";
 import { RequireVerifiedEmail, VerifiedEmailGuard } from "../guards/verified-email.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestReviewsService } from "./reviews.service";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
 
 import * as reviewsValidator from "./reviews.validator";
 const { reviewListQuerySchema } = reviewsValidator;
+import { createHttpException } from "#src/core/errors/http-exception";
 
 @Controller("reviews")
 export class ReviewsController {
@@ -47,13 +49,16 @@ export class ReviewsController {
             const results = await this.reviewsService.getReviews(pid);
             return { reviews: results, summary, msg: "Reviews have been retrieved successfully" };
         } catch (err) {
-            const error = err as Error;
-            throw new HttpException({ msg: "Internal server error", error: error.message }, 500);
+            if (err instanceof HttpException) throw err;
+            const error = err as Error & { statusCode?: number };
+            const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+            const msg = statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to load reviews" : error.message;
+            throw createHttpException(err, { msg }, statusCode);
         }
     }
 
     @Post()
-    @HttpCode(201)
+    @HttpCode(HTTP_STATUS.CREATED)
     @UseGuards(AuthGuard, RolesGuard, VerifiedEmailGuard)
     @OwnerParam("uid")
     @RequireVerifiedEmail()
@@ -69,11 +74,11 @@ export class ReviewsController {
         try {
             return await this.reviewsService.addReview(uid, pid, rating, safeComment);
         } catch (err) {
+            if (err instanceof HttpException) throw err;
             const error = err as Error & { statusCode?: number };
-            throw new HttpException(
-                { msg: error.statusCode ? error.message : "Internal server error", ...(error.statusCode ? {} : { error: error.message }) },
-                error.statusCode || 500,
-            );
+            const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+            const msg = statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to submit review" : error.message;
+            throw createHttpException(err, { msg }, statusCode);
         }
     }
 }

@@ -6,6 +6,9 @@ import type { PromotionRedemptionUserId, PromotionRow } from "./promotions.types
 import type { TransactionContext } from "../database/transaction";
 import { env } from "#src/config/env.config";
 import { formatPaymentAmount } from "../payments/currency";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
+import { CHECKOUT_RESERVATION_STATUS } from "#src/shared/constants/checkout-reservation";
+import { DISCOUNT_REDEMPTION_STATUS } from "./promotions.constants";
 
 type QueryParams = unknown[] | Record<string, unknown> | QueryCallback | undefined;
 
@@ -28,7 +31,7 @@ export type PromotionReservationResult = {
 
 type PromotionUsageRow = { used: number | string };
 
-const promotionUsageError = (message: string, statusCode = 409) => Object.assign(new Error(message), { statusCode });
+const promotionUsageError = (message: string, statusCode: number = HTTP_STATUS.CONFLICT) => Object.assign(new Error(message), { statusCode });
 
 @Injectable()
 export class PromotionsRepository {
@@ -114,16 +117,16 @@ export class PromotionsRepository {
         const pendingUpdate = await tx.query<{ affectedRows: number }>(
             `UPDATE pending_checkouts
              SET discount_id = ?, discount = ?
-             WHERE id = ? AND status = 'PENDING'`,
+             WHERE id = ? AND status = '${CHECKOUT_RESERVATION_STATUS.PENDING}'`,
             [promotion.id, discount, pendingCheckoutId],
         );
         if (pendingUpdate.affectedRows !== 1) {
-            throw promotionUsageError("Checkout reservation is no longer available.", 409);
+            throw promotionUsageError("Checkout reservation is no longer available.", HTTP_STATUS.CONFLICT);
         }
         await tx.query<InsertResult>(
             `INSERT INTO discount_redemptions
                 (discount_id, pending_checkout_id, user_id, status, expires_at)
-             VALUES (?, ?, ?, 'RESERVED', ?)`,
+             VALUES (?, ?, ?, '${DISCOUNT_REDEMPTION_STATUS.RESERVED}', ?)`,
             [promotion.id, pendingCheckoutId, userId, expiresAt],
         );
 
@@ -145,7 +148,7 @@ export class PromotionsRepository {
         await tx.query<InsertResult>(
             `INSERT INTO discount_redemptions
                 (discount_id, order_id, user_id, status, consumed_at)
-             VALUES (?, ?, ?, 'CONSUMED', UTC_TIMESTAMP())`,
+             VALUES (?, ?, ?, '${DISCOUNT_REDEMPTION_STATUS.CONSUMED}', UTC_TIMESTAMP())`,
             [promotion.id, orderId, userId],
         );
         return { discountId: promotion.id, discount, promotion };
@@ -154,8 +157,8 @@ export class PromotionsRepository {
     async consumePromotionReservation(tx: TransactionContext, pendingCheckoutId: number, orderId: number): Promise<number> {
         const result = await tx.query<{ affectedRows: number }>(
             `UPDATE discount_redemptions
-             SET status = 'CONSUMED', order_id = ?, consumed_at = UTC_TIMESTAMP()
-             WHERE pending_checkout_id = ? AND status = 'RESERVED'`,
+             SET status = '${DISCOUNT_REDEMPTION_STATUS.CONSUMED}', order_id = ?, consumed_at = UTC_TIMESTAMP()
+             WHERE pending_checkout_id = ? AND status = '${DISCOUNT_REDEMPTION_STATUS.RESERVED}'`,
             [orderId, pendingCheckoutId],
         );
         return result.affectedRows;
@@ -164,8 +167,8 @@ export class PromotionsRepository {
     async releasePromotionReservation(tx: TransactionContext, pendingCheckoutId: number): Promise<number> {
         const result = await tx.query<{ affectedRows: number }>(
             `UPDATE discount_redemptions
-             SET status = 'RELEASED'
-             WHERE pending_checkout_id = ? AND status = 'RESERVED'`,
+             SET status = '${DISCOUNT_REDEMPTION_STATUS.RELEASED}'
+             WHERE pending_checkout_id = ? AND status = '${DISCOUNT_REDEMPTION_STATUS.RESERVED}'`,
             [pendingCheckoutId],
         );
         return result.affectedRows;
@@ -186,15 +189,15 @@ export class PromotionsRepository {
         );
         const promotion = rows[0];
         if (!promotion || Number(promotion.active ?? 1) !== 1) {
-            throw promotionUsageError("Discount code is no longer valid.", 400);
+            throw promotionUsageError("Discount code is no longer valid.", HTTP_STATUS.BAD_REQUEST);
         }
 
         const now = Date.now();
         if (promotion.starts_at && new Date(promotion.starts_at).getTime() > now) {
-            throw promotionUsageError("Discount code is not active yet.", 400);
+            throw promotionUsageError("Discount code is not active yet.", HTTP_STATUS.BAD_REQUEST);
         }
         if (promotion.expires_at && new Date(promotion.expires_at).getTime() <= now) {
-            throw promotionUsageError("Discount code has expired.", 400);
+            throw promotionUsageError("Discount code has expired.", HTTP_STATUS.BAD_REQUEST);
         }
         if (Number(totalPrice) < (Number(promotion.min_order_value) || 0)) {
             throw promotionUsageError(
@@ -211,8 +214,8 @@ export class PromotionsRepository {
              FROM discount_redemptions
              WHERE discount_id = ?
                AND (
-                   status = 'CONSUMED'
-                   OR (status = 'RESERVED' AND expires_at > UTC_TIMESTAMP())
+                   status = '${DISCOUNT_REDEMPTION_STATUS.CONSUMED}'
+                   OR (status = '${DISCOUNT_REDEMPTION_STATUS.RESERVED}' AND expires_at > UTC_TIMESTAMP())
                )`,
             [discountId],
         );
@@ -224,7 +227,7 @@ export class PromotionsRepository {
             ? null
             : Number(promotion.usage_limit);
         if (usageLimit !== null && used >= usageLimit) {
-            throw promotionUsageError("Discount code has reached its usage limit.", 409);
+            throw promotionUsageError("Discount code has reached its usage limit.", HTTP_STATUS.CONFLICT);
         }
     }
 }

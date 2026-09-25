@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { HTTP_STATUS } from "../constants/http-status";
 import { useAuth } from "./AuthContext";
 import { useToast } from "./ToastContext";
 import {
@@ -210,7 +211,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } finally {
             if (isActiveRequest()) setIsLoading(false);
         }
-    }, [applyGuestPreview, fetchGuestCart, isCurrentSource, syncGuestCart]);
+    }, [applyGuestPreview, isCurrentSource]);
 
     const fetchCart = useCallback(async (requestedDiscountCode?: string | null): Promise<boolean> => {
         const expectedSource = sourceRef.current;
@@ -257,11 +258,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!sourceRef.current.uid) {
             clearGuestCart();
             setGuestItems([]);
-            void clearGuestCartServer(options.converted === true).catch(() => undefined);
+            void clearGuestCartServer(options.converted === true).catch((error: unknown) => {
+                addToast("Cart cleanup", getApiErrorMessage(error, "Unable to clear the guest cart on the server."));
+            });
         } else {
             setGuestItems(readGuestCart());
         }
-    }, []);
+    }, [addToast]);
 
     const fetchCartForContext = useCallback(() => fetchCart(), [fetchCart]);
 
@@ -306,7 +309,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             addToast("Cart", getErrorMessage(cartError, "Unable to update cart right now."));
             return false;
         }
-    }, [addToast, discountCode, fetchCart, isCurrentSource, refreshGuestCart, syncGuestCart]);
+    }, [addToast, discountCode, fetchCart, isCurrentSource, refreshGuestCart]);
 
     const updateQuantity = useCallback(async (itemId: number, quantity: number) => {
         const normalizedQuantity = normalizeCartQuantity(quantity);
@@ -342,7 +345,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         if (!isCurrentSource(expectedSource)) return;
         await refreshGuestCart(discountCode, expectedSource);
-    }, [addToast, discountCode, fetchCart, isCurrentSource, items, refreshGuestCart, syncGuestCart]);
+    }, [addToast, discountCode, fetchCart, isCurrentSource, items, refreshGuestCart]);
 
     const removeItem = useCallback((item: CheckoutCartItem) => setPendingRemoveItem(item), []);
     const cancelRemoveItem = useCallback(() => setPendingRemoveItem(null), []);
@@ -377,7 +380,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } finally {
             if (isCurrentSource(expectedSource)) setIsRemovingItem(false);
         }
-    }, [addToast, discountCode, fetchCart, isCurrentSource, pendingRemoveItem, refreshGuestCart, syncGuestCart]);
+    }, [addToast, discountCode, fetchCart, isCurrentSource, pendingRemoveItem, refreshGuestCart]);
 
     const applyDiscount = useCallback(async (code: string, price: number): Promise<DiscountResult> => {
         const normalizedCode = code.trim();
@@ -414,9 +417,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return {
                 status: "error",
                 title: "Applying Coupon",
-                message: statusCode === 404
+                message: statusCode === HTTP_STATUS.NOT_FOUND
                     ? "Discount code not found"
-                    : statusCode === 500
+                    : statusCode === HTTP_STATUS.INTERNAL_SERVER_ERROR
                       ? "Internal server error, please try again later"
                       : "Unable to apply coupon right now.",
             };
@@ -517,7 +520,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (mergePromiseRef.current === mergePromise) mergePromiseRef.current = null;
         });
         return mergePromise;
-    }, [fetchCart, isCurrentSource, syncGuestCart]);
+    }, [fetchCart, isCurrentSource]);
 
     const onValidationRefresh = useCallback((nextCart: CheckoutCartItem[], issues: CartValidationIssue[]) => {
         setReadyState(nextCart, issues);

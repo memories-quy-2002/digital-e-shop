@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { NotFoundException } from "@nestjs/common";
 import type { ArgumentsHost } from "@nestjs/common";
 import { AllExceptionsFilter } from "../all-exceptions.filter";
-import { AppError } from "#src/core/errors/AppError";
+import { AppError } from "#src/core/errors/app-error";
 import { MESSAGES } from "#src/shared/constants/messages";
 
 function buildHost(): { host: ArgumentsHost; json: ReturnType<typeof vi.fn>; status: ReturnType<typeof vi.fn> } {

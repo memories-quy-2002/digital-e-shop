@@ -1,6 +1,7 @@
 import { Injectable, Optional } from "@nestjs/common";
 import { NestConfigService } from "../config/nest-config.service";
 import { PayOSService } from "./payos.service";
+import { PAYMENT_PROVIDER, PAYMENT_STATUS } from "./payment.types";
 import { assertNewPaymentProvider } from "./payment.types";
 import type { CreatePaymentInput, PaymentProviderResult, RefundPaymentInput } from "./payment.types";
 
@@ -20,13 +21,13 @@ export class PaymentProviderService {
 
         if (this.mode === "mock") {
             return {
-                status: "pending",
+                status: PAYMENT_STATUS.PENDING,
                 providerReference: input.providerReference || `mock_${provider}_order_${input.orderId}`,
                 simulated: true,
             };
         }
 
-        if (provider === "payos") {
+        if (provider === PAYMENT_PROVIDER.PAYOS) {
             if (!this.payosService?.isConfigured) {
                 throw new Error("PayOS payments are not configured");
             }
@@ -36,7 +37,7 @@ export class PaymentProviderService {
         }
 
         return {
-            status: "pending",
+            status: PAYMENT_STATUS.PENDING,
             providerReference: input.providerReference || input.providerPaymentId || `${provider}_order_${input.orderId}`,
             simulated: false,
         };
@@ -47,7 +48,7 @@ export class PaymentProviderService {
 
         if (this.mode === "mock") {
             return {
-                status: "refunded",
+                status: PAYMENT_STATUS.REFUNDED,
                 providerReference: input.paymentId,
                 refundReference: `mock_refund_${input.provider}_order_${input.orderId}`,
                 simulated: true,

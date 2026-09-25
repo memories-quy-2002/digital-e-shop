@@ -5,6 +5,7 @@ import React, {
     useOptimistic,
     useState,
 } from "react";
+import { HTTP_STATUS } from "../constants/http-status";
 import { Helmet } from "react-helmet-async";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import carousel1 from "../assets/images/carousel_1.jpg";
@@ -329,14 +330,14 @@ const HomePage = () => {
                             data: { uid: user_id },
                         },
                     );
-                    if (response.status !== 200)
+                    if (response.status !== HTTP_STATUS.OK)
                         throw new Error("Wishlist delete failed");
                 } else {
                     const response = await axios.post("/api/wishlist/", {
                         uid: user_id,
                         pid: product_id,
                     });
-                    if (response.status !== 200)
+                    if (response.status !== HTTP_STATUS.OK)
                         throw new Error("Wishlist add failed");
                 }
                 if (mutation)
@@ -433,7 +434,7 @@ const HomePage = () => {
                 const response = await axios.get(
                     `/api/products?page=1&limit=${HOME_PRODUCT_LIMIT}`,
                 );
-                if (isActive && response.status === 200)
+                if (isActive && response.status === HTTP_STATUS.OK)
                     setProducts(normalizeProducts(response.data.products));
             } catch {
                 if (isActive)
@@ -461,7 +462,7 @@ const HomePage = () => {
         const fetchWishlist = async () => {
             try {
                 const response = await axios.get(`/api/wishlist/${uid}`);
-                if (isActive && response.status === 200) {
+                if (isActive && response.status === HTTP_STATUS.OK) {
                     const nextWishlist: Wishlist[] = (
                         response.data.wishlist || []
                     ).map((item: Record<string, unknown>) => {
@@ -501,7 +502,7 @@ const HomePage = () => {
                 const response = await axios.get(
                     `/api/products/recommendations/${userData.id}?limit=${DISPLAYED_NUMBER}`,
                 );
-                if (isActive && response.status === 200)
+                if (isActive && response.status === HTTP_STATUS.OK)
                     setSmartRecommendations(
                         normalizeProducts(response.data.products),
                     );

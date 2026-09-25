@@ -6,11 +6,15 @@ import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestUsersService } from "./users.service";
 import { NestAuthService } from "../auth/auth.service";
 import { adminUserUpdateSchema } from "./users.validator";
+import { HTTP_STATUS } from "#src/shared/constants/http-status";
+import { USER_ROLE } from "#src/shared/constants/user";
+import { createHttpException } from "#src/core/errors/http-exception";
 
 function toHttpException(err: { statusCode?: number; message?: string }, fallbackMessage: string): HttpException {
-    const statusCode = err.statusCode || 500;
-    const msg = err.statusCode ? err.message : fallbackMessage;
-    return new HttpException({ msg }, statusCode);
+    if (err instanceof HttpException) return err;
+    const statusCode = err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+    const msg = statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? fallbackMessage : err.message || fallbackMessage;
+    return createHttpException(err, { msg }, statusCode);
 }
 
 @Controller(["users", "user"])
@@ -35,12 +39,12 @@ export class UsersController {
     }
 
     @Get(":id/profile")
-    @Roles("Admin")
+    @Roles(USER_ROLE.ADMIN)
     async getCustomerProfile(@Param("id") id: string) {
         try {
             const profile = await this.usersService.getCustomerProfile(id);
             if (!profile) {
-                throw new HttpException({ msg: "Customer not found" }, 404);
+                throw new HttpException({ msg: "Customer not found" }, HTTP_STATUS.NOT_FOUND);
             }
             return { profile, msg: "Customer profile retrieved successfully" };
         } catch (err) {
@@ -62,7 +66,7 @@ export class UsersController {
     }
 
     @Get()
-    @Roles("Admin")
+    @Roles(USER_ROLE.ADMIN)
     async getAllUsers(@Query() query: Record<string, unknown>) {
         try {
             const page = Number(query.page);
@@ -98,7 +102,7 @@ export class UsersController {
     }
 
     @Put(":id")
-    @Roles("Admin")
+    @Roles(USER_ROLE.ADMIN)
     async updateUserAdmin(
         @Param("id") id: string,
         @Body(new ZodValidationPipe(adminUserUpdateSchema)) body: { role: string; status: string },

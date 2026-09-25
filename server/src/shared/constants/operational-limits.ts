@@ -1,0 +1,17 @@
+export const ADMIN_ALERTS_LIMIT = 20;
+
+export const ANALYTICS_LIMITS = {
+    CATEGORY_PERFORMANCE: 8,
+    PROMOTION_CATALOG: 8,
+    INVENTORY_RISK: 10,
+    ABANDONED_GUEST_CART_HOURS: 24,
+} as const;
+
+export const USER_RECENT_ORDERS_LIMIT = 8;
+export const SUPPORT_TICKETS_LIMIT = 200;
+
+export const INVENTORY_MOVEMENT_LIMIT = {
+    DEFAULT: 50,
+    MIN: 1,
+    MAX: 200,
+} as const;
