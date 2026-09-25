@@ -11,7 +11,10 @@ update these preferences through the owner-scoped product-alert routes. When
 both flags are disabled, the row is removed. There is no target-price field or
 external delivery channel. Alert reads join the catalog and exclude invalid
 rows with negative raw stock, while keeping `stock = 0` products visible for
-back-in-stock management.
+back-in-stock management. Enabling either alert checks and locks the product
+row inside the write transaction, so soft-deleted or missing products cannot
+receive new subscriptions. Disabling both alerts still deletes an existing
+subscription without requiring the product row to remain available.
 
 The client exposes the same preference controls on Product Detail and Wishlist.
 Guests are sent to the canonical login route with the current product URL as a

@@ -1,15 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const poolQuery = vi.hoisted(() => vi.fn());
+const transactionQuery = vi.hoisted(() => vi.fn());
 
 vi.mock("#src/config/database.config", () => ({
     default: { query: poolQuery },
 }));
 
+vi.mock("../../database/transaction", () => ({
+    withTransaction: (work: (tx: { query: typeof transactionQuery }) => Promise<unknown>) =>
+        work({ query: transactionQuery }),
+}));
+
 import { ProductAlertsRepository } from "../product-alerts.repository";
 
 describe("ProductAlertsRepository", () => {
-    beforeEach(() => vi.clearAllMocks());
+    beforeEach(() => {
+        vi.clearAllMocks();
+        poolQuery.mockImplementation((...args: unknown[]) => {
+            const callback = args.at(-1);
+            if (typeof callback === "function") callback(null, []);
+        });
+    });
 
     it("lists only alert subscriptions for valid product rows", () => {
         new ProductAlertsRepository().listByUser("user-1").then(() => undefined).catch(() => undefined);
@@ -63,21 +75,40 @@ describe("ProductAlertsRepository", () => {
     });
 
     it("writes both preference flags with a parameterized upsert", async () => {
-        poolQuery.mockImplementationOnce((...args: unknown[]) => {
-            const callback = args.at(-1);
-            if (typeof callback === "function") callback(null, { affectedRows: 1 });
-        });
+        transactionQuery
+            .mockResolvedValueOnce([{ id: 42, stock: 0 }])
+            .mockResolvedValueOnce({ affectedRows: 1 });
 
         await new ProductAlertsRepository().savePreference("user-1", 42, {
             priceDropEnabled: true,
             backInStockEnabled: false,
         });
 
-        expect(poolQuery).toHaveBeenCalledWith(
+        expect(transactionQuery).toHaveBeenNthCalledWith(1,
+            expect.stringContaining("stock >= 0 FOR UPDATE"),
+            [42],
+        );
+        expect(transactionQuery).toHaveBeenNthCalledWith(2,
             expect.stringContaining("ON DUPLICATE KEY UPDATE"),
             ["user-1", 42, true, false],
-            expect.any(Function),
         );
+        expect(poolQuery).not.toHaveBeenCalled();
+    });
+
+    it("rejects enabling alerts for missing or soft-deleted products", async () => {
+        transactionQuery.mockResolvedValueOnce([]);
+
+        await expect(new ProductAlertsRepository().savePreference("user-1", 42, {
+            priceDropEnabled: true,
+            backInStockEnabled: false,
+        })).rejects.toMatchObject({ status: 404 });
+
+        expect(transactionQuery).toHaveBeenCalledWith(
+            expect.stringContaining("stock >= 0 FOR UPDATE"),
+            [42],
+        );
+        expect(transactionQuery).toHaveBeenCalledTimes(1);
+        expect(poolQuery).not.toHaveBeenCalled();
     });
 
     it("records each transition and fans out notifications with set-based inserts", async () => {

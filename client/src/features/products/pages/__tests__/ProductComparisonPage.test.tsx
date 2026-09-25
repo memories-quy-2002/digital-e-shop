@@ -126,6 +126,22 @@ describe('ProductComparisonPage', () => {
     expect(screen.getByRole('button', { name: 'Remove Laptop A from comparison' })).toBeInTheDocument();
   });
 
+  it('uses the regular price when a zero sale price is stored', async () => {
+    mocks.fetchProductComparison.mockResolvedValue(
+      comparisonResponse([
+        makeProduct({ sale_price: 0 }),
+        makeProduct({ id: 18, name: 'Laptop B', price: 30_000_000, sale_price: null }),
+      ]),
+    );
+
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'Compare products' })).toBeInTheDocument();
+    const firstSummary = document.querySelector('.comparison-product');
+    expect(firstSummary?.querySelector('.comparison-product__pricing strong')).toHaveTextContent('20.000.000');
+    expect(firstSummary?.querySelector('.comparison-product__pricing span')).toBeNull();
+  });
+
   it('keeps add-to-cart disabled for products with no available stock', async () => {
     mocks.fetchProductComparison.mockResolvedValue(
       comparisonResponse([

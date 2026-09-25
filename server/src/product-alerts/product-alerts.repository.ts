@@ -1,5 +1,6 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import pool from "#src/config/database.config";
+import { withTransaction } from "#src/database/transaction";
 import type { InsertResult, QueryCallback, QueryParams } from "#src/shared/interfaces/domain";
 import type { TransactionContext } from "#src/database/transaction";
 import type { ProductAlertTransition, ProductAlertPreference } from "./product-alerts.types";
@@ -71,17 +72,26 @@ export class ProductAlertsRepository {
             backInStockEnabled: input.backInStockEnabled,
         };
 
-        return new Promise((resolve, reject) => {
-            if (!input.priceDropEnabled && !input.backInStockEnabled) {
+        if (!input.priceDropEnabled && !input.backInStockEnabled) {
+            return new Promise<ProductAlertPreference>((resolve, reject) => {
                 this.query(
                     "DELETE FROM product_alert_subscriptions WHERE user_id = ? AND product_id = ?",
                     [uid, productId],
                     (error) => error ? reject(error) : resolve(preference),
                 );
-                return;
+            });
+        }
+
+        return withTransaction(async (tx) => {
+            const products = await tx.query<Array<{ id: number }>>(
+                "SELECT id FROM products WHERE id = ? AND stock >= 0 FOR UPDATE",
+                [productId],
+            );
+            if (!products.length) {
+                throw new NotFoundException({ msg: "Product not found" });
             }
 
-            this.query(
+            await tx.query(
                 `INSERT INTO product_alert_subscriptions
                     (user_id, product_id, price_drop_enabled, back_in_stock_enabled)
                 VALUES (?, ?, ?, ?)
@@ -90,8 +100,8 @@ export class ProductAlertsRepository {
                     back_in_stock_enabled = VALUES(back_in_stock_enabled),
                     updated_at = UTC_TIMESTAMP()`,
                 [uid, productId, input.priceDropEnabled, input.backInStockEnabled],
-                (error) => error ? reject(error) : resolve(preference),
             );
+            return preference;
         });
     }
 

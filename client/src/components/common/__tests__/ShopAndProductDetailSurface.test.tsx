@@ -233,6 +233,39 @@ describe("shop and product detail surfaces", () => {
         }));
     });
 
+    it("keeps alert switches disabled after a failed read and retries before updating", async () => {
+        authMocks.userData = { id: "user-1" };
+        apiMocks.fetchProductAlert
+            .mockRejectedValueOnce(new Error("network"))
+            .mockResolvedValueOnce({
+                productId: 1,
+                priceDropEnabled: true,
+                backInStockEnabled: false,
+            });
+
+        render(
+            <MemoryRouter initialEntries={["/product?id=1"]}>
+                <LocaleProvider><ProductPage /></LocaleProvider>
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load product alerts.");
+        const priceSwitch = screen.getByRole("button", { name: "Price drop" });
+        const stockSwitch = screen.getByRole("button", { name: "Back in stock" });
+        expect(priceSwitch).toBeDisabled();
+        expect(stockSwitch).toBeDisabled();
+        expect(apiMocks.updateProductAlert).not.toHaveBeenCalled();
+
+        fireEvent.click(screen.getByRole("button", { name: "Retry product alerts" }));
+        await vi.waitFor(() => expect(priceSwitch).toHaveAttribute("aria-checked", "true"));
+        fireEvent.click(stockSwitch);
+
+        await vi.waitFor(() => expect(apiMocks.updateProductAlert).toHaveBeenCalledWith("user-1", 1, {
+            priceDropEnabled: true,
+            backInStockEnabled: true,
+        }));
+    });
+
     it("rolls back a failed alert toggle and allows retry", async () => {
         authMocks.userData = { id: "user-1" };
         apiMocks.updateProductAlert.mockRejectedValueOnce(new Error("network"));
