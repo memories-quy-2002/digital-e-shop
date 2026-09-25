@@ -1,5 +1,5 @@
-import http from "k6/http";
 import { check, group, sleep } from "k6";
+import { getJson as requestJson, jsonBody, requireEnv } from "./k6-config.js";
 
 export const options = {
     stages: [
@@ -14,42 +14,35 @@ export const options = {
     },
 };
 
-const BASE_URL = __ENV.BASE_URL || "http://localhost:4000";
 const USER_ID = __ENV.USER_ID || "";
 const COOKIE = __ENV.COOKIE || "";
+requireEnv(["USER_ID", "COOKIE"], "customer read-only tests");
+const USER_PATH_ID = encodeURIComponent(USER_ID);
 
-const authHeaders = () => ({
-    headers: COOKIE
-        ? {
-              Cookie: COOKIE,
-          }
-        : {},
-});
-
-const getJson = (path) => http.get(`${BASE_URL}${path}`, authHeaders());
+const getJson = (path, tags = {}) =>
+    requestJson(path, tags, { Cookie: COOKIE });
 
 export default function () {
-    if (!USER_ID || !COOKIE) {
-        throw new Error("USER_ID and COOKIE are required for customer read-only tests.");
-    }
-
     group("customer read-only account data", () => {
-        const orders = getJson(`/api/orders/user/${USER_ID}`);
+        const orders = getJson(`/api/orders/user/${USER_PATH_ID}`);
         check(orders, {
             "customer orders status is 200": (res) => res.status === 200,
-            "customer orders returns array": (res) => Array.isArray(res.json("orders")),
+            "customer orders returns array": (res) =>
+                Array.isArray(jsonBody(res, "orders")),
         });
 
-        const addresses = getJson(`/api/users/${USER_ID}/addresses`);
+        const addresses = getJson(`/api/users/${USER_PATH_ID}/addresses`);
         check(addresses, {
             "addresses status is 200": (res) => res.status === 200,
-            "addresses returns array": (res) => Array.isArray(res.json("addresses")),
+            "addresses returns array": (res) =>
+                Array.isArray(jsonBody(res, "addresses")),
         });
 
-        const notifications = getJson(`/api/users/${USER_ID}/notifications?limit=20`);
+        const notifications = getJson(`/api/users/${USER_PATH_ID}/notifications?limit=20`);
         check(notifications, {
             "notifications status is 200": (res) => res.status === 200,
-            "notifications returns array": (res) => Array.isArray(res.json("notifications")),
+            "notifications returns array": (res) =>
+                Array.isArray(jsonBody(res, "notifications")),
         });
     });
 

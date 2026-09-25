@@ -6,6 +6,12 @@ const { logger } = vi.hoisted(() => ({
 }));
 
 vi.mock("#src/shared/utils/logger", () => ({ logger }));
+vi.mock("@opentelemetry/api", () => ({
+    context: { active: () => ({}) },
+    trace: {
+        getSpan: () => ({ spanContext: () => ({ traceId: "a".repeat(32), spanId: "b".repeat(16) }) }),
+    },
+}));
 
 import { RequestLoggerInterceptor } from "./request-logger.interceptor";
 
@@ -18,8 +24,9 @@ describe("RequestLoggerInterceptor", () => {
         let finish: (() => void) | undefined;
         const req = {
             method: "GET",
-            originalUrl: "/api/products",
-            url: "/api/products",
+            originalUrl: "/api/products?token=private",
+            url: "/api/products?token=private",
+            path: "/api/products",
             requestId: "req-logger-1",
         };
         const res = {
@@ -52,6 +59,8 @@ describe("RequestLoggerInterceptor", () => {
                 url: "/api/products",
                 statusCode: 200,
                 requestId: "req-logger-1",
+                trace_id: "a".repeat(32),
+                span_id: "b".repeat(16),
             }),
             "http request",
         );

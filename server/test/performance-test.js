@@ -1,6 +1,11 @@
-import http from "k6/http";
 import { check, group, sleep } from "k6";
 import { Trend } from "k6/metrics";
+import {
+    catalogSetupError,
+    getJson,
+    jsonBody,
+    positiveIntegerEnv,
+} from "./k6-config.js";
 
 export const options = {
     stages: [
@@ -15,36 +20,36 @@ export const options = {
     },
 };
 
-const BASE_URL = __ENV.BASE_URL || "http://localhost:4000";
 const productDetailTrend = new Trend("product_detail_duration");
 const productsListTrend = new Trend("products_list_duration");
 const searchTrend = new Trend("search_duration");
 const facetsTrend = new Trend("facets_duration");
 const reviewsTrend = new Trend("reviews_duration");
 const csrfTrend = new Trend("csrf_duration");
-
-const getJson = (path, tags = {}) =>
-    http.get(`${BASE_URL}${path}`, {
-        tags: { endpoint: path, ...tags },
-    });
+const configuredProductId = positiveIntegerEnv("PRODUCT_ID");
 
 export function setup() {
     const response = getJson("/api/products?page=1&limit=20", { phase: "setup" });
     const ok = check(response, {
-        "setup products loaded": (res) => res.status === 200,
+        "setup catalog returns products": (res) =>
+            res.status === 200 && Array.isArray(jsonBody(res, "products")),
     });
 
     if (!ok) {
-        return { productIds: [] };
+        throw new Error(catalogSetupError(response));
     }
 
-    const products = response.json("products") || [];
-    return {
-        productIds: products
-            .slice(0, 10)
-            .map((product) => product.id)
-            .filter(Boolean),
-    };
+    const products = jsonBody(response, "products") || [];
+    const productIds = products
+        .slice(0, 10)
+        .map((product) => Number(product.id))
+        .filter((id) => Number.isInteger(id) && id > 0);
+
+    if (productIds.length === 0) {
+        throw new Error("The test catalog is empty; seed the test database first.");
+    }
+
+    return { productIds };
 }
 
 export default function (data) {
@@ -52,7 +57,7 @@ export default function (data) {
         const health = getJson("/api/health");
         check(health, {
             "health status is 200": (res) => res.status === 200,
-            "health body is ok": (res) => res.json("status") === "ok",
+            "health body is ok": (res) => jsonBody(res, "status") === "ok",
         });
 
         const csrf = getJson("/api/csrf");
@@ -68,18 +73,18 @@ export default function (data) {
         check(products, {
             "products list status is 200": (res) => res.status === 200,
             "products list has products": (res) =>
-                (res.json("products") || []).length > 0,
+                (jsonBody(res, "products") || []).length > 0,
         });
     });
 
     group("product detail and reviews", () => {
-        const ids = __ENV.PRODUCT_ID
-            ? [Number(__ENV.PRODUCT_ID)]
+        const ids = configuredProductId
+            ? [configuredProductId]
             : data.productIds || [];
         const productId = ids.length > 0 ? ids[__ITER % ids.length] : null;
 
         if (!productId) {
-            return;
+            throw new Error("PRODUCT_ID must be a positive integer.");
         }
 
         const product = getJson(`/api/products/${productId}`);
@@ -87,14 +92,15 @@ export default function (data) {
         check(product, {
             "product detail status is 200": (res) => res.status === 200,
             "product detail has product": (res) =>
-                Boolean(res.json("product.id")),
+                Number(jsonBody(res, "product.id")) === Number(productId),
         });
 
         const reviews = getJson(`/api/reviews/${productId}`);
         reviewsTrend.add(reviews.timings.duration);
         check(reviews, {
             "reviews status is 200": (res) => res.status === 200,
-            "reviews returns array": (res) => Array.isArray(res.json("reviews")),
+            "reviews returns array": (res) =>
+                Array.isArray(jsonBody(res, "reviews")),
         });
     });
 

@@ -22,6 +22,7 @@ import { SupportModule } from "./support/support.module";
 import { AdminAlertsModule } from "./admin-alerts/admin-alerts.module";
 import { AfterSalesModule } from "./after-sales/after-sales.module";
 import { ProductAlertsModule } from "./product-alerts/product-alerts.module";
+import { TelemetryShutdownProvider } from "./observability/telemetry-shutdown.provider";
 
 @Module({
     imports: [
@@ -49,6 +50,7 @@ import { ProductAlertsModule } from "./product-alerts/product-alerts.module";
     providers: [
         { provide: APP_FILTER, useClass: AllExceptionsFilter },
         { provide: APP_INTERCEPTOR, useClass: RequestLoggerInterceptor },
+        TelemetryShutdownProvider,
     ],
 })
 export class AppModule {}

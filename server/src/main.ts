@@ -1,3 +1,5 @@
+import "./config/env.config";
+import "./observability/telemetry";
 import "reflect-metadata";
 import cookieParser from "cookie-parser";
 import cors from "cors";
@@ -21,6 +23,7 @@ let cachedApp: Awaited<ReturnType<typeof NestFactory.create>> | null = null;
 export async function configureHttpApp<T extends INestApplication>(app: T): Promise<T> {
     const expressApp = app.getHttpAdapter().getInstance();
 
+    app.enableShutdownHooks(["SIGTERM", "SIGINT"]);
     expressApp.use(requestIdMiddleware);
     expressApp.use(cookieParser());
     expressApp.use(cors({

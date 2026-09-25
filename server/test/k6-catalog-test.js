@@ -1,6 +1,11 @@
-import http from "k6/http";
 import { check, group, sleep } from "k6";
 import { Trend } from "k6/metrics";
+import {
+    catalogSetupError,
+    getJson,
+    jsonBody,
+    positiveIntegerEnv,
+} from "./k6-config.js";
 
 export const options = {
     stages: [
@@ -16,8 +21,6 @@ export const options = {
     },
 };
 
-const BASE_URL = __ENV.BASE_URL || "http://localhost:4000";
-
 const productListTrend = new Trend("catalog_product_list_duration");
 const productDetailTrend = new Trend("catalog_product_detail_duration");
 const searchTrend = new Trend("catalog_search_duration");
@@ -27,32 +30,30 @@ const relevantTrend = new Trend("catalog_relevant_duration");
 const reviewsTrend = new Trend("catalog_reviews_duration");
 const csrfTrend = new Trend("catalog_csrf_duration");
 const healthTrend = new Trend("catalog_health_duration");
-const blobHealthTrend = new Trend("catalog_blob_health_duration");
-
-const getJson = (path, tags = {}) =>
-    http.get(`${BASE_URL}${path}`, {
-        tags: { endpoint: path, ...tags },
-    });
+const configuredProductId = positiveIntegerEnv("PRODUCT_ID");
 
 export function setup() {
     const response = getJson("/api/products?page=1&limit=20", { phase: "setup" });
     const ok = check(response, {
-        "setup products loaded": (res) => res.status === 200,
+        "setup catalog returns products": (res) =>
+            res.status === 200 && Array.isArray(jsonBody(res, "products")),
     });
 
     if (!ok) {
-        return { productIds: [], userId: null };
+        throw new Error(catalogSetupError(response));
     }
 
-    const products = response.json("products") || [];
+    const products = jsonBody(response, "products") || [];
     const productIds = products
         .slice(0, 10)
-        .map((p) => p.id)
-        .filter(Boolean);
+        .map((product) => Number(product.id))
+        .filter((id) => Number.isInteger(id) && id > 0);
 
-    const userId = products.length > 0 && products[0].user_id ? products[0].user_id : null;
+    if (productIds.length === 0) {
+        throw new Error("The test catalog is empty; seed the test database first.");
+    }
 
-    return { productIds, userId };
+    return { productIds };
 }
 
 export default function (data) {
@@ -61,7 +62,7 @@ export default function (data) {
         healthTrend.add(health.timings.duration);
         check(health, {
             "health status is 200": (res) => res.status === 200,
-            "health body is ok": (res) => res.json("status") === "ok",
+            "health body is ok": (res) => jsonBody(res, "status") === "ok",
         });
 
         const csrf = getJson("/api/csrf");
@@ -70,12 +71,6 @@ export default function (data) {
             "csrf status is 200": (res) => res.status === 200,
         });
 
-        const blobHealth = getJson("/api/blob/health");
-        blobHealthTrend.add(blobHealth.timings.duration);
-        check(blobHealth, {
-            "blob health status is 200 or 503": (res) =>
-                res.status === 200 || res.status === 503,
-        });
     });
 
     group("product listing", () => {
@@ -85,18 +80,18 @@ export default function (data) {
         check(products, {
             "products list status is 200": (res) => res.status === 200,
             "products list has products": (res) =>
-                Array.isArray(res.json("products")),
+                Array.isArray(jsonBody(res, "products")),
         });
     });
 
     group("product detail and reviews", () => {
-        const ids = __ENV.PRODUCT_ID
-            ? [Number(__ENV.PRODUCT_ID)]
+        const ids = configuredProductId
+            ? [configuredProductId]
             : data.productIds || [];
         const productId = ids.length > 0 ? ids[__ITER % ids.length] : null;
 
         if (!productId) {
-            return;
+            throw new Error("PRODUCT_ID must be a positive integer.");
         }
 
         const product = getJson(`/api/products/${productId}`);
@@ -109,13 +104,16 @@ export default function (data) {
         reviewsTrend.add(reviews.timings.duration);
         check(reviews, {
             "reviews status is 200": (res) => res.status === 200,
-            "reviews returns array": (res) => Array.isArray(res.json("reviews")),
+            "reviews returns array": (res) =>
+                Array.isArray(jsonBody(res, "reviews")),
         });
 
         const relevant = getJson(`/api/products/relevant/${productId}`);
         relevantTrend.add(relevant.timings.duration);
         check(relevant, {
             "relevant products status is 200": (res) => res.status === 200,
+            "relevant products returns an array": (res) =>
+                Array.isArray(jsonBody(res, "relevantProducts")),
         });
     });
 
@@ -127,22 +125,34 @@ export default function (data) {
         searchTrend.add(search.timings.duration);
         check(search, {
             "search status is 200": (res) => res.status === 200,
+            "search returns a product array": (res) =>
+                Array.isArray(jsonBody(res, "products")),
         });
 
         const facets = getJson("/api/products/facets");
         facetsTrend.add(facets.timings.duration);
         check(facets, {
             "facets status is 200": (res) => res.status === 200,
+            "facets returns an object": (res) => {
+                const body = jsonBody(res, "facets");
+                return body !== null && typeof body === "object" && !Array.isArray(body);
+            },
         });
     });
 
     group("recommendations", () => {
-        const uid = data.userId || 1;
-        const recommendations = getJson(`/api/products/recommendations/${uid}`);
-        recommendationsTrend.add(recommendations.timings.duration);
-        check(recommendations, {
-            "recommendations status is 200": (res) => res.status === 200,
-        });
+        const userId = __ENV.RECOMMENDATION_USER_ID || "";
+        if (userId) {
+            const recommendations = getJson(
+                `/api/products/recommendations/${encodeURIComponent(userId)}`,
+            );
+            recommendationsTrend.add(recommendations.timings.duration);
+            check(recommendations, {
+                "recommendations status is 200": (res) => res.status === 200,
+                "recommendations returns a product array": (res) =>
+                    Array.isArray(jsonBody(res, "products")),
+            });
+        }
     });
 
     sleep(1);

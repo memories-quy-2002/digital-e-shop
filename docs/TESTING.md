@@ -98,9 +98,14 @@ These checks prove that the artifacts start and respond. They do not replace bro
 
 ## Read-only k6 tests
 
-The scripts under `server/test/` send `GET` requests only:
+The scripts under `server/test/` send `GET` requests only. The shared Node
+launcher reads `server/.env.k6`, so profile commands and configuration work
+across Windows, macOS, Linux, and CI without shell-specific environment syntax.
+Create the ignored local config once, then run a profile:
 
-```powershell
+```text
+pnpm --dir server perf:setup
+pnpm --dir server perf:smoke
 pnpm --dir server perf:readonly
 pnpm --dir server perf:catalog
 pnpm --dir server perf:admin-readonly
@@ -108,15 +113,20 @@ pnpm --dir server perf:customer-readonly
 pnpm --dir server perf:auth-readonly
 ```
 
-Admin and customer scenarios need a session cookie and, where configured by the script, a user ID:
-
-```powershell
-$env:COOKIE="session=...; accessToken=..."
-$env:USER_ID="your_user_id"
-pnpm --dir server perf:customer-readonly
-```
+Set `BASE_URL`, `PRODUCT_ID`, and smoke settings in `server/.env.k6`. Authenticated
+profiles need a disposable test account; set `COOKIE` and, where required,
+`USER_ID` in that ignored file or in your CI secret/environment configuration.
+Install the k6 executable and put it on `PATH`, or set `K6_BIN` to its full path
+in `server/.env.k6`. See [README-k6](../server/test/README-k6.md) for details.
 
 Review `checks`, `http_req_failed`, `http_req_duration`, and `p(95)`. A low response time with failed checks can indicate an authorization failure, wrong response shape, missing data, or a route error.
+
+The smoke profile covers health, catalog listing/search/facets, product detail,
+and comparison when seeded data includes two products in one category. It defaults
+to one virtual user for 20 seconds, limits the run to five virtual users, and
+checks request errors, p95 latency, and response assertions. It refuses remote
+targets unless `ALLOW_REMOTE_TEST_TARGET=true`; use that override only with an
+approved test deployment.
 
 ## Write safety
 

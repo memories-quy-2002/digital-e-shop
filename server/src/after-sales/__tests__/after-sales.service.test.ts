@@ -5,7 +5,7 @@ import type { AfterSalesRepositoryPort } from "../after-sales.repository";
 const order = {
     id: 42,
     orderStatus: 1,
-    deliveredAt: "2026-09-18T00:00:00.000Z",
+    deliveredAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
     currency: "VND",
 };
 
