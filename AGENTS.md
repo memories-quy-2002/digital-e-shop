@@ -444,6 +444,17 @@ Safe schema-change rules:
 - Do not add dependencies without a concrete need and compatibility check.
 - For dependency changes, keep lockfile churn minimal and prefer patch/minor updates unless a larger change is required.
 
+## Loop Engineering contract
+
+- Classify repository paths and actions before any write. High/critical/protected work requires human approval covering the exact affected path scope; critical paths and actions remain non-executable.
+- Minimize task context to the goal, constraints, acceptance-criterion IDs, changed paths, and necessary verification evidence. Never persist raw prompts, issue bodies, credentials, or unbounded command output in loop state.
+- Deterministic verification is authoritative. Fast verification is for bounded repair iterations; full verification, including required external CI checks, is required before handoff.
+- Retries are bounded by `.agent/policy/stop-conditions.yml`; the policy, not an agent's preference, defines iteration, same-failure, flaky-retry, wall-clock, diff, token, and CI-run limits.
+- State lives under `.loop/state/` and stores compact versioned metadata, stable IDs, hashes, and statuses—not prompt history or customer data. A missing or invalid state must fail closed rather than silently reset.
+- Repair only a relevant, deterministic branch-caused failure at the current revision. Flaky checks may retry within their separate budget; infrastructure, protected, stale, or ambiguous evidence escalates without product-code repair.
+- Never disable tests, typecheck, lint, dependency review, or security checks to make a loop pass. Never change policy and immediately execute work under the modified policy; policy changes require a separate review and a new run.
+- The Phase 1 loop is a local control-plane foundation, not an issue dispatcher or a GitHub-writing agent. Merge and production operations remain human-controlled.
+
 ## Git and PR workflow
 
 Current branch structure on the GitHub remote:
