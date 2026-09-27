@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "maxIterations": 5,
+  "maxSameFailure": 2,
+  "maxFlakyRetries": 3,
+  "maxChangedFiles": 25,
+  "maxChangedLines": 1000,
+  "maxWallClockSeconds": 1800,
+  "tokenLimit": null,
+  "ciRunLimit": null
+}

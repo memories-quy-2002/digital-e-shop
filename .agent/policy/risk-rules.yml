@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "low": ["docs/**", "Wiki/**", "**/*.md"],
+  "medium": ["client/src/**", "server/src/**", "scripts/loop/**"],
+  "high": [
+    ".agent/policy/**",
+    ".github/workflows/**",
+    "client/vercel.json",
+    "server/vercel.json",
+    "server/src/database/prisma/schema.prisma",
+    "server/src/database/migrations/**",
+    "server/src/database/seeders/**",
+    "server/src/payments/**",
+    "server/src/guards/**",
+    "server/src/middleware/**",
+    "server/src/auth/**",
+    "server/src/checkout/**",
+    "server/src/orders/**",
+    "server/src/inventory/**",
+    "server/src/**/*.repository.ts",
+    "client/src/**/auth/**",
+    "client/src/services/**"
+  ],
+  "criticalActions": [
+    "production_secret_access",
+    "production_db_mutation",
+    "branch_protection_bypass",
+    "direct_push_main",
+    "disable_security_checks",
+    "production_deployment_promotion"
+  ]
+}
