@@ -105,6 +105,7 @@ describe('verification planning', () => {
       'scripts/loop/__tests__/controller.test.mjs',
       'scripts/loop/__tests__/contracts.test.mjs',
       'scripts/loop/__tests__/verify.test.mjs',
+      'scripts/loop/__tests__/workflow.test.mjs',
     ]);
   });
 

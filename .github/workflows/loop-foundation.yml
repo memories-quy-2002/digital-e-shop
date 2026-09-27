@@ -1,0 +1,46 @@
+name: Loop Foundation
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+
+      - name: Run Loop Engineering control-plane tests
+        run: |
+          node --test \
+            scripts/loop/__tests__/policy.test.mjs \
+            scripts/loop/__tests__/classify-risk.test.mjs \
+            scripts/loop/__tests__/fingerprint-failure.test.mjs \
+            scripts/loop/__tests__/state.test.mjs \
+            scripts/loop/__tests__/classify-failure.test.mjs \
+            scripts/loop/__tests__/controller.test.mjs \
+            scripts/loop/__tests__/contracts.test.mjs \
+            scripts/loop/__tests__/verify.test.mjs \
+            scripts/loop/__tests__/workflow.test.mjs
+
+      - name: Smoke test verification routing
+        run: |
+          node scripts/loop/verify.mjs --dry-run --mode fast --changed client/src/App.tsx
+          node scripts/loop/verify.mjs --dry-run --mode fast --changed server/src/catalog/catalog.service.ts
+          node scripts/loop/verify.mjs --dry-run --mode fast --changed .github/workflows/loop-foundation.yml
