@@ -96,6 +96,15 @@ describe('verification planning', () => {
     assert.deepEqual(commandIds(plan), ['loop-tests']);
     assert.equal(plan.risk.level, 'high');
     assert.deepEqual(plan.requiredExternalChecks, []);
+    assert.deepEqual(plan.commands[0].args.slice(1), [
+      'scripts/loop/__tests__/policy.test.mjs',
+      'scripts/loop/__tests__/classify-risk.test.mjs',
+      'scripts/loop/__tests__/fingerprint-failure.test.mjs',
+      'scripts/loop/__tests__/state.test.mjs',
+      'scripts/loop/__tests__/classify-failure.test.mjs',
+      'scripts/loop/__tests__/controller.test.mjs',
+      'scripts/loop/__tests__/verify.test.mjs',
+    ]);
   });
 
   it('routes client fast/full work to client checks only and leaves preview smoke external', () => {

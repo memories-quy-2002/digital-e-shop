@@ -177,7 +177,7 @@ function validateLastVerification(value) {
   }
 }
 
-function validateLoopState(state) {
+export function validateLoopState(state) {
   assertExactKeys(state, STATE_KEYS, 'LoopState');
   if (state.schemaVersion !== 1) throw new LoopStateValidationError('schemaVersion must equal 1');
   assertTaskId(state.taskId);

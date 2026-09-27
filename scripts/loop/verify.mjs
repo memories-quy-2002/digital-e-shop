@@ -18,6 +18,8 @@ const CONTROL_PLANE_TEST_FILES = Object.freeze([
   'scripts/loop/__tests__/classify-risk.test.mjs',
   'scripts/loop/__tests__/fingerprint-failure.test.mjs',
   'scripts/loop/__tests__/state.test.mjs',
+  'scripts/loop/__tests__/classify-failure.test.mjs',
+  'scripts/loop/__tests__/controller.test.mjs',
   'scripts/loop/__tests__/verify.test.mjs',
 ]);
 
