@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "high": [
+    "AGENTS.md",
+    ".agent/policy/**",
+    ".agent/loops/**",
+    ".github/workflows/**",
+    "scripts/loop/**",
+    "client/vercel.json",
+    "server/vercel.json",
+    "server/src/database/prisma/schema.prisma",
+    "server/src/database/migrations/**",
+    "server/src/database/seeders/**",
+    "server/src/payments/**",
+    "server/src/guards/**",
+    "server/src/middleware/**",
+    "server/src/auth/**",
+    "server/src/checkout/**",
+    "server/src/orders/**",
+    "server/src/inventory/**",
+    "server/src/config/database-target.js",
+    "server/src/**/*.repository.ts",
+    "client/src/**/auth/**",
+    "client/src/services/**"
+  ],
+  "critical": ["**/.env*"]
+}

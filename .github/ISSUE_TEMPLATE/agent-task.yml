@@ -1,0 +1,77 @@
+{
+  "name": "Agent Task",
+  "description": "A structured engineering task proposal. Creating this issue does not dispatch automation.",
+  "title": "[agent-task] ",
+  "body": [
+    {
+      "type": "textarea",
+      "id": "goal",
+      "attributes": {
+        "label": "Goal",
+        "description": "State the user or engineering outcome in a few sentences.",
+        "placeholder": "What should change, and who benefits?"
+      },
+      "validations": { "required": true }
+    },
+    {
+      "type": "textarea",
+      "id": "context",
+      "attributes": {
+        "label": "Context",
+        "description": "Add relevant source locations, current behavior, or links. Do not include secrets or customer data.",
+        "placeholder": "What should an implementer know before inspecting the code?"
+      },
+      "validations": { "required": true }
+    },
+    {
+      "type": "textarea",
+      "id": "acceptance_criteria",
+      "attributes": {
+        "label": "Acceptance criteria",
+        "description": "Write observable, preferably machine-verifiable outcomes, one per bullet.",
+        "placeholder": "- [ ] Given ..., when ..., then ..."
+      },
+      "validations": { "required": true }
+    },
+    {
+      "type": "textarea",
+      "id": "non_goals",
+      "attributes": {
+        "label": "Non-goals",
+        "description": "Name explicitly excluded work, or write 'None'.",
+        "placeholder": "What must remain unchanged?"
+      },
+      "validations": { "required": true }
+    },
+    {
+      "type": "textarea",
+      "id": "constraints",
+      "attributes": {
+        "label": "Constraints",
+        "description": "List compatibility, security, data, rollout, or scope constraints, or write 'None known'.",
+        "placeholder": "Which contracts and safety boundaries must be preserved?"
+      },
+      "validations": { "required": true }
+    },
+    {
+      "type": "textarea",
+      "id": "verification",
+      "attributes": {
+        "label": "Verification",
+        "description": "Name relevant tests/checks and required runtime evidence, or write 'Recommend from repository policy'.",
+        "placeholder": "What proves the acceptance criteria are met?"
+      },
+      "validations": { "required": true }
+    },
+    {
+      "type": "textarea",
+      "id": "risk_notes",
+      "attributes": {
+        "label": "Risk notes",
+        "description": "Call out auth, CSRF, payments, schema, production, protected paths, or write 'None known'.",
+        "placeholder": "Which areas need extra review or explicit approval?"
+      },
+      "validations": { "required": true }
+    }
+  ]
+}

@@ -1,0 +1,806 @@
+# Loop Engineering Foundation Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Add a bounded, deterministic Loop Engineering foundation to Digital-E Shop so agentic work can be risk-classified, budgeted, verified, persisted, and escalated without gaining merge or production-mutation authority.
+
+**Architecture:** Keep `client/` and `server/` as independent pnpm packages and add a dependency-free Node.js control plane under `scripts/loop/`. Policy lives in JSON-compatible YAML files under `.agent/policy/`; pure modules implement risk classification, state/budget handling, failure fingerprinting, verification planning, and the loop state machine. Existing GitHub CI remains authoritative; Phase 1 adds only a read-only foundation test job after the explicit workflow human gate.
+
+**Tech Stack:** Node.js 24.20.x built-ins (`node:test`, `node:assert`, `node:crypto`, `node:fs`, `node:child_process`), ECMAScript modules, pnpm 12.4.2 package-local commands, GitHub Actions, Vitest in existing client/server packages.
+
+**Spec:** `docs/superpowers/specs/2026-09-27-loop-engineering-foundation-design.md`
+
+## Global Constraints
+
+- Keep `client/` and `server/` as independent pnpm package roots; do not add a root pnpm workspace.
+- Use Node.js `24.20.x` and pnpm `12.4.2` for repository verification.
+- Do not add Jest; existing product tests stay on Vitest.
+- Do not add a YAML dependency in Phase 1. Policy files use JSON syntax, which is valid YAML 1.2, so runtime loading remains dependency-free with `JSON.parse`.
+- Do not weaken, skip, or rewrite existing client/server CI checks, CodeQL default setup, or dependency review.
+- Do not auto-merge, push directly to `main`, run production migrations, mutate production data, promote production deployments, or access production secrets.
+- A deterministic high/critical risk match may not be downgraded by model or user-text hints.
+- Verification commands must be selected from an immutable command registry; never interpolate issue/PR text or changed filenames into command arguments or command strings. On POSIX, spawn an allowlisted executable and fixed args with `shell: false`. On Windows, invoke `cmd.exe` with a source-controlled registry command and `shell: false` (Windows `.cmd` package shims are not directly spawnable with `shell: false`).
+- The verification runner is defense-in-depth, not an OS sandbox. It must use an explicit child-environment allowlist and isolated temporary home/app-data, route dotenv loaders to an empty safe file, and refuse non-dry-run execution when a touched package contains a real `.env`/`.env.*` file (allow tracked `*.example` templates). Document that untrusted checkout code must run in a credential-free isolated worktree; never claim this runner makes arbitrary repository code safe.
+- Loop state and verification artifacts under `.loop/` are local runtime state and must remain gitignored.
+- Protected workflow/config/database/payment/auth surfaces remain human-gated.
+- Phase 1 does not implement GitHub issue dispatch, Draft PR creation, CI self-repair, or post-merge automation; those receive separate plans after Phase 1 telemetry is stable.
+
+## Review Focus
+
+1. **Windows paths and traversal-looking paths:** `client\\src\\x.ts`, `./server/src/x.ts`, and normalized POSIX equivalents must classify identically and must not escape policy matching. Covered in Task 2.
+2. **Untrusted filenames/task text:** a path containing shell metacharacters must never alter a spawned command or become a shell fragment. Covered in Task 4.
+3. **Corrupt or partial state writes:** a malformed state file must fail closed with an escalation-compatible error rather than silently resetting progress. Covered in Task 3.
+4. **Noisy repeated failures:** absolute temp paths, ANSI escapes, timestamps, and durations must not defeat same-failure detection, while materially different failures must not collide. Covered in Task 3.
+5. **Sensitive/huge verification output:** evidence must redact common secret-bearing headers/assignments and truncate retained stdout/stderr to a bounded size without changing pass/fail status. Covered in Task 4.
+
+---
+
+### Task 1: Add dependency-free policy loading and versioned policy files
+
+**Files:**
+- Create: `.agent/policy/protected-paths.yml`
+- Create: `.agent/policy/risk-rules.yml`
+- Create: `.agent/policy/stop-conditions.yml`
+- Create: `scripts/loop/policy.mjs`
+- Create: `scripts/loop/__tests__/policy.test.mjs`
+
+**Interfaces:**
+- Produces: `loadLoopPolicy(repoRoot?: string): Promise<LoopPolicy>`
+- Produces: `parsePolicyDocument(text: string, source: string): object`
+- Produces `LoopPolicy` shape:
+  - `schemaVersion: 1`
+  - `protectedPaths: { high: string[]; critical: string[] }`
+  - `riskRules: { low: string[]; medium: string[]; high: string[]; criticalActions: string[] }`
+  - `stopConditions: { maxIterations: number; maxSameFailure: number; maxFlakyRetries: number; maxChangedFiles: number; maxChangedLines: number; maxWallClockSeconds: number; tokenLimit: number | null; ciRunLimit: number | null }`
+
+- [ ] **Step 1: Write failing policy-loader tests**
+
+In `scripts/loop/__tests__/policy.test.mjs`, test:
+
+- all three checked-in policy files load into one `LoopPolicy`;
+- `schemaVersion` must equal `1`;
+- malformed JSON-compatible YAML throws `PolicyParseError` with the source path;
+- missing required top-level keys throw `PolicyValidationError`;
+- numeric stop conditions must be positive integers.
+- unsupported pattern syntax (including `?`, braces, and character classes) is rejected by policy validation;
+
+Use `node:test` and `node:assert/strict`.
+
+- [ ] **Step 2: Run the policy tests and verify they fail**
+
+Run:
+
+```bash
+node --test scripts/loop/__tests__/policy.test.mjs
+```
+
+Expected: FAIL because `scripts/loop/policy.mjs` and policy documents do not exist.
+
+- [ ] **Step 3: Implement the three policy documents**
+
+Use JSON object syntax inside the `.yml` files so they are both valid YAML 1.2 and directly parseable by `JSON.parse`.
+
+Initial protected/high patterns must include:
+
+```text
+.github/workflows/**
+client/vercel.json
+server/vercel.json
+server/src/database/prisma/schema.prisma
+server/src/database/migrations/**
+server/src/database/seeders/**
+server/src/payments/**
+server/src/guards/**
+server/src/middleware/**
+server/src/auth/**
+server/src/checkout/**
+server/src/orders/**
+server/src/inventory/**
+server/src/**/*.repository.ts
+client/src/**/auth/**
+client/src/services/**
+```
+
+Classify those paths as high/protected and require explicit approval covering the exact path set before implementation; approval does not lower the deterministic risk. Include `**/.env*` in `protectedPaths.critical` and treat it as non-executable even with approval.
+
+Critical actions must include production secret access, production DB mutation/reset, branch-protection bypass, direct push to `main`, security-check disablement, and production deployment promotion.
+
+Use stable action identifiers in policy (for example `production_secret_access`, `production_db_mutation`, `branch_protection_bypass`, `direct_push_main`, `disable_security_checks`, and `production_deployment_promotion`) and test every identifier. Do not classify critical actions from free-form text substring matches.
+
+Use the spec defaults for stop conditions: 5 implementation iterations, 2 same-failure attempts, 3 flaky retries, 25 changed files, 1,000 changed lines. Set `maxWallClockSeconds` to a conservative initial value of `1800` and keep it configurable.
+
+Set `tokenLimit` and `ciRunLimit` to positive-integer-or-null values. Validate the exact schema, including all policy pattern strings. The supported glob subset is exact path, `*` within one path segment, and `**` across zero or more path segments; reject `?`, braces, character classes, and other unsupported syntax. The matcher must anchor the full normalized path and correctly handle patterns such as `client/src/**/auth/**` and `server/src/**/*.repository.ts`.
+
+- [ ] **Step 4: Implement `loadLoopPolicy` and validation**
+
+`parsePolicyDocument(text, source)` must parse JSON-compatible YAML with `JSON.parse`, wrap syntax errors in `PolicyParseError`, and never evaluate code.
+
+`loadLoopPolicy(repoRoot)` must resolve only the three fixed policy paths above and validate the exact required shape.
+
+- [ ] **Step 5: Run the policy tests and verify they pass**
+
+Run:
+
+```bash
+node --test scripts/loop/__tests__/policy.test.mjs
+```
+
+Expected: PASS.
+
+- [ ] **Step 6: Commit Task 1**
+
+```bash
+git add .agent/policy scripts/loop/policy.mjs scripts/loop/__tests__/policy.test.mjs
+git commit -m "feat(loop): add versioned loop policies"
+```
+
+---
+
+### Task 2: Implement deterministic risk classification
+
+**Files:**
+- Create: `scripts/loop/classify-risk.mjs`
+- Create: `scripts/loop/__tests__/classify-risk.test.mjs`
+
+**Interfaces:**
+- Consumes: `LoopPolicy` from Task 1.
+- Produces: `normalizeRepoPath(path: string): string`
+- Produces: `classifyRisk(input: { paths: string[]; actions?: string[]; hintedRisk?: "low" | "medium" | "high" | "critical" }, policy: LoopPolicy): RiskResult`
+- Produces `RiskResult`:
+  - `level: "low" | "medium" | "high" | "critical"`
+  - `requiresHumanApproval: boolean`
+  - `reasons: string[]`
+  - `matchedRules: string[]`
+
+- [ ] **Step 1: Write failing risk-classifier tests**
+
+Cover:
+
+- docs-only path -> `low`;
+- ordinary non-sensitive client feature path -> `medium`;
+- `.github/workflows/ci.yml` -> `high`;
+- `server/.env.production` -> `critical` and never executable even with approval;
+- `server/src/payments/payos.service.ts` -> `high`;
+- production reset action -> `critical`;
+- mixed low + high paths -> `high`;
+- `hintedRisk: "low"` cannot downgrade a deterministic high/critical match;
+- Windows separator and `./` normalization produce the same result;
+- `../` traversal segments are rejected instead of normalized outside the repository.
+
+- [ ] **Step 2: Run the risk tests and verify they fail**
+
+Run:
+
+```bash
+node --test scripts/loop/__tests__/classify-risk.test.mjs
+```
+
+Expected: FAIL because the classifier does not exist.
+
+- [ ] **Step 3: Implement path normalization and deterministic precedence**
+
+Risk ordering is fixed:
+
+```text
+low < medium < high < critical
+```
+
+The highest deterministic match wins. `hintedRisk` may only raise the result, never lower it.
+
+Do not use filesystem glob libraries. Use only the checked-in, validated glob subset specified in Task 1; `*` cannot cross `/`, and `**` can match zero or more complete path segments. The matcher is anchored to the entire normalized repository-relative path.
+
+- [ ] **Step 4: Run the risk tests and verify they pass**
+
+Run:
+
+```bash
+node --test scripts/loop/__tests__/classify-risk.test.mjs
+```
+
+Expected: PASS.
+
+- [ ] **Step 5: Commit Task 2**
+
+```bash
+git add scripts/loop/classify-risk.mjs scripts/loop/__tests__/classify-risk.test.mjs
+git commit -m "feat(loop): add deterministic risk classification"
+```
+
+---
+
+### Task 3: Add durable state, budget enforcement, and stable failure fingerprints
+
+**Files:**
+- Create: `scripts/loop/fingerprint-failure.mjs`
+- Create: `scripts/loop/state.mjs`
+- Create: `scripts/loop/__tests__/fingerprint-failure.test.mjs`
+- Create: `scripts/loop/__tests__/state.test.mjs`
+- Modify: `.gitignore`
+
+**Interfaces:**
+- Consumes: stop-condition values from `LoopPolicy`.
+- Produces: `fingerprintFailure(input: { commandId: string; exitCode: number; stdout?: string; stderr?: string }): string`
+- Produces: `createLoopState(input): LoopState`
+- Produces: `loadLoopState(repoRoot: string, taskId: string): Promise<LoopState>`
+- Produces: `saveLoopState(repoRoot: string, state: LoopState): Promise<void>`
+- Produces: `recordFailure(state: LoopState, fingerprint: string): LoopState`
+- Produces: `recordTokenUsage(state: LoopState, usage: { inputTokens?: number; outputTokens?: number }): LoopState`
+- Produces: `recordCIRun(state: LoopState): LoopState`
+- Produces: `evaluateBudgets(state: LoopState, policy: LoopPolicy, diff?: { changedFiles: number; additions: number; deletions: number }): StopDecision`
+- Produces `StopDecision`: `{ stop: boolean; reason: string | null }`
+- `LoopState` uses the spec's versioned shape: `schemaVersion`, `taskId`, `branch`, `baseSha`, `headSha`, `phase`, `risk`, `iteration`, `maxIterations`, `ciRetryCount`, `acceptanceCriteria` (IDs/status only), compact `lastVerification`, `failureCounts`, `protectedPathsTouched`, `budgets: { tokenLimit, tokenUsed, wallClockLimitSeconds, ciRunLimit, ciRuns }`, `escalationReason`, `startedAt`, and `updatedAt`. It must not retain raw task/prompt text or raw process output.
+
+- [ ] **Step 1: Write failing failure-fingerprint tests**
+
+Assert:
+
+- the same compiler/test error with different absolute workspace paths, ANSI color codes, timestamps, and duration values yields the same SHA-256 fingerprint;
+- different error codes/messages yield different fingerprints;
+- command ID and exit code participate in the fingerprint.
+
+- [ ] **Step 2: Write failing state/budget tests**
+
+Assert:
+
+- new state has `schemaVersion: 1`, iteration `0`, empty failure counts, optional token budget fields, and a valid timestamp;
+- save uses `.loop/state/<safe-task-id>.json`;
+- load round-trips state;
+- malformed JSON causes a `LoopStateCorruptError` instead of silently replacing state;
+- unsafe task IDs containing separators or traversal are rejected;
+- same fingerprint reaching the configured limit returns `stop: true`;
+- iteration, wall-clock, token-limit, changed-file, and changed-line budgets independently stop;
+- CI-run budget stops independently and `recordCIRun` increments exactly once per planned CI run;
+- unset token limits do not stop token usage tracking.
+
+- [ ] **Step 3: Run Task 3 tests and verify they fail**
+
+Run:
+
+```bash
+node --test scripts/loop/__tests__/fingerprint-failure.test.mjs scripts/loop/__tests__/state.test.mjs
+```
+
+Expected: FAIL because the modules do not exist.
+
+- [ ] **Step 4: Implement stable failure normalization and hashing**
+
+Normalize only noise known to be unstable: ANSI escapes, repository/workspace absolute prefixes, ISO timestamps, and timing values. Preserve diagnostic codes, filenames relative to repo, assertions, exit code, and command ID.
+
+Hash the normalized payload with `node:crypto` SHA-256.
+
+- [ ] **Step 5: Implement atomic state persistence and budgets**
+
+Validate loaded and saved values against the exact versioned `LoopState` shape, reject unsafe task IDs and non-finite/negative counters, and fail closed on corruption. `saveLoopState` must:
+
+1. create `.loop/state/` recursively;
+2. ensure the resolved state path remains below the real `.loop/state/` directory (reject symlink/path escapes);
+3. write to a uniquely named sibling temporary file;
+4. atomically rename it over the final file and clean up only that temporary file on failure.
+
+Never persist raw prompt history, environment values, cookies, tokens, or production payloads.
+
+Add this entry to the root `.gitignore`:
+
+```gitignore
+.loop/
+```
+
+- [ ] **Step 6: Run Task 3 tests and verify they pass**
+
+Run:
+
+```bash
+node --test scripts/loop/__tests__/fingerprint-failure.test.mjs scripts/loop/__tests__/state.test.mjs
+```
+
+Expected: PASS.
+
+- [ ] **Step 7: Commit Task 3**
+
+```bash
+git add .gitignore scripts/loop/fingerprint-failure.mjs scripts/loop/state.mjs scripts/loop/__tests__/fingerprint-failure.test.mjs scripts/loop/__tests__/state.test.mjs
+git commit -m "feat(loop): persist bounded loop state"
+```
+
+---
+
+### Task 4: Build safe fast/full verification planning and execution
+
+**Files:**
+- Create: `scripts/loop/verify.mjs`
+- Create: `scripts/loop/__tests__/verify.test.mjs`
+
+**Interfaces:**
+- Consumes: `LoopPolicy` and normalized changed paths.
+- Produces: `buildVerificationPlan(input: { changedPaths: string[]; mode: "fast" | "full"; policy: LoopPolicy }): VerificationPlan`
+- Produces: `runVerificationPlan(plan: VerificationPlan, options?: { repoRoot?: string; maxOutputBytes?: number; spawnImpl?: (file: string, args: string[], options: object) => ChildProcess }): Promise<VerificationResult>`
+- Produces: `redactVerificationOutput(text: string): string`
+- Produces `VerificationPlan` with deterministic risk classification plus entries containing fixed `id`, registry-owned command/args, repository-owned cwd, and optional prerequisites. A caller cannot supply executable names, args, or arbitrary cwd.
+- Produces `VerificationResult` with `passed`, `complete`, per-command exit codes/durations, bounded/redacted stdout/stderr and truncation metadata, and named `requiredExternalChecks`. `passed` means every command that ran exited successfully; `complete` is false whenever a required check did not run, so `passed: true` alone is never sufficient for handoff.
+
+- [ ] **Step 1: Write failing verification-planner tests**
+
+Assert routing:
+
+- docs/policy-only change -> control-plane Node tests only;
+- client-only fast -> client typecheck + lint + full-package Vitest command (do not pass changed filenames as test filters), but no server commands;
+- client-only full -> client typecheck + lint + full Vitest + build; preview HTTP smoke is an external CI check if the local runner does not start and verify the built preview;
+- server-only fast -> server typecheck + lint + Vitest;
+- server-only full -> server Prisma validation + typecheck + lint + full Vitest + the exact CI Vercel function build (`pnpm --dir server/api run vercel-build`); mark MySQL integration, legacy-baseline/demo setup, and health smoke as required external CI checks;
+- DB-related server path -> Prisma validation is mandatory;
+- mixed client/server -> both package plans;
+- changed filenames containing `; rm -rf`, quotes, spaces, or shell metacharacters do not appear in `command` or `args`;
+- every command ID maps to a fixed allowlisted executable/argument vector.
+
+Use the repository's current commands, including:
+
+```text
+pnpm --dir client exec tsc -p tsconfig.json --noEmit
+pnpm --dir client lint
+pnpm --dir client test -- --run
+pnpm --dir client build
+pnpm --dir server prisma:validate
+pnpm --dir server typecheck
+pnpm --dir server lint
+pnpm --dir server test -- --run
+pnpm --dir server/api run vercel-build
+```
+
+`pnpm --dir server test:integration` is an external CI check only in Phase 1 and is never in the local command registry.
+
+- [ ] **Step 2: Write failing runner-output safety tests**
+
+Use a stub command runner or a child Node fixture and assert:
+
+- `shell` is never enabled;
+- Windows invocation uses `cmd.exe` only with the immutable registry command and `shell: false`; POSIX uses the fixed executable/args with `shell: false`;
+- hostile changed-path strings never occur in the Windows command string, executable, or args;
+- child env contains only the explicit allowlist, uses isolated temp directories and an empty dotenv file, and omits inherited `DATABASE_URL`, `DB_*`, JWT, Firebase, payment, and GitHub token values;
+- execution refuses selected client/server package commands if that package contains a real `.env`/`.env.*` file, while dry-run remains available;
+- command cwd resolves to the selected package under the real repository root and rejects symlink escape;
+- output containing `Authorization: Bearer ...`, `Cookie: ...`, `JWT_SECRET_KEY=...`, `DATABASE_URL=...`, and common API/token assignments is redacted;
+- retained stdout/stderr is truncated to a fixed default maximum while exit code/pass-fail remains accurate;
+- every full client/server plan lists its required external CI checks and remains `complete: false`; local execution never invokes preview smoke, MySQL integration, migration/baseline/seed, or health smoke.
+
+- [ ] **Step 3: Run verification tests and verify they fail**
+
+Run:
+
+```bash
+node --test scripts/loop/__tests__/verify.test.mjs
+```
+
+Expected: FAIL because `verify.mjs` does not exist.
+
+- [ ] **Step 4: Implement the immutable command registry and planner**
+
+Keep all executable names and args in source-controlled constants. Changed paths only decide which existing command IDs are selected.
+
+Fast mode may skip expensive cross-package checks. Full mode must include all package-local checks for the touched surface.
+
+The local command registry never runs server integration, migrations, legacy baseline loading, demo reset, seed, health smoke, or the client preview smoke. Always return those as named `requiredExternalChecks` for the authoritative GitHub CI run and set `complete: false` until they are externally confirmed. This avoids requiring database credentials or treating a local build as the full CI contract.
+
+- [ ] **Step 5: Implement execution, output redaction, and bounded evidence**
+
+Use an injectable process adapter. On POSIX, spawn only the fixed registry executable/argument vector with `shell: false`. On Windows, spawn `cmd.exe /d /s /c` with `shell: false`, a source-controlled registry command string, and no data derived from changed paths, issue text, or environment. Test the exact adapter invocation, including that hostile filenames never appear in command text. The child environment must be built from a small explicit allowlist (never inherit `process.env` wholesale), with isolated temp-backed HOME/USERPROFILE/APPDATA/TMP/TEMP, a sanitized tool PATH, and a safe empty `DOTENV_CONFIG_PATH`; do not emit environment values. Refuse execution if a touched package contains a real `.env`/`.env.*` file (allow tracked `*.example` templates). These guards do not sandbox code; untrusted code still requires an isolated credential-free worktree.
+
+Default retained output budget: 64 KiB per stream per command. Store truncation metadata.
+
+Do not log or inherit the full process environment.
+Pin command cwd to the repository's client/server package roots; resolve an optional `repoRoot` to its real path, verify it is a repository checkout, and reject package-root symlink escapes. Do not accept a per-command cwd or executable from callers.
+
+- [ ] **Step 6: Add a dry-run CLI**
+
+Support:
+
+```bash
+node scripts/loop/verify.mjs --mode fast --changed client/src/features/products/ProductCard.tsx
+node scripts/loop/verify.mjs --mode full --changed server/src/orders/orders.service.ts
+```
+
+`--changed` values influence routing only; they never become command arguments.
+
+Dry-run prints the verification plan without spawning product commands.
+
+- [ ] **Step 7: Run verification tests and verify they pass**
+
+Run:
+
+```bash
+node --test scripts/loop/__tests__/verify.test.mjs
+```
+
+Expected: PASS.
+
+- [ ] **Step 8: Smoke the dry-run CLI**
+
+Run:
+
+```bash
+node scripts/loop/verify.mjs --dry-run --mode full --changed client/src/features/products/ProductCard.tsx
+node scripts/loop/verify.mjs --dry-run --mode full --changed server/src/orders/orders.service.ts
+```
+
+Expected: output includes deterministic risk; first output contains only client/control-plane commands plus any preview smoke requirement; second contains only server/control-plane commands plus the named integration/baseline/health requirements when not enabled. Dry-run must not inspect or print environment contents and remains available even if real `.env` files exist.
+
+- [ ] **Step 9: Commit Task 4**
+
+```bash
+git add scripts/loop/verify.mjs scripts/loop/__tests__/verify.test.mjs
+git commit -m "feat(loop): add safe verification router"
+```
+
+---
+
+### Task 5: Implement the bounded loop state machine
+
+**Files:**
+- Create: `scripts/loop/controller.mjs`
+- Create: `scripts/loop/__tests__/controller.test.mjs`
+- Create: `scripts/loop/classify-failure.mjs`
+- Create: `scripts/loop/__tests__/classify-failure.test.mjs`
+
+**Interfaces:**
+- Consumes: `RiskResult`, `LoopState`, `StopDecision`, and `VerificationResult`.
+- Produces: `advanceLoop(state: LoopState, event: LoopEvent, context: LoopContext): LoopState`
+- Produces: `classifyFailure(evidence: FailureEvidence): FailureClassification`, with categories `branch-caused | flaky | infrastructure | protected | ambiguous`.
+- `FailureEvidence` is structured metadata: protected-path flag, runner outcome (`check_failed | runner_error | network_error`), check ID, current revision, optional previously-passed revision for that same check, and an explicit boolean from the verifier indicating whether the failed check covers relevant changed scope. Never infer categories by matching arbitrary raw output/task text. Return `{ category, mayRepair, retryWithinBudget, reasonCode }`; never include raw failure text in `reasonCode`.
+- Classification precedence: protected path, explicit runner/network failure, same-check pass at the identical revision (flaky), deterministic check failure with relevant changed scope (branch-caused), otherwise ambiguous. Only `branch-caused` enters repair; all other categories escalate or consume their bounded retry without asking the agent to change product code.
+- Produces event types:
+  - `TASK_ACCEPTED` (carries task ID and acceptance-criterion IDs/status only; raw request text is not persisted)
+  - `IMPLEMENTATION_STARTED`
+  - `VERIFICATION_STARTED`
+  - `VERIFICATION_PASSED`
+  - `VERIFICATION_FAILED` (carries failure fingerprint and structured classification evidence)
+  - `PROTECTED_PATH_DETECTED`
+  - `BUDGET_EXHAUSTED`
+  - `HUMAN_ESCALATION_REQUIRED`
+- Phase values: `inspect | implement | verify | repair | done | escalated`.
+- `LoopContext` supplies policy budgets, deterministic `RiskResult`, explicit human approval with approved scope and timestamp, current verification result, failure evidence/classification, and protected paths touched. High/protected risk may enter `implement` only when approval is present and covers every affected path; critical risk/path/action never enters `implement`, even with approval. Approval is an execution gate, not a risk downgrade.
+
+- [ ] **Step 1: Write failing controller tests**
+
+Assert:
+
+- low-risk happy path traverses `inspect -> implement -> verify -> done`;
+- first actionable verification failure goes `verify -> repair`;
+- repair returns to `verify`;
+- repeated same failure at the configured threshold ends in `escalated`;
+- high/protected task cannot enter `implement` without explicit approval whose scope covers every affected path;
+- protected path detection without matching approval escalates before a write phase;
+- approval for a protected/high workflow path does not lower risk, does not authorize paths outside its exact scope, and never enables a critical path/action;
+- any exhausted budget escalates;
+- `VERIFICATION_PASSED` with `complete: false` does not reach `done`;
+- terminal `done` and `escalated` states reject further mutation events.
+- failure-classifier structured cases cover protected, infrastructure, flaky, branch-caused, and ambiguous outcomes; arbitrary output text is never needed as a classifier input.
+- failure-classification precedence and transitions: branch-caused -> bounded repair; flaky -> bounded retry then escalation; infrastructure/protected/ambiguous -> escalation without repair.
+
+- [ ] **Step 2: Run controller tests and verify they fail**
+
+Run:
+
+```bash
+node --test scripts/loop/__tests__/classify-failure.test.mjs scripts/loop/__tests__/controller.test.mjs
+```
+
+Expected: FAIL because the controller does not exist.
+
+- [ ] **Step 3: Implement the explicit state transition table**
+
+Use a small transition table/switch, not a general state-machine dependency.
+
+The controller does not invoke an LLM or GitHub. It enforces legal phases and stop/escalation behavior around whichever agent runner is used later.
+
+- [ ] **Step 4: Run controller tests and verify they pass**
+
+Run:
+
+```bash
+node --test scripts/loop/__tests__/classify-failure.test.mjs scripts/loop/__tests__/controller.test.mjs
+```
+
+Expected: PASS.
+
+- [ ] **Step 5: Commit Task 5**
+
+```bash
+git add scripts/loop/controller.mjs scripts/loop/classify-failure.mjs scripts/loop/__tests__/controller.test.mjs scripts/loop/__tests__/classify-failure.test.mjs
+git commit -m "feat(loop): add bounded loop controller"
+```
+
+---
+
+### Task 6: Document the runtime contract and add an agent-ready issue schema
+
+**Files:**
+- Modify: `AGENTS.md`
+- Create: `.agent/loops/feature.md`
+- Create: `.agent/loops/pr-babysitter.md`
+- Create: `.github/ISSUE_TEMPLATE/agent-task.yml`
+- Create: `scripts/loop/__tests__/contracts.test.mjs`
+- Create: `Wiki/concepts/loop-engineering.md`
+- Modify: `Wiki/index.md`
+- Modify: `Wiki/architecture.md`
+- Modify: `Wiki/log.md`
+
+**Interfaces:**
+- Consumes: policy/risk/state/verification/controller contracts from Tasks 1-5.
+- Produces: repository-level human/agent operating contract.
+- Produces issue fields:
+  - Goal
+  - Context
+  - Acceptance criteria
+  - Non-goals
+  - Constraints
+  - Verification
+  - Risk notes
+
+- [ ] **Step 1: Write failing contract tests**
+
+Read the files from disk and assert:
+
+- `AGENTS.md` contains a `## Loop Engineering contract` section;
+- the section says deterministic verification is authoritative, retries are bounded, state lives under `.loop/`, and high/critical/protected work requires human approval;
+- `.agent/loops/feature.md` includes Input, Inspect, Implement, Verify, Repair, Stop, Escalate, and Never sections;
+- `.agent/loops/pr-babysitter.md` distinguishes `branch-caused`, `flaky`, `infrastructure`, `protected`, and `ambiguous`;
+- issue template is valid GitHub issue-form YAML; IDs `goal`, `context`, `acceptance_criteria`, `non_goals`, `constraints`, `verification`, and `risk_notes` exist and required fields are marked required;
+- the template does not assign an `agent-ready` label automatically in Phase 1 because issue dispatch is not yet enabled.
+- Wiki index catalogs `[[loop-engineering]]`, its Last updated date is 2026-09-27, the concept documents the no-GitHub-write/no-production boundary, architecture records the control-plane placement, and log has one dated entry.
+
+- [ ] **Step 2: Run contract tests and verify they fail**
+
+Run:
+
+```bash
+node --test scripts/loop/__tests__/contracts.test.mjs
+```
+
+Expected: FAIL because the new contract files/section do not exist.
+
+- [ ] **Step 3: Update `AGENTS.md` with the Loop Engineering contract**
+
+Document:
+
+- risk-before-write;
+- context minimization;
+- fast verification during repair, full verification before handoff;
+- maximum iteration/same-failure behavior comes from policy;
+- never disable tests/typecheck/security checks to make a loop pass;
+- never self-modify policy and immediately execute under the new policy;
+- state and token accounting fields are compact summaries, not prompt-history storage;
+- high/critical/protected surfaces require human approval;
+- merge and production operations remain human-controlled.
+
+Do not duplicate the entire design spec in `AGENTS.md`; keep this section operational.
+
+- [ ] **Step 4: Add the feature and PR-babysitter loop documents**
+
+`feature.md` defines the inner loop contract that Phase 1 can enforce.
+
+`pr-babysitter.md` is documentation-only in Phase 1; its executable implementation is deferred to the Phase 2 plan.
+
+- [ ] **Step 5: Add the GitHub issue template**
+
+Create a valid GitHub issue form named `Agent Task`. It captures machine-verifiable acceptance criteria but does not trigger automation or auto-labeling yet.
+
+Follow GitHub issue form schema: each field has a stable `id`, `type`, `attributes.label`, and `attributes.description`; make required fields explicitly `required: true`. Do not assume an arbitrary YAML document is a valid issue form.
+
+- [ ] **Step 6: Run contract tests and verify they pass**
+
+Run:
+
+```bash
+node --test scripts/loop/__tests__/contracts.test.mjs
+```
+
+Expected: PASS.
+
+- [ ] **Step 7: Commit Task 6**
+
+```bash
+git add AGENTS.md .agent/loops .github/ISSUE_TEMPLATE/agent-task.yml scripts/loop/__tests__/contracts.test.mjs
+git commit -m "docs(loop): define agent loop contract"
+```
+
+---
+
+### Task 7: Add a read-only CI gate for the Loop Engineering foundation
+
+**Human gate:** This task modifies `.github/workflows/**`, which the policy classifies as high risk. The user's explicit request to complete this plan, including its workflow task, is the required approval for this read-only workflow change only. The workflow itself receives no write permission and no production secrets.
+
+**Files:**
+- Create: `.github/workflows/loop-foundation.yml`
+- Create: `scripts/loop/__tests__/workflow.test.mjs`
+
+**Interfaces:**
+- Consumes: all Task 1-6 control-plane tests and the Task 7 workflow contract test.
+- Produces: PR-only/push-to-main read-only CI status `Loop Foundation / test`.
+
+- [ ] **Step 1: Define the expected workflow contract before writing it**
+
+The workflow must:
+
+- trigger on `pull_request` to `main` and `push` to `main`;
+- use `ubuntu-24.04`;
+- set top-level or job-level `permissions: contents: read`;
+- use the repository-pinned Node `24.20.0`;
+- not install client/server dependencies;
+- not expose secrets;
+- run all nine explicit Node test files from Tasks 1-7 (including failure classification and workflow contract);
+- run three `verify.mjs --dry-run` routing smoke commands for client, server, and a high-risk workflow path;
+- never invoke an agent, mutate GitHub state, or run production operations.
+- pin every third-party action to its full 40-character commit SHA (reuse the repository's already-reviewed checkout/setup-node SHAs where applicable), and set minimal `contents: read` permissions.
+- ensure `workflow.test.mjs` asserts the exact allowed triggers, full-SHA action references, Node version-file use, read-only permissions, and absence of secrets, package installation, and write-capable actions.
+- Write `workflow.test.mjs` first and assert it fails while the workflow file is absent.
+
+- [ ] **Step 2: Verify the workflow contract test fails before adding the workflow**
+
+Run:
+
+```bash
+node --test scripts/loop/__tests__/workflow.test.mjs
+```
+
+Expected: FAIL because `.github/workflows/loop-foundation.yml` does not exist yet.
+
+- [ ] **Step 3: Create the workflow and run the complete control-plane suite**
+
+Run these test files explicitly to keep behavior cross-platform and independent of shell glob expansion:
+
+```bash
+node --test \
+  scripts/loop/__tests__/policy.test.mjs \
+  scripts/loop/__tests__/classify-risk.test.mjs \
+  scripts/loop/__tests__/fingerprint-failure.test.mjs \
+  scripts/loop/__tests__/state.test.mjs \
+  scripts/loop/__tests__/verify.test.mjs \
+  scripts/loop/__tests__/classify-failure.test.mjs \
+  scripts/loop/__tests__/controller.test.mjs \
+  scripts/loop/__tests__/contracts.test.mjs \
+  scripts/loop/__tests__/workflow.test.mjs
+```
+
+Then run the three client/server/high-risk workflow dry-run routing smokes from Task 4/8.
+
+- [ ] **Step 4: Inspect the workflow diff for privilege creep**
+
+Confirm:
+
+- no `contents: write`;
+- no `pull-requests: write`;
+- no `issues: write`;
+- no `id-token: write`;
+- no `environment: production`;
+- no `secrets.*`;
+- no `pull_request_target`.
+
+- [ ] **Step 5: Commit Task 7**
+
+```bash
+git add .github/workflows/loop-foundation.yml
+git commit -m "ci(loop): verify loop foundation"
+```
+
+---
+
+### Task 8: Run the complete foundation verification and prepare the branch for review
+
+**Files:**
+- Verify only; modify files only if a failing test reveals a real Task 1-7 defect.
+
+**Interfaces:**
+- Consumes: all Phase 1 deliverables.
+- Produces: evidence that the foundation satisfies the spec's Phase 1 Definition of Done.
+
+- [ ] **Step 1: Run all control-plane tests**
+
+Run:
+
+```bash
+node --test \
+  scripts/loop/__tests__/policy.test.mjs \
+  scripts/loop/__tests__/classify-risk.test.mjs \
+  scripts/loop/__tests__/fingerprint-failure.test.mjs \
+  scripts/loop/__tests__/state.test.mjs \
+  scripts/loop/__tests__/verify.test.mjs \
+  scripts/loop/__tests__/classify-failure.test.mjs \
+  scripts/loop/__tests__/controller.test.mjs \
+  scripts/loop/__tests__/contracts.test.mjs \
+  scripts/loop/__tests__/workflow.test.mjs
+```
+
+Expected: all PASS.
+
+- [ ] **Step 2: Run routing smoke checks**
+
+Run:
+
+```bash
+node scripts/loop/verify.mjs --dry-run --mode fast --changed client/src/features/products/ProductCard.tsx
+node scripts/loop/verify.mjs --dry-run --mode full --changed server/src/orders/orders.service.ts
+node scripts/loop/verify.mjs --dry-run --mode full --changed .github/workflows/ci.yml
+```
+
+Expected:
+
+- client path routes only to client/control-plane verification;
+- server path routes only to server/control-plane verification and explicitly reports integration as required when it cannot run locally;
+- workflow path is classified high/protected before any write-capable loop would execute it.
+
+- [ ] **Step 3: Exercise state-machine fixture scenarios**
+
+Use the controller/state unit tests as executable evidence for:
+
+- low-risk inspect -> implement -> verify -> done;
+- repeated deterministic failure -> escalated;
+- protected path -> escalated;
+- incomplete verification -> not done;
+- budget exhausted -> escalated.
+
+Do not create a fake autonomous model adapter solely for this test.
+
+- [ ] **Step 4: Run existing repository CI-equivalent checks only for touched product surfaces**
+
+Phase 1 should not touch product code in `client/src` or `server/src`. Do not run package scripts from this checkout if real `.env` files are present. Therefore local product builds are not required solely for the control-plane branch. Before merge, the PR must still pass the repository's existing CI client/server jobs, security dependency review, CodeQL default setup, and any external checks named by the verification result.
+
+If implementation unexpectedly touches product code, stop and run the full relevant package verification from `AGENTS.md` before continuing.
+
+- [ ] **Step 5: Review the final diff against non-goals**
+
+Confirm no:
+
+- root workspace/package-manager conversion;
+- new third-party runtime dependency;
+- Jest addition;
+- auto-merge;
+- GitHub write token;
+- production secret;
+- production DB action;
+- `pull_request_target`;
+- security-check bypass;
+- self-modifying active policy behavior.
+
+- [ ] **Step 6: Record Phase 2 follow-up inputs**
+
+Before starting a separate PR-babysitter plan, record from real Phase 1 usage:
+
+- average verification duration;
+- first-pass success rate;
+- median repair iterations;
+- repeated-failure escalation frequency;
+- changed-file/LOC budget false positives;
+- token usage where the executing agent exposes it;
+- human intervention reasons.
+
+Do not implement Phase 2 in this branch.
+
+- [ ] **Step 7: Final review commit only if Task 8 required fixes**
+
+If no files changed, do not create an empty commit.
+
+If fixes were required:
+
+```bash
+git add <only-the-fixed-foundation-files>
+git commit -m "fix(loop): address foundation verification findings"
+```
+
+---
+
+## Deferred follow-up plans
+
+These remain deliberately outside this implementation plan:
+
+1. **Phase 2 — PR Babysitter:** GitHub CI/review event ingestion, failure classification, bounded flaky retry, same-branch repair, and escalation packets.
+2. **Phase 3 — Issue to Draft PR:** validated `agent-ready` issue dispatch, worktree provisioning, agent runner adapter, bounded context packets, Draft PR creation, and token/CI telemetry.
+3. **Phase 4 — Post-merge Evidence Loop:** deployment-status observation, safe smoke/browser verification, regression issue creation, and read-only performance evidence.
+
+Each phase should receive its own spec review/update if Phase 1 telemetry changes the architecture, then its own Superpowers implementation plan.
+
+## Self-Review Result
+
+- **Spec coverage:** Phase 1 requirements are covered by Tasks 1-8; Phase 2-4 are explicitly deferred rather than partially implemented.
+- **Step scan:** Each code task follows failing test -> implementation -> passing test -> commit. Documentation/config tasks have executable contract checks or explicit privilege review.
+- **Type/interface consistency:** `LoopPolicy`, `RiskResult`, `LoopState`, `LoopEvent`, `LoopContext`, `FailureEvidence`, `FailureClassification`, `StopDecision`, `VerificationPlan`, and `VerificationResult` flow in one direction across tasks without duplicate ownership.
+- **Review Focus:** all five high-risk input/failure classes are pinned to concrete tests.
+- **Proportion:** the plan specifies decisions, interfaces, assertions, commands, and boundaries without transcribing implementation bodies.
