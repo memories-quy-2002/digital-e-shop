@@ -39,7 +39,7 @@ export function normalizeRepoPath(input) {
   return segments.join('/');
 }
 
-function matchPathSegment(pattern, value) {
+function matchPathSegment(pattern, value, caseInsensitive = false) {
   let source = '^';
   for (const character of pattern) {
     if (character === '*') {
@@ -49,10 +49,10 @@ function matchPathSegment(pattern, value) {
     }
   }
   source += '$';
-  return new RegExp(source).test(value);
+  return new RegExp(source, caseInsensitive ? 'i' : '').test(value);
 }
 
-function matchPolicyPattern(pattern, normalizedPath) {
+function matchPolicyPattern(pattern, normalizedPath, caseInsensitive = false) {
   const patternSegments = pattern.split('/');
   const pathSegments = normalizedPath.split('/');
   const memo = Array.from({ length: patternSegments.length + 1 }, () => []);
@@ -69,7 +69,7 @@ function matchPolicyPattern(pattern, normalizedPath) {
         || (pathIndex < pathSegments.length && visit(patternIndex, pathIndex + 1));
     } else {
       matches = pathIndex < pathSegments.length
-        && matchPathSegment(patternSegments[patternIndex], pathSegments[pathIndex])
+        && matchPathSegment(patternSegments[patternIndex], pathSegments[pathIndex], caseInsensitive)
         && visit(patternIndex + 1, pathIndex + 1);
     }
 
@@ -135,7 +135,7 @@ export function classifyRisk(input, policy) {
     let pathRisk = 'low';
 
     for (const pattern of policy.protectedPaths.critical) {
-      if (matchPolicyPattern(pattern, normalizedPath)) {
+      if (matchPolicyPattern(pattern, normalizedPath, true)) {
         pathRisk = raiseRisk(pathRisk, 'critical');
         pathMatched = true;
         matchedRules.add(`protectedPaths.critical:${pattern}`);
@@ -144,7 +144,7 @@ export function classifyRisk(input, policy) {
     }
 
     for (const pattern of policy.protectedPaths.high) {
-      if (matchPolicyPattern(pattern, normalizedPath)) {
+      if (matchPolicyPattern(pattern, normalizedPath, true)) {
         pathRisk = raiseRisk(pathRisk, 'high');
         pathMatched = true;
         matchedRules.add(`protectedPaths.high:${pattern}`);
@@ -154,7 +154,7 @@ export function classifyRisk(input, policy) {
 
     for (const risk of ['low', 'medium', 'high']) {
       for (const pattern of policy.riskRules[risk]) {
-        if (matchPolicyPattern(pattern, normalizedPath)) {
+        if (matchPolicyPattern(pattern, normalizedPath, risk === 'high')) {
           pathRisk = raiseRisk(pathRisk, risk);
           pathMatched = true;
           matchedRules.add(`riskRules.${risk}:${pattern}`);

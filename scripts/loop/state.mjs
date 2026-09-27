@@ -182,7 +182,10 @@ export function validateLoopState(state) {
   if (state.schemaVersion !== 1) throw new LoopStateValidationError('schemaVersion must equal 1');
   assertTaskId(state.taskId);
   assertBranch(state.branch);
-  if (!SHA_PATTERN.test(state.baseSha) || !SHA_PATTERN.test(state.headSha)) {
+  if (typeof state.baseSha !== 'string'
+      || !SHA_PATTERN.test(state.baseSha)
+      || typeof state.headSha !== 'string'
+      || !SHA_PATTERN.test(state.headSha)) {
     throw new LoopStateValidationError('baseSha and headSha must be 7-64 character hexadecimal SHAs');
   }
   if (!PHASES.has(state.phase)) throw new LoopStateValidationError('phase is not a supported loop phase');

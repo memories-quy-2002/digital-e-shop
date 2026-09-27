@@ -49,6 +49,35 @@ describe('deterministic risk classification', () => {
     }
   });
 
+  it('protects the agent control plane and database target guard as high risk', () => {
+    for (const file of [
+      'AGENTS.md',
+      '.agent/loops/feature.md',
+      'scripts/loop/controller.mjs',
+      'server/src/config/database-target.js',
+    ]) {
+      const result = classifyRisk({ paths: [file] }, policy);
+      assert.equal(result.level, 'high', file);
+      assert.equal(result.requiresHumanApproval, true, file);
+      assert.ok(result.matchedRules.some((rule) => rule.startsWith('protectedPaths.high:')), file);
+    }
+  });
+
+  it('keeps case variants of protected paths at high or critical risk', () => {
+    for (const file of [
+      '.GITHUB/WORKFLOWS/ci.yml',
+      'SCRIPTS/LOOP/controller.mjs',
+      'SERVER/SRC/ORDERS/orders.service.ts',
+    ]) {
+      const result = classifyRisk({ paths: [file] }, policy);
+      assert.equal(result.level, 'high', file);
+      assert.equal(result.requiresHumanApproval, true, file);
+    }
+
+    const dotenv = classifyRisk({ paths: ['SERVER/.ENV.production'] }, policy);
+    assert.equal(dotenv.level, 'critical');
+  });
+
   it('classifies dotenv files as critical risk', () => {
     const result = classifyRisk({ paths: ['server/.env.production'] }, policy);
     assert.equal(result.level, 'critical');

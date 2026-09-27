@@ -8,12 +8,16 @@ const PHASES = new Set(['inspect', 'implement', 'verify', 'repair', 'done', 'esc
 const ACCEPTANCE_STATUSES = new Set(['pending', 'passed', 'failed', 'blocked']);
 const CHECK_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,119}$/;
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
+const REVISION_PATTERN = /^[a-f0-9]{7,64}$/i;
+const WORKSPACE_FINGERPRINT_PATTERN = /^[a-f0-9]{64}$/i;
 const CONTEXT_KEYS = Object.freeze([
   'policy',
   'affectedPaths',
   'riskResult',
   'criticalActions',
   'humanApproval',
+  'currentRevision',
+  'currentWorkspaceFingerprint',
   'verificationResult',
   'failureEvidence',
   'failureClassification',
@@ -107,8 +111,20 @@ function validateApproval(value, affectedPaths, now) {
 }
 
 function validateVerificationResult(value, label = 'verificationResult') {
-  if (!isPlainObject(value) || typeof value.passed !== 'boolean' || typeof value.complete !== 'boolean') {
-    throw new LoopTransitionError(`${label} must include boolean passed and complete fields`);
+  if (!isPlainObject(value)
+      || typeof value.passed !== 'boolean'
+      || typeof value.complete !== 'boolean'
+      || typeof value.revisionStable !== 'boolean'
+      || typeof value.verifiedRevision !== 'string'
+      || !REVISION_PATTERN.test(value.verifiedRevision)
+      || typeof value.currentRevision !== 'string'
+      || !REVISION_PATTERN.test(value.currentRevision)
+      || typeof value.workspaceStable !== 'boolean'
+      || typeof value.verifiedWorkspaceFingerprint !== 'string'
+      || !WORKSPACE_FINGERPRINT_PATTERN.test(value.verifiedWorkspaceFingerprint)
+      || typeof value.currentWorkspaceFingerprint !== 'string'
+      || !WORKSPACE_FINGERPRINT_PATTERN.test(value.currentWorkspaceFingerprint)) {
+    throw new LoopTransitionError(`${label} must include pass/completeness status and stable revision/workspace fingerprints`);
   }
   return value;
 }
@@ -210,9 +226,18 @@ function validateContext(context) {
     if (!isProtected) throw new LoopTransitionError('protectedPathsTouched includes a path not protected by policy');
   }
 
-  const approvalMatches = context.humanApproval === undefined || context.humanApproval === null
+  const approvalScopeMatches = context.humanApproval === undefined || context.humanApproval === null
     ? false
     : validateApproval(context.humanApproval, affectedPaths, now);
+  if (context.currentRevision !== undefined
+      && (typeof context.currentRevision !== 'string' || !REVISION_PATTERN.test(context.currentRevision))) {
+    throw new LoopTransitionError('LoopContext.currentRevision must be a hexadecimal Git revision');
+  }
+  if (context.currentWorkspaceFingerprint !== undefined
+      && (typeof context.currentWorkspaceFingerprint !== 'string'
+        || !WORKSPACE_FINGERPRINT_PATTERN.test(context.currentWorkspaceFingerprint))) {
+    throw new LoopTransitionError('LoopContext.currentWorkspaceFingerprint must be a SHA-256 fingerprint');
+  }
   if (context.verificationResult !== undefined && context.verificationResult !== null) {
     validateVerificationResult(context.verificationResult);
   }
@@ -225,7 +250,7 @@ function validateContext(context) {
     affectedPaths,
     criticalActions,
     protectedPathsTouched,
-    approvalMatches,
+    approvalScopeMatches,
     now,
     riskResult: expectedRisk,
   };
@@ -262,7 +287,8 @@ function finalize(state, context) {
 function approvalFailure(state, context) {
   if (state.risk === 'critical' || context.riskResult.level === 'critical') return 'critical_risk';
   if (state.risk === 'high' || context.riskResult.requiresHumanApproval) {
-    return context.approvalMatches ? null : context.humanApproval ? 'approval_scope_mismatch' : 'human_approval_required';
+    if (!context.humanApproval) return 'human_approval_required';
+    return context.approvalScopeMatches ? 'human_approval_unverified' : 'approval_scope_mismatch';
   }
   return null;
 }
@@ -362,6 +388,8 @@ function handleEvent(state, event, context) {
         throw new LoopTransitionError('VERIFICATION_STARTED is only valid after implementation or repair');
       }
       if (state.risk === 'critical') return setEscalated(state, 'critical_risk');
+      if (!context.currentRevision) throw new LoopTransitionError('VERIFICATION_STARTED requires the current Git revision');
+      state.headSha = context.currentRevision.toLowerCase();
       state.phase = 'verify';
       return state;
     }
@@ -370,6 +398,19 @@ function handleEvent(state, event, context) {
       if (!context.verificationResult) throw new LoopTransitionError('VERIFICATION_PASSED requires a VerificationResult');
       if (!context.verificationResult.complete) return setEscalated(state, 'verification_incomplete');
       if (!context.verificationResult.passed) return setEscalated(state, 'verification_not_passed');
+      if (!context.currentRevision
+          || !context.verificationResult.revisionStable
+          || context.currentRevision.toLowerCase() !== state.headSha.toLowerCase()
+          || context.verificationResult.verifiedRevision.toLowerCase() !== state.headSha.toLowerCase()
+          || context.verificationResult.currentRevision.toLowerCase() !== state.headSha.toLowerCase()
+          || !context.currentWorkspaceFingerprint
+          || !context.verificationResult.workspaceStable
+          || context.verificationResult.verifiedWorkspaceFingerprint.toLowerCase()
+            !== context.verificationResult.currentWorkspaceFingerprint.toLowerCase()
+          || context.currentWorkspaceFingerprint.toLowerCase()
+            !== context.verificationResult.currentWorkspaceFingerprint.toLowerCase()) {
+        return setEscalated(state, 'stale_verification_result');
+      }
       const criteria = criteriaForEvent(event.acceptanceCriteria, state, ACCEPTANCE_STATUSES);
       state.acceptanceCriteria = criteria;
       if (criteria.some((criterion) => criterion.status !== 'passed')) {

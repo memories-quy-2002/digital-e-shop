@@ -88,3 +88,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-25 - Codex - Required live PayOS mode and credentials in production, based webhook state only on signed data, and blocked simulated PayOS orders from delivery.
 - 2026-09-27 - Codex - Added the bounded Loop Engineering control-plane contract, feature/PR loop guides, structured agent-task issue form, and Wiki architecture note.
 - 2026-09-25 - Codex - Documented production client/server environment variables, public Firebase web config, secret handling, Vercel redeploy behavior, and the DB password validation gap.
+- 2026-09-27 - Codex - Tightened Loop Engineering approval provenance, revision/worktree-bound verification, case-insensitive protected-path classification, and documented ignored-input limits for local verification with clean-CI handoff gates.

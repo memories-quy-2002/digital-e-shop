@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { afterEach, before, describe, it } from 'node:test';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
+import { execFileSync } from 'node:child_process';
 import { mkdtemp, mkdir, realpath, readFile, rm, writeFile } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,7 +30,19 @@ before(async () => {
 async function createRepoFixture({ dotenv = [], npmrc = [] } = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'digital-e-verify-'));
   temporaryRoots.add(root);
-  await mkdir(path.join(root, '.git'));
+  execFileSync('git', ['-C', root, 'init', '--quiet'], { windowsHide: true, stdio: 'ignore' });
+  const disabledHooksPath = path.join(root, '.git', 'disabled-hooks');
+  await mkdir(disabledHooksPath);
+  await writeFile(path.join(root, 'verification-fixture.txt'), 'baseline\n', 'utf8');
+  execFileSync('git', ['-C', root, 'add', '--', 'verification-fixture.txt'], { windowsHide: true, stdio: 'ignore' });
+  execFileSync('git', [
+    '-C', root,
+    '-c', `core.hooksPath=${disabledHooksPath}`,
+    '-c', 'commit.gpgsign=false',
+    '-c', 'user.name=Digital-E Test',
+    '-c', 'user.email=digital-e-test@example.invalid',
+    'commit', '--quiet', '--allow-empty', '-m', 'verification fixture',
+  ], { windowsHide: true, stdio: 'ignore' });
   await mkdir(path.join(root, '.agent', 'policy'), { recursive: true });
   await mkdir(path.join(root, 'client'), { recursive: true });
   await mkdir(path.join(root, 'server', 'api'), { recursive: true });
@@ -55,10 +68,11 @@ async function createRepoFixture({ dotenv = [], npmrc = [] } = {}) {
   return root;
 }
 
-function fakeSpawnFactory({ stdout = '', stderr = '', exitCode = 0 } = {}) {
+function fakeSpawnFactory({ stdout = '', stderr = '', exitCode = 0, onSpawn } = {}) {
   const calls = [];
   const spawnImpl = (file, args, options) => {
     const dotenvContents = readFileSync(options.env.DOTENV_CONFIG_PATH, 'utf8');
+    onSpawn?.({ index: calls.length, file, args, options });
     calls.push({ file, args, options, dotenvContents });
     const child = new EventEmitter();
     child.stdout = new PassThrough();
@@ -258,6 +272,26 @@ describe('verification execution safety', () => {
     assert.equal(calls.length, 0);
   });
 
+  it('matches dotenv filenames case-insensitively while allowing mixed-case examples', async () => {
+    const unsafeRoot = await createRepoFixture({ dotenv: ['client/.ENV', 'server/.Env.production'] });
+    const unsafePlan = buildVerificationPlan({ changedPaths: ['client/src/App.tsx'], mode: 'fast', policy });
+    const unsafe = fakeSpawnFactory();
+
+    await assert.rejects(
+      runVerificationPlan(unsafePlan, { repoRoot: unsafeRoot, spawnImpl: unsafe.spawnImpl }),
+      VerificationExecutionRefusedError,
+    );
+    assert.equal(unsafe.calls.length, 0);
+
+    const exampleRoot = await createRepoFixture({ dotenv: ['client/.ENV.example'] });
+    const examplePlan = buildVerificationPlan({ changedPaths: ['client/src/App.tsx'], mode: 'fast', policy });
+    const example = fakeSpawnFactory();
+    const result = await runVerificationPlan(examplePlan, { repoRoot: exampleRoot, spawnImpl: example.spawnImpl });
+
+    assert.equal(result.passed, true);
+    assert.equal(example.calls.length, examplePlan.commands.length);
+  });
+
   it('refuses project npm authentication settings without including their values in the error', async () => {
     const secret = 'do-not-leak-this-token';
     const root = await createRepoFixture({
@@ -288,6 +322,82 @@ describe('verification execution safety', () => {
     assert.deepEqual(result.requiredExternalChecks, plan.requiredExternalChecks);
   });
 
+  it('binds verification results to a stable Git HEAD observed by the runner', async () => {
+    const plan = buildVerificationPlan({ changedPaths: ['client/src/App.tsx'], mode: 'fast', policy });
+    const stableRoot = await createRepoFixture();
+    const stableHead = execFileSync('git', ['-C', stableRoot, 'rev-parse', '--verify', 'HEAD'], { encoding: 'utf8' }).trim();
+    const stable = await runVerificationPlan(plan, { repoRoot: stableRoot, spawnImpl: fakeSpawnFactory().spawnImpl });
+
+    assert.equal(stable.verifiedRevision, stableHead);
+    assert.equal(stable.currentRevision, stableHead);
+    assert.equal(stable.revisionStable, true);
+    assert.equal(stable.complete, true);
+
+    const movingRoot = await createRepoFixture();
+    const movingHead = execFileSync('git', ['-C', movingRoot, 'rev-parse', '--verify', 'HEAD'], { encoding: 'utf8' }).trim();
+    const moving = fakeSpawnFactory({
+      onSpawn: ({ index }) => {
+        if (index === 0) {
+          execFileSync('git', [
+            '-C', movingRoot,
+            '-c', `core.hooksPath=${path.join(movingRoot, '.git', 'disabled-hooks')}`,
+            '-c', 'commit.gpgsign=false',
+            '-c', 'user.name=Digital-E Test',
+            '-c', 'user.email=digital-e-test@example.invalid',
+            'commit', '--quiet', '--allow-empty', '-m', 'head changed during verification',
+          ], { windowsHide: true, stdio: 'ignore' });
+        }
+      },
+    });
+    const moved = await runVerificationPlan(plan, { repoRoot: movingRoot, spawnImpl: moving.spawnImpl });
+
+    assert.equal(moved.verifiedRevision, movingHead);
+    assert.notEqual(moved.currentRevision, movingHead);
+    assert.equal(moved.revisionStable, false);
+    assert.equal(moved.passed, true);
+    assert.equal(moved.complete, false);
+  });
+
+  it('marks verification incomplete when tracked worktree content changes during checks', async () => {
+    const root = await createRepoFixture();
+    const plan = buildVerificationPlan({ changedPaths: ['client/src/App.tsx'], mode: 'fast', policy });
+    const changing = fakeSpawnFactory({
+      onSpawn: ({ index }) => {
+        if (index === 0) writeFileSync(path.join(root, 'verification-fixture.txt'), 'changed during verification\n', 'utf8');
+      },
+    });
+
+    const result = await runVerificationPlan(plan, { repoRoot: root, spawnImpl: changing.spawnImpl });
+
+    assert.equal(result.passed, true);
+    assert.equal(result.revisionStable, true);
+    assert.equal(result.workspaceStable, false);
+    assert.notEqual(result.verifiedWorkspaceFingerprint, result.currentWorkspaceFingerprint);
+    assert.equal(result.complete, false);
+  });
+
+  it('marks verification incomplete when the Git index changes while worktree contents are restored', async () => {
+    const root = await createRepoFixture();
+    const plan = buildVerificationPlan({ changedPaths: ['client/src/App.tsx'], mode: 'fast', policy });
+    const changing = fakeSpawnFactory({
+      onSpawn: ({ index }) => {
+        if (index !== 0) return;
+        const fixturePath = path.join(root, 'verification-fixture.txt');
+        writeFileSync(fixturePath, 'staged content\n', 'utf8');
+        execFileSync('git', ['-C', root, 'add', '--', 'verification-fixture.txt'], { windowsHide: true, stdio: 'ignore' });
+        writeFileSync(fixturePath, 'baseline\n', 'utf8');
+      },
+    });
+
+    const result = await runVerificationPlan(plan, { repoRoot: root, spawnImpl: changing.spawnImpl });
+
+    assert.equal(result.passed, true);
+    assert.equal(result.revisionStable, true);
+    assert.equal(result.workspaceStable, false);
+    assert.notEqual(result.verifiedWorkspaceFingerprint, result.currentWorkspaceFingerprint);
+    assert.equal(result.complete, false);
+  });
+
   it('rejects a tampered plan before invoking a process', async () => {
     const root = await createRepoFixture();
     const plan = structuredClone(buildVerificationPlan({ changedPaths: ['client/src/App.tsx'], mode: 'fast', policy }));
@@ -312,6 +422,19 @@ describe('verification execution safety', () => {
       assert.equal(output.includes(secret), false, `secret leaked: ${secret}`);
     }
     assert.match(output, /\[REDACTED\]/);
+  });
+
+  it('redacts a private key whose end marker falls beyond the output retention limit', async () => {
+    const root = await createRepoFixture();
+    const plan = buildVerificationPlan({ changedPaths: ['client/src/App.tsx'], mode: 'fast', policy });
+    const sensitive = `-----BEGIN PRIVATE KEY-----\n${'private-key-fragment-'.repeat(20)}\n-----END PRIVATE KEY-----`;
+    const { spawnImpl } = fakeSpawnFactory({ stdout: sensitive });
+    const result = await runVerificationPlan(plan, { repoRoot: root, maxOutputBytes: 128, spawnImpl });
+
+    for (const command of result.commands) {
+      assert.equal(command.stdout.includes('private-key-fragment'), false);
+      assert.equal(command.stdoutTruncated, true);
+    }
   });
 
   it('bounds retained stdout/stderr without changing process pass/fail status', async () => {

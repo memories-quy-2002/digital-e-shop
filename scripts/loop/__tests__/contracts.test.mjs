@@ -35,6 +35,15 @@ describe('Loop Engineering operating contracts', () => {
     assert.match(loopContract, /retries are bounded/i);
     assert.match(loopContract, /`\.loop\//);
     assert.match(loopContract, /high\s*\/\s*critical\s*\/\s*protected[\s\S]*human approval/i);
+    assert.match(loopContract, /high\/critical policy globs match case-insensitively/i);
+    assert.match(loopContract, /no trusted approval provider[\s\S]*high-risk work fails closed/i);
+    assert.match(loopContract, /caller-supplied[\s\S]*not authorization/i);
+    assert.match(loopContract, /state-only[\s\S]*not a write capability/i);
+    assert.match(loopContract, /verification-result context are caller-supplied[\s\S]*not authenticated attestations/i);
+    assert.match(loopContract, /Git revision[\s\S]*index plus changed tracked\/untracked working-tree files/i);
+    assert.match(loopContract, /verifiedWorkspaceFingerprint[\s\S]*currentWorkspaceFingerprint/i);
+    assert.match(loopContract, /fingerprint excludes ignored files[\s\S]*local green results are therefore provisional/i);
+    assert.match(loopContract, /hosted CI from a clean checkout[\s\S]*mandatory before handoff/i);
     assert.match(loopContract, /merge and production operations remain human-controlled/i);
   });
 
@@ -45,6 +54,11 @@ describe('Loop Engineering operating contracts', () => {
     }
     assert.match(featureGuide, /high|critical|protected/i);
     assert.match(featureGuide, /\.loop\/state/);
+    assert.match(featureGuide, /no trusted human-approval provider[\s\S]*high-risk work always escalates/i);
+    assert.match(featureGuide, /verifiedRevision[\s\S]*currentRevision[\s\S]*workspaceStable/i);
+    assert.match(featureGuide, /start\/end workspace fingerprints[\s\S]*host-observed completion fingerprint/i);
+    assert.match(featureGuide, /Ignored dependencies\/caches are not fingerprinted[\s\S]*local green results are provisional/i);
+    assert.match(featureGuide, /Hosted CI must run from a clean checkout/i);
   });
 
   it('keeps PR babysitter failure categories and Phase 2 boundaries explicit', async () => {
@@ -105,6 +119,11 @@ describe('Loop Engineering operating contracts', () => {
     assert.match(architecture, /`scripts\/loop\//);
     assert.match(concept, /no GitHub writes/i);
     assert.match(concept, /production/i);
+    assert.match(concept, /no trusted approval provider/i);
+    assert.match(concept, /state-only/i);
+    assert.match(concept, /index plus changed tracked\/untracked files/i);
+    assert.match(concept, /excludes ignored dependencies\/caches[\s\S]*local green results are provisional/i);
     assert.match(log, /^- 2026-09-27 - Codex - .*Loop Engineering/m);
+    assert.match(log.trimEnd().split(/\r?\n/).at(-1), /^- 2026-09-27 - Codex - .*Loop Engineering/i);
   });
 });

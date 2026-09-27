@@ -41,7 +41,19 @@ function makeContext(overrides = {}) {
     criticalActions,
     riskResult: overrides.riskResult ?? classifyRisk({ paths: affectedPaths, actions: criticalActions }, selectedPolicy),
     humanApproval: overrides.humanApproval ?? null,
-    verificationResult: overrides.verificationResult ?? null,
+    currentRevision: overrides.currentRevision ?? revision,
+    currentWorkspaceFingerprint: overrides.currentWorkspaceFingerprint ?? 'a'.repeat(64),
+    verificationResult: overrides.verificationResult == null
+      ? null
+      : {
+        ...overrides.verificationResult,
+        revisionStable: overrides.verificationResult.revisionStable ?? true,
+        workspaceStable: overrides.verificationResult.workspaceStable ?? true,
+        verifiedRevision: overrides.verificationResult.verifiedRevision ?? revision,
+        currentRevision: overrides.verificationResult.currentRevision ?? revision,
+        verifiedWorkspaceFingerprint: overrides.verificationResult.verifiedWorkspaceFingerprint ?? 'a'.repeat(64),
+        currentWorkspaceFingerprint: overrides.verificationResult.currentWorkspaceFingerprint ?? 'a'.repeat(64),
+      },
     failureEvidence: overrides.failureEvidence ?? null,
     failureClassification: overrides.failureClassification ?? null,
     protectedPathsTouched: overrides.protectedPathsTouched ?? [],
@@ -141,19 +153,24 @@ describe('bounded loop controller', () => {
     assert.equal(state.escalationReason, 'max_same_failure');
   });
 
-  it('requires exact explicit approval before high-risk writes and keeps the risk high', () => {
+  it('escalates high-risk work without approval and keeps the risk high', () => {
     const paths = ['.github/workflows/ci.yml'];
     const highContext = makeContext({ affectedPaths: paths });
     let state = startImplementation(createState(), highContext);
     assert.equal(state.phase, 'escalated');
     assert.equal(state.escalationReason, 'human_approval_required');
+    assert.equal(state.risk, 'high');
+  });
 
-    state = startImplementation(createState(), makeContext({
+  it('does not treat caller-created scope and timestamp metadata as human approval', () => {
+    const paths = ['.github/workflows/ci.yml'];
+    const state = startImplementation(createState(), makeContext({
       affectedPaths: paths,
       humanApproval: approval(paths),
     }));
-    assert.equal(state.phase, 'implement');
-    assert.equal(state.risk, 'high');
+
+    assert.equal(state.phase, 'escalated');
+    assert.equal(state.escalationReason, 'human_approval_unverified');
   });
 
   it('does not let a narrow or overbroad approval authorize a different affected path set', () => {
@@ -168,7 +185,7 @@ describe('bounded loop controller', () => {
     }
   });
 
-  it('escalates protected-path detection before writes unless exact high-risk approval exists', () => {
+  it('escalates protected-path detection when caller-supplied approval is unverified', () => {
     const paths = ['.github/workflows/ci.yml'];
     const event = { type: 'PROTECTED_PATH_DETECTED', paths };
     let state = advanceLoop(createState(), event, makeContext({
@@ -183,7 +200,8 @@ describe('bounded loop controller', () => {
       protectedPathsTouched: paths,
       humanApproval: approval(paths),
     }));
-    assert.equal(state.phase, 'inspect');
+    assert.equal(state.phase, 'escalated');
+    assert.equal(state.escalationReason, 'human_approval_unverified');
     assert.equal(state.risk, 'high');
   });
 
@@ -264,6 +282,74 @@ describe('bounded loop controller', () => {
     }));
     assert.equal(incomplete.phase, 'escalated');
     assert.equal(incomplete.escalationReason, 'verification_incomplete');
+  });
+
+  it('does not finish when successful verification belongs to a different revision', () => {
+    const state = startVerification(startImplementation(createState()));
+    const stale = passVerification(state, makeContext({
+      verificationResult: {
+        passed: true,
+        complete: true,
+        requiredExternalChecks: [],
+        verifiedRevision: 'c'.repeat(40),
+      },
+    }));
+
+    assert.equal(stale.phase, 'escalated');
+    assert.equal(stale.escalationReason, 'stale_verification_result');
+  });
+
+  it('does not finish when the worktree changes during or after the verifier snapshot', () => {
+    const state = startVerification(startImplementation(createState()));
+    const changedDuringChecks = passVerification(state, makeContext({
+      verificationResult: {
+        passed: true,
+        complete: true,
+        requiredExternalChecks: [],
+        workspaceStable: false,
+      },
+    }));
+    assert.equal(changedDuringChecks.phase, 'escalated');
+    assert.equal(changedDuringChecks.escalationReason, 'stale_verification_result');
+
+    const stale = passVerification(state, makeContext({
+      currentWorkspaceFingerprint: 'b'.repeat(64),
+      verificationResult: {
+        passed: true,
+        complete: true,
+        requiredExternalChecks: [],
+        verifiedWorkspaceFingerprint: 'a'.repeat(64),
+        currentWorkspaceFingerprint: 'a'.repeat(64),
+      },
+    }));
+
+    assert.equal(stale.phase, 'escalated');
+    assert.equal(stale.escalationReason, 'stale_verification_result');
+  });
+
+  it('tracks the Git revision at verification start and detects a later head change', () => {
+    const checkedRevision = 'c'.repeat(40);
+    const changedRevision = 'd'.repeat(40);
+    const verifying = startVerification(
+      startImplementation(createState()),
+      makeContext({ currentRevision: checkedRevision }),
+    );
+    assert.equal(verifying.headSha, checkedRevision);
+
+    const stale = passVerification(verifying, makeContext({
+      currentRevision: changedRevision,
+      verificationResult: {
+        passed: true,
+        complete: true,
+        requiredExternalChecks: [],
+        verifiedRevision: checkedRevision,
+        currentRevision: checkedRevision,
+        revisionStable: true,
+      },
+    }));
+
+    assert.equal(stale.phase, 'escalated');
+    assert.equal(stale.escalationReason, 'stale_verification_result');
   });
 
   it('escalates explicit budget and human-stop events with stable reason codes', () => {

@@ -1,7 +1,9 @@
-import { spawn } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, readdir, realpath, rm, stat, lstat, writeFile } from 'node:fs/promises';
+import { execFile, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { mkdtemp, mkdir, readFile, readdir, realpath, rm, stat, lstat, readlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { classifyRisk, normalizeRepoPath } from './classify-risk.mjs';
@@ -12,6 +14,10 @@ const REPOSITORY_ROOT = path.resolve(MODULE_DIRECTORY, '../..');
 const DEFAULT_MAX_OUTPUT_BYTES = 64 * 1024;
 const MAX_OUTPUT_BYTES = 1024 * 1024;
 const COMMAND_TIMEOUT_MS = 15 * 60 * 1000;
+const GIT_REVISION_PATTERN = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i;
+const MAX_GIT_SNAPSHOT_METADATA_BYTES = 32 * 1024 * 1024;
+const MAX_GIT_SNAPSHOT_FILE_BYTES = 128 * 1024 * 1024;
+const execFileAsync = promisify(execFile);
 const NPMRC_AUTH_SETTING = /^\s*(?:\/\/[^\s=]*?:)?(?:_auth(?:Token)?|_password|password|username)\s*=/im;
 const CONTROL_PLANE_TEST_FILES = Object.freeze([
   'scripts/loop/__tests__/policy.test.mjs',
@@ -110,7 +116,7 @@ const COMMAND_REGISTRY = Object.freeze({
 
 const COMMAND_IDS = new Set(Object.keys(COMMAND_REGISTRY));
 const OUTPUT_REDACTIONS = Object.freeze([
-  [/-----BEGIN (?:RSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY-----/gi, '[REDACTED PRIVATE KEY]'],
+  [/-----BEGIN (?:RSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY-----[\s\S]*?(?:-----END (?:RSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY-----|$)/gi, '[REDACTED PRIVATE KEY]'],
   [/\b(authorization|proxy-authorization)\s*[:=]\s*(?:bearer|basic)\s+[^\s,;]+/gi, '$1: [REDACTED]'],
   [/\b(cookie|set-cookie)\s*[:=]\s*[^\r\n]*/gi, '$1: [REDACTED]'],
   [/\b([A-Z0-9_.-]*(?:SECRET|TOKEN|PASSWORD|PASSWD|API[_-]?KEY|PRIVATE[_-]?KEY|DATABASE_URL|ACCESS[_-]?KEY|CLIENT[_-]?SECRET)[A-Z0-9_.-]*\b\s*[:=]\s*)(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s,;]+)/gi, '$1[REDACTED]'],
@@ -282,6 +288,125 @@ function isPathInside(parent, candidate) {
   return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
 }
 
+export async function readGitHeadRevision(repoRoot) {
+  repoRoot = await resolveRepositoryRoot(repoRoot);
+  const env = { PATH: process.env.PATH ?? '' };
+  for (const key of ['SystemRoot', 'WINDIR']) {
+    if (process.env[key]) env[key] = process.env[key];
+  }
+
+  try {
+    const { stdout } = await execFileAsync('git', ['-C', repoRoot, 'rev-parse', '--verify', 'HEAD'], {
+      encoding: 'utf8',
+      env,
+      maxBuffer: 4096,
+      timeout: 5000,
+      windowsHide: true,
+    });
+    const revision = stdout.trim();
+    if (!GIT_REVISION_PATTERN.test(revision)) throw new Error('invalid Git revision');
+    return revision.toLowerCase();
+  } catch {
+    throw new VerificationExecutionRefusedError('could not inspect the current Git revision for verification');
+  }
+}
+
+export async function readGitWorkspaceFingerprint(repoRoot) {
+  repoRoot = await resolveRepositoryRoot(repoRoot);
+  const env = { PATH: process.env.PATH ?? '', GIT_OPTIONAL_LOCKS: '0' };
+  for (const key of ['SystemRoot', 'WINDIR']) {
+    if (process.env[key]) env[key] = process.env[key];
+  }
+
+  try {
+    const [index, status] = await Promise.all([
+      execFileAsync('git', ['-C', repoRoot, 'ls-files', '--stage', '-z'], {
+        encoding: null,
+        env,
+        maxBuffer: MAX_GIT_SNAPSHOT_METADATA_BYTES,
+        timeout: 5000,
+        windowsHide: true,
+      }).then(({ stdout }) => stdout),
+      execFileAsync('git', [
+        '-C', repoRoot,
+        '-c', 'core.fsmonitor=false',
+        '-c', 'core.untrackedCache=false',
+        'status', '--porcelain=v1', '-z', '--untracked-files=all', '--no-renames', '--ignore-submodules=none',
+      ], {
+        encoding: null,
+        env,
+        maxBuffer: MAX_GIT_SNAPSHOT_METADATA_BYTES,
+        timeout: 5000,
+        windowsHide: true,
+      }).then(({ stdout }) => stdout),
+    ]);
+
+    if (!Buffer.isBuffer(index) || !Buffer.isBuffer(status)) throw new Error('invalid Git metadata');
+    const fingerprint = createHash('sha256');
+    // The index records staged blobs; status plus changed-file contents captures the checked-out worktree.
+    fingerprint.update('index\0');
+    fingerprint.update(index);
+    fingerprint.update('status\0');
+    fingerprint.update(status);
+
+    let totalFileBytes = 0;
+    let offset = 0;
+    while (offset < status.length) {
+      const separator = status.indexOf(0, offset);
+      if (separator < 0) throw new Error('unterminated Git status entry');
+      const entry = status.subarray(offset, separator);
+      offset = separator + 1;
+      if (entry.length === 0) continue;
+      if (entry.length < 4 || entry[2] !== 0x20) throw new Error('invalid Git status entry');
+
+      const rawPath = entry.subarray(3);
+      const displayPath = rawPath.toString('utf8');
+      if (!Buffer.from(displayPath, 'utf8').equals(rawPath)) throw new Error('Git path is not valid UTF-8');
+      const normalizedPath = normalizeRepoPath(displayPath);
+      const candidate = path.resolve(repoRoot, ...normalizedPath.split('/'));
+      if (!isPathInside(repoRoot, candidate)) throw new Error('Git path escapes the repository');
+      fingerprint.update('path\0');
+      fingerprint.update(rawPath);
+      fingerprint.update('\0');
+
+      let info;
+      try {
+        info = await lstat(candidate);
+      } catch (error) {
+        if (error.code === 'ENOENT') {
+          fingerprint.update('missing\0');
+          continue;
+        }
+        throw error;
+      }
+
+      const realParent = await realpath(path.dirname(candidate));
+      if (!isPathInside(repoRoot, realParent)) throw new Error('Git path resolves outside the repository');
+      fingerprint.update(`mode:${(info.mode & 0o7777).toString(8)}\0`);
+
+      let contents;
+      if (info.isSymbolicLink()) {
+        contents = await readlink(candidate, { encoding: 'buffer' });
+        fingerprint.update('symlink\0');
+      } else if (info.isFile()) {
+        if (totalFileBytes + info.size > MAX_GIT_SNAPSHOT_FILE_BYTES) throw new Error('changed files exceed the snapshot limit');
+        contents = await readFile(candidate);
+        totalFileBytes += contents.byteLength;
+        if (totalFileBytes > MAX_GIT_SNAPSHOT_FILE_BYTES) throw new Error('changed files exceed the snapshot limit');
+        fingerprint.update('file\0');
+      } else {
+        throw new Error('changed directory or submodule cannot be fingerprinted safely');
+      }
+      fingerprint.update(contents);
+      fingerprint.update('\0');
+    }
+
+    return fingerprint.digest('hex');
+  } catch {
+    throw new VerificationExecutionRefusedError('could not capture a bounded, repository-contained Git working-tree snapshot');
+  }
+}
+
 async function resolveRepositoryRoot(repoRoot) {
   let realRoot;
   try {
@@ -360,7 +485,9 @@ async function resolveCommandCwd(repoRoot, command) {
 }
 
 function isRealDotenvFilename(filename) {
-  return (filename === '.env' || filename.startsWith('.env.')) && !filename.endsWith('.example');
+  const normalizedFilename = filename.toLowerCase();
+  return (normalizedFilename === '.env' || normalizedFilename.startsWith('.env.'))
+    && !normalizedFilename.endsWith('.example');
 }
 
 async function findRealDotenvFiles(directories) {
@@ -588,6 +715,8 @@ export async function runVerificationPlan(plan, options = {}) {
   }
   await assertNoCredentialFiles(repoRoot, packageRoots);
   await assertSafeNpmConfiguration(repoRoot, packageRoots, expectedPlan.commands);
+  const verifiedRevision = await readGitHeadRevision(repoRoot);
+  const verifiedWorkspaceFingerprint = await readGitWorkspaceFingerprint(repoRoot);
 
   let childEnvironment;
   try {
@@ -623,13 +752,23 @@ export async function runVerificationPlan(plan, options = {}) {
     && results.every((result) => result.exitCode === 0 && result.signal === null && result.spawnErrorCode === null);
   const commandsCompleted = results.length === expectedPlan.commands.length
     && results.every((result) => Number.isSafeInteger(result.exitCode) && result.signal === null && result.spawnErrorCode === null);
+  const currentRevision = await readGitHeadRevision(repoRoot);
+  const currentWorkspaceFingerprint = await readGitWorkspaceFingerprint(repoRoot);
+  const revisionStable = verifiedRevision === currentRevision;
+  const workspaceStable = verifiedWorkspaceFingerprint === currentWorkspaceFingerprint;
 
   return {
     schemaVersion: 1,
     mode: expectedPlan.mode,
     risk: expectedPlan.risk,
     passed,
-    complete: commandsCompleted && expectedPlan.requiredExternalChecks.length === 0,
+    complete: commandsCompleted && expectedPlan.requiredExternalChecks.length === 0 && revisionStable && workspaceStable,
+    verifiedRevision,
+    currentRevision,
+    revisionStable,
+    verifiedWorkspaceFingerprint,
+    currentWorkspaceFingerprint,
+    workspaceStable,
     commands: results,
     requiredExternalChecks: [...expectedPlan.requiredExternalChecks],
   };

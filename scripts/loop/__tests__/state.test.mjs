@@ -134,6 +134,18 @@ describe('loop state persistence', () => {
     await assert.rejects(loadLoopState(root, 'different-task-id'), LoopStateNotFoundError);
   });
 
+  it('rejects numeric base and head revisions instead of coercing them to strings', async () => {
+    const root = await createRepoFixture();
+    const state = createState();
+
+    for (const revisionField of ['baseSha', 'headSha']) {
+      await assert.rejects(
+        saveLoopState(root, { ...state, [revisionField]: 1234567 }),
+        LoopStateValidationError,
+      );
+    }
+  });
+
   it('rejects state-directory symlink escapes where the host permits directory links', async (t) => {
     const root = await createRepoFixture();
     const outside = await createRepoFixture();
