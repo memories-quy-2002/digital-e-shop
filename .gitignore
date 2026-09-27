@@ -18,6 +18,7 @@ node_modules/
 .playwright-mcp/
 .playwright-cli/
 .superpowers/
+.loop/
 /output
 .env
 client/.env
