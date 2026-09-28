@@ -92,3 +92,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-28 - Codex - Selected a dedicated GitHub App for Phase 2 host identity and human approval, with repository-scoped capability tokens and device-flow identity checks; implementation remains pending.
 - 2026-09-28 - Codex - Implemented Phase 2A PR evidence/state/decision contracts for head-base-merge SHA tuples and required workflows, plus bounded packets, privacy-safe telemetry, and the Phase 2B host budget boundary.
 - 2026-09-28 - Codex - Hardened Phase 2A PR state rollover: only a fresh snapshot for the same repository/PR can reset tuple-scoped counters; stale observations are rejected.
+- 2026-09-28 - Codex - Implemented Phase 2B GitHub App authentication and read-only PR adapter with required workflow SHA attestation fail-closed.

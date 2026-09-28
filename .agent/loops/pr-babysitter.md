@@ -70,7 +70,18 @@ completed. A confirmed empty required-policy snapshot may produce
 - Phase 2A performs no GitHub API writes, check reruns, branch pushes, merges,
   model calls, or product-code edits. It must not merge or mutate production.
   Packet creation is a control-plane operation, not a write capability.
-- Phase 2B must authenticate the human approver, derive current paths and PR
+- Phase 2B currently provides a GitHub App device-flow identity/approval
+  provider and a fixed-repository read adapter. The auth provider checks the
+  GitHub `/user` identity against the host allowlist and makes approvals
+  single-use, TTY-confirmed, and bound to the exact PR SHA tuple and paths.
+  The adapter reads PR/check/ruleset/workflow/review metadata and bounded,
+  redacted job logs. These modules are not yet wired to a repair coordinator;
+  keep the runner observe-only.
+- Required workflow evidence remains unavailable until a trusted source can
+  attest the workflow source SHA in addition to repository ID, path, and ref.
+  Workflow display names, paths, refs, and PR `head_sha` do not prove the
+  required workflow source SHA.
+- Before enabling any write, the trusted host must derive current paths and PR
   SHA tuple from trusted sources, invoke the fixed verifier, observe completion
   independently, and constrain each write to a single-use exact-scope
   attestation. Without those checks, keep the runner observe-only.

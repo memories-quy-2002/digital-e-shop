@@ -68,7 +68,7 @@
 - Produces: `getInstallationToken(capability): Promise<string>` where `capability` is one of `observe`, `actions:rerun`, or `contents:write`. Use a fixed internal permission map and `repository_ids: [repositoryId]`; do not accept caller-supplied permission maps.
 - Produces: `requestApproval(scope): Promise<VerifiedApproval>` and `consumeApproval(approval, expectedScope): void`. Approval capabilities are `actions:rerun`, `repair:workspace`, and `contents:write`. Every approval binds the current `{ baseSha, headSha, mergeSha }` tuple (with `mergeSha: null` only when no current merge SHA exists), repository ID, PR number, capability, exact path scope, authenticated user ID, and expiry. Any tuple change invalidates the approval. The approval is opaque, non-serializable, and single-use.
 
-- [ ] **Step 1: Write failing provider tests with mocked fetch, clock, and TTY prompt**
+- [x] **Step 1: Write failing provider tests with mocked fetch, clock, and TTY prompt**
 
 Cover:
 - device-flow pending/polling, cancellation, expiry, and successful identity resolution from `/user`;
@@ -83,17 +83,17 @@ Cover:
 - Stage 2 cannot reuse approval from `begin-repair`; `validate-repair` obtains a fresh `contents:write` approval after inspecting the final changed paths and consumes it in that same invocation;
 - App keys and all tokens are absent from output, errors, loop state, and logs; authenticated requests stay on the configured GitHub API origin.
 
-- [ ] **Step 2: Run tests and verify they fail**
+- [x] **Step 2: Run tests and verify they fail**
 
 ```bash
 node --test scripts/loop/__tests__/github-auth-provider.test.mjs
 ```
 
-- [ ] **Step 3: Implement the provider with built-in `node:crypto` and `fetch`**
+- [x] **Step 3: Implement the provider with built-in `node:crypto` and `fetch`**
 
 Generate App JWTs only inside the trusted host, create repository-scoped installation tokens with a capability-specific permission subset, and implement GitHub App device flow for the human approver. Resolve and authorize the GitHub principal before showing the exact operation scope for TTY confirmation. Keep credentials in memory and return only opaque approval handles to loop modules.
 
-- [ ] **Step 4: Run tests and verify they pass**
+- [x] **Step 4: Run tests and verify they pass**
 
 - [ ] **Step 5: Commit**
 
@@ -111,7 +111,7 @@ git commit -m "feat(loop): add GitHub App auth provider"
 - Create: `scripts/loop/__tests__/github-pr-client.test.mjs`
 
 **Interfaces:**
-- Produces: `createGitHubPrClient({ repository, getToken, apiOrigin?, graphqlOrigin?, fetchImpl? })`, with tokens fixed to `getInstallationToken("observe")` from the trusted App provider
+- Produces: `createGitHubPrClient({ repository, getToken, apiOrigin?, graphqlOrigin?, fetchImpl?, downloadHostAllowlist? })`, with tokens fixed to `getInstallationToken("observe")` from the trusted App provider
 - Read methods:
   - `getPullRequest(prNumber)`, combining REST PR metadata with GraphQL `baseRefOid`, `headRefOid`, `potentialMergeCommit.oid`, and mergeability
   - `getCommitCheckRuns(testedSha)` for each of the current head SHA and current merge SHA when present
@@ -122,7 +122,7 @@ git commit -m "feat(loop): add GitHub App auth provider"
   - `getJobLog(jobId, options)`
   - `getReviewMetadata(prNumber)`
 
-- [ ] **Step 1: Write failing client tests with mocked fetch**
+- [x] **Step 1: Write failing client tests with mocked fetch**
 
 Assert:
 - only HTTPS GitHub API origin is accepted;
@@ -146,19 +146,23 @@ Assert:
 - a job-log `302` is followed only to an explicitly configured HTTPS download-host allowlist, without Authorization or cookies;
 - off-allowlist redirects and redirect chains are rejected; signed download URLs are not logged or persisted.
 
-- [ ] **Step 2: Run tests and verify they fail**
+- [x] **Step 2: Run tests and verify they fail**
 
 ```bash
 node --test scripts/loop/__tests__/github-pr-client.test.mjs
 ```
 
-- [ ] **Step 3: Implement read-only adapter**
+- [x] **Step 3: Implement read-only adapter**
 
 Use built-in `fetch`; no Octokit dependency in Phase 2B. REST calls pin a supported API version. The current PR REST response is cross-checked with the GraphQL revision tuple because REST API `2026-03-10` no longer returns `merge_commit_sha`. Set authenticated requests to manual redirect handling. The workflow-jobs log endpoint returns a temporary redirect, so validate its `Location`, fetch the download without GitHub authorization headers, enforce size/time limits, redact the content, and discard the signed URL. See [GitHub job log API](https://docs.github.com/en/rest/actions/workflow-jobs).
 
 Bind each check/workflow observation to the exact current base/head/merge tuple and its `testedSha` before returning it to Phase 2A normalizers. The `testedSha` must equal the PR head SHA or GraphQL `potentialMergeCommit.oid`. Keep the PR commit under test separate from the required-workflow source identity `{ repositoryId, path, ref, sha }`; verify each field against the effective ruleset and the workflow definition/run metadata rather than a display name. Read branch protection and all applicable repository/organization rulesets; normalize required workflow files using repository ID, path, ref, and source SHA. If a cross-repository workflow source is inaccessible, or any required field/source/page is unavailable, return an unavailable policy snapshot. Refresh PR base/head/merge values after all pages are collected; if any component changed, discard the evidence and recollect rather than mixing snapshots. Return `checkCollectionComplete: true` only after every required source and page was read successfully. Preserve the distinction between a confirmed complete empty required-check set and unavailable policy data.
 
-- [ ] **Step 4: Run tests and verify they pass**
+**Confirmed Phase 2B decision:** current Actions run metadata supplies the workflow path/ref and the PR `head_sha`, but the adapter has no trusted attestation of the required workflow source SHA. Therefore `getRequiredWorkflowEvidence` returns `unavailable` until a trusted source can attest the exact `{ repositoryId, path, ref, sha }`; matching a run by display name, path, or ref alone must never produce green evidence.
+
+The new tests are verified locally. Wiring them into the fixed local verifier (`scripts/loop/verify.mjs`) or hosted workflow (`.github/workflows/loop-foundation.yml`) is a separate protected-path change and remains pending explicit path-scope approval.
+
+- [x] **Step 4: Run tests and verify they pass**
 
 - [ ] **Step 5: Commit**
 

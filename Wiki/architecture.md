@@ -221,10 +221,12 @@ application has not been converted to Prisma.
   [[loop-engineering]].
 - Phase 2A PR Babysitter adds a GitHub-agnostic decision core with head/base/merge SHA
   binding, required check and workflow evidence, bounded packets, and
-  privacy-safe telemetry. It has no GitHub write capability. Phase 2B must
-  supply authenticated host observations and enforce run-local `LoopState`
-  budgets before enabling any action; missing workflow-source access fails
-  closed.
+  privacy-safe telemetry. Phase 2B now adds GitHub App device-flow identity and
+  exact-scope approval plus a read-only PR/check/ruleset/workflow adapter. It is
+  not yet wired to a repair coordinator or write API; it remains observe-only.
+  Required workflow evidence stays unavailable until a trusted source SHA
+  attestation is available. The host must still enforce run-local `LoopState`
+  budgets before enabling any action.
 
 ## Observability
 
