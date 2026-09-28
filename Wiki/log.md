@@ -89,3 +89,6 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-27 - Codex - Added the bounded Loop Engineering control-plane contract, feature/PR loop guides, structured agent-task issue form, and Wiki architecture note.
 - 2026-09-25 - Codex - Documented production client/server environment variables, public Firebase web config, secret handling, Vercel redeploy behavior, and the DB password validation gap.
 - 2026-09-27 - Codex - Tightened Loop Engineering approval provenance, revision/worktree-bound verification, case-insensitive protected-path classification, and documented ignored-input limits for local verification with clean-CI handoff gates.
+- 2026-09-28 - Codex - Selected a dedicated GitHub App for Phase 2 host identity and human approval, with repository-scoped capability tokens and device-flow identity checks; implementation remains pending.
+- 2026-09-28 - Codex - Implemented Phase 2A PR evidence/state/decision contracts for head-base-merge SHA tuples and required workflows, plus bounded packets, privacy-safe telemetry, and the Phase 2B host budget boundary.
+- 2026-09-28 - Codex - Hardened Phase 2A PR state rollover: only a fresh snapshot for the same repository/PR can reset tuple-scoped counters; stale observations are rejected.

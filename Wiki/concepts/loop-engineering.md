@@ -19,6 +19,43 @@ Loop Engineering is a bounded, auditable control plane around coding work—not 
 - The runner uses a fixed command registry and a sanitized child environment, refuses real dotenv files and project npm authentication settings, and is defense-in-depth rather than an OS sandbox.
 - Phase 1 makes no GitHub writes: it does not dispatch issues, update/comment on PRs, push, or merge. Production database mutation, migration/reset, and deployment promotion are outside the loop; merge and production operations remain human-controlled.
 
+## Phase 2 authentication design
+
+The planned PR babysitter uses a dedicated GitHub App; it does not reuse the Codex `@GitHub` connector credentials. GitHub authenticates the human approver through the App's user authorization flow, while a short-lived installation token gives the trusted host its API identity. [GitHub distinguishes App, installation, and user authentication](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/about-authentication-with-a-github-app).
+
+- The local CLI uses device flow and checks the signed-in GitHub user ID against a trusted host allowlist. Login identifies the approver but does not approve an action; a TTY confirmation must bind the repository, PR, current head SHA, capability, exact paths, and expiry. The coding agent proposes a patch without direct worktree access; the trusted host checks paths before applying it under `repair:workspace` approval, then requires a fresh `contents:write` approval after verification and before pushing.
+- Installation tokens are scoped to the target repository and to the minimum permission set for one capability. Stage 0 is read-only; reruns and repair require separate Actions-write and Contents-write scopes. Keep the App private key outside the checkout, and never persist OAuth or installation tokens. [GitHub supports repository- and permission-scoped installation tokens](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-an-installation-access-token-for-a-github-app).
+- GitHub records API writes under the App identity; the Loop audit metadata records the authenticated approver ID separately. Repair push approval is requested after validating the final changed paths and is consumed in the same process, so approval credentials do not travel in a `RepairPacket` or `.loop/state/`.
+- This is a design decision, not current runtime behavior. Stage 1 and Stage 2 remain disabled until the provider, approver checks, and exact-scope attestation are implemented and reviewed.
+
+## Phase 2A PR Babysitter core
+
+- The GitHub-agnostic core is implemented in `scripts/loop/`. It returns one
+  action (`wait`, `retry-check`, `request-repair`, `escalate`, or
+  `ready-for-human`) and cannot make GitHub writes or edit product code.
+- PR evidence and schema-v3 state bind to the current head/base/merge SHA tuple.
+  Each check also records `testedSha`, which must equal the current head or
+  merge SHA. Required workflows are separate evidence identities containing
+  repository ID, workflow path, ref, and source SHA. Missing, duplicate,
+  stale, partial, or unavailable evidence cannot be treated as green.
+- State rolls to a new tuple only after reconciliation with a fresh snapshot for
+  the same repository and PR. A stale check observation cannot roll state back
+  or reset tuple-scoped retries and failure counts.
+- Completed `neutral` and `skipped` checks are green. Required policy is empty
+  only when the host has completely collected and fingerprinted the effective
+  rules; inaccessible workflow sources remain unavailable.
+- Phase 2A counts same-failure attempts and flaky retries at PR scope. The
+  trusted Phase 2B host owns run-local budgets through `LoopState` for wall-clock,
+  token use, and CI runs. Unknown token usage blocks another model call when a
+  token limit is configured.
+- Escalation and repair packets expose bounded sanitized metadata and fixed
+  verifier command IDs. Telemetry stores stable identifiers and numeric
+  counters, never prompt bodies, review text, credentials, signed URLs, or raw
+  CI logs.
+
 ## Rollout boundary
 
-The PR babysitter is a Phase 2 design only. Issue-to-Draft-PR dispatch and post-merge observation are later phases and must not be inferred from the issue form or local controller. See [[architecture]] and [[index]].
+The Phase 2A decision core is implemented; authenticated GitHub observation and
+any write capability remain Phase 2B work and start observe-only. Issue-to-Draft-PR
+dispatch and post-merge observation are later phases and must not be inferred
+from the issue form or local controller. See [[architecture]] and [[index]].
