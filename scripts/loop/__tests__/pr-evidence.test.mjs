@@ -11,6 +11,10 @@ import {
 
 const headSha = 'a'.repeat(40);
 const otherHeadSha = 'b'.repeat(40);
+const baseSha = 'e'.repeat(40);
+const otherBaseSha = 'f'.repeat(40);
+const mergeSha = '9'.repeat(40);
+const otherMergeSha = '8'.repeat(40);
 
 function prSnapshot(overrides = {}) {
   return {
@@ -19,8 +23,10 @@ function prSnapshot(overrides = {}) {
     state: 'open',
     draft: false,
     baseRef: 'main',
+    baseSha,
     headRef: 'feature/evidence',
     headSha,
+    mergeSha,
     headRepository: 'owner/repo',
     updatedAt: '2026-09-28T03:04:05.000Z',
     ...overrides,
@@ -32,6 +38,7 @@ function requiredChecks(overrides = {}) {
     baseRef: 'main',
     policyFingerprint: 'c'.repeat(64),
     requiredChecks: [{ context: 'client-test', appId: 1234 }],
+    requiredWorkflows: [],
     collectionStatus: 'complete',
     ...overrides,
   };
@@ -41,14 +48,28 @@ function observation(overrides = {}) {
   return {
     checkId: 'check-1234',
     requiredCheckKey: 'client-test|app:1234',
+    requiredWorkflowKey: null,
     provider: 'github-check',
     headSha,
+    baseSha,
+    mergeSha,
+    testedSha: mergeSha,
     attemptKey: 'run-1001-attempt-1',
     status: 'completed',
     conclusion: 'failure',
     runnerOutcome: null,
     coversRelevantScope: true,
     protectedPathTouched: false,
+    failureFingerprint: 'c'.repeat(64),
+    ...overrides,
+  };
+}
+
+function currentRevision(overrides = {}) {
+  return {
+    currentHeadSha: headSha,
+    currentBaseSha: baseSha,
+    currentMergeSha: mergeSha,
     ...overrides,
   };
 }
@@ -99,12 +120,60 @@ describe('revision-bound PR evidence normalization', () => {
     assert.throws(() => normalizeRequiredCheckSnapshot(requiredChecks({ requiredChecks: [{ context: 'client-test', appId: '1234', displayName: 'Test' }] })), PrEvidenceError);
   });
 
+  it('normalizes required workflow identity and derives a stable key', () => {
+    const workflow = {
+      repositoryId: 9876,
+      path: '.github/workflows/security.yml',
+      ref: 'refs/heads/main',
+      sha: 'f'.repeat(40),
+    };
+    const snapshot = normalizeRequiredCheckSnapshot(requiredChecks({
+      requiredChecks: [],
+      requiredWorkflows: [workflow],
+    }));
+
+    assert.deepEqual(snapshot.requiredWorkflowKeys, [
+      'workflow|repo:9876|path:.github%2Fworkflows%2Fsecurity.yml|ref:refs%2Fheads%2Fmain|sha:' + 'f'.repeat(40),
+    ]);
+    assert.equal(snapshot.requiredWorkflows[0].repositoryId, workflow.repositoryId);
+    assert.equal(snapshot.requiredWorkflows[0].path, workflow.path);
+    assert.throws(() => normalizeRequiredCheckSnapshot(requiredChecks({
+      requiredWorkflows: [{ ...workflow, path: '.github/workflows/../evil.yml' }],
+    })), PrEvidenceError);
+    assert.throws(() => normalizeRequiredCheckSnapshot(requiredChecks({
+      requiredWorkflows: [{ ...workflow, repositoryId: 0 }],
+    })), PrEvidenceError);
+    assert.throws(() => normalizeRequiredCheckSnapshot(requiredChecks({
+      requiredWorkflows: [workflow, workflow],
+    })), PrEvidenceError);
+  });
+
   it('rejects unstable check IDs, malformed SHA values, and arbitrary observation fields', () => {
     assert.throws(() => normalizeCheckObservation(observation({ checkId: 'please repair this' })), PrEvidenceError);
     assert.throws(() => normalizeCheckObservation(observation({ headSha: 'not-a-sha' })), PrEvidenceError);
+    assert.throws(() => normalizeCheckObservation(observation({ failureFingerprint: 'not-a-sha256' })), PrEvidenceError);
+    assert.throws(() => normalizeCheckObservation(observation({ failureFingerprint: null })), PrEvidenceError);
+    const { failureFingerprint: _ignored, ...withoutFingerprint } = observation();
+    assert.throws(() => normalizeCheckObservation(withoutFingerprint), PrEvidenceError);
     for (const key of ['instructions', 'prompt', 'shell', 'token', 'logText']) {
       assert.throws(() => normalizeCheckObservation({ ...observation(), [key]: 'untrusted content' }), PrEvidenceError);
     }
+  });
+
+  it('accepts only an adapter SHA-256 for completed failures and normalizes its casing', () => {
+    const normalized = normalizeCheckObservation(observation({ failureFingerprint: 'D'.repeat(64) }));
+
+    assert.equal(normalized.failureFingerprint, 'd'.repeat(64));
+    assert.equal(normalizeCheckObservation(observation({ conclusion: 'success', failureFingerprint: null })).failureFingerprint, null);
+    assert.equal(normalizeCheckObservation(observation({ status: 'queued', conclusion: null, failureFingerprint: null })).failureFingerprint, null);
+    assert.throws(
+      () => normalizeCheckObservation(observation({ conclusion: 'success', failureFingerprint: 'd'.repeat(64) })),
+      PrEvidenceError,
+    );
+    assert.throws(
+      () => normalizeCheckObservation(observation({ status: 'in_progress', conclusion: null, failureFingerprint: 'd'.repeat(64) })),
+      PrEvidenceError,
+    );
   });
 
   it('preserves attempt identity so retries are distinguishable', () => {
@@ -116,8 +185,8 @@ describe('revision-bound PR evidence normalization', () => {
     assert.notEqual(first.attemptKey, retry.attemptKey);
   });
 
-  it('maps only a completed same-head failure to the exact Phase 1 evidence contract', () => {
-    const result = buildFailureEvidence(normalizeCheckObservation(observation()), { currentHeadSha: headSha });
+  it('maps a completed check on the current PR merge SHA to the exact Phase 1 evidence contract', () => {
+    const result = buildFailureEvidence(normalizeCheckObservation(observation()), currentRevision());
 
     assert.deepEqual(result, {
       status: 'actionable',
@@ -125,14 +194,15 @@ describe('revision-bound PR evidence normalization', () => {
         protectedPathTouched: false,
         runnerOutcome: 'check_failed',
         checkId: 'check-1234',
-        currentRevision: headSha,
+        currentRevision: mergeSha,
         coversRelevantScope: true,
       },
+      failureFingerprint: 'c'.repeat(64),
     });
   });
 
-  it('marks a different-head failure stale without exposing actionable evidence', () => {
-    const result = buildFailureEvidence(normalizeCheckObservation(observation({ headSha: otherHeadSha })), { currentHeadSha: headSha });
+  it('marks a different PR head stale without exposing actionable evidence', () => {
+    const result = buildFailureEvidence(normalizeCheckObservation(observation({ headSha: otherHeadSha })), currentRevision());
 
     assert.equal(result.status, 'stale');
     assert.equal(result.reasonCode, 'head_sha_mismatch');
@@ -141,14 +211,27 @@ describe('revision-bound PR evidence normalization', () => {
     assert.equal(Object.hasOwn(result, 'evidence'), false);
   });
 
+  it('rejects evidence from a stale base or merge SHA and an unbound tested SHA', () => {
+    const staleBase = buildFailureEvidence(normalizeCheckObservation(observation({ baseSha: otherBaseSha })), currentRevision());
+    const staleMerge = buildFailureEvidence(normalizeCheckObservation(observation({ mergeSha: otherMergeSha })), currentRevision());
+    const unknownTestedSha = buildFailureEvidence(normalizeCheckObservation(observation({ testedSha: otherHeadSha })), currentRevision());
+
+    assert.equal(staleBase.status, 'stale');
+    assert.equal(staleBase.reasonCode, 'base_sha_mismatch');
+    assert.equal(staleMerge.status, 'stale');
+    assert.equal(staleMerge.reasonCode, 'merge_sha_mismatch');
+    assert.equal(unknownTestedSha.status, 'stale');
+    assert.equal(unknownTestedSha.reasonCode, 'tested_sha_mismatch');
+  });
+
   it('returns no failure evidence for pending and non-failure observations', () => {
     for (const check of [
-      observation({ status: 'queued', conclusion: null }),
-      observation({ status: 'in_progress', conclusion: null }),
-      observation({ conclusion: 'success' }),
-      observation({ conclusion: 'cancelled' }),
+      observation({ status: 'queued', conclusion: null, failureFingerprint: null }),
+      observation({ status: 'in_progress', conclusion: null, failureFingerprint: null }),
+      observation({ conclusion: 'success', failureFingerprint: null }),
+      observation({ conclusion: 'cancelled', failureFingerprint: null }),
     ]) {
-      assert.equal(buildFailureEvidence(normalizeCheckObservation(check), { currentHeadSha: headSha }), null);
+      assert.equal(buildFailureEvidence(normalizeCheckObservation(check), currentRevision()), null);
     }
   });
 
@@ -158,13 +241,13 @@ describe('revision-bound PR evidence normalization', () => {
       protectedPathTouched: true,
       coversRelevantScope: false,
       previouslyPassedRevision: otherHeadSha,
-    })), { currentHeadSha: headSha });
+    })), currentRevision());
 
     assert.deepEqual(result.evidence, {
       protectedPathTouched: true,
       runnerOutcome: 'runner_error',
       checkId: 'check-1234',
-      currentRevision: headSha,
+      currentRevision: mergeSha,
       coversRelevantScope: false,
       previouslyPassedRevision: otherHeadSha,
     });
@@ -173,8 +256,8 @@ describe('revision-bound PR evidence normalization', () => {
 
   it('validates exact builder options and rejects arbitrary instructions and credentials', () => {
     for (const key of ['instructions', 'prompt', 'shell', 'token']) {
-      assert.throws(() => buildFailureEvidence(normalizeCheckObservation(observation()), { currentHeadSha: headSha, [key]: 'untrusted' }), PrEvidenceError);
+      assert.throws(() => buildFailureEvidence(normalizeCheckObservation(observation()), { ...currentRevision(), [key]: 'untrusted' }), PrEvidenceError);
     }
-    assert.throws(() => buildFailureEvidence(normalizeCheckObservation(observation()), {}), PrEvidenceError);
+    assert.throws(() => buildFailureEvidence(normalizeCheckObservation(observation()), { currentHeadSha: headSha }), PrEvidenceError);
   });
 });

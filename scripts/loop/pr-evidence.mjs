@@ -21,8 +21,10 @@ const PR_KEYS = Object.freeze([
   'state',
   'draft',
   'baseRef',
+  'baseSha',
   'headRef',
   'headSha',
+  'mergeSha',
   'headRepository',
   'updatedAt',
 ]);
@@ -30,19 +32,25 @@ const REQUIRED_CHECK_KEYS = Object.freeze([
   'baseRef',
   'policyFingerprint',
   'requiredChecks',
+  'requiredWorkflows',
   'collectionStatus',
 ]);
 const OBSERVATION_REQUIRED_KEYS = Object.freeze([
   'checkId',
   'requiredCheckKey',
+  'requiredWorkflowKey',
   'provider',
   'headSha',
+  'baseSha',
+  'mergeSha',
+  'testedSha',
   'attemptKey',
   'status',
   'conclusion',
   'runnerOutcome',
   'coversRelevantScope',
   'protectedPathTouched',
+  'failureFingerprint',
 ]);
 const OBSERVATION_OPTIONAL_KEYS = Object.freeze(['previouslyPassedRevision']);
 
@@ -146,8 +154,10 @@ export function normalizePrSnapshot(input) {
     state: input.state,
     draft: input.draft,
     baseRef: normalizeRef(input.baseRef, 'baseRef'),
+    baseSha: normalizeRevision(input.baseSha, 'baseSha'),
     headRef: normalizeRef(input.headRef, 'headRef'),
     headSha: normalizeRevision(input.headSha, 'headSha'),
+    mergeSha: input.mergeSha === null ? null : normalizeRevision(input.mergeSha, 'mergeSha'),
     headRepository: normalizeRepository(input.headRepository, 'headRepository'),
     updatedAt: normalizeTimestamp(input.updatedAt),
   });
@@ -166,6 +176,63 @@ function normalizeRequiredCheck(value) {
   return value.appId === null ? `${context}|legacy` : `${context}|app:${value.appId}`;
 }
 
+function normalizeWorkflowPath(value) {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 255
+      || value.trim() !== value || value.includes('\\') || /[\x00-\x1f\x7f]/.test(value)) {
+    throw new PrEvidenceError('required workflow path must be a canonical repository-relative path');
+  }
+  const segments = value.split('/');
+  if (segments.length < 3 || segments[0] !== '.github' || segments[1] !== 'workflows'
+      || segments.some((segment) => segment.length === 0 || segment === '.' || segment === '..')
+      || !/\.ya?ml$/i.test(value)) {
+    throw new PrEvidenceError('required workflow path must identify a YAML file under .github/workflows');
+  }
+  return value;
+}
+
+function requiredWorkflowKey({ repositoryId, path: workflowPath, ref, sha }) {
+  return `workflow|repo:${repositoryId}|path:${encodeURIComponent(workflowPath)}|ref:${encodeURIComponent(ref)}|sha:${sha}`;
+}
+
+function normalizeRequiredWorkflow(value) {
+  assertExactKeys(value, ['repositoryId', 'path', 'ref', 'sha']);
+  if (!Number.isSafeInteger(value.repositoryId) || value.repositoryId < 1) {
+    throw new PrEvidenceError('required workflow repositoryId must be a positive safe integer');
+  }
+  const normalized = {
+    repositoryId: value.repositoryId,
+    path: normalizeWorkflowPath(value.path),
+    ref: normalizeRef(value.ref, 'required workflow ref'),
+    sha: normalizeRevision(value.sha, 'required workflow sha'),
+  };
+  return Object.freeze({ ...normalized, key: requiredWorkflowKey(normalized) });
+}
+
+function normalizeRequiredWorkflowKey(value) {
+  if (value === null) return null;
+  if (typeof value !== 'string' || value.length > 1200) {
+    throw new PrEvidenceError('requiredWorkflowKey must be a canonical key or null');
+  }
+  const match = /^workflow\|repo:([1-9]\d*)\|path:([^|]+)\|ref:([^|]+)\|sha:([a-f0-9]{40}(?:[a-f0-9]{24})?)$/i.exec(value);
+  if (!match) throw new PrEvidenceError('requiredWorkflowKey must be a canonical key or null');
+  let workflowPath;
+  let ref;
+  try {
+    workflowPath = decodeURIComponent(match[2]);
+    ref = decodeURIComponent(match[3]);
+  } catch {
+    throw new PrEvidenceError('requiredWorkflowKey contains invalid encoding');
+  }
+  const normalized = normalizeRequiredWorkflow({
+    repositoryId: Number(match[1]),
+    path: workflowPath,
+    ref,
+    sha: match[4],
+  });
+  if (normalized.key !== value) throw new PrEvidenceError('requiredWorkflowKey must be canonical');
+  return normalized.key;
+}
+
 export function normalizeRequiredCheckSnapshot(input) {
   assertExactKeys(input, REQUIRED_CHECK_KEYS);
 
@@ -179,11 +246,20 @@ export function normalizeRequiredCheckSnapshot(input) {
   if (new Set(requiredCheckKeys).size !== requiredCheckKeys.length) {
     throw new PrEvidenceError('requiredChecks must not contain duplicate canonical keys');
   }
+  if (!Array.isArray(input.requiredWorkflows)) throw new PrEvidenceError('requiredWorkflows must be an array');
+  const requiredWorkflows = input.requiredWorkflows.map(normalizeRequiredWorkflow)
+    .sort((left, right) => left.key.localeCompare(right.key));
+  const requiredWorkflowKeys = requiredWorkflows.map((workflow) => workflow.key);
+  if (new Set(requiredWorkflowKeys).size !== requiredWorkflowKeys.length) {
+    throw new PrEvidenceError('requiredWorkflows must not contain duplicate canonical identities');
+  }
 
   return Object.freeze({
     baseRef: normalizeRef(input.baseRef, 'baseRef'),
     policyFingerprint: input.policyFingerprint.toLowerCase(),
     requiredCheckKeys: Object.freeze(requiredCheckKeys),
+    requiredWorkflowKeys: Object.freeze(requiredWorkflowKeys),
+    requiredWorkflows: Object.freeze(requiredWorkflows),
     collectionStatus: input.collectionStatus,
   });
 }
@@ -202,6 +278,14 @@ export function normalizeCheckObservation(input) {
   if (input.status !== 'completed' && input.conclusion !== null) {
     throw new PrEvidenceError('pending observations cannot include a conclusion');
   }
+  const isCompletedFailure = input.status === 'completed' && input.conclusion === 'failure';
+  if (isCompletedFailure) {
+    if (typeof input.failureFingerprint !== 'string' || !FINGERPRINT_PATTERN.test(input.failureFingerprint)) {
+      throw new PrEvidenceError('completed failures must include an adapter SHA-256 failureFingerprint');
+    }
+  } else if (input.failureFingerprint !== null) {
+    throw new PrEvidenceError('non-failure observations must use a null failureFingerprint');
+  }
   if (input.runnerOutcome !== null && !RUNNER_OUTCOMES.has(input.runnerOutcome)) {
     throw new PrEvidenceError('runnerOutcome is unsupported');
   }
@@ -212,14 +296,19 @@ export function normalizeCheckObservation(input) {
   const output = {
     checkId: normalizeStableId(input.checkId, 'checkId'),
     requiredCheckKey: normalizeRequiredCheckKey(input.requiredCheckKey),
+    requiredWorkflowKey: normalizeRequiredWorkflowKey(input.requiredWorkflowKey),
     provider: input.provider,
     headSha: normalizeRevision(input.headSha, 'headSha'),
+    baseSha: normalizeRevision(input.baseSha, 'baseSha'),
+    mergeSha: input.mergeSha === null ? null : normalizeRevision(input.mergeSha, 'mergeSha'),
+    testedSha: normalizeRevision(input.testedSha, 'testedSha'),
     attemptKey: normalizeStableId(input.attemptKey, 'attemptKey'),
     status: input.status,
     conclusion: input.conclusion,
     runnerOutcome: input.runnerOutcome,
     coversRelevantScope: input.coversRelevantScope,
     protectedPathTouched: input.protectedPathTouched,
+    failureFingerprint: isCompletedFailure ? input.failureFingerprint.toLowerCase() : null,
   };
   if (Object.hasOwn(input, 'previouslyPassedRevision')) {
     output.previouslyPassedRevision = normalizeRevision(input.previouslyPassedRevision, 'previouslyPassedRevision');
@@ -229,8 +318,12 @@ export function normalizeCheckObservation(input) {
 
 export function buildFailureEvidence(check, options) {
   const observation = normalizeCheckObservation(check);
-  assertExactKeys(options, ['currentHeadSha']);
+  assertExactKeys(options, ['currentHeadSha', 'currentBaseSha', 'currentMergeSha']);
   const currentHeadSha = normalizeRevision(options.currentHeadSha, 'currentHeadSha');
+  const currentBaseSha = normalizeRevision(options.currentBaseSha, 'currentBaseSha');
+  const currentMergeSha = options.currentMergeSha === null
+    ? null
+    : normalizeRevision(options.currentMergeSha, 'currentMergeSha');
 
   if (observation.headSha !== currentHeadSha) {
     return Object.freeze({
@@ -240,18 +333,32 @@ export function buildFailureEvidence(check, options) {
       currentHeadSha,
     });
   }
+  if (observation.baseSha !== currentBaseSha) {
+    return Object.freeze({ status: 'stale', reasonCode: 'base_sha_mismatch' });
+  }
+  if (observation.mergeSha !== currentMergeSha) {
+    return Object.freeze({ status: 'stale', reasonCode: 'merge_sha_mismatch' });
+  }
+  if (observation.testedSha !== currentHeadSha
+      && (currentMergeSha === null || observation.testedSha !== currentMergeSha)) {
+    return Object.freeze({ status: 'stale', reasonCode: 'tested_sha_mismatch' });
+  }
   if (observation.status !== 'completed' || observation.conclusion !== 'failure') return null;
 
   const evidence = {
     protectedPathTouched: observation.protectedPathTouched,
     runnerOutcome: observation.runnerOutcome ?? 'check_failed',
     checkId: observation.checkId,
-    currentRevision: observation.headSha,
+    currentRevision: observation.testedSha,
     coversRelevantScope: observation.coversRelevantScope,
   };
   if (Object.hasOwn(observation, 'previouslyPassedRevision')) {
     evidence.previouslyPassedRevision = observation.previouslyPassedRevision;
   }
 
-  return Object.freeze({ status: 'actionable', evidence: Object.freeze(evidence) });
+  return Object.freeze({
+    status: 'actionable',
+    evidence: Object.freeze(evidence),
+    failureFingerprint: observation.failureFingerprint,
+  });
 }

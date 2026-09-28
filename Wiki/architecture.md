@@ -219,6 +219,12 @@ application has not been converted to Prisma.
   issue dispatch or GitHub writes; high/critical/protected work, merges, and
   production operations remain under explicit human control. See
   [[loop-engineering]].
+- Phase 2A PR Babysitter adds a GitHub-agnostic decision core with head/base/merge SHA
+  binding, required check and workflow evidence, bounded packets, and
+  privacy-safe telemetry. It has no GitHub write capability. Phase 2B must
+  supply authenticated host observations and enforce run-local `LoopState`
+  budgets before enabling any action; missing workflow-source access fails
+  closed.
 
 ## Observability
 

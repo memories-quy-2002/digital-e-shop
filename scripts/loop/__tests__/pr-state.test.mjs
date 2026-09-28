@@ -11,6 +11,8 @@ import {
   PrBabysitterStateValidationError,
   createPrBabysitterState,
   loadPrBabysitterState,
+  reconcilePrBabysitterState,
+  recordActionableFailure,
   recordCheckObservation,
   recordFlakyRetry,
   recordRepairRequest,
@@ -20,6 +22,10 @@ import {
 const temporaryRoots = new Set();
 const headSha = 'a'.repeat(40);
 const nextHeadSha = 'b'.repeat(40);
+const baseSha = 'd'.repeat(40);
+const mergeSha = 'e'.repeat(40);
+const nextBaseSha = 'f'.repeat(40);
+const nextMergeSha = '1'.repeat(40);
 
 async function createRepoFixture() {
   const root = await mkdtemp(path.join(os.tmpdir(), 'digital-e-pr-state-'));
@@ -34,8 +40,10 @@ function snapshot(overrides = {}) {
     state: 'open',
     draft: false,
     baseRef: 'main',
+    baseSha,
     headRef: 'feature/babysitter',
     headSha,
+    mergeSha,
     headRepository: 'Owner/Repo',
     updatedAt: '2026-09-28T03:04:05.000Z',
     ...overrides,
@@ -46,14 +54,19 @@ function observation(overrides = {}) {
   return {
     checkId: 'check-1234',
     requiredCheckKey: 'client-test|app:1234',
+    requiredWorkflowKey: null,
     provider: 'github-check',
     headSha,
+    baseSha,
+    mergeSha,
+    testedSha: mergeSha,
     attemptKey: 'run-1001-attempt-1',
     status: 'completed',
     conclusion: 'failure',
     runnerOutcome: null,
     coversRelevantScope: true,
     protectedPathTouched: false,
+    failureFingerprint: 'c'.repeat(64),
     ...overrides,
   };
 }
@@ -67,15 +80,19 @@ describe('PR babysitter state persistence', () => {
   it('creates compact versioned state from a normalized PR snapshot and rejects prompt fields', () => {
     const state = createPrBabysitterState(snapshot());
 
-    assert.equal(state.schemaVersion, 1);
+    assert.equal(state.schemaVersion, 3);
     assert.equal(state.repository, 'owner/repo');
     assert.equal(state.prNumber, 42);
     assert.equal(state.branch, 'feature/babysitter');
     assert.equal(state.baseRef, 'main');
+    assert.equal(state.baseSha, baseSha);
     assert.equal(state.headSha, headSha);
+    assert.equal(state.mergeSha, mergeSha);
     assert.equal(state.phase, 'observe');
     assert.deepEqual(state.observedAttemptKeys, []);
     assert.deepEqual(state.flakyRetryCounts, {});
+    assert.deepEqual(state.actionableFailureCounts, {});
+    assert.deepEqual(state.actionableFailureAttemptFingerprints, {});
     assert.equal(state.repairRequestCount, 0);
     assert.equal(Object.hasOwn(state, 'prompt'), false);
     assert.throws(
@@ -114,9 +131,86 @@ describe('PR babysitter state persistence', () => {
     assert.deepEqual(initial.observedAttemptKeys, []);
   });
 
+  it('counts failures per fingerprint, increments only for a new attempt, and deduplicates repeat delivery', () => {
+    let state = createPrBabysitterState(snapshot());
+    state = recordCheckObservation(state, observation());
+    const firstFailure = {
+      headSha,
+      baseSha,
+      mergeSha,
+      attemptKey: 'run-1001-attempt-1',
+      failureFingerprint: 'c'.repeat(64),
+    };
+    const first = recordActionableFailure(state, firstFailure);
+    const duplicate = recordActionableFailure(first, firstFailure);
+
+    assert.deepEqual(first.actionableFailureCounts, { ['c'.repeat(64)]: 1 });
+    assert.deepEqual(first.actionableFailureAttemptFingerprints, { 'run-1001-attempt-1': 'c'.repeat(64) });
+    assert.deepEqual(duplicate, first);
+
+    state = recordCheckObservation(first, observation({ attemptKey: 'run-1001-attempt-2' }));
+    state = recordActionableFailure(state, { ...firstFailure, attemptKey: 'run-1001-attempt-2' });
+    assert.equal(state.actionableFailureCounts['c'.repeat(64)], 2);
+
+    state = recordCheckObservation(state, observation({ attemptKey: 'run-1001-attempt-3', failureFingerprint: 'd'.repeat(64) }));
+    state = recordActionableFailure(state, {
+      headSha,
+      baseSha,
+      mergeSha,
+      attemptKey: 'run-1001-attempt-3',
+      failureFingerprint: 'd'.repeat(64),
+    });
+    assert.deepEqual(state.actionableFailureCounts, { ['c'.repeat(64)]: 2, ['d'.repeat(64)]: 1 });
+  });
+
+  it('rejects unobserved, stale, malformed, and conflicting actionable failure records', () => {
+    let state = createPrBabysitterState(snapshot());
+    state = recordCheckObservation(state, observation());
+    const firstFailure = {
+      headSha,
+      baseSha,
+      mergeSha,
+      attemptKey: 'run-1001-attempt-1',
+      failureFingerprint: 'c'.repeat(64),
+    };
+    state = recordActionableFailure(state, firstFailure);
+
+    assert.throws(
+      () => recordActionableFailure(state, { ...firstFailure, failureFingerprint: 'd'.repeat(64) }),
+      PrBabysitterStateValidationError,
+    );
+    assert.throws(
+      () => recordActionableFailure(state, { ...firstFailure, attemptKey: 'unobserved-attempt' }),
+      PrBabysitterStateValidationError,
+    );
+    assert.throws(
+      () => recordActionableFailure(state, { ...firstFailure, headSha: nextHeadSha }),
+      PrBabysitterStateValidationError,
+    );
+    assert.throws(
+      () => recordActionableFailure(state, { ...firstFailure, baseSha: nextBaseSha }),
+      PrBabysitterStateValidationError,
+    );
+    assert.throws(
+      () => recordActionableFailure(state, { ...firstFailure, mergeSha: nextMergeSha }),
+      PrBabysitterStateValidationError,
+    );
+    assert.throws(
+      () => recordActionableFailure(state, { ...firstFailure, failureFingerprint: 'invalid' }),
+      PrBabysitterStateValidationError,
+    );
+  });
+
   it('rolls revision-scoped observations and retries on a new head while preserving aggregate counters', () => {
     let state = createPrBabysitterState(snapshot());
     state = recordCheckObservation(state, observation());
+    state = recordActionableFailure(state, {
+      headSha,
+      baseSha,
+      mergeSha,
+      attemptKey: 'run-1001-attempt-1',
+      failureFingerprint: 'c'.repeat(64),
+    });
     state = recordFlakyRetry(state, 'check-1234');
     state = recordRepairRequest(state, {
       reasonCode: 'deterministic_failure',
@@ -126,12 +220,25 @@ describe('PR babysitter state persistence', () => {
     const countersBeforeRollover = state.telemetry;
     const repairBudgetBeforeRollover = state.repairRequestCount;
 
-    const next = recordCheckObservation(state, observation({ headSha: nextHeadSha, attemptKey: 'run-2002-attempt-1' }));
+    const rolledState = reconcilePrBabysitterState(state, snapshot({
+      headSha: nextHeadSha,
+      mergeSha: nextMergeSha,
+    }));
+    const next = recordCheckObservation(rolledState, observation({
+      headSha: nextHeadSha,
+      mergeSha: nextMergeSha,
+      testedSha: nextMergeSha,
+      attemptKey: 'run-2002-attempt-1',
+    }));
 
     assert.equal(next.headSha, nextHeadSha);
+    assert.equal(next.baseSha, baseSha);
+    assert.equal(next.mergeSha, nextMergeSha);
     assert.equal(next.phase, 'observe');
     assert.deepEqual(next.observedAttemptKeys, ['run-2002-attempt-1']);
     assert.deepEqual(next.flakyRetryCounts, {});
+    assert.deepEqual(next.actionableFailureCounts, {});
+    assert.deepEqual(next.actionableFailureAttemptFingerprints, {});
     assert.equal(next.lastActionableFailureFingerprint, null);
     assert.equal(next.lastDecisionReasonCode, null);
     assert.equal(next.escalationReason, null);
@@ -139,6 +246,69 @@ describe('PR babysitter state persistence', () => {
     assert.equal(next.telemetry.observationsRecorded, countersBeforeRollover.observationsRecorded + 1);
     assert.equal(next.telemetry.flakyRetriesRecorded, countersBeforeRollover.flakyRetriesRecorded);
     assert.equal(next.telemetry.repairRequestsRecorded, countersBeforeRollover.repairRequestsRecorded);
+  });
+
+  it('rolls revision-scoped state when the base or merge SHA changes without a head change', () => {
+    let state = createPrBabysitterState(snapshot());
+    state = recordCheckObservation(state, observation());
+    state = recordFlakyRetry(state, 'check-1234');
+
+    const rolledState = reconcilePrBabysitterState(state, snapshot({
+      baseSha: nextBaseSha,
+      mergeSha: nextMergeSha,
+    }));
+    const next = recordCheckObservation(rolledState, observation({
+      baseSha: nextBaseSha,
+      mergeSha: nextMergeSha,
+      testedSha: nextMergeSha,
+      attemptKey: 'run-2002-attempt-1',
+    }));
+
+    assert.equal(next.headSha, headSha);
+    assert.equal(next.baseSha, nextBaseSha);
+    assert.equal(next.mergeSha, nextMergeSha);
+    assert.deepEqual(next.observedAttemptKeys, ['run-2002-attempt-1']);
+    assert.deepEqual(next.flakyRetryCounts, {});
+    assert.equal(next.telemetry.flakyRetriesRecorded, 1);
+  });
+
+  it('rejects stale check observations instead of letting them roll state back or reset counters', () => {
+    let state = createPrBabysitterState(snapshot({
+      headSha: nextHeadSha,
+      mergeSha: nextMergeSha,
+    }));
+    const currentObservation = observation({
+      headSha: nextHeadSha,
+      mergeSha: nextMergeSha,
+      testedSha: nextMergeSha,
+      attemptKey: 'run-2002-attempt-1',
+    });
+    state = recordCheckObservation(state, currentObservation);
+    state = recordActionableFailure(state, {
+      headSha: nextHeadSha,
+      baseSha,
+      mergeSha: nextMergeSha,
+      attemptKey: currentObservation.attemptKey,
+      failureFingerprint: currentObservation.failureFingerprint,
+    });
+    const countsBeforeStaleObservation = state.actionableFailureCounts;
+
+    assert.throws(
+      () => recordCheckObservation(state, observation()),
+      /does not match the current PR state/i,
+    );
+    assert.equal(state.headSha, nextHeadSha);
+    assert.deepEqual(state.actionableFailureCounts, countsBeforeStaleObservation);
+    assert.deepEqual(state.observedAttemptKeys, [currentObservation.attemptKey]);
+  });
+
+  it('reconciliation requires the same PR identity before rolling tuple-scoped state', () => {
+    const state = createPrBabysitterState(snapshot());
+
+    assert.throws(
+      () => reconcilePrBabysitterState(state, snapshot({ number: 43, headSha: nextHeadSha })),
+      /repository\/PR identity/i,
+    );
   });
 
   it('tracks flaky retries per check and validates IDs', () => {
@@ -182,6 +352,13 @@ describe('PR babysitter state persistence', () => {
     await writeFile(file, '{ malformed', 'utf8');
     await assert.rejects(loadPrBabysitterState(root, 'owner/repo', 42), PrBabysitterStateCorruptError);
     assert.equal(await import('node:fs/promises').then(({ readFile }) => readFile(file, 'utf8')), '{ malformed');
+
+    const legacyState = createPrBabysitterState(snapshot());
+    legacyState.schemaVersion = 2;
+    const legacySerialized = JSON.stringify(legacyState);
+    await writeFile(file, legacySerialized, 'utf8');
+    await assert.rejects(loadPrBabysitterState(root, 'owner/repo', 42), PrBabysitterStateCorruptError);
+    assert.equal(await import('node:fs/promises').then(({ readFile }) => readFile(file, 'utf8')), legacySerialized);
   });
 
   it('rejects a PR state directory symlink escape', async (t) => {

@@ -20,11 +20,15 @@ const STATE_KEYS = Object.freeze([
   'prNumber',
   'branch',
   'baseRef',
+  'baseSha',
   'headSha',
+  'mergeSha',
   'phase',
   'engineeringTaskId',
   'observedAttemptKeys',
   'flakyRetryCounts',
+  'actionableFailureCounts',
+  'actionableFailureAttemptFingerprints',
   'repairRequestCount',
   'lastActionableFailureFingerprint',
   'lastDecisionReasonCode',
@@ -106,6 +110,12 @@ function assertIdentifier(value, label) {
   }
 }
 
+function assertFailureFingerprint(value, label) {
+  if (typeof value !== 'string' || !FINGERPRINT_PATTERN.test(value)) {
+    throw new PrBabysitterStateValidationError(`${label} must be a SHA-256 hex digest`);
+  }
+}
+
 function normalizeRepository(repository) {
   try {
     // Reuse the PR evidence contract so filenames and state keys have one canonical form.
@@ -115,8 +125,10 @@ function normalizeRepository(repository) {
       state: 'open',
       draft: false,
       baseRef: 'main',
+      baseSha: 'a'.repeat(40),
       headRef: 'main',
       headSha: 'a'.repeat(40),
+      mergeSha: null,
       headRepository: repository,
       updatedAt: '2000-01-01T00:00:00.000Z',
     }).repository;
@@ -132,7 +144,7 @@ function assertRepository(repository) {
 
 function validateState(state) {
   assertExactKeys(state, STATE_KEYS, [], 'PR babysitter state');
-  if (state.schemaVersion !== 1) throw new PrBabysitterStateValidationError('schemaVersion is unsupported');
+  if (state.schemaVersion !== 3) throw new PrBabysitterStateValidationError('schemaVersion is unsupported');
   assertRepository(state.repository);
   assertCounter(state.prNumber, 'prNumber', { max: Number.MAX_SAFE_INTEGER });
   if (state.prNumber < 1) throw new PrBabysitterStateValidationError('prNumber must be positive');
@@ -143,8 +155,10 @@ function validateState(state) {
       state: 'open',
       draft: false,
       baseRef: state.baseRef,
+      baseSha: state.baseSha,
       headRef: state.branch,
       headSha: state.headSha,
+      mergeSha: state.mergeSha,
       headRepository: state.repository,
       updatedAt: state.updatedAt,
     });
@@ -164,6 +178,44 @@ function validateState(state) {
     assertIdentifier(attemptKey, 'observed attempt key');
     if (attemptKeys.has(attemptKey)) throw new PrBabysitterStateValidationError('observedAttemptKeys must be unique');
     attemptKeys.add(attemptKey);
+  }
+  if (!isPlainObject(state.actionableFailureCounts)) {
+    throw new PrBabysitterStateValidationError('actionableFailureCounts must be a plain object');
+  }
+  const failureFingerprints = Object.keys(state.actionableFailureCounts);
+  if (failureFingerprints.length > MAX_CHECK_COUNTERS) {
+    throw new PrBabysitterStateValidationError(`actionableFailureCounts cannot exceed ${MAX_CHECK_COUNTERS} entries`);
+  }
+  for (const fingerprint of failureFingerprints) {
+    assertFailureFingerprint(fingerprint, 'actionable failure fingerprint');
+    assertCounter(state.actionableFailureCounts[fingerprint], `actionableFailureCounts.${fingerprint}`);
+    if (state.actionableFailureCounts[fingerprint] < 1) {
+      throw new PrBabysitterStateValidationError('actionableFailureCounts values must be positive');
+    }
+  }
+  if (!isPlainObject(state.actionableFailureAttemptFingerprints)) {
+    throw new PrBabysitterStateValidationError('actionableFailureAttemptFingerprints must be a plain object');
+  }
+  const failureAttempts = Object.entries(state.actionableFailureAttemptFingerprints);
+  if (failureAttempts.length > MAX_ATTEMPT_KEYS) {
+    throw new PrBabysitterStateValidationError(`actionableFailureAttemptFingerprints cannot exceed ${MAX_ATTEMPT_KEYS} entries`);
+  }
+  const countedFailures = new Map();
+  for (const [attemptKey, fingerprint] of failureAttempts) {
+    assertIdentifier(attemptKey, 'actionable failure attempt key');
+    if (!attemptKeys.has(attemptKey)) {
+      throw new PrBabysitterStateValidationError('actionable failure attempts must reference observed attempts');
+    }
+    assertFailureFingerprint(fingerprint, `actionableFailureAttemptFingerprints.${attemptKey}`);
+    countedFailures.set(fingerprint, (countedFailures.get(fingerprint) ?? 0) + 1);
+  }
+  for (const fingerprint of failureFingerprints) {
+    if (countedFailures.get(fingerprint) !== state.actionableFailureCounts[fingerprint]) {
+      throw new PrBabysitterStateValidationError('actionable failure counts must match their attempt mappings');
+    }
+  }
+  if (countedFailures.size !== failureFingerprints.length) {
+    throw new PrBabysitterStateValidationError('actionable failure counts must match their attempt mappings');
   }
   if (!isPlainObject(state.flakyRetryCounts)) {
     throw new PrBabysitterStateValidationError('flakyRetryCounts must be a plain object');
@@ -192,6 +244,10 @@ function validateState(state) {
   assertTimestamp(state.startedAt, 'startedAt');
   assertTimestamp(state.updatedAt, 'updatedAt');
   return state;
+}
+
+export function validatePrBabysitterState(state) {
+  return validateState(state);
 }
 
 function cloneState(state) {
@@ -275,7 +331,7 @@ function stateIdentity(state) {
 export function createPrBabysitterState(input) {
   const optionalKeys = ['engineeringTaskId'];
   assertAllowedKeys(input, [
-    'repository', 'number', 'state', 'draft', 'baseRef', 'headRef', 'headSha', 'headRepository', 'updatedAt',
+    'repository', 'number', 'state', 'draft', 'baseRef', 'baseSha', 'headRef', 'headSha', 'mergeSha', 'headRepository', 'updatedAt',
     ...optionalKeys,
   ], 'createPrBabysitterState input');
   if (Object.hasOwn(input, 'engineeringTaskId') && input.engineeringTaskId !== null
@@ -293,16 +349,20 @@ export function createPrBabysitterState(input) {
   }
   const now = new Date().toISOString();
   return validateState({
-    schemaVersion: 1,
+    schemaVersion: 3,
     repository: snapshot.repository,
     prNumber: snapshot.number,
     branch: snapshot.headRef,
     baseRef: snapshot.baseRef,
+    baseSha: snapshot.baseSha,
     headSha: snapshot.headSha,
+    mergeSha: snapshot.mergeSha,
     phase: 'observe',
     engineeringTaskId: input.engineeringTaskId ?? null,
     observedAttemptKeys: [],
     flakyRetryCounts: {},
+    actionableFailureCounts: {},
+    actionableFailureAttemptFingerprints: {},
     repairRequestCount: 0,
     lastActionableFailureFingerprint: null,
     lastDecisionReasonCode: null,
@@ -311,6 +371,44 @@ export function createPrBabysitterState(input) {
     startedAt: now,
     updatedAt: now,
   });
+}
+
+export function reconcilePrBabysitterState(state, currentPrSnapshot) {
+  const next = cloneState(state);
+  let snapshot;
+  try {
+    snapshot = normalizePrSnapshot(currentPrSnapshot);
+  } catch (error) {
+    if (error instanceof PrEvidenceError) {
+      throw new PrBabysitterStateValidationError(error.message, { cause: error });
+    }
+    throw error;
+  }
+  if (snapshot.repository !== next.repository || snapshot.number !== next.prNumber) {
+    throw new PrBabysitterStateValidationError('current PR snapshot repository/PR identity does not match state');
+  }
+
+  const tupleChanged = snapshot.baseSha !== next.baseSha
+    || snapshot.headSha !== next.headSha
+    || snapshot.mergeSha !== next.mergeSha
+    || snapshot.baseRef !== next.baseRef
+    || snapshot.headRef !== next.branch;
+  if (!tupleChanged) return next;
+
+  next.branch = snapshot.headRef;
+  next.baseRef = snapshot.baseRef;
+  next.baseSha = snapshot.baseSha;
+  next.headSha = snapshot.headSha;
+  next.mergeSha = snapshot.mergeSha;
+  next.phase = 'observe';
+  next.observedAttemptKeys = [];
+  next.flakyRetryCounts = {};
+  next.actionableFailureCounts = {};
+  next.actionableFailureAttemptFingerprints = {};
+  next.lastActionableFailureFingerprint = null;
+  next.lastDecisionReasonCode = null;
+  next.escalationReason = null;
+  return updateTimestamp(next);
 }
 
 export function recordCheckObservation(state, observation) {
@@ -323,14 +421,12 @@ export function recordCheckObservation(state, observation) {
     throw error;
   }
 
-  if (normalized.headSha !== next.headSha) {
-    next.headSha = normalized.headSha;
-    next.phase = 'observe';
-    next.observedAttemptKeys = [];
-    next.flakyRetryCounts = {};
-    next.lastActionableFailureFingerprint = null;
-    next.lastDecisionReasonCode = null;
-    next.escalationReason = null;
+  if (normalized.headSha !== next.headSha
+      || normalized.baseSha !== next.baseSha
+      || normalized.mergeSha !== next.mergeSha) {
+    throw new PrBabysitterStateValidationError(
+      'check observation SHA tuple does not match the current PR state; reconcile with a fresh PR snapshot first',
+    );
   }
   if (next.observedAttemptKeys.includes(normalized.attemptKey)) return next;
   if (next.observedAttemptKeys.length >= MAX_ATTEMPT_KEYS) {
@@ -353,6 +449,52 @@ export function recordFlakyRetry(state, checkId) {
   next.telemetry.flakyRetriesRecorded += 1;
   assertCounter(next.flakyRetryCounts[checkId], `flakyRetryCounts.${checkId}`);
   assertCounter(next.telemetry.flakyRetriesRecorded, 'telemetry.flakyRetriesRecorded');
+  return updateTimestamp(next);
+}
+
+export function recordActionableFailure(state, failure) {
+  const next = cloneState(state);
+  assertExactKeys(failure, ['headSha', 'baseSha', 'mergeSha', 'attemptKey', 'failureFingerprint'], [], 'actionable failure');
+  if (typeof failure.headSha !== 'string' || !REVISION_PATTERN.test(failure.headSha)) {
+    throw new PrBabysitterStateValidationError('headSha must be a full Git revision');
+  }
+  if (typeof failure.baseSha !== 'string' || !REVISION_PATTERN.test(failure.baseSha)) {
+    throw new PrBabysitterStateValidationError('baseSha must be a full Git revision');
+  }
+  if (failure.mergeSha !== null
+      && (typeof failure.mergeSha !== 'string' || !REVISION_PATTERN.test(failure.mergeSha))) {
+    throw new PrBabysitterStateValidationError('mergeSha must be a full Git revision or null');
+  }
+  const headSha = failure.headSha.toLowerCase();
+  const baseSha = failure.baseSha.toLowerCase();
+  const mergeSha = failure.mergeSha === null ? null : failure.mergeSha.toLowerCase();
+  if (headSha !== next.headSha || baseSha !== next.baseSha || mergeSha !== next.mergeSha) {
+    throw new PrBabysitterStateValidationError('actionable failure SHA tuple does not match current PR state');
+  }
+  assertIdentifier(failure.attemptKey, 'attemptKey');
+  assertFailureFingerprint(failure.failureFingerprint, 'failureFingerprint');
+  if (!next.observedAttemptKeys.includes(failure.attemptKey)) {
+    throw new PrBabysitterStateValidationError('actionable failure attempt must be observed first');
+  }
+
+  const fingerprint = failure.failureFingerprint.toLowerCase();
+  if (Object.hasOwn(next.actionableFailureAttemptFingerprints, failure.attemptKey)) {
+    if (next.actionableFailureAttemptFingerprints[failure.attemptKey] !== fingerprint) {
+      throw new PrBabysitterStateValidationError('an observed attempt cannot be assigned conflicting failure fingerprints');
+    }
+    return next;
+  }
+  if (Object.keys(next.actionableFailureAttemptFingerprints).length >= MAX_ATTEMPT_KEYS) {
+    throw new PrBabysitterStateValidationError(`actionableFailureAttemptFingerprints cannot exceed ${MAX_ATTEMPT_KEYS} entries`);
+  }
+  if (!Object.hasOwn(next.actionableFailureCounts, fingerprint)
+      && Object.keys(next.actionableFailureCounts).length >= MAX_CHECK_COUNTERS) {
+    throw new PrBabysitterStateValidationError(`actionableFailureCounts cannot exceed ${MAX_CHECK_COUNTERS} entries`);
+  }
+
+  next.actionableFailureAttemptFingerprints[failure.attemptKey] = fingerprint;
+  next.actionableFailureCounts[fingerprint] = (next.actionableFailureCounts[fingerprint] ?? 0) + 1;
+  assertCounter(next.actionableFailureCounts[fingerprint], `actionableFailureCounts.${fingerprint}`);
   return updateTimestamp(next);
 }
 

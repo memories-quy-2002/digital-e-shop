@@ -113,7 +113,7 @@ describe('Loop Engineering operating contracts', () => {
       read('Wiki/log.md'),
     ]);
 
-    assert.match(index, /^\*\*Last updated:\*\* 2026-09-27$/m);
+    assert.match(index, /^\*\*Last updated:\*\* 2026-09-28$/m);
     assert.match(index, /\[\[loop-engineering\]\]/);
     assert.match(architecture, /^## Loop Engineering control plane$/m);
     assert.match(architecture, /`scripts\/loop\//);
@@ -124,6 +124,6 @@ describe('Loop Engineering operating contracts', () => {
     assert.match(concept, /index plus changed tracked\/untracked files/i);
     assert.match(concept, /excludes ignored dependencies\/caches[\s\S]*local green results are provisional/i);
     assert.match(log, /^- 2026-09-27 - Codex - .*Loop Engineering/m);
-    assert.match(log.trimEnd().split(/\r?\n/).at(-1), /^- 2026-09-27 - Codex - .*Loop Engineering/i);
+    assert.match(log.trimEnd().split(/\r?\n/).at(-1), /^- 2026-09-28 - Codex - .*Phase 2A PR state rollover/i);
   });
 });
