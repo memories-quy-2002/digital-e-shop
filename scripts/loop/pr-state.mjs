@@ -325,8 +325,12 @@ export function recordCheckObservation(state, observation) {
 
   if (normalized.headSha !== next.headSha) {
     next.headSha = normalized.headSha;
+    next.phase = 'observe';
     next.observedAttemptKeys = [];
     next.flakyRetryCounts = {};
+    next.lastActionableFailureFingerprint = null;
+    next.lastDecisionReasonCode = null;
+    next.escalationReason = null;
   }
   if (next.observedAttemptKeys.includes(normalized.attemptKey)) return next;
   if (next.observedAttemptKeys.length >= MAX_ATTEMPT_KEYS) {

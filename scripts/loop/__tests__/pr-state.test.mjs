@@ -118,13 +118,24 @@ describe('PR babysitter state persistence', () => {
     let state = createPrBabysitterState(snapshot());
     state = recordCheckObservation(state, observation());
     state = recordFlakyRetry(state, 'check-1234');
+    state = recordRepairRequest(state, {
+      reasonCode: 'deterministic_failure',
+      failureFingerprint: 'c'.repeat(64),
+      escalationReason: 'repair_budget_exhausted',
+    });
     const countersBeforeRollover = state.telemetry;
+    const repairBudgetBeforeRollover = state.repairRequestCount;
 
     const next = recordCheckObservation(state, observation({ headSha: nextHeadSha, attemptKey: 'run-2002-attempt-1' }));
 
     assert.equal(next.headSha, nextHeadSha);
+    assert.equal(next.phase, 'observe');
     assert.deepEqual(next.observedAttemptKeys, ['run-2002-attempt-1']);
     assert.deepEqual(next.flakyRetryCounts, {});
+    assert.equal(next.lastActionableFailureFingerprint, null);
+    assert.equal(next.lastDecisionReasonCode, null);
+    assert.equal(next.escalationReason, null);
+    assert.equal(next.repairRequestCount, repairBudgetBeforeRollover);
     assert.equal(next.telemetry.observationsRecorded, countersBeforeRollover.observationsRecorded + 1);
     assert.equal(next.telemetry.flakyRetriesRecorded, countersBeforeRollover.flakyRetriesRecorded);
     assert.equal(next.telemetry.repairRequestsRecorded, countersBeforeRollover.repairRequestsRecorded);
