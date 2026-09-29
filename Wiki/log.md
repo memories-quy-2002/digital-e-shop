@@ -95,3 +95,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-28 - Codex - Implemented Phase 2B GitHub App authentication and read-only PR adapter with required workflow SHA attestation fail-closed.
 - 2026-09-29 - Codex - Added the Phase 2B PR worktree guard for same-repository feature branches, persisted PR/LoopState tuple checks, stable workspace fingerprints, and exact-scope approval consumption.
 - 2026-09-29 - Codex - Added the fail-closed Phase 2B Actions rerun adapter with exact run/job-bound approvals, atomic CI budget reservations, and trusted workflow source-SHA attestation.
+- 2026-09-29 - Codex - Added vendor-neutral Phase 2B repair sessions and the Phase 2B Actions rerun adapter with exact path approval, tuple-bound local commits, stable fixed-verifier evidence, and host-owned budgets.
