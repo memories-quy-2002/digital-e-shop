@@ -198,6 +198,26 @@ describe('loop budgets', () => {
     assert.deepEqual(evaluateBudgets(tokenLimit, tokenPolicy), { stop: true, reason: 'token_limit' });
   });
 
+  it('allows wall-clock work just below the limit and stops at or beyond the limit', () => {
+    const state = createState();
+    const originalNow = Date.now;
+    const fixedNow = originalNow();
+    const limitMs = policy.stopConditions.maxWallClockSeconds * 1000;
+    const withElapsed = (elapsedMs) => ({
+      ...state,
+      startedAt: new Date(fixedNow - elapsedMs).toISOString(),
+    });
+
+    Date.now = () => fixedNow;
+    try {
+      assert.deepEqual(evaluateBudgets(withElapsed(limitMs - 1), policy), { stop: false, reason: null });
+      assert.deepEqual(evaluateBudgets(withElapsed(limitMs), policy), { stop: true, reason: 'max_wall_clock' });
+      assert.deepEqual(evaluateBudgets(withElapsed(limitMs + 1), policy), { stop: true, reason: 'max_wall_clock' });
+    } finally {
+      Date.now = originalNow;
+    }
+  });
+
   it('enforces changed-file and changed-line limits without stopping at the inclusive maximum', () => {
     const state = createState();
 

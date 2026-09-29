@@ -160,11 +160,11 @@ Bind each check/workflow observation to the exact current base/head/merge tuple 
 
 **Confirmed Phase 2B decision:** current Actions run metadata supplies the workflow path/ref and the PR `head_sha`, but the adapter has no trusted attestation of the required workflow source SHA. Therefore `getRequiredWorkflowEvidence` returns `unavailable` until a trusted source can attest the exact `{ repositoryId, path, ref, sha }`; matching a run by display name, path, or ref alone must never produce green evidence.
 
-The new tests are verified locally. Wiring them into the fixed local verifier (`scripts/loop/verify.mjs`) or hosted workflow (`.github/workflows/loop-foundation.yml`) is a separate protected-path change and remains pending explicit path-scope approval.
+The read-adapter tests are registered in the fixed local verifier and hosted workflow by Task 6.
 
 - [x] **Step 4: Run tests and verify they pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/loop/github-pr-client.mjs scripts/loop/__tests__/github-pr-client.test.mjs
@@ -269,7 +269,7 @@ Keep Actions write capability separate from the general read client so observe-o
 
 - [x] **Step 4: Run tests and verify they pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/loop/github-pr-client.mjs scripts/loop/github-auth-provider.mjs scripts/loop/github-actions-write.mjs scripts/loop/state.mjs scripts/loop/__tests__/github-pr-client.test.mjs scripts/loop/__tests__/github-auth-provider.test.mjs scripts/loop/__tests__/github-actions-write.test.mjs scripts/loop/__tests__/state.test.mjs
@@ -305,7 +305,7 @@ git commit -m "feat(loop): add bounded flaky CI reruns"
   - fixed-verifier result;
   - optional token usage totals from the host, if available.
 
-- [ ] **Step 1: Write failing repair-session tests**
+- [x] **Step 1: Write failing repair-session tests**
 
 Assert:
 - no `exec`, shell command, model name, prompt, or arbitrary executable is accepted;
@@ -324,15 +324,15 @@ Assert:
 - when a token limit is configured, a new run may initialize `tokenUsed` to zero only before any model invocation; resumed runs use persisted provider-reported usage. Missing usage blocks the next model request, and the host records provider-reported input/output usage immediately after each response;
 - repeated same-failure and iteration budgets remain enforced.
 
-- [ ] **Step 2: Run tests and verify they fail**
+- [x] **Step 2: Run tests and verify they fail**
 
-- [ ] **Step 3: Implement the vendor-neutral handshake**
+- [x] **Step 3: Implement the vendor-neutral handshake**
 
 This is intentionally not a model runner. ChatGPT/Codex/another host consumes the sanitized `RepairPacket` and returns a patch proposal only. The trusted host calls `evaluateBudgets` before any model request, parses and normalizes every proposed path, checks it against the exact approved scope and risk policy, rejects unsafe paths before applying anything, and applies the patch with a fixed host-controlled writer. The host checks the current base/head/merge tuple and remaining `LoopState` budgets before invoking the fixed verifier, then derives revision/workspace evidence and changed paths from Git rather than trusting agent claims. Keep App credentials outside the coding agent process. Before push, refresh the full PR tuple, require it to match the verified session, validate the exact non-`main` ref, call `evaluateBudgets`, obtain fresh approval for the verified diff, and use a short-lived repository-scoped Contents-write token. GitHub branch protection remains the server-side guard; the token itself is not branch-scoped.
 
-- [ ] **Step 4: Run tests and verify they pass**
+- [x] **Step 4: Run tests and verify they pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/loop/repair-session.mjs scripts/loop/__tests__/repair-session.test.mjs
@@ -357,7 +357,7 @@ git commit -m "feat(loop): add guarded PR repair sessions"
   - `escalation --repo owner/name --pr N`
 - Default mode is observe-only.
 
-- [ ] **Step 1: Write failing CLI tests**
+- [x] **Step 1: Write failing CLI tests**
 
 Use injected clients/adapters. Assert:
 - no network/write happens in `--dry-run`;
@@ -369,9 +369,9 @@ Use injected clients/adapters. Assert:
 - every command refreshes the current PR head before actionable write/repair;
 - exit codes distinguish ready/wait/escalated/refused/infrastructure error.
 
-- [ ] **Step 2: Run tests and verify they fail**
+- [x] **Step 2: Run tests and verify they fail**
 
-- [ ] **Step 3: Implement CLI orchestration**
+- [x] **Step 3: Implement CLI orchestration**
 
 Sequence:
 1. load trusted host configuration and obtain the fixed-repository, read-only installation token;
@@ -384,9 +384,9 @@ Sequence:
 8. obtain a fresh `contents:write` approval for the verified final diff, mint the capability-specific installation token, call `evaluateBudgets`, and recheck the full PR tuple immediately before push;
 9. perform only the explicitly selected allowlisted action and persist compact audit metadata without secrets/raw logs.
 
-- [ ] **Step 4: Run tests and verify they pass**
+- [x] **Step 4: Run tests and verify they pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/loop/pr-babysitter-cli.mjs scripts/loop/__tests__/pr-babysitter-cli.test.mjs
@@ -403,7 +403,7 @@ git commit -m "feat(loop): add PR babysitter CLI"
 - Modify: `.github/workflows/loop-foundation.yml`
 - Modify: `scripts/loop/__tests__/workflow.test.mjs`
 
-- [ ] **Step 1: Update the workflow contract test first**
+- [x] **Step 1: Update the workflow contract test first**
 
 Require the workflow to run all new Phase 2A/2B Node tests while preserving:
 - `contents: read`;
@@ -414,17 +414,17 @@ Require the workflow to run all new Phase 2A/2B Node tests while preserving:
 - no `pull_request_target`;
 - no product/production operations.
 
-- [ ] **Step 2: Run workflow test and verify it fails**
+- [x] **Step 2: Run workflow test and verify it fails**
 
-- [ ] **Step 3: Update only the test list in `loop-foundation.yml`**
+- [x] **Step 3: Update only the test list in `loop-foundation.yml`**
 
 Do not add a workflow that automatically runs the PR Babysitter with write credentials.
 
-- [ ] **Step 4: Run the complete control-plane test suite**
+- [x] **Step 4: Run the complete control-plane test suite**
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add .github/workflows/loop-foundation.yml scripts/loop/__tests__/workflow.test.mjs
@@ -442,7 +442,7 @@ git commit -m "ci(loop): verify PR babysitter control plane"
 
 **Interfaces:** operational runbook and explicit promotion gates.
 
-- [ ] **Step 1: Write failing runbook contract tests**
+- [x] **Step 1: Write failing runbook contract tests**
 
 Require these stages:
 
@@ -467,7 +467,7 @@ Require these stages:
 - verify the expected non-`main` ref and head SHA before push, with GitHub branch protection as the server-side guard;
 - still no merge.
 
-- [ ] **Step 2: Define promotion metrics**
+- [x] **Step 2: Define promotion metrics**
 
 Before moving Stage 0 -> 1:
 - at least 10 representative failed/pending PR observations;
@@ -485,17 +485,17 @@ Before moving Stage 1 -> 2:
 
 Stage 2 remains human-reviewed before merge indefinitely in Phase 2.
 
-- [ ] **Step 3: Write runbook**
+- [x] **Step 3: Write runbook**
 
 Include exact CLI examples with placeholders only; never include real tokens.
 
-- [ ] **Step 4: Run contract tests and verify they pass**
+- [x] **Step 4: Run contract tests and verify they pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add .agent/loops/pr-babysitter.md docs/loop-engineering/phase-2-pr-babysitter-runbook.md scripts/loop/__tests__/pr-runbook.test.mjs
-git commit -m "docs(loop): add PR babysitter rollout runbook"
+git commit -m "fix(loop): finalize Phase 2B babysitter safety gates"
 ```
 
 ---
@@ -504,11 +504,11 @@ git commit -m "docs(loop): add PR babysitter rollout runbook"
 
 **Files:** verify-only unless real defects are found.
 
-- [ ] **Step 1: Run the full Phase 1 + Phase 2 control-plane suite**
+- [x] **Step 1: Run the full Phase 1 + Phase 2 control-plane suite**
 
 Expected: all PASS.
 
-- [ ] **Step 2: Run mocked GitHub scenario matrix**
+- [x] **Step 2: Run mocked GitHub scenario matrix**
 
 At minimum:
 - green same-repo draft PR;
@@ -535,9 +535,14 @@ At minimum:
 
 - [ ] **Step 3: Execute Stage 0 against a real non-production PR**
 
+Deferred on 2026-09-29 per the approved scope: the repository has no trusted-host
+factory or standalone CLI entrypoint, and GitHub reports no currently open PR.
+PR #262 is already merged and is not a suitable live Stage 0 target. Resume
+after a reviewed host bootstrap exists and an eligible open PR is available.
+
 Observe only. Confirm normalized required-check/workflow identities and observations tested on the current head or merge SHA, plus the full base/head/merge tuple and decisions, match GitHub UI. Do not enable write permissions.
 
-- [ ] **Step 4: Review credentials and permissions**
+- [x] **Step 4: Review credentials and permissions**
 
 Document which credential is used for:
 - GitHub read;
@@ -546,11 +551,11 @@ Document which credential is used for:
 
 Confirm none can merge/bypass protection/administer secrets/run production migration/reset/promote deployment.
 
-- [ ] **Step 5: Confirm non-goals**
+- [x] **Step 5: Confirm non-goals**
 
 No auto-merge, no `pull_request_target`, no autonomous review-comment execution, no production mutation, no persistent Playwright E2E, no vendor-specific model runner.
 
-- [ ] **Step 6: Record Phase 2 telemetry for Phase 3 decision**
+- [x] **Step 6: Record Phase 2 telemetry for Phase 3 decision**
 
 Track:
 - classification accuracy after human review;

@@ -36,6 +36,7 @@ The local demo seed creates a linked graph with 28 products across 8 categories 
 - [Development guide](../docs/DEVELOPMENT.md): environment and local workflow
 - [Testing guide](../docs/TESTING.md): package, integration, smoke, and k6 checks
 - [CI/CD guide](../docs/ci-cd.md): CI, migration gates, deployment, and reset safety
+- [Phase 2 PR Babysitter runbook](../docs/loop-engineering/phase-2-pr-babysitter-runbook.md): staged rollout, credential boundaries, host bootstrap gap, and verification gates
 - [Prisma workflow](../server/README.prisma.md): schema ownership and demo database operations
 
 ## Wiki catalog

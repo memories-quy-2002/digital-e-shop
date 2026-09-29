@@ -71,6 +71,7 @@ async function createFixture(options = {}) {
   await cp(path.join(repoRoot, 'AGENTS.md'), path.join(root, 'AGENTS.md'));
   await cp(path.join(repoRoot, 'Wiki'), path.join(root, 'Wiki'), { recursive: true });
   await cp(path.join(repoRoot, 'docs', 'superpowers', 'plans'), path.join(root, 'docs', 'superpowers', 'plans'), { recursive: true });
+  await cp(path.join(repoRoot, 'docs', 'loop-engineering'), path.join(root, 'docs', 'loop-engineering'), { recursive: true });
   await cp(path.join(repoRoot, 'scripts', 'loop'), path.join(root, 'scripts', 'loop'), { recursive: true });
   await cp(path.join(repoRoot, '.github'), path.join(root, '.github'), { recursive: true });
   await cp(path.join(repoRoot, '.node-version'), path.join(root, '.node-version'));

@@ -19,6 +19,7 @@ const controlPlaneTests = [
   'scripts/loop/__tests__/pr-babysitter.test.mjs',
   'scripts/loop/__tests__/pr-babysitter-cli.test.mjs',
   'scripts/loop/__tests__/pr-packets.test.mjs',
+  'scripts/loop/__tests__/pr-runbook.test.mjs',
   'scripts/loop/__tests__/telemetry.test.mjs',
   'scripts/loop/__tests__/pr-contracts.test.mjs',
   'scripts/loop/__tests__/github-pr-client.test.mjs',

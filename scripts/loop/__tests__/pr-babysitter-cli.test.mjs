@@ -81,7 +81,8 @@ async function createRerunHarness({ stopBudget = false } = {}) {
   return { trustedHost, events, get prState() { return prState; }, get reserved() { return reserved; } };
 }
 
-function createRepairHarness({ missingFingerprint = false, tupleRace = false, stopWorkspaceBudget = false } = {}) {
+function createRepairHarness({ missingFingerprint = false, tupleRace = false, stopWorkspaceBudget = false,
+  stopContentsBudget = false, stopContentsBudgetCheck = null } = {}) {
   const repository = 'owner/repo'; const repositoryId = 9; const prNumber = 2;
   const baseSha = 'b'.repeat(40); const headSha = 'a'.repeat(40); const newHeadSha = 'f'.repeat(40); const mergeSha = 'c'.repeat(40);
   const workflowPath = '.github/workflows/ci.yml'; const workflowRef = 'refs/heads/main'; const workflowSha = 'd'.repeat(40);
@@ -109,7 +110,7 @@ function createRepairHarness({ missingFingerprint = false, tupleRace = false, st
             headRef: 'feature/test', headSha: snapshot.headSha, mergeSha, headRepository: repository, updatedAt: snapshot.updatedAt },
             requiredCheckSnapshot, checkObservations: pushed ? [] : [observation], checkCollectionComplete: true }; },
         async refresh() { events.push('refresh'); refreshes += 1;
-          return tupleRace && refreshes >= 3 ? { ...oldSnapshot, headSha: '9'.repeat(40) } : pushed ? newSnapshot : oldSnapshot; },
+          return tupleRace && refreshes >= 4 ? { ...oldSnapshot, headSha: '9'.repeat(40) } : pushed ? newSnapshot : oldSnapshot; },
       },
       state: { async load(_repo, _pr, snapshot) { events.push('state-load'); return stateFor(snapshot); }, async save() { events.push('state-save'); } },
       auth: {
@@ -140,7 +141,7 @@ function createRepairHarness({ missingFingerprint = false, tupleRace = false, st
         }; },
       },
       writer: {
-        async readFinalDiff() { events.push('read-diff'); diffReads += 1; return diffReads > 1 && tupleRace ? outputDiff + 'race' : outputDiff; },
+        async readFinalDiff() { events.push('read-diff'); diffReads += 1; return diffReads > 2 && tupleRace ? outputDiff + 'race' : outputDiff; },
         async readHeadSha() { events.push('read-head'); return newHeadSha; },
         async readWorkspaceFingerprint() { events.push('read-fingerprint'); return '1'.repeat(64); },
         async push(input) { events.push('push'); assert.equal(input.expectedHeadSha, headSha); assert.equal(input.targetCommitSha, newHeadSha);
@@ -148,8 +149,15 @@ function createRepairHarness({ missingFingerprint = false, tupleRace = false, st
           assert.equal(input.token, 'ghs_writer-secret');
           pushed = true; return { status: 'pushed', commitSha: newHeadSha, token: 'should-not-leak' }; },
       },
-      budget: async (capability) => { events.push(`budget:${capability}`);
-        return { stop: capability === 'repair:workspace' && stopWorkspaceBudget }; },
+      budget: async (capability) => {
+        events.push(`budget:${capability}`);
+        if (capability === 'contents:write') {
+          const checks = events.filter((event) => event.startsWith('contents-budget:')).length + 1;
+          events.push(`contents-budget:${checks}`);
+          return { stop: stopContentsBudget || checks === stopContentsBudgetCheck };
+        }
+        return { stop: capability === 'repair:workspace' && stopWorkspaceBudget };
+      },
       telemetry: async () => {},
     } };
   return { trustedHost, events, set outputDiff(value) { outputDiff = value; }, get pushed() { return pushed; } };
@@ -278,6 +286,31 @@ describe('PR Babysitter CLI', () => {
     assert.equal(harness.events.includes('push'), false);
   });
 
+  it('checks the contents budget before minting a token and rechecks immediately before push', async () => {
+    const stoppedBeforeToken = createRepairHarness({ stopContentsBudget: true });
+    const firstResult = await runPrBabysitterCli({
+      argv: ['validate-repair', '--repo', 'owner/repo', '--pr', '2', '--patch', 'patch.json'],
+      trustedHost: stoppedBeforeToken.trustedHost,
+      io: { isTTY: true, stdout: { write() {} }, stderr: { write() {} } },
+    });
+    assert.equal(firstResult.exitCode, 3);
+    assert.deepEqual(stoppedBeforeToken.events.filter((event) => event.startsWith('contents-budget:')), ['contents-budget:1']);
+    assert.equal(stoppedBeforeToken.events.includes('contents-token'), false);
+    assert.equal(stoppedBeforeToken.pushed, false);
+
+    const stoppedBeforePush = createRepairHarness({ stopContentsBudgetCheck: 2 });
+    const secondResult = await runPrBabysitterCli({
+      argv: ['validate-repair', '--repo', 'owner/repo', '--pr', '2', '--patch', 'patch.json'],
+      trustedHost: stoppedBeforePush.trustedHost,
+      io: { isTTY: true, stdout: { write() {} }, stderr: { write() {} } },
+    });
+    assert.equal(secondResult.exitCode, 3);
+    assert.deepEqual(stoppedBeforePush.events.filter((event) => event.startsWith('contents-budget:')),
+      ['contents-budget:1', 'contents-budget:2']);
+    assert.equal(stoppedBeforePush.events.includes('contents-token'), true);
+    assert.equal(stoppedBeforePush.pushed, false);
+  });
+
   it('consumes workspace approval before patch writes, verifies locally, then pushes exact commit and waits for hosted CI', async () => {
     const harness = createRepairHarness(); let stdout = ''; let stderr = '';
     const result = await runPrBabysitterCli({ argv: ['validate-repair', '--repo', 'owner/repo', '--pr', '2', '--patch', 'patch.json'],
@@ -290,6 +323,9 @@ describe('PR Babysitter CLI', () => {
     assert.ok(events.indexOf('repair-commit') < events.indexOf('full-verify'));
     assert.ok(events.indexOf('full-verify') < events.indexOf('contents-approval'));
     assert.ok(events.indexOf('contents-consume') < events.indexOf('contents-token'));
+    assert.ok(events.indexOf('contents-budget:1') < events.indexOf('contents-token'));
+    assert.ok(events.indexOf('contents-token') < events.indexOf('contents-budget:2'));
+    assert.ok(events.indexOf('contents-budget:2') < events.indexOf('push'));
     assert.ok(events.indexOf('contents-token') < events.lastIndexOf('refresh'));
     assert.equal(events.at(-1), 'state-save');
     assert.equal(harness.pushed, true);

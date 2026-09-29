@@ -267,14 +267,28 @@ export async function runPrBabysitterCli({ argv, trustedHost, io = {} }) {
       const scope = { ...tuple(collected.prSnapshot), repositoryId: host.config.repositoryId, prNumber: args.prNumber, capability: 'contents:write', paths: outcome.changedPaths };
       const approval = await auth.requestApproval(scope);
       auth.consumeApproval(approval, scope);
-      const token = await auth.getInstallationToken('contents:write');
-      const [fresh, targetCommitSha, fingerprint, currentDiff, budget] = await Promise.all([
+      const writeBudgetInput = { diff: { changedFiles: outcome.changedPaths.length } };
+      const [freshBeforeToken, commitBeforeToken, fingerprintBeforeToken, diffBeforeToken] = await Promise.all([
         pr.refresh(args.prNumber), writer.readHeadSha(), writer.readWorkspaceFingerprint(), writer.readFinalDiff(outcome.changedPaths),
-        host.adapters.budget('contents:write', { diff: { changedFiles: outcome.changedPaths.length } }),
+      ]);
+      if (!sameTuple(initialTuple, tuple(freshBeforeToken)) || freshBeforeToken.state !== 'open'
+          || commitBeforeToken !== verified.currentRevision
+          || !/^[a-f0-9]{64}$/i.test(fingerprintBeforeToken ?? '')
+          || fingerprintBeforeToken !== verified.verifiedWorkspaceFingerprint
+          || typeof diffBeforeToken !== 'string' || createHash('sha256').update(diffBeforeToken).digest('hex') !== diffHash) {
+        return { exitCode: 3 };
+      }
+      const mintBudget = await host.adapters.budget('contents:write', writeBudgetInput);
+      if (mintBudget?.stop) return { exitCode: PR_BABYSITTER_EXIT_CODES.refused };
+      const token = await auth.getInstallationToken('contents:write');
+      const [fresh, targetCommitSha, fingerprint, currentDiff] = await Promise.all([
+        pr.refresh(args.prNumber), writer.readHeadSha(), writer.readWorkspaceFingerprint(), writer.readFinalDiff(outcome.changedPaths),
       ]);
       if (!sameTuple(initialTuple, tuple(fresh)) || fresh.state !== 'open' || targetCommitSha !== verified.currentRevision
           || !/^[a-f0-9]{64}$/i.test(fingerprint ?? '') || fingerprint !== verified.verifiedWorkspaceFingerprint
-          || createHash('sha256').update(currentDiff).digest('hex') !== diffHash || budget?.stop) return { exitCode: 3 };
+          || typeof currentDiff !== 'string' || createHash('sha256').update(currentDiff).digest('hex') !== diffHash) return { exitCode: 3 };
+      const pushBudget = await host.adapters.budget('contents:write', writeBudgetInput);
+      if (pushBudget?.stop) return { exitCode: PR_BABYSITTER_EXIT_CODES.refused };
       const pushed = await writer.push({ token, targetCommitSha, expectedHeadSha: initialTuple.headSha, diffHash, paths: outcome.changedPaths });
       if (pushed.status !== 'pushed' || pushed.commitSha !== targetCommitSha) return { exitCode: 2 };
       const after = await collectCurrentPr(pr, args.repository, args.prNumber);

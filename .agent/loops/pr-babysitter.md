@@ -1,9 +1,14 @@
 # PR babysitter contract — Phase 2
 
 Phase 2A provides a deterministic, GitHub-agnostic decision core in
-`scripts/loop/`. Phase 2B supplies the trusted GitHub host, authentication,
-approval, read/write adapters, and CLI. The core does not authenticate its
-caller or perform writes by itself.
+`scripts/loop/`. Phase 2B provides GitHub App authentication and approval,
+observation, guarded Actions rerun, repair-session, and host-injected
+orchestration APIs. `runPrBabysitterCli` accepts a caller-supplied `trustedHost`;
+this repository has no trusted-host factory or standalone CLI entrypoint. Until
+a separately reviewed host bootstrap supplies canonical policy, checkout-derived
+paths, fixed verification, independent completion evidence, authenticated
+approval, and exact-scope write enforcement, the operational mode stays
+observe-only. See the [Phase 2 PR Babysitter runbook](../../docs/loop-engineering/phase-2-pr-babysitter-runbook.md).
 
 ## Decision actions
 
@@ -70,22 +75,29 @@ completed. A confirmed empty required-policy snapshot may produce
 - Phase 2A performs no GitHub API writes, check reruns, branch pushes, merges,
   model calls, or product-code edits. It must not merge or mutate production.
   Packet creation is a control-plane operation, not a write capability.
-- Phase 2B currently provides a GitHub App device-flow identity/approval
-  provider and a fixed-repository read adapter. The auth provider checks the
+- Phase 2B includes a GitHub App identity/approval provider, fixed-repository
+  observation adapter, guarded Actions rerun adapter, local repair session,
+  and exported `runPrBabysitterCli` orchestrator. The auth provider checks the
   GitHub `/user` identity against the host allowlist and makes approvals
-  single-use, TTY-confirmed, and bound to the exact PR SHA tuple and paths.
-  The adapter reads PR/check/ruleset/workflow/review metadata and bounded,
-  redacted job logs. These modules are not yet wired to a repair coordinator;
-  keep the runner observe-only.
+  single-use, TTY-confirmed, and bound to the exact PR SHA tuple, capability,
+  and paths. The observation adapter reads PR/check/ruleset/workflow/review
+  metadata and bounded, redacted job logs. The orchestration function is not a
+  standalone command and this repository does not assemble a trusted host;
+  without that host, no live run or GitHub write is enabled.
 - Required workflow evidence remains unavailable until a trusted source can
   attest the workflow source SHA in addition to repository ID, path, and ref.
   Workflow display names, paths, refs, and PR `head_sha` do not prove the
   required workflow source SHA.
-- Before enabling any write, the trusted host must derive current paths and PR
-  SHA tuple from trusted sources, invoke the fixed verifier, observe completion
-  independently, and constrain each write to a single-use exact-scope
-  attestation. Without those checks, keep the runner observe-only.
-- Phase 2B owns check reruns and branch pushes; it never owns merge authority.
+- Before enabling any write, the trusted host must load canonical policy,
+  derive current paths and PR SHA tuple from trusted sources, invoke the fixed
+  verifier, independently observe completion revision and workspace
+  fingerprint, enforce budgets before privileged token issuance and again
+  immediately before the write, and constrain each write to a fresh single-use
+  exact-scope approval. Without those checks, keep the runner observe-only.
+- With a reviewed trusted host, Phase 2B may perform guarded check reruns and
+  approved non-`main` branch pushes; it never owns merge authority. GitHub
+  installation tokens are repository-scoped and permission-scoped, not
+  branch-scoped, so protected refs still require GitHub branch protection.
 - Never merge, bypass branch protection, alter production data, run production
   migrations/resets, or promote a production deployment. Human review remains
   required before merge.
