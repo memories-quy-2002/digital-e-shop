@@ -431,6 +431,7 @@ export async function validateRepairProposal(session, patchProposal, context) {
     fail('approval_rejected', 'exact repair:workspace approval was not obtained and consumed', error);
   }
 
+  await assertCurrentPrTuple(worktree);
   await applyOperations(repoRoot, operations);
   await assertCurrentPrTuple(worktree);
   const changedPaths = await readChangedPaths(repoRoot);
@@ -444,6 +445,10 @@ export async function validateRepairProposal(session, patchProposal, context) {
   await runGit(repoRoot, ['commit', '-m', `fix(loop): repair PR checks ${session.sessionId}`]);
   const verifiedRevision = await readGitHeadRevision(repoRoot);
   const plan = buildVerificationPlan({ changedPaths, mode: 'fast', policy });
+  const verificationBudget = evaluateBudgets(hostContext.loopState, policy, diff);
+  if (verificationBudget.stop) {
+    fail('budget_exhausted', `repair verification is blocked by ${verificationBudget.reason}`, verificationBudget.reason);
+  }
   const verification = await runVerificationPlan(plan, { repoRoot });
   if (!verification.passed || !verification.complete || !verification.revisionStable || !verification.workspaceStable
       || verification.verifiedRevision !== verifiedRevision || verification.currentRevision !== verifiedRevision) {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { afterEach, before, describe, it } from 'node:test';
-import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -74,11 +74,21 @@ async function createFixture(options = {}) {
   await cp(path.join(repoRoot, 'scripts', 'loop'), path.join(root, 'scripts', 'loop'), { recursive: true });
   await cp(path.join(repoRoot, '.github'), path.join(root, '.github'), { recursive: true });
   await cp(path.join(repoRoot, '.node-version'), path.join(root, '.node-version'));
+  const verifierMarker = `${root}.nested-repair-verifier-ran`;
+  temporaryRoots.add(verifierMarker);
   await writeFile(
     path.join(root, 'scripts', 'loop', '__tests__', 'repair-session.test.mjs'),
-    "import { test } from 'node:test';\ntest('nested fixed verifier does not recursively run the outer repair integration case', () => {});\n",
+    `import { writeFileSync } from 'node:fs';\nimport { test } from 'node:test';\nconst marker = ${JSON.stringify(verifierMarker)};\ntest('nested fixed verifier does not recursively run the outer repair integration case', () => writeFileSync(marker, 'ran'));\n`,
     'utf8',
   );
+  if (options.quickVerifierFixture) {
+    const testDirectory = path.join(root, 'scripts', 'loop', '__tests__');
+    for (const entry of await readdir(testDirectory)) {
+      if (entry.endsWith('.test.mjs') && entry !== 'repair-session.test.mjs') {
+        await writeFile(path.join(testDirectory, entry), "import { test } from 'node:test';\ntest('fast nested verifier fixture', () => {});\n", 'utf8');
+      }
+    }
+  }
   execFileSync('git', ['-C', root, 'init', '--quiet'], { windowsHide: true, stdio: 'ignore' });
   runGit(root, ['config', 'user.name', 'Digital-E Test']);
   runGit(root, ['config', 'user.email', 'digital-e-test@example.invalid']);
@@ -113,13 +123,21 @@ async function createFixture(options = {}) {
     baseRef: snapshot.baseRef, baseSha, headRef: snapshot.headRef, headSha, mergeSha: snapshot.mergeSha,
     headRepository: snapshot.headRepository, updatedAt: snapshot.updatedAt, engineeringTaskId: 'repair-task',
   });
+  const fixturePolicy = options.tokenLimit === undefined && options.maxWallClockSeconds === undefined
+    ? policy
+    : {
+      ...policy,
+      stopConditions: {
+        ...policy.stopConditions,
+        ...(options.tokenLimit === undefined ? {} : { tokenLimit: options.tokenLimit }),
+        ...(options.maxWallClockSeconds === undefined ? {} : { maxWallClockSeconds: options.maxWallClockSeconds }),
+      },
+    };
   await savePrBabysitterState(root, prState);
   let loopState = createLoopState({
     taskId: 'repair-task', branch: snapshot.headRef, baseSha, headSha,
     risk: 'low', acceptanceCriteria: ['tests'],
-    policy: options.tokenLimit === undefined
-      ? policy
-      : { ...policy, stopConditions: { ...policy.stopConditions, tokenLimit: options.tokenLimit } },
+    policy: fixturePolicy,
   });
   loopState = recordFailure(loopState, fingerprint);
   await saveLoopState(root, loopState);
@@ -136,6 +154,11 @@ async function createFixture(options = {}) {
       requestCount += 1;
       return originalRequest(...args);
     },
+    consumeApproval: (...args) => {
+      const result = approvalProvider.consumeApproval(...args);
+      options.afterApprovalConsumed?.();
+      return result;
+    },
   });
   const hostContext = {
     prState, loopState, taskId: 'repair-task', taskWorktreeId: 'repair-task', allowedPaths,
@@ -143,7 +166,7 @@ async function createFixture(options = {}) {
     refreshPrSnapshot: async () => refreshedSnapshot,
   };
   return {
-    root, snapshot, hostContext, fingerprint,
+    root, snapshot, hostContext, fingerprint, verifierMarker,
     async begin(testOverrides = {}) {
       const module = await import('../repair-session.mjs');
       const worktree = await inspectPrWorktree(root, snapshot, hostContext);
@@ -158,6 +181,7 @@ async function createFixture(options = {}) {
       return module.validateRepairProposal(session, proposal, context);
     },
     setSnapshot(value) { refreshedSnapshot = value; },
+    setAfterApprovalConsumed(callback) { options.afterApprovalConsumed = callback; },
     get requestCount() { return requestCount; },
   };
 }
@@ -269,6 +293,47 @@ describe('repair sessions', () => {
     assert.equal(result.verification.complete, true);
     assert.equal(result.verification.verifiedRevision, result.newHeadSha);
     assert.equal(result.verification.currentRevision, result.newHeadSha);
+  });
+
+  it('rechecks the PR tuple after approval consumption and before the first write', async () => {
+    const fixture = await createFixture();
+    const session = await fixture.begin();
+    const originalHead = runGit(fixture.root, ['rev-parse', '--verify', 'HEAD']);
+    fixture.setAfterApprovalConsumed(() => fixture.setSnapshot({ ...fixture.snapshot, headSha: 'f'.repeat(40) }));
+
+    await assert.rejects(fixture.validate(session, {
+      version: 1,
+      operations: [{ op: 'write', path: 'src/app.mjs', content: 'export const value = "must-not-write";\n' }],
+    }), /approval|tuple|stale/i);
+
+    assert.equal(fixture.requestCount, 1);
+    assert.equal(await readFile(path.join(fixture.root, 'src', 'app.mjs'), 'utf8'), 'export const value = "head";\n');
+    assert.equal(runGit(fixture.root, ['rev-parse', '--verify', 'HEAD']), originalHead);
+  });
+
+  it('rechecks budgets immediately before verification and blocks an exhausted verifier-stage limit', async () => {
+    const fixture = await createFixture({ maxWallClockSeconds: 1, quickVerifierFixture: true });
+    const session = await fixture.begin();
+    const startedAt = Date.parse(fixture.hostContext.loopState.startedAt);
+    const originalNow = Date.now;
+    let clockReads = 0;
+    Date.now = () => {
+      clockReads += 1;
+      return startedAt + (clockReads < 3 ? 0 : 1000);
+    };
+
+    try {
+      await assert.rejects(fixture.validate(session, {
+        version: 1,
+        operations: [{ op: 'write', path: 'src/app.mjs', content: 'export const value = "budget-check";\n' }],
+      }), /max_wall_clock/);
+    } finally {
+      Date.now = originalNow;
+    }
+
+    assert.equal(clockReads, 3);
+    await assert.rejects(readFile(fixture.verifierMarker),
+      (error) => error?.code === 'ENOENT');
   });
 
   it('does not apply a proposal when the PR tuple changed or the workspace was modified after session creation', async () => {
