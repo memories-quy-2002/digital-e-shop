@@ -81,7 +81,7 @@ async function createRerunHarness({ stopBudget = false } = {}) {
   return { trustedHost, events, get prState() { return prState; }, get reserved() { return reserved; } };
 }
 
-function createRepairHarness({ missingFingerprint = false, tupleRace = false } = {}) {
+function createRepairHarness({ missingFingerprint = false, tupleRace = false, stopWorkspaceBudget = false } = {}) {
   const repository = 'owner/repo'; const repositoryId = 9; const prNumber = 2;
   const baseSha = 'b'.repeat(40); const headSha = 'a'.repeat(40); const newHeadSha = 'f'.repeat(40); const mergeSha = 'c'.repeat(40);
   const workflowPath = '.github/workflows/ci.yml'; const workflowRef = 'refs/heads/main'; const workflowSha = 'd'.repeat(40);
@@ -148,7 +148,8 @@ function createRepairHarness({ missingFingerprint = false, tupleRace = false } =
           assert.equal(input.token, 'ghs_writer-secret');
           pushed = true; return { status: 'pushed', commitSha: newHeadSha, token: 'should-not-leak' }; },
       },
-      budget: async (capability) => { events.push(`budget:${capability}`); return { stop: false }; },
+      budget: async (capability) => { events.push(`budget:${capability}`);
+        return { stop: capability === 'repair:workspace' && stopWorkspaceBudget }; },
       telemetry: async () => {},
     } };
   return { trustedHost, events, set outputDiff(value) { outputDiff = value; }, get pushed() { return pushed; } };
@@ -262,6 +263,19 @@ describe('PR Babysitter CLI', () => {
     assert.equal(harness.events.includes('approve'), false);
     assert.equal(harness.events.includes('write'), false);
     assert.equal(harness.reserved, 0);
+  });
+
+  it('stops on exhausted repair budget before authentication or reading the proposal', async () => {
+    const harness = createRepairHarness({ stopWorkspaceBudget: true });
+    const result = await runPrBabysitterCli({ argv: ['validate-repair', '--repo', 'owner/repo', '--pr', '2', '--patch', 'patch.json'],
+      trustedHost: harness.trustedHost, io: { isTTY: true, stdout: { write() {} }, stderr: { write() {} } } });
+    assert.equal(result.exitCode, 3);
+    assert.ok(harness.events.includes('budget:repair:workspace'));
+    assert.equal(harness.events.includes('authenticate'), false);
+    assert.equal(harness.events.includes('read-proposal'), false);
+    assert.equal(harness.events.includes('repair-approval'), false);
+    assert.equal(harness.events.includes('patch-write'), false);
+    assert.equal(harness.events.includes('push'), false);
   });
 
   it('consumes workspace approval before patch writes, verifies locally, then pushes exact commit and waits for hosted CI', async () => {

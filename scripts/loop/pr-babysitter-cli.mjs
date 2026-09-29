@@ -239,7 +239,8 @@ export async function runPrBabysitterCli({ argv, trustedHost, io = {} }) {
     if (args.command === 'validate-repair') {
       if (io.isTTY !== true || !auth.authenticateApprover) return { exitCode: 3 };
       if (decision.action !== 'request-repair') return { exitCode: exitFor(decision.action), decision };
-      await host.adapters.budget('repair:workspace');
+      const repairBudget = await host.adapters.budget('repair:workspace');
+      if (repairBudget?.stop) return { exitCode: PR_BABYSITTER_EXIT_CODES.refused };
       await auth.authenticateApprover();
       const freshBeforeRepair = await pr.refresh(args.prNumber);
       if (!sameTuple(initialTuple, tuple(freshBeforeRepair)) || freshBeforeRepair.state !== 'open') return { exitCode: 3 };
