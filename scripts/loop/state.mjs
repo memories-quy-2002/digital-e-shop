@@ -14,9 +14,11 @@ const MAX_STATE_BYTES = 256 * 1024;
 const MAX_ACCEPTANCE_CRITERIA = 100;
 const MAX_FAILURE_FINGERPRINTS = 100;
 const MAX_PROTECTED_PATHS = 100;
+const MAX_CI_RUN_ATTEMPTS = 100;
 const PHASES = new Set(['inspect', 'implement', 'verify', 'repair', 'done', 'escalated']);
 const RISKS = new Set(['low', 'medium', 'high', 'critical']);
 const ACCEPTANCE_STATUSES = new Set(['pending', 'passed', 'failed', 'blocked']);
+const CI_RUN_STATUSES = new Set(['reserved', 'submitted', 'rejected', 'uncertain']);
 const STATE_KEYS = Object.freeze([
   'schemaVersion',
   'taskId',
@@ -31,6 +33,7 @@ const STATE_KEYS = Object.freeze([
   'acceptanceCriteria',
   'lastVerification',
   'failureCounts',
+  'ciRunAttempts',
   'protectedPathsTouched',
   'budgets',
   'escalationReason',
@@ -55,6 +58,8 @@ export class LoopStateError extends Error {
 export class LoopStateValidationError extends LoopStateError {}
 
 export class LoopStatePathError extends LoopStateError {}
+
+export class LoopStateLockError extends LoopStateError {}
 
 export class LoopStateNotFoundError extends LoopStateError {
   constructor(taskId) {
@@ -179,7 +184,7 @@ function validateLastVerification(value) {
 
 export function validateLoopState(state) {
   assertExactKeys(state, STATE_KEYS, 'LoopState');
-  if (state.schemaVersion !== 1) throw new LoopStateValidationError('schemaVersion must equal 1');
+  if (state.schemaVersion !== 2) throw new LoopStateValidationError('schemaVersion must equal 2');
   assertTaskId(state.taskId);
   assertBranch(state.branch);
   if (typeof state.baseSha !== 'string'
@@ -226,6 +231,33 @@ export function validateLoopState(state) {
     assertCounter(count, `failureCounts.${fingerprint}`);
   }
 
+  if (!Array.isArray(state.ciRunAttempts)) {
+    throw new LoopStateValidationError('ciRunAttempts must be an array');
+  }
+  if (state.ciRunAttempts.length > MAX_CI_RUN_ATTEMPTS) {
+    throw new LoopStateValidationError(`ciRunAttempts cannot exceed ${MAX_CI_RUN_ATTEMPTS} entries`);
+  }
+  const actionAttemptKeys = new Set();
+  for (const attempt of state.ciRunAttempts) {
+    assertExactKeys(attempt, ['actionAttemptKey', 'status', 'reservedAt', 'finishedAt'], 'CI run attempt');
+    if (typeof attempt.actionAttemptKey !== 'string' || !HASH_PATTERN.test(attempt.actionAttemptKey)) {
+      throw new LoopStateValidationError('CI run actionAttemptKey must be a SHA-256 hex digest');
+    }
+    if (actionAttemptKeys.has(attempt.actionAttemptKey)) {
+      throw new LoopStateValidationError('CI run actionAttemptKey values must be unique');
+    }
+    actionAttemptKeys.add(attempt.actionAttemptKey);
+    if (!CI_RUN_STATUSES.has(attempt.status)) throw new LoopStateValidationError('CI run status is unsupported');
+    assertIsoTimestamp(attempt.reservedAt, 'CI run reservedAt');
+    if (attempt.status === 'reserved') {
+      if (attempt.finishedAt !== null) throw new LoopStateValidationError('reserved CI runs must not have finishedAt');
+    } else {
+      assertIsoTimestamp(attempt.finishedAt, 'CI run finishedAt');
+      if (Date.parse(attempt.finishedAt) < Date.parse(attempt.reservedAt)) {
+        throw new LoopStateValidationError('CI run finishedAt cannot precede reservedAt');
+      }
+    }
+  }
   if (!Array.isArray(state.protectedPathsTouched)) {
     throw new LoopStateValidationError('protectedPathsTouched must be an array');
   }
@@ -250,6 +282,9 @@ export function validateLoopState(state) {
   assertCounter(state.budgets.wallClockLimitSeconds, 'budgets.wallClockLimitSeconds', { allowNull: true, positive: true });
   assertCounter(state.budgets.ciRunLimit, 'budgets.ciRunLimit', { allowNull: true, positive: true });
   assertCounter(state.budgets.ciRuns, 'budgets.ciRuns');
+  if (state.ciRunAttempts.length > state.budgets.ciRuns) {
+    throw new LoopStateValidationError('CI run attempt ledger cannot exceed the CI run counter');
+  }
 
   if (state.escalationReason !== null) {
     assertNonEmptyString(state.escalationReason, 'escalationReason', 80);
@@ -289,7 +324,7 @@ export function createLoopState(input) {
   const createdAt = timestamp(input.now);
 
   return validateLoopState({
-    schemaVersion: 1,
+    schemaVersion: 2,
     taskId: input.taskId,
     branch: input.branch,
     baseSha: input.baseSha,
@@ -302,6 +337,7 @@ export function createLoopState(input) {
     acceptanceCriteria: input.acceptanceCriteria.map((id) => ({ id, status: 'pending' })),
     lastVerification: null,
     failureCounts: {},
+    ciRunAttempts: [],
     protectedPathsTouched: [],
     budgets: {
       tokenLimit: conditions.tokenLimit,
@@ -411,6 +447,55 @@ export function recordCIRun(state) {
   return setUpdatedAt(next);
 }
 
+export function reserveCIRunAttempt(state, actionAttemptKey, policy) {
+  const next = cloneState(state);
+  if (typeof actionAttemptKey !== 'string' || !HASH_PATTERN.test(actionAttemptKey)) {
+    throw new LoopStateValidationError('actionAttemptKey must be a SHA-256 hex digest');
+  }
+  const existing = next.ciRunAttempts.find((attempt) => attempt.actionAttemptKey === actionAttemptKey);
+  if (existing) return { state: next, status: 'duplicate', reason: 'duplicate_action_attempt' };
+
+  const conditions = assertStopConditions(policy);
+  if (next.budgets.ciRunLimit === null || conditions.ciRunLimit === null) {
+    return { state: next, status: 'refused', reason: 'ci_run_limit_unconfigured' };
+  }
+  if (next.ciRunAttempts.length >= MAX_CI_RUN_ATTEMPTS) {
+    return { state: next, status: 'refused', reason: 'ci_attempt_ledger_full' };
+  }
+
+  const budget = evaluateBudgets(next, policy);
+  if (budget.stop) return { state: next, status: 'refused', reason: budget.reason };
+  const reservedAt = new Date().toISOString();
+  next.ciRetryCount += 1;
+  next.budgets.ciRuns += 1;
+  next.ciRunAttempts.push({
+    actionAttemptKey,
+    status: 'reserved',
+    reservedAt,
+    finishedAt: null,
+  });
+  return { state: setUpdatedAt(next), status: 'reserved', reason: null };
+}
+
+export function finishCIRunAttempt(state, actionAttemptKey, status) {
+  const next = cloneState(state);
+  if (typeof actionAttemptKey !== 'string' || !HASH_PATTERN.test(actionAttemptKey)) {
+    throw new LoopStateValidationError('actionAttemptKey must be a SHA-256 hex digest');
+  }
+  if (!['submitted', 'rejected', 'uncertain'].includes(status)) {
+    throw new LoopStateValidationError('CI run completion status must be submitted, rejected, or uncertain');
+  }
+  const attempt = next.ciRunAttempts.find((entry) => entry.actionAttemptKey === actionAttemptKey);
+  if (!attempt) throw new LoopStateValidationError('cannot finish an unreserved CI run attempt');
+  if (attempt.status !== 'reserved') {
+    if (attempt.status === status) return next;
+    throw new LoopStateValidationError('a finished CI run attempt cannot change status');
+  }
+  attempt.status = status;
+  attempt.finishedAt = new Date().toISOString();
+  return setUpdatedAt(next);
+}
+
 function effectiveLimit(snapshotLimit, policyLimit) {
   if (snapshotLimit === null) return policyLimit;
   if (policyLimit === null) return snapshotLimit;
@@ -467,7 +552,7 @@ export function evaluateBudgets(state, policy, diff) {
   return { stop: false, reason: null };
 }
 
-export async function saveLoopState(repoRoot, state) {
+async function saveLoopStateUnlocked(repoRoot, state) {
   validateLoopState(state);
   const realRoot = await resolveRepositoryRoot(repoRoot);
   const stateDirectory = await getStateDirectory(realRoot, { create: true });
@@ -504,6 +589,82 @@ export async function saveLoopState(repoRoot, state) {
     if (error instanceof LoopStateError) throw error;
     throw new LoopStatePathError(`cannot atomically save loop state: ${error.message}`, { cause: error });
   }
+}
+
+async function withStateLock(repoRoot, taskId, operation) {
+  assertSafeTaskId(taskId);
+  const realRoot = await resolveRepositoryRoot(repoRoot);
+  const stateDirectory = await getStateDirectory(realRoot, { create: true });
+  const lockPath = path.join(stateDirectory, `${taskId}.lock`);
+  const lockToken = randomUUID();
+  const lockDeadline = Date.now() + 1000;
+  let lockHandle;
+  let lockIdentity;
+  while (!lockHandle) {
+    try {
+      lockHandle = await open(lockPath, 'wx', 0o600);
+    } catch (error) {
+      if (error.code !== 'EEXIST' || Date.now() >= lockDeadline) {
+        if (error.code === 'EEXIST') {
+          throw new LoopStateLockError('LoopState is already being updated; refusing a concurrent or stale reservation', { cause: error });
+        }
+        throw new LoopStatePathError(`cannot acquire LoopState update lock: ${error.message}`, { cause: error });
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  }
+  try {
+    await lockHandle.writeFile(lockToken, 'utf8');
+    await lockHandle.sync();
+    lockIdentity = await lockHandle.stat();
+  } catch (error) {
+    if (lockHandle) await lockHandle.close().catch(() => {});
+    if (error instanceof LoopStateError) throw error;
+    throw new LoopStatePathError(`cannot acquire LoopState update lock: ${error.message}`, { cause: error });
+  }
+
+  try {
+    return await operation(realRoot);
+  } finally {
+    await lockHandle.close().catch(() => {});
+    const current = await lstat(lockPath).catch((error) => (error.code === 'ENOENT' ? null : Promise.reject(error)));
+    if (current && !current.isSymbolicLink() && current.isFile()
+        && current.dev === lockIdentity.dev && current.ino === lockIdentity.ino) {
+      const content = await readFile(lockPath, 'utf8').catch(() => null);
+      if (content === lockToken) await unlink(lockPath).catch(() => {});
+    }
+  }
+}
+
+export async function saveLoopState(repoRoot, state) {
+  validateLoopState(state);
+  return withStateLock(repoRoot, state.taskId, (realRoot) => saveLoopStateUnlocked(realRoot, state));
+}
+
+export async function reserveCIRunAttemptInRepository(repoRoot, taskId, actionAttemptKey, policy, expectedRevision) {
+  return withStateLock(repoRoot, taskId, async (realRoot) => {
+    const current = await loadLoopState(realRoot, taskId);
+    if (expectedRevision !== undefined) {
+      assertExactKeys(expectedRevision, ['branch', 'baseSha', 'headSha'], 'expected CI run revision');
+      if (current.branch !== expectedRevision.branch
+          || current.baseSha !== expectedRevision.baseSha
+          || current.headSha !== expectedRevision.headSha) {
+        return { state: current, status: 'refused', reason: 'stale_loop_state' };
+      }
+    }
+    const reservation = reserveCIRunAttempt(current, actionAttemptKey, policy);
+    if (reservation.status === 'reserved') await saveLoopStateUnlocked(realRoot, reservation.state);
+    return reservation;
+  });
+}
+
+export async function finishCIRunAttemptInRepository(repoRoot, taskId, actionAttemptKey, status) {
+  return withStateLock(repoRoot, taskId, async (realRoot) => {
+    const current = await loadLoopState(realRoot, taskId);
+    const next = finishCIRunAttempt(current, actionAttemptKey, status);
+    await saveLoopStateUnlocked(realRoot, next);
+    return next;
+  });
 }
 
 export async function loadLoopState(repoRoot, taskId) {

@@ -205,6 +205,14 @@ function sanitizeContext(value) {
     && !/[\x00-\x1f\x7f]/.test(value) ? value.trim() : null;
 }
 
+function normalizeRepositoryFilename(value) {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 1024
+      || value.startsWith('/') || value.includes('\\') || /[\x00-\x1f\x7f]/.test(value)) return null;
+  const segments = value.split('/');
+  if (segments.some((segment) => segment.length === 0 || segment === '.' || segment === '..')) return null;
+  return value;
+}
+
 function canonicalRequiredWorkflow(workflow) {
   const normalized = normalizeRequiredCheckSnapshot({
     baseRef: 'main',
@@ -801,6 +809,74 @@ export function createGitHubPrClient(options) {
     return snapshot;
   }
 
+  async function getPullRequestFiles(prNumber) {
+    if (!isPositiveInteger(prNumber) || activePrNumber !== prNumber || !activeSnapshot) fail('pr_snapshot_required');
+    const expected = activeSnapshot;
+    const before = await readPullRequest(prNumber);
+    activeSnapshot = before;
+    if (!sameTuple(normalizedTuple(before), normalizedTuple(expected))) {
+      return Object.freeze({
+        status: 'stale',
+        reasonCode: 'pr_tuple_changed',
+        prNumber,
+        snapshot: before,
+        files: Object.freeze([]),
+        collectionStatus: 'unavailable',
+      });
+    }
+
+    const result = await paginate(repositoryPath + '/pulls/' + prNumber + '/files', 'files');
+    const files = [];
+    const seen = new Set();
+    let complete = result.complete;
+    for (const entry of result.values) {
+      if (!isRecord(entry)) {
+        complete = false;
+        continue;
+      }
+      const filename = normalizeRepositoryFilename(entry.filename);
+      const previousFilename = entry.previous_filename === undefined
+        ? null
+        : normalizeRepositoryFilename(entry.previous_filename);
+      const status = typeof entry.status === 'string' ? entry.status : null;
+      if (!filename || (entry.previous_filename !== undefined && !previousFilename)
+          || !['added', 'modified', 'removed', 'renamed', 'copied', 'changed', 'unchanged'].includes(status)
+          || (['renamed', 'copied'].includes(status) && !previousFilename)) {
+        complete = false;
+        continue;
+      }
+      const key = filename + '\0' + (previousFilename ?? '');
+      if (seen.has(key)) {
+        complete = false;
+        continue;
+      }
+      seen.add(key);
+      files.push(Object.freeze({ filename, previousFilename, status }));
+    }
+
+    const after = await readPullRequest(prNumber);
+    activeSnapshot = after;
+    if (!sameTuple(normalizedTuple(before), normalizedTuple(after))) {
+      return Object.freeze({
+        status: 'stale',
+        reasonCode: 'pr_tuple_changed',
+        prNumber,
+        snapshot: after,
+        files: Object.freeze([]),
+        collectionStatus: 'unavailable',
+      });
+    }
+    files.sort((left, right) => compareStrings(left.filename, right.filename)
+      || compareStrings(left.previousFilename ?? '', right.previousFilename ?? ''));
+    return Object.freeze({
+      status: 'current',
+      prNumber,
+      snapshot: after,
+      files: Object.freeze(files),
+      collectionStatus: complete ? 'complete' : 'incomplete',
+    });
+  }
+
   async function getCommitCheckRuns(testedShaInput) {
     const testedSha = normalizeSha(testedShaInput);
     const before = await refreshForCollection(testedShaInput);
@@ -1241,6 +1317,7 @@ export function createGitHubPrClient(options) {
 
   return Object.freeze({
     getPullRequest,
+    getPullRequestFiles,
     getCommitCheckRuns,
     getWorkflowRuns,
     getRequiredWorkflowEvidence,

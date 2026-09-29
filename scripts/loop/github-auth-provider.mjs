@@ -192,14 +192,68 @@ function normalizePaths(paths) {
   return [...new Set(normalized)].sort();
 }
 
+function normalizeActionTarget(value) {
+  const keys = ['workflowId', 'runId', 'runAttempt', 'failedJobIds', 'requiredIdentity'];
+  assertExactKeys(value, new Set(keys), 'invalid_scope');
+  if (!parsePositiveInteger(value.workflowId) || !parsePositiveInteger(value.runId)
+      || !parsePositiveInteger(value.runAttempt) || !Array.isArray(value.failedJobIds)
+      || value.failedJobIds.length < 1 || value.failedJobIds.length > 100
+      || value.failedJobIds.some((id) => !parsePositiveInteger(id))
+      || new Set(value.failedJobIds).size !== value.failedJobIds.length) fail('invalid_scope');
+
+  let requiredIdentity;
+  if (isRecord(value.requiredIdentity) && value.requiredIdentity.type === 'workflow') {
+    assertExactKeys(value.requiredIdentity, new Set(['type', 'repositoryId', 'path', 'ref', 'sha']), 'invalid_scope');
+    if (!parsePositiveInteger(value.requiredIdentity.repositoryId)
+        || typeof value.requiredIdentity.path !== 'string'
+        || normalizePaths([value.requiredIdentity.path])[0] !== value.requiredIdentity.path
+        || !value.requiredIdentity.path.toLowerCase().startsWith('.github/workflows/')
+        || typeof value.requiredIdentity.ref !== 'string' || value.requiredIdentity.ref.length === 0
+        || value.requiredIdentity.ref.length > 255 || /[\x00-\x1f\x7f]/.test(value.requiredIdentity.ref)
+        || typeof value.requiredIdentity.sha !== 'string' || !SHA_PATTERN.test(value.requiredIdentity.sha)) fail('invalid_scope');
+    requiredIdentity = Object.freeze({
+      type: 'workflow',
+      repositoryId: value.requiredIdentity.repositoryId,
+      path: value.requiredIdentity.path,
+      ref: value.requiredIdentity.ref,
+      sha: value.requiredIdentity.sha.toLowerCase(),
+    });
+  } else if (isRecord(value.requiredIdentity) && value.requiredIdentity.type === 'check') {
+    assertExactKeys(value.requiredIdentity, new Set(['type', 'context', 'appId']), 'invalid_scope');
+    if (typeof value.requiredIdentity.context !== 'string' || value.requiredIdentity.context.length === 0
+        || value.requiredIdentity.context.length > 255 || /[\x00-\x1f\x7f]/.test(value.requiredIdentity.context)
+        || (value.requiredIdentity.appId !== null && !parsePositiveInteger(value.requiredIdentity.appId))) fail('invalid_scope');
+    requiredIdentity = Object.freeze({
+      type: 'check',
+      context: value.requiredIdentity.context,
+      appId: value.requiredIdentity.appId,
+    });
+  } else {
+    fail('invalid_scope');
+  }
+
+  return Object.freeze({
+    workflowId: value.workflowId,
+    runId: value.runId,
+    runAttempt: value.runAttempt,
+    failedJobIds: Object.freeze([...value.failedJobIds].sort((left, right) => left - right)),
+    requiredIdentity,
+  });
+}
+
 function normalizeScope(scope, expectedRepositoryId) {
-  const allowedKeys = new Set(['repositoryId', 'prNumber', 'baseSha', 'headSha', 'mergeSha', 'capability', 'paths']);
+  const allowedKeys = new Set(['repositoryId', 'prNumber', 'baseSha', 'headSha', 'mergeSha', 'capability', 'paths', 'testedSha', 'actionTarget']);
   assertExactKeys(scope, allowedKeys, 'invalid_scope');
   if (!parsePositiveInteger(scope.repositoryId) || scope.repositoryId !== expectedRepositoryId) fail('invalid_scope');
   if (!parsePositiveInteger(scope.prNumber)) fail('invalid_scope');
   if (!SHA_PATTERN.test(scope.baseSha) || !SHA_PATTERN.test(scope.headSha)) fail('invalid_scope');
   if (scope.mergeSha !== null && !SHA_PATTERN.test(scope.mergeSha)) fail('invalid_scope');
   if (typeof scope.capability !== 'string' || !APPROVAL_CAPABILITIES.has(scope.capability)) fail('invalid_scope');
+  if (scope.capability === 'actions:rerun') {
+    if (!SHA_PATTERN.test(scope.testedSha) || !Object.hasOwn(scope, 'actionTarget')) fail('invalid_scope');
+  } else if (Object.hasOwn(scope, 'testedSha') || Object.hasOwn(scope, 'actionTarget')) {
+    fail('invalid_scope');
+  }
   return Object.freeze({
     repositoryId: scope.repositoryId,
     prNumber: scope.prNumber,
@@ -208,6 +262,8 @@ function normalizeScope(scope, expectedRepositoryId) {
     mergeSha: scope.mergeSha === null ? null : scope.mergeSha.toLowerCase(),
     capability: scope.capability,
     paths: Object.freeze(normalizePaths(scope.paths)),
+    ...(scope.capability === 'actions:rerun' ? { testedSha: scope.testedSha.toLowerCase() } : {}),
+    ...(scope.capability === 'actions:rerun' ? { actionTarget: normalizeActionTarget(scope.actionTarget) } : {}),
   });
 }
 
@@ -218,6 +274,8 @@ function sameScope(left, right) {
     && left.headSha === right.headSha
     && left.mergeSha === right.mergeSha
     && left.capability === right.capability
+    && left.testedSha === right.testedSha
+    && canonicalJson(left.actionTarget) === canonicalJson(right.actionTarget)
     && left.paths.length === right.paths.length
     && left.paths.every((path, index) => path === right.paths[index]);
 }
@@ -421,6 +479,8 @@ export function createGitHubAuthProvider(options) {
       revision: { baseSha: scope.baseSha, headSha: scope.headSha, mergeSha: scope.mergeSha },
       capability: scope.capability,
       paths: [...scope.paths],
+      ...(scope.testedSha ? { testedSha: scope.testedSha } : {}),
+      ...(scope.actionTarget ? { actionTarget: scope.actionTarget } : {}),
       approverId: authenticatedPrincipal.id,
       expiresAt,
     });

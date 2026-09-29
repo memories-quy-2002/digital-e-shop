@@ -186,6 +186,44 @@ describe('strict GitHub PR read adapter', () => {
     assert.ok(calls.every((call) => call.init.headers['X-GitHub-Api-Version'] === '2026-03-10'));
   });
 
+  it('collects bounded changed-file evidence against one fresh PR revision tuple', async () => {
+    const { client, calls, tokens } = createHarness({
+      route: ({ url }) => url.pathname.endsWith('/pulls/' + PR_NUMBER + '/files')
+        ? jsonResponse(200, [
+          { filename: '.github/workflows/ci.yml', status: 'modified' },
+          { filename: 'src/app.mjs', status: 'modified' },
+        ])
+        : undefined,
+    });
+    await client.getPullRequest(PR_NUMBER);
+
+    const files = await client.getPullRequestFiles(PR_NUMBER);
+
+    assert.equal(files.status, 'current');
+    assert.equal(files.collectionStatus, 'complete');
+    assert.equal(files.snapshot.headSha, HEAD_SHA);
+    assert.deepEqual(files.files.map((file) => file.filename), ['.github/workflows/ci.yml', 'src/app.mjs']);
+    assert.ok(calls.some((call) => call.url.pathname === '/repos/' + REPOSITORY + '/pulls/' + PR_NUMBER + '/files'));
+    assert.ok(tokens.every((capability) => capability === 'observe'));
+  });
+
+  it('marks changed-file evidence stale when the PR tuple changes during pagination', async () => {
+    const { client } = createHarness({
+      changeTupleAfterPrReads: 2,
+      graphBaseSha: (prReads) => prReads > 2 ? 'f'.repeat(40) : BASE_SHA,
+      route: ({ url }) => url.pathname.endsWith('/pulls/' + PR_NUMBER + '/files')
+        ? jsonResponse(200, [{ filename: 'src/app.mjs', status: 'modified' }])
+        : undefined,
+    });
+    await client.getPullRequest(PR_NUMBER);
+
+    const files = await client.getPullRequestFiles(PR_NUMBER);
+
+    assert.equal(files.status, 'stale');
+    assert.equal(files.reasonCode, 'pr_tuple_changed');
+    assert.deepEqual(files.files, []);
+  });
+
   it('rejects non-GitHub origins and repository identity mismatches', async () => {
     assert.throws(
       () => createGitHubPrClient({ repository: REPOSITORY, getToken: async () => TOKEN, apiOrigin: 'http://attacker.test' }),

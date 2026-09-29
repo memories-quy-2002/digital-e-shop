@@ -355,6 +355,56 @@ describe('GitHub App authentication and approval provider', () => {
     );
   });
 
+  it('binds Actions rerun approval to the exact tested head or merge SHA', async () => {
+    const harness = createHarness();
+    await harness.provider.authenticateApprover();
+    const actionTarget = {
+      workflowId: 5001,
+      runId: 7001,
+      runAttempt: 2,
+      failedJobIds: [9003, 9001],
+      requiredIdentity: {
+        type: 'workflow',
+        repositoryId: REPOSITORY_ID,
+        path: '.github/workflows/ci.yml',
+        ref: 'refs/heads/main',
+        sha: 'a'.repeat(40),
+      },
+    };
+    const scope = approvalScope({
+      capability: 'actions:rerun',
+      paths: ['.github/workflows/ci.yml'],
+      testedSha: 'b'.repeat(40),
+      actionTarget,
+    });
+    const approval = await harness.provider.requestApproval(scope);
+    const confirmation = harness.promptEvents.find((event) => event.type === 'approval');
+
+    assert.equal(confirmation.testedSha, 'b'.repeat(40));
+    assert.deepEqual(confirmation.actionTarget, {
+      ...actionTarget,
+      failedJobIds: [9001, 9003],
+      requiredIdentity: { ...actionTarget.requiredIdentity, sha: 'a'.repeat(40) },
+    });
+    assert.throws(
+      () => harness.provider.consumeApproval(approval, { ...scope, testedSha: 'c'.repeat(40) }),
+      (error) => error instanceof GitHubAuthProviderError && error.code === 'approval_scope_mismatch',
+    );
+    assert.throws(
+      () => harness.provider.consumeApproval(approval, {
+        ...scope,
+        actionTarget: { ...actionTarget, runAttempt: 3 },
+      }),
+      (error) => error instanceof GitHubAuthProviderError && error.code === 'approval_scope_mismatch',
+    );
+    assert.equal(harness.provider.consumeApproval(approval, scope), undefined);
+
+    await assert.rejects(
+      harness.provider.requestApproval(approvalScope({ capability: 'actions:rerun', paths: ['.github/workflows/ci.yml'] })),
+      (error) => error instanceof GitHubAuthProviderError && error.code === 'invalid_scope',
+    );
+  });
+
   it('expires an unconsumed approval and rejects malformed or unsafe path scopes', async () => {
     const harness = createHarness();
     await harness.provider.authenticateApprover();
