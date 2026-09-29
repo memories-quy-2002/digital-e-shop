@@ -444,6 +444,11 @@ export async function validateRepairProposal(session, patchProposal, context) {
 
   await runGit(repoRoot, ['commit', '-m', `fix(loop): repair PR checks ${session.sessionId}`]);
   const verifiedRevision = await readGitHeadRevision(repoRoot);
+  const committedState = structuredClone(hostContext.loopState);
+  committedState.headSha = verifiedRevision;
+  await saveLoopState(repoRoot, committedState);
+  hostContext.loopState = committedState;
+  privateContext.loopState = committedState;
   const plan = buildVerificationPlan({ changedPaths, mode: 'fast', policy });
   const verificationBudget = evaluateBudgets(hostContext.loopState, policy, diff);
   if (verificationBudget.stop) {

@@ -139,6 +139,7 @@ async function createFixture(options = {}) {
     risk: 'low', acceptanceCriteria: ['tests'],
     policy: fixturePolicy,
   });
+  if (options.iteration !== undefined) loopState.iteration = options.iteration;
   loopState = recordFailure(loopState, fingerprint);
   await saveLoopState(root, loopState);
 
@@ -278,7 +279,7 @@ describe('repair sessions', () => {
   });
 
   it('requests and consumes exact repair approval, commits only scoped paths, and requires stable fixed-verifier evidence', async () => {
-    const fixture = await createFixture();
+    const fixture = await createFixture({ iteration: policy.stopConditions.maxIterations - 1 });
     const session = await fixture.begin();
     const result = await fixture.validate(session, {
       version: 1,
@@ -316,10 +317,13 @@ describe('repair sessions', () => {
     const session = await fixture.begin();
     const startedAt = Date.parse(fixture.hostContext.loopState.startedAt);
     const originalNow = Date.now;
-    let clockReads = 0;
+    let budgetChecks = 0;
     Date.now = () => {
-      clockReads += 1;
-      return startedAt + (clockReads < 3 ? 0 : 1000);
+      if (new Error().stack.includes('evaluateBudgets')) {
+        budgetChecks += 1;
+        return startedAt + (budgetChecks < 3 ? 0 : 1000);
+      }
+      return startedAt;
     };
 
     try {
@@ -331,9 +335,14 @@ describe('repair sessions', () => {
       Date.now = originalNow;
     }
 
-    assert.equal(clockReads, 3);
+    assert.equal(budgetChecks, 3);
     await assert.rejects(readFile(fixture.verifierMarker),
       (error) => error?.code === 'ENOENT');
+    const localHead = runGit(fixture.root, ['rev-parse', '--verify', 'HEAD']);
+    const persistedState = await loadLoopState(fixture.root, 'repair-task');
+    assert.notEqual(localHead, fixture.snapshot.headSha);
+    assert.equal(persistedState.headSha, localHead);
+    assert.equal(persistedState.iteration, fixture.hostContext.loopState.iteration);
   });
 
   it('does not apply a proposal when the PR tuple changed or the workspace was modified after session creation', async () => {
