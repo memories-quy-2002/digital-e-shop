@@ -26,8 +26,9 @@ The PR babysitter uses a dedicated GitHub App; it does not reuse the Codex `@Git
 - The local CLI uses device flow and checks the signed-in GitHub user ID against a trusted host allowlist. Login identifies the approver but does not approve an action; a TTY confirmation must bind the repository, PR, current head SHA, capability, exact paths, and expiry. The coding agent proposes a patch without direct worktree access; the trusted host checks paths before applying it under `repair:workspace` approval, then requires a fresh `contents:write` approval after verification and before pushing.
 - Installation tokens are scoped to the target repository and to the minimum permission set for one capability. Stage 0 is read-only; reruns and repair require separate Actions-write and Contents-write scopes. Keep the App private key outside the checkout, and never persist OAuth or installation tokens. [GitHub supports repository- and permission-scoped installation tokens](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-an-installation-access-token-for-a-github-app).
 - GitHub records API writes under the App identity; the Loop audit metadata records the authenticated approver ID separately. Repair push approval is requested after validating the final changed paths and is consumed in the same process, so approval credentials do not travel in a `RepairPacket` or `.loop/state/`.
-- `scripts/loop/github-auth-provider.mjs` implements App device flow, resolves the principal from `/user`, checks the host-owned numeric user-ID allowlist, requests repository-scoped capability tokens, and issues opaque, single-use TTY approvals bound to the exact PR SHA tuple and paths. `scripts/loop/github-pr-client.mjs` implements the fixed-origin, read-only PR/check/ruleset/workflow/review adapter and bounded redacted job-log reads. The provider and adapter are not yet wired to a repair coordinator; the runner remains observe-only.
-- Installation tokens for rerun and contents-write scopes are capability-specific. No adapter method currently reruns checks, pushes branches, or merges pull requests. Stage 1/2 actions stay disabled until the trusted host coordinator and their separate stage gates are implemented and reviewed.
+- `scripts/loop/github-auth-provider.mjs` implements App device flow, resolves the principal from `/user`, checks the host-owned numeric user-ID allowlist, requests repository-scoped capability tokens, and issues opaque, single-use TTY approvals. Actions rerun approval binds the PR SHA tuple, tested SHA, exact required identity, workflow run/attempt, failed job IDs, and path scope. `scripts/loop/github-pr-client.mjs` implements fixed-origin, read-only PR/check/ruleset/workflow/review reads, complete changed-file evidence, and bounded redacted job-log reads.
+- `scripts/loop/github-actions-write.mjs` exposes only the failed-jobs rerun endpoint. It requires a fresh same-repository PR tuple, complete PR-file/run/job evidence, a trusted workflow/job allowlist, a finite `LoopState` CI-run budget, and exact one-use approval before minting the Actions-write token. It reserves the stable attempt key before POST; uncertain network outcomes remain consumed. The host allowlist pins stable job names while each approval pins the observed per-run job IDs and attempt.
+- Required-workflow source repository IDs may differ from the PR repository, but the exact source `{ repositoryId, path, ref, sha }` must match trusted host configuration and a host-provided attestation. The standard GitHub run adapter has no source-SHA attestation, so it continues to report required-workflow evidence unavailable and actual reruns remain fail-closed until a trusted attestation source is wired. No CLI, repair coordinator, branch push, or merge capability is implemented yet.
 - Required workflow rules identify `{ repository_id, path, ref, sha }`, where `sha` is the workflow source revision. Current documented workflow-run metadata exposes the workflow path/ref and the PR commit `head_sha`, but not an attested source SHA. The adapter therefore returns `unavailable` for required-workflow evidence until a trusted SHA-attestation source exists; a matching display name/path/ref cannot count as green. See [required workflow rules](https://docs.github.com/en/enterprise-cloud@latest/rest/repos/rules?apiVersion=2026-03-10) and [workflow runs](https://docs.github.com/en/rest/actions/workflow-runs).
 
 ## Phase 2A PR Babysitter core
@@ -57,17 +58,18 @@ The PR babysitter uses a dedicated GitHub App; it does not reuse the Codex `@Git
 
 ## Rollout boundary
 
-The Phase 2A decision core and the initial Phase 2B authentication/read-only
-observation modules are implemented. The Phase 2B worktree guard verifies the
-local same-repository feature branch and HEAD against the PR, reloads persisted
-PR and LoopState records, and captures a stable workspace fingerprint. Dirty
-worktrees require the trusted host's task identity and a matching persisted
-fingerprint. Before consuming a repair approval, the guard refreshes the full
-PR SHA tuple; later repair stages can repeat that check through the trusted
-snapshot refresher.
+The Phase 2A decision core and the Phase 2B GitHub App auth, read adapter,
+worktree guard, and narrowly scoped Actions rerun adapter are implemented. The
+worktree guard verifies the local same-repository feature branch and HEAD
+against the PR, reloads persisted PR and LoopState records, and captures a
+stable workspace fingerprint. Dirty worktrees require the trusted host's task
+identity and a matching persisted fingerprint. Before consuming a repair
+approval, the guard refreshes the full PR SHA tuple; later repair stages can
+repeat that check through the trusted snapshot refresher.
 
-There is still no repair coordinator or GitHub write path, so operation remains
-observe-only. Required workflow evidence stays unavailable until source SHA
-attestation is available. Issue-to-Draft-PR dispatch and post-merge observation
-are later phases and must not be inferred from the issue form or local
-controller. See [[architecture]] and [[index]].
+The rerun adapter stays fail-closed with the standard observation data because
+GitHub run metadata does not attest the required workflow source SHA. A trusted
+host callback and allowlist are required before it can issue a rerun. There is
+not yet a CLI repair coordinator, branch-push path, merge capability,
+issue-to-Draft-PR dispatch, or post-merge observation. See [[architecture]]
+and [[index]].

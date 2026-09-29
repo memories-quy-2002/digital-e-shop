@@ -95,7 +95,7 @@ Generate App JWTs only inside the trusted host, create repository-scoped install
 
 - [x] **Step 4: Run tests and verify they pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/loop/github-auth-provider.mjs scripts/loop/__tests__/github-auth-provider.test.mjs
@@ -225,7 +225,10 @@ git commit -m "feat(loop): guard PR repair worktrees"
 
 **Files:**
 - Modify: `scripts/loop/github-pr-client.mjs`
+- Modify: `scripts/loop/github-auth-provider.mjs` to bind approval to the exact rerun target
 - Create: `scripts/loop/github-actions-write.mjs`
+- Modify: `scripts/loop/__tests__/github-pr-client.test.mjs`
+- Modify: `scripts/loop/__tests__/github-auth-provider.test.mjs`
 - Create: `scripts/loop/__tests__/github-actions-write.test.mjs`
 - Modify: `scripts/loop/state.mjs` and `scripts/loop/__tests__/state.test.mjs` for atomic, idempotent CI-attempt reservation in validated `LoopState`
 
@@ -236,11 +239,13 @@ git commit -m "feat(loop): guard PR repair worktrees"
 - Produces: `finishCIRunAttempt(state, actionAttemptKey, status)`, where status is `submitted`, `rejected`, or `uncertain`; every status remains consumed and non-replayable.
 - Stage 1 reruns require a finite configured `ciRunLimit`; if absent, remain observe-only. Persist the reserved key and incremented counter atomically before POST. Mark the reservation submitted, rejected, or uncertain afterward; an uncertain POST remains consumed and is never repeated under the same key.
 - Requires a verified approval attestation for the `actions:rerun` capability, bound to the repository, PR number, current `{ baseSha, headSha, mergeSha }` tuple, target `testedSha`, and expiry. A raw `{ actionsWriteApproved: true, approvedAt, repository }` object is not authorization.
+- The approval also binds the exact `{ workflowId, runId, runAttempt, failedJobIds, requiredIdentity }` target so a same-SHA run or job cannot be substituted after approval.
 - Obtains a repository-scoped installation token restricted to the fixed `Actions:write` capability only after consuming the matching approval; never accepts a raw token or permission map from CLI input.
 - Consumes Phase 2A decision `action === "retry-check"` only.
 - Consumes only a target mapped from the observed attempt to its exact required check/workflow identity, `testedSha`, workflow ID, workflow run ID, failed job IDs, and current base/head/merge tuple; do not select a run from a display name or arbitrary CLI input.
+- The trusted workflow allowlist pins the execution repository and exact required workflow source identity. The source repository in `{ repositoryId, path, ref, sha }` may differ from the PR repository; its SHA still needs independent host attestation. Allowlist stable job names and compare the exact numeric failed job IDs and run attempt from fresh evidence because GitHub assigns those IDs per run.
 
-- [ ] **Step 1: Write failing rerun tests**
+- [x] **Step 1: Write failing rerun tests**
 
 Assert:
 - write method rejects an absent or unverifiable approval attestation;
@@ -256,18 +261,18 @@ Assert:
 - LoopState v1 or corrupt state does not auto-reset; duplicate reservation does not increment `ciRuns`; a finite CI-run limit admits its final reserved action exactly once; a null CI-run limit refuses Stage 1 writes;
 - 409/422/rate-limit/network responses do not mutate product code and become escalation-compatible reason codes.
 
-- [ ] **Step 2: Run tests and verify they fail**
+- [x] **Step 2: Run tests and verify they fail**
 
-- [ ] **Step 3: Implement the minimal write adapter**
+- [x] **Step 3: Implement the minimal write adapter**
 
 Keep Actions write capability separate from the general read client so observe-only mode cannot accidentally call a write endpoint. Verify and consume the attestation through the trusted host adapter before POST; do not infer approval from CLI flags, environment variables, or caller-provided timestamps. Re-fetch the PR tuple after approval, mint a short-lived installation token limited to the target repository and the permission subset required for rerun, and revalidate the tuple immediately before reservation. Atomically reserve and persist the CI attempt as the final host-state operation before POST.
 
-- [ ] **Step 4: Run tests and verify they pass**
+- [x] **Step 4: Run tests and verify they pass**
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add scripts/loop/github-pr-client.mjs scripts/loop/github-actions-write.mjs scripts/loop/state.mjs scripts/loop/__tests__/github-actions-write.test.mjs scripts/loop/__tests__/state.test.mjs
+git add scripts/loop/github-pr-client.mjs scripts/loop/github-auth-provider.mjs scripts/loop/github-actions-write.mjs scripts/loop/state.mjs scripts/loop/__tests__/github-pr-client.test.mjs scripts/loop/__tests__/github-auth-provider.test.mjs scripts/loop/__tests__/github-actions-write.test.mjs scripts/loop/__tests__/state.test.mjs
 git commit -m "feat(loop): add bounded flaky CI reruns"
 ```
 

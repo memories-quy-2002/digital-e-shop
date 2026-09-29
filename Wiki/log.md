@@ -94,3 +94,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-28 - Codex - Hardened Phase 2A PR state rollover: only a fresh snapshot for the same repository/PR can reset tuple-scoped counters; stale observations are rejected.
 - 2026-09-28 - Codex - Implemented Phase 2B GitHub App authentication and read-only PR adapter with required workflow SHA attestation fail-closed.
 - 2026-09-29 - Codex - Added the Phase 2B PR worktree guard for same-repository feature branches, persisted PR/LoopState tuple checks, stable workspace fingerprints, and exact-scope approval consumption.
+- 2026-09-29 - Codex - Added the fail-closed Phase 2B Actions rerun adapter with exact run/job-bound approvals, atomic CI budget reservations, and trusted workflow source-SHA attestation.
