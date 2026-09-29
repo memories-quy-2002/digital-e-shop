@@ -30,6 +30,7 @@ const CONTROL_PLANE_TEST_FILES = Object.freeze([
   'scripts/loop/__tests__/pr-evidence.test.mjs',
   'scripts/loop/__tests__/pr-state.test.mjs',
   'scripts/loop/__tests__/pr-babysitter.test.mjs',
+  'scripts/loop/__tests__/pr-babysitter-cli.test.mjs',
   'scripts/loop/__tests__/pr-packets.test.mjs',
   'scripts/loop/__tests__/telemetry.test.mjs',
   'scripts/loop/__tests__/pr-contracts.test.mjs',
