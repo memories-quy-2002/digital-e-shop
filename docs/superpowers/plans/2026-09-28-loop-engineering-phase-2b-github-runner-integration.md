@@ -180,8 +180,10 @@ git commit -m "feat(loop): add GitHub PR observation adapter"
 - Create: `scripts/loop/__tests__/pr-worktree-guard.test.mjs`
 
 **Interfaces:**
-- Produces: `inspectPrWorktree(repoRoot, prSnapshot, prState): Promise<WorktreeGuardResult>`
-- Produces: `assertRepairWorkspace(result, verifiedApproval): void`
+- Produces: `inspectPrWorktree(repoRoot, prSnapshot, hostContext): Promise<WorktreeGuardResult>`
+- `hostContext` contains the validated PR state and LoopState, matching `taskId` and `taskWorktreeId`, exact `allowedPaths`, the trusted approval provider, and a trusted `refreshPrSnapshot` callback. An optional persisted workspace fingerprint is accepted only when it matches the freshly captured fingerprint.
+- Produces: `assertCurrentPrTuple(result): Promise<PrSnapshot>`, which refreshes repository/PR identity and the full base/head/merge tuple through the trusted host callback before each later repair stage.
+- Produces: `assertRepairWorkspace(result, verifiedApproval): Promise<void>`, which refreshes the tuple immediately before consuming the provider-issued `repair:workspace` approval for the exact path scope.
 
 Guard must verify:
 - repository root realpath is a Git checkout;
@@ -193,23 +195,24 @@ Guard must verify:
 - the current `{ baseSha, headSha, mergeSha }` tuple still equals the freshly observed PR tuple before approval consumption, patch application, verification, and push;
 - workspace fingerprint is captured before repair;
 - saved PR state references the same branch and full base/head/merge SHA tuple; `LoopState` must match the task and current head revision and remain the source of run budgets.
+- A dirty worktree is accepted only for the identified Phase 1 task worktree when its persisted workspace fingerprint matches; arbitrary dirty files block repair.
 
-- [ ] **Step 1: Write failing guard tests using temporary git repositories**
+- [x] **Step 1: Write failing guard tests using temporary git repositories**
 
 Cover correct branch, detached HEAD, main branch, fork PR, stale local HEAD, advanced base SHA, changed merge SHA, mismatched tuple state, symlink escape, and dirty-worktree behavior.
 - Reject caller-created approval objects and verified results bound to another repository, PR, head SHA, capability, expiry, or path scope.
 
 Dirty worktree may be allowed only if the host explicitly identifies the Phase 1 task worktree and the fingerprint is persisted; arbitrary pre-existing changes must block repair. The host approval provider must authenticate the human decision; this guard must not create approval from caller data.
 
-- [ ] **Step 2: Run tests and verify they fail**
+- [x] **Step 2: Run tests and verify they fail**
 
-- [ ] **Step 3: Implement guards using fixed `git` argument vectors**
+- [x] **Step 3: Implement guards using fixed `git` argument vectors**
 
 No shell interpolation. No automatic checkout/reset/clean.
 
-- [ ] **Step 4: Run tests and verify they pass**
+- [x] **Step 4: Run tests and verify they pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/loop/pr-worktree-guard.mjs scripts/loop/__tests__/pr-worktree-guard.test.mjs

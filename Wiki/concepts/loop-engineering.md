@@ -58,8 +58,16 @@ The PR babysitter uses a dedicated GitHub App; it does not reuse the Codex `@Git
 ## Rollout boundary
 
 The Phase 2A decision core and the initial Phase 2B authentication/read-only
-observation modules are implemented. There is no repair coordinator or GitHub
-write path, so operation remains observe-only. Required workflow evidence stays
-unavailable until source SHA attestation is available. Issue-to-Draft-PR
-dispatch and post-merge observation are later phases and must not be inferred
-from the issue form or local controller. See [[architecture]] and [[index]].
+observation modules are implemented. The Phase 2B worktree guard verifies the
+local same-repository feature branch and HEAD against the PR, reloads persisted
+PR and LoopState records, and captures a stable workspace fingerprint. Dirty
+worktrees require the trusted host's task identity and a matching persisted
+fingerprint. Before consuming a repair approval, the guard refreshes the full
+PR SHA tuple; later repair stages can repeat that check through the trusted
+snapshot refresher.
+
+There is still no repair coordinator or GitHub write path, so operation remains
+observe-only. Required workflow evidence stays unavailable until source SHA
+attestation is available. Issue-to-Draft-PR dispatch and post-merge observation
+are later phases and must not be inferred from the issue form or local
+controller. See [[architecture]] and [[index]].
