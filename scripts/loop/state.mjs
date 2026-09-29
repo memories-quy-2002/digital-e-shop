@@ -341,7 +341,7 @@ export function createLoopState(input) {
     protectedPathsTouched: [],
     budgets: {
       tokenLimit: conditions.tokenLimit,
-      tokenUsed: null,
+      tokenUsed: conditions.tokenLimit === null ? null : 0,
       wallClockLimitSeconds: conditions.maxWallClockSeconds,
       ciRunLimit: conditions.ciRunLimit,
       ciRuns: 0,

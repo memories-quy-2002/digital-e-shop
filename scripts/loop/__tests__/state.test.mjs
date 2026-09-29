@@ -233,9 +233,14 @@ describe('loop budgets', () => {
   it('fails closed when a token limit is configured but usage telemetry is unknown', () => {
     const tokenPolicy = withStopConditions({ tokenLimit: 100 });
     const state = createState({ policy: tokenPolicy });
+    const persistedUnknownUsage = {
+      ...state,
+      budgets: { ...state.budgets, tokenUsed: null },
+    };
 
-    assert.equal(state.budgets.tokenUsed, null);
-    assert.deepEqual(evaluateBudgets(state, tokenPolicy), { stop: true, reason: 'token_usage_unknown' });
+    assert.equal(state.budgets.tokenUsed, 0);
+    assert.equal(persistedUnknownUsage.budgets.tokenUsed, null);
+    assert.deepEqual(evaluateBudgets(persistedUnknownUsage, tokenPolicy), { stop: true, reason: 'token_usage_unknown' });
   });
 
   it('reserves a stable CI attempt once and never replays it after an uncertain outcome', () => {
