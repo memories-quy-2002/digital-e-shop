@@ -223,6 +223,53 @@ function observationCoverage(result, requiredCheckKeys) {
   return { observations: matching, count: keys.size };
 }
 
+function summarizeCheckObservation(observation) {
+  return {
+    checkId: observation.checkId,
+    requiredCheckKey: observation.requiredCheckKey,
+    requiredWorkflowKey: observation.requiredWorkflowKey,
+    provider: observation.provider,
+    testedSha: observation.testedSha,
+    status: observation.status,
+    conclusion: observation.conclusion,
+    attemptKey: observation.attemptKey,
+  };
+}
+
+function summarizeCheckCollection(collection, requiredCheckSnapshot, requiredCheckKeys, snapshot, metadataWithinOutputBound) {
+  const snapshotCurrent = isCurrentResult(collection.result, snapshot);
+  const coverage = snapshotCurrent
+    ? observationCoverage(collection.result, requiredCheckKeys)
+    : { observations: [], count: 0 };
+  const observedKeys = new Set(coverage.observations.map((observation) => observation.requiredCheckKey));
+  const unmatched = snapshotCurrent
+    ? requiredCheckSnapshot.requiredChecks.filter(({ context, appId }) => {
+      const key = context + (appId === null ? '|legacy' : '|app:' + appId);
+      return !observedKeys.has(key);
+    })
+    : null;
+  const checkCollectionComplete = metadataWithinOutputBound && snapshotCurrent
+    && collection.result.checkCollectionComplete === true;
+
+  return {
+    testedSha: collection.testedSha,
+    collectionStatus: !collection.result ? 'unavailable' : !snapshotCurrent
+      ? 'stale' : checkCollectionComplete ? 'complete' : 'incomplete',
+    snapshotCurrent,
+    checkCollectionComplete,
+    requiredIdentityCoverage: {
+      matched: coverage.count,
+      total: requiredCheckKeys.size,
+      unmatched: unmatched === null ? null : unmatched.slice(0, MAX_OUTPUT_IDENTITIES).map(({ context, appId }) => ({ context, appId })),
+      unmatchedTotal: unmatched === null ? null : unmatched.length,
+      unmatchedTruncated: unmatched !== null && unmatched.length > MAX_OUTPUT_IDENTITIES,
+    },
+    observationsTotal: coverage.observations.length,
+    observationsTruncated: coverage.observations.length > MAX_OUTPUT_OBSERVATIONS,
+    observations: coverage.observations.slice(0, MAX_OUTPUT_OBSERVATIONS).map(summarizeCheckObservation),
+  };
+}
+
 function chooseCheckCollection(results, requiredCheckKeys, snapshot) {
   const usable = results.filter(({ result }) => isCurrentResult(result, snapshot));
   const completeAndCovering = usable.filter(({ result }) => result.checkCollectionComplete === true
@@ -274,7 +321,8 @@ function summarizeWorkflowEvidence(requiredWorkflows, collection, testedSha) {
   });
 }
 
-function buildStage0Summary(requiredCheckSnapshot, selected, checkCollectionComplete, workflowEvidence, files, reviews) {
+function buildStage0Summary(requiredCheckSnapshot, selected, checkCollectionComplete, checkCollectionsBySha,
+  workflowEvidence, files, reviews) {
   const observations = selected.result && isCurrentResult(selected.result, selected.result.snapshot)
     ? observationCoverage(selected.result, new Set(requiredCheckSnapshot.requiredCheckKeys)).observations
     : [];
@@ -292,20 +340,12 @@ function buildStage0Summary(requiredCheckSnapshot, selected, checkCollectionComp
         repositoryId, path: workflowPath, ref, sha,
       })),
     },
+    checkCollectionsBySha,
     testedSha: selected.testedSha,
     checkCollectionComplete,
     observationsTotal: observations.length,
     observationsTruncated: observations.length > MAX_OUTPUT_OBSERVATIONS,
-    observations: observations.slice(0, MAX_OUTPUT_OBSERVATIONS).map((observation) => ({
-      checkId: observation.checkId,
-      requiredCheckKey: observation.requiredCheckKey,
-      requiredWorkflowKey: observation.requiredWorkflowKey,
-      provider: observation.provider,
-      testedSha: observation.testedSha,
-      status: observation.status,
-      conclusion: observation.conclusion,
-      attemptKey: observation.attemptKey,
-    })),
+    observations: observations.slice(0, MAX_OUTPUT_OBSERVATIONS).map(summarizeCheckObservation),
     workflowEvidence,
     changedFiles: {
       collectionStatus: files?.collectionStatus === 'complete' ? 'complete' : 'incomplete',
@@ -391,6 +431,9 @@ export async function createPrBabysitterStage0Host({ prNumber, repoRoot = proces
           const metadataWithinOutputBound = requiredCheckSnapshot.requiredChecks.length <= MAX_OUTPUT_IDENTITIES
             && requiredCheckSnapshot.requiredWorkflows.length <= MAX_OUTPUT_IDENTITIES;
           const checkCollectionComplete = metadataWithinOutputBound && isCurrent && selected.result.checkCollectionComplete === true;
+          const checkCollectionsBySha = checkResults.map((collection) => summarizeCheckCollection(
+            collection, requiredCheckSnapshot, requiredKeys, prSnapshot, metadataWithinOutputBound,
+          ));
 
           let workflowCollection = null;
           if (requiredCheckSnapshot.requiredWorkflows.length > 0) {
@@ -411,7 +454,7 @@ export async function createPrBabysitterStage0Host({ prNumber, repoRoot = proces
             requiredCheckSnapshot,
             checkObservations: observations,
             checkCollectionComplete,
-            stage0Summary: buildStage0Summary(requiredCheckSnapshot, selected, checkCollectionComplete,
+            stage0Summary: buildStage0Summary(requiredCheckSnapshot, selected, checkCollectionComplete, checkCollectionsBySha,
               workflowEvidence, files, reviews),
           };
         },

@@ -220,8 +220,9 @@ async function createStage0Fixture(t, { remote = `https://github.com/${stage0Rep
   };
 }
 
-function createStage0Fetch({ baseSha, headSha, state = 'OPEN', headRepository = stage0Repository,
-  repositoryId = stage0RepositoryId, requiredWorkflow = false, workflowRuns = [] } = {}) {
+function createStage0Fetch({ baseSha, headSha, mergeSha = null, state = 'OPEN', headRepository = stage0Repository,
+  repositoryId = stage0RepositoryId, requiredWorkflow = false, workflowRuns = [], requiredCheckContexts = [],
+  statusesBySha = {}, checkRunsBySha = {} } = {}) {
   const requests = [];
   const permissions = { metadata: 'read', pull_requests: 'read', checks: 'read', actions: 'read', administration: 'read' };
   const reply = (body, status = 200) => new Response(body === '' ? '' : JSON.stringify(body), {
@@ -256,7 +257,7 @@ function createStage0Fetch({ baseSha, headSha, state = 'OPEN', headRepository = 
         headRefName: 'feature/stage0-probe',
         baseRefOid: baseSha,
         headRefOid: headSha,
-        potentialMergeCommit: null,
+        potentialMergeCommit: mergeSha ? { oid: mergeSha } : null,
         mergeable: 'UNKNOWN',
         baseRepository: { databaseId: repositoryId, nameWithOwner: stage0Repository, defaultBranchRef: { name: 'main' } },
         headRepository: { databaseId: headRepository === stage0Repository ? repositoryId : repositoryId + 1,
@@ -267,7 +268,11 @@ function createStage0Fetch({ baseSha, headSha, state = 'OPEN', headRepository = 
       || url.pathname === `/repos/${stage0Repository}/pulls/7/reviews`
       || url.pathname === `/repos/${stage0Repository}/pulls/7/comments`) return reply([]);
     if (url.pathname === `/repos/${stage0Repository}`) return reply({ id: repositoryId, default_branch: 'main' });
-    if (url.pathname === `/repos/${stage0Repository}/branches/main/protection`) return reply('', 404);
+    if (url.pathname === `/repos/${stage0Repository}/branches/main/protection`) {
+      return requiredCheckContexts.length === 0 ? reply('', 404) : reply({
+        required_status_checks: { strict: true, contexts: requiredCheckContexts, checks: [] },
+      });
+    }
     if (url.pathname === `/repos/${stage0Repository}/rulesets`) return reply(requiredWorkflow ? [{ id: 441 }] : []);
     if (url.pathname === `/repos/${stage0Repository}/rulesets/441` && requiredWorkflow) return reply({
       id: 441,
@@ -284,11 +289,20 @@ function createStage0Fetch({ baseSha, headSha, state = 'OPEN', headRepository = 
     if (url.pathname === `/repos/${stage0Repository}/actions/runs`) {
       return reply({ total_count: workflowRuns.length, workflow_runs: workflowRuns });
     }
-    if (url.pathname === `/repos/${stage0Repository}/commits/${headSha}/check-runs`) {
-      return reply({ total_count: 0, check_runs: [] });
-    }
-    if (url.pathname === `/repos/${stage0Repository}/commits/${headSha}/status`) {
-      return reply({ sha: headSha, total_count: 0, state: 'success', statuses: [] });
+    const commitPathPrefix = `/repos/${stage0Repository}/commits/`;
+    if (url.pathname.startsWith(commitPathPrefix)) {
+      const refAndEndpoint = url.pathname.slice(commitPathPrefix.length);
+      if (refAndEndpoint.endsWith('/check-runs')) {
+        const testedSha = refAndEndpoint.slice(0, -'/check-runs'.length);
+        const checkRuns = checkRunsBySha[testedSha] ?? [];
+        return reply({ sha: testedSha, total_count: checkRuns.length, check_runs: checkRuns });
+      }
+      if (refAndEndpoint.endsWith('/status')) {
+        const testedSha = refAndEndpoint.slice(0, -'/status'.length);
+        const statuses = statusesBySha[testedSha] ?? [];
+        const state = statuses.some((status) => status.state === 'pending') ? 'pending' : 'success';
+        return reply({ sha: testedSha, total_count: statuses.length, state, statuses });
+      }
     }
     return reply({ message: 'Not Found' }, 404);
   };
@@ -606,6 +620,83 @@ describe('Stage 0 trusted host bootstrap', () => {
     const stateText = await readFile(path.join(stateDirectory, stateFiles[0]), 'utf8');
     assert.equal(stateText.includes('ghs_stage0_observe_secret'), false);
     assert.equal(stateText.includes(fixture.privateKeyPem), false);
+  });
+
+  it('reports required check evidence independently for the current head and merge SHAs', async (t) => {
+    const { runPrBabysitterStage0 } = await import('../pr-babysitter-host.mjs');
+    const fixture = await createStage0Fixture(t);
+    const mergeSha = 'c'.repeat(40);
+    const github = createStage0Fetch({
+      baseSha: fixture.baseSha,
+      headSha: fixture.headSha,
+      mergeSha,
+      requiredCheckContexts: ['client', 'server'],
+      statusesBySha: {
+        [fixture.headSha]: [{
+          context: 'client',
+          state: 'success',
+          created_at: '2026-09-30T00:00:00Z',
+          creator: { id: 15368 },
+          description: 'completed',
+        }],
+      },
+    });
+    t.mock.method(globalThis, 'fetch', github.fetchImpl);
+    let stdout = '';
+    const result = await runPrBabysitterStage0({
+      argv: ['inspect', '--repo', stage0Repository, '--pr', '7'],
+      repoRoot: fixture.repoRoot,
+      env: fixture.env,
+      io: { stdout: { write(value) { stdout += value; } }, stderr: { write() {} } },
+    });
+
+    assert.equal(result.exitCode, 1);
+    const observation = JSON.parse(stdout.trim());
+    const summary = observation.evidence;
+    assert.equal(observation.decision.action, 'wait');
+    assert.equal(observation.decision.reasonCode, 'required_check_evidence_missing');
+    assert.equal(summary.testedSha, mergeSha);
+    assert.equal(summary.observationsTotal, 0);
+    assert.deepEqual(summary.checkCollectionsBySha.map((collection) => ({
+      testedSha: collection.testedSha,
+      collectionStatus: collection.collectionStatus,
+      snapshotCurrent: collection.snapshotCurrent,
+      checkCollectionComplete: collection.checkCollectionComplete,
+      requiredIdentityCoverage: collection.requiredIdentityCoverage,
+      observationsTotal: collection.observationsTotal,
+      observations: collection.observations.map(({ requiredCheckKey, conclusion }) => ({ requiredCheckKey, conclusion })),
+    })), [
+      {
+        testedSha: mergeSha,
+        collectionStatus: 'complete',
+        snapshotCurrent: true,
+        checkCollectionComplete: true,
+        requiredIdentityCoverage: {
+          matched: 0,
+          total: 2,
+          unmatched: [{ context: 'client', appId: null }, { context: 'server', appId: null }],
+          unmatchedTotal: 2,
+          unmatchedTruncated: false,
+        },
+        observationsTotal: 0,
+        observations: [],
+      },
+      {
+        testedSha: fixture.headSha,
+        collectionStatus: 'complete',
+        snapshotCurrent: true,
+        checkCollectionComplete: true,
+        requiredIdentityCoverage: {
+          matched: 1,
+          total: 2,
+          unmatched: [{ context: 'server', appId: null }],
+          unmatchedTotal: 1,
+          unmatchedTruncated: false,
+        },
+        observationsTotal: 1,
+        observations: [{ requiredCheckKey: 'client|legacy', conclusion: 'success' }],
+      },
+    ]);
   });
 
   it('keeps required workflows unavailable when GitHub exposes no attested source SHA', async (t) => {

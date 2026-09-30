@@ -41,7 +41,10 @@ The PR babysitter uses a dedicated GitHub App; it does not reuse the Codex `@Git
   Each check also records `testedSha`, which must equal the current head or
   merge SHA. Required workflows are separate evidence identities containing
   repository ID, workflow path, ref, and source SHA. Missing, duplicate,
-  stale, partial, or unavailable evidence cannot be treated as green.
+  stale, partial, or unavailable evidence cannot be treated as green. Stage 0
+  reports bounded required-check coverage and observations separately for the
+  current head and merge SHA; those diagnostics do not change the fail-closed
+  decision.
 - State rolls to a new tuple only after reconciliation with a fresh snapshot for
   the same repository and PR. A stale check observation cannot roll state back
   or reset tuple-scoped retries and failure counts.
@@ -70,15 +73,18 @@ refreshes the full PR SHA tuple; later repair stages repeat that check through
 the trusted snapshot refresher.
 
 The Stage 0 trusted-host bootstrap and standalone `inspect` entrypoint are
-implemented. A live Stage 0 observation is pending dedicated GitHub App setup
-and credentials. The entrypoint rejects write-capable commands before loading
-credentials or contacting GitHub; it mints only a repository-scoped `observe`
-token and writes bounded state under `.loop/pr/`. Required workflow evidence
-stays unavailable because standard GitHub run metadata does not attest its
-source SHA. Stage 1/2 orchestration still needs a separately reviewed trusted
-host that rechecks the PR tuple, commit, workspace fingerprint, final diff, and
-budget before minting a `contents:write` token, then rechecks the budget
-immediately before push. Tokens are repository-scoped and permission-scoped,
-not branch-scoped; GitHub branch protection guards protected refs. Phase 2B
-has no merge authority, issue-to-Draft-PR dispatch, or post-merge observation.
-See [[architecture]] and [[index]].
+implemented. The first live observation ran against PR #264 on 2026-09-30 and
+returned `wait` because required check evidence was missing from the selected
+merge-SHA collection. The original output did not expose the head-SHA
+collection; the per-SHA diagnostic summary now reports both without weakening
+the decision gate. The entrypoint rejects write-capable commands before
+loading credentials or contacting GitHub; it mints only a repository-scoped
+`observe` token and writes bounded state under `.loop/pr/`. Required workflow
+evidence stays unavailable because standard GitHub run metadata does not
+attest its source SHA. Stage 1/2 orchestration still needs a separately
+reviewed trusted host that rechecks the PR tuple, commit, workspace
+fingerprint, final diff, and budget before minting a `contents:write` token,
+then rechecks the budget immediately before push. Tokens are repository-scoped
+and permission-scoped, not branch-scoped; GitHub branch protection guards
+protected refs. Phase 2B has no merge authority, issue-to-Draft-PR dispatch, or
+post-merge observation. See [[architecture]] and [[index]].

@@ -49,12 +49,21 @@ evidence remains unavailable until a trusted source attestation matches the
 exact repository ID, path, ref, and source SHA. Missing, partial, stale,
 ambiguous, or unattested evidence waits or escalates.
 
-**The bootstrap is implemented; a real Stage 0 observation is pending the
-dedicated GitHub App installation and its local credentials.** Use an open,
-non-production, same-repository PR. Compare the adapter's base/head/merge SHA
-tuple, required check and workflow identities, tested SHAs, and decision with
-GitHub's PR and checks views. Keep all write capabilities disabled during
-this observation.
+`checkCollectionsBySha` reports each current head and merge SHA separately,
+including collection status, check collection completeness, matched and
+unmatched required identities, and bounded observations. A `null` unmatched
+list means that SHA's PR snapshot is stale or unavailable. The top-level
+`testedSha` and observations remain the collection passed to the decision
+engine; per-SHA diagnostics do not turn missing evidence green.
+
+An initial live Stage 0 observation was run against PR #264 on 2026-09-30. It
+returned `wait` with `required_check_evidence_missing`; the effective policy
+snapshot was complete with 10 required check identities and no required
+workflows, while the selected merge SHA had zero observations. That output did
+not show head-SHA coverage separately. After this per-SHA summary change is
+available in a clean checkout at the PR head, repeat the read-only observation
+to compare both SHA collections with GitHub's PR checks view. Keep all write
+capabilities disabled during this observation.
 
 ## Stage 0 — observe-only
 

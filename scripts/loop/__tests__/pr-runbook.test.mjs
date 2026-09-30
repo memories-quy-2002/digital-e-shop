@@ -52,7 +52,9 @@ describe('PR Babysitter rollout runbook contract', () => {
     assert.match(runbook, /standalone read-only entrypoint/i);
     assert.match(runbook, /fixed repository `memories-quy-2002\/digital-e-shop`/i);
     assert.match(runbook, /host bootstrap/i);
-    assert.match(runbook.replace(/\s+/g, ' '), /Stage 0 observation is pending the dedicated GitHub App installation/i);
+    const normalized = runbook.replace(/\s+/g, ' ');
+    assert.match(normalized, /initial live Stage 0 observation was run against PR #264/i);
+    assert.match(normalized, /per-SHA summary change.*clean checkout at the PR head/i);
     assert.doesNotMatch(runbook, /no standalone CLI entrypoint/i);
     assert.match(runbook, /node scripts\/loop\/pr-babysitter-host\.mjs inspect/);
     assert.match(runbook, /<pr-number>/);
@@ -79,11 +81,13 @@ describe('PR Babysitter rollout runbook contract', () => {
     assert.doesNotMatch(runbook, /secrets\.[A-Z0-9_]+/i);
   });
 
-  it('records Stage 0 as deferred and includes the Phase 2 telemetry and non-goals', async () => {
+  it('records the initial Stage 0 wait and includes the Phase 2 telemetry and non-goals', async () => {
     const runbook = await read('docs/loop-engineering/phase-2-pr-babysitter-runbook.md');
     const normalized = runbook.replace(/\s+/g, ' ');
 
-    assert.match(normalized, /real Stage 0.*pending/i);
+    assert.match(normalized, /initial live Stage 0 observation was run against PR #264/i);
+    assert.match(normalized, /returned `wait` with `required_check_evidence_missing`/i);
+    assert.match(normalized, /repeat the read-only observation to compare both SHA collections/i);
     for (const metric of [
       'classification accuracy',
       'stale-evidence refusals',
