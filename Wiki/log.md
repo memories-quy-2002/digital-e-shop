@@ -97,3 +97,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-29 - Codex - Added the fail-closed Phase 2B Actions rerun adapter with exact run/job-bound approvals, atomic CI budget reservations, and trusted workflow source-SHA attestation.
 - 2026-09-29 - Codex - Added vendor-neutral Phase 2B repair sessions and the Phase 2B Actions rerun adapter with exact path approval, tuple-bound local commits, stable fixed-verifier evidence, and host-owned budgets.
 - 2026-09-29 - Codex - Documented the Phase 2B staged runbook, host-injected CLI limitation, and contents-token budget checks before minting and push; real Stage 0 remains pending host bootstrap.
+- 2026-09-30 - Codex - Added the fixed-repository read-only Stage 0 trusted host, base-SHA policy loading, bounded PR evidence output, and GitHub App setup runbook; live observation awaits App credentials.

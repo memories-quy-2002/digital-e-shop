@@ -1,53 +1,60 @@
 # Phase 2 PR Babysitter rollout runbook
 
-**Reviewed:** 2026-09-29
+**Reviewed:** 2026-09-30
 
 **Operational mode:** observe-only; write stages are not enabled.
 
 ## Current implementation and safe starting point
 
 The PR Babysitter core, GitHub App authentication and approval provider, GitHub
-observation client, guarded Actions rerun adapter, repair session, and orchestration
-function are present in `scripts/loop/`. The entry point is the exported
-`runPrBabysitterCli({ argv, trustedHost, io })` function in
-`scripts/loop/pr-babysitter-cli.mjs`.
+observation client, guarded Actions rerun adapter, repair session, and
+host-injected orchestration function are present in `scripts/loop/`. The
+reviewable Stage 0 host bootstrap and standalone read-only entrypoint are
+`scripts/loop/pr-babysitter-host.mjs`, exported as
+`runPrBabysitterStage0`; it calls the host-injected
+`runPrBabysitterCli({ argv, trustedHost, io })` in
+`scripts/loop/pr-babysitter-cli.mjs`. It assembles only the `inspect` command
+for the fixed repository `memories-quy-2002/digital-e-shop` (repository ID
+`743050379`). It rejects rerun, repair, and other commands before loading App
+credentials or contacting GitHub.
 
-There is no standalone CLI entrypoint and no trusted-host factory in this
-repository. A caller must supply a `trustedHost` assembled by a separately
-reviewed host. The host must load canonical policy, derive changed paths from
-the checkout, invoke the fixed verifier, independently observe completion
-revision and workspace fingerprint, authenticate exact-scope approval, and
-constrain writes. Without that bootstrap, a live observation cannot be run
-through the trusted adapter. **A real Stage 0 run is pending host bootstrap and
-an eligible open PR.** No PR has been used as a Stage 0 target.
+The host checks that the origin identifies the fixed GitHub repository, the
+checkout is clean and on the open PR's same-repository feature head, and the
+PR targets `main`. It loads the canonical Loop policy from the exact PR base
+commit. Its installation token is restricted to this repository and the
+`metadata:read`, `pull_requests:read`, `checks:read`, `actions:read`, and
+`administration:read` permissions. The App private key must be a regular file
+outside the checkout. The bootstrap does not use maintainer device flow or
+provide GitHub write adapters.
 
-The following is the host-injected API shape, with placeholders only. It is an
-embedding example, not a runnable shell command; replace the PR placeholder
-with a decimal PR number and provide a trusted host created by the reviewed
-bootstrap:
+Set the dedicated App settings in the current PowerShell session, then run the
+read-only observation from the matching clean PR checkout. Keep the private
+key at an absolute path outside the checkout and restrict its Windows file
+permissions to the local host user:
 
-```js
-import { runPrBabysitterCli } from './scripts/loop/pr-babysitter-cli.mjs';
-
-const result = await runPrBabysitterCli({
-  argv: ['inspect', '--repo', '<owner>/<repo>', '--pr', '<pr-number>'],
-  trustedHost, // supplied by the reviewed host bootstrap
-  io: { stdout: process.stdout, stderr: process.stderr },
-});
+```powershell
+$env:LOOP_GITHUB_APP_ID = '<app-id>'
+$env:LOOP_GITHUB_APP_CLIENT_ID = '<client-id>'
+$env:LOOP_GITHUB_APP_INSTALLATION_ID = '<installation-id>'
+$env:LOOP_GITHUB_APP_PRIVATE_KEY_FILE = '<absolute-path-outside-checkout>'
+node scripts/loop/pr-babysitter-host.mjs inspect --repo memories-quy-2002/digital-e-shop --pr <pr-number>
 ```
 
-`inspect` reads GitHub evidence and may update local `.loop/state/` metadata; it
-does not write to GitHub, rerun jobs, repair code, push, or merge. A `decide`
-call also emits bounded local telemetry. Required workflow evidence stays
-unavailable until the host can attest the workflow source SHA for the exact
-repository ID, path, ref, and SHA.
+`inspect` reads GitHub evidence and may update local `.loop/pr/` metadata. It
+does not write to GitHub, rerun jobs, repair code, push, or merge. The JSON
+output includes the PR SHA tuple, effective required identities, tested SHA,
+bounded check observations, workflow evidence status, and review counts; it
+omits review bodies, credentials, and raw check logs. Required workflow
+evidence remains unavailable until a trusted source attestation matches the
+exact repository ID, path, ref, and source SHA. Missing, partial, stale,
+ambiguous, or unattested evidence waits or escalates.
 
-To schedule Stage 0 after bootstrap review, select one open, non-production,
-same-repository PR. Compare the adapter's base/head/merge SHA tuple, required
-check and workflow identities, tested SHAs, and decision with GitHub's PR and
-checks views. Keep all write capabilities disabled during this observation.
-Do not treat missing, partial, stale, ambiguous, or unattested evidence as an
-empty policy or as green.
+**The bootstrap is implemented; a real Stage 0 observation is pending the
+dedicated GitHub App installation and its local credentials.** Use an open,
+non-production, same-repository PR. Compare the adapter's base/head/merge SHA
+tuple, required check and workflow identities, tested SHAs, and decision with
+GitHub's PR and checks views. Keep all write capabilities disabled during
+this observation.
 
 ## Stage 0 — observe-only
 

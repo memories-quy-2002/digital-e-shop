@@ -43,17 +43,18 @@ describe('PR Babysitter rollout runbook contract', () => {
     assert.match(runbook, /human-reviewed before merge indefinitely/i);
   });
 
-  it('documents the host-injected API without claiming a standalone CLI exists', async () => {
+  it('documents the fixed read-only Stage 0 host bootstrap and its remaining live prerequisites', async () => {
     const runbook = await read('docs/loop-engineering/phase-2-pr-babysitter-runbook.md');
 
     assert.match(runbook, /runPrBabysitterCli/);
     assert.match(runbook, /trustedHost/);
-    assert.match(runbook, /no standalone CLI entrypoint/i);
+    assert.match(runbook, /runPrBabysitterStage0/);
+    assert.match(runbook, /standalone read-only entrypoint/i);
+    assert.match(runbook, /fixed repository `memories-quy-2002\/digital-e-shop`/i);
     assert.match(runbook, /host bootstrap/i);
-    assert.match(runbook, /Stage 0.*pending/i);
-    assert.match(runbook, /No PR has been used as a Stage 0 target/i);
-    assert.doesNotMatch(runbook, /node\s+scripts\/loop\/pr-babysitter-cli\.mjs/);
-    assert.match(runbook, /<owner>\/\<repo>/);
+    assert.match(runbook.replace(/\s+/g, ' '), /Stage 0 observation is pending the dedicated GitHub App installation/i);
+    assert.doesNotMatch(runbook, /no standalone CLI entrypoint/i);
+    assert.match(runbook, /node scripts\/loop\/pr-babysitter-host\.mjs inspect/);
     assert.match(runbook, /<pr-number>/);
   });
 

@@ -182,9 +182,22 @@ export async function runPrBabysitterCli({ argv, trustedHost, io = {} }) {
     const initialTuple = tuple(collected.prSnapshot);
     let prState = recordCurrentObservations(await state.load(args.repository, args.prNumber, collected.prSnapshot), collected.prSnapshot, collected.checkObservations);
     await state.save(args.repository, args.prNumber, prState, null);
-    const decision = decidePrAction({ ...collected, prState, policy: host.config.policy });
+    const decision = decidePrAction({
+      prSnapshot: collected.prSnapshot,
+      requiredCheckSnapshot: collected.requiredCheckSnapshot,
+      checkObservations: collected.checkObservations,
+      checkCollectionComplete: collected.checkCollectionComplete,
+      prState,
+      policy: host.config.policy,
+    });
     if (args.command === 'inspect') {
-      emit(output, output.stdout, { status: 'observed', pr: collected.prSnapshot, decision }); return { exitCode: exitFor(decision.action), decision };
+      emit(output, output.stdout, {
+        status: 'observed',
+        pr: collected.prSnapshot,
+        ...(isRecord(collected.stage0Summary) ? { evidence: collected.stage0Summary } : {}),
+        decision,
+      });
+      return { exitCode: exitFor(decision.action), decision };
     }
     if (args.command === 'decide') {
       await state.save(args.repository, args.prNumber, prState, decision);
