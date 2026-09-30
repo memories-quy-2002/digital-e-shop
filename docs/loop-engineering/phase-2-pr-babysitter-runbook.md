@@ -1,6 +1,8 @@
 # Phase 2 PR Babysitter rollout runbook
 
-**Reviewed:** 2026-09-30
+**Updated:** 2026-09-30
+
+**Policy status:** proposed; independent review and merge are required before host implementation.
 
 **Operational mode:** the observer is read-only. A separate report-only Check Run publisher is not implemented or enabled; existing write stages remain disabled.
 
