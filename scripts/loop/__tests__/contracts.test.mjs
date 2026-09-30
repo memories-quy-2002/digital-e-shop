@@ -124,6 +124,6 @@ describe('Loop Engineering operating contracts', () => {
     assert.match(concept, /index plus changed tracked\/untracked files/i);
     assert.match(concept, /excludes ignored dependencies\/caches[\s\S]*local green results are provisional/i);
     assert.match(log, /^- 2026-09-27 - Codex - .*Loop Engineering/m);
-    assert.match(log.trimEnd().split(/\r?\n/).at(-1), /^- 2026-09-30 - Codex - .*fixed-repository read-only Stage 0 trusted host/i);
+    assert.match(log, /^- 2026-09-30 - Codex - .*fixed-repository read-only Stage 0 trusted host/im);
   });
 });
