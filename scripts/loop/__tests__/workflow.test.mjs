@@ -14,6 +14,19 @@ const controlPlaneTests = [
   'scripts/loop/__tests__/classify-failure.test.mjs',
   'scripts/loop/__tests__/controller.test.mjs',
   'scripts/loop/__tests__/contracts.test.mjs',
+  'scripts/loop/__tests__/pr-evidence.test.mjs',
+  'scripts/loop/__tests__/pr-state.test.mjs',
+  'scripts/loop/__tests__/pr-babysitter.test.mjs',
+  'scripts/loop/__tests__/pr-babysitter-cli.test.mjs',
+  'scripts/loop/__tests__/pr-packets.test.mjs',
+  'scripts/loop/__tests__/pr-runbook.test.mjs',
+  'scripts/loop/__tests__/telemetry.test.mjs',
+  'scripts/loop/__tests__/pr-contracts.test.mjs',
+  'scripts/loop/__tests__/github-pr-client.test.mjs',
+  'scripts/loop/__tests__/github-auth-provider.test.mjs',
+  'scripts/loop/__tests__/github-actions-write.test.mjs',
+  'scripts/loop/__tests__/pr-worktree-guard.test.mjs',
+  'scripts/loop/__tests__/repair-session.test.mjs',
   'scripts/loop/__tests__/verify.test.mjs',
   'scripts/loop/__tests__/workflow.test.mjs',
 ];
@@ -75,16 +88,16 @@ describe('read-only Loop Foundation workflow contract', () => {
     assert.doesNotMatch(workflow, /^\s+(?:contents|pull-requests|issues|id-token):\s*write\s*$/m);
   });
 
-  it('runs all nine explicit Node tests and the three static routing smokes only', async () => {
+  it('runs the fixed control-plane Node test list and three static routing smokes only', async () => {
     const workflow = await read(workflowPath);
     const testStart = workflow.indexOf('node --test');
     const smokeStepStart = workflow.indexOf('      - name: Smoke test verification routing', testStart);
     const testCommand = testStart >= 0 && smokeStepStart > testStart
       ? workflow.slice(testStart, smokeStepStart)
       : '';
-    for (const testPath of controlPlaneTests) {
-      assert.ok(testCommand.includes(testPath), `workflow must run ${testPath}`);
-    }
+    const actualTestPaths = [...testCommand.matchAll(/scripts\/loop\/__tests__\/[A-Za-z0-9.-]+\.test\.mjs/g)]
+      .map(([testPath]) => testPath);
+    assert.deepEqual(actualTestPaths, controlPlaneTests, 'workflow must run the exact fixed control-plane test list');
     const smokeCommands = workflow.split(/\r?\n/)
       .map((line) => line.trim())
       .filter((line) => line.startsWith('node scripts/loop/verify.mjs --dry-run'));

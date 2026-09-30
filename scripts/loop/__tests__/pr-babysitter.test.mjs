@@ -171,6 +171,16 @@ describe('PR Babysitter decision engine', () => {
     assert.equal(decision.mergeSha, mergeSha);
   });
 
+  it('observes green checks on a same-repository draft PR without granting merge authority', () => {
+    const draft = prSnapshot({ draft: true });
+    const decision = decidePrAction(inputWithObservations([check()], { prSnapshot: draft }));
+
+    assert.equal(draft.headRepository, draft.repository);
+    assert.equal(decision.action, 'ready-for-human');
+    assert.equal(decision.reasonCode, 'all_required_checks_green');
+    assert.equal(Object.hasOwn(decision, 'merge'), false);
+  });
+
   it('treats completed neutral and skipped required checks as successful', () => {
     for (const conclusion of ['neutral', 'skipped']) {
       const decision = decidePrAction(inputWithObservations([check({ conclusion })]));

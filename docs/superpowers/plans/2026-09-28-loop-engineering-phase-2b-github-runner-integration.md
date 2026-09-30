@@ -68,7 +68,7 @@
 - Produces: `getInstallationToken(capability): Promise<string>` where `capability` is one of `observe`, `actions:rerun`, or `contents:write`. Use a fixed internal permission map and `repository_ids: [repositoryId]`; do not accept caller-supplied permission maps.
 - Produces: `requestApproval(scope): Promise<VerifiedApproval>` and `consumeApproval(approval, expectedScope): void`. Approval capabilities are `actions:rerun`, `repair:workspace`, and `contents:write`. Every approval binds the current `{ baseSha, headSha, mergeSha }` tuple (with `mergeSha: null` only when no current merge SHA exists), repository ID, PR number, capability, exact path scope, authenticated user ID, and expiry. Any tuple change invalidates the approval. The approval is opaque, non-serializable, and single-use.
 
-- [ ] **Step 1: Write failing provider tests with mocked fetch, clock, and TTY prompt**
+- [x] **Step 1: Write failing provider tests with mocked fetch, clock, and TTY prompt**
 
 Cover:
 - device-flow pending/polling, cancellation, expiry, and successful identity resolution from `/user`;
@@ -83,19 +83,19 @@ Cover:
 - Stage 2 cannot reuse approval from `begin-repair`; `validate-repair` obtains a fresh `contents:write` approval after inspecting the final changed paths and consumes it in that same invocation;
 - App keys and all tokens are absent from output, errors, loop state, and logs; authenticated requests stay on the configured GitHub API origin.
 
-- [ ] **Step 2: Run tests and verify they fail**
+- [x] **Step 2: Run tests and verify they fail**
 
 ```bash
 node --test scripts/loop/__tests__/github-auth-provider.test.mjs
 ```
 
-- [ ] **Step 3: Implement the provider with built-in `node:crypto` and `fetch`**
+- [x] **Step 3: Implement the provider with built-in `node:crypto` and `fetch`**
 
 Generate App JWTs only inside the trusted host, create repository-scoped installation tokens with a capability-specific permission subset, and implement GitHub App device flow for the human approver. Resolve and authorize the GitHub principal before showing the exact operation scope for TTY confirmation. Keep credentials in memory and return only opaque approval handles to loop modules.
 
-- [ ] **Step 4: Run tests and verify they pass**
+- [x] **Step 4: Run tests and verify they pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/loop/github-auth-provider.mjs scripts/loop/__tests__/github-auth-provider.test.mjs
@@ -111,7 +111,7 @@ git commit -m "feat(loop): add GitHub App auth provider"
 - Create: `scripts/loop/__tests__/github-pr-client.test.mjs`
 
 **Interfaces:**
-- Produces: `createGitHubPrClient({ repository, getToken, apiOrigin?, graphqlOrigin?, fetchImpl? })`, with tokens fixed to `getInstallationToken("observe")` from the trusted App provider
+- Produces: `createGitHubPrClient({ repository, getToken, apiOrigin?, graphqlOrigin?, fetchImpl?, downloadHostAllowlist? })`, with tokens fixed to `getInstallationToken("observe")` from the trusted App provider
 - Read methods:
   - `getPullRequest(prNumber)`, combining REST PR metadata with GraphQL `baseRefOid`, `headRefOid`, `potentialMergeCommit.oid`, and mergeability
   - `getCommitCheckRuns(testedSha)` for each of the current head SHA and current merge SHA when present
@@ -122,7 +122,7 @@ git commit -m "feat(loop): add GitHub App auth provider"
   - `getJobLog(jobId, options)`
   - `getReviewMetadata(prNumber)`
 
-- [ ] **Step 1: Write failing client tests with mocked fetch**
+- [x] **Step 1: Write failing client tests with mocked fetch**
 
 Assert:
 - only HTTPS GitHub API origin is accepted;
@@ -146,21 +146,25 @@ Assert:
 - a job-log `302` is followed only to an explicitly configured HTTPS download-host allowlist, without Authorization or cookies;
 - off-allowlist redirects and redirect chains are rejected; signed download URLs are not logged or persisted.
 
-- [ ] **Step 2: Run tests and verify they fail**
+- [x] **Step 2: Run tests and verify they fail**
 
 ```bash
 node --test scripts/loop/__tests__/github-pr-client.test.mjs
 ```
 
-- [ ] **Step 3: Implement read-only adapter**
+- [x] **Step 3: Implement read-only adapter**
 
 Use built-in `fetch`; no Octokit dependency in Phase 2B. REST calls pin a supported API version. The current PR REST response is cross-checked with the GraphQL revision tuple because REST API `2026-03-10` no longer returns `merge_commit_sha`. Set authenticated requests to manual redirect handling. The workflow-jobs log endpoint returns a temporary redirect, so validate its `Location`, fetch the download without GitHub authorization headers, enforce size/time limits, redact the content, and discard the signed URL. See [GitHub job log API](https://docs.github.com/en/rest/actions/workflow-jobs).
 
 Bind each check/workflow observation to the exact current base/head/merge tuple and its `testedSha` before returning it to Phase 2A normalizers. The `testedSha` must equal the PR head SHA or GraphQL `potentialMergeCommit.oid`. Keep the PR commit under test separate from the required-workflow source identity `{ repositoryId, path, ref, sha }`; verify each field against the effective ruleset and the workflow definition/run metadata rather than a display name. Read branch protection and all applicable repository/organization rulesets; normalize required workflow files using repository ID, path, ref, and source SHA. If a cross-repository workflow source is inaccessible, or any required field/source/page is unavailable, return an unavailable policy snapshot. Refresh PR base/head/merge values after all pages are collected; if any component changed, discard the evidence and recollect rather than mixing snapshots. Return `checkCollectionComplete: true` only after every required source and page was read successfully. Preserve the distinction between a confirmed complete empty required-check set and unavailable policy data.
 
-- [ ] **Step 4: Run tests and verify they pass**
+**Confirmed Phase 2B decision:** current Actions run metadata supplies the workflow path/ref and the PR `head_sha`, but the adapter has no trusted attestation of the required workflow source SHA. Therefore `getRequiredWorkflowEvidence` returns `unavailable` until a trusted source can attest the exact `{ repositoryId, path, ref, sha }`; matching a run by display name, path, or ref alone must never produce green evidence.
 
-- [ ] **Step 5: Commit**
+The read-adapter tests are registered in the fixed local verifier and hosted workflow by Task 6.
+
+- [x] **Step 4: Run tests and verify they pass**
+
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/loop/github-pr-client.mjs scripts/loop/__tests__/github-pr-client.test.mjs
@@ -176,8 +180,10 @@ git commit -m "feat(loop): add GitHub PR observation adapter"
 - Create: `scripts/loop/__tests__/pr-worktree-guard.test.mjs`
 
 **Interfaces:**
-- Produces: `inspectPrWorktree(repoRoot, prSnapshot, prState): Promise<WorktreeGuardResult>`
-- Produces: `assertRepairWorkspace(result, verifiedApproval): void`
+- Produces: `inspectPrWorktree(repoRoot, prSnapshot, hostContext): Promise<WorktreeGuardResult>`
+- `hostContext` contains the validated PR state and LoopState, matching `taskId` and `taskWorktreeId`, exact `allowedPaths`, the trusted approval provider, and a trusted `refreshPrSnapshot` callback. An optional persisted workspace fingerprint is accepted only when it matches the freshly captured fingerprint.
+- Produces: `assertCurrentPrTuple(result): Promise<PrSnapshot>`, which refreshes repository/PR identity and the full base/head/merge tuple through the trusted host callback before each later repair stage.
+- Produces: `assertRepairWorkspace(result, verifiedApproval): Promise<void>`, which refreshes the tuple immediately before consuming the provider-issued `repair:workspace` approval for the exact path scope.
 
 Guard must verify:
 - repository root realpath is a Git checkout;
@@ -189,23 +195,24 @@ Guard must verify:
 - the current `{ baseSha, headSha, mergeSha }` tuple still equals the freshly observed PR tuple before approval consumption, patch application, verification, and push;
 - workspace fingerprint is captured before repair;
 - saved PR state references the same branch and full base/head/merge SHA tuple; `LoopState` must match the task and current head revision and remain the source of run budgets.
+- A dirty worktree is accepted only for the identified Phase 1 task worktree when its persisted workspace fingerprint matches; arbitrary dirty files block repair.
 
-- [ ] **Step 1: Write failing guard tests using temporary git repositories**
+- [x] **Step 1: Write failing guard tests using temporary git repositories**
 
 Cover correct branch, detached HEAD, main branch, fork PR, stale local HEAD, advanced base SHA, changed merge SHA, mismatched tuple state, symlink escape, and dirty-worktree behavior.
 - Reject caller-created approval objects and verified results bound to another repository, PR, head SHA, capability, expiry, or path scope.
 
 Dirty worktree may be allowed only if the host explicitly identifies the Phase 1 task worktree and the fingerprint is persisted; arbitrary pre-existing changes must block repair. The host approval provider must authenticate the human decision; this guard must not create approval from caller data.
 
-- [ ] **Step 2: Run tests and verify they fail**
+- [x] **Step 2: Run tests and verify they fail**
 
-- [ ] **Step 3: Implement guards using fixed `git` argument vectors**
+- [x] **Step 3: Implement guards using fixed `git` argument vectors**
 
 No shell interpolation. No automatic checkout/reset/clean.
 
-- [ ] **Step 4: Run tests and verify they pass**
+- [x] **Step 4: Run tests and verify they pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/loop/pr-worktree-guard.mjs scripts/loop/__tests__/pr-worktree-guard.test.mjs
@@ -218,7 +225,10 @@ git commit -m "feat(loop): guard PR repair worktrees"
 
 **Files:**
 - Modify: `scripts/loop/github-pr-client.mjs`
+- Modify: `scripts/loop/github-auth-provider.mjs` to bind approval to the exact rerun target
 - Create: `scripts/loop/github-actions-write.mjs`
+- Modify: `scripts/loop/__tests__/github-pr-client.test.mjs`
+- Modify: `scripts/loop/__tests__/github-auth-provider.test.mjs`
 - Create: `scripts/loop/__tests__/github-actions-write.test.mjs`
 - Modify: `scripts/loop/state.mjs` and `scripts/loop/__tests__/state.test.mjs` for atomic, idempotent CI-attempt reservation in validated `LoopState`
 
@@ -229,11 +239,13 @@ git commit -m "feat(loop): guard PR repair worktrees"
 - Produces: `finishCIRunAttempt(state, actionAttemptKey, status)`, where status is `submitted`, `rejected`, or `uncertain`; every status remains consumed and non-replayable.
 - Stage 1 reruns require a finite configured `ciRunLimit`; if absent, remain observe-only. Persist the reserved key and incremented counter atomically before POST. Mark the reservation submitted, rejected, or uncertain afterward; an uncertain POST remains consumed and is never repeated under the same key.
 - Requires a verified approval attestation for the `actions:rerun` capability, bound to the repository, PR number, current `{ baseSha, headSha, mergeSha }` tuple, target `testedSha`, and expiry. A raw `{ actionsWriteApproved: true, approvedAt, repository }` object is not authorization.
+- The approval also binds the exact `{ workflowId, runId, runAttempt, failedJobIds, requiredIdentity }` target so a same-SHA run or job cannot be substituted after approval.
 - Obtains a repository-scoped installation token restricted to the fixed `Actions:write` capability only after consuming the matching approval; never accepts a raw token or permission map from CLI input.
 - Consumes Phase 2A decision `action === "retry-check"` only.
 - Consumes only a target mapped from the observed attempt to its exact required check/workflow identity, `testedSha`, workflow ID, workflow run ID, failed job IDs, and current base/head/merge tuple; do not select a run from a display name or arbitrary CLI input.
+- The trusted workflow allowlist pins the execution repository and exact required workflow source identity. The source repository in `{ repositoryId, path, ref, sha }` may differ from the PR repository; its SHA still needs independent host attestation. Allowlist stable job names and compare the exact numeric failed job IDs and run attempt from fresh evidence because GitHub assigns those IDs per run.
 
-- [ ] **Step 1: Write failing rerun tests**
+- [x] **Step 1: Write failing rerun tests**
 
 Assert:
 - write method rejects an absent or unverifiable approval attestation;
@@ -249,18 +261,18 @@ Assert:
 - LoopState v1 or corrupt state does not auto-reset; duplicate reservation does not increment `ciRuns`; a finite CI-run limit admits its final reserved action exactly once; a null CI-run limit refuses Stage 1 writes;
 - 409/422/rate-limit/network responses do not mutate product code and become escalation-compatible reason codes.
 
-- [ ] **Step 2: Run tests and verify they fail**
+- [x] **Step 2: Run tests and verify they fail**
 
-- [ ] **Step 3: Implement the minimal write adapter**
+- [x] **Step 3: Implement the minimal write adapter**
 
 Keep Actions write capability separate from the general read client so observe-only mode cannot accidentally call a write endpoint. Verify and consume the attestation through the trusted host adapter before POST; do not infer approval from CLI flags, environment variables, or caller-provided timestamps. Re-fetch the PR tuple after approval, mint a short-lived installation token limited to the target repository and the permission subset required for rerun, and revalidate the tuple immediately before reservation. Atomically reserve and persist the CI attempt as the final host-state operation before POST.
 
-- [ ] **Step 4: Run tests and verify they pass**
+- [x] **Step 4: Run tests and verify they pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
-git add scripts/loop/github-pr-client.mjs scripts/loop/github-actions-write.mjs scripts/loop/state.mjs scripts/loop/__tests__/github-actions-write.test.mjs scripts/loop/__tests__/state.test.mjs
+git add scripts/loop/github-pr-client.mjs scripts/loop/github-auth-provider.mjs scripts/loop/github-actions-write.mjs scripts/loop/state.mjs scripts/loop/__tests__/github-pr-client.test.mjs scripts/loop/__tests__/github-auth-provider.test.mjs scripts/loop/__tests__/github-actions-write.test.mjs scripts/loop/__tests__/state.test.mjs
 git commit -m "feat(loop): add bounded flaky CI reruns"
 ```
 
@@ -293,7 +305,7 @@ git commit -m "feat(loop): add bounded flaky CI reruns"
   - fixed-verifier result;
   - optional token usage totals from the host, if available.
 
-- [ ] **Step 1: Write failing repair-session tests**
+- [x] **Step 1: Write failing repair-session tests**
 
 Assert:
 - no `exec`, shell command, model name, prompt, or arbitrary executable is accepted;
@@ -312,15 +324,15 @@ Assert:
 - when a token limit is configured, a new run may initialize `tokenUsed` to zero only before any model invocation; resumed runs use persisted provider-reported usage. Missing usage blocks the next model request, and the host records provider-reported input/output usage immediately after each response;
 - repeated same-failure and iteration budgets remain enforced.
 
-- [ ] **Step 2: Run tests and verify they fail**
+- [x] **Step 2: Run tests and verify they fail**
 
-- [ ] **Step 3: Implement the vendor-neutral handshake**
+- [x] **Step 3: Implement the vendor-neutral handshake**
 
 This is intentionally not a model runner. ChatGPT/Codex/another host consumes the sanitized `RepairPacket` and returns a patch proposal only. The trusted host calls `evaluateBudgets` before any model request, parses and normalizes every proposed path, checks it against the exact approved scope and risk policy, rejects unsafe paths before applying anything, and applies the patch with a fixed host-controlled writer. The host checks the current base/head/merge tuple and remaining `LoopState` budgets before invoking the fixed verifier, then derives revision/workspace evidence and changed paths from Git rather than trusting agent claims. Keep App credentials outside the coding agent process. Before push, refresh the full PR tuple, require it to match the verified session, validate the exact non-`main` ref, call `evaluateBudgets`, obtain fresh approval for the verified diff, and use a short-lived repository-scoped Contents-write token. GitHub branch protection remains the server-side guard; the token itself is not branch-scoped.
 
-- [ ] **Step 4: Run tests and verify they pass**
+- [x] **Step 4: Run tests and verify they pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/loop/repair-session.mjs scripts/loop/__tests__/repair-session.test.mjs
@@ -345,7 +357,7 @@ git commit -m "feat(loop): add guarded PR repair sessions"
   - `escalation --repo owner/name --pr N`
 - Default mode is observe-only.
 
-- [ ] **Step 1: Write failing CLI tests**
+- [x] **Step 1: Write failing CLI tests**
 
 Use injected clients/adapters. Assert:
 - no network/write happens in `--dry-run`;
@@ -357,9 +369,9 @@ Use injected clients/adapters. Assert:
 - every command refreshes the current PR head before actionable write/repair;
 - exit codes distinguish ready/wait/escalated/refused/infrastructure error.
 
-- [ ] **Step 2: Run tests and verify they fail**
+- [x] **Step 2: Run tests and verify they fail**
 
-- [ ] **Step 3: Implement CLI orchestration**
+- [x] **Step 3: Implement CLI orchestration**
 
 Sequence:
 1. load trusted host configuration and obtain the fixed-repository, read-only installation token;
@@ -372,9 +384,9 @@ Sequence:
 8. obtain a fresh `contents:write` approval for the verified final diff, mint the capability-specific installation token, call `evaluateBudgets`, and recheck the full PR tuple immediately before push;
 9. perform only the explicitly selected allowlisted action and persist compact audit metadata without secrets/raw logs.
 
-- [ ] **Step 4: Run tests and verify they pass**
+- [x] **Step 4: Run tests and verify they pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/loop/pr-babysitter-cli.mjs scripts/loop/__tests__/pr-babysitter-cli.test.mjs
@@ -391,7 +403,7 @@ git commit -m "feat(loop): add PR babysitter CLI"
 - Modify: `.github/workflows/loop-foundation.yml`
 - Modify: `scripts/loop/__tests__/workflow.test.mjs`
 
-- [ ] **Step 1: Update the workflow contract test first**
+- [x] **Step 1: Update the workflow contract test first**
 
 Require the workflow to run all new Phase 2A/2B Node tests while preserving:
 - `contents: read`;
@@ -402,17 +414,17 @@ Require the workflow to run all new Phase 2A/2B Node tests while preserving:
 - no `pull_request_target`;
 - no product/production operations.
 
-- [ ] **Step 2: Run workflow test and verify it fails**
+- [x] **Step 2: Run workflow test and verify it fails**
 
-- [ ] **Step 3: Update only the test list in `loop-foundation.yml`**
+- [x] **Step 3: Update only the test list in `loop-foundation.yml`**
 
 Do not add a workflow that automatically runs the PR Babysitter with write credentials.
 
-- [ ] **Step 4: Run the complete control-plane test suite**
+- [x] **Step 4: Run the complete control-plane test suite**
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add .github/workflows/loop-foundation.yml scripts/loop/__tests__/workflow.test.mjs
@@ -430,7 +442,7 @@ git commit -m "ci(loop): verify PR babysitter control plane"
 
 **Interfaces:** operational runbook and explicit promotion gates.
 
-- [ ] **Step 1: Write failing runbook contract tests**
+- [x] **Step 1: Write failing runbook contract tests**
 
 Require these stages:
 
@@ -455,7 +467,7 @@ Require these stages:
 - verify the expected non-`main` ref and head SHA before push, with GitHub branch protection as the server-side guard;
 - still no merge.
 
-- [ ] **Step 2: Define promotion metrics**
+- [x] **Step 2: Define promotion metrics**
 
 Before moving Stage 0 -> 1:
 - at least 10 representative failed/pending PR observations;
@@ -473,17 +485,17 @@ Before moving Stage 1 -> 2:
 
 Stage 2 remains human-reviewed before merge indefinitely in Phase 2.
 
-- [ ] **Step 3: Write runbook**
+- [x] **Step 3: Write runbook**
 
 Include exact CLI examples with placeholders only; never include real tokens.
 
-- [ ] **Step 4: Run contract tests and verify they pass**
+- [x] **Step 4: Run contract tests and verify they pass**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add .agent/loops/pr-babysitter.md docs/loop-engineering/phase-2-pr-babysitter-runbook.md scripts/loop/__tests__/pr-runbook.test.mjs
-git commit -m "docs(loop): add PR babysitter rollout runbook"
+git commit -m "fix(loop): finalize Phase 2B babysitter safety gates"
 ```
 
 ---
@@ -492,11 +504,11 @@ git commit -m "docs(loop): add PR babysitter rollout runbook"
 
 **Files:** verify-only unless real defects are found.
 
-- [ ] **Step 1: Run the full Phase 1 + Phase 2 control-plane suite**
+- [x] **Step 1: Run the full Phase 1 + Phase 2 control-plane suite**
 
 Expected: all PASS.
 
-- [ ] **Step 2: Run mocked GitHub scenario matrix**
+- [x] **Step 2: Run mocked GitHub scenario matrix**
 
 At minimum:
 - green same-repo draft PR;
@@ -523,9 +535,14 @@ At minimum:
 
 - [ ] **Step 3: Execute Stage 0 against a real non-production PR**
 
+Deferred on 2026-09-29 per the approved scope: the repository has no trusted-host
+factory or standalone CLI entrypoint, and GitHub reports no currently open PR.
+PR #262 is already merged and is not a suitable live Stage 0 target. Resume
+after a reviewed host bootstrap exists and an eligible open PR is available.
+
 Observe only. Confirm normalized required-check/workflow identities and observations tested on the current head or merge SHA, plus the full base/head/merge tuple and decisions, match GitHub UI. Do not enable write permissions.
 
-- [ ] **Step 4: Review credentials and permissions**
+- [x] **Step 4: Review credentials and permissions**
 
 Document which credential is used for:
 - GitHub read;
@@ -534,11 +551,11 @@ Document which credential is used for:
 
 Confirm none can merge/bypass protection/administer secrets/run production migration/reset/promote deployment.
 
-- [ ] **Step 5: Confirm non-goals**
+- [x] **Step 5: Confirm non-goals**
 
 No auto-merge, no `pull_request_target`, no autonomous review-comment execution, no production mutation, no persistent Playwright E2E, no vendor-specific model runner.
 
-- [ ] **Step 6: Record Phase 2 telemetry for Phase 3 decision**
+- [x] **Step 6: Record Phase 2 telemetry for Phase 3 decision**
 
 Track:
 - classification accuracy after human review;

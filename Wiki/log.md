@@ -92,3 +92,8 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-28 - Codex - Selected a dedicated GitHub App for Phase 2 host identity and human approval, with repository-scoped capability tokens and device-flow identity checks; implementation remains pending.
 - 2026-09-28 - Codex - Implemented Phase 2A PR evidence/state/decision contracts for head-base-merge SHA tuples and required workflows, plus bounded packets, privacy-safe telemetry, and the Phase 2B host budget boundary.
 - 2026-09-28 - Codex - Hardened Phase 2A PR state rollover: only a fresh snapshot for the same repository/PR can reset tuple-scoped counters; stale observations are rejected.
+- 2026-09-28 - Codex - Implemented Phase 2B GitHub App authentication and read-only PR adapter with required workflow SHA attestation fail-closed.
+- 2026-09-29 - Codex - Added the Phase 2B PR worktree guard for same-repository feature branches, persisted PR/LoopState tuple checks, stable workspace fingerprints, and exact-scope approval consumption.
+- 2026-09-29 - Codex - Added the fail-closed Phase 2B Actions rerun adapter with exact run/job-bound approvals, atomic CI budget reservations, and trusted workflow source-SHA attestation.
+- 2026-09-29 - Codex - Added vendor-neutral Phase 2B repair sessions and the Phase 2B Actions rerun adapter with exact path approval, tuple-bound local commits, stable fixed-verifier evidence, and host-owned budgets.
+- 2026-09-29 - Codex - Documented the Phase 2B staged runbook, host-injected CLI limitation, and contents-token budget checks before minting and push; real Stage 0 remains pending host bootstrap.
