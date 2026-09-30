@@ -357,18 +357,20 @@ function parseBranchProtectionChecks(protection) {
   const required = protection.required_status_checks;
   if (!isRecord(required)) return { valid: false, checks: [], strict: false };
   const checks = [];
+  const fineGrainedContexts = new Set();
   if (Array.isArray(required.checks)) {
     for (const check of required.checks) {
       const normalized = safeRequiredCheck(check?.context, check?.app_id ?? null);
       if (!normalized) return { valid: false, checks: [], strict: false };
       checks.push(normalized);
+      fineGrainedContexts.add(normalized.context);
     }
   }
   if (Array.isArray(required.contexts)) {
     for (const context of required.contexts) {
       const normalized = safeRequiredCheck(context, null);
       if (!normalized) return { valid: false, checks: [], strict: false };
-      checks.push(normalized);
+      if (!fineGrainedContexts.has(normalized.context)) checks.push(normalized);
     }
   }
   if (!Array.isArray(required.checks) && !Array.isArray(required.contexts)) {

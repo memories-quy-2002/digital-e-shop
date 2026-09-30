@@ -45,6 +45,9 @@ The PR babysitter uses a dedicated GitHub App; it does not reuse the Codex `@Git
   reports bounded required-check coverage and observations separately for the
   current head and merge SHA; those diagnostics do not change the fail-closed
   decision.
+- When branch protection returns the same context in fine-grained `checks` and
+  legacy `contexts`, keep the `checks` identity, including its App ID, once.
+  Preserve context-only legacy checks that have no matching fine-grained entry.
 - State rolls to a new tuple only after reconciliation with a fresh snapshot for
   the same repository and PR. A stale check observation cannot roll state back
   or reset tuple-scoped retries and failure counts.

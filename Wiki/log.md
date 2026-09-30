@@ -99,3 +99,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-29 - Codex - Documented the Phase 2B staged runbook, host-injected CLI limitation, and contents-token budget checks before minting and push; real Stage 0 remains pending host bootstrap.
 - 2026-09-30 - Codex - Added the fixed-repository read-only Stage 0 trusted host, base-SHA policy loading, bounded PR evidence output, and GitHub App setup runbook; live observation awaits App credentials.
 - 2026-09-30 - Codex - Updated the fixed-repository read-only Stage 0 trusted host with bounded per-SHA required-check coverage and recorded the first PR #264 observation.
+- 2026-09-30 - Codex - Updated the fixed-repository read-only Stage 0 trusted host to deduplicate overlapping branch-protection checks and contexts while preserving App-bound identities and distinct legacy required contexts.
