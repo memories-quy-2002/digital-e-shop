@@ -6,7 +6,10 @@ import LoadingScreen from "../components/common/LoadingScreen";
 import ForbiddenPage from "../pages/ForbiddenPage";
 import { CUSTOMER_ROUTES } from "./customerRoutes";
 
-const HomePage = lazy(() => import("../pages/HomePage"));
+const loadHomePage = () => import("../pages/HomePage");
+const homePageModulePromise =
+    import.meta.env.PROD && typeof window !== "undefined" && window.location.pathname === "/" ? loadHomePage() : null;
+const HomePage = lazy(() => homePageModulePromise ?? loadHomePage());
 const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
 const LoginPage = lazy(() => import("../features/auth/pages/LoginPage"));
 const SignupPage = lazy(() => import("../features/auth/pages/SignupPage"));

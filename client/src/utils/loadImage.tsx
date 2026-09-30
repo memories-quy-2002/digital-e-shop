@@ -1,7 +1,7 @@
 import React, { CSSProperties } from "react";
 import productPlaceholder from "../assets/images/product_placeholder.jpg";
 import LazyLoadingImage from "./LazyLoadingImage";
-import { PRODUCT_CARD_WIDTHS, getProductImageUrl, getResponsiveImageSource } from "./images";
+import { PRODUCT_CARD_WIDTHS, getProductImageUrl, getResponsiveImageSource, setImageFallback } from "./images";
 
 export default function loadImage(
     imageUrl: string | null,
@@ -9,6 +9,7 @@ export default function loadImage(
     style?: CSSProperties,
     eager = false,
     sizes = "(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 768px) 50vw, 92vw",
+    fetchPriority?: "high" | "low" | "auto",
 ) {
     if (!imageUrl) {
         const placeholderSource = getResponsiveImageSource(productPlaceholder, {
@@ -24,8 +25,9 @@ export default function loadImage(
                 sizes={placeholderSource.sizes}
                 alt={productName}
                 style={style}
-                loading="lazy"
+                loading={eager ? "eager" : "lazy"}
                 decoding="async"
+                fetchPriority={fetchPriority}
             />
         );
     }
@@ -38,21 +40,23 @@ export default function loadImage(
     });
 
     const handleError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-        e.currentTarget.src = getResponsiveImageSource(productPlaceholder, {
+        setImageFallback(e.currentTarget, getResponsiveImageSource(productPlaceholder, {
             widths: PRODUCT_CARD_WIDTHS,
             sizes,
             fit: "fill",
-        }).src;
+        }).src);
     };
 
     return (
         <LazyLoadingImage
             src={responsiveSource.src}
             srcSet={responsiveSource.srcSet}
+            avifSrcSet={responsiveSource.avifSrcSet}
             sizes={responsiveSource.sizes}
             alt={productName}
             style={style}
             eager={eager}
+            fetchPriority={fetchPriority}
             onError={handleError}
         />
     );

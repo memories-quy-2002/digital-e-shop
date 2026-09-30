@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import EmptyState from "../../../components/common/EmptyState";
+import LazyLoadingImage from "../../../utils/LazyLoadingImage";
 import LoadingScreen from "../../../components/common/LoadingScreen";
 import { Button } from "../../../components/ui/button";
 import Layout from "../../../components/layout/Layout";
@@ -104,12 +105,12 @@ const ProductSummary = ({
         <article className="comparison-product">
             <div className="comparison-product__media">
                 {imageSource.src ? (
-                    <img
+                    <LazyLoadingImage
                         src={imageSource.src}
                         srcSet={imageSource.srcSet}
+                        avifSrcSet={imageSource.avifSrcSet}
                         sizes={imageSource.sizes}
                         alt={product.name}
-                        loading="lazy"
                     />
                 ) : (
                     <div className="comparison-product__placeholder" role="img" aria-label={product.name}>

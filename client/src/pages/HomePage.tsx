@@ -25,6 +25,7 @@ import {
 import ProductItem from "../components/common/ProductItem";
 import RecentlyViewedStrip from "../components/common/RecentlyViewedStrip";
 import { ProductGridSkeleton } from "../components/common/StorefrontSkeleton";
+import LazyLoadingImage from "../utils/LazyLoadingImage";
 import Layout from "../components/layout/Layout";
 import axios from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -40,6 +41,7 @@ import {
     getProductImageUrl,
     getResponsiveImageSource,
     normalizeProductImageName,
+    setImageFallback,
 } from "../utils/images";
 import { normalizeProduct, normalizeProducts } from "../utils/product";
 import { formatCurrency } from "../utils/currency";
@@ -675,6 +677,9 @@ const HomePage = () => {
                     rel="preload"
                     as="image"
                     href={heroImageSource.src}
+                    imageSrcSet={heroImageSource.avifSrcSet || heroImageSource.srcSet}
+                    imageSizes={heroImageSource.sizes}
+                    type={heroImageSource.avifSrcSet ? "image/avif" : undefined}
                     fetchPriority="high"
                 />
             </Helmet>
@@ -804,20 +809,21 @@ const HomePage = () => {
                                             : t("home.heroPreviewLabel")
                                     }
                                 >
-                                    <img
-                                        {...heroImageSource}
+                                    <LazyLoadingImage
+                                        src={heroImageSource.src}
+                                        srcSet={heroImageSource.srcSet}
+                                        avifSrcSet={heroImageSource.avifSrcSet}
+                                        sizes={heroImageSource.sizes}
                                         alt={
                                             heroProduct?.name ||
                                             "Featured product preview"
                                         }
                                         width={640}
                                         height={640}
-                                        loading="eager"
+                                        eager
                                         fetchPriority="high"
-                                        decoding="async"
                                         onError={(event) => {
-                                            event.currentTarget.src =
-                                                productPlaceholder;
+                                            setImageFallback(event.currentTarget, productPlaceholder);
                                         }}
                                     />
                                 </Link>

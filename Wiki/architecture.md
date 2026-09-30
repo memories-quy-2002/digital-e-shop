@@ -63,6 +63,35 @@ install command. Each package owns its dependencies and lockfile.
 - Explicit loading, empty, error, and success states are part of each route's
   contract.
 
+## Client loading strategy
+
+- Client routes use route-level `React.lazy` and `Suspense`; production starts
+  loading the Home module early only for `/`, while direct visits to other
+  routes keep their route-level lazy loading.
+- Vite uses its default dependency-aware production chunking. Avoid broad
+  manual vendor chunks that pull route-only libraries such as Recharts into
+  the storefront's initial module-preload graph.
+- Check the generated `client/dist/index.html` preload list and production
+  chunk sizes after changing route or dependency imports.
+
+## Image delivery
+
+- Admin image uploads through both `/api/blob/upload` and the product-create
+  file fallback share `NestBlobService`. Sharp validates still-image input,
+  applies EXIF orientation, and creates non-upscaled WebP and AVIF variants up
+  to 1280 pixels before uploading them to public Vercel Blob storage.
+- Variant URLs use a `--de-width-<pixels>` suffix. Product rows keep the
+  existing filename-only value; the client resolves new values to the WebP
+  primary image and builds sibling AVIF/WebP `srcset` candidates. New variant
+  blobs use a one-year cache age because each upload gets unique paths.
+- Unsplash images use width-specific `w` candidates and `auto=format`. Legacy
+  Blob URLs keep their original URL until an admin uploads them again; the
+  client does not invent transform query parameters for static Blob files.
+- The shared image component defers below-fold sources until intersection.
+  Home and Product Detail retain eager, high-priority hero images. The first
+  three Shop cards are eager, with high priority reserved for the first card;
+  later cards stay lazy.
+
 ## Backend boundaries
 
 `server/src/main.ts` creates the Nest application with the Express adapter,

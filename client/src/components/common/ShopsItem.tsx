@@ -7,17 +7,21 @@ type ProductProps = {
     uid: string;
     isWishlist: boolean;
     isWishlistPending?: boolean;
+    imageEager?: boolean;
+    imageFetchPriority?: "high" | "low" | "auto";
     onToggleWishlist: (user_id: string, product_id: number) => void;
     onAddingCart: (user_id: string, product_id: number) => void;
 };
 
-const ShopsItem = ({ product, uid, isWishlist, isWishlistPending = false, onToggleWishlist, onAddingCart }: ProductProps) => {
+const ShopsItem = ({ product, uid, isWishlist, isWishlistPending = false, imageEager = false, imageFetchPriority, onToggleWishlist, onAddingCart }: ProductProps) => {
     return (
         <ProductCard
             product={product}
             uid={uid}
             isWishlist={isWishlist}
             isWishlistPending={isWishlistPending}
+            imageEager={imageEager}
+            imageFetchPriority={imageFetchPriority}
             onToggleWishlist={onToggleWishlist}
             onAddingCart={onAddingCart}
         />

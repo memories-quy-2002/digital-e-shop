@@ -1,17 +1,19 @@
 import React, { useEffect } from "react";
 import { Modal } from "../ui/legacy";
 import { useT } from "../../hooks/useT";
+import LazyLoadingImage from "../../utils/LazyLoadingImage";
 
 type ImageLightboxProps = {
     show: boolean;
     onHide: () => void;
     src?: string;
     srcSet?: string;
+    avifSrcSet?: string;
     sizes?: string;
     alt: string;
 };
 
-const ImageLightbox: React.FC<ImageLightboxProps> = ({ show, onHide, src, srcSet, sizes, alt }) => {
+const ImageLightbox: React.FC<ImageLightboxProps> = ({ show, onHide, src, srcSet, avifSrcSet, sizes, alt }) => {
     const t = useT();
     useEffect(() => {
         if (!show) {
@@ -48,14 +50,14 @@ const ImageLightbox: React.FC<ImageLightboxProps> = ({ show, onHide, src, srcSet
                 >
                     ×
                 </button>
-                <img
+                <LazyLoadingImage
                     src={src}
                     srcSet={srcSet}
+                    avifSrcSet={avifSrcSet}
                     sizes={sizes}
                     alt={alt}
                     className="image-lightbox__img"
-                    loading="eager"
-                    decoding="async"
+                    eager
                 />
             </Modal.Body>
         </Modal>

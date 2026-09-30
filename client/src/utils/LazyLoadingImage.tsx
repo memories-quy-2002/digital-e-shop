@@ -7,33 +7,49 @@ const LazyLoadingImage = ({
     eager = false,
     onError,
     srcSet,
+    avifSrcSet,
     sizes,
     fetchPriority,
+    className,
+    width,
+    height,
 }: {
     src: string;
     alt: string;
     style?: CSSProperties;
     eager?: boolean;
-    onError: (e: React.SyntheticEvent<HTMLImageElement>) => void;
+    onError?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
     srcSet?: string;
+    avifSrcSet?: string;
     sizes?: string;
     fetchPriority?: "high" | "low" | "auto";
+    className?: string;
+    width?: number;
+    height?: number;
 }) => {
     const imgRef = useRef<HTMLImageElement | null>(null);
+    const avifSourceRef = useRef<HTMLSourceElement | null>(null);
 
     useEffect(() => {
         const imageElement = imgRef.current;
         if (!imageElement) return;
 
         const setSrc = () => {
-            if (imageElement.dataset.src) {
-                imageElement.src = imageElement.dataset.src;
+            const avifSource = avifSourceRef.current;
+            if (avifSource?.dataset.sizes) {
+                avifSource.sizes = avifSource.dataset.sizes;
+            }
+            if (avifSource?.dataset.srcset) {
+                avifSource.srcset = avifSource.dataset.srcset;
+            }
+            if (imageElement.dataset.sizes) {
+                imageElement.sizes = imageElement.dataset.sizes;
             }
             if (imageElement.dataset.srcset) {
                 imageElement.srcset = imageElement.dataset.srcset;
             }
-            if (imageElement.dataset.sizes) {
-                imageElement.sizes = imageElement.dataset.sizes;
+            if (imageElement.dataset.src) {
+                imageElement.src = imageElement.dataset.src;
             }
         };
 
@@ -57,9 +73,9 @@ const LazyLoadingImage = ({
                 observer.unobserve(imageElement);
             };
         }
-    }, [eager, sizes, src, srcSet]);
+    }, [avifSrcSet, eager, sizes, src, srcSet]);
 
-    return (
+    const image = (
         <img
             ref={imgRef}
             data-src={src}
@@ -72,9 +88,28 @@ const LazyLoadingImage = ({
             loading={eager ? "eager" : "lazy"}
             decoding="async"
             fetchPriority={fetchPriority}
+            className={className}
+            width={width}
+            height={height}
             style={style}
             onError={onError}
         />
+    );
+
+    if (!avifSrcSet) return image;
+
+    return (
+        <picture style={{ display: "contents" }}>
+            <source
+                ref={avifSourceRef}
+                type="image/avif"
+                data-srcset={avifSrcSet}
+                data-sizes={sizes}
+                srcSet={eager ? avifSrcSet : undefined}
+                sizes={eager ? sizes : undefined}
+            />
+            {image}
+        </picture>
     );
 };
 export default LazyLoadingImage;

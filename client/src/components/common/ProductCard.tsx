@@ -19,6 +19,8 @@ export type ProductCardProps = {
     uid: string;
     isWishlist: boolean;
     isWishlistPending?: boolean;
+    imageEager?: boolean;
+    imageFetchPriority?: "high" | "low" | "auto";
     onToggleWishlist: (user_id: string, product_id: number) => void;
     onAddingCart: (user_id: string, product_id: number) => void;
 };
@@ -28,6 +30,8 @@ const ProductCard = ({
     uid,
     isWishlist,
     isWishlistPending = false,
+    imageEager = false,
+    imageFetchPriority,
     onToggleWishlist,
     onAddingCart,
 }: ProductCardProps) => {
@@ -104,7 +108,7 @@ const ProductCard = ({
                         height: "100%",
                         objectFit: "contain",
                         display: "block",
-                    })}
+                    }, imageEager, undefined, imageFetchPriority)}
                 </Link>
             </div>
 

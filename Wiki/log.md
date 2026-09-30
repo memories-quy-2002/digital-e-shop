@@ -100,3 +100,5 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-30 - Codex - Added the fixed-repository read-only Stage 0 trusted host, base-SHA policy loading, bounded PR evidence output, and GitHub App setup runbook; live observation awaits App credentials.
 - 2026-09-30 - Codex - Updated the fixed-repository read-only Stage 0 trusted host with bounded per-SHA required-check coverage and recorded the first PR #264 observation.
 - 2026-09-30 - Codex - Updated the fixed-repository read-only Stage 0 trusted host to deduplicate overlapping branch-protection checks and contexts while preserving App-bound identities and distinct legacy required contexts.
+- 2026-09-30 - Codex - Added upload-time WebP/AVIF product image variants, responsive Unsplash/Blob sources, and LCP-aware image loading rules.
+- 2026-09-30 - Codex - Replaced broad client vendor chunk groups with Vite dependency-aware splitting and started loading the Home route chunk early for production `/` visits.

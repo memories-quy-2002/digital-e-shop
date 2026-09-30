@@ -21,11 +21,10 @@ import { withTransaction } from "../database/transaction";
 import type { TransactionContext } from "../database/transaction";
 import { ProductAlertsService } from "../product-alerts/product-alerts.service";
 import { getProductAlertTransitions } from "../product-alerts/product-alerts.policy";
+import { NestBlobService } from "../blob/blob.service";
 
 const query = util.promisify(pool.query).bind(pool);
 const dbQuery = <T = unknown>(sql: string, values?: unknown[]): Promise<T> => query(sql, values) as Promise<T>;
-
-const { put } = require("@vercel/blob");
 
 function extractFileName(url: string) {
     const parts = url.split("/");
@@ -54,6 +53,7 @@ export class NestProductsService {
         private readonly productsRepository: NestProductsRepository,
         private readonly inventoryService: NestInventoryService,
         private readonly productAttributesRepository: ProductAttributesRepository,
+        private readonly blobService: NestBlobService,
         @Optional() private readonly productAlertsService?: ProductAlertsService,
     ) {}
 
@@ -116,8 +116,10 @@ export class NestProductsService {
         if (imageUrl) {
             fileName = extractFileName(imageUrl);
         } else if (file) {
-            const imageBuffer = file.buffer;
-            const blob = await put(`uploads/${imageName}.jpg`, imageBuffer, { access: "public", token });
+            const blob = await this.blobService.uploadImage({
+                buffer: file.buffer,
+                originalname: `${imageName}.jpg`,
+            });
             fileName = extractFileName(blob.url);
         } else {
             throw new Error("Product image is required");
