@@ -23,7 +23,9 @@ before(async () => {
 });
 
 afterEach(async () => {
-  for (const root of temporaryRoots) await rm(root, { recursive: true, force: true });
+  for (const root of temporaryRoots) {
+    await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
   temporaryRoots.clear();
 });
 
