@@ -113,7 +113,8 @@ describe('Loop Engineering operating contracts', () => {
       read('Wiki/log.md'),
     ]);
 
-    assert.match(index, /^\*\*Last updated:\*\* 2026-09-29$/m);
+    const lastUpdated = /^\*\*Last updated:\*\* (\d{4}-\d{2}-\d{2})$/m.exec(index)?.[1];
+    assert.ok(lastUpdated && lastUpdated >= '2026-09-30', 'Wiki index date must include the hosted Stage 0 policy update');
     assert.match(index, /\[\[loop-engineering\]\]/);
     assert.match(architecture, /^## Loop Engineering control plane$/m);
     assert.match(architecture, /`scripts\/loop\//);
@@ -124,6 +125,7 @@ describe('Loop Engineering operating contracts', () => {
     assert.match(concept, /index plus changed tracked\/untracked files/i);
     assert.match(concept, /excludes ignored dependencies\/caches[\s\S]*local green results are provisional/i);
     assert.match(log, /^- 2026-09-27 - Codex - .*Loop Engineering/m);
-    assert.match(log.trimEnd().split(/\r?\n/).at(-1), /^- 2026-09-29 - Codex - .*staged runbook, host-injected CLI limitation, and contents-token budget checks/i);
+    assert.match(log, /^- 2026-09-29 - Codex - .*staged runbook, host-injected CLI limitation, and contents-token budget checks/im);
+    assert.match(log, /^- 2026-09-30 - Codex - Proposed a separate, non-gating Stage 0 Check Run publisher with an exact GitHub API allowlist/im);
   });
 });
