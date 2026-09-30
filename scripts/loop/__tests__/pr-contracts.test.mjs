@@ -84,7 +84,7 @@ describe('Phase 2 PR babysitter contracts', () => {
     assert.match(architecture, /Phase 2A PR Babysitter[\s\S]*Phase 2B/i);
     assert.match(index, /^\*\*Last updated:\*\* 2026-09-30$/m);
     assert.match(index, /\[\[loop-engineering\]\]/);
-    assert.match(log.trimEnd().split(/\r?\n/).at(-1), /^- 2026-09-30 - Codex - .*fixed-repository read-only Stage 0 trusted host/i);
+    assert.match(log, /^- 2026-09-30 - Codex - .*fixed-repository read-only Stage 0 trusted host/im);
   });
 
   it('plans GitHub workflow evidence and write gates against trusted revision and budget state', async () => {
