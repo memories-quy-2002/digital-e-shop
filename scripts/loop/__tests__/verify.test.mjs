@@ -148,6 +148,18 @@ describe('verification planning', () => {
     assert.doesNotMatch(verifyJob, /wrangler deploy|--env production/);
   });
 
+  it('allowlists only the Hosted Stage 0 native build dependencies required by pnpm', async () => {
+    const buildPolicy = await readFile(
+      path.join(repoRoot, 'scripts/loop/hosted/cloudflare/pnpm-workspace.yaml'),
+      'utf8',
+    );
+
+    assert.match(buildPolicy, /^allowBuilds:\s*$/m);
+    assert.match(buildPolicy, /^  esbuild:\s*true$/m);
+    assert.match(buildPolicy, /^  workerd:\s*true$/m);
+    assert.doesNotMatch(buildPolicy, /^  ['"]?\*['"]?:\s*true$/m);
+  });
+
   it('keeps production Queue retries, dead-letter handling, and scheduled reconciliation configured', async () => {
     const configuration = await readFile(
       path.join(repoRoot, 'scripts/loop/hosted/cloudflare/wrangler.jsonc'),
