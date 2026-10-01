@@ -41,8 +41,10 @@ jobs:
           node-version-file: .node-version
           package-manager-cache: false
 
-      - name: Install pnpm
-        run: corepack enable
+      - name: Set up pinned pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.4.2
 
       - name: Install the Stage 0 package
         run: pnpm --dir scripts/loop/hosted/cloudflare install --frozen-lockfile
@@ -75,8 +77,10 @@ jobs:
           node-version-file: .node-version
           package-manager-cache: false
 
-      - name: Install pnpm
-        run: corepack enable
+      - name: Set up pinned pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.4.2
 
       - name: Install the Stage 0 package
         run: pnpm --dir scripts/loop/hosted/cloudflare install --frozen-lockfile
