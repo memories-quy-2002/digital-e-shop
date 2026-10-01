@@ -102,3 +102,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-30 - Codex - Updated the fixed-repository read-only Stage 0 trusted host to deduplicate overlapping branch-protection checks and contexts while preserving App-bound identities and distinct legacy required contexts.
 - 2026-09-30 - Codex - Added upload-time WebP/AVIF product image variants, responsive Unsplash/Blob sources, and LCP-aware image loading rules.
 - 2026-09-30 - Codex - Replaced broad client vendor chunk groups with Vite dependency-aware splitting and started loading the Home route chunk early for production `/` visits.
+- 2026-09-30 - Codex - Proposed a separate, non-gating Stage 0 Check Run publisher with an exact GitHub API allowlist; hosted implementation remains gated on policy review and merge.
