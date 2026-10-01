@@ -57,11 +57,13 @@ Domain objects and their relationships belong under `entities/`. Current pages c
 Cross-cutting behavior belongs under `concepts/`, such as authentication, validation, inventory movement, [[api-response-contract]], guest checkout, order lifecycle, and [[loop-engineering]].
 
 - [[api-response-contract]]: canonical success/error metadata, compatibility aliases, request IDs, and pagination boundaries
-- [[loop-engineering]]: bounded local control plane, Phase 2A PR decision/evidence core, Phase 2B GitHub App auth and read-only Stage 0 host with per-head/merge check diagnostics, guarded Actions reruns, vendor-neutral path-approved repair sessions with local verification and commits, head/base/merge SHA binding, source-SHA attestation gap, and host-owned run budgets
+- [[loop-engineering]]: bounded local control plane, Phase 2A PR decision/evidence core, Phase 2B GitHub App auth and read-only Stage 0 host, proposed separate non-gating Stage 0 Check Run publisher, guarded Actions reruns, vendor-neutral path-approved repair sessions with local verification and commits, head/base/merge SHA binding, source-SHA attestation gap, and host-owned run budgets
 
 ### Decisions
 
 Accepted architectural decisions belong under `decisions/`, one decision per file. Preserve historical context and add a current-status note when implementation changes.
+
+- [[0007-hosted-stage0-report-check]]: proposed boundary between the hosted read-only Stage 0 observer and a separately allowlisted, non-gating Check Run publisher
 
 ### Sources and synthesis
 
