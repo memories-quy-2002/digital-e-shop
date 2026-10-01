@@ -1,6 +1,6 @@
 # ADR 0007: Hosted Stage 0 observer and report-only Check Run
 
-**Status:** Proposed; inactive until this policy change is reviewed and merged.
+**Status:** Accepted policy; publisher implementation and deployment remain inactive until separately reviewed and approved.
 
 ## Context
 
