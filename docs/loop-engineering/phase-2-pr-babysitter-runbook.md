@@ -1,8 +1,10 @@
 # Phase 2 PR Babysitter rollout runbook
 
-**Reviewed:** 2026-09-30
+**Updated:** 2026-09-30
 
-**Operational mode:** observe-only; write stages are not enabled.
+**Policy status:** the hosted Stage 0 observer is implemented; the report-only Check Run publisher policy is merged, but publisher implementation and deployment remain separately gated.
+
+**Operational mode:** the observer is read-only. A separate report-only Check Run publisher is not implemented or enabled; existing write stages remain disabled.
 
 ## Current implementation and safe starting point
 
@@ -26,6 +28,8 @@ commit. Its installation token is restricted to this repository and the
 `administration:read` permissions. The App private key must be a regular file
 outside the checkout. The bootstrap does not use maintainer device flow or
 provide GitHub write adapters.
+
+The policy for a future hosted report publisher is separate from the observer. It permits only a separately reviewed, non-gating Check Run publisher with a transport-level write allowlist; this Stage 0 host remains read-only and cannot publish.
 
 Set the dedicated App settings in the current PowerShell session, then run the
 read-only observation from the matching clean PR checkout. Keep the private
@@ -65,15 +69,33 @@ available in a clean checkout at the PR head, repeat the read-only observation
 to compare both SHA collections with GitHub's PR checks view. Keep all write
 capabilities disabled during this observation.
 
-## Stage 0 — observe-only
+## Stage 0 — read-only observer and separately gated report publisher
 
-**Allowed:** read PR, check, required-policy, workflow, review, and bounded
-redacted job-log metadata; classify evidence; persist bounded local state and
-telemetry; emit a decision or escalation packet.
+**Observer allowed:** read PR, check, required-policy, workflow, review, and
+bounded redacted job-log metadata; classify evidence; persist bounded local
+state and telemetry; emit a decision or escalation packet. The observer has no
+GitHub write capability.
 
-**Blocked:** No GitHub writes, no Actions reruns, no code repair, no branch
-pushes, no merge, and no production operations. Unavailable or stale evidence
-waits or escalates.
+**Publisher, only after a separate reviewed implementation:** one fixed
+`Loop Engineering Stage 0` Check Run on the current PR head SHA, with a bounded
+observation summary and `neutral` conclusion. Re-read the repository/PR
+`{baseSha, headSha, mergeSha}` tuple immediately before publication and discard
+stale decisions. Recollect required-check policy before each publish and refuse
+if it is unavailable/incomplete or if the report context is required. The
+report context must never be configured as a required check.
+
+The dedicated publisher token may need `checks:write`, but the transport must
+allow only `POST /repos/{owner}/{repo}/check-runs` and
+`PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}` for writes. Reject all
+other mutations, including check re-requests, Check Suite writes, Actions reruns,
+issue/comment writes, contents writes, and merges. Do not grant the publisher
+`actions:write` or `contents:write`.
+
+**Always blocked for the observer:** no GitHub writes, no Actions reruns, no
+code repair, no branch pushes, no merge, and no production operations.
+Unavailable, stale, partial, ambiguous, or unattested evidence waits or
+escalates. Cloudflare provisioning/deployment is outside both capabilities and
+requires separate explicit maintainer approval.
 
 **Promotion to Stage 1 requires all of these:**
 
@@ -139,7 +161,8 @@ Phase 2. It does not merge.
 | Purpose | Credential and effective repository permission | Guard |
 | --- | --- | --- |
 | Maintainer identity and approval | GitHub App device-flow user token; used to verify `/user` and repository write eligibility | Trusted user ID allowlist, interactive TTY, short-lived single-use approval bound to PR tuple, capability, and paths |
-| PR and policy observation | App installation token with `metadata:read`, `pull_requests:read`, `checks:read`, `actions:read`, and `administration:read` | Restricted to the configured repository; never persisted in loop state or telemetry |
+| PR and policy observation | App installation token with `metadata:read`, `pull_requests:read`, `checks:read`, `actions:read`, `administration:read`, and `contents:read` for canonical policy at the exact base SHA | Restricted to the configured repository; never persisted in loop state or telemetry |
+| Stage 0 report publisher (future; disabled) | Separate capability using observation permissions plus `checks:write` | Only fixed Check Run create/update routes; current head SHA, `neutral`, bounded report, non-required context, fresh tuple/policy checks; reject all other writes including re-requests and suite writes |
 | Actions rerun | Observation permissions plus `actions:write` | Restricted to the configured repository; exact allowlisted workflow/run/attempt/job IDs, current SHA tuple, fresh approval, and finite CI budget; no contents-write permission |
 | Branch push | Observation permissions plus `contents:write` | Restricted to the configured repository; exact approved paths, verified commit, fresh approval, independent final checks, expected non-`main` ref, and branch protection |
 | App signing key | GitHub App private key held by the trusted host | Never placed in the repository, coding-agent context, logs, or telemetry |
