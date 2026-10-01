@@ -19,8 +19,8 @@ describe('PR Babysitter rollout runbook contract', () => {
     const source = `${runbook}\n${contract}`.replace(/\s+/g, ' ');
 
     for (const stage of ['Stage 0', 'Stage 1', 'Stage 2']) assert.match(source, new RegExp(stage));
-    assert.match(runbook, /observe-only/i);
-    assert.match(runbook, /no GitHub writes/i);
+    assert.match(runbook, /observer is read-only/i);
+    assert.match(runbook, /observer has no\s+GitHub write capability/i);
     assert.match(runbook, /no code repair/i);
     assert.match(runbook, /flaky/i);
     assert.match(runbook, /allowlist/i);
@@ -63,10 +63,14 @@ describe('PR Babysitter rollout runbook contract', () => {
   it('documents credential boundaries and forbids real credentials, merge, and production authority', async () => {
     const runbook = await read('docs/loop-engineering/phase-2-pr-babysitter-runbook.md');
 
-    for (const permission of ['metadata:read', 'pull_requests:read', 'checks:read', 'actions:read', 'administration:read']) {
+    for (const permission of ['metadata:read', 'pull_requests:read', 'checks:read', 'actions:read', 'administration:read', 'contents:read']) {
       assert.ok(runbook.includes(permission), `runbook must document ${permission}`);
     }
     assert.match(runbook, /actions:write/);
+    assert.match(runbook, /Stage 0 report publisher/i);
+    assert.match(runbook, /checks:write/);
+    assert.match(runbook, /POST \/repos\/\{owner\}\/\{repo\}\/check-runs/);
+    assert.match(runbook, /PATCH \/repos\/\{owner\}\/\{repo\}\/check-runs\/\{check_run_id\}/);
     assert.match(runbook, /contents:write/);
     assert.match(runbook, /not branch-scoped/i);
     assert.match(runbook, /cannot merge/i);
