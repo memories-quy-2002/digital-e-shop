@@ -126,6 +126,7 @@ describe('Loop Engineering operating contracts', () => {
     assert.match(concept, /excludes ignored dependencies\/caches[\s\S]*local green results are provisional/i);
     assert.match(log, /^- 2026-09-27 - Codex - .*Loop Engineering/m);
     assert.match(log, /^- 2026-09-29 - Codex - .*staged runbook, host-injected CLI limitation, and contents-token budget checks/im);
+    assert.match(log, /^- 2026-09-30 - Codex - .*fixed-repository read-only Stage 0 trusted host/im);
     assert.match(log, /^- 2026-09-30 - Codex - Proposed a separate, non-gating Stage 0 Check Run publisher with an exact GitHub API allowlist/im);
   });
 });

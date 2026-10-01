@@ -43,10 +43,12 @@ function buildService({
     const repository = { getProductById: vi.fn().mockResolvedValue(product(lockedProduct)) };
     const inventory = { createMovementsInTransaction: vi.fn().mockResolvedValue(undefined) };
     const attributes = { replaceForProduct: vi.fn().mockResolvedValue(undefined) };
+    const blobService = { uploadImage: vi.fn().mockResolvedValue({ url: "https://example.test/product.webp" }) };
     const service = new NestProductsService(
         repository as never,
         inventory as never,
         attributes as never,
+        blobService as never,
         alerts as never,
     );
 

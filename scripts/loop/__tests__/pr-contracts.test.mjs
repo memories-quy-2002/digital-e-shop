@@ -86,6 +86,7 @@ describe('Phase 2 PR babysitter contracts', () => {
     assert.ok(lastUpdated && lastUpdated >= '2026-09-30', 'Wiki index date must include the hosted Stage 0 policy update');
     assert.match(index, /\[\[loop-engineering\]\]/);
     assert.match(log, /^- 2026-09-29 - Codex - .*staged runbook, host-injected CLI limitation, and contents-token budget checks/im);
+    assert.match(log, /^- 2026-09-30 - Codex - .*fixed-repository read-only Stage 0 trusted host/im);
     assert.match(log, /^- 2026-09-30 - Codex - Proposed a separate, non-gating Stage 0 Check Run publisher with an exact GitHub API allowlist/im);
   });
 

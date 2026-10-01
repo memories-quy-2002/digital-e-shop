@@ -8,9 +8,10 @@ import { NestConfigModule } from "../config/nest-config.module";
 import { InventoryModule } from "../inventory/inventory.module";
 import { ProductAttributesRepository } from "./product-attributes.repository";
 import { ProductAlertsModule } from "../product-alerts/product-alerts.module";
+import { BlobModule } from "../blob/blob.module";
 
 @Module({
-    imports: [NestConfigModule, InventoryModule, ProductAlertsModule],
+    imports: [NestConfigModule, InventoryModule, ProductAlertsModule, BlobModule],
     controllers: [ProductsController],
     providers: [NestProductsService, NestProductsRepository, ProductAttributesRepository],
     exports: [NestProductsRepository, NestProductsService, ProductAttributesRepository],

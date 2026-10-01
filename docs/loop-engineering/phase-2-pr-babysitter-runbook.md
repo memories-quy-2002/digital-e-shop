@@ -2,60 +2,72 @@
 
 **Updated:** 2026-09-30
 
-**Policy status:** proposed; independent review and merge are required before host implementation.
+**Policy status:** the hosted Stage 0 observer is implemented; the report-only Check Run publisher policy is merged, but publisher implementation and deployment remain separately gated.
 
 **Operational mode:** the observer is read-only. A separate report-only Check Run publisher is not implemented or enabled; existing write stages remain disabled.
 
 ## Current implementation and safe starting point
 
 The PR Babysitter core, GitHub App authentication and approval provider, GitHub
-observation client, guarded Actions rerun adapter, repair session, and orchestration
-function are present in `scripts/loop/`. The entry point is the exported
-`runPrBabysitterCli({ argv, trustedHost, io })` function in
-`scripts/loop/pr-babysitter-cli.mjs`.
+observation client, guarded Actions rerun adapter, repair session, and
+host-injected orchestration function are present in `scripts/loop/`. The
+reviewable Stage 0 host bootstrap and standalone read-only entrypoint are
+`scripts/loop/pr-babysitter-host.mjs`, exported as
+`runPrBabysitterStage0`; it calls the host-injected
+`runPrBabysitterCli({ argv, trustedHost, io })` in
+`scripts/loop/pr-babysitter-cli.mjs`. It assembles only the `inspect` command
+for the fixed repository `memories-quy-2002/digital-e-shop` (repository ID
+`743050379`). It rejects rerun, repair, and other commands before loading App
+credentials or contacting GitHub.
 
-There is no standalone CLI entrypoint and no trusted-host factory in this
-repository. A caller must supply a `trustedHost` assembled by a separately
-reviewed host. The host must load canonical policy, derive changed paths from
-the checkout, invoke the fixed verifier, independently observe completion
-revision and workspace fingerprint, authenticate exact-scope approval, and
-constrain writes. Without that bootstrap, a live observation cannot be run
-through the trusted adapter. **A real Stage 0 run is pending host bootstrap and
-an eligible open PR.** No PR has been used as a Stage 0 target. The policy for a
-future hosted report publisher is separate from the observer and is inactive
-until it has passed review and merge. Host implementation must begin in a fresh
-run from that reviewed policy revision; this documentation change does not
-enable an App permission, Worker, or deployment.
+The host checks that the origin identifies the fixed GitHub repository, the
+checkout is clean and on the open PR's same-repository feature head, and the
+PR targets `main`. It loads the canonical Loop policy from the exact PR base
+commit. Its installation token is restricted to this repository and the
+`metadata:read`, `pull_requests:read`, `checks:read`, `actions:read`, and
+`administration:read` permissions. The App private key must be a regular file
+outside the checkout. The bootstrap does not use maintainer device flow or
+provide GitHub write adapters.
 
-The following is the host-injected API shape, with placeholders only. It is an
-embedding example, not a runnable shell command; replace the PR placeholder
-with a decimal PR number and provide a trusted host created by the reviewed
-bootstrap:
+The policy for a future hosted report publisher is separate from the observer. It permits only a separately reviewed, non-gating Check Run publisher with a transport-level write allowlist; this Stage 0 host remains read-only and cannot publish.
 
-```js
-import { runPrBabysitterCli } from './scripts/loop/pr-babysitter-cli.mjs';
+Set the dedicated App settings in the current PowerShell session, then run the
+read-only observation from the matching clean PR checkout. Keep the private
+key at an absolute path outside the checkout and restrict its Windows file
+permissions to the local host user:
 
-const result = await runPrBabysitterCli({
-  argv: ['inspect', '--repo', '<owner>/<repo>', '--pr', '<pr-number>'],
-  trustedHost, // supplied by the reviewed host bootstrap
-  io: { stdout: process.stdout, stderr: process.stderr },
-});
+```powershell
+$env:LOOP_GITHUB_APP_ID = '<app-id>'
+$env:LOOP_GITHUB_APP_CLIENT_ID = '<client-id>'
+$env:LOOP_GITHUB_APP_INSTALLATION_ID = '<installation-id>'
+$env:LOOP_GITHUB_APP_PRIVATE_KEY_FILE = '<absolute-path-outside-checkout>'
+node scripts/loop/pr-babysitter-host.mjs inspect --repo memories-quy-2002/digital-e-shop --pr <pr-number>
 ```
 
-`inspect` reads GitHub evidence and may update local `.loop/state/` metadata; it
-does not write to GitHub, rerun jobs, repair code, push, or merge. A `decide`
-call also emits bounded local telemetry. Required workflow evidence stays
-unavailable until the host can attest the workflow source SHA for the exact
-repository ID, path, ref, and SHA.
+`inspect` reads GitHub evidence and may update local `.loop/pr/` metadata. It
+does not write to GitHub, rerun jobs, repair code, push, or merge. The JSON
+output includes the PR SHA tuple, effective required identities, tested SHA,
+bounded check observations, workflow evidence status, and review counts; it
+omits review bodies, credentials, and raw check logs. Required workflow
+evidence remains unavailable until a trusted source attestation matches the
+exact repository ID, path, ref, and source SHA. Missing, partial, stale,
+ambiguous, or unattested evidence waits or escalates.
 
-For an observer-only Stage 0 baseline, select one open, non-production,
-same-repository PR. Compare the adapter's base/head/merge SHA tuple, required
-check and workflow identities, tested SHAs, and decision with GitHub's PR and
-checks views. Keep all write capabilities disabled during this observation.
-A future report-publisher pilot is a separate operation and must follow the
-constraints below after its own implementation and review. Do not treat
-missing, partial, stale, ambiguous, or unattested evidence as an empty policy
-or as green.
+`checkCollectionsBySha` reports each current head and merge SHA separately,
+including collection status, check collection completeness, matched and
+unmatched required identities, and bounded observations. A `null` unmatched
+list means that SHA's PR snapshot is stale or unavailable. The top-level
+`testedSha` and observations remain the collection passed to the decision
+engine; per-SHA diagnostics do not turn missing evidence green.
+
+An initial live Stage 0 observation was run against PR #264 on 2026-09-30. It
+returned `wait` with `required_check_evidence_missing`; the effective policy
+snapshot was complete with 10 required check identities and no required
+workflows, while the selected merge SHA had zero observations. That output did
+not show head-SHA coverage separately. After this per-SHA summary change is
+available in a clean checkout at the PR head, repeat the read-only observation
+to compare both SHA collections with GitHub's PR checks view. Keep all write
+capabilities disabled during this observation.
 
 ## Stage 0 — read-only observer and separately gated report publisher
 
@@ -70,28 +82,20 @@ observation summary and `neutral` conclusion. Re-read the repository/PR
 `{baseSha, headSha, mergeSha}` tuple immediately before publication and discard
 stale decisions. Recollect required-check policy before each publish and refuse
 if it is unavailable/incomplete or if the report context is required. The
-report context must never be configured as a required check: GitHub lists
-`neutral` among successful required-check conclusions, so a neutral report
-could satisfy a merge gate if configured as required. Keep report output
-informational; it never means merge-ready.
+report context must never be configured as a required check.
 
-The dedicated App token needs `checks:write` for Check Run creation/update, but
-GitHub also grants that permission for Check Run re-requests, Check Suite
-creation, Check Suite preference changes, and Check Suite re-requests. Enforce
-the publisher's method/path allowlist at the HTTP transport: permit only
-`POST /repos/{owner}/{repo}/check-runs` and
-`PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}` for writes, with only
-the fixed read-only lookup needed to find its own report. Reject all other
-mutations, including check re-requests, suite endpoints, Actions reruns, issue
-or comment writes, contents writes, and merges. Do not grant `actions:write` or
-`contents:write` to this publisher.
+The dedicated publisher token may need `checks:write`, but the transport must
+allow only `POST /repos/{owner}/{repo}/check-runs` and
+`PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}` for writes. Reject all
+other mutations, including check re-requests, Check Suite writes, Actions reruns,
+issue/comment writes, contents writes, and merges. Do not grant the publisher
+`actions:write` or `contents:write`.
 
-**Always blocked:** Actions reruns, code repair, branch pushes, merges, issue
-or comment writes, and operations against Digital-E commerce production
-systems through the Loop host. Cloudflare provisioning/deployment is outside
-the observer and publisher capabilities and needs separate explicit maintainer
-approval. The read-only observer cannot publish. Missing, partial, stale, or
-unattested evidence waits or escalates; a report publisher must refuse it.
+**Always blocked for the observer:** no GitHub writes, no Actions reruns, no
+code repair, no branch pushes, no merge, and no production operations.
+Unavailable, stale, partial, ambiguous, or unattested evidence waits or
+escalates. Cloudflare provisioning/deployment is outside both capabilities and
+requires separate explicit maintainer approval.
 
 **Promotion to Stage 1 requires all of these:**
 

@@ -1,11 +1,22 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { generateKeyPairSync } from 'node:crypto';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { exitCodeForAction, parsePrBabysitterArguments, runPrBabysitterCli } from '../pr-babysitter-cli.mjs';
 import { createPrBabysitterState } from '../pr-state.mjs';
 import { normalizeCheckObservation, normalizeRequiredCheckSnapshot } from '../pr-evidence.mjs';
 
 const sha = 'a'.repeat(40);
+const execFileAsync = promisify(execFile);
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const stage0Repository = 'memories-quy-2002/digital-e-shop';
+const stage0RepositoryId = 743050379;
 const policy = { schemaVersion: 1, protectedPaths: { high: [], critical: [] },
   riskRules: { low: [], medium: [], high: [], criticalActions: [] },
   stopConditions: { maxIterations: 2, maxSameFailure: 2, maxFlakyRetries: 2, maxChangedFiles: 10,
@@ -163,7 +174,147 @@ function createRepairHarness({ missingFingerprint = false, tupleRace = false, st
   return { trustedHost, events, set outputDiff(value) { outputDiff = value; }, get pushed() { return pushed; } };
 }
 
+async function createStage0Fixture(t, { remote = `https://github.com/${stage0Repository}.git` } = {}) {
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'digital-e-loop-stage0-test-'));
+  t.after(() => rm(temporaryRoot, { recursive: true, force: true }));
+  const repoRoot = path.join(temporaryRoot, 'repo');
+  const policyDirectory = path.join(repoRoot, '.agent', 'policy');
+  await mkdir(policyDirectory, { recursive: true });
+  for (const filename of ['protected-paths.yml', 'risk-rules.yml', 'stop-conditions.yml']) {
+    await writeFile(path.join(policyDirectory, filename),
+      await readFile(path.join(repositoryRoot, '.agent', 'policy', filename), 'utf8'), 'utf8');
+  }
+  const git = async (...args) => execFileAsync('git', ['-C', repoRoot, ...args], {
+    encoding: 'utf8', timeout: 10_000, windowsHide: true,
+  });
+  await git('init', '--initial-branch=main');
+  await git('config', 'user.name', 'Loop Stage 0 Test');
+  await git('config', 'user.email', 'loop-stage0@example.invalid');
+  await git('remote', 'add', 'origin', remote);
+  await git('add', '.agent/policy');
+  await git('commit', '-m', 'test: stage 0 canonical policy fixture');
+  const baseSha = (await git('rev-parse', 'HEAD')).stdout.trim();
+  await git('checkout', '-b', 'feature/stage0-probe');
+  await writeFile(path.join(policyDirectory, 'stop-conditions.yml'), '{ invalid json', 'utf8');
+  await writeFile(path.join(repoRoot, 'stage0-probe.txt'), 'fixture\n', 'utf8');
+  await git('add', '.agent/policy/stop-conditions.yml', 'stage0-probe.txt');
+  await git('commit', '-m', 'test: create a PR head with changed policy');
+  const headSha = (await git('rev-parse', 'HEAD')).stdout.trim();
+
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const keyPath = path.join(temporaryRoot, 'github-app-private-key.pem');
+  const privateKeyPem = privateKey.export({ type: 'pkcs8', format: 'pem' });
+  await writeFile(keyPath, privateKeyPem, { encoding: 'utf8', mode: 0o600 });
+  return {
+    repoRoot,
+    baseSha,
+    headSha,
+    keyPath,
+    privateKeyPem,
+    env: {
+      LOOP_GITHUB_APP_ID: '12345',
+      LOOP_GITHUB_APP_CLIENT_ID: 'Iv1.stage0test',
+      LOOP_GITHUB_APP_INSTALLATION_ID: '67890',
+      LOOP_GITHUB_APP_PRIVATE_KEY_FILE: keyPath,
+    },
+  };
+}
+
+function createStage0Fetch({ baseSha, headSha, mergeSha = null, state = 'OPEN', headRepository = stage0Repository,
+  repositoryId = stage0RepositoryId, requiredWorkflow = false, workflowRuns = [], requiredCheckContexts = [],
+  statusesBySha = {}, checkRunsBySha = {} } = {}) {
+  const requests = [];
+  const permissions = { metadata: 'read', pull_requests: 'read', checks: 'read', actions: 'read', administration: 'read' };
+  const reply = (body, status = 200) => new Response(body === '' ? '' : JSON.stringify(body), {
+    status,
+    headers: body === '' ? {} : { 'content-type': 'application/json' },
+  });
+  const fetchImpl = async (input, init = {}) => {
+    const url = new URL(String(input));
+    const method = init.method ?? 'GET';
+    requests.push({ url, method, body: init.body, headers: init.headers });
+
+    if (method === 'POST' && url.pathname === `/app/installations/67890/access_tokens`) {
+      return reply({ token: 'ghs_stage0_observe_secret', expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+        permissions, repository_selection: 'selected', repositories: [{ id: repositoryId }] });
+    }
+    if (method === 'GET' && url.pathname === `/repos/${stage0Repository}/pulls/7`) {
+      const repositoryName = headRepository;
+      return reply({
+        number: 7,
+        state: state.toLowerCase(),
+        updated_at: '2026-09-30T00:00:00Z',
+        base: { ref: 'main', sha: baseSha, repo: { id: repositoryId, full_name: stage0Repository } },
+        head: { ref: 'feature/stage0-probe', sha: headSha,
+          repo: { id: headRepository === stage0Repository ? repositoryId : repositoryId + 1, full_name: repositoryName } },
+      });
+    }
+    if (method === 'POST' && url.pathname === '/graphql') {
+      return reply({ data: { repository: { pullRequest: {
+        state,
+        isDraft: false,
+        baseRefName: 'main',
+        headRefName: 'feature/stage0-probe',
+        baseRefOid: baseSha,
+        headRefOid: headSha,
+        potentialMergeCommit: mergeSha ? { oid: mergeSha } : null,
+        mergeable: 'UNKNOWN',
+        baseRepository: { databaseId: repositoryId, nameWithOwner: stage0Repository, defaultBranchRef: { name: 'main' } },
+        headRepository: { databaseId: headRepository === stage0Repository ? repositoryId : repositoryId + 1,
+          nameWithOwner: headRepository },
+      } } } });
+    }
+    if (url.pathname === `/repos/${stage0Repository}/pulls/7/files`
+      || url.pathname === `/repos/${stage0Repository}/pulls/7/reviews`
+      || url.pathname === `/repos/${stage0Repository}/pulls/7/comments`) return reply([]);
+    if (url.pathname === `/repos/${stage0Repository}`) return reply({ id: repositoryId, default_branch: 'main' });
+    if (url.pathname === `/repos/${stage0Repository}/branches/main/protection`) {
+      return requiredCheckContexts.length === 0 ? reply('', 404) : reply({
+        required_status_checks: { strict: true, contexts: requiredCheckContexts, checks: [] },
+      });
+    }
+    if (url.pathname === `/repos/${stage0Repository}/rulesets`) return reply(requiredWorkflow ? [{ id: 441 }] : []);
+    if (url.pathname === `/repos/${stage0Repository}/rulesets/441` && requiredWorkflow) return reply({
+      id: 441,
+      target: 'branch',
+      enforcement: 'active',
+      conditions: { ref_name: { include: ['refs/heads/main'], exclude: [] } },
+      rules: [{ type: 'required_workflows', parameters: { workflows: [{
+        repository_id: repositoryId,
+        path: '.github/workflows/ci.yml',
+        ref: 'main',
+        sha: 'd'.repeat(40),
+      }] } }],
+    });
+    if (url.pathname === `/repos/${stage0Repository}/actions/runs`) {
+      return reply({ total_count: workflowRuns.length, workflow_runs: workflowRuns });
+    }
+    const commitPathPrefix = `/repos/${stage0Repository}/commits/`;
+    if (url.pathname.startsWith(commitPathPrefix)) {
+      const refAndEndpoint = url.pathname.slice(commitPathPrefix.length);
+      if (refAndEndpoint.endsWith('/check-runs')) {
+        const testedSha = refAndEndpoint.slice(0, -'/check-runs'.length);
+        const checkRuns = checkRunsBySha[testedSha] ?? [];
+        return reply({ sha: testedSha, total_count: checkRuns.length, check_runs: checkRuns });
+      }
+      if (refAndEndpoint.endsWith('/status')) {
+        const testedSha = refAndEndpoint.slice(0, -'/status'.length);
+        const statuses = statusesBySha[testedSha] ?? [];
+        const state = statuses.some((status) => status.state === 'pending') ? 'pending' : 'success';
+        return reply({ sha: testedSha, total_count: statuses.length, state, statuses });
+      }
+    }
+    return reply({ message: 'Not Found' }, 404);
+  };
+  return { fetchImpl, requests, permissions };
+}
+
 describe('PR Babysitter CLI', () => {
+  it('exports a dedicated Stage 0 bootstrap runner', async () => {
+    const hostModule = await import('../pr-babysitter-host.mjs').catch(() => null);
+    assert.equal(typeof hostModule?.runPrBabysitterStage0, 'function');
+  });
+
   it('parses a strict repository and PR number', () => {
     assert.deepEqual(parsePrBabysitterArguments(['inspect', '--repo', 'owner/repo', '--pr', '12']), {
       command: 'inspect', repository: 'owner/repo', prNumber: 12, dryRun: false,
@@ -351,5 +502,237 @@ describe('PR Babysitter CLI', () => {
     assert.ok(harness.events.includes('contents-consume'));
     assert.ok(harness.events.includes('contents-token'));
     assert.equal(harness.pushed, false);
+  });
+});
+
+describe('Stage 0 trusted host bootstrap', () => {
+  it('refuses every write-capable command before loading App credentials or contacting GitHub', async (t) => {
+    const { runPrBabysitterStage0 } = await import('../pr-babysitter-host.mjs');
+    let fetchCalls = 0;
+    t.mock.method(globalThis, 'fetch', async () => { fetchCalls += 1; throw Error('unexpected network'); });
+    let stderr = '';
+    const result = await runPrBabysitterStage0({
+      argv: ['rerun-flaky', '--repo', stage0Repository, '--pr', '7'],
+      env: {},
+      io: { stdout: { write() {} }, stderr: { write(value) { stderr += value; } } },
+    });
+    assert.equal(result.exitCode, 3);
+    assert.equal(fetchCalls, 0);
+    assert.match(stderr, /stage0_read_only/);
+  });
+
+  it('fails closed when dedicated GitHub App settings are missing', async (t) => {
+    const { runPrBabysitterStage0 } = await import('../pr-babysitter-host.mjs');
+    const fixture = await createStage0Fixture(t);
+    let stderr = '';
+    t.mock.method(globalThis, 'fetch', async () => { throw Error('unexpected network'); });
+    const result = await runPrBabysitterStage0({
+      argv: ['inspect', '--repo', stage0Repository, '--pr', '7'],
+      repoRoot: fixture.repoRoot,
+      env: {},
+      io: { stdout: { write() {} }, stderr: { write(value) { stderr += value; } } },
+    });
+    assert.equal(result.exitCode, 3);
+    assert.match(stderr, /app_configuration_missing/);
+  });
+
+  it('rejects a private-key path inside the checkout before reading it or contacting GitHub', async (t) => {
+    const { runPrBabysitterStage0 } = await import('../pr-babysitter-host.mjs');
+    const fixture = await createStage0Fixture(t);
+    let stderr = '';
+    t.mock.method(globalThis, 'fetch', async () => { throw Error('unexpected network'); });
+    const result = await runPrBabysitterStage0({
+      argv: ['inspect', '--repo', stage0Repository, '--pr', '7'],
+      env: {
+        LOOP_GITHUB_APP_ID: '12345',
+        LOOP_GITHUB_APP_CLIENT_ID: 'Iv1.stage0test',
+        LOOP_GITHUB_APP_INSTALLATION_ID: '67890',
+        LOOP_GITHUB_APP_PRIVATE_KEY_FILE: path.join(fixture.repoRoot, 'AGENTS.md'),
+      },
+      repoRoot: fixture.repoRoot,
+      io: { stdout: { write() {} }, stderr: { write(value) { stderr += value; } } },
+    });
+    assert.equal(result.exitCode, 3);
+    assert.match(stderr, /app_key_path_rejected/);
+    assert.equal(stderr.includes('Loop Engineering contract'), false);
+  });
+
+  it('uses only the fixed repository, base-commit policy, and observe installation capability', async (t) => {
+    const { createPrBabysitterStage0Host } = await import('../pr-babysitter-host.mjs');
+    const fixture = await createStage0Fixture(t);
+    const github = createStage0Fetch({ baseSha: fixture.baseSha, headSha: fixture.headSha });
+    t.mock.method(globalThis, 'fetch', github.fetchImpl);
+    const host = await createPrBabysitterStage0Host({ prNumber: 7, repoRoot: fixture.repoRoot, env: fixture.env });
+    assert.equal(host.config.repository, stage0Repository);
+    assert.equal(host.config.repositoryId, stage0RepositoryId);
+    assert.equal(host.config.policy.stopConditions.maxIterations, 5);
+    assert.equal(typeof host.adapters.pr.collect, 'function');
+    assert.equal(typeof host.adapters.writer.push, 'undefined');
+    assert.equal(typeof host.adapters.actions, 'undefined');
+    await assert.rejects(host.adapters.auth.getInstallationToken('contents:write'));
+    await assert.rejects(host.adapters.auth.getInstallationToken('actions:rerun'));
+
+    const tokenRequest = github.requests.find((request) => request.url.pathname === '/app/installations/67890/access_tokens');
+    assert.ok(tokenRequest);
+    const body = JSON.parse(tokenRequest.body);
+    assert.deepEqual(body.repository_ids, [stage0RepositoryId]);
+    assert.deepEqual(body.permissions, github.permissions);
+    assert.equal(github.requests.some((request) => request.method === 'POST'
+      && request.url.pathname !== '/app/installations/67890/access_tokens' && request.url.pathname !== '/graphql'), false);
+  });
+
+  it('emits a bounded real PR observation and stores no App key or token', async (t) => {
+    const { runPrBabysitterStage0 } = await import('../pr-babysitter-host.mjs');
+    const fixture = await createStage0Fixture(t);
+    const github = createStage0Fetch({ baseSha: fixture.baseSha, headSha: fixture.headSha });
+    t.mock.method(globalThis, 'fetch', github.fetchImpl);
+    let stdout = '';
+    let stderr = '';
+    const result = await runPrBabysitterStage0({
+      argv: ['inspect', '--repo', stage0Repository, '--pr', '7'],
+      repoRoot: fixture.repoRoot,
+      env: fixture.env,
+      io: { stdout: { write(value) { stdout += value; } }, stderr: { write(value) { stderr += value; } } },
+    });
+
+    assert.equal(result.exitCode, 0, stderr);
+    const observation = JSON.parse(stdout.trim());
+    assert.equal(observation.status, 'observed');
+    assert.equal(observation.pr.repository, stage0Repository);
+    assert.equal(observation.pr.baseSha, fixture.baseSha);
+    assert.equal(observation.pr.headSha, fixture.headSha);
+    assert.equal(observation.decision.action, 'ready-for-human');
+    assert.equal(observation.evidence.requiredCheckSnapshot.collectionStatus, 'complete');
+    assert.deepEqual(observation.evidence.requiredCheckSnapshot.requiredChecks, []);
+    assert.deepEqual(observation.evidence.requiredCheckSnapshot.requiredWorkflows, []);
+    assert.equal(observation.evidence.checkCollectionComplete, true);
+    assert.deepEqual(observation.evidence.observations, []);
+    assert.equal(observation.evidence.reviewSummary.collectionStatus, 'complete');
+    assert.equal(stdout.includes('ghs_stage0_observe_secret'), false);
+    assert.equal(stdout.includes(fixture.privateKeyPem), false);
+
+    const mutatingRequests = github.requests.filter(({ method, url }) => method === 'PUT' || method === 'PATCH' || method === 'DELETE'
+      || (method === 'POST' && url.pathname !== '/graphql' && url.pathname !== '/app/installations/67890/access_tokens'));
+    assert.deepEqual(mutatingRequests, []);
+    const stateDirectory = path.join(fixture.repoRoot, '.loop', 'pr');
+    const stateFiles = await (await import('node:fs/promises')).readdir(stateDirectory);
+    assert.equal(stateFiles.length, 1);
+    const stateText = await readFile(path.join(stateDirectory, stateFiles[0]), 'utf8');
+    assert.equal(stateText.includes('ghs_stage0_observe_secret'), false);
+    assert.equal(stateText.includes(fixture.privateKeyPem), false);
+  });
+
+  it('reports required check evidence independently for the current head and merge SHAs', async (t) => {
+    const { runPrBabysitterStage0 } = await import('../pr-babysitter-host.mjs');
+    const fixture = await createStage0Fixture(t);
+    const mergeSha = 'c'.repeat(40);
+    const github = createStage0Fetch({
+      baseSha: fixture.baseSha,
+      headSha: fixture.headSha,
+      mergeSha,
+      requiredCheckContexts: ['client', 'server'],
+      statusesBySha: {
+        [fixture.headSha]: [{
+          context: 'client',
+          state: 'success',
+          created_at: '2026-09-30T00:00:00Z',
+          creator: { id: 15368 },
+          description: 'completed',
+        }],
+      },
+    });
+    t.mock.method(globalThis, 'fetch', github.fetchImpl);
+    let stdout = '';
+    const result = await runPrBabysitterStage0({
+      argv: ['inspect', '--repo', stage0Repository, '--pr', '7'],
+      repoRoot: fixture.repoRoot,
+      env: fixture.env,
+      io: { stdout: { write(value) { stdout += value; } }, stderr: { write() {} } },
+    });
+
+    assert.equal(result.exitCode, 1);
+    const observation = JSON.parse(stdout.trim());
+    const summary = observation.evidence;
+    assert.equal(observation.decision.action, 'wait');
+    assert.equal(observation.decision.reasonCode, 'required_check_evidence_missing');
+    assert.equal(summary.testedSha, mergeSha);
+    assert.equal(summary.observationsTotal, 0);
+    assert.deepEqual(summary.checkCollectionsBySha.map((collection) => ({
+      testedSha: collection.testedSha,
+      collectionStatus: collection.collectionStatus,
+      snapshotCurrent: collection.snapshotCurrent,
+      checkCollectionComplete: collection.checkCollectionComplete,
+      requiredIdentityCoverage: collection.requiredIdentityCoverage,
+      observationsTotal: collection.observationsTotal,
+      observations: collection.observations.map(({ requiredCheckKey, conclusion }) => ({ requiredCheckKey, conclusion })),
+    })), [
+      {
+        testedSha: mergeSha,
+        collectionStatus: 'complete',
+        snapshotCurrent: true,
+        checkCollectionComplete: true,
+        requiredIdentityCoverage: {
+          matched: 0,
+          total: 2,
+          unmatched: [{ context: 'client', appId: null }, { context: 'server', appId: null }],
+          unmatchedTotal: 2,
+          unmatchedTruncated: false,
+        },
+        observationsTotal: 0,
+        observations: [],
+      },
+      {
+        testedSha: fixture.headSha,
+        collectionStatus: 'complete',
+        snapshotCurrent: true,
+        checkCollectionComplete: true,
+        requiredIdentityCoverage: {
+          matched: 1,
+          total: 2,
+          unmatched: [{ context: 'server', appId: null }],
+          unmatchedTotal: 1,
+          unmatchedTruncated: false,
+        },
+        observationsTotal: 1,
+        observations: [{ requiredCheckKey: 'client|legacy', conclusion: 'success' }],
+      },
+    ]);
+  });
+
+  it('keeps required workflows unavailable when GitHub exposes no attested source SHA', async (t) => {
+    const { runPrBabysitterStage0 } = await import('../pr-babysitter-host.mjs');
+    const fixture = await createStage0Fixture(t);
+    const github = createStage0Fetch({
+      baseSha: fixture.baseSha,
+      headSha: fixture.headSha,
+      requiredWorkflow: true,
+      workflowRuns: [{
+        id: 88,
+        repository: { id: stage0RepositoryId },
+        path: '.github/workflows/ci.yml@main',
+        head_sha: fixture.headSha,
+        workflow_id: 44,
+        event: 'pull_request',
+        run_number: 5,
+        run_attempt: 1,
+        status: 'completed',
+        conclusion: 'success',
+      }],
+    });
+    t.mock.method(globalThis, 'fetch', github.fetchImpl);
+    let stdout = '';
+    const result = await runPrBabysitterStage0({
+      argv: ['inspect', '--repo', stage0Repository, '--pr', '7'],
+      repoRoot: fixture.repoRoot,
+      env: fixture.env,
+      io: { stdout: { write(value) { stdout += value; } }, stderr: { write() {} } },
+    });
+
+    assert.equal(result.exitCode, 1);
+    const observation = JSON.parse(stdout.trim());
+    assert.equal(observation.evidence.requiredCheckSnapshot.requiredWorkflows.length, 1);
+    assert.equal(observation.evidence.workflowEvidence[0].status, 'unavailable');
+    assert.equal(observation.evidence.workflowEvidence[0].reasonCode, 'workflow_source_sha_unattested');
+    assert.equal(observation.decision.reasonCode, 'required_workflow_evidence_missing');
   });
 });

@@ -1,5 +1,7 @@
 import React from "react";
 import { Form } from "../../../components/ui/legacy";
+import LazyLoadingImage from "../../../utils/LazyLoadingImage";
+import { getResponsiveImageSource, THUMBNAIL_IMAGE_WIDTHS } from "../../../utils/images";
 import type { ProductAttributeRow } from "../../products/api";
 
 export type ProductFormMode = "create" | "edit";
@@ -120,6 +122,9 @@ const ProductForm = ({
     const id = (field: string) => `${idPrefix}-${field}`;
     const isCreate = mode === "create";
     const requiredIdentity = isCreate ? false : true;
+    const imagePreviewSource = imageUrl
+        ? getResponsiveImageSource(imageUrl, { widths: THUMBNAIL_IMAGE_WIDTHS, sizes: "160px" })
+        : null;
 
     return (
         <div className="admin__product-form">
@@ -368,14 +373,14 @@ const ProductForm = ({
                         <FormFieldShell
                             id={id("image")}
                             label="Product Image"
-                            helper="Choose a clear JPG, PNG, or WebP image, then upload it before saving."
+                            helper="Choose a clear JPG, PNG, WebP, or AVIF image, then upload it before saving."
                             className="admin__product-form__field--wide"
                             control={(
                                 <>
                                     <Form.Control
-                                        {...controlA11yProps(id("image"), "Choose a clear JPG, PNG, or WebP image, then upload it before saving.", undefined)}
+                                        {...controlA11yProps(id("image"), "Choose a clear JPG, PNG, WebP, or AVIF image, then upload it before saving.", undefined)}
                                         type="file"
-                                        accept="image/jpeg,image/png,image/webp"
+                                        accept="image/jpeg,image/png,image/webp,image/avif"
                                         name="image"
                                         onChange={(event) => onImageChange?.(event.target.files?.[0] ?? null)}
                                     />
@@ -392,7 +397,16 @@ const ProductForm = ({
                                     </div>
                                     {imageUrl ? (
                                         <div className="admin__form-upload__preview">
-                                            <img src={imageUrl} alt="Uploaded product preview" width={160} height={160} />
+                                            <LazyLoadingImage
+                                                src={imagePreviewSource?.src || imageUrl}
+                                                srcSet={imagePreviewSource?.srcSet}
+                                                avifSrcSet={imagePreviewSource?.avifSrcSet}
+                                                sizes={imagePreviewSource?.sizes}
+                                                alt="Uploaded product preview"
+                                                width={160}
+                                                height={160}
+                                                eager
+                                            />
                                         </div>
                                     ) : null}
                                 </>

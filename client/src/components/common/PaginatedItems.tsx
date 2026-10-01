@@ -225,7 +225,7 @@ const PaginatedItems = ({
             {currentItems.length > 0 ? (
                 !isWishlistPage ? (
                     <div className="shops__list">
-                        {currentItems.map((item) => {
+                        {currentItems.map((item, index) => {
                             const product = "product" in item ? item.product : item;
                             return (
                                 <ShopsItem
@@ -234,6 +234,8 @@ const PaginatedItems = ({
                                     uid={uid}
                                     isWishlist={wishlistIdSet.has(product.id)}
                                     isWishlistPending={pendingWishlistIdSet.has(product.id)}
+                                    imageEager={index < 3}
+                                    imageFetchPriority={index === 0 ? "high" : "auto"}
                                     onToggleWishlist={toggleWishlist}
                                     onAddingCart={handleAddingCart}
                                 />

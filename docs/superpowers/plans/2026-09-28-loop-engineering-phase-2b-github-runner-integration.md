@@ -535,10 +535,11 @@ At minimum:
 
 - [ ] **Step 3: Execute Stage 0 against a real non-production PR**
 
-Deferred on 2026-09-29 per the approved scope: the repository has no trusted-host
-factory or standalone CLI entrypoint, and GitHub reports no currently open PR.
-PR #262 is already merged and is not a suitable live Stage 0 target. Resume
-after a reviewed host bootstrap exists and an eligible open PR is available.
+The fixed-repository read-only host and standalone `inspect` entrypoint are now
+implemented. Run this step after the dedicated GitHub App is installed on the
+target repository and its local credentials are configured, then use an open
+non-production PR whose clean local checkout matches the PR head. The bootstrap
+PR may be used as the observation target. Do not enable write permissions.
 
 Observe only. Confirm normalized required-check/workflow identities and observations tested on the current head or merge SHA, plus the full base/head/merge tuple and decisions, match GitHub UI. Do not enable write permissions.
 

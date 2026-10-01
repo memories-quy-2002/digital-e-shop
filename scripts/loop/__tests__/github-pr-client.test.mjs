@@ -360,6 +360,27 @@ describe('strict GitHub PR read adapter', () => {
     assert.match(snapshot.policyFingerprint, /^[a-f0-9]{64}$/);
   });
 
+  it('does not duplicate a fine-grained required check as a legacy context', async () => {
+    const { client } = createHarness({
+      route: ({ url }) => {
+        if (url.pathname.endsWith('/branches/main/protection')) {
+          return jsonResponse(200, { required_status_checks: {
+            contexts: ['client'],
+            checks: [{ context: 'client', app_id: 15368 }],
+          } });
+        }
+        return undefined;
+      },
+    });
+    await client.getPullRequest(PR_NUMBER);
+
+    const snapshot = await client.getRequiredCheckSnapshot({ baseRef: 'main', headSha: HEAD_SHA });
+
+    assert.deepEqual(snapshot.requiredChecks, [
+      { context: 'client', appId: 15368 },
+    ]);
+  });
+
   it('evaluates ruleset branch include and exclude patterns without dropping matching policy', async () => {
     const { client } = createHarness({
       route: ({ url }) => {

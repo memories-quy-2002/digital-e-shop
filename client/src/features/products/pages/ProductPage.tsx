@@ -22,6 +22,7 @@ import {
     getProductImageUrl,
     getResponsiveImageSource,
     normalizeProductImageName,
+    setImageFallback,
 } from "../../../utils/images";
 import { parseProductDetails } from "../../../utils/productDetails";
 import { formatProductRating } from "../../../utils/product";
@@ -584,7 +585,15 @@ const ProductPage = () => {
                     }
                 />
                 {activeResponsiveImage ? (
-                    <link rel="preload" as="image" href={activeResponsiveImage.src} fetchPriority="high" />
+                    <link
+                        rel="preload"
+                        as="image"
+                        href={activeResponsiveImage.src}
+                        imageSrcSet={activeResponsiveImage.avifSrcSet || activeResponsiveImage.srcSet}
+                        imageSizes={activeResponsiveImage.sizes}
+                        type={activeResponsiveImage.avifSrcSet ? "image/avif" : undefined}
+                        fetchPriority="high"
+                    />
                 ) : null}
             </Helmet>
             <div className="product-page app-page">
@@ -612,12 +621,13 @@ const ProductPage = () => {
                                     <LazyLoadingImage
                                         src={activeResponsiveImage?.src || activeImageUrl}
                                         srcSet={activeResponsiveImage?.srcSet}
+                                        avifSrcSet={activeResponsiveImage?.avifSrcSet}
                                         sizes={activeResponsiveImage?.sizes}
                                         alt={productDetail.name}
                                         eager
                                         fetchPriority="high"
                                         onError={(e) => {
-                                            e.currentTarget.src = placeholderImageSource.src;
+                                            setImageFallback(e.currentTarget, placeholderImageSource.src);
                                         }}
                                     />
                                     <span className="product-page__gallery-main__zoom-hint">
@@ -651,14 +661,13 @@ const ProductPage = () => {
                                             className={img === activeImage ? "active" : ""}
                                             onClick={() => setActiveImage(img)}
                                         >
-                                            <img
-                                                src={responsiveThumb.src}
-                                                srcSet={responsiveThumb.srcSet}
-                                                sizes={responsiveThumb.sizes}
-                                                alt={productDetail.name}
-                                                loading="lazy"
-                                                decoding="async"
-                                            />
+                                             <LazyLoadingImage
+                                                 src={responsiveThumb.src}
+                                                 srcSet={responsiveThumb.srcSet}
+                                                 avifSrcSet={responsiveThumb.avifSrcSet}
+                                                 sizes={responsiveThumb.sizes}
+                                                 alt={productDetail.name}
+                                             />
                                         </button>
                                     );
                                 })}
@@ -988,6 +997,7 @@ const ProductPage = () => {
                     onHide={() => setIsLightboxOpen(false)}
                     src={activeResponsiveImage?.src || activeImageUrl}
                     srcSet={activeResponsiveImage?.srcSet}
+                    avifSrcSet={activeResponsiveImage?.avifSrcSet}
                     sizes={activeResponsiveImage?.sizes}
                     alt={productDetail.name}
                 />

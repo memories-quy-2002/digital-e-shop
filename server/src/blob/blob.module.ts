@@ -9,6 +9,7 @@ import { NestConfigModule } from "../config/nest-config.module";
     imports: [NestConfigModule],
     controllers: [BlobController],
     providers: [NestBlobService],
+    exports: [NestBlobService],
 })
 export class BlobModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {

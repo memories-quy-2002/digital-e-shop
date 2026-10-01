@@ -6,7 +6,7 @@ This Wiki records durable Digital-E understanding for maintainers and AI agents.
 
 **Last updated:** 2026-09-30
 
-The current implementation includes authenticated and guest carts, server-authoritative checkout, PayOS and COD payment paths with exact VND amounts, production-only live PayOS configuration, signed webhook processing, simulated-payment delivery protection, bounded admin reconciliation, Firebase-owned production auth emails, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, guest-friendly product comparison, customer support tickets, admin analytics, operational alerts, database-backed demo verification, read-only k6 smoke coverage, and opt-in OTLP observability. Legacy payment identifiers remain readable only for historical database compatibility.
+The current implementation includes authenticated and guest carts, server-authoritative checkout, PayOS and COD payment paths with exact VND amounts, production-only live PayOS configuration, signed webhook processing, simulated-payment delivery protection, bounded admin reconciliation, Firebase-owned production auth emails, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, guest-friendly product comparison, responsive WebP/AVIF product image delivery, customer support tickets, admin analytics, operational alerts, database-backed demo verification, read-only k6 smoke coverage, and opt-in OTLP observability. Legacy payment identifiers remain readable only for historical database compatibility.
 
 The local demo seed creates a linked graph with 28 products across 8 categories and 16 brands. It verifies image URLs, order totals, reviews, wishlists, addresses, notifications, the seeded session baseline, discounts, inventory movements, and orphan relationships. Runtime logins may add sessions after seeding without invalidating verification. Normal seeding is guarded and non-destructive for demo-owned rows; full reset is an explicit local or protected production workflow.
 
@@ -36,7 +36,7 @@ The local demo seed creates a linked graph with 28 products across 8 categories 
 - [Development guide](../docs/DEVELOPMENT.md): environment and local workflow
 - [Testing guide](../docs/TESTING.md): package, integration, smoke, and k6 checks
 - [CI/CD guide](../docs/ci-cd.md): CI, migration gates, deployment, and reset safety
-- [Phase 2 PR Babysitter runbook](../docs/loop-engineering/phase-2-pr-babysitter-runbook.md): staged rollout, credential boundaries, host bootstrap gap, and verification gates
+- [Phase 2 PR Babysitter runbook](../docs/loop-engineering/phase-2-pr-babysitter-runbook.md): staged rollout, credential boundaries, read-only Stage 0 host bootstrap, and verification gates
 - [Prisma workflow](../server/README.prisma.md): schema ownership and demo database operations
 
 ## Wiki catalog
@@ -57,7 +57,7 @@ Domain objects and their relationships belong under `entities/`. Current pages c
 Cross-cutting behavior belongs under `concepts/`, such as authentication, validation, inventory movement, [[api-response-contract]], guest checkout, order lifecycle, and [[loop-engineering]].
 
 - [[api-response-contract]]: canonical success/error metadata, compatibility aliases, request IDs, and pagination boundaries
-- [[loop-engineering]]: bounded local control plane, Phase 2A PR decision/evidence core, Phase 2B GitHub App auth and read-only observation, proposed separate non-gating Stage 0 Check Run publisher, guarded Actions reruns, vendor-neutral path-approved repair sessions with local verification and commits, head/base/merge SHA binding, source-SHA attestation gap, and host-owned run budgets
+- [[loop-engineering]]: bounded local control plane, Phase 2A PR decision/evidence core, Phase 2B GitHub App auth and read-only Stage 0 host, proposed separate non-gating Stage 0 Check Run publisher, guarded Actions reruns, vendor-neutral path-approved repair sessions with local verification and commits, head/base/merge SHA binding, source-SHA attestation gap, and host-owned run budgets
 
 ### Decisions
 

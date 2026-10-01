@@ -21,7 +21,7 @@ describe('PR Babysitter rollout runbook contract', () => {
     for (const stage of ['Stage 0', 'Stage 1', 'Stage 2']) assert.match(source, new RegExp(stage));
     assert.match(runbook, /observer is read-only/i);
     assert.match(runbook, /observer has no\s+GitHub write capability/i);
-    assert.match(runbook, /repair code/i);
+    assert.match(runbook, /no\s+code repair/i);
     assert.match(runbook, /flaky/i);
     assert.match(runbook, /allowlist/i);
     assert.match(runbook, /secret/i);
@@ -43,27 +43,34 @@ describe('PR Babysitter rollout runbook contract', () => {
     assert.match(runbook, /human-reviewed before merge indefinitely/i);
   });
 
-  it('documents the host-injected API without claiming a standalone CLI exists', async () => {
+  it('documents the fixed read-only Stage 0 host bootstrap and its remaining live prerequisites', async () => {
     const runbook = await read('docs/loop-engineering/phase-2-pr-babysitter-runbook.md');
 
     assert.match(runbook, /runPrBabysitterCli/);
     assert.match(runbook, /trustedHost/);
-    assert.match(runbook, /no standalone CLI entrypoint/i);
+    assert.match(runbook, /runPrBabysitterStage0/);
+    assert.match(runbook, /standalone read-only entrypoint/i);
+    assert.match(runbook, /fixed repository `memories-quy-2002\/digital-e-shop`/i);
     assert.match(runbook, /host bootstrap/i);
-    assert.match(runbook, /Stage 0.*pending/i);
-    assert.match(runbook, /No PR has been used as a Stage 0 target/i);
-    assert.doesNotMatch(runbook, /node\s+scripts\/loop\/pr-babysitter-cli\.mjs/);
-    assert.match(runbook, /<owner>\/\<repo>/);
+    const normalized = runbook.replace(/\s+/g, ' ');
+    assert.match(normalized, /initial live Stage 0 observation was run against PR #264/i);
+    assert.match(normalized, /per-SHA summary change.*clean checkout at the PR head/i);
+    assert.doesNotMatch(runbook, /no standalone CLI entrypoint/i);
+    assert.match(runbook, /node scripts\/loop\/pr-babysitter-host\.mjs inspect/);
     assert.match(runbook, /<pr-number>/);
   });
 
   it('documents credential boundaries and forbids real credentials, merge, and production authority', async () => {
     const runbook = await read('docs/loop-engineering/phase-2-pr-babysitter-runbook.md');
 
-    for (const permission of ['metadata:read', 'pull_requests:read', 'checks:read', 'actions:read', 'administration:read']) {
+    for (const permission of ['metadata:read', 'pull_requests:read', 'checks:read', 'actions:read', 'administration:read', 'contents:read']) {
       assert.ok(runbook.includes(permission), `runbook must document ${permission}`);
     }
     assert.match(runbook, /actions:write/);
+    assert.match(runbook, /Stage 0 report publisher/i);
+    assert.match(runbook, /checks:write/);
+    assert.match(runbook, /POST \/repos\/\{owner\}\/\{repo\}\/check-runs/);
+    assert.match(runbook, /PATCH \/repos\/\{owner\}\/\{repo\}\/check-runs\/\{check_run_id\}/);
     assert.match(runbook, /contents:write/);
     assert.match(runbook, /not branch-scoped/i);
     assert.match(runbook, /cannot merge/i);
@@ -78,11 +85,13 @@ describe('PR Babysitter rollout runbook contract', () => {
     assert.doesNotMatch(runbook, /secrets\.[A-Z0-9_]+/i);
   });
 
-  it('records Stage 0 as deferred and includes the Phase 2 telemetry and non-goals', async () => {
+  it('records the initial Stage 0 wait and includes the Phase 2 telemetry and non-goals', async () => {
     const runbook = await read('docs/loop-engineering/phase-2-pr-babysitter-runbook.md');
     const normalized = runbook.replace(/\s+/g, ' ');
 
-    assert.match(normalized, /real Stage 0.*pending/i);
+    assert.match(normalized, /initial live Stage 0 observation was run against PR #264/i);
+    assert.match(normalized, /returned `wait` with `required_check_evidence_missing`/i);
+    assert.match(normalized, /repeat the read-only observation to compare both SHA collections/i);
     for (const metric of [
       'classification accuracy',
       'stale-evidence refusals',
