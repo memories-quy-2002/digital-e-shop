@@ -19,9 +19,9 @@ describe('PR Babysitter rollout runbook contract', () => {
     const source = `${runbook}\n${contract}`.replace(/\s+/g, ' ');
 
     for (const stage of ['Stage 0', 'Stage 1', 'Stage 2']) assert.match(source, new RegExp(stage));
-    assert.match(runbook, /observe-only/i);
-    assert.match(runbook, /no GitHub writes/i);
-    assert.match(runbook, /no code repair/i);
+    assert.match(runbook, /observer is read-only/i);
+    assert.match(runbook, /observer has no\s+GitHub write capability/i);
+    assert.match(runbook, /repair code/i);
     assert.match(runbook, /flaky/i);
     assert.match(runbook, /allowlist/i);
     assert.match(runbook, /secret/i);
