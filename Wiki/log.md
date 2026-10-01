@@ -103,3 +103,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-30 - Codex - Added upload-time WebP/AVIF product image variants, responsive Unsplash/Blob sources, and LCP-aware image loading rules.
 - 2026-09-30 - Codex - Replaced broad client vendor chunk groups with Vite dependency-aware splitting and started loading the Home route chunk early for production `/` visits.
 - 2026-09-30 - Codex - Proposed a separate, non-gating Stage 0 Check Run publisher with an exact GitHub API allowlist; hosted implementation remains gated on policy review and merge.
+- 2026-10-01 - Codex - Implemented and locally verified the Cloudflare Hosted Stage 0 observer, D1/Queue processing, neutral non-gating Check Run publisher, fixed verification workflow, and operator runbook; production setup remains gated by explicit Task 8 approval.

@@ -5,6 +5,7 @@ Loop Engineering is a bounded, auditable control plane around coding work—not 
 ## Control-plane placement
 
 - `scripts/loop/` owns the implementation: policy, risk classifier, state/budgets, verification runner, failure classifier, and controller.
+- `scripts/loop/hosted/cloudflare/` contains Hosted Stage 0: signed webhook ingress, repository-scoped GitHub App observation, D1 idempotency/state, Queue processing, scheduled open-PR reconciliation, and a separate report-only Check Run capability.
 - `.agent/policy/` owns versioned path, action, and stop-condition policy; an agent must not silently weaken it during an active run.
 - `.agent/loops/` describes the feature inner loop and the future PR babysitter contract.
 - `.loop/state/<task-id>.json` and `.loop/pr/` are local, gitignored metadata. They store stable IDs, hashes, counters, statuses, and failure fingerprints—not prompts or customer data.
@@ -64,6 +65,8 @@ The PR babysitter uses a dedicated GitHub App; it does not reuse the Codex `@Git
   CI logs.
 
 ## Rollout boundary
+
+Hosted Stage 0 now has a Cloudflare Worker implementation with mocked API/D1/Queue tests and fixed-verifier coverage. Its Check Run report is always `neutral`, bounded, attached to the revalidated head SHA, and explicitly non-gating. PR and main-push validation runs without Cloudflare/App secrets; only a manual `workflow_dispatch` from `main` can enter the protected production deployment job. The Cloudflare resources, secrets, webhook, deployment, and live pilot have not been configured or run; each remains behind the Task 8 approval gate. See [[0007-hosted-stage0-report-check]] and the [hosted runbook](../../docs/loop-engineering/hosted-stage0-runbook.md).
 
 The Phase 2A decision core and the Phase 2B GitHub App auth, observation
 adapter, worktree guard, guarded Actions rerun, repair session, and

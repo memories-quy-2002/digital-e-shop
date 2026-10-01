@@ -3,8 +3,37 @@
     display: flex;
     flex-direction: column;
 
+    &__skip-link {
+        position: fixed;
+        z-index: 10000;
+        top: 0.75rem;
+        left: 0.75rem;
+        max-width: calc(100vw - 1.5rem);
+        padding: 0.75rem 1rem;
+        border: 2px solid var(--de-color-electric);
+        border-radius: var(--de-radius-sm);
+        background: var(--de-color-surface);
+        box-shadow: var(--de-shadow-md);
+        color: var(--de-color-text);
+        font-weight: 700;
+        transform: translateY(calc(-100% - 1rem));
+        transition: transform 160ms ease;
+
+        &:focus-visible {
+            outline: 3px solid var(--de-color-electric);
+            outline-offset: 3px;
+            transform: translateY(0);
+        }
+    }
+
     &__content {
         flex: 1;
         width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-shell__skip-link {
+        transition: none;
     }
 }

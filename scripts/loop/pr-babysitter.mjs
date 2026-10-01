@@ -6,7 +6,7 @@ import {
   normalizeRequiredCheckSnapshot,
   PrEvidenceError,
 } from './pr-evidence.mjs';
-import { validatePrBabysitterState, PrBabysitterStateValidationError } from './pr-state.mjs';
+import { validatePrBabysitterState, PrBabysitterStateValidationError } from './pr-state-contract.mjs';
 
 const DECISION_INPUT_KEYS = Object.freeze([
   'prSnapshot',

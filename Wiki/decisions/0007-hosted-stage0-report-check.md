@@ -1,6 +1,6 @@
 # ADR 0007: Hosted Stage 0 observer and report-only Check Run
 
-**Status:** Accepted policy; publisher implementation and deployment remain inactive until separately reviewed and approved.
+**Status:** Policy accepted; the report-only publisher is implemented and locally verified. Production deployment and live use remain gated by separate Task 8 approval.
 
 ## Context
 
@@ -13,7 +13,7 @@ scoping alone does not limit an installation token to the intended Check Run.
 ## Decision
 
 - Keep the PR observer read-only and separate from the report publisher.
-- Give a future publisher only a transport-level allowlist for Check Run create
+- Give the publisher only a transport-level allowlist for Check Run create
   (`POST /repos/{owner}/{repo}/check-runs`) and update
   (`PATCH /repos/{owner}/{repo}/check-runs/{check_run_id}`), plus the fixed
   read-only lookup needed to find its own report. Reject all other writes,
@@ -27,10 +27,12 @@ scoping alone does not limit an installation token to the intended Check Run.
   readiness. GitHub lists `neutral` as a successful conclusion for required
   status checks, so a neutral report could satisfy a merge gate if configured
   as required; it is not a substitute for required CI or human review.
-- Do not grant the publisher `actions:write` or `contents:write`. This proposed
-  policy does not authorize App permission changes, host implementation, or
-  deployment. Review and merge it separately; begin implementation in a fresh
-  run from that reviewed policy revision.
+- Do not grant the publisher `actions:write` or `contents:write`. The App's
+  `checks:write` permission is broader than these report routes, so the
+  transport allowlist and negative endpoint tests remain required. This
+  decision does not authorize changing App installation permissions,
+  provisioning Cloudflare resources, storing production secrets, configuring
+  the webhook, deploying, or running a live PR pilot.
 
 ## Consequences
 

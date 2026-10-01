@@ -1,0 +1,56 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "digital-e-loop-stage0",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "d1_databases": [
+    {
+      "binding": "STAGE0_DB",
+      "database_name": "digital-e-loop-stage0-local",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "env": {
+    "production": {
+      // Scaffold only; provision production resources in a separately approved task before deployment.
+      "name": "digital-e-loop-stage0-production",
+      "vars": {
+        // Replace these public identifiers during the separately approved production bootstrap.
+        "GITHUB_APP_ID": "SET_DURING_APPROVED_BOOTSTRAP",
+        "GITHUB_INSTALLATION_ID": "SET_DURING_APPROVED_BOOTSTRAP",
+        "GITHUB_REPOSITORY": "SET_DURING_APPROVED_BOOTSTRAP",
+        "GITHUB_REPOSITORY_ID": "SET_DURING_APPROVED_BOOTSTRAP",
+        "STAGE0_CHECK_RUN_NAME": "Loop Engineering Stage 0"
+      },
+      "triggers": {
+        "crons": ["*/15 * * * *"]
+      },
+      "d1_databases": [
+        {
+          "binding": "STAGE0_DB",
+          "database_name": "digital-e-loop-stage0",
+          "database_id": "00000000-0000-0000-0000-000000000000",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "queues": {
+        "producers": [
+          {
+            "binding": "EVENT_QUEUE",
+            "queue": "digital-e-loop-stage0-events"
+          }
+        ],
+        "consumers": [
+          {
+            "queue": "digital-e-loop-stage0-events",
+            "max_batch_size": 1,
+            "max_batch_timeout": 5,
+            "max_retries": 3,
+            "dead_letter_queue": "digital-e-loop-stage0-dead-letter"
+          }
+        ]
+      }
+    }
+  }
+}

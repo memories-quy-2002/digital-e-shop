@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import HomePage from "./HomePage";
@@ -62,6 +62,8 @@ vi.mock("../hooks/useT", () => ({
             "home.heroDealBody":
                 "A practical pick for creators and everyday setups.",
             "home.heroCarouselLabel": "Featured products",
+            "home.heroCarouselRoleDescription": "carousel",
+            "home.heroSlideRoleDescription": "slide",
             "home.heroPrevious": "Previous featured product",
             "home.heroNext": "Next featured product",
             "home.heroPause": "Pause featured product rotation",
@@ -297,12 +299,90 @@ describe("HomePage Open Bench landing", () => {
             screen.getByRole("button", {
                 name: "Pause featured product rotation",
             }),
-        ).toHaveAttribute("aria-pressed", "false");
+        ).not.toHaveAttribute("aria-pressed");
         expect(
             screen.getByRole("button", { name: "Next featured product" }),
         ).toBeVisible();
         expect(
             screen.getByRole("button", { name: "Add Canon EOS R8 to cart" }),
         ).toBeVisible();
+    });
+
+    it("pauses rotation on keyboard focus and announces only user-controlled slide changes", async () => {
+        render(
+            <MemoryRouter>
+                <HomePage />
+            </MemoryRouter>,
+        );
+
+        await screen.findByRole("heading", { name: "Find gear that keeps up." });
+
+        const carousel = screen.getByRole("region", { name: "Featured products" });
+        const controls = within(carousel).getAllByRole("button");
+        const rotationButton = screen.getByRole("button", {
+            name: "Pause featured product rotation",
+        });
+        const slide = carousel.querySelector(".home__hero__ticket");
+
+        expect(controls[0]).toBe(rotationButton);
+        expect(slide).toHaveAttribute("aria-live", "off");
+
+        fireEvent.focus(rotationButton);
+
+        expect(
+            screen.getByRole("button", {
+                name: "Play featured product rotation",
+            }),
+        ).toBeInTheDocument();
+        expect(slide).toHaveAttribute("aria-live", "polite");
+    });
+
+    it("pauses rotation when the pointer enters the featured carousel", async () => {
+        render(
+            <MemoryRouter>
+                <HomePage />
+            </MemoryRouter>,
+        );
+
+        await screen.findByRole("heading", { name: "Find gear that keeps up." });
+
+        fireEvent.mouseEnter(
+            screen.getByRole("region", { name: "Featured products" }),
+        );
+
+        expect(
+            screen.getByRole("button", {
+                name: "Play featured product rotation",
+            }),
+        ).toBeInTheDocument();
+    });
+
+    it("lets the rotation control pause and restart autoplay directly", async () => {
+        render(
+            <MemoryRouter>
+                <HomePage />
+            </MemoryRouter>,
+        );
+
+        await screen.findByRole("heading", { name: "Find gear that keeps up." });
+
+        fireEvent.click(
+            screen.getByRole("button", {
+                name: "Pause featured product rotation",
+            }),
+        );
+
+        const playButton = screen.getByRole("button", {
+            name: "Play featured product rotation",
+        });
+        expect(playButton).toBeInTheDocument();
+
+        fireEvent.click(playButton);
+
+        expect(
+            screen.getByRole("button", {
+                name: "Pause featured product rotation",
+            }),
+        ).toBeInTheDocument();
     });
 });

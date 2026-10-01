@@ -1,5 +1,6 @@
 const en = {
   common: {
+    skipToMainContent: "Skip to main content",
     search: "Search",
     login: "Login",
     logout: "Logout",
@@ -379,6 +380,8 @@ const en = {
     heroDealBody: "A practical pick for creators and everyday setups.",
     dealDiscount: (percent: number) => percent + "% off",
     heroCarouselLabel: "Featured products",
+    heroCarouselRoleDescription: "carousel",
+    heroSlideRoleDescription: "slide",
     heroPrevious: "Previous featured product",
     heroNext: "Next featured product",
     heroPause: "Pause featured product rotation",
