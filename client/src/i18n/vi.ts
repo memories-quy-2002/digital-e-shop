@@ -2,6 +2,7 @@ import type { Dictionary } from "./en";
 
 const vi: Dictionary = {
   common: {
+    skipToMainContent: "Bỏ qua đến nội dung chính",
     search: "Tìm kiếm",
     login: "Đăng nhập",
     logout: "Đăng xuất",
@@ -372,6 +373,8 @@ const vi: Dictionary = {
     heroDealBody: "Lựa chọn thiết thực cho công việc và giải trí mỗi ngày.",
     dealDiscount: (percent: number) => percent + "% giảm",
     heroCarouselLabel: "Sản phẩm nổi bật",
+    heroCarouselRoleDescription: "băng chuyền",
+    heroSlideRoleDescription: "trang trình chiếu",
     heroPrevious: "Sản phẩm nổi bật trước",
     heroNext: "Sản phẩm nổi bật tiếp theo",
     heroPause: "Tạm dừng chuyển sản phẩm nổi bật",

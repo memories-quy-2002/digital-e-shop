@@ -10,13 +10,20 @@ const loadHomePage = () => import("../pages/HomePage");
 const homePageModulePromise =
     import.meta.env.PROD && typeof window !== "undefined" && window.location.pathname === "/" ? loadHomePage() : null;
 const HomePage = lazy(() => homePageModulePromise ?? loadHomePage());
+const loadProductPage = () => import("../features/products/pages/ProductPage");
+const productPageModulePromise =
+    import.meta.env.PROD &&
+    typeof window !== "undefined" &&
+    /^\/product\/?$/.test(window.location.pathname)
+        ? loadProductPage()
+        : null;
 const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
 const LoginPage = lazy(() => import("../features/auth/pages/LoginPage"));
 const SignupPage = lazy(() => import("../features/auth/pages/SignupPage"));
 const VerifyEmailPage = lazy(() => import("../features/auth/pages/VerifyEmailPage"));
 const ForgotPasswordPage = lazy(() => import("../features/auth/pages/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import("../features/auth/pages/ResetPasswordPage"));
-const ProductPage = lazy(() => import("../features/products/pages/ProductPage"));
+const ProductPage = lazy(() => productPageModulePromise ?? loadProductPage());
 const ProductComparisonPage = lazy(() => import("../features/products/pages/ProductComparisonPage"));
 const WishlistPage = lazy(() => import("../pages/WishlistPage"));
 const ShopsPage = lazy(() => import("../pages/ShopsPage"));

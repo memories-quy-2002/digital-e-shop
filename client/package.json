@@ -40,6 +40,7 @@
         "dev": "vite",
         "start": "vite",
         "build": "node scripts/build.mjs",
+        "analyze": "node scripts/build.mjs --analyze",
         "lint": "eslint src --ext .js,.mjs,.cjs,.ts,.mts,.cts,.jsx,.tsx --max-warnings=0 --format=pretty",
         "test": "vitest",
         "test:ui": "vitest --ui",
@@ -78,11 +79,11 @@
         "jsdom": "^30.1.1",
         "node-fetch": "^3.3.2",
         "prettier": "^3.9.9",
+        "rollup-plugin-visualizer": "^7.1.1",
         "tailwindcss": "^4.3.3",
         "typescript": "^6.0.3",
         "typescript-eslint": "^8.70.1",
         "vite": "^8.3.1",
-        "vitest": "^5.0.1",
-        "webpack-bundle-analyzer": "^5.4.0"
+        "vitest": "^5.0.1"
     }
 }

@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Product } from "../../../types/product";
 import type { AdminAccount, AdminOrder as Order, AdminOrderItem as OrderItem } from "../../../types/order";
@@ -226,14 +226,20 @@ const calculatePercentageChange = (currentValue: number, previousValue: number):
     return ((currentValue - previousValue) / previousValue) * 100;
 };
 
-const DashboardChartsFallback = () => (
-    <section className="admin__dashboard__fallback">
+const DashboardChartsFallback = ({ deferred = false }: { deferred?: boolean }) => (
+    <section className="admin__dashboard__fallback" aria-busy={!deferred}>
         <div className="admin__card admin__dashboard__fallback__hero">
             <div className="admin__card__header">
                 <div className="admin__dashboard__fallback__copy">
-                    <span className="admin__dashboard__fallback__eyebrow">Loading analytics</span>
-                    <h3>Preparing dashboard visualizations</h3>
-                    <p>Revenue, inventory, and fulfillment charts are loading in the background.</p>
+                    <span className="admin__dashboard__fallback__eyebrow">
+                        {deferred ? "Analytics" : "Loading analytics"}
+                    </span>
+                    <h3>{deferred ? "Charts load as you reach this section" : "Preparing dashboard visualizations"}</h3>
+                    <p>
+                        {deferred
+                            ? "Visualizations load automatically as this section approaches the viewport."
+                            : "Revenue, inventory, and fulfillment charts are loading in the background."}
+                    </p>
                 </div>
             </div>
             <div className="admin__dashboard__fallback__stats">
@@ -266,6 +272,8 @@ const DashboardChartsFallback = () => (
 
 const AdminDashboard = () => {
     const [searchParams, setSearchParams] = useSearchParams();
+    const chartsContainerRef = useRef<HTMLDivElement>(null);
+    const [shouldLoadCharts, setShouldLoadCharts] = useState(false);
     const range = parseDashboardRange(searchParams.get("range"));
     const [products, setProducts] = useState<Product[]>([]);
     const [orders, setOrders] = useState<Order[]>([]);
@@ -277,6 +285,30 @@ const AdminDashboard = () => {
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [availability, setAvailability] = useState<DashboardAvailability>(initialDashboardAvailability);
     const { addToast } = useToast();
+
+    useEffect(() => {
+        if (shouldLoadCharts) return;
+
+        const chartsContainer = chartsContainerRef.current;
+        if (!chartsContainer) return;
+
+        if (typeof IntersectionObserver === "undefined") {
+            setShouldLoadCharts(true);
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (!entries.some((entry) => entry.isIntersecting)) return;
+                setShouldLoadCharts(true);
+                observer.disconnect();
+            },
+            { rootMargin: "400px 0px" },
+        );
+
+        observer.observe(chartsContainer);
+        return () => observer.disconnect();
+    }, [shouldLoadCharts]);
 
     const fetchDashboardData = useCallback(async (showToast = false) => {
         try {
@@ -659,27 +691,33 @@ const AdminDashboard = () => {
                     onRetry={() => fetchDashboardData(true)}
                 />
 
-                <Suspense fallback={<DashboardChartsFallback />}>
-                    <AdminDashboardCharts
-                        availability={availability}
-                        analyticsSummary={analyticsSummary}
-                        analyticsTrend={analyticsTrend}
-                        analyticsPaymentMix={analyticsPaymentMix}
-                        paymentMix={paymentMix}
-                        analyticsStatusMix={analyticsStatusMix}
-                        statusMix={statusMix}
-                        dashboardStats={dashboardStats}
-                        monthlyTrends={monthlyTrends}
-                        analyticsCategoryRevenue={analyticsCategoryRevenue}
-                        categoryRevenue={categoryRevenue}
-                        topRevenueProducts={topRevenueProducts}
-                        hasAnalyticsKpis={hasAnalyticsKpis}
-                        formatCurrency={formatCurrency}
-                        formatReportDate={formatReportDate}
-                        getOrderStatusLabel={getOrderStatusLabel}
-                        rangeLabel={rangeLabel}
-                    />
-                </Suspense>
+                <div ref={chartsContainerRef}>
+                    {shouldLoadCharts ? (
+                        <Suspense fallback={<DashboardChartsFallback />}>
+                            <AdminDashboardCharts
+                                availability={availability}
+                                analyticsSummary={analyticsSummary}
+                                analyticsTrend={analyticsTrend}
+                                analyticsPaymentMix={analyticsPaymentMix}
+                                paymentMix={paymentMix}
+                                analyticsStatusMix={analyticsStatusMix}
+                                statusMix={statusMix}
+                                dashboardStats={dashboardStats}
+                                monthlyTrends={monthlyTrends}
+                                analyticsCategoryRevenue={analyticsCategoryRevenue}
+                                categoryRevenue={categoryRevenue}
+                                topRevenueProducts={topRevenueProducts}
+                                hasAnalyticsKpis={hasAnalyticsKpis}
+                                formatCurrency={formatCurrency}
+                                formatReportDate={formatReportDate}
+                                getOrderStatusLabel={getOrderStatusLabel}
+                                rangeLabel={rangeLabel}
+                            />
+                        </Suspense>
+                    ) : (
+                        <DashboardChartsFallback deferred />
+                    )}
+                </div>
             </main>
         </AdminLayout>
     );

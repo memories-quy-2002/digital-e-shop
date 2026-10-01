@@ -210,6 +210,16 @@ Default local URLs:
 - Health: `http://localhost:4000/api/health`
 - Scalar API reference: `http://localhost:4000/docs`
 
+## Analyze frontend bundles
+
+Run the production build with the Vite bundle visualizer:
+
+```powershell
+pnpm --dir client analyze
+```
+
+The report is written to `client/node_modules/.cache/digital-e-bundle-analysis.html` and includes gzip and Brotli sizes. Every client production build also checks the route and chunk baselines in `client/bundle-size-baseline.json`; the build fails if a measurement grows by more than the configured allowance. Route totals follow Vite's static import graph, with the deferred Admin charts included in the full Dashboard route total.
+
 ## Frontend boundaries
 
 - Put domain-owned pages, API calls, types, utilities, and tests under `client/src/features/<domain>/`

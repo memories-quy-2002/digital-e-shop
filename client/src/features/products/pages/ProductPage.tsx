@@ -7,6 +7,7 @@ import {
 } from "../../../components/common/Icons";
 import ImageLightbox from "../../../components/common/ImageLightbox";
 import Layout from "../../../components/layout/Layout";
+import { Skeleton } from "../../../components/ui/skeleton";
 import { useAuth } from "../../../context/AuthContext";
 import { useCart } from "../../../context/CartContext";
 import { useToast } from "../../../context/ToastContext";
@@ -509,11 +510,37 @@ const ProductPage = () => {
     if (isLoadingProduct) {
         return (
             <Layout>
-                <main className="product-page app-page">
-                    <div className="product-page__state" role="status" aria-live="polite">
-                        Loading product details...
+                <div className="product-page app-page product-page--loading" aria-busy="true">
+                    <div className="product-page__loading" role="status" aria-live="polite">
+                        <p>Loading product details...</p>
+                        <div className="product-page__loading-hero" aria-hidden="true">
+                            <div className="product-page__loading-gallery">
+                                <div className="product-page__loading-meta">
+                                    <Skeleton className="h-3 w-1/3" />
+                                    <Skeleton className="h-3 w-1/4" />
+                                </div>
+                                <Skeleton className="aspect-square w-full rounded-sm" />
+                                <div className="product-page__loading-thumbnails">
+                                    <Skeleton className="h-[62px] w-[62px] rounded-sm" />
+                                    <Skeleton className="h-[62px] w-[62px] rounded-sm" />
+                                    <Skeleton className="h-[62px] w-[62px] rounded-sm" />
+                                </div>
+                            </div>
+                            <div className="product-page__loading-summary">
+                                <Skeleton className="h-3 w-1/3" />
+                                <Skeleton className="h-10 w-4/5" />
+                                <Skeleton className="h-3 w-1/2" />
+                                <div className="product-page__loading-stats">
+                                    <Skeleton className="h-14 rounded-sm" />
+                                    <Skeleton className="h-14 rounded-sm" />
+                                    <Skeleton className="h-14 rounded-sm" />
+                                </div>
+                                <Skeleton className="h-24 rounded-sm" />
+                                <Skeleton className="h-11 w-full rounded-sm" />
+                            </div>
+                        </div>
                     </div>
-                </main>
+                </div>
             </Layout>
         );
     }

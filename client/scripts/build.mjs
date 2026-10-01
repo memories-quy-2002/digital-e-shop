@@ -5,6 +5,11 @@ import { fileURLToPath } from "node:url";
 
 const clientRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const outputDirectory = path.join(clientRoot, "dist");
+const analyzeBundle = process.argv.includes("--analyze");
+
+if (analyzeBundle) {
+    process.env.DIGITAL_E_BUNDLE_ANALYSIS = "true";
+}
 
 try {
     fs.rmSync(outputDirectory, {
@@ -41,4 +46,37 @@ if (result.error) {
     process.exit(1);
 }
 
-process.exit(result.status ?? 1);
+if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+}
+
+const budgetChecker = path.join(clientRoot, "scripts", "check-bundle-budget.mjs");
+const budgetResult = spawnSync(process.execPath, [budgetChecker], {
+    cwd: clientRoot,
+    stdio: "inherit",
+});
+
+if (budgetResult.error) {
+    console.error(`[build] Failed to check bundle budgets: ${budgetResult.error.message}`);
+    process.exit(1);
+}
+
+if (budgetResult.status !== 0) {
+    process.exit(budgetResult.status ?? 1);
+}
+
+const manifestPath = path.join(outputDirectory, ".vite", "manifest.json");
+fs.rmSync(manifestPath, { force: true });
+
+const viteMetadataDirectory = path.dirname(manifestPath);
+if (fs.existsSync(viteMetadataDirectory) && fs.readdirSync(viteMetadataDirectory).length === 0) {
+    fs.rmSync(viteMetadataDirectory, { recursive: true, force: true });
+}
+
+if (analyzeBundle) {
+    console.info(
+        `[build] Bundle analysis report: ${path.join(clientRoot, "node_modules", ".cache", "digital-e-bundle-analysis.html")}`,
+    );
+}
+
+process.exit(0);

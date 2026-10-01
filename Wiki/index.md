@@ -4,7 +4,7 @@ This Wiki records durable Digital-E understanding for maintainers and AI agents.
 
 **Project summary:** Digital-E is an electronics commerce platform built from two independent pnpm packages: a React 19 and Vite storefront/admin client in `client/`, and a NestJS 11 API on the Express 5 adapter in `server/`. MySQL remains the primary runtime database, while Prisma 7 owns a complete typed projection and partial forward-migration layer for the 30 application tables. Firebase is the only auth provider; the Firebase Auth Emulator is a local testing target.
 
-**Last updated:** 2026-09-30
+**Last updated:** 2026-10-01
 
 The current implementation includes authenticated and guest carts, server-authoritative checkout, PayOS and COD payment paths with exact VND amounts, production-only live PayOS configuration, signed webhook processing, simulated-payment delivery protection, bounded admin reconciliation, Firebase-owned production auth emails, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, guest-friendly product comparison, responsive WebP/AVIF product image delivery, customer support tickets, admin analytics, operational alerts, database-backed demo verification, read-only k6 smoke coverage, and opt-in OTLP observability. Legacy payment identifiers remain readable only for historical database compatibility.
 
@@ -37,6 +37,7 @@ The local demo seed creates a linked graph with 28 products across 8 categories 
 - [Testing guide](../docs/TESTING.md): package, integration, smoke, and k6 checks
 - [CI/CD guide](../docs/ci-cd.md): CI, migration gates, deployment, and reset safety
 - [Phase 2 PR Babysitter runbook](../docs/loop-engineering/phase-2-pr-babysitter-runbook.md): staged rollout, credential boundaries, read-only Stage 0 host bootstrap, and verification gates
+- [Hosted Stage 0 runbook](../docs/loop-engineering/hosted-stage0-runbook.md): Cloudflare Worker, D1/Queue setup, non-gating PR report, operations, quotas, and rollback
 - [Prisma workflow](../server/README.prisma.md): schema ownership and demo database operations
 
 ## Wiki catalog
@@ -57,13 +58,13 @@ Domain objects and their relationships belong under `entities/`. Current pages c
 Cross-cutting behavior belongs under `concepts/`, such as authentication, validation, inventory movement, [[api-response-contract]], guest checkout, order lifecycle, and [[loop-engineering]].
 
 - [[api-response-contract]]: canonical success/error metadata, compatibility aliases, request IDs, and pagination boundaries
-- [[loop-engineering]]: bounded local control plane, Phase 2A PR decision/evidence core, Phase 2B GitHub App auth and read-only Stage 0 host, proposed separate non-gating Stage 0 Check Run publisher, guarded Actions reruns, vendor-neutral path-approved repair sessions with local verification and commits, head/base/merge SHA binding, source-SHA attestation gap, and host-owned run budgets
+- [[loop-engineering]]: bounded local control plane, Phase 2A PR decision/evidence core, Phase 2B GitHub App auth and Cloudflare-hosted Stage 0 observer/report implementation, guarded Actions reruns, vendor-neutral path-approved repair sessions with local verification and commits, head/base/merge SHA binding, source-SHA attestation gap, and host-owned run budgets
 
 ### Decisions
 
 Accepted architectural decisions belong under `decisions/`, one decision per file. Preserve historical context and add a current-status note when implementation changes.
 
-- [[0007-hosted-stage0-report-check]]: proposed boundary between the hosted read-only Stage 0 observer and a separately allowlisted, non-gating Check Run publisher
+- [[0007-hosted-stage0-report-check]]: accepted boundary between the hosted read-only Stage 0 observer and the separately allowlisted, non-gating Check Run publisher
 
 ### Sources and synthesis
 

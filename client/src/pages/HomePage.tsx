@@ -5,6 +5,7 @@ import React, {
     useOptimistic,
     useState,
 } from "react";
+import { preload } from "react-dom";
 import { HTTP_STATUS } from "../constants/http-status";
 import { Helmet } from "react-helmet-async";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -45,6 +46,8 @@ import {
 } from "../utils/images";
 import { normalizeProduct, normalizeProducts } from "../utils/product";
 import { formatCurrency } from "../utils/currency";
+
+preload(carousel1, { as: "image", fetchPriority: "high" });
 
 const DISPLAYED_NUMBER = 8;
 const HOME_PRODUCT_LIMIT = DISPLAYED_NUMBER * 2;
@@ -673,15 +676,6 @@ const HomePage = () => {
                     property="og:description"
                     content="Find practical electronics for work, play, listening, and everyday life with clear stock and checkout."
                 />
-                <link
-                    rel="preload"
-                    as="image"
-                    href={heroImageSource.src}
-                    imageSrcSet={heroImageSource.avifSrcSet || heroImageSource.srcSet}
-                    imageSizes={heroImageSource.sizes}
-                    type={heroImageSource.avifSrcSet ? "image/avif" : undefined}
-                    fetchPriority="high"
-                />
             </Helmet>
 
             <div className="home">
@@ -743,14 +737,22 @@ const HomePage = () => {
 
                         <div
                             className="home__hero__visual"
-                            role="group"
-                            aria-label={
-                                heroProduct
-                                    ? t("home.heroFeaturedLabel") +
-                                      ": " +
-                                      heroProduct.name
-                                    : t("home.heroPreviewLabel")
-                            }
+                            role="region"
+                            aria-roledescription={t("home.heroCarouselRoleDescription")}
+                            aria-label={t("home.heroCarouselLabel")}
+                            onClickCapture={(event) => {
+                                if (
+                                    event.target instanceof Element &&
+                                    event.target.closest(
+                                        ".home__hero__controls__pause",
+                                    )
+                                ) {
+                                    return;
+                                }
+                                setIsHeroPaused(true);
+                            }}
+                            onFocusCapture={() => setIsHeroPaused(true)}
+                            onMouseEnter={() => setIsHeroPaused(true)}
                         >
                             <div
                                 className="home__hero__board"
@@ -762,6 +764,7 @@ const HomePage = () => {
                                     width={1600}
                                     height={900}
                                     loading="eager"
+                                    fetchPriority="high"
                                     decoding="async"
                                 />
                                 <span className="home__hero__board__trace home__hero__board__trace--one" />
@@ -782,10 +785,76 @@ const HomePage = () => {
                                         : t("home.heroLoading")}
                                 </strong>
                             </div>
+                            {featuredProducts.length > 1 ? (
+                                <div
+                                    className="home__hero__controls"
+                                    role="group"
+                                    aria-label={t("home.heroCarouselLabel")}
+                                >
+                                    <button
+                                        type="button"
+                                        className="home__hero__controls__pause"
+                                        onClick={() =>
+                                            setIsHeroPaused((paused) => !paused)
+                                        }
+                                        aria-label={
+                                            isHeroPaused
+                                                ? t("home.heroPlay")
+                                                : t("home.heroPause")
+                                        }
+                                    >
+                                        {isHeroPaused ? "▶" : "Ⅱ"}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => changeHeroSlide(-1)}
+                                        aria-label={t("home.heroPrevious")}
+                                    >
+                                        <ArrowLeftIcon size={17} />
+                                    </button>
+                                    <div className="home__hero__dots">
+                                        {featuredProducts.map(
+                                            (product, index) => (
+                                                <button
+                                                    key={product.id}
+                                                    type="button"
+                                                    className={
+                                                        index === heroSlideIndex
+                                                            ? "is-active"
+                                                            : ""
+                                                    }
+                                                    onClick={() =>
+                                                        setHeroSlideIndex(index)
+                                                    }
+                                                    aria-label={t(
+                                                        "home.heroSlide",
+                                                        index + 1,
+                                                    )}
+                                                    aria-current={
+                                                        index === heroSlideIndex
+                                                            ? "true"
+                                                            : undefined
+                                                    }
+                                                />
+                                            ),
+                                        )}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => changeHeroSlide(1)}
+                                        aria-label={t("home.heroNext")}
+                                    >
+                                        <ArrowRightIcon size={17} />
+                                    </button>
+                                </div>
+                            ) : null}
                             <article
                                 className="home__hero__ticket"
                                 key={heroProduct?.id || "loading"}
-                                aria-live="polite"
+                                role="group"
+                                aria-roledescription={t("home.heroSlideRoleDescription")}
+                                aria-label={t("home.heroSlide", heroSlideIndex + 1)}
+                                aria-live={isHeroPaused ? "polite" : "off"}
                             >
                                 <div className="home__hero__ticket__topline">
                                     <span>{t("home.heroDealLabel")}</span>
@@ -821,7 +890,7 @@ const HomePage = () => {
                                         width={640}
                                         height={640}
                                         eager
-                                        fetchPriority="high"
+                                        fetchPriority="low"
                                         onError={(event) => {
                                             setImageFallback(event.currentTarget, productPlaceholder);
                                         }}
@@ -868,69 +937,6 @@ const HomePage = () => {
                                     </div>
                                 </div>
                             </article>
-                            {featuredProducts.length > 1 ? (
-                                <div
-                                    className="home__hero__controls"
-                                    aria-label={t("home.heroCarouselLabel")}
-                                >
-                                    <button
-                                        type="button"
-                                        onClick={() => changeHeroSlide(-1)}
-                                        aria-label={t("home.heroPrevious")}
-                                    >
-                                        <ArrowLeftIcon size={17} />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="home__hero__controls__pause"
-                                        onClick={() =>
-                                            setIsHeroPaused((paused) => !paused)
-                                        }
-                                        aria-label={
-                                            isHeroPaused
-                                                ? t("home.heroPlay")
-                                                : t("home.heroPause")
-                                        }
-                                        aria-pressed={isHeroPaused}
-                                    >
-                                        {isHeroPaused ? "▶" : "Ⅱ"}
-                                    </button>
-                                    <div className="home__hero__dots">
-                                        {featuredProducts.map(
-                                            (product, index) => (
-                                                <button
-                                                    key={product.id}
-                                                    type="button"
-                                                    className={
-                                                        index === heroSlideIndex
-                                                            ? "is-active"
-                                                            : ""
-                                                    }
-                                                    onClick={() =>
-                                                        setHeroSlideIndex(index)
-                                                    }
-                                                    aria-label={t(
-                                                        "home.heroSlide",
-                                                        index + 1,
-                                                    )}
-                                                    aria-current={
-                                                        index === heroSlideIndex
-                                                            ? "true"
-                                                            : undefined
-                                                    }
-                                                />
-                                            ),
-                                        )}
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => changeHeroSlide(1)}
-                                        aria-label={t("home.heroNext")}
-                                    >
-                                        <ArrowRightIcon size={17} />
-                                    </button>
-                                </div>
-                            ) : null}
                         </div>
                     </div>
                 </section>

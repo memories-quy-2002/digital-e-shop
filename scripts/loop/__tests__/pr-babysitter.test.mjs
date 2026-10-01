@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { describe, it } from 'node:test';
 
 import { normalizeCheckObservation, normalizeRequiredCheckSnapshot } from '../pr-evidence.mjs';
@@ -150,6 +151,23 @@ function inputWithObservations(observations, overrides = {}) {
 }
 
 describe('PR Babysitter decision engine', () => {
+  it('loads the decision module without Node built-in dependencies', () => {
+    const decisionModuleUrl = new URL('../pr-babysitter.mjs', import.meta.url).href;
+    const script = [
+      "import { registerHooks } from 'node:module';",
+      'registerHooks({ resolve(specifier, context, nextResolve) {',
+      "  if (specifier.startsWith('node:')) throw new Error(`Node built-in import denied: ${specifier}`);",
+      '  return nextResolve(specifier, context);',
+      '}});',
+      `await import(${JSON.stringify(decisionModuleUrl)});`,
+    ].join('\n');
+    const result = spawnSync(process.execPath, ['--input-type=module', '--eval', script], {
+      encoding: 'utf8',
+    });
+
+    assert.equal(result.status, 0, `${result.stderr}\n${result.stdout}`);
+  });
+
   it('waits while a required check is pending', () => {
     const pending = check({ status: 'in_progress', conclusion: null });
 

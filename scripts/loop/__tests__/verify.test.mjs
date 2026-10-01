@@ -104,6 +104,74 @@ afterEach(async () => {
 });
 
 describe('verification planning', () => {
+  it('routes Hosted Stage 0 package changes to fixed Worker tests and typecheck', () => {
+    const plan = buildVerificationPlan({
+      changedPaths: ['scripts/loop/hosted/cloudflare/src/handlers/queue.ts'],
+      mode: 'fast',
+      policy,
+    });
+
+    assert.deepEqual(commandIds(plan), ['loop-tests', 'hosted-stage0-typecheck', 'hosted-stage0-test']);
+    assert.deepEqual(plan.commands.slice(1).map(({ cwd }) => cwd), [
+      'scripts/loop/hosted/cloudflare', 'scripts/loop/hosted/cloudflare',
+    ]);
+  });
+
+  it('keeps the production deployment workflow main-only, manual, minimal, and secret-isolated', async () => {
+    const workflowPath = path.join(repoRoot, '.github/workflows/deploy-loop-stage0.yml');
+    const workflow = await readFile(workflowPath, 'utf8');
+
+    assert.match(workflow, /^on:\s*$/m);
+    assert.match(workflow, /^  pull_request:\s*$/m);
+    assert.match(workflow, /^  push:\s*$/m);
+    assert.match(workflow, /^  workflow_dispatch:\s*$/m);
+    assert.match(
+      workflow,
+      /^    if: github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main'$/m,
+    );
+    assert.match(workflow, /environment:\s*\r?\n\s+name:\s*hosted-stage0-production/);
+    assert.match(workflow, /wrangler deploy --env production --strict/);
+    assert.match(workflow, /CLOUDFLARE_API_TOKEN:\s*\$\{\{\s*secrets\.CLOUDFLARE_API_TOKEN\s*\}\}/);
+    assert.doesNotMatch(workflow, /pull_request_target/);
+    assert.doesNotMatch(workflow, /GITHUB_APP_PRIVATE_KEY|GITHUB_WEBHOOK_SECRET/);
+    assert.match(workflow, /permissions:\s*\{\}/);
+    assert.match(workflow, /persist-credentials:\s*false/);
+    assert.match(workflow, /actions\/checkout@[a-f0-9]{40}/);
+    assert.match(workflow, /actions\/setup-node@[a-f0-9]{40}/);
+    assert.match(workflow, /pnpm\/action-setup@[a-f0-9]{40}/);
+    assert.match(workflow, /version:\s*12\.4\.2/);
+    assert.doesNotMatch(workflow, /corepack enable/);
+
+    const verifyJob = workflow.split('\n  deploy:\n')[0];
+    assert.doesNotMatch(verifyJob, /\$\{\{\s*secrets\./);
+    assert.doesNotMatch(verifyJob, /CLOUDFLARE_API_TOKEN|CLOUDFLARE_ACCOUNT_ID/);
+    assert.doesNotMatch(verifyJob, /wrangler deploy|--env production/);
+  });
+
+  it('allowlists only the Hosted Stage 0 native build dependencies required by pnpm', async () => {
+    const buildPolicy = await readFile(
+      path.join(repoRoot, 'scripts/loop/hosted/cloudflare/pnpm-workspace.yaml'),
+      'utf8',
+    );
+
+    assert.match(buildPolicy, /^allowBuilds:\s*$/m);
+    assert.match(buildPolicy, /^  esbuild:\s*true$/m);
+    assert.match(buildPolicy, /^  workerd:\s*true$/m);
+    assert.doesNotMatch(buildPolicy, /^  ['"]?\*['"]?:\s*true$/m);
+  });
+
+  it('keeps production Queue retries, dead-letter handling, and scheduled reconciliation configured', async () => {
+    const configuration = await readFile(
+      path.join(repoRoot, 'scripts/loop/hosted/cloudflare/wrangler.jsonc'),
+      'utf8',
+    );
+
+    assert.match(configuration, /"max_batch_size":\s*1/);
+    assert.match(configuration, /"max_retries":\s*3/);
+    assert.match(configuration, /"dead_letter_queue":\s*"digital-e-loop-stage0-dead-letter"/);
+    assert.match(configuration, /"crons":\s*\["\*\/15 \* \* \* \*"\]/);
+  });
+
   it('routes documentation and policy changes only to the control-plane test suite', () => {
     const plan = buildVerificationPlan({ changedPaths: ['docs/ARCHITECTURE.md', '.agent/policy/risk-rules.yml'], mode: 'fast', policy });
 
@@ -209,7 +277,7 @@ describe('verification planning', () => {
       commandIdsSeen.add(command.id);
       assert.ok(['node', 'pnpm'].includes(command.command));
       assert.ok(Array.isArray(command.args));
-      assert.ok(['.', 'client', 'server', 'server/api'].includes(command.cwd));
+      assert.ok(['.', 'client', 'server', 'server/api', 'scripts/loop/hosted/cloudflare'].includes(command.cwd));
     }
   });
 });
@@ -228,6 +296,11 @@ describe('verification execution safety', () => {
       args: ['exec', 'tsc', '-p', 'tsconfig.json', '--noEmit'],
     });
     assert.throws(() => buildSpawnSpec('not-registered'), /not allowlisted/);
+
+    assert.deepEqual(buildSpawnSpec('hosted-stage0-test', { platform: 'linux' }), {
+      file: 'pnpm',
+      args: ['test'],
+    });
   });
 
   it('uses shell:false, a minimal environment, isolated temp paths, and the safe empty dotenv file', async () => {

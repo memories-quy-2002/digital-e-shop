@@ -101,6 +101,18 @@ describe('PR babysitter state persistence', () => {
     );
   });
 
+  it('exposes the bounded state schema through a portable contract module', async () => {
+    const contract = await import('../pr-state-contract.mjs');
+    const state = contract.createPrBabysitterState(snapshot());
+
+    assert.equal(contract.validatePrBabysitterState(state), state);
+    assert.equal(state.schemaVersion, 3);
+    assert.throws(
+      () => contract.validatePrBabysitterState({ ...state, prompt: 'untrusted task body' }),
+      contract.PrBabysitterStateValidationError,
+    );
+  });
+
   it('atomically round-trips state at a repository and PR-derived path', async () => {
     const root = await createRepoFixture();
     const state = createPrBabysitterState(snapshot());

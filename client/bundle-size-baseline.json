@@ -1,0 +1,12 @@
+{
+    "maxGrowthPercent": 10,
+    "baselines": {
+        "sharedShellGzipBytes": 156631,
+        "homeRouteGzipBytes": 191794,
+        "productRouteGzipBytes": 192147,
+        "adminDashboardRouteGzipBytes": 293158,
+        "adminDashboardChartsChunkGzipBytes": 115269,
+        "allProductionJavaScriptGzipBytes": 496756,
+        "largestChunkRawBytes": 416874
+    }
+}
