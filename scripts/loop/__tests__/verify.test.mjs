@@ -138,6 +138,9 @@ describe('verification planning', () => {
     assert.match(workflow, /persist-credentials:\s*false/);
     assert.match(workflow, /actions\/checkout@[a-f0-9]{40}/);
     assert.match(workflow, /actions\/setup-node@[a-f0-9]{40}/);
+    assert.match(workflow, /pnpm\/action-setup@[a-f0-9]{40}/);
+    assert.match(workflow, /version:\s*12\.4\.2/);
+    assert.doesNotMatch(workflow, /corepack enable/);
 
     const verifyJob = workflow.split('\n  deploy:\n')[0];
     assert.doesNotMatch(verifyJob, /\$\{\{\s*secrets\./);
