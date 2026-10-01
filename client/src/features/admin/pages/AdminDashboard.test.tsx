@@ -50,10 +50,12 @@ const renderDashboardWithLocation = (initialEntries = ["/admin" as string]) => r
 describe("AdminDashboard mixed request results", () => {
     afterEach(() => {
         cleanup();
+        vi.unstubAllGlobals();
         vi.restoreAllMocks();
     });
 
     beforeEach(() => {
+        vi.stubGlobal("IntersectionObserver", undefined);
         vi.resetAllMocks();
         vi.mocked(fetchAnalyticsSummary).mockRejectedValue({ response: { status: 401 } });
         vi.mocked(fetchAdminProducts).mockResolvedValue([
