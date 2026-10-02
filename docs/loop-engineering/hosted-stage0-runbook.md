@@ -40,6 +40,8 @@ Before the first deployment, confirm that `main` contains the reviewed code and 
 
 ## Where to observe runs
 
+A passing **Hosted Loop Stage 0** GitHub Actions workflow verifies the Worker package from the PR; it does not prove that the hosted observer is deployed or has processed that PR. The live observer appears as a separate **Loop Engineering Stage 0** Check Run with a `neutral` conclusion attached to the current PR head SHA. Until production bootstrap and webhook delivery are verified, a smoke PR can show CI checks while that live Check Run is absent.
+
 - **GitHub PR → Checks:** find `Loop Engineering Stage 0`; confirm its conclusion is `neutral`, its SHA is the current PR head, and it is not required by branch protection/rulesets. The output contains only an observation timestamp, bounded action/reason codes, and a short policy-fingerprint prefix.
 - **Cloudflare dashboard → Workers & Pages → `digital-e-loop-stage0-production` → Logs/Observability:** inspect stable reason codes such as `stage0_queue_message_retry` and `stage0_scheduled_reconciliation_failed`. Logs intentionally omit exception text, PR/review bodies, secrets, and raw CI logs.
 - **Cloudflare dashboard → Queues:** inspect backlog, consumer failures, and the dead-letter Queue. Messages that exhaust the configured three retries are not automatically replayed from the dead-letter Queue; investigate the reason first, then redeliver only after the cause is corrected.
