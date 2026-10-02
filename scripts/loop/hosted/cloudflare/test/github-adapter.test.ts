@@ -227,6 +227,7 @@ describe('GitHub App authentication', () => {
     expect(String(url)).toBe('https://api.github.com/app/installations/' + installationId + '/access_tokens');
     expect(init?.method).toBe('POST');
     expect(init?.redirect).toBe('error');
+    expect(new Headers(init?.headers).get('user-agent')).toBe('Digital-E-Loop-Stage0');
     const jwt = new Headers(init?.headers).get('authorization')?.replace(/^Bearer /u, '');
     expect(jwt).toBeTruthy();
     const payload = JSON.parse(atob(jwt!.split('.')[1]!.replaceAll('-', '+').replaceAll('_', '/'))) as {
@@ -287,6 +288,22 @@ describe('GitHub App authentication', () => {
 });
 
 describe('fixed GitHub read API client', () => {
+  it('sends a descriptive User-Agent when reconciling open pull requests', async () => {
+    const requestHeaders: Headers[] = [];
+    const api = createGitHubApiClient({
+      repository: 'memories-quy-2002/digital-e-shop',
+      repositoryId,
+      getToken: async () => 'ghs_test',
+      fetchImpl: async (_input, init) => {
+        requestHeaders.push(new Headers(init?.headers));
+        return Response.json([]);
+      },
+    });
+
+    await expect(api.listOpenPullRequests(1)).resolves.toMatchObject({ items: [], hasNext: false });
+    expect(requestHeaders[0]?.get('user-agent')).toBe('Digital-E-Loop-Stage0');
+  });
+
   it('rejects redirects on authenticated API calls', async () => {
     const api = createGitHubApiClient({
       repository: 'memories-quy-2002/digital-e-shop',

@@ -1,5 +1,5 @@
 import { STAGE0_LIMITS } from '../limits';
-import type { GitHubCapability, FetchImplementation } from './app-auth';
+import { GITHUB_USER_AGENT, type GitHubCapability, type FetchImplementation } from './app-auth';
 import type { Stage0PrSnapshot, Stage0RequiredCheckSnapshot } from './observer';
 
 const API_ORIGIN = 'https://api.github.com';
@@ -291,6 +291,7 @@ export function createGitHubReportClient(options: {
         headers: {
           Accept: 'application/vnd.github+json',
           Authorization: 'Bearer ' + token,
+          'User-Agent': GITHUB_USER_AGENT,
           'X-GitHub-Api-Version': API_VERSION,
           ...(body ? { 'Content-Type': 'application/json' } : {}),
         },

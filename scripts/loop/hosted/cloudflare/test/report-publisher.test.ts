@@ -111,6 +111,8 @@ describe('report-only GitHub Check Run publisher', () => {
     expect(published).toEqual({ checkRunId: 9001 });
     expect(Object.keys(client)).toEqual(['publish']);
     expect(calls.map(({ init }) => init?.method)).toEqual(['GET', 'POST']);
+    expect(new Headers(calls[0]?.init?.headers).get('user-agent')).toBe('Digital-E-Loop-Stage0');
+    expect(new Headers(calls[1]?.init?.headers).get('user-agent')).toBe('Digital-E-Loop-Stage0');
     expect(calls[0]?.url).toContain('/commits/' + headSha + '/check-runs?');
     expect(calls[0]?.url).toContain('check_name=Loop+Engineering+Stage+0');
     expect(calls[0]?.url).toContain('app_id=' + appId);
