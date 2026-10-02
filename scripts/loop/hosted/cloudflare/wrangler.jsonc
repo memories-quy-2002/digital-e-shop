@@ -7,7 +7,7 @@
     {
       "binding": "STAGE0_DB",
       "database_name": "digital-e-loop-stage0-local",
-      "database_id": "00000000-0000-0000-0000-000000000001",
+      "database_id": "f0c7defb-62d0-4540-8c1a-3f2405a69193",
       "migrations_dir": "migrations"
     }
   ],
@@ -17,10 +17,10 @@
       "name": "digital-e-loop-stage0-production",
       "vars": {
         // Replace these public identifiers during the separately approved production bootstrap.
-        "GITHUB_APP_ID": "SET_DURING_APPROVED_BOOTSTRAP",
-        "GITHUB_INSTALLATION_ID": "SET_DURING_APPROVED_BOOTSTRAP",
-        "GITHUB_REPOSITORY": "SET_DURING_APPROVED_BOOTSTRAP",
-        "GITHUB_REPOSITORY_ID": "SET_DURING_APPROVED_BOOTSTRAP",
+        "GITHUB_APP_ID": "5130911",
+        "GITHUB_INSTALLATION_ID": "166381027",
+        "GITHUB_REPOSITORY": "memories-quy-2002/digital-e-shop",
+        "GITHUB_REPOSITORY_ID": "743050379",
         "STAGE0_CHECK_RUN_NAME": "Loop Engineering Stage 0"
       },
       "triggers": {
@@ -30,7 +30,7 @@
         {
           "binding": "STAGE0_DB",
           "database_name": "digital-e-loop-stage0",
-          "database_id": "00000000-0000-0000-0000-000000000000",
+          "database_id": "f0c7defb-62d0-4540-8c1a-3f2405a69193",
           "migrations_dir": "migrations"
         }
       ],
