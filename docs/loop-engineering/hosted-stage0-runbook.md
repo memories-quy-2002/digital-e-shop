@@ -1,7 +1,7 @@
 # Hosted Loop Engineering Stage 0 runbook
 
-**Updated:** 2026-10-01  
-**Status:** implementation and local verification are present; Cloudflare resources, production secrets, the GitHub webhook, deployment, and a live PR pilot are not configured. Those operations remain behind the separate Task 8 approval gate.
+**Updated:** 2026-10-02
+**Status:** The Cloudflare Worker, D1 database, both Queues, and production Worker secret names are provisioned. Their secret values were not inspected. The active Worker deployment has no verified provenance from the protected GitHub `workflow_dispatch` workflow. The GitHub App is installed only on `memories-quy-2002/digital-e-shop`, but it has no subscribed webhook events and its configured URL still points to `/` instead of `/webhook`. The installation still needs `contents:read` and `checks:write`. The `hosted-stage0-production` environment allows only `main` and requires maintainer review; `CLOUDFLARE_ACCOUNT_ID` is set, but `CLOUDFLARE_API_TOKEN` is not. A trusted `main` deployment and live PR pilot remain pending.
 
 ## What runs where
 
