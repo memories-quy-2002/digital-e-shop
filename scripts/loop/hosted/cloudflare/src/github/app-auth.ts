@@ -21,6 +21,7 @@ export class GitHubAppAuthError extends Error {
 
 const API_ORIGIN = 'https://api.github.com';
 const API_VERSION = '2026-03-10';
+export const GITHUB_USER_AGENT = 'Digital-E-Loop-Stage0';
 const MAX_KEY_LENGTH = 32 * 1024;
 const MAX_TOKEN_RESPONSE_BYTES = 32 * 1024;
 const READ_PERMISSIONS = Object.freeze({
@@ -215,6 +216,7 @@ export function createGitHubAppAuth(
           Accept: 'application/vnd.github+json',
           Authorization: 'Bearer ' + appJwt,
           'Content-Type': 'application/json',
+          'User-Agent': GITHUB_USER_AGENT,
           'X-GitHub-Api-Version': API_VERSION,
         },
         body: JSON.stringify({ repository_ids: [config.repositoryId], permissions }),

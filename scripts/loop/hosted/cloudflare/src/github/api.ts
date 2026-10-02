@@ -1,11 +1,20 @@
 import { STAGE0_LIMITS } from '../limits';
-import type { FetchImplementation, GitHubCapability } from './app-auth';
+import { GITHUB_USER_AGENT, type FetchImplementation, type GitHubCapability } from './app-auth';
 
 const API_ORIGIN = 'https://api.github.com';
 const API_VERSION = '2026-03-10';
 const PAGE_SIZE = 100;
 const REVISION_PATTERN = /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/i;
 const REPOSITORY_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?\/[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
+
+function githubRequestHeaders(token: string): HeadersInit {
+  return {
+    Accept: 'application/vnd.github+json',
+    Authorization: 'Bearer ' + token,
+    'User-Agent': GITHUB_USER_AGENT,
+    'X-GitHub-Api-Version': API_VERSION,
+  };
+}
 
 export class GitHubApiError extends Error {
   readonly code:
@@ -182,11 +191,7 @@ export function createGitHubApiClient(options: GitHubApiOptions) {
     try {
       response = await fetchImpl(url, {
         method: 'GET',
-        headers: {
-          Accept: 'application/vnd.github+json',
-          Authorization: 'Bearer ' + await options.getToken('observe'),
-          'X-GitHub-Api-Version': API_VERSION,
-        },
+        headers: githubRequestHeaders(await options.getToken('observe')),
         redirect: 'error',
         signal: AbortSignal.timeout(10_000),
       });
@@ -213,11 +218,7 @@ export function createGitHubApiClient(options: GitHubApiOptions) {
     try {
       response = await fetchImpl(url, {
         method: 'GET',
-        headers: {
-          Accept: 'application/vnd.github+json',
-          Authorization: 'Bearer ' + await options.getToken('observe'),
-          'X-GitHub-Api-Version': API_VERSION,
-        },
+        headers: githubRequestHeaders(await options.getToken('observe')),
         redirect: 'error',
         signal: AbortSignal.timeout(10_000),
       });
@@ -243,11 +244,7 @@ export function createGitHubApiClient(options: GitHubApiOptions) {
     try {
       response = await fetchImpl(url, {
         method: 'GET',
-        headers: {
-          Accept: 'application/vnd.github+json',
-          Authorization: 'Bearer ' + await options.getToken('observe'),
-          'X-GitHub-Api-Version': API_VERSION,
-        },
+        headers: githubRequestHeaders(await options.getToken('observe')),
         redirect: 'error',
         signal: AbortSignal.timeout(10_000),
       });
