@@ -7,7 +7,8 @@
     {
       "binding": "STAGE0_DB",
       "database_name": "digital-e-loop-stage0-local",
-      "database_id": "f0c7defb-62d0-4540-8c1a-3f2405a69193",
+      // Local development uses Wrangler's local D1. Keep remote preview IDs separate from production.
+      "database_id": "00000000-0000-0000-0000-000000000001",
       "migrations_dir": "migrations"
     }
   ],

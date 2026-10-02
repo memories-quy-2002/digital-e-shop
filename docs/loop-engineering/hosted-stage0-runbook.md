@@ -7,6 +7,8 @@
 
 The Cloudflare Worker receives signed GitHub webhooks, places bounded PR routing metadata on a Queue, observes the configured repository through a repository-scoped GitHub App installation token, stores idempotency/state metadata in D1, and publishes a bounded `Loop Engineering Stage 0` Check Run. A 15-minute Cron Trigger pages through open PRs to recover missed webhook events. It does not check out PR code, rerun Actions, modify branches, merge PRs, or access Digital-E commerce production data.
 
+The top-level D1 binding is for local development and uses Wrangler's local D1 storage. Keep its ID separate from the production D1. If remote preview development is needed, provision a dedicated preview D1 and set `preview_database_id`; never point remote preview at production.
+
 The Check Run is informational. It is always `neutral`, is attached to the current PR head SHA, and must not be added to branch protection or rulesets as a required check. The report says explicitly that it does not grant merge readiness. If the current PR tuple or required-check policy changes, is incomplete, or requires this report context, publication is refused. Required workflow evidence remains unavailable without a trusted source-SHA attestation.
 
 ## Production bootstrap checklist
