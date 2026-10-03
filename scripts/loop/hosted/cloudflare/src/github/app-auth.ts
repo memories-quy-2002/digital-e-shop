@@ -10,7 +10,16 @@ export interface GitHubAppCredentials {
 export type FetchImplementation = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 export class GitHubAppAuthError extends Error {
-  readonly code: 'configuration_invalid' | 'app_key_invalid' | 'token_request_failed' | 'token_response_invalid';
+  readonly code:
+    | 'configuration_invalid'
+    | 'app_key_invalid'
+    | 'token_request_failed'
+    | 'token_request_unauthorized'
+    | 'token_request_forbidden'
+    | 'token_request_not_found'
+    | 'token_request_unprocessable'
+    | 'token_request_rate_limited'
+    | 'token_response_invalid';
 
   constructor(code: GitHubAppAuthError['code']) {
     super(code);
@@ -161,6 +170,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function tokenRequestError(status: number): GitHubAppAuthError {
+  if (status === 401) return new GitHubAppAuthError('token_request_unauthorized');
+  if (status === 403) return new GitHubAppAuthError('token_request_forbidden');
+  if (status === 404) return new GitHubAppAuthError('token_request_not_found');
+  if (status === 422) return new GitHubAppAuthError('token_request_unprocessable');
+  if (status === 429) return new GitHubAppAuthError('token_request_rate_limited');
+  return new GitHubAppAuthError('token_request_failed');
+}
+
 function isOpaqueInstallationToken(value: unknown): value is string {
   return typeof value === 'string'
     && value.length > 0
@@ -237,7 +255,7 @@ export function createGitHubAppAuth(
     if (response.redirected || (response.status >= 300 && response.status < 400)) {
       throw new GitHubAppAuthError('token_request_failed');
     }
-    if (!response.ok) throw new GitHubAppAuthError('token_request_failed');
+    if (!response.ok) throw tokenRequestError(response.status);
 
     const body = await readBoundedJson(response);
     if (!isRecord(body) || !isOpaqueInstallationToken(body.token)
