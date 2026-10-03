@@ -21,6 +21,10 @@ export class Stage0ReconciliationError extends Error {
     | 'github_auth_token_request_unprocessable'
     | 'github_auth_token_request_rate_limited'
     | 'github_auth_token_response_invalid'
+    | 'github_auth_token_request_network_error'
+    | 'github_auth_token_request_timeout'
+    | 'github_auth_token_request_redirect_rejected'
+    | `github_auth_token_request_http_${number}`
     | 'github_api_configuration_invalid'
     | 'github_api_request_limit_reached'
     | 'github_api_network_error'
@@ -78,6 +82,14 @@ function githubReconciliationReason(error: unknown): Stage0ReconciliationError['
       case 'token_request_unprocessable': return 'github_auth_token_request_unprocessable';
       case 'token_request_rate_limited': return 'github_auth_token_request_rate_limited';
       case 'token_response_invalid': return 'github_auth_token_response_invalid';
+      case 'token_request_network_error': return 'github_auth_token_request_network_error';
+      case 'token_request_timeout': return 'github_auth_token_request_timeout';
+      case 'token_request_redirect_rejected': return 'github_auth_token_request_redirect_rejected';
+      default:
+        if (error.code.startsWith('token_request_http_')) {
+          return `github_auth_${error.code}` as `github_auth_token_request_http_${number}`;
+        }
+        return 'github_auth_token_request_failed';
     }
   }
   if (error instanceof GitHubApiError) {
