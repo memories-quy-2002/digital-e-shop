@@ -559,4 +559,3 @@ describe('read-only Stage 0 PR observation', () => {
     ]);
   });
 });
-

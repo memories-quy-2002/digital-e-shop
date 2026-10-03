@@ -60,4 +60,3 @@ If a quota is exhausted or a dependency fails, the Worker fails closed: webhook 
 To stop new work, remove or disable the GitHub webhook. To stop scheduled scans, disable the Worker's production Cron Trigger. Pause the production Queue consumer to stop already queued work. To stop report writes immediately, revoke the App's `checks:write` permission; the observer can continue only if its read permissions remain. Deploy a reviewed previous Worker version for code rollback. Existing Check Runs remain visible but neutral and non-required. Preserve D1 long enough for diagnosis, then remove retained state according to the maintainer's retention decision.
 
 Never use rollback to alter PR code, rerun Actions, push, merge, or change Digital-E commerce production data.
-

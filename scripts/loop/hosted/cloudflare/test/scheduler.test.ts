@@ -192,4 +192,3 @@ describe('scheduled open PR reconciliation', () => {
     expect(queue.send).not.toHaveBeenCalled();
   });
 });
-
