@@ -24,6 +24,12 @@ export class GitHubApiError extends Error {
     | 'redirect_rejected'
     | 'response_too_large'
     | 'invalid_response'
+    | 'bad_request'
+    | 'unauthorized'
+    | 'forbidden'
+    | 'not_found'
+    | 'rate_limited'
+    | 'unprocessable_entity'
     | 'api_unavailable'
     | 'pagination_rejected'
     | 'pagination_limit';
@@ -161,6 +167,16 @@ async function parseJson(response: Response): Promise<unknown> {
   }
 }
 
+function githubHttpError(status: number): GitHubApiError {
+  if (status === 400) return new GitHubApiError('bad_request');
+  if (status === 401) return new GitHubApiError('unauthorized');
+  if (status === 403) return new GitHubApiError('forbidden');
+  if (status === 404) return new GitHubApiError('not_found');
+  if (status === 422) return new GitHubApiError('unprocessable_entity');
+  if (status === 429) return new GitHubApiError('rate_limited');
+  return new GitHubApiError('api_unavailable');
+}
+
 export function createGitHubApiClient(options: GitHubApiOptions) {
   if (!options || typeof options.repository !== 'string' || !REPOSITORY_PATTERN.test(options.repository)
       || !isPositiveInteger(options.repositoryId) || typeof options.getToken !== 'function') {
@@ -187,22 +203,22 @@ export function createGitHubApiClient(options: GitHubApiOptions) {
     if (subrequestCount >= maxSubrequests) throw new GitHubApiError('request_limit_reached');
     subrequestCount += 1;
 
+    const token = await options.getToken('observe');
     let response: Response;
     try {
       response = await fetchImpl(url, {
         method: 'GET',
-        headers: githubRequestHeaders(await options.getToken('observe')),
+        headers: githubRequestHeaders(token),
         redirect: 'error',
         signal: AbortSignal.timeout(10_000),
       });
-    } catch (error) {
-      if (error instanceof GitHubApiError) throw error;
+    } catch {
       throw new GitHubApiError('network_error');
     }
     if (response.redirected || (response.status >= 300 && response.status < 400)) {
       throw new GitHubApiError('redirect_rejected');
     }
-    if (!response.ok) throw new GitHubApiError('api_unavailable');
+    if (!response.ok) throw githubHttpError(response.status);
     return parseJson(response);
   }
 
@@ -214,11 +230,12 @@ export function createGitHubApiClient(options: GitHubApiOptions) {
     for (const [key, value] of Object.entries(query)) url.searchParams.set(key, String(value));
     if (subrequestCount >= maxSubrequests) throw new GitHubApiError('request_limit_reached');
     subrequestCount += 1;
+    const token = await options.getToken('observe');
     let response: Response;
     try {
       response = await fetchImpl(url, {
         method: 'GET',
-        headers: githubRequestHeaders(await options.getToken('observe')),
+        headers: githubRequestHeaders(token),
         redirect: 'error',
         signal: AbortSignal.timeout(10_000),
       });
@@ -229,7 +246,7 @@ export function createGitHubApiClient(options: GitHubApiOptions) {
       throw new GitHubApiError('redirect_rejected');
     }
     if (response.status === 404) return null;
-    if (!response.ok) throw new GitHubApiError('api_unavailable');
+    if (!response.ok) throw githubHttpError(response.status);
     return parseJson(response);
   }
 
@@ -240,11 +257,12 @@ export function createGitHubApiClient(options: GitHubApiOptions) {
     }
     if (subrequestCount >= maxSubrequests) throw new GitHubApiError('request_limit_reached');
     subrequestCount += 1;
+    const token = await options.getToken('observe');
     let response: Response;
     try {
       response = await fetchImpl(url, {
         method: 'GET',
-        headers: githubRequestHeaders(await options.getToken('observe')),
+        headers: githubRequestHeaders(token),
         redirect: 'error',
         signal: AbortSignal.timeout(10_000),
       });
@@ -254,7 +272,7 @@ export function createGitHubApiClient(options: GitHubApiOptions) {
     if (response.redirected || (response.status >= 300 && response.status < 400)) {
       throw new GitHubApiError('redirect_rejected');
     }
-    if (!response.ok) throw new GitHubApiError('api_unavailable');
+    if (!response.ok) throw githubHttpError(response.status);
     return { value: await parseJson(response), link: response.headers.get('link') };
   }
 
