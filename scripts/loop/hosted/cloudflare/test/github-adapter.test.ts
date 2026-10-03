@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createGitHubAppAuth } from '../src/github/app-auth';
+import { createGitHubAppAuth, GitHubAppAuthError } from '../src/github/app-auth';
 import { createGitHubApiClient, GitHubApiError } from '../src/github/api';
 import { createGitHubObserver } from '../src/github/observer';
 
@@ -276,6 +276,23 @@ describe('GitHub App authentication', () => {
     await expect(auth.getInstallationToken('observe')).resolves.toBe(statelessToken);
   });
 
+  it('classifies forbidden installation-token requests without exposing the response body', async () => {
+    const pem = await privateKeyPem();
+    const auth = createGitHubAppAuth({
+      appId,
+      installationId,
+      repositoryId,
+      privateKey: pem,
+    }, {
+      fetchImpl: async () => new Response('sensitive github response', { status: 403 }),
+      now: () => fixedNow,
+    });
+
+    await expect(auth.getInstallationToken('observe')).rejects.toMatchObject({
+      code: 'token_request_forbidden',
+    } satisfies Partial<GitHubAppAuthError>);
+  });
+
   it('uses a separate checks:write token for the report capability only', async () => {
     const pem = await privateKeyPem();
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -326,6 +343,34 @@ describe('fixed GitHub read API client', () => {
 
     await expect(api.listOpenPullRequests(1)).resolves.toMatchObject({ items: [], hasNext: false });
     expect(requestHeaders[0]?.get('user-agent')).toBe('Digital-E-Loop-Stage0');
+  });
+
+  it('preserves GitHub App auth failures instead of misclassifying them as network errors', async () => {
+    const fetchImpl = vi.fn();
+    const api = createGitHubApiClient({
+      repository: 'memories-quy-2002/digital-e-shop',
+      repositoryId,
+      getToken: async () => { throw new GitHubAppAuthError('token_response_invalid'); },
+      fetchImpl,
+    });
+
+    await expect(api.listOpenPullRequests(1)).rejects.toMatchObject({
+      code: 'token_response_invalid',
+    } satisfies Partial<GitHubAppAuthError>);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('classifies forbidden GitHub API responses separately from generic unavailability', async () => {
+    const api = createGitHubApiClient({
+      repository: 'memories-quy-2002/digital-e-shop',
+      repositoryId,
+      getToken: async () => 'ghs_test',
+      fetchImpl: async () => new Response('forbidden', { status: 403 }),
+    });
+
+    await expect(api.listOpenPullRequests(1)).rejects.toMatchObject({
+      code: 'forbidden',
+    } satisfies Partial<GitHubApiError>);
   });
 
   it('rejects redirects on authenticated API calls', async () => {
