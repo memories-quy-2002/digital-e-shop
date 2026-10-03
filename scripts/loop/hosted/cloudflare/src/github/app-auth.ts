@@ -24,6 +24,7 @@ const API_VERSION = '2026-03-10';
 export const GITHUB_USER_AGENT = 'Digital-E-Loop-Stage0';
 const MAX_KEY_LENGTH = 32 * 1024;
 const MAX_TOKEN_RESPONSE_BYTES = 32 * 1024;
+const MAX_INSTALLATION_TOKEN_LENGTH = 4096;
 const READ_PERMISSIONS = Object.freeze({
   contents: 'read',
   pull_requests: 'read',
@@ -160,6 +161,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function isOpaqueInstallationToken(value: unknown): value is string {
+  return typeof value === 'string'
+    && value.length > 0
+    && value.length <= MAX_INSTALLATION_TOKEN_LENGTH
+    && !/[\x00-\x1f\x7f]/.test(value);
+}
+
 function validatePermissions(value: unknown, requested: Readonly<Record<string, string>>): boolean {
   if (!isRecord(value)) return false;
   return Object.entries(requested).every(([name, permission]) => value[name] === permission);
@@ -232,7 +240,7 @@ export function createGitHubAppAuth(
     if (!response.ok) throw new GitHubAppAuthError('token_request_failed');
 
     const body = await readBoundedJson(response);
-    if (!isRecord(body) || typeof body.token !== 'string' || !/^[A-Za-z0-9_]{8,512}$/.test(body.token)
+    if (!isRecord(body) || !isOpaqueInstallationToken(body.token)
         || typeof body.expires_at !== 'string' || !Number.isFinite(Date.parse(body.expires_at))
         || Date.parse(body.expires_at) <= now() + TOKEN_CACHE_SKEW_MS
         || !validatePermissions(body.permissions, permissions)) {
