@@ -19,7 +19,11 @@ export class GitHubAppAuthError extends Error {
     | 'token_request_not_found'
     | 'token_request_unprocessable'
     | 'token_request_rate_limited'
-    | 'token_response_invalid';
+    | 'token_response_invalid'
+    | 'token_request_network_error'
+    | 'token_request_timeout'
+    | 'token_request_redirect_rejected'
+    | `token_request_http_${number}`;
 
   constructor(code: GitHubAppAuthError['code']) {
     super(code);
@@ -176,7 +180,7 @@ function tokenRequestError(status: number): GitHubAppAuthError {
   if (status === 404) return new GitHubAppAuthError('token_request_not_found');
   if (status === 422) return new GitHubAppAuthError('token_request_unprocessable');
   if (status === 429) return new GitHubAppAuthError('token_request_rate_limited');
-  return new GitHubAppAuthError('token_request_failed');
+  return new GitHubAppAuthError(`token_request_http_${status}`);
 }
 
 function isOpaqueInstallationToken(value: unknown): value is string {
@@ -234,6 +238,7 @@ export function createGitHubAppAuth(
   async function mintToken(capability: GitHubCapability): Promise<CachedToken> {
     const permissions = capability === 'observe' ? READ_PERMISSIONS : REPORT_PERMISSIONS;
     const appJwt = await createAppJwt();
+    const timeoutSignal = AbortSignal.timeout(10_000);
     let response: Response;
     try {
       response = await fetchImpl(API_ORIGIN + '/app/installations/' + config.installationId + '/access_tokens', {
@@ -246,14 +251,16 @@ export function createGitHubAppAuth(
           'X-GitHub-Api-Version': API_VERSION,
         },
         body: JSON.stringify({ repository_ids: [config.repositoryId], permissions }),
-        redirect: 'error',
-        signal: AbortSignal.timeout(10_000),
+        redirect: 'manual',
+        signal: timeoutSignal,
       });
-    } catch {
-      throw new GitHubAppAuthError('token_request_failed');
+    } catch (error) {
+      const timedOut = timeoutSignal.aborted
+        || (typeof error === 'object' && error !== null && 'name' in error && error.name === 'TimeoutError');
+      throw new GitHubAppAuthError(timedOut ? 'token_request_timeout' : 'token_request_network_error');
     }
     if (response.redirected || (response.status >= 300 && response.status < 400)) {
-      throw new GitHubAppAuthError('token_request_failed');
+      throw new GitHubAppAuthError('token_request_redirect_rejected');
     }
     if (!response.ok) throw tokenRequestError(response.status);
 
@@ -280,3 +287,4 @@ export function createGitHubAppAuth(
     },
   });
 }
+

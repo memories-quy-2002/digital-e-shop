@@ -138,6 +138,25 @@ describe('scheduled open PR reconciliation', () => {
     expect(queue.send).not.toHaveBeenCalled();
   });
 
+  it('preserves an unclassified GitHub HTTP status in the reconciliation reason', async () => {
+    const storage = createD1Stage0Storage(testEnv.STAGE0_DB);
+    const api = {
+      listOpenPullRequests: vi.fn(async () => {
+        throw new GitHubAppAuthError('token_request_http_503');
+      }),
+    };
+    const queue = { send: vi.fn(async () => undefined) };
+
+    await expect(runScheduledReconciliation({
+      repositoryId,
+      storage,
+      api,
+      queue,
+      now: () => fixedNow,
+    })).rejects.toMatchObject({ code: 'github_auth_token_request_http_503' });
+    expect(queue.send).not.toHaveBeenCalled();
+  });
+
   it('preserves a forbidden GitHub API response as a specific reconciliation reason', async () => {
     const storage = createD1Stage0Storage(testEnv.STAGE0_DB);
     const api = {
@@ -173,3 +192,4 @@ describe('scheduled open PR reconciliation', () => {
     expect(queue.send).not.toHaveBeenCalled();
   });
 });
+

@@ -226,7 +226,7 @@ describe('GitHub App authentication', () => {
     const [url, init] = fetchImpl.mock.calls[0]!;
     expect(String(url)).toBe('https://api.github.com/app/installations/' + installationId + '/access_tokens');
     expect(init?.method).toBe('POST');
-    expect(init?.redirect).toBe('error');
+    expect(init?.redirect).toBe('manual');
     expect(new Headers(init?.headers).get('user-agent')).toBe('Digital-E-Loop-Stage0');
     const jwt = new Headers(init?.headers).get('authorization')?.replace(/^Bearer /u, '');
     expect(jwt).toBeTruthy();
@@ -291,6 +291,57 @@ describe('GitHub App authentication', () => {
     await expect(auth.getInstallationToken('observe')).rejects.toMatchObject({
       code: 'token_request_forbidden',
     } satisfies Partial<GitHubAppAuthError>);
+  });
+
+  it('reports an unclassified GitHub HTTP status without exposing its response body', async () => {
+    const pem = await privateKeyPem();
+    const auth = createGitHubAppAuth({ appId, installationId, repositoryId, privateKey: pem }, {
+      fetchImpl: async () => new Response('sensitive github response', { status: 503 }),
+      now: () => fixedNow,
+    });
+
+    await expect(auth.getInstallationToken('observe')).rejects.toMatchObject({
+      code: 'token_request_http_503',
+      message: 'token_request_http_503',
+    });
+  });
+
+  it('classifies a rejected GitHub redirect without following it', async () => {
+    const pem = await privateKeyPem();
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(null, {
+      status: 302,
+      headers: { location: 'https://example.invalid/collect' },
+    }));
+    const auth = createGitHubAppAuth({ appId, installationId, repositoryId, privateKey: pem }, {
+      fetchImpl,
+      now: () => fixedNow,
+    });
+
+    await expect(auth.getInstallationToken('observe')).rejects.toMatchObject({
+      code: 'token_request_redirect_rejected',
+    });
+    expect(fetchImpl.mock.calls[0]?.[1]?.redirect).toBe('manual');
+  });
+
+  it('distinguishes GitHub token request timeouts from other network errors', async () => {
+    const pem = await privateKeyPem();
+    const timedOutAuth = createGitHubAppAuth({ appId, installationId, repositoryId, privateKey: pem }, {
+      fetchImpl: async () => { throw new DOMException('sensitive detail', 'TimeoutError'); },
+      now: () => fixedNow,
+    });
+    const networkErrorAuth = createGitHubAppAuth({ appId, installationId, repositoryId, privateKey: pem }, {
+      fetchImpl: async () => { throw new TypeError('sensitive network detail'); },
+      now: () => fixedNow,
+    });
+
+    await expect(timedOutAuth.getInstallationToken('observe')).rejects.toMatchObject({
+      code: 'token_request_timeout',
+      message: 'token_request_timeout',
+    });
+    await expect(networkErrorAuth.getInstallationToken('observe')).rejects.toMatchObject({
+      code: 'token_request_network_error',
+      message: 'token_request_network_error',
+    });
   });
 
   it('uses a separate checks:write token for the report capability only', async () => {
@@ -508,3 +559,4 @@ describe('read-only Stage 0 PR observation', () => {
     ]);
   });
 });
+
