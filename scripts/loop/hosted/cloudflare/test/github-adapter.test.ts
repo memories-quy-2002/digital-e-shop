@@ -23,9 +23,9 @@ async function privateKeyPem(): Promise<string> {
   return '-----BEGIN PRIVATE KEY-----\n' + base64 + '\n-----END PRIVATE KEY-----';
 }
 
-function tokenResponse(permissions: Record<string, string>): Response {
+function tokenResponse(permissions: Record<string, string>, token = 'ghs_test_installation_token'): Response {
   return Response.json({
-    token: 'ghs_test_installation_token',
+    token,
     expires_at: new Date(fixedNow + 60 * 60 * 1000).toISOString(),
     permissions,
     repository_selection: 'selected',
@@ -250,6 +250,30 @@ describe('GitHub App authentication', () => {
         administration: 'read',
       },
     });
+  });
+
+  it('accepts the stateless GitHub App installation token format as an opaque secret', async () => {
+    const pem = await privateKeyPem();
+    const statelessToken = `ghs_${appId}_${'a'.repeat(180)}.${'b'.repeat(170)}.${'c'.repeat(170)}`;
+    expect(statelessToken.length).toBeGreaterThan(512);
+    expect(statelessToken).toContain('.');
+
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => tokenResponse({
+      metadata: 'read',
+      contents: 'read',
+      pull_requests: 'read',
+      checks: 'read',
+      actions: 'read',
+      administration: 'read',
+    }, statelessToken));
+    const auth = createGitHubAppAuth({
+      appId,
+      installationId,
+      repositoryId,
+      privateKey: pem,
+    }, { fetchImpl, now: () => fixedNow });
+
+    await expect(auth.getInstallationToken('observe')).resolves.toBe(statelessToken);
   });
 
   it('uses a separate checks:write token for the report capability only', async () => {
