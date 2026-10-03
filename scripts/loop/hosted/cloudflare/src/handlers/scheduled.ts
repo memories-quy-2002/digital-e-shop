@@ -1,4 +1,6 @@
 import type { Env } from '../index';
+import { GitHubAppAuthError } from '../github/app-auth';
+import { GitHubApiError } from '../github/api';
 import { createGitHubObserverRuntime } from '../github/observer';
 import { STAGE0_LIMITS } from '../limits';
 import { createD1Stage0Storage } from '../storage/d1';
@@ -10,7 +12,30 @@ export class Stage0ReconciliationError extends Error {
   readonly code:
     | 'configuration_invalid'
     | 'scheduler_busy'
+    | 'github_auth_configuration_invalid'
+    | 'github_auth_app_key_invalid'
+    | 'github_auth_token_request_failed'
+    | 'github_auth_token_request_unauthorized'
+    | 'github_auth_token_request_forbidden'
+    | 'github_auth_token_request_not_found'
+    | 'github_auth_token_request_unprocessable'
+    | 'github_auth_token_request_rate_limited'
+    | 'github_auth_token_response_invalid'
+    | 'github_api_configuration_invalid'
+    | 'github_api_request_limit_reached'
+    | 'github_api_network_error'
+    | 'github_api_redirect_rejected'
+    | 'github_api_response_too_large'
+    | 'github_api_invalid_response'
+    | 'github_api_bad_request'
+    | 'github_api_unauthorized'
+    | 'github_api_forbidden'
+    | 'github_api_not_found'
+    | 'github_api_rate_limited'
+    | 'github_api_unprocessable_entity'
     | 'github_api_unavailable'
+    | 'github_api_pagination_rejected'
+    | 'github_api_pagination_limit'
     | 'queue_unavailable'
     | 'reconciliation_page_invalid'
     | 'reconciliation_page_limit';
@@ -39,6 +64,42 @@ interface ReconciliationApi {
 
 interface ReconciliationQueue {
   send(message: Stage0QueueMessage, options?: QueueSendOptions): Promise<unknown>;
+}
+
+function githubReconciliationReason(error: unknown): Stage0ReconciliationError['code'] {
+  if (error instanceof GitHubAppAuthError) {
+    switch (error.code) {
+      case 'configuration_invalid': return 'github_auth_configuration_invalid';
+      case 'app_key_invalid': return 'github_auth_app_key_invalid';
+      case 'token_request_failed': return 'github_auth_token_request_failed';
+      case 'token_request_unauthorized': return 'github_auth_token_request_unauthorized';
+      case 'token_request_forbidden': return 'github_auth_token_request_forbidden';
+      case 'token_request_not_found': return 'github_auth_token_request_not_found';
+      case 'token_request_unprocessable': return 'github_auth_token_request_unprocessable';
+      case 'token_request_rate_limited': return 'github_auth_token_request_rate_limited';
+      case 'token_response_invalid': return 'github_auth_token_response_invalid';
+    }
+  }
+  if (error instanceof GitHubApiError) {
+    switch (error.code) {
+      case 'configuration_invalid': return 'github_api_configuration_invalid';
+      case 'request_limit_reached': return 'github_api_request_limit_reached';
+      case 'network_error': return 'github_api_network_error';
+      case 'redirect_rejected': return 'github_api_redirect_rejected';
+      case 'response_too_large': return 'github_api_response_too_large';
+      case 'invalid_response': return 'github_api_invalid_response';
+      case 'bad_request': return 'github_api_bad_request';
+      case 'unauthorized': return 'github_api_unauthorized';
+      case 'forbidden': return 'github_api_forbidden';
+      case 'not_found': return 'github_api_not_found';
+      case 'rate_limited': return 'github_api_rate_limited';
+      case 'unprocessable_entity': return 'github_api_unprocessable_entity';
+      case 'api_unavailable': return 'github_api_unavailable';
+      case 'pagination_rejected': return 'github_api_pagination_rejected';
+      case 'pagination_limit': return 'github_api_pagination_limit';
+    }
+  }
+  return 'github_api_unavailable';
 }
 
 export async function runScheduledReconciliation(input: {
@@ -85,8 +146,8 @@ export async function runScheduledReconciliation(input: {
     let page: { items: unknown[]; hasNext: boolean; pageCount: 1 };
     try {
       page = await input.api.listOpenPullRequests(cursor.page);
-    } catch {
-      throw new Stage0ReconciliationError('github_api_unavailable');
+    } catch (error) {
+      throw new Stage0ReconciliationError(githubReconciliationReason(error));
     }
     if (!page || !Array.isArray(page.items) || page.items.length > STAGE0_LIMITS.maxOpenPullRequestsPerSweep
         || typeof page.hasNext !== 'boolean' || page.pageCount !== 1) {
