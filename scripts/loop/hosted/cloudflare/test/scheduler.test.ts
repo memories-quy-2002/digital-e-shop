@@ -1,6 +1,8 @@
 import { applyD1Migrations, env, reset } from 'cloudflare:test';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { GitHubAppAuthError } from '../src/github/app-auth';
+import { GitHubApiError } from '../src/github/api';
 import { createD1Stage0Storage } from '../src/storage/d1';
 import { runScheduledReconciliation } from '../src/handlers/scheduled';
 
@@ -115,6 +117,44 @@ describe('scheduled open PR reconciliation', () => {
     expect(retry.sweepId).toBe(savedAfterFailure.sweepId);
     expect(sentIds[0]).toBe(sentIds[2]);
     expect(sentIds[1]).toBe(sentIds[3]);
+  });
+
+  it('preserves a GitHub App token failure as a specific reconciliation reason', async () => {
+    const storage = createD1Stage0Storage(testEnv.STAGE0_DB);
+    const api = {
+      listOpenPullRequests: vi.fn(async () => {
+        throw new GitHubAppAuthError('token_request_forbidden');
+      }),
+    };
+    const queue = { send: vi.fn(async () => undefined) };
+
+    await expect(runScheduledReconciliation({
+      repositoryId,
+      storage,
+      api,
+      queue,
+      now: () => fixedNow,
+    })).rejects.toMatchObject({ code: 'github_auth_token_request_forbidden' });
+    expect(queue.send).not.toHaveBeenCalled();
+  });
+
+  it('preserves a forbidden GitHub API response as a specific reconciliation reason', async () => {
+    const storage = createD1Stage0Storage(testEnv.STAGE0_DB);
+    const api = {
+      listOpenPullRequests: vi.fn(async () => {
+        throw new GitHubApiError('forbidden');
+      }),
+    };
+    const queue = { send: vi.fn(async () => undefined) };
+
+    await expect(runScheduledReconciliation({
+      repositoryId,
+      storage,
+      api,
+      queue,
+      now: () => fixedNow,
+    })).rejects.toMatchObject({ code: 'github_api_forbidden' });
+    expect(queue.send).not.toHaveBeenCalled();
   });
 
   it('does not advance the cursor when GitHub cannot enumerate the current page', async () => {
