@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { parseBody } from '#src/shared/validation/request-schemas';
+import { parseBody } from '#src/shared/validation/request-validation';
 import { AnalyticsRepository } from './analytics.repository';
 import { analyticsSummaryQuerySchema } from './analytics.validator';
 import { resolveAnalyticsRange } from './analytics-range';

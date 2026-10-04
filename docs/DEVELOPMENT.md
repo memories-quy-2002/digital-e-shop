@@ -171,6 +171,12 @@ The client reads `VITE_API_BASE_URL`. Development uses `http://localhost:4000` w
 
 The supported local database is the Docker MySQL service at `127.0.0.1:3307` with database `digital_e_shop_local` and volume `digital_e_shop_local_mysql_data`.
 
+Docker Compose v2 must be available as `docker compose` in the current terminal
+(on Windows, use Docker Desktop integration). Commands work from any checkout
+path and read `server/.env.docker`; copy `server/.env.docker.example` there first.
+They reject remote database targets and preserve configured local credentials.
+`docker:up` waits for MySQL health before returning.
+
 Run the protected local setup:
 
 ```powershell
