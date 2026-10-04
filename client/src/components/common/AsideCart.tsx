@@ -128,8 +128,8 @@ const AsideCart = ({
                         <strong>{discount > 0 ? "-" : ""}{formatCurrency(discount)}</strong>
                     </div>
                     <div className="cart-summary__pricing-row cart-summary__pricing-row--shipping">
-                        <span>{t("cart.shipping")} {t("cart.calculatedAtCheckout")}</span>
-                        <strong>—</strong>
+                        <span>{t("cart.shipping")}</span>
+                        <strong>{t("cart.freeShipping")}</strong>
                     </div>
                     <div className="cart-summary__pricing-row cart-summary__pricing-row--total">
                         <span>{t("cart.amountDue")}</span>

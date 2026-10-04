@@ -700,8 +700,8 @@
     }
 
     .auth-shell__story {
-        min-height: 15rem;
-        padding: 1.5rem 1.25rem 1.35rem;
+        min-height: 0;
+        padding: 1.2rem 1.25rem;
     }
 
     .auth-shell__story-eyebrow {
@@ -711,7 +711,7 @@
 
     .auth-shell__story-title {
         max-width: 18rem;
-        font-size: clamp(2.3rem, 12vw, 3.35rem);
+        font-size: clamp(1.8rem, 8vw, 2.4rem);
     }
 
     .auth-shell__story-description {
@@ -722,9 +722,7 @@
     }
 
     .auth-shell__benefits {
-        grid-template-columns: 1fr;
-        gap: 0.5rem;
-        margin-top: 1rem;
+        display: none;
     }
 
     .auth-shell__benefits li {

@@ -1,37 +1,7 @@
 import { Link } from "react-router-dom";
 import "../../styles/layout/_footer.scss";
-import {
-    FacebookIcon,
-    InstagramIcon,
-    LinkedinIcon,
-    TelephoneIcon,
-    TwitterIcon,
-} from "../common/Icons";
 import { useT } from "../../hooks/useT";
 import { CUSTOMER_ROUTES } from "../../routes/customerRoutes";
-
-const socialLinks = [
-    {
-        platform: "Facebook",
-        url: "https://www.facebook.com",
-        icon: <FacebookIcon />,
-    },
-    {
-        platform: "Twitter",
-        url: "https://www.twitter.com",
-        icon: <TwitterIcon />,
-    },
-    {
-        platform: "Instagram",
-        url: "https://www.instagram.com",
-        icon: <InstagramIcon />,
-    },
-    {
-        platform: "LinkedIn",
-        url: "https://www.linkedin.com",
-        icon: <LinkedinIcon />,
-    },
-];
 
 const Footer = () => {
     const t = useT();
@@ -54,25 +24,7 @@ const Footer = () => {
                         <p className="footer__brand__text">{t("footer.brandTagline")}</p>
 
                         <div className="footer__contact">
-                            <a href="tel:+841234567890">
-                                <TelephoneIcon size={16} />
-                                {t("footer.phone")}
-                            </a>
-                            <span>{t("footer.address")}</span>
-                        </div>
-
-                        <div className="footer__brand__social">
-                            {socialLinks.map((link) => (
-                                <a
-                                    key={link.platform}
-                                    href={link.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    aria-label={t("footer.socialLinkLabel", link.platform)}
-                                >
-                                    {link.icon}
-                                </a>
-                            ))}
+                            <Link to="/contact-us">{t("footer.contactUs")}</Link>
                         </div>
                     </div>
 

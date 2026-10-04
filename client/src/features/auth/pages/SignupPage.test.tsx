@@ -1,8 +1,12 @@
 import userEvent from "@testing-library/user-event";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
 import SignupPage from "./SignupPage";
+import { LocaleProvider } from "../../../context/LocaleContext";
+
+const render = (ui: ReactNode) => rtlRender(<LocaleProvider>{ui}</LocaleProvider>);
 
 const mocks = vi.hoisted(() => ({
     createFirebaseUser: vi.fn(),
@@ -68,7 +72,7 @@ describe("SignupPage Firebase verification", () => {
         fireEvent.change(screen.getByRole("textbox", { name: "Username" }), { target: { value: "customer" } });
         fireEvent.change(screen.getByRole("textbox", { name: "Email address" }), { target: { value: "customer@example.com" } });
         fireEvent.change(screen.getByLabelText("Password"), { target: { value: "Password1!" } });
-        fireEvent.change(screen.getByLabelText("Confirm Password"), { target: { value: "Password1!" } });
+        fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "Password1!" } });
         fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
 
         await waitFor(() => expect(mocks.registerUser).toHaveBeenCalledWith({
@@ -106,7 +110,7 @@ describe("SignupPage Firebase verification", () => {
         await user.type(screen.getByRole("textbox", { name: "Username" }), "customer");
         await user.type(screen.getByRole("textbox", { name: "Email address" }), "customer@example.com");
         await user.type(screen.getByLabelText("Password"), "short");
-        await user.type(screen.getByLabelText("Confirm Password"), "different");
+        await user.type(screen.getByLabelText("Confirm password"), "different");
         await user.click(screen.getByRole("button", { name: "Sign up" }));
 
         expect(await screen.findByText("Passwords do not match.")).toBeInTheDocument();

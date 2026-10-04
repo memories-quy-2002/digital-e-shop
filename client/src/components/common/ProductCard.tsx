@@ -64,19 +64,19 @@ const ProductCard = ({
     return (
         <Card
             data-testid="product-card"
-            className="product-card group flex h-full min-h-[410px] flex-col overflow-hidden rounded-panel border-border bg-card p-2 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-1 hover:border-electric hover:shadow-[var(--de-shadow-sm)]"
+            className="product-card"
         >
-            <div className="relative">
+            <div className="product-card__visual">
                 {hasSale ? (
-                    <Badge variant="signal" className="absolute left-3 top-3 z-10 rounded-control">
+                    <Badge variant="signal" className="product-card__badge">
                         {t("product.discountBadge", discountPercent)}
                     </Badge>
                 ) : availableStock > 0 ? (
-                    <Badge variant="default" className="absolute left-3 top-3 z-10 rounded-control">
+                    <Badge variant="default" className="product-card__badge">
                         {t("product.stockBadge")}
                     </Badge>
                 ) : (
-                    <Badge variant="danger" className="absolute left-3 top-3 z-10 rounded-control">
+                    <Badge variant="danger" className="product-card__badge">
                         {t("product.stockValueOut")}
                     </Badge>
                 )}
@@ -85,9 +85,7 @@ const ProductCard = ({
                     type="button"
                     variant="outline"
                     size="icon"
-                    className={`absolute right-3 top-3 z-10 bg-card/95 ${
-                        isWishlist ? "border-signal bg-signal text-primary-foreground" : "text-muted-foreground"
-                    }`}
+                    className={`product-card__wishlist ${isWishlist ? "product-card__wishlist--saved" : ""}`}
                     onClick={() => onToggleWishlist(uid, normalizedProduct.id)}
                     aria-label={wishlistLabel}
                     aria-pressed={isWishlist}
@@ -108,11 +106,11 @@ const ProductCard = ({
                         height: "100%",
                         objectFit: "contain",
                         display: "block",
-                    }, imageEager, undefined, imageFetchPriority)}
+                    }, imageEager, "(min-width: 1280px) 20vw, (min-width: 1024px) 28vw, (min-width: 600px) 45vw, (min-width: 360px) 46vw, 92vw", imageFetchPriority)}
                 </Link>
             </div>
 
-            <CardContent className="product-card__content flex flex-1 flex-col gap-2 px-2 pb-2 pt-4">
+            <CardContent className="product-card__content">
                 <div className="product-card__meta">
                     <span className="product-card__category">{normalizedProduct.category || t("product.categoryFallback")}</span>
                     <span className="product-card__brand">{normalizedProduct.brand || t("product.brandFallback")}</span>
@@ -120,10 +118,14 @@ const ProductCard = ({
 
                 <Link
                     to={productPath}
-                    className="product-card__title font-display font-bold text-foreground transition-colors hover:text-electric focus-visible:text-electric"
+                    className="product-card__title"
                 >
                     {normalizedProduct.name || "Unnamed product"}
                 </Link>
+
+                <p className="product-card__specs" title={normalizedProduct.specifications || undefined}>
+                    {normalizedProduct.specifications}
+                </p>
 
                 <div className="product-card__rating" data-testid="product-card-rating">
                     <span role="img" aria-label={`${normalizedProduct.rating.toFixed(1)} ${t("product.ratingLabel")}`} className="product-card__rating-stars">
@@ -147,8 +149,8 @@ const ProductCard = ({
 
                 <Button
                     type="button"
-                    variant={isComparisonSelected ? "secondary" : "outline"}
-                    className={`w-full whitespace-nowrap ${isComparisonSelected ? "border-electric text-electric" : ""}`}
+                    variant="ghost"
+                    className={`product-card__compare ${isComparisonSelected ? "product-card__compare--selected" : ""}`}
                     onClick={handleComparisonToggle}
                     aria-label={comparisonLabel}
                     aria-pressed={isComparisonSelected}
@@ -157,12 +159,14 @@ const ProductCard = ({
                 </Button>
                 <Button
                     type="button"
-                    className="product-card__add-to-cart mt-auto w-full"
+                    className="product-card__add-to-cart"
+                    aria-label={t("product.addToCart")}
                     onClick={() => onAddingCart(uid, normalizedProduct.id)}
                     disabled={availableStock <= 0}
                 >
                     <CartIcon size={16} color="currentColor" />
-                    {t("product.addToCart")}
+                    <span className="product-card__cart-label">{t("product.addToCart")}</span>
+                    <span className="product-card__cart-label--compact" aria-hidden="true">{t("product.addToCartShort")}</span>
                 </Button>
             </CardContent>
         </Card>

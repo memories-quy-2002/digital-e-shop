@@ -321,30 +321,47 @@ const ProductPage = () => {
     }, [pid, productAlertLoadAttempt, t, uid]);
 
     useEffect(() => {
+        let isActive = true;
+        setRelevantProducts([]);
         const loadRelevantProducts = async () => {
             try {
                 const products = await fetchRelevantProducts(pid);
-                setRelevantProducts(products);
+                if (isActive) setRelevantProducts(products);
             } catch {
-                addToast("Recommendations", "Unable to load relevant products.");
+                if (isActive) addToast("Recommendations", "Unable to load relevant products.");
             }
         };
         loadRelevantProducts();
+        return () => {
+            isActive = false;
+        };
     }, [addToast, pid]);
 
     useEffect(() => {
+        let isActive = true;
+        setReviews([]);
+        setReviewSummary({
+            total: 0,
+            average: 0,
+            distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+        });
         const loadReviews = async () => {
-            if (!productDetail.id) return;
+            if (!pid) return;
             try {
-                const result = await fetchReviews(productDetail.id);
-                setReviews(result.reviews);
-                setReviewSummary(result.summary);
+                const result = await fetchReviews(pid);
+                if (isActive) {
+                    setReviews(result.reviews);
+                    setReviewSummary(result.summary);
+                }
             } catch {
-                addToast("Reviews", "Unable to load reviews.");
+                if (isActive) addToast("Reviews", "Unable to load reviews.");
             }
         };
         loadReviews();
-    }, [addToast, productDetail.id]);
+        return () => {
+            isActive = false;
+        };
+    }, [addToast, pid]);
 
     useEffect(() => {
         if (allImages.length > 0) {
@@ -548,13 +565,13 @@ const ProductPage = () => {
     if (productLoadError || productDetail.id !== pid) {
         return (
             <Layout>
-                <main className="product-page app-page">
+                <div className="product-page app-page">
                     <div className="product-page__state" role="alert">
                         <strong>We could not find this product.</strong>
                         <p>It may have been removed or is temporarily unavailable.</p>
                         <Link to="/shops">Back to all products</Link>
                     </div>
-                </main>
+                </div>
             </Layout>
         );
     }
@@ -815,18 +832,6 @@ const ProductPage = () => {
                     </div>
                 </section>
 
-                <section className="product-page__recommendations-shell" data-testid="product-recommendations-shell">
-                    <div className="product-page__recommendations-head">
-                        <h2 className="product-page__recommendations-title">
-                            {t("product.recommendationsTitle")}
-                        </h2>
-                        <Link to="/shops" className="product-page__recommendations-link">
-                            {t("product.browseCatalog")}
-                        </Link>
-                    </div>
-                    <RecommendedProduct relevantProducts={relevantProducts} />
-                </section>
-
                 <div className="product-page__tabs" data-testid="product-tabs">
                     <div className="product-page__tabs-nav">
                         <button
@@ -1018,6 +1023,18 @@ const ProductPage = () => {
                         </div>
                     </Activity>
                 </div>
+
+                <section className="product-page__recommendations-shell" data-testid="product-recommendations-shell">
+                    <div className="product-page__recommendations-head">
+                        <h2 className="product-page__recommendations-title">
+                            {t("product.recommendationsTitle")}
+                        </h2>
+                        <Link to="/shops" className="product-page__recommendations-link">
+                            {t("product.browseCatalog")}
+                        </Link>
+                    </div>
+                    <RecommendedProduct relevantProducts={relevantProducts} />
+                </section>
 
                 <ImageLightbox
                     show={isLightboxOpen}

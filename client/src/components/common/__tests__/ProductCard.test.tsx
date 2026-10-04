@@ -136,7 +136,7 @@ describe("ProductCard", () => {
 
         fireEvent.click(screen.getByRole("button", { name: "Add to compare" }));
 
-        expect(screen.getByRole("button", { name: "Remove from compare" })).toHaveClass("border-electric");
+        expect(screen.getByRole("button", { name: "Remove from compare" })).toHaveClass("product-card__compare--selected");
     });
 
     it("rejects products from a different category with feedback", () => {

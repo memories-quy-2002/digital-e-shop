@@ -39,6 +39,7 @@ import {
     type RecentOrderAddress,
 } from "../shippingAddress";
 import { formatCurrency } from "../../../utils/currency";
+import { useT } from "../../../hooks/useT";
 
 interface CheckoutForm {
     email: string;
@@ -86,6 +87,7 @@ const CheckoutPaymentPage = ({
     const { userData, loading } = useAuth();
     const uid = userData?.id || "";
     const { addToast } = useToast();
+    const t = useT();
     const [formCheckout, setFormCheckout] = useState<CheckoutForm>({
         email: "",
         first_name: "",
@@ -123,8 +125,8 @@ const CheckoutPaymentPage = ({
     );
 
     const paymentOptions = [
-        { value: PAYMENT_METHOD.PAYOS, title: "PayOS (VND)", description: "Vietnam-first QR payment", icon: <CashStackIcon size={22} /> },
-        { value: PAYMENT_METHOD.CASH, title: "Cash on delivery", description: "Pay when it arrives", icon: <CashStackIcon size={22} /> },
+        { value: PAYMENT_METHOD.PAYOS, title: t("cart.payos"), description: t("cart.payosNote"), icon: <CashStackIcon size={22} /> },
+        { value: PAYMENT_METHOD.CASH, title: t("cart.cashOnDelivery"), description: t("cart.cashOnDeliveryNote"), icon: <CashStackIcon size={22} /> },
     ];
 
     const selectedPayment = paymentOptions.find((option) => option.value === formCheckout.payment_method) || paymentOptions[0];
@@ -156,14 +158,14 @@ const CheckoutPaymentPage = ({
                 setSavedAddresses(addressesResult.value || []);
             } else {
                 setSavedAddresses([]);
-                addToast("Saved addresses", getApiErrorMessage(addressesResult.reason, "Unable to load saved addresses."));
+                addToast(t("checkout.title"), getApiErrorMessage(addressesResult.reason, t("checkout.savedAddressesError")));
             }
 
             if (ordersResult.status === "fulfilled") {
                 setRecentOrderAddresses(getRecentOrderAddresses(ordersResult.value || []));
             } else {
                 setRecentOrderAddresses([]);
-                addToast("Recent orders", getApiErrorMessage(ordersResult.reason, "Unable to load recent order addresses."));
+                addToast(t("checkout.title"), getApiErrorMessage(ordersResult.reason, t("checkout.recentAddressesError")));
             }
         };
 
@@ -171,7 +173,7 @@ const CheckoutPaymentPage = ({
         return () => {
             isActive = false;
         };
-    }, [uid, addToast]);
+    }, [uid, addToast, t]);
 
     useEffect(() => {
         if (!userData?.email || formCheckout.email) return;
@@ -242,14 +244,14 @@ const CheckoutPaymentPage = ({
                 setErrors([message]);
                 addToast("Checkout", message);
             } else {
-                setErrors(["Unable to validate cart stock right now."]);
-                addToast("Checkout", "Unable to validate cart stock right now.");
+                setErrors([t("checkout.validateStockError")]);
+                addToast(t("checkout.title"), t("checkout.validateStockError"));
             }
             return null;
         } finally {
             setIsValidatingCart(false);
         }
-    }, [addToast, applyValidationPayload, onValidationRefresh, uid]);
+    }, [addToast, applyValidationPayload, onValidationRefresh, t, uid]);
 
     const createSubmissionContext = (latestCart: CheckoutCartItem[]): CheckoutSubmissionContext => {
         const normalizedEmail = normalizeCheckoutEmail(formCheckout.email);
@@ -316,7 +318,7 @@ const CheckoutPaymentPage = ({
             return;
         }
 
-        setErrors(["Checkout did not return a payment URL. Please try again."]);
+        setErrors([t("checkout.paymentUrlError")]);
     };
 
     const submitGuestOrder = async (submission: CheckoutSubmissionContext) => {
@@ -405,15 +407,15 @@ const CheckoutPaymentPage = ({
                 cartItems: authoritativeCart,
             });
             const message = requiresVerification
-                ? "Please verify your email before placing an authenticated order."
-                : getApiErrorMessage(err, "Checkout failed.");
+                ? t("checkout.verificationRequired")
+                : getApiErrorMessage(err, t("checkout.checkoutError"));
             setErrors([message]);
-            addToast("Checkout", message);
+            addToast(t("checkout.title"), message);
             return;
         }
 
-        setErrors(["An unexpected error occurred."]);
-        addToast("Checkout", "An unexpected error occurred.");
+        setErrors([t("checkout.unexpectedError")]);
+        addToast(t("checkout.title"), t("checkout.unexpectedError"));
     };
 
     const handlePurchase = async () => {
@@ -428,7 +430,7 @@ const CheckoutPaymentPage = ({
         if (validationIssues.length > 0) {
             const message = getCartValidationMessage(validationIssues);
             setErrors([message]);
-            addToast("Checkout", "Please update cart quantities before placing the order.");
+            addToast(t("checkout.title"), t("checkout.updateCartQuantities"));
             return;
         }
 
@@ -465,63 +467,58 @@ const CheckoutPaymentPage = ({
     return (
         <div className="checkout">
             <Helmet>
-                <title>Checkout | Digital-E</title>
-                <meta name="description" content="Complete your purchase securely and confirm shipping details." />
+                <title>{t("checkout.title")} | Digital-E</title>
+                <meta name="description" content={t("checkout.description")} />
             </Helmet>
             <div className="checkout__hero">
-                <button type="button" className="checkout__back" onClick={() => setIsPayment(false)}>Back to cart</button>
+                <button type="button" className="checkout__back" onClick={() => setIsPayment(false)}>{t("checkout.backToCart")}</button>
                 <div className="checkout__hero__content">
-                    <p className="checkout__hero__eyebrow">ORDER // SECURE CHECKOUT</p>
-                    <h1>Checkout</h1>
-                    <p>Confirm your delivery details, choose a payment rail, and place your electronics order.</p>
-                    <ol className="checkout__progress" aria-label="Checkout progress">
-                        <li className="checkout__progress__step is-complete"><span>01</span>Cart</li>
-                        <li className="checkout__progress__step is-complete"><span>02</span>Shipping</li>
-                        <li className="checkout__progress__step is-active" aria-current="step"><span>03</span>Payment</li>
-                    </ol>
+                    <p className="checkout__hero__eyebrow">{t("checkout.secureEyebrow")}</p>
+                    <h1>{t("checkout.title")}</h1>
+                    <p>{t("checkout.description")}</p>
                 </div>
                 <div className="checkout__hero__meta">
-                    <div><strong>{itemsCount}</strong><span>Items</span></div>
-                    <div><strong>{formatCurrency(totalPrice - discount)}</strong><span>Total due</span></div>
+                    <div><strong>{itemsCount}</strong><span>{t("checkout.items")}</span></div>
+                    <div><strong>{formatCurrency(totalPrice - discount)}</strong><span>{t("checkout.totalDue")}</span></div>
                 </div>
             </div>
 
             <div className="checkout__layout">
                 <section className="checkout__form">
-                    {loading ? <div className="checkout__note">Checking session...</div> : null}
-                    {isValidatingCart ? <div className="checkout__note">Checking latest stock before payment...</div> : null}
+                    {loading ? <div className="checkout__note">{t("checkout.checkingSession")}</div> : null}
+                    {isValidatingCart ? <div className="checkout__note">{t("checkout.checkingStock")}</div> : null}
                     {errors.length > 0 ? <div className="checkout__alert">{errors.map((error, id) => <span key={id}>{error}</span>)}</div> : null}
                     {verificationRequired ? (
                         <div className="checkout__alert checkout__alert--warning" role="alert">
-                            <span>Open your account to request a new verification email.</span>
-                            <Link to="/account">Verify email</Link>
+                            <span>{t("checkout.verifyAccount")}</span>
+                            <Link to="/account">{t("checkout.verifyEmail")}</Link>
                         </div>
                     ) : null}
                     {hasValidationIssues ? (
                         <div className="checkout__alert checkout__alert--warning">
-                            <strong>Review your cart before placing the order.</strong>
+                            <strong>{t("checkout.reviewCart")}</strong>
                             {validationIssues.map((issue) => (
                                 <span key={`${issue.cartItemId || issue.productName}-${issue.reason}`}>
                                     {issue.reason === "unavailable"
-                                        ? `${issue.productName} is no longer available.`
+                                        ? `${issue.productName} ${t("checkout.unavailable")}`
                                         : issue.reason === "out_of_stock"
-                                          ? `${issue.productName} is out of stock.`
-                                          : `${issue.productName} has ${issue.availableStock} item(s) available, but your cart has ${issue.requestedQuantity}.`}
+                                          ? `${issue.productName} ${t("checkout.outOfStock")}`
+                                          : t("checkout.quantityAvailable", issue.availableStock, issue.requestedQuantity)}
                                 </span>
                             ))}
                         </div>
                     ) : null}
 
                     <div className="checkout__card">
-                        <div className="checkout__card__header"><h2><span>01</span>Contact</h2><p>Where should we send order updates?</p></div>
+                        <div className="checkout__card__header"><h2><span>01</span>{t("checkout.contact")}</h2><p>{t("checkout.contactDescription")}</p></div>
                         <Form>
                             <Form.Group className="mb-3" controlId="formBasicEmail">
-                                <Form.Label htmlFor="checkout-email">Email address</Form.Label>
+                                    <Form.Label htmlFor="checkout-email">{t("checkout.email")}</Form.Label>
                                 <Form.Control
                                     id="checkout-email"
                                     type="email"
                                     name="email"
-                                    placeholder="name@email.com"
+                                    placeholder={t("checkout.emailPlaceholder")}
                                     autoComplete="email"
                                     inputMode="email"
                                     required
@@ -534,13 +531,13 @@ const CheckoutPaymentPage = ({
                                 {showEmailError ? <small id="checkout-email-error" className="checkout__field-error">{emailError}</small> : null}
                             </Form.Group>
                             <Form.Group className="mb-3" controlId="formBasicCheckbox">
-                                <Form.Check type="checkbox" label="Keep me up to date with new products and sales" />
+                                <Form.Check type="checkbox" label={t("checkout.marketing")} />
                             </Form.Group>
                         </Form>
                     </div>
 
                     <div className="checkout__card">
-                        <div className="checkout__card__header"><h2><span>02</span>Shipping</h2><p>Use a saved address or enter a new delivery point.</p></div>
+                        <div className="checkout__card__header"><h2><span>02</span>{t("checkout.shipping")}</h2><p>{t("checkout.shippingDescription")}</p></div>
                         {savedAddresses.length > 0 ? (
                             <div className="checkout__saved-addresses">
                                 {savedAddresses.map((address) => (
@@ -553,8 +550,8 @@ const CheckoutPaymentPage = ({
                         {!formCheckout.address.trim() && recentOrderAddresses.length > 0 ? (
                             <div className="checkout__address-recommendations" aria-live="polite">
                                 <div className="checkout__address-recommendations__header">
-                                    <strong>Use a recent shipping address?</strong>
-                                    <span>Choose an address from a previous order to fill the form.</span>
+                                    <strong>{t("checkout.recentAddressTitle")}</strong>
+                                    <span>{t("checkout.recentAddressDescription")}</span>
                                 </div>
                                 <div className="checkout__address-recommendations__list">
                                     {recentOrderAddresses.map((address) => (
@@ -575,46 +572,46 @@ const CheckoutPaymentPage = ({
                             <div className="checkout__field-grid">
                                 <div className="checkout__field">
                                     <Form.Group className="mb-3" controlId="formFirstName">
-                                        <Form.Label htmlFor="checkout-first-name">First name</Form.Label>
-                                        <Form.Control id="checkout-first-name" type="text" name="first_name" placeholder="First name" autoComplete="given-name" required value={formCheckout.first_name} onChange={handleInputChange} />
+                                        <Form.Label htmlFor="checkout-first-name">{t("checkout.firstName")}</Form.Label>
+                                        <Form.Control id="checkout-first-name" type="text" name="first_name" placeholder={t("checkout.firstName")} autoComplete="given-name" required value={formCheckout.first_name} onChange={handleInputChange} />
                                     </Form.Group>
                                 </div>
                                 <div className="checkout__field">
                                     <Form.Group className="mb-3" controlId="formLastName">
-                                        <Form.Label htmlFor="checkout-last-name">Last name</Form.Label>
-                                        <Form.Control id="checkout-last-name" type="text" name="last_name" placeholder="Last name" autoComplete="family-name" required value={formCheckout.last_name} onChange={handleInputChange} />
+                                        <Form.Label htmlFor="checkout-last-name">{t("checkout.lastName")}</Form.Label>
+                                        <Form.Control id="checkout-last-name" type="text" name="last_name" placeholder={t("checkout.lastName")} autoComplete="family-name" required value={formCheckout.last_name} onChange={handleInputChange} />
                                     </Form.Group>
                                 </div>
                             </div>
                             <Form.Group className="mb-3" controlId="formShippingAddress">
-                                <Form.Label htmlFor="checkout-address">Shipping address</Form.Label>
-                                <Form.Control id="checkout-address" type="text" name="address" placeholder="Street address" autoComplete="street-address" required value={formCheckout.address} onChange={handleInputChange} />
+                                <Form.Label htmlFor="checkout-address">{t("checkout.address")}</Form.Label>
+                                <Form.Control id="checkout-address" type="text" name="address" placeholder={t("checkout.address")} autoComplete="street-address" required value={formCheckout.address} onChange={handleInputChange} />
                             </Form.Group>
                             <div className="checkout__field-grid">
                                 <div className="checkout__field">
                                     <Form.Group className="mb-3" controlId="formCity">
-                                        <Form.Label htmlFor="checkout-city">City</Form.Label>
-                                        <Form.Control id="checkout-city" type="text" name="city" placeholder="City" autoComplete="address-level2" required value={formCheckout.city} onChange={handleInputChange} />
+                                        <Form.Label htmlFor="checkout-city">{t("checkout.city")}</Form.Label>
+                                        <Form.Control id="checkout-city" type="text" name="city" placeholder={t("checkout.city")} autoComplete="address-level2" required value={formCheckout.city} onChange={handleInputChange} />
                                     </Form.Group>
                                 </div>
                                 <div className="checkout__field">
                                     <Form.Group className="mb-3" controlId="formCountry">
-                                        <Form.Label htmlFor="checkout-country">Country</Form.Label>
-                                        <Form.Control id="checkout-country" type="text" name="country" placeholder="Country" autoComplete="country-name" value={formCheckout.country || ""} onChange={handleInputChange} />
+                                        <Form.Label htmlFor="checkout-country">{t("checkout.country")}</Form.Label>
+                                        <Form.Control id="checkout-country" type="text" name="country" placeholder={t("checkout.country")} autoComplete="country-name" value={formCheckout.country || ""} onChange={handleInputChange} />
                                     </Form.Group>
                                 </div>
                             </div>
                             <Form.Group className="mb-3" controlId="formPhoneNumber">
-                                <Form.Label htmlFor="checkout-phone">Phone number</Form.Label>
-                                <Form.Control id="checkout-phone" type="tel" name="phone_number" placeholder="Phone number" autoComplete="tel" value={formCheckout.phone_number || ""} onChange={handleInputChange} />
+                                <Form.Label htmlFor="checkout-phone">{t("checkout.phone")}</Form.Label>
+                                <Form.Control id="checkout-phone" type="tel" name="phone_number" placeholder={t("checkout.phone")} autoComplete="tel" value={formCheckout.phone_number || ""} onChange={handleInputChange} />
                             </Form.Group>
                         </Form>
                     </div>
 
                     <div className="checkout__card">
-                        <div className="checkout__card__header"><h2><span>03</span>Payment</h2><p>Select the payment rail that works for you.</p></div>
+                        <div className="checkout__card__header"><h2><span>03</span>{t("checkout.payment")}</h2><p>{t("checkout.paymentDescription")}</p></div>
                         <Form className="checkout__payment">
-                            <div className="checkout__payment__methods" role="radiogroup" aria-label="Payment method">
+                            <div className="checkout__payment__methods" role="radiogroup" aria-label={t("checkout.paymentMethod")}>
                                 {paymentOptions.map((option) => (
                                     <label key={option.value} className={formCheckout.payment_method === option.value ? `checkout__payment__method checkout__payment__method--${option.value} is-active` : `checkout__payment__method checkout__payment__method--${option.value}`} htmlFor={`payment-${option.value}`}>
                                         <input type="radio" id={`payment-${option.value}`} name="payment_method" value={option.value} checked={formCheckout.payment_method === option.value} onChange={handleInputChange} />
@@ -624,20 +621,18 @@ const CheckoutPaymentPage = ({
                                     </label>
                                 ))}
                             </div>
-                            <div className="checkout__payment__selected"><span>Selected method</span><strong>{selectedPayment.title}</strong></div>
+                            <div className="checkout__payment__selected"><span>{t("checkout.selectedMethod")}</span><strong>{selectedPayment.title}</strong></div>
                             {formCheckout.payment_method === PAYMENT_METHOD.PAYOS ? (
                                 <div className="checkout__payment__details">
-                                    <h3>PayOS payment</h3>
-                                    <p>
-                                        PayOS is our Vietnam-first payment option. The server calculates and locks the whole-number VND quote before redirecting you to PayOS.
-                                    </p>
-                                    <p>Your order is created only after a verified PayOS payment webhook confirms the exact amount.</p>
+                                    <h3>{t("checkout.payos")}</h3>
+                                    <p>{t("checkout.payosDescription")}</p>
+                                    <p>{t("checkout.payosConfirmation")}</p>
                                 </div>
                             ) : (
                                 <div className="checkout__payment__details">
-                                    <h3>Cash on delivery notes</h3>
-                                    <p>Please prepare the exact amount if possible. Our delivery partner will collect the payment when handing over the package.</p>
-                                    <p>Orders paid by cash are confirmed before dispatch and may be verified by phone.</p>
+                                    <h3>{t("checkout.cashOnDelivery")}</h3>
+                                    <p>{t("checkout.cashDescription")}</p>
+                                    <p>{t("checkout.cashConfirmation")}</p>
                                 </div>
                             )}
                         </Form>
@@ -646,9 +641,9 @@ const CheckoutPaymentPage = ({
 
                 <aside className="checkout__summary">
                     <div className="checkout__summary__card">
-                        <p className="checkout__summary__eyebrow">ORDER MANIFEST</p>
-                        <h2>Order summary</h2>
-                        <div className="checkout__summary__badge"><ShieldIcon size={16} /><span>Stock and pricing are rechecked before the order is placed.</span></div>
+                        <p className="checkout__summary__eyebrow">{t("checkout.orderSummary")}</p>
+                        <h2>{t("checkout.orderSummary")}</h2>
+                        <div className="checkout__summary__badge"><ShieldIcon size={16} /><span>{t("checkout.stockPriceCheck")}</span></div>
                         <div className="checkout__summary__list">
                             {cart.slice(0, 3).map((item) => (
                                 <div key={item.cartItemId} className="checkout__summary__item">
@@ -656,18 +651,18 @@ const CheckoutPaymentPage = ({
                                     <span>{formatCurrency(item.quantity * (item.sale_price ?? item.price))}</span>
                                 </div>
                             ))}
-                            {cart.length > 3 ? <div className="checkout__summary__more">+ {cart.length - 3} more items</div> : null}
+                            {cart.length > 3 ? <div className="checkout__summary__more">{t("checkout.moreItems", cart.length - 3)}</div> : null}
                         </div>
                         <div className="checkout__summary__rows">
-                            <div><span>Subtotal</span><strong>{formatCurrency(totalPrice)}</strong></div>
-                            <div><span>Shipping</span><strong className="free">Free</strong></div>
-                            <div><span>Discount</span><strong className="muted">−{formatCurrency(discount)}</strong></div>
+                            <div><span>{t("checkout.subtotal")}</span><strong>{formatCurrency(totalPrice)}</strong></div>
+                            <div><span>{t("checkout.shipping")}</span><strong className="free">{t("checkout.free")}</strong></div>
+                            <div><span>{t("checkout.discount")}</span><strong className="muted">−{formatCurrency(discount)}</strong></div>
                         </div>
-                        <div className="checkout__summary__total"><span>Total</span><strong>{formatCurrency(totalPrice - discount)}</strong></div>
+                        <div className="checkout__summary__total"><span>{t("checkout.total")}</span><strong>{formatCurrency(totalPrice - discount)}</strong></div>
                         <button type="button" onClick={handlePurchase} disabled={isSubmitting || isValidatingCart || hasValidationIssues}>
-                            {isSubmitting ? "Placing order..." : isValidatingCart ? "Checking stock..." : "Place order"}
+                            {isSubmitting ? t("checkout.placingOrder") : isValidatingCart ? t("checkout.checkingStockButton") : formCheckout.payment_method === PAYMENT_METHOD.PAYOS ? t("checkout.continueToPayOS") : t("checkout.placeOrder")}
                         </button>
-                        <p className="checkout__summary__footnote">By placing your order, you agree to our store policies.</p>
+                        <p className="checkout__summary__footnote">{t("checkout.policyFootnote")}</p>
                     </div>
                 </aside>
             </div>
