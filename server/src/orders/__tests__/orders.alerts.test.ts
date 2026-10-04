@@ -6,7 +6,6 @@ vi.mock("../../database/transaction", () => ({ withTransaction }));
 vi.mock("#src/shared/utils/logger", () => ({
     logger: { info: vi.fn(), error: vi.fn(), debug: vi.fn(), warn: vi.fn() },
 }));
-vi.mock("../orders.repository", () => ({ OrdersRepository: class {} }));
 vi.mock("../orders.timeline.service", () => ({ NestOrderTimelineService: class {} }));
 vi.mock("../../cart/cart.service", () => ({ NestCartService: class {} }));
 vi.mock("../../inventory/inventory.service", () => ({ NestInventoryService: class {} }));
@@ -14,14 +13,16 @@ vi.mock("../../notifications/notifications.service", () => ({ NestNotificationsS
 vi.mock("../checkout-reservation.repository", () => ({ CheckoutReservationRepository: class {} }));
 
 import { NestOrdersService } from "../orders.service";
+import { OrdersRepository } from "../orders.repository";
+import { NestOrdersCancellationService } from "../orders-cancellation.service";
 
 describe("order cancellation product alerts", () => {
     beforeEach(() => vi.clearAllMocks());
 
-    it("records back-in-stock from the locked stock before/after cancellation values", async () => {
+    it.each([false, true])("records locked stock transitions and propagates alert failure=%s", async (failAlert) => {
         const tx = { query: vi.fn() };
         tx.query.mockImplementation(async (sql: string) => {
-            if (sql.includes("SELECT user_id, status, inventory_restored_at")) {
+            if (sql.includes("SELECT user_id, status") && sql.includes("inventory_restored_at")) {
                 return [{ user_id: "user-1", status: 0, inventory_restored_at: null }];
             }
             if (sql.includes("FROM order_items")) return [{ product_id: 4, quantity: 2 }];
@@ -30,9 +31,9 @@ describe("order cancellation product alerts", () => {
         });
         withTransaction.mockImplementation(async (work: (transaction: typeof tx) => Promise<unknown>) => work(tx));
 
-        const repository = {
+        const repository = Object.assign(new OrdersRepository({} as never), {
             getOrderById: vi.fn((_id: number, callback: (error: null, rows: unknown[]) => void) => callback(null, [{ id: 9, status: 2 }])),
-        };
+        });
         const timeline = { createTimelineEventInTransaction: vi.fn().mockResolvedValue(undefined) };
         const inventory = { createMovementsInTransaction: vi.fn().mockResolvedValue(undefined) };
         const notifications = { notifyOrderStatus: vi.fn() };
@@ -46,11 +47,19 @@ describe("order cancellation product alerts", () => {
             {} as never,
             {} as never,
             {} as never,
+            new NestOrdersCancellationService(repository, timeline as never, inventory as never, alerts as never),
             undefined,
-            alerts as never,
         );
 
-        await service.cancelOrder(9, "user-1");
+        if (failAlert) {
+            const failure = new Error("alert write failed");
+            alerts.recordTransitionsInTransaction.mockRejectedValueOnce(failure);
+            await expect(service.cancelOrder(9, "user-1")).rejects.toBe(failure);
+            expect(timeline.createTimelineEventInTransaction).not.toHaveBeenCalled();
+            expect(notifications.notifyOrderStatus).not.toHaveBeenCalled();
+        } else {
+            await service.cancelOrder(9, "user-1");
+        }
 
         expect(alerts.recordTransitionsInTransaction).toHaveBeenCalledWith(
             tx,

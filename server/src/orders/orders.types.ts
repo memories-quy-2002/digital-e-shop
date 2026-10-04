@@ -2,7 +2,27 @@ import type { GuestPurchasePayload, PurchasePayload, GuestPayOSCheckoutPayload }
 import type { CartItemRow } from "../cart/cart.types";
 import type { GuestOrderTokenHash } from "./guest-order-token";
 import type { CheckoutReservationStatus } from "#src/shared/constants/checkout-reservation";
-import type { PayOSPaymentProvider } from "../payments/payment.types";
+import type { PayOSPaymentProvider, PaymentProviderName, PaymentQuote } from "../payments/payment.types";
+
+export type OrderPaymentLedgerWrite = {
+    orderId: number;
+    provider: PaymentProviderName;
+    status: string;
+    providerReference: string | null;
+    providerPaymentId: string | null;
+    quote: PaymentQuote;
+    simulated: boolean;
+};
+
+export type OrderLifecycleRow = {
+    user_id: string | null;
+    status: number;
+    delivered_at?: string | Date | null;
+    inventory_restored_at?: string | Date | null;
+};
+export type OrderItemQuantityRow = { product_id: number; quantity: number };
+export type OrderRestockProductRow = { id: number; price: number; sale_price: number | null; stock: number };
+export type OrderPaymentLifecycleRow = { id: number; provider: string; status: string; simulated?: number | boolean | null };
 
 export type OrderSummaryRow = {
     id: number;

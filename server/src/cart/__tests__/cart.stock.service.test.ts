@@ -5,7 +5,7 @@ describe("customer cart stock validation", () => {
     it("checks the existing customer-cart quantity before adding more units", async () => {
         const addItemToCartByUserId = vi.fn();
         const service = new NestCartService(
-            { getCartItemQuantityByUserId: vi.fn((_uid, _pid, callback) => callback(null, [{ quantity: 5 }])), addItemToCartByUserId } as never,
+            { getCartItemQuantityByUserId: vi.fn().mockResolvedValue([{ quantity: 5 }]), addItemToCartByUserId } as never,
             {} as never,
             { getProductById: vi.fn().mockResolvedValue({ id: 10, name: "Widget", stock: 6, available_stock: 6 }) } as never,
             {} as never,

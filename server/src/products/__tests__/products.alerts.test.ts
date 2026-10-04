@@ -40,7 +40,26 @@ function buildService({
     });
     withTransaction.mockImplementation(async (work: (transaction: typeof tx) => Promise<unknown>) => work(tx));
 
-    const repository = { getProductById: vi.fn().mockResolvedValue(product(lockedProduct)) };
+    const repository = {
+        getProductById: vi.fn().mockResolvedValue(product(lockedProduct)),
+        ensureNamedIdInTransaction: vi.fn(async (transaction: typeof tx, table: "brands" | "categories", name: string) => {
+            const rows = await transaction.query<Array<{ id: number }>>(`SELECT id FROM ${table} WHERE name = ?`, [name]);
+            return rows[0]?.id ?? 1;
+        }),
+        insertProductInTransaction: vi.fn((transaction: typeof tx, values: unknown) =>
+            transaction.query("INSERT INTO products", [values])),
+        getProductMutationStateForUpdate: vi.fn(async (transaction: typeof tx, pid: number) => {
+            const rows = await transaction.query<Array<{ price: number; sale_price: number | null; stock: number }>>(
+                "SELECT price, sale_price, stock FROM products WHERE id = ? AND stock >= 0 FOR UPDATE",
+                [pid],
+            );
+            return rows[0] ?? null;
+        }),
+        updateProductInTransaction: vi.fn((transaction: typeof tx, pid: number, values: unknown) =>
+            transaction.query("UPDATE products", [pid, values])),
+        updateProductStockInTransaction: vi.fn((transaction: typeof tx, pid: number, stock: number) =>
+            transaction.query("UPDATE products SET stock = ? WHERE id = ? AND stock >= 0", [stock, pid])),
+    };
     const inventory = { createMovementsInTransaction: vi.fn().mockResolvedValue(undefined) };
     const attributes = { replaceForProduct: vi.fn().mockResolvedValue(undefined) };
     const blobService = { uploadImage: vi.fn().mockResolvedValue({ url: "https://example.test/product.webp" }) };

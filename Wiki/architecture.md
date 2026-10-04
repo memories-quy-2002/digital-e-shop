@@ -189,6 +189,23 @@ application has not been converted to Prisma.
 - Prisma Client is currently limited to bounded read-only repository paths;
   critical writes use the shared `mysql2` transaction context. Do not mix a
   Prisma transaction client with the raw pool for one business transaction.
+- Product create, edit, and stock-adjustment SQL is owned by
+  `NestProductsRepository` transaction methods; `NestProductsService` keeps
+  validation, normalization, and coordination with attributes, inventory, and
+  product alerts on the same transaction context.
+- Order payment-ledger, finalization, and lifecycle SQL is owned by
+  `OrdersRepository` transaction methods. Pure order-item snapshot mapping lives
+  in `orders.snapshot.ts`; the required `NestOrdersCancellationService` owns
+  cancellation orchestration. `NestOrdersService` remains the public facade and
+  sends cancellation notifications only after the cancellation transaction commits.
+  Cancellation locks the distinct product rows in ascending ID order once, then
+  applies each order item sequentially so stock movements and alert transitions
+  retain their per-item snapshots.
+- Filtered product counts use only product/category/brand identity joins; rating
+  and reservation aggregates remain in list projections. Admin analytics shares
+  simultaneous summary-row reads for the same range within one service instance,
+  then evicts the promise on success or failure. It does not cache completed
+  summaries or deduplicate work across instances.
 
 ## Checkout, payment, and operations
 
@@ -197,6 +214,10 @@ application has not been converted to Prisma.
   expires carts after 30 days, and exposes aggregate funnel metrics to Admin;
   preview and checkout remain authoritative for current catalog data, stock,
   promotions, and totals.
+- Feature validators own request schemas; `shared/validation/request-schemas.ts`
+  remains a compatibility facade that re-exports them. `CartRepository` exposes
+  Promise-based reads and writes, while retaining owner-scoped SQL and the
+  existing mutation sequence in `NestCartService`.
 - Authenticated and guest orders share the order lifecycle: Pending, Done, and
   Canceled. Pending cancellation restores inventory once and records timeline,
   movement, and notification side effects.

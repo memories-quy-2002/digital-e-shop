@@ -4,7 +4,6 @@ import type { DbError, ServiceResultMessage } from "#src/shared/interfaces/domai
 import type {
     CartCheckoutItem,
     CartItemRow,
-    CartRow,
     GuestCartItemInput,
     GuestCartPreviewResult,
     CartValidationIssue,
@@ -348,12 +347,8 @@ export class NestCartService {
             throw new Error("Product not found");
         }
         const availableStock = Number((product as ProductEditorRow).available_stock ?? (product as ProductEditorRow).stock) || 0;
-        const existingQuantity = await new Promise<number>((resolve, reject) => {
-            this.cartRepository.getCartItemQuantityByUserId(uid, pid, (err: DbError | null, results: CartItemRow[]) => {
-                if (err) return reject(err);
-                resolve(Number(results?.[0]?.quantity) || 0);
-            });
-        });
+        const existingItems = await this.cartRepository.getCartItemQuantityByUserId(uid, pid);
+        const existingQuantity = Number(existingItems?.[0]?.quantity) || 0;
         if (availableStock < existingQuantity + safeQuantity) {
             throw new CartStockConflictError(buildCartStockConflictMessage(
                 String((product as ProductEditorRow).name || `Product #${pid}`),
@@ -363,67 +358,32 @@ export class NestCartService {
             ));
         }
 
-        return new Promise((resolve, reject) => {
-            this.cartRepository.addItemToCartByUserId(uid, pid, safeQuantity, (err: DbError | null) => {
-                if (err) return reject(err);
-                this.cartRepository.getCartIdByUserId(uid, (idErr: DbError | null, results: CartRow[]) => {
-                    if (idErr) return reject(idErr);
-                    if (results.length > 0) {
-                        const cartId = results[0].id;
-                        this.cartRepository.addItemToCart(cartId, pid, safeQuantity, (addErr: DbError | null) => {
-                            if (addErr) return reject(addErr);
-                            resolve(`Product with id = ${pid} has been added to the cart id = ${cartId}`);
-                        });
-                    } else {
-                        resolve("No active cart found for user.");
-                    }
-                });
-            });
-        });
+        await this.cartRepository.addItemToCartByUserId(uid, pid, safeQuantity);
+        const carts = await this.cartRepository.getCartIdByUserId(uid);
+        if (carts.length === 0) return "No active cart found for user.";
+
+        const cartId = carts[0].id;
+        await this.cartRepository.addItemToCart(cartId, pid, safeQuantity);
+        return `Product with id = ${pid} has been added to the cart id = ${cartId}`;
     }
 
     async getCartItems(uid: string): Promise<CartItemRow[]> {
-        return new Promise((resolve, reject) => {
-            this.cartRepository.getCartItemsByUserId(uid, (err: DbError | null, results: CartRow[]) => {
-                if (err) return reject(err);
-                if (results.length > 0) {
-                    const cartId = results[0].id;
-                    this.cartRepository.getCartItemsDetails(cartId, (detailErr: DbError | null, detailResults: CartItemRow[]) => {
-                        if (detailErr) return reject(detailErr);
-                        resolve(detailResults);
-                    });
-                } else {
-                    resolve([]);
-                }
-            });
-        });
+        const carts = await this.cartRepository.getCartItemsByUserId(uid);
+        if (carts.length === 0) return [];
+        return this.cartRepository.getCartItemsDetails(carts[0].id);
     }
 
     async getCheckoutCartItems(uid: string): Promise<CartItemRow[]> {
-        return new Promise((resolve, reject) => {
-            this.cartRepository.getCartItemsByUserId(uid, (err: DbError | null, results: CartRow[]) => {
-                if (err) return reject(err);
-                if (results.length === 0) {
-                    return resolve([]);
-                }
-
-                const cartId = results[0].id;
-                this.cartRepository.getCheckoutCartItemsDetails(cartId, (detailErr: DbError | null, detailResults: CartItemRow[]) => {
-                    if (detailErr) return reject(detailErr);
-                    resolve(detailResults || []);
-                });
-            });
-        });
+        const carts = await this.cartRepository.getCartItemsByUserId(uid);
+        if (carts.length === 0) return [];
+        const items = await this.cartRepository.getCheckoutCartItemsDetails(carts[0].id);
+        return items || [];
     }
 
     async deleteCartItem(cartItemId: number, uid: string): Promise<ServiceResultMessage> {
-        return new Promise((resolve, reject) => {
-            this.cartRepository.deleteCartItem(cartItemId, uid, (err: DbError | null, result) => {
-                if (err) return reject(err);
-                if (!result?.affectedRows) return reject(new CartItemNotFoundError());
-                resolve(`Cart item with id = ${cartItemId} has been deleted.`);
-            });
-        });
+        const result = await this.cartRepository.deleteCartItem(cartItemId, uid);
+        if (!result?.affectedRows) throw new CartItemNotFoundError();
+        return `Cart item with id = ${cartItemId} has been deleted.`;
     }
 
     async syncGuestCart(guestCartId: string, items: GuestCartItemInput[]) {
@@ -455,12 +415,9 @@ export class NestCartService {
 
     async previewGuestCart(items: GuestCartItemInput[], discountCode?: string): Promise<GuestCartPreviewResult> {
         const requestedItems = coalesceGuestCartItems(items);
-        const products = await new Promise<CartItemRow[]>((resolve, reject) => {
-            this.cartRepository.getGuestCartPreviewItems(
-                requestedItems.map((item) => item.productId),
-                (err: DbError | null, results: CartItemRow[]) => err ? reject(err) : resolve(results || []),
-            );
-        });
+        const products = await this.cartRepository.getGuestCartPreviewItems(
+            requestedItems.map((item) => item.productId),
+        );
         const normalizedDiscountCode = String(discountCode || "").trim().toUpperCase();
         const promotion = normalizedDiscountCode
             ? await new Promise<PromotionRow | null>((resolve, reject) => {
@@ -493,25 +450,20 @@ export class NestCartService {
 
     async updateCartItemQuantity(cartItemId: number, uid: string, quantity: number): Promise<ServiceResultMessage> {
         const safeQuantity = Math.max(1, Number(quantity) || 1);
-        return new Promise((resolve, reject) => {
-            this.cartRepository.getCartItemStock(cartItemId, uid, (stockErr: DbError | null, stockResults: CartItemRow[]) => {
-                if (stockErr) return reject(stockErr);
-                if (stockResults.length === 0) return reject(new CartItemNotFoundError());
-                const stock = Number(stockResults[0]?.available_stock ?? stockResults[0]?.stock) || 0;
-                if (stock < safeQuantity) {
-                    return reject(new CartStockConflictError(buildCartStockConflictMessage(
-                        String(stockResults[0]?.product_name || "This product"),
-                        0,
-                        safeQuantity,
-                        stock,
-                    )));
-                }
-                this.cartRepository.updateCartItemQuantity(cartItemId, uid, safeQuantity, (err: DbError | null, result) => {
-                    if (err) return reject(err);
-                    if (!result?.affectedRows) return reject(new CartItemNotFoundError());
-                    resolve(`Cart item with id = ${cartItemId} has been updated.`);
-                });
-            });
-        });
+        const stockResults = await this.cartRepository.getCartItemStock(cartItemId, uid);
+        if (stockResults.length === 0) throw new CartItemNotFoundError();
+        const stock = Number(stockResults[0]?.available_stock ?? stockResults[0]?.stock) || 0;
+        if (stock < safeQuantity) {
+            throw new CartStockConflictError(buildCartStockConflictMessage(
+                String(stockResults[0]?.product_name || "This product"),
+                0,
+                safeQuantity,
+                stock,
+            ));
+        }
+
+        const result = await this.cartRepository.updateCartItemQuantity(cartItemId, uid, safeQuantity);
+        if (!result?.affectedRows) throw new CartItemNotFoundError();
+        return `Cart item with id = ${cartItemId} has been updated.`;
     }
 }

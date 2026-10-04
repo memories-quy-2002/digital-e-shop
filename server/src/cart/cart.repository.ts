@@ -1,54 +1,62 @@
 import { Injectable } from "@nestjs/common";
 import pool from "#src/config/database.config";
-import type { QueryCallback, UpdateResult } from "#src/shared/interfaces/domain";
+import type { UpdateResult } from "#src/shared/interfaces/domain";
 import type { CartItemRow, CartRow } from "./cart.types";
 import { CHECKOUT_RESERVATION_STATUS } from "#src/shared/constants/checkout-reservation";
 
 @Injectable()
 export class CartRepository {
-    addItemToCartByUserId(uid: string, pid: number, quantity: number, callback: QueryCallback<UpdateResult>) {
-        pool.query(
+    private query<T>(sql: string, params: unknown[]): Promise<T> {
+        return new Promise((resolve, reject) => {
+            pool.query(sql, params, (error, results) => {
+                if (error) return reject(error);
+                resolve(results as T);
+            });
+        });
+    }
+
+    addItemToCartByUserId(uid: string, _pid: number, _quantity: number): Promise<UpdateResult> {
+        void _pid;
+        void _quantity;
+        return this.query<UpdateResult>(
             `INSERT INTO carts (user_id)
             SELECT ?
             WHERE NOT EXISTS (
                 SELECT 1 FROM carts WHERE user_id = ? AND done = 0);`,
             [uid, uid],
-            callback,
         );
     }
 
-    getCartIdByUserId(uid: string, callback: QueryCallback<CartRow[]>) {
-        pool.query("SELECT id FROM carts WHERE user_id = ? AND done = 0 LIMIT 1", [uid], callback);
+    getCartIdByUserId(uid: string): Promise<CartRow[]> {
+        return this.query("SELECT id FROM carts WHERE user_id = ? AND done = 0 LIMIT 1", [uid]);
     }
 
-    addItemToCart(cartId: number, pid: number, quantity: number, callback: QueryCallback<UpdateResult>) {
-        pool.query(
+    addItemToCart(cartId: number, pid: number, quantity: number): Promise<UpdateResult> {
+        return this.query<UpdateResult>(
             `INSERT INTO cart_items (cart_id, product_id, quantity)
             VALUES (?, ?, ?)
             ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity);`,
             [cartId, pid, quantity],
-            callback,
         );
     }
 
-    getCartItemQuantityByUserId(uid: string, pid: number, callback: QueryCallback<CartItemRow[]>) {
-        pool.query(
+    getCartItemQuantityByUserId(uid: string, pid: number): Promise<CartItemRow[]> {
+        return this.query(
             `SELECT ci.quantity
              FROM cart_items ci
              JOIN carts c ON c.id = ci.cart_id
              WHERE c.user_id = ? AND c.done = 0 AND ci.product_id = ?
              LIMIT 1`,
             [uid, pid],
-            callback,
         );
     }
 
-    getCartItemsByUserId(uid: string, callback: QueryCallback<CartRow[]>) {
-        pool.query(`SELECT id FROM carts WHERE user_id = ? AND done = 0 LIMIT 1`, [uid], callback);
+    getCartItemsByUserId(uid: string): Promise<CartRow[]> {
+        return this.query(`SELECT id FROM carts WHERE user_id = ? AND done = 0 LIMIT 1`, [uid]);
     }
 
-    getCartItemsDetails(cartId: number, callback: QueryCallback<CartItemRow[]>) {
-        pool.query(
+    getCartItemsDetails(cartId: number): Promise<CartItemRow[]> {
+        return this.query(
             `SELECT
                 ci.id AS cart_item_id,
                 p.id AS product_id,
@@ -96,12 +104,11 @@ export class CartRepository {
             ) active_reservations ON active_reservations.product_id = p.id
             WHERE ci.cart_id = ? AND p.stock >= 0;  `,
             [cartId],
-            callback,
         );
     }
 
-    getCheckoutCartItemsDetails(cartId: number, callback: QueryCallback<CartItemRow[]>) {
-        pool.query(
+    getCheckoutCartItemsDetails(cartId: number): Promise<CartItemRow[]> {
+        return this.query(
             `SELECT
                 ci.id AS cart_item_id,
                 ci.product_id,
@@ -145,18 +152,16 @@ export class CartRepository {
             ) active_reservations ON active_reservations.product_id = p.id
             WHERE ci.cart_id = ?`,
             [cartId],
-            callback,
         );
     }
 
-    getGuestCartPreviewItems(productIds: number[], callback: QueryCallback<CartItemRow[]>) {
+    getGuestCartPreviewItems(productIds: number[]): Promise<CartItemRow[]> {
         if (productIds.length === 0) {
-            callback(null, []);
-            return;
+            return Promise.resolve([]);
         }
 
         const placeholders = productIds.map(() => "?").join(", ");
-        pool.query(
+        return this.query(
             `SELECT
                 p.id AS product_id,
                 p.name AS product_name,
@@ -183,23 +188,21 @@ export class CartRepository {
             ) active_reservations ON active_reservations.product_id = p.id
             WHERE p.id IN (${placeholders})`,
             productIds,
-            callback,
         );
     }
 
-    updateCartItemQuantity(cartItemId: number, uid: string, quantity: number, callback: QueryCallback<UpdateResult>) {
-        pool.query(
+    updateCartItemQuantity(cartItemId: number, uid: string, quantity: number): Promise<UpdateResult> {
+        return this.query<UpdateResult>(
             `UPDATE cart_items ci
              JOIN carts c ON c.id = ci.cart_id AND c.user_id = ? AND c.done = 0
              SET ci.quantity = ?
              WHERE ci.id = ?`,
             [uid, quantity, cartItemId],
-            callback,
         );
     }
 
-    getCartItemStock(cartItemId: number, uid: string, callback: QueryCallback<CartItemRow[]>) {
-        pool.query(
+    getCartItemStock(cartItemId: number, uid: string): Promise<CartItemRow[]> {
+        return this.query(
             `SELECT p.name AS product_name,
                     ci.quantity,
                     GREATEST(p.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock
@@ -215,17 +218,15 @@ export class CartRepository {
             ) active_reservations ON active_reservations.product_id = p.id
             WHERE ci.id = ?`,
             [uid, cartItemId],
-            callback,
         );
     }
 
-    deleteCartItem(cartItemId: number, uid: string, callback: QueryCallback<UpdateResult>) {
-        pool.query(
+    deleteCartItem(cartItemId: number, uid: string): Promise<UpdateResult> {
+        return this.query<UpdateResult>(
             `DELETE ci FROM cart_items ci
              JOIN carts c ON c.id = ci.cart_id AND c.user_id = ? AND c.done = 0
              WHERE ci.id = ?`,
             [uid, cartItemId],
-            callback,
         );
     }
 }

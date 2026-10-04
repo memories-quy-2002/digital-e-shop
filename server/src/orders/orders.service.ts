@@ -5,10 +5,9 @@ import { CHECKOUT_RESERVATION_STATUS } from "#src/shared/constants/checkout-rese
 import { CURRENCY_CODE } from "#src/shared/constants/currency";
 import { env } from "#src/config/env.config";
 import { logger } from "#src/shared/utils/logger";
-import type { InsertResult } from "#src/shared/interfaces/domain";
 import type { CartItemRow, CartValidationIssue } from "../cart/cart.types";
 import type { InventoryMovementInput } from "../inventory/inventory.dto";
-import type { GuestOrderIdentityRow, GuestSafeOrderDetail, OrderBySessionRow, OrderDetail, OrderDetailRow, OrderIdentity, OrderItemSnapshot, OrderSummaryRow, OrderTimelineRow, LockedProductRow, PendingCheckoutRow } from "./orders.types";
+import type { GuestOrderIdentityRow, GuestSafeOrderDetail, OrderBySessionRow, OrderDetail, OrderDetailRow, OrderIdentity, OrderSummaryRow, OrderTimelineRow, LockedProductRow, PendingCheckoutRow } from "./orders.types";
 import type { PromotionRow } from "../promotions/promotions.types";
 import type { GuestPurchasePayload, PurchasePayload } from "./orders.dto";
 import { OrdersRepository } from "./orders.repository";
@@ -21,63 +20,16 @@ import type { TransactionContext } from "../database/transaction";
 import { CheckoutReservationRepository } from "./checkout-reservation.repository";
 import { PromotionsRepository } from "../promotions/promotions.repository";
 import { ProductAttributesRepository } from "../products/product-attributes.repository";
-import { attributeMapToSnapshot, type ProductAttribute } from "../products/product-attributes.types";
+import { buildOrderItemSnapshot } from "./orders.snapshot";
 import { PaymentProviderService } from "../payments/payment-provider.service";
 import { buildPaymentQuote } from "../payments/currency";
-import { PAYMENT_PROVIDER, PAYMENT_STATUS, PAYMENT_RECONCILIATION_STATUS, PAYMENT_PROVIDER_STATUS, type PaymentProviderName, type PaymentQuote } from "../payments/payment.types";
+import { PAYMENT_PROVIDER, PAYMENT_STATUS, type PaymentProviderName, type PaymentQuote } from "../payments/payment.types";
 import { generateGuestOrderToken, hashGuestOrderToken, matchesGuestOrderToken } from "./guest-order-token";
-import { ProductAlertsService } from "../product-alerts/product-alerts.service";
-import { getProductAlertTransitions } from "../product-alerts/product-alerts.policy";
+import { NestOrdersCancellationService } from "./orders-cancellation.service";
+import { createCheckoutError } from "./orders.errors";
 
-export const createCheckoutError = (message: string, statusCode: number = HTTP_STATUS.CONFLICT, details: Record<string, unknown> = {}) =>
-    Object.assign(new Error(message), { statusCode, details });
+export { createCheckoutError } from "./orders.errors";
 
-const parseSpecificationsSnapshot = (value: unknown): Record<string, unknown> => {
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-        return value as Record<string, unknown>;
-    }
-
-    if (typeof value === "string" && value.trim()) {
-        try {
-            const parsed = JSON.parse(value);
-            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-                return parsed as Record<string, unknown>;
-            }
-        } catch {
-            return { raw: value };
-        }
-        return { raw: value };
-    }
-
-    return {};
-};
-
-const buildOrderItemSnapshot = (product: CartItemRow, currentAttributes?: ProductAttribute[]): OrderItemSnapshot => {
-    const productId = Number(product.product_id || 0);
-    const quantity = Number(product.quantity) || 0;
-    const unitPrice = product.sale_price !== null && product.sale_price !== undefined
-        ? Number(product.sale_price)
-        : Number(product.price) || 0;
-
-    const structuredAttributes = attributeMapToSnapshot(currentAttributes);
-
-    return {
-        productId,
-        sku: String(product.sku || `DIG-${String(productId).padStart(8, "0")}`).trim(),
-        productName: String(product.product_name || `Product #${productId}`),
-        image: product.main_image ? String(product.main_image) : null,
-        unitPrice,
-        brand: String(product.brand || ""),
-        category: String(product.category || ""),
-        warrantyMonths: product.warranty_months === null || product.warranty_months === undefined
-            ? null
-            : Number(product.warranty_months),
-        specifications: Object.keys(structuredAttributes).length > 0
-            ? structuredAttributes
-            : parseSpecificationsSnapshot(product.specifications),
-        quantity,
-    };
-};
 
 const normalizePaymentProvider = (paymentMethod: string): PaymentProviderName => paymentMethod as PaymentProviderName;
 
@@ -119,8 +71,8 @@ export class NestOrdersService {
         private readonly checkoutReservationRepository: CheckoutReservationRepository,
         private readonly promotionsRepository: PromotionsRepository,
         private readonly productAttributesRepository: ProductAttributesRepository,
+        private readonly ordersCancellationService: NestOrdersCancellationService,
         @Optional() private readonly paymentProviderService?: PaymentProviderService,
-        @Optional() private readonly productAlertsService?: ProductAlertsService,
     ) {}
 
     private async createPaymentLedgerInTransaction(
@@ -157,27 +109,11 @@ export class NestOrdersService {
             : null;
         const paymentStatus = status === PAYMENT_STATUS.PAID ? PAYMENT_STATUS.PAID : providerResult?.status || PAYMENT_STATUS.PENDING;
 
-        await tx.query(
-            `INSERT INTO order_payments
-                (order_id, provider, status, provider_reference, provider_payment_id, idempotency_key,
-                 base_amount, base_currency, amount, currency, fx_rate, paid_at, simulated, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${paymentStatus === PAYMENT_STATUS.PAID ? "UTC_TIMESTAMP()" : "NULL"}, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP())
-             ON DUPLICATE KEY UPDATE updated_at = UTC_TIMESTAMP()`,
-            [
-                orderId,
-                provider,
-                paymentStatus,
-                providerResult?.providerReference || providerReference || providerPaymentId,
-                providerPaymentId,
-                `order:${orderId}:payment`,
-                quote.baseAmount,
-                quote.baseCurrency,
-                quote.amount,
-                quote.currency,
-                quote.fxRate,
-                providerResult?.simulated ? 1 : 0,
-            ],
-        );
+        await this.ordersRepository.insertPaymentLedgerInTransaction(tx, {
+            orderId, provider, status: paymentStatus,
+            providerReference: providerResult?.providerReference || providerReference || providerPaymentId,
+            providerPaymentId, quote, simulated: Boolean(providerResult?.simulated),
+        });
     }
 
     private getOrderSummary(orderId: number): Promise<OrderSummaryRow> {
@@ -191,69 +127,7 @@ export class NestOrdersService {
     }
 
     async cancelOrder(orderId: number, actorId: string, admin = false, reason?: string): Promise<OrderSummaryRow> {
-        const result = await withTransaction(async (tx) => {
-            const [order] = await tx.query<Array<{ user_id: string; status: number; inventory_restored_at: Date | null }>>(
-                "SELECT user_id, status, inventory_restored_at FROM orders WHERE id = ? FOR UPDATE",
-                [orderId],
-            );
-            if (!order) throw createCheckoutError("Order not found", HTTP_STATUS.NOT_FOUND);
-            if (!admin && String(order.user_id) !== String(actorId)) throw createCheckoutError("You cannot cancel this order", HTTP_STATUS.FORBIDDEN);
-            if (Number(order.status) === ORDER_STATUS.CANCELED) return { userId: order.user_id, changed: false };
-            if (Number(order.status) !== ORDER_STATUS.PENDING) throw createCheckoutError("Only pending orders can be canceled", HTTP_STATUS.CONFLICT);
-            if (!order.inventory_restored_at) {
-                const items = await tx.query<Array<{ product_id: number; quantity: number }>>(
-                    "SELECT product_id, quantity FROM order_items WHERE order_id = ? ORDER BY product_id FOR UPDATE", [orderId],
-                );
-                const movements: InventoryMovementInput[] = [];
-                for (const item of items) {
-                    const [product] = await tx.query<Array<{ id: number; price: number; sale_price: number | null; stock: number }>>(
-                        "SELECT id, price, sale_price, stock FROM products WHERE id = ? FOR UPDATE", [item.product_id],
-                    );
-                    if (!product) throw createCheckoutError("Product for this order no longer exists", HTTP_STATUS.CONFLICT);
-                    const quantity = Number(item.quantity) || 0;
-                    const stockUpdate = await tx.query<{ affectedRows: number }>(
-                        "UPDATE products SET stock = stock + ? WHERE id = ?",
-                        [quantity, item.product_id],
-                    );
-                    if (stockUpdate.affectedRows !== 1) {
-                        throw createCheckoutError("Product stock could not be restored", HTTP_STATUS.CONFLICT);
-                    }
-                    if (this.productAlertsService) {
-                        const transitions = getProductAlertTransitions(
-                            {
-                                productId: item.product_id,
-                                price: Number(product.price),
-                                salePrice: product.sale_price === null || product.sale_price === undefined ? null : Number(product.sale_price),
-                                stock: Number(product.stock),
-                            },
-                            {
-                                productId: item.product_id,
-                                price: Number(product.price),
-                                salePrice: product.sale_price === null || product.sale_price === undefined ? null : Number(product.sale_price),
-                                stock: Number(product.stock) + quantity,
-                            },
-                        );
-                        if (transitions.length > 0) {
-                            await this.productAlertsService.recordTransitionsInTransaction(tx, transitions);
-                        }
-                    }
-                    movements.push({ productId: item.product_id, orderId, movementType: "restock_cancelled_order", quantityChange: quantity,
-                        stockBefore: Number(product.stock), stockAfter: Number(product.stock) + quantity,
-                        note: `Stock restored for canceled order #${orderId}`, actorId });
-                }
-                if (movements.length > 0) await this.inventoryService.createMovementsInTransaction(tx, movements);
-            }
-            await tx.query(
-                `UPDATE orders
-                 SET status = ${ORDER_STATUS.CANCELED}, inventory_restored_at = COALESCE(inventory_restored_at, UTC_TIMESTAMP()), cancellation_reason = ?
-                 WHERE id = ? AND status = ${ORDER_STATUS.PENDING}`,
-                [reason || null, orderId],
-            );
-            await this.orderTimelineService.createTimelineEventInTransaction(tx, {
-                orderId, status: ORDER_STATUS.CANCELED, note: reason ? `Order canceled: ${reason}` : "Order was canceled.", actorId,
-            });
-            return { userId: order.user_id, changed: true };
-        });
+        const result = await this.ordersCancellationService.cancelOrder(orderId, actorId, admin, reason);
         if (result.changed && result.userId) this.notificationsService.notifyOrderStatus(result.userId, orderId, ORDER_STATUS.CANCELED);
         return this.getOrderSummary(orderId);
     }
@@ -920,15 +794,7 @@ export class NestOrdersService {
     ): Promise<{ id: number; date_added: string } | null> {
         const transactionResult = await withTransaction(async (tx) => {
             const pending = await this.checkoutReservationRepository.getPendingCheckoutByProviderOrderCodeForUpdate(tx, PAYMENT_PROVIDER.PAYOS, orderCode);
-            const [existingOrder] = await tx.query<Array<{ id: number; date_added: string }>>(
-                `SELECT o.id, DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
-                 FROM orders o
-                 JOIN order_payments op ON op.order_id = o.id
-                 WHERE op.provider = '${PAYMENT_PROVIDER.PAYOS}' AND op.provider_reference = ?
-                   AND op.provider_payment_id = ? AND op.amount = ? AND op.currency = '${CURRENCY_CODE.VND}'
-                 LIMIT 1`,
-                [String(orderCode), String(paymentLinkId), Number(paymentAmount)],
-            );
+            const existingOrder = await this.ordersRepository.findPayOSOrderInTransaction(tx, orderCode, paymentLinkId, paymentAmount);
             if (!pending) {
                 return existingOrder
                     ? { orderId: existingOrder.id, userId: null, payableAmount: 0, alreadyProcessed: true, order: existingOrder }
@@ -1000,24 +866,18 @@ export class NestOrdersService {
                 }
             }
 
-            const orderResult = await tx.query<InsertResult>(
-                `INSERT INTO orders
-                    (user_id, guest_email, guest_name, guest_phone, guest_order_token_hash,
-                     total_price, discount, shipping_address, payment_method, currency, date_added)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
-                [
-                    pending.user_id,
-                    pending.guest_email,
-                    pending.guest_name,
-                    pending.guest_phone,
-                    pending.guest_order_token_hash,
-                    Number(pending.total_price),
-                    Number(pending.discount),
-                    pending.shipping_address,
-                    PAYMENT_PROVIDER.PAYOS,
-                    env.storeCurrency,
-                ],
-            );
+            const orderResult = await this.ordersRepository.insertOrderInTransaction(tx, {
+                userId: pending.user_id,
+                guestEmail: pending.guest_email,
+                guestName: pending.guest_name,
+                guestPhone: pending.guest_phone,
+                guestOrderTokenHash: pending.guest_order_token_hash,
+                totalPrice: Number(pending.total_price),
+                discount: Number(pending.discount),
+                shippingAddress: pending.shipping_address,
+                paymentMethod: PAYMENT_PROVIDER.PAYOS,
+                currency: env.storeCurrency,
+            });
             const orderId = orderResult.insertId;
             if (pending.discount_id) {
                 const consumedRows = await this.promotionsRepository.consumePromotionReservation(tx, pending.id, orderId);
@@ -1062,23 +922,13 @@ export class NestOrdersService {
                 JSON.stringify(snapshot.specifications),
             ]);
             if (orderItemsValues.length > 0) {
-                await tx.query(
-                    `INSERT INTO order_items
-                        (order_id, product_id, quantity, total_price, sku_snapshot, product_name_snapshot,
-                         image_snapshot, unit_price_snapshot, brand_snapshot, category_snapshot,
-                         warranty_months_snapshot, specifications_snapshot)
-                     VALUES ?`,
-                    [orderItemsValues],
-                );
+                await this.ordersRepository.insertOrderItemsInTransaction(tx, orderItemsValues);
             }
 
             const inventoryMovements: InventoryMovementInput[] = [];
             for (const item of reservationItems) {
                 const stockBefore = stockById.get(item.productId) || 0;
-                const result = await tx.query<{ affectedRows: number }>(
-                    "UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?",
-                    [item.quantity, item.productId, item.quantity],
-                );
+                const result = await this.ordersRepository.decrementProductStockInTransaction(tx, item.productId, item.quantity);
                 if (result.affectedRows !== 1) {
                     throw createCheckoutError("Stock changed while confirming payment. The order was not created.", HTTP_STATUS.CONFLICT);
                 }
@@ -1095,7 +945,7 @@ export class NestOrdersService {
             }
             await this.inventoryService.createMovementsInTransaction(tx, inventoryMovements);
             if (pending.user_id) {
-                await tx.query("UPDATE carts SET done = 1 WHERE user_id = ? AND done = 0", [pending.user_id]);
+                await this.ordersRepository.markOpenCartCompleteInTransaction(tx, pending.user_id);
             }
 
             const consumedRows = await this.checkoutReservationRepository.consumeReservation(tx, pending.id);
@@ -1108,11 +958,7 @@ export class NestOrdersService {
                 note: "Order was placed by the customer.",
                 actorId: pending.user_id,
             });
-            const [order] = await tx.query<Array<{ id: number; date_added: string }>>(
-                `SELECT id, DATE_FORMAT(date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
-                 FROM orders WHERE id = ?`,
-                [orderId],
-            );
+            const [order] = await this.ordersRepository.getOrderDateAddedInTransaction(tx, orderId);
             return {
                 orderId,
                 userId: pending.user_id,
@@ -1240,21 +1086,15 @@ export class NestOrdersService {
         }
 
         return withTransaction(async (tx) => {
-            const [current] = await tx.query<Array<{ user_id: string; status: number; delivered_at?: string | Date | null }>>(
-                "SELECT user_id, status, delivered_at FROM orders WHERE id = ? FOR UPDATE",
-                [orderId],
-            );
+            const current = await this.ordersRepository.getOrderLifecycleForUpdate(tx, orderId);
             if (!current) throw createCheckoutError("Order not found", HTTP_STATUS.NOT_FOUND);
-            const [payment] = await tx.query<Array<{ id: number; provider: string; status: string; simulated?: number | boolean | null }>>(
-                "SELECT id, provider, status, simulated FROM order_payments WHERE order_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE",
-                [orderId],
-            );
+            const payment = await this.ordersRepository.getLatestPaymentForUpdate(tx, orderId);
             if (payment?.provider === PAYMENT_PROVIDER.PAYOS && Boolean(payment.simulated)) {
                 throw createCheckoutError("Simulated PayOS payments cannot be marked delivered", HTTP_STATUS.CONFLICT);
             }
             if (Number(current.status) === ORDER_STATUS.DONE) {
                 if (!current.delivered_at) {
-                    await tx.query("UPDATE orders SET delivered_at = COALESCE(delivered_at, UTC_TIMESTAMP()) WHERE id = ?", [orderId]);
+                    await this.ordersRepository.ensureDeliveredAtInTransaction(tx, orderId);
                 }
                 return { userId: current.user_id, changed: false };
             }
@@ -1264,15 +1104,9 @@ export class NestOrdersService {
             if (payment?.provider === PAYMENT_PROVIDER.PAYOS && payment.status !== PAYMENT_STATUS.PAID) {
                 throw createCheckoutError("PayOS payment must be paid before delivery", HTTP_STATUS.CONFLICT);
             }
-            await tx.query(
-                `UPDATE orders SET status = ${ORDER_STATUS.DONE}, delivered_at = COALESCE(delivered_at, UTC_TIMESTAMP()) WHERE id = ? AND status = ${ORDER_STATUS.PENDING}`,
-                [orderId],
-            );
+            await this.ordersRepository.completeOrderInTransaction(tx, orderId);
             if (payment?.provider === PAYMENT_PROVIDER.CASH && payment.status === PAYMENT_STATUS.PENDING) {
-                await tx.query(
-                    `UPDATE order_payments SET status = '${PAYMENT_STATUS.PAID}', paid_at = COALESCE(paid_at, UTC_TIMESTAMP()), reconciliation_status = '${PAYMENT_RECONCILIATION_STATUS.MANUAL_CONFIRMED}', last_reconciled_at = UTC_TIMESTAMP(), provider_status = '${PAYMENT_PROVIDER_STATUS.CASH_COLLECTED}', updated_at = UTC_TIMESTAMP() WHERE id = ? AND provider = '${PAYMENT_PROVIDER.CASH}' AND status = '${PAYMENT_STATUS.PENDING}'`,
-                    [payment.id],
-                );
+                await this.ordersRepository.confirmCashPaymentInTransaction(tx, payment.id);
             }
             await this.orderTimelineService.createTimelineEventInTransaction(tx, {
                 orderId,

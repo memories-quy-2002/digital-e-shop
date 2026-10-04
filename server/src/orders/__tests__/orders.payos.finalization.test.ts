@@ -7,7 +7,6 @@ vi.mock("#src/config/env.config", () => ({ env: { storeCurrency: "VND" } }));
 vi.mock("#src/shared/utils/logger", () => ({
     logger: { info: vi.fn(), error: vi.fn(), debug: vi.fn(), warn: vi.fn() },
 }));
-vi.mock("../orders.repository", () => ({ OrdersRepository: class {} }));
 vi.mock("../orders.timeline.service", () => ({ NestOrderTimelineService: class {} }));
 vi.mock("../../cart/cart.service", () => ({ NestCartService: class {} }));
 vi.mock("../../inventory/inventory.service", () => ({ NestInventoryService: class {} }));
@@ -15,6 +14,8 @@ vi.mock("../../notifications/notifications.service", () => ({ NestNotificationsS
 vi.mock("../checkout-reservation.repository", () => ({ CheckoutReservationRepository: class {} }));
 
 import { NestOrdersService } from "../orders.service";
+import { OrdersRepository } from "../orders.repository";
+import { NestOrdersCancellationService } from "../orders-cancellation.service";
 
 function buildService(status: string = "PENDING") {
     const tx = { query: vi.fn() };
@@ -56,13 +57,13 @@ function buildService(status: string = "PENDING") {
         if (sql.includes("JOIN order_payments")) return [];
         if (sql.startsWith("INSERT INTO orders")) return { insertId: 42 };
         if (sql.startsWith("UPDATE products")) return { affectedRows: 1 };
-        if (sql.includes("FROM orders WHERE id")) return [{ id: 42, date_added: "2026-09-06T01:00:00.000Z" }];
+        if (sql.includes("SELECT id, DATE_FORMAT(date_added")) return [{ id: 42, date_added: "2026-09-06T01:00:00.000Z" }];
         return [];
     });
     withTransaction.mockImplementation(async (work: (transaction: typeof tx) => Promise<unknown>) => work(tx));
 
     const service = new NestOrdersService(
-        {} as never,
+        new OrdersRepository({} as never),
         timelineService as never,
         {} as never,
         inventoryService as never,
@@ -70,6 +71,7 @@ function buildService(status: string = "PENDING") {
         reservationRepository as never,
         {} as never,
         productAttributesRepository as never,
+        new NestOrdersCancellationService(new OrdersRepository({} as never), timelineService as never, inventoryService as never),
         paymentProviderService as never,
     );
 
