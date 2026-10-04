@@ -1,45 +1,21 @@
 import { Injectable } from "@nestjs/common";
 import pool from "#src/config/database.config";
 const prisma = require("#src/database/prisma/client");
-import type { CountRow, IdNameRow, UpdateResult } from "#src/shared/interfaces/domain";
+import type { CountRow, IdNameRow, InsertResult, UpdateResult } from "#src/shared/interfaces/domain";
 import type {
     ProductComparisonRow,
     ProductEditorRow,
     ProductFacetValueRow,
+    ProductInsertRecord,
+    ProductMutationState,
     ProductPriceBoundsRow,
+    ProductUpdateRecord,
 } from "./products.types";
 import type { AttributeFilter } from "./product-attributes.types";
+import type { TransactionContext } from "../database/transaction";
 import { ORDER_STATUS } from "#src/shared/constants/order-status";
 import { LOW_STOCK_THRESHOLD } from "#src/shared/constants/product";
 import { CHECKOUT_RESERVATION_STATUS } from "#src/shared/constants/checkout-reservation";
-
-type ProductInsertRecord = {
-    name: string;
-    description: string;
-    fileName: string;
-    categoryId: number;
-    brandId: number;
-    specifications?: string;
-    sku: string;
-    manufacturerPartNumber?: string | null;
-    warrantyMonths?: number | null;
-    price: number;
-    inventory: number;
-};
-
-type ProductUpdateRecord = {
-    name: string;
-    description: string;
-    categoryId: number;
-    brandId: number;
-    specifications?: string;
-    sku: string;
-    manufacturerPartNumber?: string | null;
-    warrantyMonths?: number | null;
-    price: number;
-    salePrice?: number | null;
-    stock: number;
-};
 
 type ProductListFilters = {
     term?: string;
@@ -91,10 +67,14 @@ const productAvailabilityJoin = `
     ) active_reservations ON active_reservations.product_id = products.id
 `;
 
-const productBaseFrom = `
+const productIdentityFrom = `
     FROM products
     JOIN categories ON categories.id = products.category_id
     JOIN brands ON brands.id = products.brand_id
+`;
+
+const productBaseFrom = `
+    ${productIdentityFrom}
     ${productRatingJoin}
     ${productAvailabilityJoin}
 `;
@@ -221,6 +201,69 @@ const getProductListOrderParams = (filters: ProductListFilters = {}) => {
 
 @Injectable()
 export class NestProductsRepository {
+    async ensureNamedIdInTransaction(tx: TransactionContext, tableName: "categories" | "brands", name: string): Promise<number> {
+        const [row] = await tx.query<IdNameRow[]>(`SELECT id FROM ${tableName} WHERE name = ?`, [name]);
+        if (row) return Number(row.id);
+
+        const result = await tx.query<InsertResult>(`INSERT INTO ${tableName} (name) VALUES (?)`, [name]);
+        return Number(result.insertId);
+    }
+
+    insertProductInTransaction(tx: TransactionContext, product: ProductInsertRecord): Promise<InsertResult> {
+        return tx.query<InsertResult>(
+            `INSERT INTO products
+                (name, description, main_image, category_id, brand_id, specifications, sku, manufacturer_part_number, warranty_months, price, stock)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                product.name,
+                product.description,
+                product.fileName,
+                product.categoryId,
+                product.brandId,
+                product.specifications,
+                product.sku,
+                product.manufacturerPartNumber,
+                product.warrantyMonths,
+                product.price,
+                product.inventory,
+            ],
+        );
+    }
+
+    async getProductMutationStateForUpdate(tx: TransactionContext, pid: number): Promise<ProductMutationState | null> {
+        const [row] = await tx.query<ProductMutationState[]>(
+            "SELECT price, sale_price, stock FROM products WHERE id = ? AND stock >= 0 FOR UPDATE",
+            [pid],
+        );
+        return row ?? null;
+    }
+
+    updateProductInTransaction(tx: TransactionContext, pid: number, product: ProductUpdateRecord): Promise<UpdateResult> {
+        return tx.query<UpdateResult>(
+            `UPDATE products
+            SET name = ?, description = ?, category_id = ?, brand_id = ?, specifications = ?, sku = ?, manufacturer_part_number = ?, warranty_months = ?, price = ?, sale_price = ?, stock = ?
+            WHERE id = ? AND stock >= 0`,
+            [
+                product.name,
+                product.description,
+                product.categoryId,
+                product.brandId,
+                product.specifications,
+                product.sku,
+                product.manufacturerPartNumber,
+                product.warrantyMonths,
+                product.price,
+                product.salePrice,
+                product.stock,
+                pid,
+            ],
+        );
+    }
+
+    updateProductStockInTransaction(tx: TransactionContext, pid: number, stock: number): Promise<UpdateResult> {
+        return tx.query<UpdateResult>("UPDATE products SET stock = ? WHERE id = ? AND stock >= 0", [stock, pid]);
+    }
+
     insertProduct(product: ProductInsertRecord): Promise<UpdateResult> {
         return new Promise((resolve, reject) => {
             pool.query(
@@ -416,7 +459,7 @@ export class NestProductsRepository {
         return new Promise((resolve, reject) => {
             pool.query(
                 `SELECT COUNT(*) AS total
-                ${productBaseFrom}
+                ${productIdentityFrom}
                 ${whereClause}`,
                 params,
                 (err: Error | null, rows: CountRow[]) => {

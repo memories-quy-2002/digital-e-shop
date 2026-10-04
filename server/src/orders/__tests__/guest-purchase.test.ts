@@ -15,6 +15,7 @@ vi.mock("../checkout-reservation.repository", () => ({ CheckoutReservationReposi
 import { OrdersController } from "../orders.controller";
 import { OrdersRepository } from "../orders.repository";
 import { NestOrdersService } from "../orders.service";
+import { NestOrdersCancellationService } from "../orders-cancellation.service";
 import { guestOrderLookupSchema, guestPurchaseSchema } from "../orders.validator";
 import { hashGuestOrderToken } from "../guest-order-token";
 
@@ -89,6 +90,7 @@ function buildService() {
         checkoutReservations as never,
         promotions as never,
         productAttributes as never,
+        new NestOrdersCancellationService(ordersRepository, timeline as never, inventory as never),
     );
 
     return { service, tx, cartService, checkoutReservations, ordersRepository, timeline, inventory, notifications, promotions };

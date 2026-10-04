@@ -1,6 +1,4 @@
 import { Injectable, Optional } from "@nestjs/common";
-import pool from "#src/config/database.config";
-import util from "node:util";
 import { randomUUID } from "node:crypto";
 import { logger } from "#src/shared/utils/logger";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
@@ -8,7 +6,7 @@ import type { ComparisonResponse, ProductComparisonRow, ProductEditorRow } from 
 import type { ProductCreateInput, ProductUpdateInput } from "./products.dto";
 import type { ProductAttributeInput } from "./product-attributes.types";
 import type { UploadedFile } from "../blob/blob.types";
-import type { IdNameRow, InsertResult, UpdateResult } from "#src/shared/interfaces/domain";
+import type { ProductUpdateRecord } from "./products.types";
 import { NestProductsRepository } from "./products.repository";
 import { NestInventoryService } from "../inventory/inventory.service";
 import { ProductAttributesRepository } from "./product-attributes.repository";
@@ -22,9 +20,6 @@ import type { TransactionContext } from "../database/transaction";
 import { ProductAlertsService } from "../product-alerts/product-alerts.service";
 import { getProductAlertTransitions } from "../product-alerts/product-alerts.policy";
 import { NestBlobService } from "../blob/blob.service";
-
-const query = util.promisify(pool.query).bind(pool);
-const dbQuery = <T = unknown>(sql: string, values?: unknown[]): Promise<T> => query(sql, values) as Promise<T>;
 
 function extractFileName(url: string) {
     const parts = url.split("/");
@@ -127,26 +122,21 @@ export class NestProductsService {
 
         try {
             await withTransaction(async (tx) => {
-                const brandId = await this.ensureNamedId("brands", brand, tx);
-                const categoryId = await this.ensureNamedId("categories", category, tx);
-                const result = await tx.query<InsertResult>(
-                    `INSERT INTO products
-                        (name, description, main_image, category_id, brand_id, specifications, sku, manufacturer_part_number, warranty_months, price, stock)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [
+                const brandId = await this.ensureNamedId(tx, "brands", brand);
+                const categoryId = await this.ensureNamedId(tx, "categories", category);
+                const result = await this.productsRepository.insertProductInTransaction(tx, {
                         name,
                         description,
                         fileName,
                         categoryId,
                         brandId,
                         specifications,
-                        normalizedSku,
-                        normalizedManufacturerPartNumber,
-                        normalizedWarrantyMonths,
-                        price,
-                        inventory,
-                    ],
-                );
+                        sku: normalizedSku,
+                        manufacturerPartNumber: normalizedManufacturerPartNumber,
+                        warrantyMonths: normalizedWarrantyMonths,
+                        price: Number(price),
+                        inventory: Number(inventory),
+                });
                 await this.productAttributesRepository.replaceForProduct(tx, result.insertId, attributes as ProductAttributeInput[]);
                 await this.inventoryService.createMovementsInTransaction(tx, [{
                     productId: result.insertId,
@@ -166,25 +156,6 @@ export class NestProductsService {
             }
             throw err;
         }
-    }
-
-    private async ensureNamedId(tableName: "categories" | "brands", name: string, tx?: TransactionContext) {
-        const safeName = String(name || "").trim();
-        if (!safeName) {
-            throw Object.assign(new Error(`${tableName} is required`), { statusCode: HTTP_STATUS.BAD_REQUEST });
-        }
-
-        const rows = tx
-            ? await tx.query<IdNameRow[]>(`SELECT id FROM ${tableName} WHERE name = ?`, [safeName])
-            : await dbQuery<IdNameRow[]>(`SELECT id FROM ${tableName} WHERE name = ?`, [safeName]);
-        if (rows.length > 0) {
-            return rows[0].id;
-        }
-
-        const result = tx
-            ? await tx.query<InsertResult>(`INSERT INTO ${tableName} (name) VALUES (?)`, [safeName])
-            : await dbQuery<InsertResult>(`INSERT INTO ${tableName} (name) VALUES (?)`, [safeName]);
-        return result.insertId;
     }
 
     async updateProductDetailsService(pid: number, updates: ProductUpdateInput): Promise<ProductEditorRow> {
@@ -224,11 +195,7 @@ export class NestProductsService {
 
         try {
             const result = await withTransaction(async (tx) => {
-                const lockedRows = await tx.query<Array<{ price: number; sale_price: number | null; stock: number }>>(
-                    "SELECT price, sale_price, stock FROM products WHERE id = ? AND stock >= 0 FOR UPDATE",
-                    [pid],
-                );
-                const locked = lockedRows[0];
+                const locked = await this.productsRepository.getProductMutationStateForUpdate(tx, pid);
                 if (!locked) {
                     throw Object.assign(new Error("Product not found"), { statusCode: HTTP_STATUS.NOT_FOUND });
                 }
@@ -245,14 +212,21 @@ export class NestProductsService {
                       ? null
                       : Number(updates.salePrice);
                 const nextStock = updates.stock === undefined ? lockedBefore.stock : Number(updates.stock);
-                const categoryId = await this.ensureNamedId("categories", category, tx);
-                const brandId = await this.ensureNamedId("brands", brand, tx);
-                const updateResult = await tx.query<UpdateResult>(
-                    `UPDATE products
-                    SET name = ?, description = ?, category_id = ?, brand_id = ?, specifications = ?, sku = ?, manufacturer_part_number = ?, warranty_months = ?, price = ?, sale_price = ?, stock = ?
-                    WHERE id = ? AND stock >= 0`,
-                    [name, description, categoryId, brandId, specifications, sku, manufacturerPartNumber, warrantyMonths, nextPrice, nextSalePrice, nextStock, pid],
-                );
+                const categoryId = await this.ensureNamedId(tx, "categories", category);
+                const brandId = await this.ensureNamedId(tx, "brands", brand);
+                const updateResult = await this.productsRepository.updateProductInTransaction(tx, pid, {
+                    name,
+                    description,
+                    categoryId,
+                    brandId,
+                    specifications,
+                    sku,
+                    manufacturerPartNumber,
+                    warrantyMonths,
+                    price: nextPrice,
+                    salePrice: nextSalePrice,
+                    stock: nextStock,
+                } satisfies ProductUpdateRecord);
                 if (updateResult.affectedRows === 0) return updateResult;
                 if (updates.attributes !== undefined) {
                     await this.productAttributesRepository.replaceForProduct(tx, pid, updates.attributes);
@@ -300,13 +274,17 @@ export class NestProductsService {
         }
     }
 
+    private ensureNamedId(tx: TransactionContext, tableName: "categories" | "brands", name: string): Promise<number> {
+        const safeName = String(name || "").trim();
+        if (!safeName) {
+            throw Object.assign(new Error(`${tableName} is required`), { statusCode: HTTP_STATUS.BAD_REQUEST });
+        }
+        return this.productsRepository.ensureNamedIdInTransaction(tx, tableName, safeName);
+    }
+
     async updateInventoryService(pid: number, stock: number): Promise<ProductEditorRow> {
         await withTransaction(async (tx) => {
-            const rows = await tx.query<Array<{ price: number; sale_price: number | null; stock: number }>>(
-                "SELECT price, sale_price, stock FROM products WHERE id = ? AND stock >= 0 FOR UPDATE",
-                [pid],
-            );
-            const before = rows[0];
+            const before = await this.productsRepository.getProductMutationStateForUpdate(tx, pid);
             if (!before) {
                 throw Object.assign(new Error("Product not found"), { statusCode: HTTP_STATUS.NOT_FOUND });
             }
@@ -317,10 +295,7 @@ export class NestProductsService {
                 salePrice: before.sale_price === null || before.sale_price === undefined ? null : Number(before.sale_price),
                 stock: stockBefore,
             };
-            const result = await tx.query<UpdateResult>(
-                "UPDATE products SET stock = ? WHERE id = ? AND stock >= 0",
-                [stock, pid],
-            );
+            const result = await this.productsRepository.updateProductStockInTransaction(tx, pid, stock);
             if (result.affectedRows === 0) {
                 throw Object.assign(new Error("Product not found"), { statusCode: HTTP_STATUS.NOT_FOUND });
             }

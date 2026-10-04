@@ -52,6 +52,40 @@ export type ProductPriceBoundsRow = {
     max_price: number | null;
 };
 
+export type ProductInsertRecord = {
+    name: string;
+    description: string;
+    fileName: string;
+    categoryId: number;
+    brandId: number;
+    specifications?: string;
+    sku: string;
+    manufacturerPartNumber?: string | null;
+    warrantyMonths?: number | null;
+    price: number;
+    inventory: number;
+};
+
+export type ProductUpdateRecord = {
+    name: string;
+    description: string;
+    categoryId: number;
+    brandId: number;
+    specifications?: string;
+    sku: string;
+    manufacturerPartNumber?: string | null;
+    warrantyMonths?: number | null;
+    price: number;
+    salePrice?: number | null;
+    stock: number;
+};
+
+export type ProductMutationState = {
+    price: number;
+    sale_price: number | null;
+    stock: number;
+};
+
 export type { AttributeFilter, ProductAttribute };
 
 export type { ProductCreateInput, ProductUpdateInput };

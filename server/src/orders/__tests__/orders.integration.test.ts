@@ -6,6 +6,7 @@ const prisma = require("#src/database/prisma/client");
 import { OrdersController } from "../orders.controller";
 import { OrdersRepository } from "../orders.repository";
 import { NestOrdersService } from "../orders.service";
+import { NestOrdersCancellationService } from "../orders-cancellation.service";
 import { CheckoutReservationRepository } from "../checkout-reservation.repository";
 import { PromotionsRepository } from "../../promotions/promotions.repository";
 import { ProductAttributesRepository } from "../../products/product-attributes.repository";
@@ -33,8 +34,9 @@ function buildOrdersService() {
         createMovementsInTransaction: vi.fn().mockResolvedValue(undefined),
     };
     const notificationsService = { notifyOrderPlaced: vi.fn(), notifyOrderStatus: vi.fn() };
+    const repository = new OrdersRepository(new PromotionsRepository());
     const ordersService = new NestOrdersService(
-        new OrdersRepository(new PromotionsRepository()),
+        repository,
         orderTimelineService as never,
         {} as never,
         inventoryService as never,
@@ -42,6 +44,7 @@ function buildOrdersService() {
         new CheckoutReservationRepository(),
         new PromotionsRepository(),
         new ProductAttributesRepository(),
+        new NestOrdersCancellationService(repository, orderTimelineService as never, inventoryService as never),
     );
 
     return { ordersService, orderTimelineService, inventoryService, notificationsService };

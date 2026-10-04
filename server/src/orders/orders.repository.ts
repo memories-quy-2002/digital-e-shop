@@ -13,13 +13,105 @@ import type { PromotionRow } from "../promotions/promotions.types";
 import { PromotionsRepository } from "../promotions/promotions.repository";
 import type { TransactionContext } from "../database/transaction";
 import { ORDER_STATUS } from "#src/shared/constants/order-status";
-import { PAYMENT_PROVIDER } from "../payments/payment.types";
+import { PAYMENT_PROVIDER, PAYMENT_STATUS, PAYMENT_RECONCILIATION_STATUS, PAYMENT_PROVIDER_STATUS } from "../payments/payment.types";
+import { CURRENCY_CODE } from "#src/shared/constants/currency";
+import type { OrderPaymentLedgerWrite, OrderLifecycleRow, OrderItemQuantityRow, OrderRestockProductRow, OrderPaymentLifecycleRow } from "./orders.types";
 
 const QUERY_TIMEOUT = 8000;
 
 @Injectable()
 export class OrdersRepository {
     constructor(private readonly promotionsRepository: PromotionsRepository) {}
+
+    async getOrderLifecycleForUpdate(tx: TransactionContext, orderId: number): Promise<OrderLifecycleRow | null> {
+        const [order] = await tx.query<OrderLifecycleRow[]>(
+            "SELECT user_id, status, delivered_at, inventory_restored_at FROM orders WHERE id = ? FOR UPDATE", [orderId],
+        );
+        return order || null;
+    }
+
+    async getLatestPaymentForUpdate(tx: TransactionContext, orderId: number): Promise<OrderPaymentLifecycleRow | null> {
+        const [payment] = await tx.query<OrderPaymentLifecycleRow[]>(
+            "SELECT id, provider, status, simulated FROM order_payments WHERE order_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE", [orderId],
+        );
+        return payment || null;
+    }
+
+    getOrderItemsForUpdate(tx: TransactionContext, orderId: number): Promise<OrderItemQuantityRow[]> {
+        return tx.query<OrderItemQuantityRow[]>(
+            "SELECT product_id, quantity FROM order_items WHERE order_id = ? ORDER BY product_id FOR UPDATE", [orderId],
+        );
+    }
+
+    async getRestockProductForUpdate(tx: TransactionContext, productId: number): Promise<OrderRestockProductRow | null> {
+        const [product] = await tx.query<OrderRestockProductRow[]>(
+            "SELECT id, price, sale_price, stock FROM products WHERE id = ? FOR UPDATE", [productId],
+        );
+        return product || null;
+    }
+
+    getRestockProductsForUpdate(tx: TransactionContext, productIds: number[]): Promise<OrderRestockProductRow[]> {
+        const sortedUniqueIds = [...new Set(productIds)].sort((left, right) => left - right);
+        if (sortedUniqueIds.length === 0) return Promise.resolve([]);
+        return tx.query<OrderRestockProductRow[]>(
+            `SELECT id, price, sale_price, stock FROM products WHERE id IN (${sortedUniqueIds.map(() => "?").join(", ")}) ORDER BY id FOR UPDATE`,
+            sortedUniqueIds,
+        );
+    }
+
+    incrementProductStockInTransaction(tx: TransactionContext, productId: number, quantity: number): Promise<UpdateResult> {
+        return tx.query<UpdateResult>("UPDATE products SET stock = stock + ? WHERE id = ?", [quantity, productId]);
+    }
+
+    cancelOrderInTransaction(tx: TransactionContext, orderId: number, reason: string | null): Promise<UpdateResult> {
+        return tx.query<UpdateResult>(
+            `UPDATE orders
+             SET status = ${ORDER_STATUS.CANCELED}, inventory_restored_at = COALESCE(inventory_restored_at, UTC_TIMESTAMP()), cancellation_reason = ?
+             WHERE id = ? AND status = ${ORDER_STATUS.PENDING}`, [reason, orderId],
+        );
+    }
+
+    ensureDeliveredAtInTransaction(tx: TransactionContext, orderId: number): Promise<UpdateResult> {
+        return tx.query<UpdateResult>("UPDATE orders SET delivered_at = COALESCE(delivered_at, UTC_TIMESTAMP()) WHERE id = ?", [orderId]);
+    }
+
+    completeOrderInTransaction(tx: TransactionContext, orderId: number): Promise<UpdateResult> {
+        return tx.query<UpdateResult>(
+            `UPDATE orders SET status = ${ORDER_STATUS.DONE}, delivered_at = COALESCE(delivered_at, UTC_TIMESTAMP()) WHERE id = ? AND status = ${ORDER_STATUS.PENDING}`, [orderId],
+        );
+    }
+
+    confirmCashPaymentInTransaction(tx: TransactionContext, paymentId: number): Promise<UpdateResult> {
+        return tx.query<UpdateResult>(
+            `UPDATE order_payments SET status = '${PAYMENT_STATUS.PAID}', paid_at = COALESCE(paid_at, UTC_TIMESTAMP()), reconciliation_status = '${PAYMENT_RECONCILIATION_STATUS.MANUAL_CONFIRMED}', last_reconciled_at = UTC_TIMESTAMP(), provider_status = '${PAYMENT_PROVIDER_STATUS.CASH_COLLECTED}', updated_at = UTC_TIMESTAMP() WHERE id = ? AND provider = '${PAYMENT_PROVIDER.CASH}' AND status = '${PAYMENT_STATUS.PENDING}'`, [paymentId],
+        );
+    }
+
+    insertPaymentLedgerInTransaction(tx: TransactionContext, input: OrderPaymentLedgerWrite): Promise<unknown> {
+        const { orderId, provider, status, providerReference, providerPaymentId, quote, simulated } = input;
+        return tx.query(
+            `INSERT INTO order_payments
+                (order_id, provider, status, provider_reference, provider_payment_id, idempotency_key,
+                 base_amount, base_currency, amount, currency, fx_rate, paid_at, simulated, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${status === PAYMENT_STATUS.PAID ? "UTC_TIMESTAMP()" : "NULL"}, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP())
+             ON DUPLICATE KEY UPDATE updated_at = UTC_TIMESTAMP()`,
+            [orderId, provider, status, providerReference, providerPaymentId, `order:${orderId}:payment`,
+                quote.baseAmount, quote.baseCurrency, quote.amount, quote.currency, quote.fxRate, simulated ? 1 : 0],
+        );
+    }
+
+    async findPayOSOrderInTransaction(tx: TransactionContext, orderCode: number, paymentLinkId: string, paymentAmount: number): Promise<{ id: number; date_added: string } | null> {
+        const [order] = await tx.query<Array<{ id: number; date_added: string }>>(
+            `SELECT o.id, DATE_FORMAT(o.date_added, '%Y-%m-%dT%H:%i:%s.000Z') AS date_added
+             FROM orders o
+             JOIN order_payments op ON op.order_id = o.id
+             WHERE op.provider = '${PAYMENT_PROVIDER.PAYOS}' AND op.provider_reference = ?
+               AND op.provider_payment_id = ? AND op.amount = ? AND op.currency = '${CURRENCY_CODE.VND}'
+             LIMIT 1`,
+            [String(orderCode), String(paymentLinkId), Number(paymentAmount)],
+        );
+        return order || null;
+    }
 
     insertOrderInTransaction(
         tx: TransactionContext,

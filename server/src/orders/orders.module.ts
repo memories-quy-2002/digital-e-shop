@@ -5,6 +5,7 @@ import { AdminPaymentsController } from "../payments/admin-payments.controller";
 import { PaymentReconciliationRepository } from "../payments/payment-reconciliation.repository";
 import { PaymentReconciliationService } from "../payments/payment-reconciliation.service";
 import { NestOrdersService } from "./orders.service";
+import { NestOrdersCancellationService } from "./orders-cancellation.service";
 import { NestOrdersPayOSService } from "./orders.payos.service";
 import { OrdersRepository } from "./orders.repository";
 import { NestOrderTimelineService } from "./orders.timeline.service";
@@ -27,6 +28,7 @@ import { ProductAlertsModule } from "../product-alerts/product-alerts.module";
     controllers: [OrdersController, AdminPaymentsController],
     providers: [
         NestOrdersService,
+        NestOrdersCancellationService,
         NestOrdersPayOSService,
         CheckoutReservationRepository,
         CheckoutReservationService,
