@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import path from "node:path";
 import { buildDockerPlan, readDockerEnvironment } from "./run.mjs";
 
-const root = "/checkout with spaces/server";
+const root = path.resolve("checkout with spaces", "server");
 const env = { DB_HOST: "127.0.0.1", DB_PORT: "3307", DB_USER: "root", DB_PASSWORD: "local-test", DB_NAME: "digital_e_shop_local" };
 
 test("local commands reject remote targets even with a remote opt-in", () => {
@@ -28,7 +29,7 @@ test("local import and Prisma targets cannot disagree", () => {
 test("Compose uses the checkout path and waits for database health", () => {
     const [step] = buildDockerPlan("up", env, root);
     assert.equal(step.command, "docker");
-    assert.deepEqual(step.args, ["compose", "--env-file", `${root}/.env.docker`, "up", "-d", "--wait"]);
+    assert.deepEqual(step.args, ["compose", "--env-file", path.join(root, ".env.docker"), "up", "-d", "--wait"]);
 });
 
 test("baseline import preserves historical SQL order without exposing passwords in arguments", () => {
