@@ -104,3 +104,7 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-09-30 - Codex - Replaced broad client vendor chunk groups with Vite dependency-aware splitting and started loading the Home route chunk early for production `/` visits.
 - 2026-09-30 - Codex - Proposed a separate, non-gating Stage 0 Check Run publisher with an exact GitHub API allowlist; hosted implementation remains gated on policy review and merge.
 - 2026-10-01 - Codex - Implemented and locally verified the Cloudflare Hosted Stage 0 observer, D1/Queue processing, neutral non-gating Check Run publisher, fixed verification workflow, and operator runbook; production setup remains gated by explicit Task 8 approval.
+- 2026-10-03 - Codex - Consolidated shared request-schema exports around feature validators and converted CartRepository calls to typed Promises while preserving cart SQL, ownership checks, and service sequencing.
+- 2026-10-03 - Codex - Moved transactional product create/edit/stock SQL into NestProductsRepository while keeping service orchestration and transaction ownership unchanged.
+- 2026-10-04 — Codex — Moved order transaction SQL into repositories, extracted pure order snapshots and a required cancellation provider, and preserved after-commit notifications; see [[architecture]].
+- 2026-10-04 — Codex — Finished backend query work: filtered catalog counts avoid aggregate joins, analytics coalesces only in-flight reads, and cancellation locks products once in sorted order while preserving per-item effects; see [[architecture]].

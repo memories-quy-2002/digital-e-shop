@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { CartItemRow } from "../cart.types";
 import type { CartCheckoutItem } from "../cart.dto";
 import {
@@ -6,6 +6,7 @@ import {
     buildCartValidationIssue,
     buildCartValidationResult,
     compareSubmittedCart,
+    NestCartService,
 } from "../cart.service";
 
 const line = (overrides: Partial<CartItemRow> = {}): CartItemRow => ({
@@ -133,5 +134,63 @@ describe("compareSubmittedCart (tampering / drift detection)", () => {
         const { authoritativeTotalPrice, mismatches } = compareSubmittedCart(auth, submitted, 160);
         expect(authoritativeTotalPrice).toBe(160);
         expect(mismatches).toHaveLength(0);
+    });
+});
+
+describe("NestCartService Promise repository orchestration", () => {
+    it("returns an empty cart without requesting item details", async () => {
+        const getCartItemsByUserId = vi.fn().mockResolvedValue([]);
+        const getCartItemsDetails = vi.fn();
+        const service = new NestCartService(
+            { getCartItemsByUserId, getCartItemsDetails } as never,
+            {} as never,
+            {} as never,
+            {} as never,
+        );
+
+        await expect(service.getCartItems("user-1")).resolves.toEqual([]);
+        expect(getCartItemsDetails).not.toHaveBeenCalled();
+    });
+
+    it("preserves the add sequence and success message for an existing cart", async () => {
+        const repository = {
+            getCartItemQuantityByUserId: vi.fn().mockResolvedValue([{ quantity: 2 }]),
+            addItemToCartByUserId: vi.fn().mockResolvedValue({ affectedRows: 0 }),
+            getCartIdByUserId: vi.fn().mockResolvedValue([{ id: 8 }]),
+            addItemToCart: vi.fn().mockResolvedValue({ affectedRows: 1 }),
+        };
+        const service = new NestCartService(
+            repository as never,
+            {} as never,
+            { getProductById: vi.fn().mockResolvedValue({ id: 10, name: "Widget", stock: 5 }) } as never,
+            {} as never,
+        );
+
+        await expect(service.addItemToCart(10, "user-1", 1)).resolves.toBe(
+            "Product with id = 10 has been added to the cart id = 8",
+        );
+        expect(repository.addItemToCartByUserId).toHaveBeenCalledWith("user-1", 10, 1);
+        expect(repository.getCartIdByUserId).toHaveBeenCalledWith("user-1");
+        expect(repository.addItemToCart).toHaveBeenCalledWith(8, 10, 1);
+    });
+
+    it("propagates an insert failure and stops before looking up or mutating a cart", async () => {
+        const databaseError = new Error("insert failed");
+        const repository = {
+            getCartItemQuantityByUserId: vi.fn().mockResolvedValue([]),
+            addItemToCartByUserId: vi.fn().mockRejectedValue(databaseError),
+            getCartIdByUserId: vi.fn(),
+            addItemToCart: vi.fn(),
+        };
+        const service = new NestCartService(
+            repository as never,
+            {} as never,
+            { getProductById: vi.fn().mockResolvedValue({ id: 10, name: "Widget", stock: 5 }) } as never,
+            {} as never,
+        );
+
+        await expect(service.addItemToCart(10, "user-1", 1)).rejects.toBe(databaseError);
+        expect(repository.getCartIdByUserId).not.toHaveBeenCalled();
+        expect(repository.addItemToCart).not.toHaveBeenCalled();
     });
 });
