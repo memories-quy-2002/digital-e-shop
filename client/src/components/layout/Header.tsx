@@ -64,6 +64,7 @@ export const Header = (): JSX.Element => {
     const profileMenuRef = useRef<HTMLDivElement | null>(null);
     const notificationMenuRef = useRef<HTMLDivElement | null>(null);
     const searchInputRef = useRef<HTMLInputElement | null>(null);
+    const mobileSearchInputRef = useRef<HTMLInputElement | null>(null);
     const [recentSearches, setRecentSearches] = useLocalStorage<string[]>(RECENT_SEARCH_KEY, []);
 
     const activePath = useMemo(() => location.pathname, [location.pathname]);
@@ -103,6 +104,11 @@ export const Header = (): JSX.Element => {
     useKeyboardShortcut(
         "/",
         () => {
+            if (window.matchMedia("(max-width: 780px)").matches) {
+                setIsMenuOpen(true);
+                window.setTimeout(() => mobileSearchInputRef.current?.focus(), 0);
+                return;
+            }
             searchInputRef.current?.focus();
             searchInputRef.current?.select();
             setIsSearchOpen(true);
@@ -638,6 +644,7 @@ export const Header = (): JSX.Element => {
                         {t("common.search")}
                     </label>
                     <input
+                        ref={mobileSearchInputRef}
                         type="text"
                         id={mobileSearchId}
                         placeholder={t("header.searchMobilePlaceholder")}

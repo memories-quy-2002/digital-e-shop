@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CheckoutPaymentPage from "./CheckoutPaymentPage";
+import { LocaleProvider } from "../../../context/LocaleContext";
 
 const mocks = vi.hoisted(() => ({
     auth: { userData: null as { id: string } | null, loading: false },
@@ -51,16 +52,18 @@ const cart = [{
 
 const renderCheckout = () => render(
     <MemoryRouter>
-        <CheckoutPaymentPage
-            setIsPayment={vi.fn()}
-            cart={cart}
-            totalPrice={160}
-            discount={0}
-            discountCode={null}
-            subtotal={160}
-            validationIssues={[]}
-            onValidationRefresh={vi.fn()}
-        />
+        <LocaleProvider>
+            <CheckoutPaymentPage
+                setIsPayment={vi.fn()}
+                cart={cart}
+                totalPrice={160}
+                discount={0}
+                discountCode={null}
+                subtotal={160}
+                validationIssues={[]}
+                onValidationRefresh={vi.fn()}
+            />
+        </LocaleProvider>
     </MemoryRouter>,
 );
 
@@ -68,7 +71,7 @@ const fillRequiredFields = () => {
     fireEvent.change(screen.getByLabelText("Email address"), { target: { value: "guest@example.com" } });
     fireEvent.change(screen.getByLabelText("First name"), { target: { value: "Guest" } });
     fireEvent.change(screen.getByLabelText("Last name"), { target: { value: "Buyer" } });
-    fireEvent.change(screen.getByLabelText("Shipping address"), { target: { value: "1 Main Street" } });
+    fireEvent.change(screen.getByLabelText("Street address"), { target: { value: "1 Main Street" } });
     fireEvent.change(screen.getByLabelText("City"), { target: { value: "HCMC" } });
     fireEvent.change(screen.getByLabelText("Country"), { target: { value: "VN" } });
 };
@@ -127,7 +130,7 @@ describe("CheckoutPaymentPage guest checkout", () => {
         renderCheckout();
         fillRequiredFields();
         fireEvent.click(screen.getByDisplayValue("payos"));
-        fireEvent.click(screen.getByRole("button", { name: "Place order" }));
+        fireEvent.click(screen.getByRole("button", { name: "Continue to PayOS" }));
 
         await waitFor(() => expect(mocks.guestPayOSSession).toHaveBeenCalledWith({
             cart: [{ productId: 10, quantity: 2 }],
@@ -189,7 +192,7 @@ describe("CheckoutPaymentPage guest checkout", () => {
         const recommendation = await screen.findByRole("button", { name: /use address from order #42/i });
         fireEvent.click(recommendation);
 
-        expect(screen.getByLabelText("Shipping address")).toHaveValue("42 Nguyen Hue");
+        expect(screen.getByLabelText("Street address")).toHaveValue("42 Nguyen Hue");
         expect(screen.getByLabelText("City")).toHaveValue("HCMC");
         expect(screen.getByLabelText("Country")).toHaveValue("VN");
     });

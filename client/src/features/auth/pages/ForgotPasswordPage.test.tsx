@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ForgotPasswordPage from "./ForgotPasswordPage";
+import { LocaleProvider } from "../../../context/LocaleContext";
 
 const mocks = vi.hoisted(() => ({
     addToast: vi.fn(),
@@ -16,6 +17,17 @@ vi.mock("../../../context/ToastContext", () => ({
     useToast: () => ({ addToast: mocks.addToast }),
 }));
 vi.mock("react-helmet-async", () => ({ Helmet: () => null }));
+vi.mock("../components/AuthShell", () => ({
+    default: ({ children }: { children: React.ReactNode }) => <main>{children}</main>,
+}));
+
+const renderPage = () => render(
+    <MemoryRouter>
+        <LocaleProvider>
+            <ForgotPasswordPage />
+        </LocaleProvider>
+    </MemoryRouter>,
+);
 
 describe("ForgotPasswordPage", () => {
     beforeEach(() => {
@@ -24,13 +36,9 @@ describe("ForgotPasswordPage", () => {
     });
 
     it("sends password reset through Firebase in the Firebase auth mode", async () => {
-        render(
-            <MemoryRouter>
-                <ForgotPasswordPage />
-            </MemoryRouter>,
-        );
+        renderPage();
 
-        fireEvent.change(screen.getByLabelText("Email"), {
+        fireEvent.change(screen.getByLabelText("Email address"), {
             target: { value: "buyer@example.com" },
         });
         fireEvent.click(screen.getByRole("button", { name: "Send reset link" }));
@@ -41,13 +49,9 @@ describe("ForgotPasswordPage", () => {
     });
 
     it("shows an accessible validation alert for an invalid email", async () => {
-        render(
-            <MemoryRouter>
-                <ForgotPasswordPage />
-            </MemoryRouter>,
-        );
+        renderPage();
 
-        fireEvent.change(screen.getByLabelText("Email"), {
+        fireEvent.change(screen.getByLabelText("Email address"), {
             target: { value: "not-an-email" },
         });
         fireEvent.click(screen.getByRole("button", { name: "Send reset link" }));
@@ -58,13 +62,9 @@ describe("ForgotPasswordPage", () => {
 
     it("distinguishes Firebase availability errors from unknown-account responses", async () => {
         mocks.sendFirebasePasswordReset.mockRejectedValue({ code: "auth/network-request-failed" });
-        render(
-            <MemoryRouter>
-                <ForgotPasswordPage />
-            </MemoryRouter>,
-        );
+        renderPage();
 
-        fireEvent.change(screen.getByLabelText("Email"), {
+        fireEvent.change(screen.getByLabelText("Email address"), {
             target: { value: "buyer@example.com" },
         });
         fireEvent.click(screen.getByRole("button", { name: "Send reset link" }));

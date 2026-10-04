@@ -1,7 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { render as rtlRender, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
+import type { ReactNode } from "react";
+import { LocaleProvider } from "../../../context/LocaleContext";
 import AuthShell from "./AuthShell";
+
+const render = (ui: ReactNode) => rtlRender(<LocaleProvider>{ui}</LocaleProvider>);
 
 describe("AuthShell", () => {
     it("renders the approved storefront landmarks and theme control", () => {

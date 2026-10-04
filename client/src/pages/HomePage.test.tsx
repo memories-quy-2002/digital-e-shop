@@ -96,7 +96,7 @@ vi.mock("../hooks/useT", () => ({
             "home.valueTitle": "A better way to shop tech.",
             "home.valueLink": "Learn more about us",
             "home.valueShipping": "Free shipping",
-            "home.valueShippingBody": "On orders over 2,000,000 ₫",
+            "home.valueShippingBody": "Free on every order",
             "home.valueCheckout": "Fast & easy checkout",
             "home.valueCheckoutBody": "Save time, shop faster",
             "home.valuePayments": "Secure payments",
@@ -104,7 +104,7 @@ vi.mock("../hooks/useT", () => ({
             "home.valueSupport": "Expert support",
             "home.valueSupportBody": "Get help when you need it",
             "home.valueReturns": "Easy returns",
-            "home.valueReturnsBody": "14-day hassle-free",
+            "home.valueReturnsBody": "Returns within 7 days",
             "home.bundleKicker": "Bundle & save",
             "home.bundleTitle": "Level up your setup for less.",
             "home.bundleBody":
@@ -306,6 +306,21 @@ describe("HomePage Open Bench landing", () => {
         expect(
             screen.getByRole("button", { name: "Add Canon EOS R8 to cart" }),
         ).toBeVisible();
+    });
+
+    it("loads the above-the-fold featured product image with high priority", async () => {
+        render(
+            <MemoryRouter>
+                <HomePage />
+            </MemoryRouter>,
+        );
+
+        const featuredImage = await screen.findByRole("img", {
+            name: "Canon EOS R8",
+        });
+
+        expect(featuredImage).toHaveAttribute("loading", "eager");
+        expect(featuredImage).toHaveAttribute("fetchpriority", "high");
     });
 
     it("pauses rotation on keyboard focus and announces only user-controlled slide changes", async () => {

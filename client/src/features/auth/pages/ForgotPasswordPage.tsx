@@ -3,11 +3,13 @@ import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { useToast } from "../../../context/ToastContext";
 import { sendFirebasePasswordReset } from "../../../services/firebase";
-import "../../../styles/features/auth/_login.scss";
+import { useT } from "../../../hooks/useT";
 import { getFirebaseAuthErrorCode, getFirebaseAuthErrorMessage } from "../authErrors";
+import AuthShell from "../components/AuthShell";
 
 const ForgotPasswordPage = () => {
     const { addToast } = useToast();
+    const t = useT();
     const [email, setEmail] = useState("");
     const [submitted, setSubmitted] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
@@ -18,7 +20,7 @@ const ForgotPasswordPage = () => {
         const normalizedEmail = email.trim();
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(normalizedEmail)) {
             setSubmitted(false);
-            setErrorMessage("Enter a valid email address.");
+            setErrorMessage(t("auth.resetInvalidEmail"));
             return;
         }
 
@@ -28,7 +30,7 @@ const ForgotPasswordPage = () => {
         try {
             await sendFirebasePasswordReset(normalizedEmail);
             setSubmitted(true);
-            addToast("Password reset", "If an account matches that email, a reset link is on its way.");
+            addToast(t("auth.resetToastTitle"), t("auth.resetSuccessToast"));
         } catch (error: unknown) {
             const code = getFirebaseAuthErrorCode(error);
             const isFirebaseUnavailable = [
@@ -41,14 +43,14 @@ const ForgotPasswordPage = () => {
             if (isFirebaseUnavailable) {
                 const message = getFirebaseAuthErrorMessage(
                     error,
-                    "Password reset is temporarily unavailable. Please try again later.",
+                    t("auth.resetUnavailable"),
                 );
                 setErrorMessage(message);
-                addToast("Password reset unavailable", message);
+                addToast(t("auth.resetUnavailableTitle"), message);
             } else {
                 // Keep the same public response for existing and unknown emails.
                 setSubmitted(true);
-                addToast("Password reset", "If an account matches that email, a reset link is on its way.");
+                addToast(t("auth.resetToastTitle"), t("auth.resetSuccessToast"));
             }
         } finally {
             setIsSubmitting(false);
@@ -56,43 +58,52 @@ const ForgotPasswordPage = () => {
     };
 
     return (
-        <main className="auth-page">
+        <>
             <Helmet>
-                <title>Reset password | Digital-E</title>
+                <title>{t("auth.resetTitle")} | Digital-E</title>
             </Helmet>
-            <section className="login__form" aria-labelledby="forgot-password-title">
-                <h1 id="forgot-password-title" className="login__form__title">Reset your password</h1>
+            <AuthShell
+                mode="login"
+                titleId="forgot-password-title"
+                eyebrow={t("auth.resetEyebrow")}
+                title={t("auth.resetTitle")}
+                description={t("auth.resetDescription")}
+                storyTitle={t("auth.resetStoryTitle")}
+                storyDescription={t("auth.resetStoryDescription")}
+                footer={<p className="auth-form__switch">{t("auth.haveAccount")} <Link to="/login">{t("auth.backToLogin")}</Link></p>}
+            >
                 {submitted ? (
-                    <div className="login__form__errors" role="status" aria-live="polite">
-                        <div>
-                            Check your inbox for a password reset link. If you do not see it, check spam.
-                        </div>
+                    <div className="auth-form__general-error" role="status" aria-live="polite">
+                        {t("auth.resetSuccessMessage")}
                     </div>
                 ) : null}
                 {errorMessage ? (
-                    <div id="forgot-password-error" className="login__form__errors" role="alert" aria-live="assertive">
+                    <div id="forgot-password-error" className="auth-form__general-error" role="alert" aria-live="assertive">
                         {errorMessage}
                     </div>
                 ) : null}
-                <form className="login__form__container" onSubmit={handleSubmit} noValidate aria-busy={isSubmitting}>
-                    <label htmlFor="forgot-password-email">Email</label>
-                    <input
-                        id="forgot-password-email"
-                        type="email"
-                        autoComplete="email"
-                        required
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
-                        aria-invalid={Boolean(errorMessage)}
-                        aria-describedby={errorMessage ? "forgot-password-error" : undefined}
-                    />
-                    <button className="login__form__submit" type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? "Sending..." : "Send reset link"}
+                <form className="auth-form auth-form--login" onSubmit={handleSubmit} noValidate aria-busy={isSubmitting}>
+                    <div className="auth-form__field">
+                        <label className="auth-form__label" htmlFor="forgot-password-email">{t("auth.email")}</label>
+                        <input
+                            id="forgot-password-email"
+                            className="auth-form__input"
+                            type="email"
+                            autoComplete="email"
+                            required
+                            value={email}
+                            onChange={(event) => setEmail(event.target.value)}
+                            aria-invalid={Boolean(errorMessage)}
+                            aria-describedby={errorMessage ? "forgot-password-error" : undefined}
+                        />
+                    </div>
+                    <button className="auth-form__submit" type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>
+                        {isSubmitting ? t("auth.sendingReset") : t("auth.sendReset")}
+                        <span aria-hidden="true">→</span>
                     </button>
-                    <div className="login__form__switch"><Link to="/login">Back to login</Link></div>
                 </form>
-            </section>
-        </main>
+            </AuthShell>
+        </>
     );
 };
 

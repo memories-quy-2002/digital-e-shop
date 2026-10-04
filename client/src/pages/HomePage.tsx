@@ -204,6 +204,8 @@ const HomePage = () => {
     } = useRecentlyViewed();
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+    const [hasProductsLoadError, setHasProductsLoadError] = useState(false);
+    const [productsRetryAttempt, setProductsRetryAttempt] = useState(0);
     const [smartRecommendations, setSmartRecommendations] = useState<Product[]>(
         [],
     );
@@ -439,11 +441,18 @@ const HomePage = () => {
                 const response = await axios.get(
                     `/api/products?page=1&limit=${HOME_PRODUCT_LIMIT}`,
                 );
-                if (isActive && response.status === HTTP_STATUS.OK)
+                if (response.status !== HTTP_STATUS.OK) {
+                    throw new Error("Unable to load the home catalog.");
+                }
+                if (isActive) {
                     setProducts(normalizeProducts(response.data.products));
+                    setHasProductsLoadError(false);
+                }
             } catch {
-                if (isActive)
-                    addToast("Products", "Unable to load products right now.");
+                if (isActive) {
+                    setProducts([]);
+                    setHasProductsLoadError(true);
+                }
             } finally {
                 if (isActive) setIsLoadingProducts(false);
             }
@@ -453,7 +462,7 @@ const HomePage = () => {
         return () => {
             isActive = false;
         };
-    }, [addToast]);
+    }, [productsRetryAttempt]);
 
     useEffect(() => {
         let isActive = true;
@@ -717,6 +726,8 @@ const HomePage = () => {
                                 />
                                 {isLoadingProducts ? (
                                     <span>{t("home.catalogLoading")}</span>
+                                ) : hasProductsLoadError ? (
+                                    <span role="status">{t("home.catalogLoadError")}</span>
                                 ) : (
                                     <span>
                                         <strong>{allProducts.length}</strong>{" "}
@@ -848,7 +859,24 @@ const HomePage = () => {
                                     </button>
                                 </div>
                             ) : null}
-                            <article
+                            {hasProductsLoadError ? (
+                                <div className="home__hero__ticket home__hero__ticket--error" role="group" aria-labelledby="home-catalog-error-title">
+                                    <div className="home__hero__ticket__content">
+                                        <p>{t("home.catalogFallback")}</p>
+                                        <h2 id="home-catalog-error-title">{t("home.catalogLoadErrorTitle")}</h2>
+                                        <span>{t("home.catalogLoadErrorBody")}</span>
+                                        <div className="home__hero__ticket__footer">
+                                            <button type="button" className="home__text-link" onClick={() => {
+                                                setIsLoadingProducts(true);
+                                                setProductsRetryAttempt((attempt) => attempt + 1);
+                                            }}>
+                                                {t("home.retryCatalog")}
+                                            </button>
+                                            <Link to="/shops">{t("home.viewAllProducts")} <ArrowRightIcon size={16} /></Link>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : <article
                                 className="home__hero__ticket"
                                 key={heroProduct?.id || "loading"}
                                 role="group"
@@ -890,7 +918,7 @@ const HomePage = () => {
                                         width={640}
                                         height={640}
                                         eager
-                                        fetchPriority="low"
+                                        fetchPriority="high"
                                         onError={(event) => {
                                             setImageFallback(event.currentTarget, productPlaceholder);
                                         }}
@@ -936,7 +964,7 @@ const HomePage = () => {
                                         </Link>
                                     </div>
                                 </div>
-                            </article>
+                            </article>}
                         </div>
                     </div>
                 </section>
@@ -1086,6 +1114,27 @@ const HomePage = () => {
                                     count={DISPLAYED_NUMBER}
                                     className="home__shelf__grid"
                                 />
+                            </div>
+                        ) : hasProductsLoadError ? (
+                            <div
+                                className="home__empty"
+                                id="home-trending-panel"
+                                role="tabpanel"
+                                aria-labelledby={"home-tab-" + activeFilter}
+                                aria-live="polite"
+                            >
+                                <strong>{t("home.catalogLoadErrorTitle")}</strong>
+                                <p>{t("home.catalogLoadErrorBody")}</p>
+                                <button
+                                    type="button"
+                                    className="home__text-link"
+                                    onClick={() => {
+                                        setIsLoadingProducts(true);
+                                        setProductsRetryAttempt((attempt) => attempt + 1);
+                                    }}
+                                >
+                                    {t("home.retryCatalog")}
+                                </button>
                             </div>
                         ) : (
                             <div

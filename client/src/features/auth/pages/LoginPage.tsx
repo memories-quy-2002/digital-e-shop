@@ -13,6 +13,7 @@ import AuthShell from "../components/AuthShell";
 import { getFirebaseAuthErrorMessage } from "../authErrors";
 import { getSafeRedirectTarget } from "../authRedirect";
 import { getApiErrorMessage } from "../../../lib/api-contract";
+import { useT } from "../../../hooks/useT";
 
 interface User {
     email: string;
@@ -20,6 +21,7 @@ interface User {
 }
 
 const LoginPage = () => {
+    const t = useT();
     const navigate = useNavigate();
     const location = useLocation();
     const { addToast } = useToast();
@@ -134,20 +136,20 @@ const LoginPage = () => {
     return (
         <>
             <Helmet>
-                <title>Login | Digital-E</title>
-                <meta name="description" content="Log in to manage your orders, wishlist, and account." />
+                <title>{t("auth.signIn")} | Digital-E</title>
+                <meta name="description" content={t("auth.loginDescription")} />
             </Helmet>
             <AuthShell
                 mode="login"
                 titleId="login-title"
-                eyebrow="Customer account"
-                title="Welcome back"
-                description="Sign in to pick up where you left off."
-                storyTitle="Your next build starts here."
-                storyDescription="Save your setups, move through checkout faster, and keep every component order in one place."
+                eyebrow={t("auth.customerAccount")}
+                title={t("auth.loginTitle")}
+                description={t("auth.loginDescription")}
+                storyTitle={t("auth.loginStoryTitle")}
+                storyDescription={t("auth.loginStoryDescription")}
                 footer={(
                     <p className="auth-form__switch">
-                        Don&apos;t have an account? <Link to="/signup">Create an account</Link>
+                        {t("auth.noAccount")} <Link to="/signup">{t("auth.createAccount")}</Link>
                     </p>
                 )}
             >
@@ -161,7 +163,7 @@ const LoginPage = () => {
                     aria-busy={isSubmitting}
                 >
                     <div className="auth-form__field">
-                        <label className="auth-form__label" htmlFor="login-email">Email</label>
+                        <label className="auth-form__label" htmlFor="login-email">{t("auth.emailAddress")}</label>
                         <input
                             id="login-email"
                             className="auth-form__input"
@@ -181,8 +183,8 @@ const LoginPage = () => {
 
                     <div className="auth-form__field">
                         <div className="auth-form__label-row">
-                            <label className="auth-form__label" htmlFor="login-password">Password</label>
-                            <Link className="auth-form__link" to="/forgot-password">Forgot password?</Link>
+                            <label className="auth-form__label" htmlFor="login-password">{t("auth.password")}</label>
+                            <Link className="auth-form__link" to="/forgot-password">{t("auth.forgotPassword")}</Link>
                         </div>
                         <div className="auth-form__password-field">
                             <input
@@ -190,7 +192,7 @@ const LoginPage = () => {
                                 className="auth-form__input"
                                 type={showPassword ? "text" : "password"}
                                 name="password"
-                                placeholder="Enter your password"
+                                placeholder={t("auth.enterPassword")}
                                 required
                                 autoComplete="current-password"
                                 value={user.password}
@@ -201,7 +203,7 @@ const LoginPage = () => {
                             <button
                                 className="auth-form__password-toggle"
                                 type="button"
-                                aria-label={showPassword ? "Hide password" : "Show password"}
+                                aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
                                 onClick={() => setShowPassword((value) => !value)}
                             >
                                 {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
@@ -218,7 +220,7 @@ const LoginPage = () => {
                                 checked={rememberMe}
                                 onChange={() => setRememberMe((current) => !current)}
                             />
-                            <span>Remember me</span>
+                            <span>{t("auth.rememberMe")}</span>
                         </label>
                     </div>
 
@@ -229,7 +231,7 @@ const LoginPage = () => {
                     ) : null}
 
                     <button className="auth-form__submit" name="login" type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>
-                        {isSubmitting ? "Signing in…" : "Login"}
+                        {isSubmitting ? t("auth.signingIn") : t("auth.signIn")}
                         <span aria-hidden="true">→</span>
                     </button>
                 </form>

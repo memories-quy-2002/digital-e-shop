@@ -1,7 +1,65 @@
 .product-card {
+    display: flex;
+    height: 100%;
+    min-width: 0;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--de-color-border);
+    border-radius: var(--de-radius-lg);
+    background: var(--de-color-surface);
+    box-shadow: none;
+    transition:
+        border-color 180ms ease,
+        box-shadow 180ms ease,
+        transform 180ms ease;
+
+    &:hover {
+        border-color: var(--de-color-border-strong);
+        box-shadow: var(--de-shadow-sm);
+        transform: translateY(-3px);
+    }
+
+    &:focus-within {
+        border-color: var(--de-color-electric);
+    }
+
+    &__visual {
+        position: relative;
+    }
+
+    &__badge {
+        position: absolute;
+        z-index: 1;
+        top: 0.75rem;
+        left: 0.75rem;
+        border-radius: var(--de-radius-pill);
+        font-size: 0.7rem;
+    }
+
+    &__wishlist {
+        position: absolute;
+        z-index: 1;
+        top: 0.5rem;
+        right: 0.5rem;
+        border-color: transparent;
+        border-radius: var(--de-radius-pill);
+        background: var(--de-color-surface-strong);
+        color: var(--de-color-text-soft);
+        box-shadow: var(--de-shadow-xs);
+
+        &--saved {
+            border-color: var(--de-color-signal);
+            color: var(--de-color-signal);
+        }
+    }
+
     &__content {
-        gap: 0.7rem;
-        padding: 0.95rem 0.55rem 0.35rem;
+        display: flex;
+        min-width: 0;
+        flex: 1;
+        flex-direction: column;
+        gap: 0.6rem;
+        padding: 1rem;
     }
 
     &__meta {
@@ -9,13 +67,10 @@
         min-width: 0;
         align-items: center;
         justify-content: space-between;
-        gap: 0.6rem;
+        gap: 0.5rem;
         color: var(--de-color-text-soft);
-        font-family: var(--de-font-family-mono);
-        font-size: 0.62rem;
-        letter-spacing: 0.08em;
-        line-height: 1.2;
-        text-transform: uppercase;
+        font-size: 0.75rem;
+        line-height: 1.4;
     }
 
     &__category {
@@ -24,51 +79,60 @@
         text-overflow: ellipsis;
         white-space: nowrap;
     }
-
     &__brand {
         flex: 0 0 auto;
         max-width: 45%;
         overflow: hidden;
-        padding: 0.28rem 0.45rem;
-        border: 1px solid var(--de-color-border);
-        border-radius: var(--de-radius-xs);
-        color: var(--de-color-circuit);
+        color: var(--de-color-text-muted);
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
     &__title {
         display: -webkit-box;
-        min-height: 2.75rem;
+        min-height: 2.8em;
         overflow: hidden;
+        color: var(--de-color-text);
+        font-size: 1rem;
+        font-weight: 800;
+        line-height: 1.4;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 2;
-        font-size: 1rem;
-        line-height: 1.35;
+
+        &:hover {
+            color: var(--de-color-electric);
+        }
+    }
+
+    &__specs {
+        display: -webkit-box;
+        min-height: 2.8em;
+        margin: 0;
+        overflow: hidden;
+        color: var(--de-color-text-soft);
+        font-size: 0.78rem;
+        line-height: 1.4;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
     }
 
     &__rating {
         display: flex;
-        min-width: 0;
         min-height: 1.25rem;
         align-items: center;
-        gap: 0.35rem;
+        gap: 0.3rem;
         color: var(--de-color-text-soft);
-        font-family: var(--de-font-family-mono);
-        font-size: 0.66rem;
+        font-size: 0.72rem;
     }
-
     &__rating-stars {
         display: inline-flex;
         flex: 0 0 auto;
         align-items: center;
     }
-
     &__rating-value {
-        color: var(--de-color-warning-strong);
+        color: var(--de-color-text);
         font-weight: 700;
     }
-
     &__reviews {
         min-width: 0;
         margin-left: auto;
@@ -79,70 +143,159 @@
 
     &__price {
         display: flex;
-        min-height: 1.8rem;
+        min-height: 2rem;
         align-items: baseline;
         flex-wrap: wrap;
-        gap: 0.45rem;
-        font-family: var(--de-font-family-mono);
+        gap: 0.4rem;
+        font-variant-numeric: tabular-nums;
     }
 
     &__price-current {
-        color: var(--de-color-signal);
-        font-size: 1.08rem;
-        font-weight: 800;
-        letter-spacing: -0.03em;
+        color: var(--de-color-text);
+        font-size: 1.2rem;
+        font-weight: 900;
+        letter-spacing: -0.025em;
         white-space: nowrap;
     }
-
     &__price-original {
-        color: var(--de-color-text-soft);
-        font-size: 0.68rem;
+        color: var(--de-color-text-muted);
+        font-size: 0.75rem;
         text-decoration: line-through;
         white-space: nowrap;
     }
 
     &__availability {
         display: flex;
-        min-height: 1.15rem;
+        min-height: 1.25rem;
         align-items: center;
-        font-family: var(--de-font-family-mono);
-        font-size: 0.65rem;
-        line-height: 1.3;
+        gap: 0.4rem;
+        font-size: 0.75rem;
+        line-height: 1.4;
 
         &::before {
-            width: 0.42rem;
-            height: 0.42rem;
+            width: 0.35rem;
+            height: 0.35rem;
             flex: 0 0 auto;
-            margin-right: 0.42rem;
             border-radius: 50%;
             background: currentColor;
             content: "";
         }
+        &--available {
+            color: var(--de-color-success-strong);
+        }
+        &--unavailable {
+            color: var(--de-color-danger-strong);
+        }
     }
 
-    &__availability--available {
-        color: var(--de-color-success-strong);
-    }
+    &__compare {
+        width: 100%;
+        min-height: 44px;
+        margin-top: auto;
+        padding-inline: 0.25rem;
+        border-radius: var(--de-radius-sm);
+        color: var(--de-color-text-soft);
+        font-size: 0.78rem;
 
-    &__availability--unavailable {
-        color: var(--de-color-danger-strong);
+        &--selected {
+            background: var(--de-color-info-soft);
+            color: var(--de-color-info-strong);
+        }
     }
 
     &__add-to-cart {
-        min-height: 2.75rem;
-        margin-top: 0.2rem;
-        font-size: 0.78rem;
+        width: 100%;
+        min-height: 44px;
+        border-radius: var(--de-radius-md);
+        font-size: 0.85rem;
+        box-shadow: none;
+    }
+    &__cart-label--compact {
+        display: none;
+    }
+
+    a:focus-visible,
+    button:focus-visible {
+        outline: 2px solid var(--de-color-electric);
+        outline-offset: 3px;
     }
 }
 
-@media (max-width: 560px) {
+@media (max-width: 599px) {
     .product-card {
+        border-radius: var(--de-radius-md);
         &__content {
-            padding-inline: 0.65rem;
+            gap: 0.45rem;
+            padding: 0.7rem;
         }
-
+        &__badge {
+            top: 0.5rem;
+            left: 0.5rem;
+            padding-inline: 0.35rem;
+            font-size: 0.65rem;
+        }
+        &__wishlist {
+            top: 0.2rem;
+            right: 0.2rem;
+            background: color-mix(
+                in srgb,
+                var(--de-color-surface-strong) 92%,
+                transparent
+            );
+            box-shadow: none;
+        }
+        &__meta {
+            font-size: 0.68rem;
+        }
+        &__title {
+            font-size: 0.88rem;
+        }
+        &__specs {
+            font-size: 0.72rem;
+        }
+        &__rating-stars svg {
+            width: 11px;
+            height: 11px;
+        }
+        &__rating {
+            font-size: 0.68rem;
+        }
         &__reviews {
-            max-width: 11ch;
+            display: none;
+        }
+        &__price {
+            min-height: 2.75rem;
+            align-content: start;
+            gap: 0.15rem;
+        }
+        &__price-current {
+            font-size: 1rem;
+        }
+        &__price-original {
+            width: 100%;
+            font-size: 0.68rem;
+        }
+        &__availability {
+            font-size: 0.68rem;
+        }
+        &__compare {
+            font-size: 0.7rem;
+            white-space: normal;
+        }
+        &__cart-label {
+            display: none;
+        }
+        &__cart-label--compact {
+            display: inline;
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .product-card {
+        transition: none;
+        &:hover {
+            transform: none;
         }
     }
 }
