@@ -2,6 +2,7 @@
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    background: var(--de-color-bg);
 
     &__skip-link {
         position: fixed;

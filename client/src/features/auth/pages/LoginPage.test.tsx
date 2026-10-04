@@ -1,10 +1,14 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render as rtlRender, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
 import LoginPage from "./LoginPage";
 import { Role, type UserData } from "../../../types/user";
+import { LocaleProvider } from "../../../context/LocaleContext";
+
+const render = (ui: ReactNode) => rtlRender(<LocaleProvider>{ui}</LocaleProvider>);
 
 const mocks = vi.hoisted(() => ({
     loginUser: vi.fn(),
@@ -71,7 +75,7 @@ const renderLogin = (redirect: string, role: Role) => {
 
 const submitLogin = async () => {
     const user = userEvent.setup();
-    await user.type(screen.getByRole("textbox", { name: "Email" }), "user@example.com");
+    await user.type(screen.getByRole("textbox", { name: "Email address" }), "user@example.com");
     await user.type(screen.getByLabelText("Password"), "password");
     await user.click(screen.getByRole("button", { name: "Login" }));
 };
@@ -139,7 +143,7 @@ describe("LoginPage Firebase errors", () => {
         );
 
         const user = userEvent.setup();
-        await user.type(screen.getByRole("textbox", { name: "Email" }), "buyer@example.com");
+        await user.type(screen.getByRole("textbox", { name: "Email address" }), "buyer@example.com");
         await user.type(screen.getByLabelText("Password"), "WrongPassword1!");
         await user.click(screen.getByRole("button", { name: "Login" }));
 
@@ -157,7 +161,7 @@ describe("LoginPage Firebase errors", () => {
         );
 
         const user = userEvent.setup();
-        await user.type(screen.getByRole("textbox", { name: "Email" }), "not-an-email");
+        await user.type(screen.getByRole("textbox", { name: "Email address" }), "not-an-email");
         await user.type(screen.getByLabelText("Password"), "password");
         await user.click(screen.getByRole("button", { name: "Login" }));
 
@@ -179,7 +183,7 @@ describe("LoginPage Firebase errors", () => {
         await user.click(submit);
 
         expect(await screen.findByText("Enter your email address.")).toBeInTheDocument();
-        expect(screen.getByRole("textbox", { name: "Email" })).toHaveFocus();
+        expect(screen.getByRole("textbox", { name: "Email address" })).toHaveFocus();
     });
 
 });

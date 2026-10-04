@@ -395,7 +395,7 @@ const CartPage = () => {
                             {t("cart.cancelOrder")}
                         </Button>
                         <Button variant="primary" size="lg" onClick={handleClickPayment}>
-                            {t("cart.placeOrder", formatCurrency(subtotal))}
+                            {t("cart.continueToCheckout")}
                         </Button>
                     </Modal.Footer>
                 </Modal>

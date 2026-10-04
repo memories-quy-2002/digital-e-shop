@@ -17,6 +17,7 @@ export const cartTranslations = {
         couponFinished: "Coupon request finished.",
         itemsSubtotal: "Items subtotal",
         shipping: "Shipping",
+        freeShipping: "Free",
         calculatedAtCheckout: "calculated at checkout",
         paymentOptions: "Payment options",
         paymentOptionsDescription: "Choose your preferred option in the next step.",
@@ -28,6 +29,7 @@ export const cartTranslations = {
         cashOnDeliveryNote: "Pay at delivery",
         secureCheckout: "Secure checkout",
         secureCheckoutNote: "Your stock is checked before payment.",
+        continueToCheckout: "Continue to checkout",
     },
     vi: {
         summaryEyebrow: "Sẵn sàng kiểm tra",
@@ -47,6 +49,7 @@ export const cartTranslations = {
         couponFinished: "Đã xử lý yêu cầu mã giảm giá.",
         itemsSubtotal: "Tạm tính sản phẩm",
         shipping: "Vận chuyển",
+        freeShipping: "Miễn phí",
         calculatedAtCheckout: "tính khi thanh toán",
         paymentOptions: "Phương thức thanh toán",
         paymentOptionsDescription: "Chọn phương thức thanh toán ở bước tiếp theo.",
@@ -58,5 +61,6 @@ export const cartTranslations = {
         cashOnDeliveryNote: "Thanh toán khi nhận hàng",
         secureCheckout: "Thanh toán an toàn",
         secureCheckoutNote: "Tồn kho sẽ được kiểm tra trước khi thanh toán.",
+        continueToCheckout: "Tiếp tục thanh toán",
     },
 } as const;

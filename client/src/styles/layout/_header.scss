@@ -662,12 +662,20 @@
     .header__signalbar { display: none; }
     .header__shell { padding: 0.75rem 1rem; }
     .header__main { grid-template-columns: minmax(0, 1fr) auto; }
-    .header__search,
     .header__profile,
     .header__actions > .header__action,
     .header__notifications,
     .header__actions > .de-dropdown { display: none; }
     .header__actions { padding-left: 0; border-left: 0; }
+    .header__search {
+        display: flex;
+        grid-column: 1 / -1;
+        grid-row: 2;
+        min-height: 46px;
+        border-radius: var(--de-radius-md);
+        box-shadow: none;
+    }
+    .header__search__shortcut { display: none; }
     .header__burger { display: inline-flex; flex-direction: column; gap: 4px; }
     .header__burger span { width: 18px; height: 2px; border-radius: 99px; background: currentColor; }
     .header__brand__wordmark small { display: none; }

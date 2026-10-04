@@ -22,8 +22,6 @@ const SupportPage: React.FC = () => {
 
     const channels: SupportChannel[] = [
         { title: t("support.contactFormTitle"), text: t("support.contactFormText"), detail: t("support.contactFormDetail"), action: t("support.contactFormAction"), href: "/contact-us" },
-        { title: t("support.emailTitle"), text: t("support.emailText"), detail: t("support.emailDetail"), action: t("support.emailAction"), href: "mailto:support@digital-e.com" },
-        { title: t("support.hotlineTitle"), text: t("support.hotlineText"), detail: t("support.hotlineDetail"), action: t("support.hotlineAction"), href: "tel:+84123456789" },
     ];
     const resources: SupportResource[] = [
         { title: t("support.trackOrderTitle"), text: t("support.trackOrderText"), action: t("support.trackOrderAction"), href: CUSTOMER_ROUTES.orders },

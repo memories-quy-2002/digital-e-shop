@@ -81,9 +81,9 @@ vi.mock("../../../context/ComparisonContext", () => ({
     }),
 }));
 
-vi.mock("../../../components/layout/Layout", () => ({
-    default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}));
+vi.mock("../../../components/layout/Header", () => ({ Header: () => null }));
+vi.mock("../../../components/layout/Footer", () => ({ default: () => null }));
+vi.mock("../../../features/products/components/ComparisonTray", () => ({ default: () => null }));
 
 vi.mock("../../../components/common/ImageLightbox", () => ({
     default: () => null,
@@ -152,19 +152,36 @@ describe("shop and product detail surfaces", () => {
         authMocks.userData = null;
     });
 
+
+    it("has only one main landmark while product details are loading", () => {
+        apiMocks.fetchProduct.mockReturnValue(new Promise(() => {}));
+        render(<MemoryRouter initialEntries={["/product?id=1"]}><LocaleProvider><ProductPage /></LocaleProvider></MemoryRouter>);
+        expect(screen.getByRole("status")).toHaveTextContent("Loading product details");
+        expect(screen.getAllByRole("main")).toHaveLength(1);
+    });
+
+    it("has only one main landmark when product loading fails", async () => {
+        apiMocks.fetchProduct.mockRejectedValueOnce(new Error("unavailable"));
+        render(<MemoryRouter initialEntries={["/product?id=1"]}><LocaleProvider><ProductPage /></LocaleProvider></MemoryRouter>);
+        expect(await screen.findByRole("alert")).toHaveTextContent("We could not find this product");
+        expect(screen.getAllByRole("main")).toHaveLength(1);
+    });
+
     it("renders pagination with styles that match react-paginate output", () => {
         render(
-            <PaginatedItems
-                itemsPerPage={6}
-                items={Array.from({ length: 7 }, (_, index) => ({ ...product, id: index + 1 }))}
-                uid=""
-                wishlist={[]}
-                isWishlistPage={false}
-                serverSide
-                totalItems={7}
-                currentPage={1}
-                onPageChange={vi.fn()}
-            />,
+            <LocaleProvider>
+                <PaginatedItems
+                    itemsPerPage={6}
+                    items={Array.from({ length: 7 }, (_, index) => ({ ...product, id: index + 1 }))}
+                    uid=""
+                    wishlist={[]}
+                    isWishlistPage={false}
+                    serverSide
+                    totalItems={7}
+                    currentPage={1}
+                    onPageChange={vi.fn()}
+                />
+            </LocaleProvider>,
         );
 
         expect(screen.getByRole("navigation", { name: "Pagination" })).toHaveClass("shops__pagination");
@@ -193,7 +210,7 @@ describe("shop and product detail surfaces", () => {
         expect(screen.getByTestId("product-reviews-list")).toHaveClass("product-page__reviews-list");
     });
 
-    it("places recommendations before the product detail tabs", async () => {
+    it("places product detail tabs before recommendations", async () => {
         render(
             <MemoryRouter initialEntries={["/product?id=1"]}>
                 <LocaleProvider>
@@ -205,7 +222,7 @@ describe("shop and product detail surfaces", () => {
         const recommendations = await screen.findByTestId("product-recommendations-shell");
         const tabs = screen.getByTestId("product-tabs");
 
-        expect(recommendations.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(tabs.compareDocumentPosition(recommendations) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
         expect(screen.getByTestId("product-gallery-main")).toHaveClass("product-page__gallery-main--fixed");
     });
 

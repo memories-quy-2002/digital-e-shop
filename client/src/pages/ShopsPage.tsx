@@ -9,6 +9,7 @@ import AsideShops, {
 import PaginatedItems from "../components/common/PaginatedItems";
 import { ProductGridSkeleton } from "../components/common/StorefrontSkeleton";
 import Layout from "../components/layout/Layout";
+import { Button } from "../components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -71,6 +72,8 @@ export const parseShopPriceRange = (
 const ShopsPage = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [productLoadError, setProductLoadError] = useState(false);
+  const [productLoadAttempt, setProductLoadAttempt] = useState(0);
   const [wishlist, setWishlist] = useState<Wishlist[]>([]);
   const [facets, setFacets] = useState<ProductFacets>({
     categories: [],
@@ -330,6 +333,7 @@ const ShopsPage = () => {
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
     const activePage = Math.max(1, Number(queryParams.get("page")) || 1);
+    const controller = new AbortController();
     const requestParams = new URLSearchParams({
       page: String(activePage),
       limit: String(ITEMS_PER_PAGE),
@@ -351,10 +355,13 @@ const ShopsPage = () => {
 
     const fetchProducts = async () => {
       setIsLoading(true);
+      setProductLoadError(false);
       try {
         const response = await axios.get(
           `/api/products?${requestParams.toString()}`,
+          { signal: controller.signal },
         );
+        if (controller.signal.aborted) return;
         if (response.status === HTTP_STATUS.OK) {
           setProducts(normalizeProducts(response.data.products));
           setPagination(
@@ -367,29 +374,33 @@ const ShopsPage = () => {
           );
         }
       } catch {
-        addToast("Products", "Unable to load products right now.");
+        if (controller.signal.aborted) return;
+        setProductLoadError(true);
         setProducts([]);
       } finally {
-        setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       }
     };
 
     fetchProducts();
+    return () => controller.abort();
   }, [
-    addToast,
     debouncedTerm,
     filters.categories,
     filters.brands,
     filters.priceRange,
     filters.sortBy,
     location.search,
+    productLoadAttempt,
   ]);
 
   useEffect(() => {
     const fetchWishlist = async () => {
       try {
         if (uid) {
-          const response = await axios.get<{ wishlist: RawWishlistItem[] }>(`/api/wishlist/${uid}`);
+          const response = await axios.get<{ wishlist: RawWishlistItem[] }>(
+            `/api/wishlist/${uid}`,
+          );
           if (response.status === HTTP_STATUS.OK) {
             const newWishlist: Wishlist[] = response.data.wishlist.map(
               (item) => {
@@ -433,7 +444,9 @@ const ShopsPage = () => {
             </div>
             <div className="shops__header__summary">
               <div>
-                <strong>{isLoading ? "..." : pagination.total}</strong>
+                <strong>
+                  {isLoading || productLoadError ? "…" : pagination.total}
+                </strong>
                 <span>{t("home.results")}</span>
               </div>
               <div>
@@ -582,12 +595,16 @@ const ShopsPage = () => {
                   <strong>
                     {isLoading
                       ? t("shops.loading")
-                      : t("shops.resultsCount", pagination.total)}
+                      : productLoadError
+                        ? t("shops.loadErrorTitle")
+                        : t("shops.resultsCount", pagination.total)}
                   </strong>
                 </div>
-                <span>
-                  {pagination.page} / {Math.max(1, pagination.totalPages)}
-                </span>
+                {!productLoadError ? (
+                  <span>
+                    {pagination.page} / {Math.max(1, pagination.totalPages)}
+                  </span>
+                ) : null}
               </div>
               {isLoading ? (
                 <div className="shops__loading" aria-live="polite">
@@ -595,6 +612,19 @@ const ShopsPage = () => {
                     count={loadingCardCount}
                     className="shops__loading-grid"
                   />
+                </div>
+              ) : productLoadError ? (
+                <div className="app-empty-state" role="alert">
+                  <strong>{t("shops.loadErrorTitle")}</strong>
+                  <p>{t("shops.loadErrorBody")}</p>
+                  <Button
+                    type="button"
+                    onClick={() =>
+                      setProductLoadAttempt((attempt) => attempt + 1)
+                    }
+                  >
+                    {t("shops.retryProducts")}
+                  </Button>
                 </div>
               ) : (
                 <PaginatedItems

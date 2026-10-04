@@ -13,6 +13,7 @@ import AuthShell from "../components/AuthShell";
 import { registerUser } from "../api";
 import { getFirebaseAuthErrorMessage } from "../authErrors";
 import { getApiErrorMessage } from "../../../lib/api-contract";
+import { useT } from "../../../hooks/useT";
 
 interface User {
     username: string;
@@ -22,6 +23,7 @@ interface User {
 }
 
 const SignupPage = () => {
+    const t = useT();
     const navigate = useNavigate();
     const { addToast } = useToast();
     const { setUserData } = useAuth();
@@ -190,20 +192,20 @@ const SignupPage = () => {
     return (
         <>
             <Helmet>
-                <title>Create Account | Digital-E</title>
-                <meta name="description" content="Create a Digital-E account to shop faster and track orders." />
+                <title>{t("auth.signupTitle")} | Digital-E</title>
+                <meta name="description" content={t("auth.signupDescription")} />
             </Helmet>
             <AuthShell
                 mode="signup"
                 titleId="signup-title"
-                eyebrow="Customer account"
-                title="Create account"
-                description="Make your next build easier to manage from the first component to the final order."
-                storyTitle="Make every build count."
-                storyDescription="Keep your parts list, order history, and saved details ready whenever inspiration strikes."
+                eyebrow={t("auth.customerAccount")}
+                title={t("auth.signupTitle")}
+                description={t("auth.signupDescription")}
+                storyTitle={t("auth.signupStoryTitle")}
+                storyDescription={t("auth.signupStoryDescription")}
                 footer={(
                     <p className="auth-form__switch">
-                        Already registered? <Link to="/login">Log in</Link>
+                        {t("auth.alreadyRegistered")} <Link to="/login">{t("auth.login")}</Link>
                     </p>
                 )}
             >
@@ -217,13 +219,13 @@ const SignupPage = () => {
                     aria-busy={isSubmitting}
                 >
                     <div className="auth-form__field">
-                        <label className="auth-form__label" htmlFor="signup-username">Username</label>
+                        <label className="auth-form__label" htmlFor="signup-username">{t("auth.username")}</label>
                         <input
                             id="signup-username"
                             className="auth-form__input"
                             type="text"
                             name="username"
-                            placeholder="Choose a username"
+                            placeholder={t("auth.chooseUsername")}
                             required
                             autoComplete="username"
                             spellCheck={false}
@@ -236,7 +238,7 @@ const SignupPage = () => {
                     </div>
 
                     <div className="auth-form__field">
-                        <label className="auth-form__label" htmlFor="signup-email">Email address</label>
+                        <label className="auth-form__label" htmlFor="signup-email">{t("auth.emailAddress")}</label>
                         <input
                             id="signup-email"
                             className="auth-form__input"
@@ -255,14 +257,14 @@ const SignupPage = () => {
                     </div>
 
                     <div className="auth-form__field">
-                        <label className="auth-form__label" htmlFor="signup-password">Password</label>
+                        <label className="auth-form__label" htmlFor="signup-password">{t("auth.password")}</label>
                         <div className="auth-form__password-field">
                             <input
                                 id="signup-password"
                                 className="auth-form__input"
                                 type={showPassword ? "text" : "password"}
                                 name="password"
-                                placeholder="Create a password"
+                                placeholder={t("auth.createPassword")}
                                 required
                                 autoComplete="new-password"
                                 value={user.password}
@@ -273,19 +275,19 @@ const SignupPage = () => {
                             <button
                                 className="auth-form__password-toggle"
                                 type="button"
-                                aria-label={showPassword ? "Hide password" : "Show password"}
+                                aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
                                 onClick={() => setShowPassword((value) => !value)}
                             >
                                 {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
                             </button>
                         </div>
                         <p id="signup-password-hint" className="auth-form__password-hint">
-                            Use 8+ characters with lowercase, uppercase, a number, and a symbol.
+                            {t("auth.passwordHint")}
                         </p>
                         <div
                             className="auth-form__password-meter"
                             role="progressbar"
-                            aria-label={`Password strength: ${passwordStrength} of 5`}
+                            aria-label={t("auth.passwordStrength", passwordStrength)}
                             aria-valuemin={0}
                             aria-valuemax={5}
                             aria-valuenow={passwordStrength}
@@ -298,14 +300,14 @@ const SignupPage = () => {
                     </div>
 
                     <div className="auth-form__field">
-                        <label className="auth-form__label" htmlFor="signup-confirm-password">Confirm Password</label>
+                        <label className="auth-form__label" htmlFor="signup-confirm-password">{t("auth.confirmPassword")}</label>
                         <div className="auth-form__password-field">
                             <input
                                 id="signup-confirm-password"
                                 className="auth-form__input"
                                 type={showConfirm ? "text" : "password"}
                                 name="confirm"
-                                placeholder="Re-enter your password"
+                                placeholder={t("auth.reenterPassword")}
                                 required
                                 autoComplete="new-password"
                                 value={user.confirm}
@@ -316,7 +318,7 @@ const SignupPage = () => {
                             <button
                                 className="auth-form__password-toggle"
                                 type="button"
-                                aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
+                                aria-label={showConfirm ? t("auth.hideConfirmPassword") : t("auth.showConfirmPassword")}
                                 onClick={() => setShowConfirm((value) => !value)}
                             >
                                 {showConfirm ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
@@ -332,10 +334,10 @@ const SignupPage = () => {
                     ) : null}
 
                     <button className="auth-form__submit" type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>
-                        {isSubmitting ? "Creating account…" : "Sign up"}
+                        {isSubmitting ? t("auth.creatingAccount") : t("auth.signUp")}
                         <span aria-hidden="true">→</span>
                     </button>
-                    <p className="auth-form__legal-note">We&apos;ll send a verification link after your account is created.</p>
+                    <p className="auth-form__legal-note">{t("auth.verificationNote")}</p>
                 </form>
             </AuthShell>
         </>

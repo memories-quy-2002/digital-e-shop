@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeftIcon } from "../../../components/common/Icons";
 import ColorSchemeToggle from "../../../components/common/ColorSchemeToggle";
+import { useT } from "../../../hooks/useT";
 
 export type AuthShellMode = "login" | "signup";
 
@@ -28,23 +29,24 @@ const AuthShell = ({
     children,
     footer,
 }: AuthShellProps) => {
+    const t = useT();
     const benefits = mode === "login"
         ? [
-            "Faster checkout with saved details",
-            "Track every order in real time",
-            "Curated parts for serious builds",
+            t("auth.loginBenefitOne"),
+            t("auth.loginBenefitTwo"),
+            t("auth.loginBenefitThree"),
         ]
         : [
-            "Keep your parts list in one place",
-            "Move from idea to checkout faster",
-            "Get more from every build",
+            t("auth.signupBenefitOne"),
+            t("auth.signupBenefitTwo"),
+            t("auth.signupBenefitThree"),
         ];
 
     return (
         <main className={`auth-page auth-page--${mode}`}>
             <div className="auth-shell">
                 <header className="auth-shell__topbar">
-                    <Link className="auth-shell__brand" to="/" aria-label="Digital-E storefront home">
+                    <Link className="auth-shell__brand" to="/" aria-label={t("common.storefrontHome")}>
                         <span className="auth-shell__brand-mark" aria-hidden="true">
                             <span>DE</span>
                         </span>
@@ -53,16 +55,16 @@ const AuthShell = ({
                     <div className="auth-shell__topbar-actions">
                         <Link className="auth-shell__back-link" to="/">
                             <ArrowLeftIcon size={16} />
-                            <span>Back to store</span>
+                            <span>{t("auth.backToStore")}</span>
                         </Link>
                         <ColorSchemeToggle compact />
                     </div>
                 </header>
 
                 <div className="auth-shell__body">
-                    <aside className="auth-shell__story" aria-label="Digital-E account benefits">
+                    <aside className="auth-shell__story" aria-label={t("auth.accountBenefits")}>
                         <div>
-                            <p className="auth-shell__story-eyebrow">Digital-E / access layer</p>
+                            <p className="auth-shell__story-eyebrow">{t("auth.accessLayer")}</p>
                             <h1 className="auth-shell__story-title">{storyTitle}</h1>
                             <p className="auth-shell__story-description">{storyDescription}</p>
                             <ul className="auth-shell__benefits">
@@ -80,8 +82,8 @@ const AuthShell = ({
                                 <span className="auth-shell__circuit-node auth-shell__circuit-node--d" />
                             </div>
                             <p className="auth-shell__signal-copy">
-                                <strong>Signal: clear</strong>
-                                account system ready for your next move
+                                <strong>{t("auth.signalClear")}</strong>
+                                {t("auth.accountReady")}
                             </p>
                         </div>
                     </aside>
@@ -98,7 +100,7 @@ const AuthShell = ({
                 </div>
 
                 <p className="auth-shell__legal">
-                    By continuing, you agree to Digital-E&apos;s terms of service and privacy policy.
+                    {t("auth.legalNotice")}
                 </p>
             </div>
         </main>

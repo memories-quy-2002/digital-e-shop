@@ -26,14 +26,6 @@ vi.mock("../../hooks/useT", async () => {
         "support.contactFormText": "Translated contact form text",
         "support.contactFormDetail": "Translated response detail",
         "support.contactFormAction": "Translated contact form action",
-        "support.emailTitle": "Translated email title",
-        "support.emailText": "Translated email text",
-        "support.emailDetail": "support@digital-e.com",
-        "support.emailAction": "Translated email action",
-        "support.hotlineTitle": "Translated hotline title",
-        "support.hotlineText": "Translated hotline text",
-        "support.hotlineDetail": "+84 123 456 789",
-        "support.hotlineAction": "Translated hotline action",
         "support.selfServiceLabel": "Translated self service",
         "support.resourcesHeading": "Translated resources heading",
         "support.trackOrderTitle": "Translated track order",
@@ -103,21 +95,15 @@ describe("SupportPage", () => {
         expect(screen.getByText("Translated FAQ question")).toBeVisible();
     });
 
-    it("uses truthful contact actions and actionable resource links", () => {
+    it("uses the real contact form and actionable resource links", () => {
         renderSupport();
 
         expect(screen.getByRole("link", { name: "Translated contact form action" })).toHaveAttribute(
             "href",
             "/contact-us",
         );
-        expect(screen.getByRole("link", { name: "Translated email action" })).toHaveAttribute(
-            "href",
-            "mailto:support@digital-e.com",
-        );
-        expect(screen.getByRole("link", { name: "Translated hotline action" })).toHaveAttribute(
-            "href",
-            "tel:+84123456789",
-        );
+        expect(screen.queryByText("support@digital-e.com")).not.toBeInTheDocument();
+        expect(screen.queryByText("+84 123 456 789")).not.toBeInTheDocument();
         expect(screen.getByRole("link", { name: "Translated track order action" })).toHaveAttribute(
             "href",
             "/account/orders",

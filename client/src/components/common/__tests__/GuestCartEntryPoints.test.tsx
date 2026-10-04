@@ -230,13 +230,15 @@ describe("guest cart entry points", () => {
 
     it("adds a signed-out catalog product through CartContext while keeping wishlist protected", async () => {
         render(
-            <PaginatedItems
-                itemsPerPage={6}
-                items={[product]}
-                uid=""
-                wishlist={[]}
-                isWishlistPage={false}
-            />,
+            <LocaleProvider>
+                <PaginatedItems
+                    itemsPerPage={6}
+                    items={[product]}
+                    uid=""
+                    wishlist={[]}
+                    isWishlistPage={false}
+                />
+            </LocaleProvider>,
         );
 
         fireEvent.click(screen.getByRole("button", { name: "Add to cart" }));
@@ -250,13 +252,15 @@ describe("guest cart entry points", () => {
         mocks.cart.addItem.mockResolvedValue(false);
 
         render(
-            <PaginatedItems
-                itemsPerPage={6}
-                items={[product]}
-                uid=""
-                wishlist={[]}
-                isWishlistPage={false}
-            />,
+            <LocaleProvider>
+                <PaginatedItems
+                    itemsPerPage={6}
+                    items={[product]}
+                    uid=""
+                    wishlist={[]}
+                    isWishlistPage={false}
+                />
+            </LocaleProvider>,
         );
 
         fireEvent.click(screen.getByRole("button", { name: "Add to cart" }));

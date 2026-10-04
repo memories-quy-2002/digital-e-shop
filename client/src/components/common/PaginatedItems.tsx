@@ -7,6 +7,7 @@ import { useToast } from "../../context/ToastContext";
 import { Product } from "../../utils/interface";
 import ShopsItem from "./ShopsItem";
 import WishlistItem from "./WishlistItem";
+import { useT } from "../../hooks/useT";
 
 interface Item {
     id: number;
@@ -54,6 +55,7 @@ const PaginatedItems = ({
 }: PaginatedProps) => {
     const { addToast } = useToast();
     const { addItem } = useCart();
+    const t = useT();
     const [baseWishlist, setBaseWishlist] = useState<Item[]>([]);
     const [pendingWishlistIds, setPendingWishlistIds] = useState<number[]>([]);
     const [itemOffset, setItemOffset] = useState(0);
@@ -262,11 +264,11 @@ const PaginatedItems = ({
                 <div className="shops__empty app-empty-state">
                     <strong>
                         {isWishlistPage
-                            ? "There is no product in your wishlist"
-                            : "There is no product matched the filters"}
+                            ? t("shops.emptyWishlist")
+                            : t("shops.noProductsMatched")}
                     </strong>
                     {!isWishlistPage ? (
-                        <p>Try adjusting your search term, brand selection, or price range.</p>
+                        <p>{t("shops.adjustSearchFilters")}</p>
                     ) : null}
                 </div>
             )}
