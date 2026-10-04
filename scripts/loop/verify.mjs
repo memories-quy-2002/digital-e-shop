@@ -117,22 +117,6 @@ const COMMAND_REGISTRY = Object.freeze({
     cwd: 'server',
     packageScope: 'server',
   }),
-  'hosted-stage0-typecheck': Object.freeze({
-    id: 'hosted-stage0-typecheck',
-    command: 'pnpm',
-    args: Object.freeze(['typecheck']),
-    windowsCommand: 'pnpm typecheck',
-    cwd: 'scripts/loop/hosted/cloudflare',
-    packageScope: 'stage0',
-  }),
-  'hosted-stage0-test': Object.freeze({
-    id: 'hosted-stage0-test',
-    command: 'pnpm',
-    args: Object.freeze(['test']),
-    windowsCommand: 'pnpm test',
-    cwd: 'scripts/loop/hosted/cloudflare',
-    packageScope: 'stage0',
-  }),
   'server-build': Object.freeze({
     id: 'server-build',
     command: 'pnpm',
@@ -218,11 +202,7 @@ export function buildVerificationPlan(input) {
   const risk = classifyRisk({ paths: changedPaths }, input.policy);
   const touchesClient = changedPaths.some((changedPath) => changedPath === 'client' || changedPath.startsWith('client/'));
   const touchesServer = changedPaths.some((changedPath) => changedPath === 'server' || changedPath.startsWith('server/'));
-  const touchesHostedStage0 = changedPaths.some((changedPath) => changedPath === 'scripts/loop/hosted/cloudflare'
-    || changedPath.startsWith('scripts/loop/hosted/cloudflare/'));
   const selected = ['loop-tests'];
-
-  if (touchesHostedStage0) selected.push('hosted-stage0-typecheck', 'hosted-stage0-test');
 
   if (touchesClient) {
     selected.push('client-typecheck', 'client-lint', 'client-test');
@@ -462,19 +442,11 @@ async function resolveRepositoryRoot(repoRoot) {
 }
 
 async function resolvePackageRoot(repoRoot, packageName) {
-  const packagePaths = Object.freeze({
-    client: 'client',
-    server: 'server',
-    stage0: 'scripts/loop/hosted/cloudflare',
-  });
-  if (!Object.hasOwn(packagePaths, packageName)) {
-    throw new VerificationExecutionRefusedError('package scope is not allowlisted');
-  }
-  const relative = packagePaths[packageName];
+  const relative = packageName === 'client' ? 'client' : 'server';
   const expected = path.resolve(repoRoot, relative);
   let current = repoRoot;
 
-  for (const segment of relative.split(/[\\/]/)) {
+  for (const segment of relative.split(path.sep)) {
     current = path.join(current, segment);
     const info = await lstat(current).catch((error) => {
       throw new VerificationExecutionRefusedError(`required package directory is unavailable: ${relative} (${error.code ?? 'path_error'})`);
