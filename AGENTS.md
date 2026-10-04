@@ -29,13 +29,16 @@ For broad tasks that benefit from delegation, also read `docs/CODEX_ORCHESTRATIO
 - TypeScript in both packages
 - A small amount of JavaScript/CommonJS remains in the server runtime shape
 
+Exact dependency ranges live in `client/package.json` and `server/package.json`;
+resolved versions live in their package-local `pnpm-lock.yaml` files.
+
 ### Frontend
 
-- React `19.2.8`
-- React Router DOM `7.18.3`
-- Vite `8.2.2`
-- TypeScript `6.0.3`
-- Tailwind CSS `4.3.3` with Radix UI primitives
+- React 19
+- React Router DOM 7
+- Vite 8
+- TypeScript 6
+- Tailwind CSS 4 with Radix UI primitives
 - SCSS / Sass
 - Axios
 - Firebase client auth
@@ -45,9 +48,9 @@ For broad tasks that benefit from delegation, also read `docs/CODEX_ORCHESTRATIO
 
 ### Backend
 
-- NestJS `11.2.3` on Express `5.2.1`
-- MySQL via `mysql` and `mysql2`
-- Prisma `7.10.0` and `@prisma/client` (partial persistence/migration layer)
+- NestJS 11 on Express 5
+- MySQL via `mysql2`
+- Prisma 7 and `@prisma/client` (partial persistence/migration layer)
 - Zod validation
 - `csrf-csrf`
 - `jsonwebtoken`
@@ -80,7 +83,6 @@ digital-e-shop/
       pages/        Route-level pages not owned by a feature module
       routes/       Router and lazy route wiring
       services/     External client integrations (for example Firebase)
-      stores/       Legacy/low-use store area
       styles/       Shared and page SCSS
       types/        Shared frontend types
       utils/        Formatting and helper utilities
@@ -271,7 +273,7 @@ for the full client/server variable matrix.
 
 - Backend handlers commonly return JSON with `msg` on expected failures and `error` for infrastructure-style failures.
 - This response shape is not fully uniform across the API. Preserve the existing contract of the specific route you are touching.
-- Shared backend error middleware is simple and generic; do not rely on it to normalize all route responses for you.
+- `AllExceptionsFilter` adds canonical error metadata and compatibility aliases; the response interceptor adds success metadata without moving route data. See `Wiki/concepts/api-response-contract.md` for the maintained contract.
 
 ### Validation
 
@@ -388,7 +390,7 @@ pnpm --dir server lint
 Add targeted tests for new work where practical:
 
 - Frontend: Vitest + Testing Library component/render tests for new logic-heavy components, route guards, or UI state transitions.
-- Backend: add focused tests only if a harness is introduced deliberately; otherwise verify changed flows through targeted runtime checks and keep logic isolated enough to test later.
+- Backend: use the existing Vitest unit suite for changed logic; use the opt-in MySQL integration suite for persistence boundaries. The server test command also runs the portable Docker command-plan tests without connecting to a database.
 - Performance: use k6 only for read-only paths unless a cloned test DB exists.
 
 If you cannot run a relevant command, say so explicitly in the final report.
@@ -617,5 +619,5 @@ These are directly observable from the current repo:
 - `client/pnpm-lock.yaml` and `server/pnpm-lock.yaml` are independent lockfiles and must be updated from their owning package directories.
 - `client/src/lib/env.ts` requires an explicit production API base URL and uses
   localhost only for development defaults.
-- The backend now has both a feature-based architecture and some compatibility-era wrapper patterns; not every feature validator/type file is fully independent yet.
+- Feature validators own their schemas. Shared request parsing and validation-error formatting live in `server/src/shared/validation/request-validation.ts`; avoid re-exporting feature schemas through the shared layer.
 - Backend response payload shapes are inconsistent across routes (`msg` vs `error` and route-specific data keys), so callers must preserve route-local contracts carefully.

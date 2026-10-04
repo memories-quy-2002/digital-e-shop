@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { logger } from "#src/shared/utils/logger";
-import { getValidationMessage, parseBody } from "#src/shared/validation/request-schemas";
+import { getValidationMessage, parseBody } from "#src/shared/validation/request-validation";
 import { blobHealthQuerySchema } from "./blob.validator";
 import type { UploadRequestFile } from "./blob.types";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";

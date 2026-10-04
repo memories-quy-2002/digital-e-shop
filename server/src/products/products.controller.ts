@@ -25,7 +25,7 @@ import { Roles, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestProductsService } from "./products.service";
 import { NestProductsRepository } from "./products.repository";
-import { getValidationMessage } from "#src/shared/validation/request-schemas";
+import { getValidationMessage } from "#src/shared/validation/request-validation";
 import type { ProductCreateInput } from "./products.dto";
 import { attributeFilterSchema, productCreateSchema, productUpdateSchema, inventoryUpdateSchema } from "./products.validator";
 import type { AttributeFilter } from "./product-attributes.types";

@@ -30,7 +30,6 @@
         "App.tsx",
         "index.tsx",
         "react-app-env.d.ts",
-        "src/reportWebVitals.ts",
         "src/setupTests.ts",
         "babel.config.json",
         "vitest.config.ts",

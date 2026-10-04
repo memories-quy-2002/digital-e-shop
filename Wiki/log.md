@@ -108,3 +108,5 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-10-03 - Codex - Moved transactional product create/edit/stock SQL into NestProductsRepository while keeping service orchestration and transaction ownership unchanged.
 - 2026-10-04 — Codex — Moved order transaction SQL into repositories, extracted pure order snapshots and a required cancellation provider, and preserved after-commit notifications; see [[architecture]].
 - 2026-10-04 — Codex — Finished backend query work: filtered catalog counts avoid aggregate joins, analytics coalesces only in-flight reads, and cancellation locks products once in sorted order while preserving per-item effects; see [[architecture]].
+
+- 2026-10-04 — Codex — Removed unused direct dependencies and the orphan Web Vitals helper, retired shared schema re-exports, and consolidated local Docker/build scripts while preserving feature schemas and API contracts.

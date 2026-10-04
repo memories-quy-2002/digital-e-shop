@@ -214,8 +214,8 @@ application has not been converted to Prisma.
   expires carts after 30 days, and exposes aggregate funnel metrics to Admin;
   preview and checkout remain authoritative for current catalog data, stock,
   promotions, and totals.
-- Feature validators own request schemas; `shared/validation/request-schemas.ts`
-  remains a compatibility facade that re-exports them. `CartRepository` exposes
+- Feature validators own request schemas; `shared/validation/request-validation.ts`
+  owns only parsing and validation-error formatting and does not import feature schemas. `CartRepository` exposes
   Promise-based reads and writes, while retaining owner-scoped SQL and the
   existing mutation sequence in `NestCartService`.
 - Authenticated and guest orders share the order lifecycle: Pending, Done, and
@@ -252,7 +252,9 @@ application has not been converted to Prisma.
 - Vercel deployment builds each package from its own root. Production database
   migration and manual demo reset are protected workflows with environment
   approval and backup requirements.
-- Local Docker uses `digital_e_shop_local` on `127.0.0.1:3307`; runtime,
+- Local Docker commands use `server/docker/run.mjs`, package-relative paths, and
+  `server/.env.docker`. Command-plan tests run before the server Vitest suite.
+  Local Docker uses `digital_e_shop_local` on `127.0.0.1:3307`; runtime,
   Prisma, and demo-seed guards reject remote targets by default.
 
 ## Loop Engineering control plane
