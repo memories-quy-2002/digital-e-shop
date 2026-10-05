@@ -1,6 +1,6 @@
 # Hosted Loop Engineering Stage 0 runbook
 
-**Updated:** 2026-10-02
+**Updated:** 2026-10-05
 **Status:** The Cloudflare Worker, D1 database, both Queues, and production Worker secret names are provisioned. Their secret values were not inspected. The active Worker deployment has no verified provenance from the protected GitHub `workflow_dispatch` workflow. The GitHub App is installed only on `memories-quy-2002/digital-e-shop`, but it has no subscribed webhook events and its configured URL still points to `/` instead of `/webhook`. The installation still needs `contents:read` and `checks:write`. The `hosted-stage0-production` environment allows only `main` and requires maintainer review; `CLOUDFLARE_ACCOUNT_ID` is set, but `CLOUDFLARE_API_TOKEN` is not. A trusted `main` deployment and live PR pilot remain pending.
 
 ## What runs where
@@ -46,6 +46,8 @@ Before the first deployment, confirm that `main` contains the reviewed code and 
 - **Cloudflare dashboard → Queues:** inspect backlog, consumer failures, and the dead-letter Queue. Messages that exhaust the configured three retries are not automatically replayed from the dead-letter Queue; investigate the reason first, then redeliver only after the cause is corrected.
 - **GitHub App → Advanced → Recent deliveries:** inspect webhook response status and redeliver a failed delivery if appropriate. The scheduled open-PR scan also recovers missed deliveries.
 - **GitHub Actions → Hosted Loop Stage 0:** inspect the secret-free PR/main verification or an explicitly dispatched, protected production deployment.
+
+If a scheduled invocation reports `reconciliation_failed` with no outbound GitHub spans, check the production bindings before treating it as a network error. A missing or invalid GitHub runtime configuration throws before D1/GitHub calls and is currently logged with this fallback code. From `scripts/loop/hosted/cloudflare`, run `pnpm exec wrangler secret list --env production` and inspect the affected version with `pnpm exec wrangler versions view <VERSION_ID> --env production`; these commands show secret names, not values. Production requires `GITHUB_APP_PRIVATE_KEY` and `GITHUB_WEBHOOK_SECRET`. The `production.secrets.required` declaration inherits these bindings and makes an upload fail if a required secret is missing. Restore missing values on the production Worker's Settings page or with `wrangler secret put <NAME> --env production`, then verify the active version's binding names and a subsequent reconciliation sweep. A new `last_completed_at` records sweep completion, not completion of downstream Queue processing.
 
 ## Bounds and free-plan operations
 
