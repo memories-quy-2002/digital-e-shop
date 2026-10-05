@@ -1,7 +1,7 @@
 # Stage 1: duyệt rerun CI qua CLI
 
 **Ngày:** 2026-10-05
-**Trạng thái:** Bản thiết kế và lộ trình đề xuất, chờ review trước kế hoạch code chi tiết.
+**Trạng thái:** Người dùng đã duyệt thiết kế trong phiên ngày 2026-10-05; kế hoạch chi tiết tại [Stage 1 implementation plan](../plans/2026-10-05-stage1-cli-flaky-rerun.md). Approval này dành cho thiết kế/kế hoạch, không mở live rerun hoặc quyền sửa protected paths.
 **Phạm vi đã thống nhất:** Người dùng duyệt trên CLI khi Loop phát hiện failed checks. Stage 1 chỉ rerun lỗi được xác nhận flaky; sửa code thuộc Stage 2.
 **Nhánh tài liệu:** `feature/stage1-cli-approval-plan`.
 
@@ -55,7 +55,7 @@ Không có popup terminal tự động hoặc notification app trong phạm vi �
 - Dùng local state hiện có dưới `.loop/pr/` và `.loop/state/`; không sao chép raw logs, prompts hay credentials từ Cloudflare vào state.
 - Canonical policy lấy từ revision đáng tin cậy theo host contract, không lấy approval IDs, workflow allowlist hoặc budget từ PR đang chạy.
 - API write duy nhất là `POST /repos/{owner}/{repo}/actions/runs/{run_id}/rerun-failed-jobs` theo adapter hiện có.
-- Endpoint rerun-failed-jobs chạy lại toàn bộ failed jobs của run. Host phải kiểm tra toàn bộ tập này thuộc allowlist và khớp approval; không coi danh sách một vài job đã duyệt là quyền rerun cả run.
+- Endpoint rerun-failed-jobs chạy lại toàn bộ failed jobs và dependent jobs của run. Host phải review toàn bộ workflow/job graph và kiểm tra tập failed jobs khớp approval; không coi danh sách một vài job đã duyệt là quyền rerun cả run. [GitHub REST API](https://docs.github.com/en/rest/actions/workflow-runs#re-run-failed-jobs-from-a-workflow-run).
 
 ## Hai prerequisite phải review riêng
 
@@ -175,4 +175,4 @@ pnpm --dir scripts/loop/hosted/cloudflare typecheck
 
 Việc hiện tại chỉ tạo tài liệu low-risk dưới `docs/**`. Các path implementation `scripts/loop/**`, policy `.agent/policy/**` và mọi CI workflow là high-risk theo canonical policy; approval cho CLI rerun tương lai không tự cấp phép sửa các path này.
 
-User review bản thiết kế này trước khi dùng skill `writing-plans` để viết kế hoạch code chi tiết theo từng task. Skill `brainstorming` yêu cầu review written spec trước bước đó. Không triển khai, thay App permissions, thay policy hoặc chạy live rerun trong lượt viết thiết kế này.
+User đã review và duyệt bản thiết kế, đồng thời yêu cầu viết kế hoạch chi tiết, commit theo Conventional Commit/commit-lint và push nhánh hiện tại. Không triển khai, thay App permissions, thay policy hoặc chạy live rerun trong lượt viết kế hoạch này.
