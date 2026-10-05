@@ -37,6 +37,7 @@ The local demo seed creates a linked graph with 28 products across 8 categories 
 - [Testing guide](../docs/TESTING.md): package, integration, smoke, and k6 checks
 - [CI/CD guide](../docs/ci-cd.md): CI, migration gates, deployment, and reset safety
 - [Phase 2 PR Babysitter runbook](../docs/loop-engineering/phase-2-pr-babysitter-runbook.md): staged rollout, credential boundaries, read-only Stage 0 host bootstrap, and verification gates
+- [Stage 1 CLI runbook](../docs/loop-engineering/stage1-cli-runbook.md): current fail-closed CLI behavior, prerequisites, pilot gates, and disable procedure
 - [Hosted Stage 0 runbook](../docs/loop-engineering/hosted-stage0-runbook.md): Cloudflare Worker, D1/Queue setup, non-gating PR report, operations, quotas, and rollback
 - [Prisma workflow](../server/README.prisma.md): schema ownership and demo database operations
 

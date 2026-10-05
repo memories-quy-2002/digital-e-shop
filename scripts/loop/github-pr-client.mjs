@@ -935,6 +935,8 @@ export function createGitHubPrClient(options) {
       const repositoryId = isPositiveInteger(run.repository?.id) ? run.repository.id
         : isPositiveInteger(run.repository_id) ? run.repository_id
           : null;
+      const runAttempt = isPositiveInteger(run.run_attempt) ? run.run_attempt : null;
+      if (runAttempt === null) complete = false;
       const item = Object.freeze({
         id: run.id,
         repositoryId,
@@ -947,7 +949,7 @@ export function createGitHubPrClient(options) {
         sourceSha: null,
         sourceShaAttested: false,
         runNumber: isPositiveInteger(run.run_number) ? run.run_number : null,
-        runAttempt: isPositiveInteger(run.run_attempt) ? run.run_attempt : 1,
+        runAttempt,
         status: typeof run.status === 'string' ? run.status : 'unknown',
         conclusion: typeof run.conclusion === 'string' ? run.conclusion : null,
         createdAt: stableTimestamp(run.created_at),
@@ -1011,23 +1013,26 @@ export function createGitHubPrClient(options) {
     });
   }
 
-  async function getWorkflowRunJobs(runId) {
-    if (!isPositiveInteger(runId) || !observedWorkflowRuns.has(runId)) fail('run_not_observed');
+  async function getWorkflowRunJobs(runId, runAttempt) {
+    if (!isPositiveInteger(runId) || !isPositiveInteger(runAttempt) || !observedWorkflowRuns.has(runId)) fail('run_not_observed');
     const observed = observedWorkflowRuns.get(runId);
+    if (observed.run.runAttempt !== runAttempt) fail('run_attempt_mismatch');
     const before = await readPullRequest(observed.snapshot.number);
     activeSnapshot = before;
     if (!sameTuple(normalizedTuple(before), normalizedTuple(observed.snapshot))) fail('stale_pr_snapshot');
-    const result = await paginate(repositoryPath + '/actions/runs/' + runId + '/jobs', 'jobs');
+    const result = await paginate(repositoryPath + '/actions/runs/' + runId + '/attempts/' + runAttempt + '/jobs', 'jobs');
     const jobs = [];
     let complete = result.complete;
     for (const job of result.values) {
-      if (!isRecord(job) || !isPositiveInteger(job.id) || job.run_id !== runId) {
+      if (!isRecord(job) || !isPositiveInteger(job.id) || job.run_id !== runId
+          || !isPositiveInteger(job.run_attempt) || job.run_attempt !== runAttempt) {
         complete = false;
         continue;
       }
       jobs.push(Object.freeze({
         id: job.id,
         runId,
+        runAttempt,
         name: typeof job.name === 'string' ? job.name.slice(0, 255) : 'unknown',
         status: typeof job.status === 'string' ? job.status : 'unknown',
         conclusion: typeof job.conclusion === 'string' ? job.conclusion : null,
@@ -1046,6 +1051,7 @@ export function createGitHubPrClient(options) {
     if (!sameTuple(normalizedTuple(before), normalizedTuple(after))) fail('stale_pr_snapshot');
     return Object.freeze({
       runId,
+      runAttempt,
       snapshot: after,
       jobs: Object.freeze(jobs),
       collectionStatus: complete ? 'complete' : 'incomplete',

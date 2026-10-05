@@ -185,7 +185,7 @@ async function loadPolicyAtBaseCommit(repoRoot, baseSha) {
   }
 }
 
-function assertEligiblePullRequest(snapshot) {
+export function assertEligiblePullRequest(snapshot) {
   if (snapshot.repository !== STAGE0_REPOSITORY || snapshot.repositoryId !== STAGE0_REPOSITORY_ID
       || snapshot.baseRepositoryId !== STAGE0_REPOSITORY_ID || snapshot.headRepositoryId !== STAGE0_REPOSITORY_ID
       || snapshot.defaultBranch !== 'main' || snapshot.state !== 'open' || snapshot.baseRef !== 'main'
@@ -198,7 +198,7 @@ function assertEligiblePullRequest(snapshot) {
   }
 }
 
-async function assertCheckoutMatchesPr(repoRoot, snapshot) {
+export async function assertCheckoutMatchesPr(repoRoot, snapshot) {
   const [head, branch, status] = await Promise.all([
     git(repoRoot, ['rev-parse', 'HEAD']),
     git(repoRoot, ['symbolic-ref', '--quiet', '--short', 'HEAD']),

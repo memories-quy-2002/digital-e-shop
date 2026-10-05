@@ -125,6 +125,23 @@ use is unknown, evidence is stale or incomplete, the approval is forged,
 expired, replayed, or out of scope, or any retry/rate limit is exhausted. Stage
 1 does not repair code or push branches.
 
+**Current implementation status (2026-10-05):** the standalone
+`pr-babysitter-stage1-host.mjs` is an offline fail-closed boundary, not an
+enabled rerun host. `inspect` delegates to the read-only Stage 0 host. A live
+`rerun-flaky` request returns `stage1_prerequisites_unavailable` before reading
+credentials or contacting GitHub because no reviewed source-attestation
+provider, workflow/job allowlist, trusted approver list, or finite canonical
+CI budget is configured. `rerun-flaky --dry-run` validates syntax only. Do
+not grant `actions:write` or count this as a pilot. See the [Stage 1 CLI
+runbook](stage1-cli-runbook.md) and [readiness evidence](stage1-readiness.md).
+The guarded writer reads jobs for the exact run attempt and rechecks that
+attempt after reserving budget. GitHub's failed-jobs POST accepts only
+`run_id`, so the request cannot atomically bind to the approved attempt; the
+remaining external-rerun race is a hard activation blocker.
+The job API also omits workflow `needs` edges, while the TTY review requires a
+complete graph; a trusted graph must be loaded from reviewed configuration or
+the exact attested workflow source before a pilot.
+
 **Promotion to Stage 2 requires all of these:**
 
 - At least 10 bounded rerun decisions, or sufficient representative fixtures

@@ -142,7 +142,7 @@ describe('verification planning', () => {
     assert.match(workflow, /version:\s*12\.4\.2/);
     assert.doesNotMatch(workflow, /corepack enable/);
 
-    const verifyJob = workflow.split('\n  deploy:\n')[0];
+    const verifyJob = workflow.split(/\r?\n  deploy:\r?\n/)[0];
     assert.doesNotMatch(verifyJob, /\$\{\{\s*secrets\./);
     assert.doesNotMatch(verifyJob, /CLOUDFLARE_API_TOKEN|CLOUDFLARE_ACCOUNT_ID/);
     assert.doesNotMatch(verifyJob, /wrangler deploy|--env production/);
