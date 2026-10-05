@@ -209,7 +209,7 @@ export function createGitHubApiClient(options: GitHubApiOptions) {
       response = await fetchImpl(url, {
         method: 'GET',
         headers: githubRequestHeaders(token),
-        redirect: 'error',
+        redirect: 'manual',
         signal: AbortSignal.timeout(10_000),
       });
     } catch {
@@ -236,7 +236,7 @@ export function createGitHubApiClient(options: GitHubApiOptions) {
       response = await fetchImpl(url, {
         method: 'GET',
         headers: githubRequestHeaders(token),
-        redirect: 'error',
+        redirect: 'manual',
         signal: AbortSignal.timeout(10_000),
       });
     } catch {
@@ -263,7 +263,7 @@ export function createGitHubApiClient(options: GitHubApiOptions) {
       response = await fetchImpl(url, {
         method: 'GET',
         headers: githubRequestHeaders(token),
-        redirect: 'error',
+        redirect: 'manual',
         signal: AbortSignal.timeout(10_000),
       });
     } catch {

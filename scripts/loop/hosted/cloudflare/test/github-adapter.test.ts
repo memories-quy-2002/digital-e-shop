@@ -380,6 +380,24 @@ describe('GitHub App authentication', () => {
 });
 
 describe('fixed GitHub read API client', () => {
+  it.each(['repository', 'branch protection', 'open pull requests'])('uses a Worker-supported redirect mode for %s', async (route) => {
+    const api = createGitHubApiClient({
+      repository: 'memories-quy-2002/digital-e-shop',
+      repositoryId,
+      getToken: async () => 'ghs_test',
+      fetchImpl: async (_input, init) => {
+        if (init?.redirect === 'error') throw new TypeError('Invalid redirect value, must be one of "follow" or "manual"');
+        expect(init?.redirect).toBe('manual');
+        return Response.json(route === 'open pull requests' ? [] : {});
+      },
+    });
+
+    const request = route === 'repository' ? api.getRepository()
+      : route === 'branch protection' ? api.getBranchProtection('main')
+        : api.listOpenPullRequests(1);
+    await expect(request).resolves.toBeDefined();
+  });
+
   it('sends a descriptive User-Agent when reconciling open pull requests', async () => {
     const requestHeaders: Headers[] = [];
     const api = createGitHubApiClient({
