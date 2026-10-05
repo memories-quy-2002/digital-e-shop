@@ -55,12 +55,16 @@ function responseRun(id: number, sha = headSha) {
 }
 
 function reportFixture(options: {
+  enforceWorkerRedirect?: boolean;
   lookup?: Response;
   write?: Response;
   refresh?: () => Promise<{ snapshot: ReturnType<typeof snapshot>; requiredCheckSnapshot: ReturnType<typeof requiredPolicy> }>;
 } = {}) {
   const calls: Array<{ url: string; init?: RequestInit }> = [];
   const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (options.enforceWorkerRedirect && init?.redirect === 'error') {
+      throw new TypeError('Invalid redirect value, must be one of "follow" or "manual"');
+    }
     calls.push({ url: String(input), init });
     if (init?.method === 'GET') return options.lookup ?? Response.json({ total_count: 0, check_runs: [] });
     return options.write ?? responseRun(9001);
@@ -103,6 +107,13 @@ function reportFixture(options: {
 }
 
 describe('report-only GitHub Check Run publisher', () => {
+  it('publishes using a Worker-supported redirect mode', async () => {
+    const { client, input, calls } = reportFixture({ enforceWorkerRedirect: true });
+
+    await expect(client.publish(input)).resolves.toEqual({ checkRunId: 9001 });
+    expect(calls.map(({ init }) => init?.redirect)).toEqual(['manual', 'manual']);
+  });
+
   it('creates a bounded neutral report on the exact current head and has no generic write method', async () => {
     const { client, input, calls } = reportFixture();
 
