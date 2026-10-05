@@ -19,6 +19,14 @@ describe("env module", () => {
         );
     });
 
+    it("uses the current public origin for API requests in development", () => {
+        expect(resolveApiBaseUrl({
+            configuredUrl: "http://localhost:4000",
+            currentOrigin: "https://equation-pushiness-expire.ngrok-free.dev",
+            isProduction: false,
+        })).toBe("https://equation-pushiness-expire.ngrok-free.dev");
+    });
+
     it("uses the production API URL only for production builds", () => {
         expect(resolveApiBaseUrl({ configuredUrl: "https://api.example.test/", isProduction: true })).toBe(
             "https://api.example.test",
