@@ -110,3 +110,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-10-04 — Codex — Finished backend query work: filtered catalog counts avoid aggregate joins, analytics coalesces only in-flight reads, and cancellation locks products once in sorted order while preserving per-item effects; see [[architecture]].
 
 - 2026-10-04 — Codex — Removed unused direct dependencies and the orphan Web Vitals helper, retired shared schema re-exports, and consolidated local Docker/build scripts while preserving feature schemas and API contracts.
+- 2026-10-05 - Codex - Documented Worker manual redirects and single protected deployment ownership for Hosted Stage 0; see [[loop-engineering]].
