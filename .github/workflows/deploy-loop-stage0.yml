@@ -15,6 +15,12 @@ on:
       - 'docs/loop-engineering/**'
       - 'Wiki/**'
   workflow_dispatch:
+    inputs:
+      synchronize_dashboard_config:
+        description: Apply the reviewed main configuration over Dashboard settings for this deployment
+        type: boolean
+        required: false
+        default: false
 
 permissions: {}
 
@@ -93,4 +99,8 @@ jobs:
         run: |
           test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$CLOUDFLARE_ACCOUNT_ID"
-          pnpm exec wrangler deploy --env production --strict
+          if [ "${{ inputs.synchronize_dashboard_config }}" = "true" ]; then
+            pnpm exec wrangler deploy --env production
+          else
+            pnpm exec wrangler deploy --env production --strict
+          fi
