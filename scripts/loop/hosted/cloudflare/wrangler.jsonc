@@ -14,15 +14,21 @@
   ],
   "env": {
     "production": {
-      // Scaffold only; provision production resources in a separately approved task before deployment.
+      // Provisioned production bindings; deploy through the protected Hosted Loop Stage 0 workflow.
       "name": "digital-e-loop-stage0-production",
       "vars": {
-        // Replace these public identifiers during the separately approved production bootstrap.
+        // Public GitHub identifiers. Private key and webhook secret are Worker secrets.
         "GITHUB_APP_ID": "5130911",
         "GITHUB_INSTALLATION_ID": "166381027",
         "GITHUB_REPOSITORY": "memories-quy-2002/digital-e-shop",
         "GITHUB_REPOSITORY_ID": "743050379",
         "STAGE0_CHECK_RUN_NAME": "Loop Engineering Stage 0"
+      },
+      // Match Dashboard logging so strict deployments do not disable production diagnostics.
+      "observability": {
+        "logs": {
+          "enabled": true
+        }
       },
       "triggers": {
         "crons": ["*/15 * * * *"]
