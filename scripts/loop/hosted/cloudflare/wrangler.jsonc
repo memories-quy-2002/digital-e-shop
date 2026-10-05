@@ -35,10 +35,9 @@
       },
       "d1_databases": [
         {
+          // Use the binding for migration commands; omit local-only metadata to match Dashboard bindings.
           "binding": "STAGE0_DB",
-          "database_name": "digital-e-loop-stage0",
-          "database_id": "f0c7defb-62d0-4540-8c1a-3f2405a69193",
-          "migrations_dir": "migrations"
+          "database_id": "f0c7defb-62d0-4540-8c1a-3f2405a69193"
         }
       ],
       "queues": {
