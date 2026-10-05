@@ -7,5 +7,5 @@
   "maxChangedLines": 1000,
   "maxWallClockSeconds": 1800,
   "tokenLimit": null,
-  "ciRunLimit": null
+  "ciRunLimit": 2
 }
