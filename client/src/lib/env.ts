@@ -2,6 +2,7 @@ export const LOCAL_API_BASE_URL = "http://localhost:4000";
 
 type ApiBaseUrlOptions = {
     configuredUrl?: string;
+    currentOrigin?: string;
     isProduction?: boolean;
 };
 
@@ -17,10 +18,14 @@ const isLocalApiUrl = (value: string) => {
     }
 };
 
-export const resolveApiBaseUrl = ({ configuredUrl, isProduction = import.meta.env.PROD }: ApiBaseUrlOptions = {}) => {
+export const resolveApiBaseUrl = ({ configuredUrl, currentOrigin, isProduction = import.meta.env.PROD }: ApiBaseUrlOptions = {}) => {
     const normalizedUrl = normalizeApiBaseUrl(configuredUrl);
 
     if (!isProduction) {
+        if (currentOrigin && !isLocalApiUrl(currentOrigin)) {
+            return normalizeApiBaseUrl(currentOrigin);
+        }
+
         return normalizedUrl && isLocalApiUrl(normalizedUrl) ? normalizedUrl : LOCAL_API_BASE_URL;
     }
 
@@ -31,4 +36,7 @@ export const resolveApiBaseUrl = ({ configuredUrl, isProduction = import.meta.en
     return normalizedUrl;
 };
 
-export const API_BASE_URL = resolveApiBaseUrl({ configuredUrl: import.meta.env.VITE_API_BASE_URL });
+export const API_BASE_URL = resolveApiBaseUrl({
+    configuredUrl: import.meta.env.VITE_API_BASE_URL,
+    currentOrigin: typeof window === "undefined" ? undefined : window.location.origin,
+});
