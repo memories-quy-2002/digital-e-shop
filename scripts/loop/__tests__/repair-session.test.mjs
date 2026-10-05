@@ -74,7 +74,13 @@ async function createFixture(options = {}) {
   await cp(path.join(repoRoot, 'Wiki'), path.join(root, 'Wiki'), { recursive: true });
   await cp(path.join(repoRoot, 'docs', 'superpowers', 'plans'), path.join(root, 'docs', 'superpowers', 'plans'), { recursive: true });
   await cp(path.join(repoRoot, 'docs', 'loop-engineering'), path.join(root, 'docs', 'loop-engineering'), { recursive: true });
-  await cp(path.join(repoRoot, 'scripts', 'loop'), path.join(root, 'scripts', 'loop'), { recursive: true });
+  const loopSource = path.join(repoRoot, 'scripts', 'loop');
+  await cp(loopSource, path.join(root, 'scripts', 'loop'), {
+    recursive: true,
+    filter(source) {
+      return !path.relative(loopSource, source).split(path.sep).includes('node_modules');
+    },
+  });
   await cp(path.join(repoRoot, '.github'), path.join(root, '.github'), { recursive: true });
   await cp(path.join(repoRoot, '.node-version'), path.join(root, '.node-version'));
   const verifierMarker = `${root}.nested-repair-verifier-ran`;

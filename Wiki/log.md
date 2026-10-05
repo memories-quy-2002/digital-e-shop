@@ -111,3 +111,5 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 
 - 2026-10-04 — Codex — Removed unused direct dependencies and the orphan Web Vitals helper, retired shared schema re-exports, and consolidated local Docker/build scripts while preserving feature schemas and API contracts.
 - 2026-10-05 - Codex - Documented Worker manual redirects and single protected deployment ownership for Hosted Stage 0; see [[loop-engineering]].
+- 2026-10-05 - Codex - Documented the offline fail-closed Stage 1 CLI boundary, missing trust/budget prerequisites, and pilot/disable gates; no live rerun or pilot is enabled.
+- 2026-10-05 - Codex - Bound Stage 1 job reads to exact workflow attempts, added a pre-POST attempt recheck, and documented that the run-ID-only write API leaves a hard live-activation race gate.

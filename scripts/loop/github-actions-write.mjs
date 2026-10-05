@@ -317,10 +317,11 @@ async function collectTargetEvidence(host, target) {
 
   let jobResult;
   try {
-    jobResult = await host.prClient.getWorkflowRunJobs(target.runId);
+    jobResult = await host.prClient.getWorkflowRunJobs(target.runId, target.runAttempt);
   } catch {
     return { reasonCode: 'job_evidence_unavailable' };
   }
+  if (jobResult?.runAttempt !== target.runAttempt) return { reasonCode: 'run_attempt_mismatch' };
   if (jobResult?.runId !== target.runId || jobResult.collectionStatus !== 'complete'
       || !matchesTarget(normalizedSnapshot(jobResult.snapshot, host, target.prNumber), target, host)
       || !Array.isArray(jobResult.jobs)) return { reasonCode: 'job_evidence_unavailable' };
@@ -334,6 +335,7 @@ async function collectTargetEvidence(host, target) {
         || /[\x00-\x1f\x7f]/.test(job.name) || jobIds.has(job.id) || jobNames.has(job.name)) {
       return { reasonCode: 'job_evidence_unavailable' };
     }
+    if (job.runAttempt !== target.runAttempt) return { reasonCode: 'run_attempt_mismatch' };
     jobIds.add(job.id);
     jobNames.add(job.name);
     if (!target.entry.jobNames.includes(job.name)) return { reasonCode: 'job_not_allowlisted' };
@@ -502,6 +504,16 @@ export async function rerunFailedJobs(input) {
   }
   if (reservation.status !== 'reserved') {
     return refused(reservation.reason ?? 'state_reservation_failed', 'refused', actionAttemptKey);
+  }
+
+  evidence = await collectTargetEvidence(host, target);
+  if (evidence.reasonCode) {
+    try {
+      await finishCIRunAttemptInRepository(host.repoRoot, host.taskId, actionAttemptKey, 'rejected');
+    } catch {
+      return refused('attempt_finish_persist_failed', 'escalate', actionAttemptKey);
+    }
+    return refused(evidence.reasonCode, 'escalate', actionAttemptKey);
   }
 
   const url = API_ORIGIN + '/repos/' + encodeURIComponent(host.repository.owner) + '/'
