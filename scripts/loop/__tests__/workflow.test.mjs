@@ -29,6 +29,10 @@ const controlPlaneTests = [
   'scripts/loop/__tests__/repair-session.test.mjs',
   'scripts/loop/__tests__/verify.test.mjs',
   'scripts/loop/__tests__/workflow.test.mjs',
+  'scripts/loop/__tests__/workflow-source-attestation.test.mjs',
+  'scripts/loop/__tests__/stage1-target.test.mjs',
+  'scripts/loop/__tests__/stage1-prompt.test.mjs',
+  'scripts/loop/__tests__/pr-babysitter-stage1-host.test.mjs',
 ];
 const reviewedActions = [
   'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
@@ -88,7 +92,7 @@ describe('read-only Loop Foundation workflow contract', () => {
     assert.doesNotMatch(workflow, /^\s+(?:contents|pull-requests|issues|id-token):\s*write\s*$/m);
   });
 
-  it('runs the fixed control-plane Node test list and three static routing smokes only', async () => {
+  it('runs the fixed control-plane Node test list, Stage 1 suites, and three static routing smokes only', async () => {
     const workflow = await read(workflowPath);
     const testStart = workflow.indexOf('node --test');
     const smokeStepStart = workflow.indexOf('      - name: Smoke test verification routing', testStart);

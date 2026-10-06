@@ -105,10 +105,10 @@ the graph from trusted reviewed configuration or parse the exact attested
 workflow source; unknown dependencies or dynamic graphs remain blocked by
 `trusted_job_graph_unavailable`.
 
-The fixed hosted `loop-foundation.yml` test list does not currently include the
-dedicated Stage 1 target, prompt, attestation, or host suites. A separate
-reviewed change to that protected workflow is required before hosted CI can
-provide coverage evidence for these boundaries.
+The `feature/stage1-cli-rerun` change for PR #290 adds the dedicated Stage 1
+target, prompt, source-attestation, and host suites to both the fixed local
+verifier and hosted `loop-foundation.yml` test list. Treat these boundaries as
+hosted-verified only when the workflow passes on the reviewed PR head.
 
 For the pilot, inspect first, approve and submit once, then inspect the new
 attempt and record only bounded identifiers, timestamps, SHA values, budget
