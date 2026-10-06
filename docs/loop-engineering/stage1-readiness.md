@@ -16,6 +16,23 @@
 | Zero protected/infrastructure misclassifications | No eligible observation set | Not assessed |
 | Bounded metadata without credentials, raw logs, or review bodies | No live Stage 1 observation set | Not assessed |
 
+## Source-SHA feasibility probe
+
+The read-only probe added by PR #291 ran successfully after merge. It found no upstream workflow source-SHA field in either the GitHub-generated event or the matching run API response. This is feasibility evidence only; it is not a trusted attestation, pilot observation, or authorization to rerun Actions.
+
+| Field | Observed value |
+| --- | --- |
+| Repository ID | `743050379` |
+| Workflow ID and path | `368298853` — `.github/workflows/loop-foundation.yml` |
+| Upstream run ID / attempt | `37418888640` / `1` |
+| Tested SHA | `f32bab895e4ad8bf7bc6f5f3dc3dbb0ed954a126` |
+| Probe result | `source_sha_unavailable` |
+| Event source-SHA candidate | `null` |
+| API source-SHA candidate | `null` |
+| Evidence runs | [Loop Foundation](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37418888640), [source SHA probe](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37418918573) |
+
+Do not infer the workflow source SHA from the tested SHA, workflow path, or ref. Keep `workflow_source_sha_unattested` as a hard refusal until a separately reviewed source-identity contract and trusted provider establish the exact value.
+
 ## Collection limits
 
 - The maintainer has not selected a same-repository, non-`main` pilot PR. The example PR number in the command below is intentionally not used.
@@ -24,7 +41,7 @@
 - The GitHub failed-jobs rerun write endpoint accepts `run_id` without `run_attempt`, and its documented request has no conditional-write precondition. A final attempt re-read narrows but cannot close the external rerun race; `run_attempt_write_binding_unavailable` remains a hard gate for live Stage 1 writes.
 - The GitHub job response does not provide the workflow `needs` graph, and current trusted configuration has no approved graph. `trusted_job_graph_unavailable` remains a hard gate until each eligible workflow has a complete reviewed graph.
 - The source-attestation boundary has an integration gap: raw API runs are explicitly unattested, and the verifier currently requires an already-attested `sourceSha` before invoking its provider callback. A reviewed provider contract must define how trusted verification transforms or validates raw run evidence without trusting caller-supplied attestation fields.
-- PR #290 adds the four dedicated Stage 1 suites to the hosted `loop-foundation.yml` test list. Its hosted result must pass on the reviewed PR head; local tests alone do not establish hosted coverage.
+- PR #291's hosted `Loop Foundation` test passed on the reviewed PR head ([run 37417234608](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37417234608)); the post-merge `Loop Foundation` run also passed with the new probe suite ([run 37418888640](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37418888640)).
 - The Phase 2 runbook documents one earlier `inspect` result for PR #264 on 2026-09-30. It returned `wait` for missing required-check evidence on the selected merge SHA, but the summary does not contain the complete observation tuple required by this plan; it is historical context and is not counted toward the 10 observations.
 - A cron `last_completed_at` value alone would not prove Queue consumption or Check Run publication. Each requires its own current evidence.
 

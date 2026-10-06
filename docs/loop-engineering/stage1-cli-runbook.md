@@ -20,6 +20,22 @@ host does not load and bind a persisted session budget to that policy revision.
 Environment variables and CLI arguments cannot supply or override these trust
 inputs.
 
+## Source-SHA feasibility result
+
+The read-only probe introduced by PR #291 ran against `Loop Foundation` run
+`37418888640` (attempt `1`, tested SHA
+`f32bab895e4ad8bf7bc6f5f3dc3dbb0ed954a126`). Its event/API comparison returned
+`source_sha_unavailable`; both source-SHA candidate fields were `null`. The
+[upstream run](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37418888640)
+and [probe run](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37418918573)
+are the evidence sources.
+
+This observation confirms the current refusal: keep reporting
+`workflow_source_sha_unattested`. Never substitute the tested SHA, workflow
+path, or ref. Any change to the source-identity contract needs a separate
+design review before a provider is implemented. No rerun or Stage 1 capability
+is enabled by this probe.
+
 ## Current commands
 
 Run `inspect` only from a clean checkout matching a maintainer-selected,
@@ -105,10 +121,11 @@ the graph from trusted reviewed configuration or parse the exact attested
 workflow source; unknown dependencies or dynamic graphs remain blocked by
 `trusted_job_graph_unavailable`.
 
-The `feature/stage1-cli-rerun` change for PR #290 adds the dedicated Stage 1
-target, prompt, source-attestation, and host suites to both the fixed local
-verifier and hosted `loop-foundation.yml` test list. Treat these boundaries as
-hosted-verified only when the workflow passes on the reviewed PR head.
+PR #290 added the dedicated Stage 1 target, prompt, source-attestation, and
+host suites to both the fixed local verifier and hosted `loop-foundation.yml`
+test list. PR #291 added the source-SHA feasibility probe suite; its hosted
+`Loop Foundation` test passed on the reviewed PR head, and the post-merge run
+also passed ([run 37418888640](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37418888640)).
 
 For the pilot, inspect first, approve and submit once, then inspect the new
 attempt and record only bounded identifiers, timestamps, SHA values, budget
