@@ -1,75 +1,77 @@
 # Stage 1 workflow source attestation and job allowlist
 
-**Date:** 2026-10-05
+**Date:** 2026-10-06
 
-**Status:** Proposal for review; no live provider or allowlist is approved.
+**Status:** Written design for maintainer review. No provider, allowlist, or Stage 1 write capability is approved.
 
-**Related:** [Stage 1 CLI design](2026-10-05-stage1-cli-flaky-rerun-design.md), [implementation plan](../plans/2026-10-05-stage1-cli-flaky-rerun.md).
+**Related:** [Stage 1 CLI runbook](../../loop-engineering/stage1-cli-runbook.md), [readiness evidence](../../loop-engineering/stage1-readiness.md), [implementation plan](../plans/2026-10-05-stage1-cli-flaky-rerun.md).
 
-## Decision needed
+## Goal and current decision
 
-The current standard GitHub run adapter cannot prove the source commit of the top-level workflow definition. Its observations include the run path, tested/head SHA, attempt, and reusable-workflow references, but it sets `sourceSha: null` and `sourceShaAttested: false`. The guarded Actions writer correctly refuses the run unless a separately injected verifier proves the source.
+Stage 1 may submit a failed-jobs rerun only when a trusted host can prove that the selected run came from the reviewed workflow source and complete job graph, and can bind a one-use approval and finite CI budget to the exact PR tuple and run attempt. The Stage 1 CLI currently refuses before loading credentials or making network requests. Keep that behavior.
 
-Do not derive the source SHA from the workflow display name, path, PR head SHA, or caller-controlled metadata. GitHub documents that signed artifact provenance can identify its workflow, repository, commit, event, and OIDC-derived builder; it also requires consumers to verify the signature, timestamp, and signer identity. A viable provider therefore needs a reviewed producer and a cryptographic verifier. The current codebase has neither. Candidate design: a GitHub-issued artifact attestation over a canonical run descriptor, produced by a separately reviewed trusted workflow and verified by a host-owned verifier. Before implementation, reviewers must select the exact producer and verifier, pin the trusted issuer and signer workflow identity, and prove that the record binds repository ID, workflow path/ref/source SHA, run ID/attempt, and tested SHA. The provider must reject missing, duplicate, stale, mismatched, expired, or unverifiable records.
+The repository is public, so GitHub Artifact Attestations are available on the current plan. A separately triggered `workflow_run` producer is the preferred candidate for recording upstream run evidence because it can run from a reviewed default-branch workflow. It must use GitHub API reads only: it must not check out PR code, download upstream artifacts, or execute any upstream content. The producer may sign only facts it independently observed; it must never copy a claimed source SHA from an upstream artifact, log, workflow output, or caller-supplied field.
 
-The GitHub attestation REST listing alone is not a verifier. The official documentation explicitly requires cryptographic signature/timestamp verification and signer validation. GitHub's documented producer permissions include `attestations:write` and `id-token:write`; their placement must keep the rerunnable job graph free of secrets, protected environments, and write-capable credentials. The host verifier/runtime dependency and the capability required to retrieve attestations also need review. Until that review is complete, the provider remains unavailable and the host must return `workflow_source_sha_unattested` without POSTing.
+This candidate does **not** yet satisfy the contract. GitHub's documented workflow-run data gives the upstream run ID, attempt, path, ref, and tested/head SHA, but does not independently attest the top-level workflow source commit. The producer's own `github.workflow_sha` identifies the producer workflow, not the upstream run's workflow source. Therefore it must not emit an attestation that claims to prove the upstream `sourceSha`. The host continues to return `workflow_source_sha_unattested`, and no Actions write is permitted, until a reviewed source supplies and verifies that exact claim.
 
-## Local workflow/job audit
+Do not silently replace the required source commit SHA with a workflow path, ref, PR SHA, workflow-file blob hash, display name, or matching required-check context. Any change to that identity contract requires a separate design and policy review.
 
-| Workflow | Source evidence | Job graph and permissions | Pilot decision |
-| --- | --- | --- | --- |
-| `.github/workflows/loop-foundation.yml` | Current checkout only; exact GitHub required-workflow identity and source SHA are unavailable without live ruleset data | One job, `test`; workflow permission is `contents:read`; `actions/checkout` and `actions/setup-node` are pinned to full commit SHAs; checkout uses `persist-credentials: false`; no secrets, protected environment, reusable workflow, or local action appears in this file | Candidate for review, not approved. Refuse if the PR changes this workflow or its reviewed dependencies. |
-| `.github/workflows/ci.yml` | Current checkout only | Includes `client`, `server`, and `production-migrate`. The production job is tied to the `production` environment, consumes `DATABASE_URL`, and applies production migrations. Its main-push condition does not make the complete graph a safe allowlist for the rerun-failed-jobs endpoint, which also reruns dependent jobs. | Exclude from the first pilot unless split and reviewed in a separate workflow change. |
-| `.github/workflows/deploy-loop-stage0.yml` | Current checkout only | Protected deployment path with production Worker configuration and secrets. | Exclude. |
-| `.github/workflows/security.yml` | Not audited in this proposal | Full job graph, permissions, actions, secrets, and dependencies have not been established here. | Exclude until fully audited. |
+## Proposed trust boundary
 
-The potential first-pilot identity is the repository's `loop-foundation.yml` workflow with the single `test` job. This is only a source-code audit; the actual repository ID, required workflow path/ref/source SHA, workflow ID, and job identity must be reconciled with a fresh GitHub ruleset snapshot for the selected PR. A check-only required identity that cannot be mapped unambiguously to this workflow must return `unsupported_required_identity`.
+If an independently verifiable upstream source-SHA field becomes available, use this flow:
 
-## Record and verification contract
+1. A reviewed default-branch `workflow_run` producer accepts only the configured upstream workflow ID/path, repository ID, event type, and completed status.
+2. The producer fetches the upstream run and attempt-specific job data from GitHub, then fetches a fresh PR snapshot. It validates that the run belongs to the same repository and matches the current base/head/merge tuple. An absent, duplicate, stale, or changing record is rejected.
+3. The producer constructs a bounded canonical descriptor from API-observed values and the independently established workflow source SHA. It does not include prompts, reviews, logs, credentials, artifact URLs, or arbitrary upstream fields.
+4. The producer creates a GitHub artifact attestation over the descriptor digest with a fixed custom predicate. Its signer is pinned to the exact repository, workflow path, ref, and reviewed producer source revision. Required producer permissions are limited to API reads plus `contents:read`, `attestations:write`, and `id-token:write`; no `actions:write` or `contents:write` is granted.
+5. The trusted host retrieves the bundle, verifies the signature and trusted root, checks issuer and signer identity against host-owned configuration, validates every descriptor field against its fresh API snapshot and current PR tuple, and consumes a replay key. Artifact listing alone is not verification.
+6. The host passes an immutable verified result to the run adapter/writer. Caller input cannot set `sourceShaAttested`, trust roots, signer allowlists, job graphs, approvers, or accepted source revisions.
 
-The trusted record must bind all of the following in one authenticated, non-replayable record:
+The descriptor must bind repository ID; workflow repository ID, path, ref, and source SHA; workflow ID; run ID and attempt; tested SHA; current PR base/head/merge tuple; producer identity; and a unique replay key. Verification rejects missing or duplicate records, wrong repository/workflow/path/ref/source/run/attempt/tested SHA, tuple drift, stale or expired evidence, replay, signature failure, untrusted signer, and provider errors. Failure has no fallback.
 
-- repository ID;
-- workflow repository ID, path, ref, and source SHA;
-- upstream workflow run ID and run attempt;
-- tested SHA and the current PR base/head/merge tuple;
-- trusted issuer and signer workflow identity.
+The exact upstream source-SHA acquisition method is an open prerequisite, not an implementation detail to guess. A feasibility proof must demonstrate that the value comes from a GitHub-authenticated source tied to that exact run. If GitHub does not expose such a value, stop and request a separately reviewed change to the source-identity contract; do not weaken the current contract in code.
 
-The verifier is injected by the trusted Stage 1 host as `verifyTrustedRecord({ identity, run, snapshot })`. It must validate the signature chain against host-owned trust roots, validate issuer and signer identity against a reviewed allowlist, validate every tuple/run/attempt field, and reject provider errors. Neither PR files nor CLI arguments may supply the trust roots, approver IDs, allowlist, verifier, or accepted source SHA.
+## Host integration contract
 
-The exact artifact transport, verifier implementation/runtime, trust-root refresh policy, replay storage, and GitHub App read permission remain review items. No secret, OIDC token, PEM, artifact credential, or raw log is persisted in `.loop/` or telemetry. A failed or ambiguous verification has no fallback.
+The raw run adapter currently returns `sourceSha: null` and `sourceShaAttested: false`. The verifier currently requires an already-attested matching value before its callback runs, so it cannot consume raw API evidence. Implement the boundary as a verifier that accepts raw immutable GitHub run/snapshot data and returns either a newly constructed immutable verified identity or a typed refusal. Never accept a boolean callback result or caller-provided attestation flag as proof. The writer may proceed only with the verifier-created value.
 
-## Integration contract gaps found in the current implementation
+The verifier uses host-owned trust roots, provider identity, signer allowlist, source policy, replay storage, and job graph. None may come from PR files, environment overrides, CLI arguments, or serialized `.loop` state. Trust-root refresh and rollback behavior, verifier runtime/dependency, evidence retrieval permission, bounded cache lifetime, and replay retention must be resolved before enabling the provider.
 
-The current callback boundary cannot yet consume raw GitHub run metadata. `github-pr-client.mjs` intentionally returns `sourceSha: null` and `sourceShaAttested: false`; `github-actions-write.mjs` refuses those values before invoking the verifier; and `workflow-source-attestation.mjs` also requires `sourceShaAttested === true` and an already matching `sourceSha` before it calls `verifyTrustedRecord`. A provider that only implements `verifyTrustedRecord({ identity, run, snapshot })` therefore cannot attest a raw API run. Review must choose one explicit contract: either a trusted host adapter verifies a signed record and constructs an immutable enriched run value, or the verifier accepts raw run metadata and returns a validated attested identity/value. Never set the attested flag from caller input or merely because a fixture callback returned true. Tests must cover the chosen producer-to-client-to-writer path end to end.
+## Workflow/job allowlist
 
-The job API returns attempt-scoped runtime job names, statuses, and conclusions, but it does not return workflow `needs` edges. The writer's reviewed allowlist currently contains only `jobNames`, while the TTY prompt requires a dependency graph and GitHub's rerun endpoint also reruns dependent jobs. The reviewed config/provider contract must supply the complete graph from an exact attested workflow revision (or another independently trusted source), including reusable workflows, dynamic matrices, and dependent jobs. Until then, return `trusted_job_graph_unavailable` and send no POST.
+The first candidate remains `.github/workflows/loop-foundation.yml`, with its single `test` job. This is only a source audit, not an approval. Before any pilot, reconcile the exact repository ID, workflow ID/path/ref/source SHA, required-workflow identity, and job contract from fresh GitHub evidence. Reject a PR that changes the workflow or any reviewed dependency unless that exact high-risk scope receives its required review.
 
-The local `.github/workflows/loop-foundation.yml` test step currently omits the dedicated Stage 1 suites `stage1-target.test.mjs`, `stage1-prompt.test.mjs`, `workflow-source-attestation.test.mjs`, and `pr-babysitter-stage1-host.test.mjs`. Its local Git blob is `7663634fbd9dffd8f0999d525118e57296f22890`; this is checkout evidence only, not a live GitHub source attestation. Because workflow paths are protected, adding these tests to hosted CI needs a separately reviewed exact-path change. Until then, local loop-suite success does not establish hosted coverage for these Stage 1 boundaries.
+Exclude `.github/workflows/ci.yml` from the first pilot: its graph includes `production-migrate`, which uses the protected `production` environment and `DATABASE_URL`. Exclude `deploy-loop-stage0.yml` because it deploys the protected Worker. Keep `security.yml` excluded until its full job graph, actions, permissions, secrets, environments, and dependencies have been reviewed.
 
-There is also a separate write-target limitation: the GitHub failed-jobs rerun
-POST accepts `run_id` only, while the approval binds `run_attempt`. Its API
-reference documents no conditional-write precondition for this POST; ETag
-guidance covers conditional reads and does not provide a lock for the rerun
-operation. The host now re-reads the exact attempt after reserving budget and
-immediately before POST, but that read cannot make the run-level write atomic
-with the approved attempt if another actor reruns concurrently. Keep live
-reruns blocked until a separately reviewed design resolves this mismatch or
-the accepted contract is explicitly changed.
+The jobs API returns runtime job names/statuses but not `needs` edges. A reviewed allowlist must include the complete graph from the exact verified workflow revision, including reusable workflows, local actions, dependent jobs, dynamic matrices, permissions, secrets, and protected environments. Names alone are insufficient. Until that graph is available, return `trusted_job_graph_unavailable` without POSTing.
 
-## Required follow-up before live wiring
+## Separate hard gate: rerun target race
 
-1. Review and approve the producer/verifier design, including the trusted signer workflow revision and provider-specific claims.
-2. Review the complete `loop-foundation.yml` dependency/job graph and obtain a fresh required-workflow identity from the maintainer-selected pilot PR.
-3. If the chosen provider needs a CI workflow change, implement that exact producer in its own reviewed workflow PR; do not grant the Stage 0 Worker or rerunnable test job Actions-write capability.
-4. Add positive and negative fixtures for valid signature/identity, replay, wrong repository/workflow/path/ref/source/run/attempt/tested SHA, missing record, and verifier failure.
-5. Keep every Stage 1 write closed until the source-trust design is reviewed and the host can load a persisted LoopState budget session bound to the reviewed finite policy from PR #289.
+Even a valid source attestation does not resolve the write-target race. GitHub's failed-jobs rerun endpoint accepts `run_id`; it has no `run_attempt` parameter or documented conditional-write precondition. Re-reading the attempt immediately before the POST narrows the window but cannot bind the write atomically to the approved attempt. Keep `run_attempt_write_binding_unavailable` as a hard live gate unless GitHub adds an attempt-scoped/conditional operation or a separate reviewed contract explicitly accepts the residual race. This design does not authorize changing that policy.
+
+## Required decisions before implementation
+
+1. Prove an authenticated source for the upstream workflow source SHA. If unavailable, leave this design blocked and propose a separate contract change for review.
+2. Select and pin the artifact-attestation verifier, trusted root update strategy, signer identity, evidence retrieval path, replay store, and failure/expiry behavior.
+3. Approve the complete `loop-foundation.yml` job and dependency graph, and obtain a fresh required-workflow identity from a maintainer-selected same-repository non-`main` PR.
+4. Fix the raw-run-to-verified-identity integration contract and cover valid, replayed, missing, stale, mismatched, duplicate, and unverifiable evidence end to end.
+5. Separately resolve or explicitly review the run/attempt write race. Source attestation alone never enables reruns.
+6. Keep the host-managed persisted `LoopState` session bound to canonical `ciRunLimit: 2`, trusted approver configuration, and exact PR tuple as independent prerequisites.
+
+## Acceptance criteria
+
+- Without verified upstream source SHA, the host refuses before credentials or network writes and reports `workflow_source_sha_unattested`.
+- A producer cannot read or execute upstream artifacts/code and cannot mint an `actions:write` or `contents:write` token.
+- A verified record binds every descriptor field above to a fresh exact-run/attempt and PR snapshot; all negative cases fail closed.
+- No check, workflow, or job is inferred green from a name/path/ref match alone.
+- Source-attestation success does not bypass the job-graph, budget-session, approver, pilot, or run-attempt write-binding gates.
+- Hosted verification and at least 10 representative live observations remain required before Stage 1 promotion; no static fixture or local run counts as promotion evidence.
 
 ## References
 
-- [GitHub Actions workflow run REST API](https://docs.github.com/en/rest/actions/workflow-runs) — reruns failed jobs and their dependent jobs; run metadata includes `run_attempt` and `referenced_workflows`.
-- [GitHub Actions workflow jobs REST API](https://docs.github.com/en/rest/actions/workflow-jobs) — attempt-specific job listing includes the job's `run_attempt`; the rerun write endpoint remains run-scoped.
-- [GitHub REST API conditional-request guidance](https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api) — ETag/`If-None-Match` examples cover conditional reads, not an atomic precondition for this rerun POST.
-- [GitHub Actions contexts](https://docs.github.com/en/actions/reference/workflows-and-actions/contexts) — `github.workflow_sha` identifies the workflow-file commit, but a value echoed by a PR-controlled job is not independent attestation.
-- [Using artifact attestations](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations) — producer and provenance permissions.
-- [Artifact attestation REST API](https://docs.github.com/en/rest/orgs/attestations) — listing attestations is not a substitute for signature and signer verification.
+- [Workflow runs REST API](https://docs.github.com/en/rest/actions/workflow-runs) — run-level rerun inputs and workflow-run metadata.
+- [Workflow jobs REST API](https://docs.github.com/en/rest/actions/workflow-jobs) — attempt-scoped runtime job evidence.
+- [GitHub Actions contexts](https://docs.github.com/en/actions/reference/workflows-and-actions/contexts) — `github.workflow_sha` describes the current workflow file revision; a producer's value is not the upstream workflow SHA.
+- [Artifact attestations](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations) — public repository availability, signer permissions, and verification with GitHub CLI.
+- [Secure use of GitHub Actions](https://docs.github.com/en/actions/reference/security/secure-use) — privileged `workflow_run` workflows must treat upstream artifacts as untrusted and must not execute untrusted PR content.
+- [Artifact attestation REST API](https://docs.github.com/en/rest/repos/attestations) — retrieval/listing does not replace cryptographic verification.

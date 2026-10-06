@@ -203,6 +203,7 @@ describe('verification planning', () => {
       'scripts/loop/__tests__/workflow.test.mjs',
       'scripts/loop/__tests__/workflow-source-attestation.test.mjs',
       'scripts/loop/__tests__/stage1-target.test.mjs',
+      'scripts/loop/__tests__/stage1-source-sha-probe.test.mjs',
       'scripts/loop/__tests__/stage1-prompt.test.mjs',
       'scripts/loop/__tests__/pr-babysitter-stage1-host.test.mjs',
     ]);

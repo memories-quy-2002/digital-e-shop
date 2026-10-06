@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const workflowPath = '.github/workflows/loop-foundation.yml';
+const sourceShaProbeWorkflowPath = '.github/workflows/loop-source-sha-probe.yml';
 const controlPlaneTests = [
   'scripts/loop/__tests__/policy.test.mjs',
   'scripts/loop/__tests__/classify-risk.test.mjs',
@@ -31,6 +32,7 @@ const controlPlaneTests = [
   'scripts/loop/__tests__/workflow.test.mjs',
   'scripts/loop/__tests__/workflow-source-attestation.test.mjs',
   'scripts/loop/__tests__/stage1-target.test.mjs',
+  'scripts/loop/__tests__/stage1-source-sha-probe.test.mjs',
   'scripts/loop/__tests__/stage1-prompt.test.mjs',
   'scripts/loop/__tests__/pr-babysitter-stage1-host.test.mjs',
 ];
@@ -119,5 +121,28 @@ describe('read-only Loop Foundation workflow contract', () => {
     assert.doesNotMatch(workflow, /(?:contents|pull-requests|issues|id-token):\s*write/i);
     assert.doesNotMatch(workflow, /pull_request_target|environment:\s*production|git\s+push|\bgh\s+(?:issue|pr)\s+(?:create|edit|comment|merge)/i);
     assert.doesNotMatch(workflow, /prisma:migrate|test:integration|seed:mock|vercel\s+--prod/i);
+  });
+});
+
+describe('read-only Loop source SHA probe workflow contract', () => {
+  it('runs only after the named workflow completes with read-only permissions', async () => {
+    const workflow = await read(sourceShaProbeWorkflowPath);
+    assert.match(workflow, /^name: Loop source SHA probe$/m);
+    assert.match(workflow, /\bon:\r?\n  workflow_run:\r?\n    workflows: \["Loop Foundation"\]\r?\n    types: \[completed\]/);
+    assert.match(workflow, /^permissions:\r?\n  actions: read\r?\n  contents: read$/m);
+    assert.match(workflow, /^      actions: read\r?\n      contents: read$/m);
+    assert.match(workflow, /^    if: github\.repository == 'memories-quy-2002\/digital-e-shop'$/m);
+  });
+
+  it('uses pinned trusted-source actions and invokes only the bounded local CLI', async () => {
+    const workflow = await read(sourceShaProbeWorkflowPath);
+    const actionRefs = [...workflow.matchAll(/^\s*uses:\s*([^\s#]+)/gm)].map((match) => match[1]);
+    assert.deepEqual(actionRefs, reviewedActions);
+    assert.match(workflow, /^          ref: \$\{\{ github\.sha \}\}$/m);
+    assert.match(workflow, /^          persist-credentials: false$/m);
+    assert.match(workflow, /^          node-version-file: \.node-version$/m);
+    assert.match(workflow, /^        run: node scripts\/loop\/stage1-source-sha-probe-cli\.mjs$/m);
+    assert.doesNotMatch(workflow, /(?:contents|actions|id-token|attestations):\s*write/i);
+    assert.doesNotMatch(workflow, /download-artifact|actions\/attest|pull_request_target|checkout.*head_sha/i);
   });
 });
