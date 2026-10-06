@@ -322,7 +322,8 @@ describe('repair sessions', () => {
   });
 
   it('rechecks budgets immediately before verification and blocks an exhausted verifier-stage limit', async () => {
-    const fixture = await createFixture({ maxWallClockSeconds: 1, quickVerifierFixture: true });
+    const maxWallClockSeconds = 30;
+    const fixture = await createFixture({ maxWallClockSeconds, quickVerifierFixture: true });
     const session = await fixture.begin();
     const startedAt = Date.parse(fixture.hostContext.loopState.startedAt);
     const originalNow = Date.now;
@@ -330,7 +331,7 @@ describe('repair sessions', () => {
     Date.now = () => {
       if (new Error().stack.includes('evaluateBudgets')) {
         budgetChecks += 1;
-        return startedAt + (budgetChecks < 3 ? 0 : 1000);
+        return startedAt + (budgetChecks < 3 ? 0 : maxWallClockSeconds * 1000);
       }
       return startedAt;
     };

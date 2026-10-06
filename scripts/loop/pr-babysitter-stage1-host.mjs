@@ -8,12 +8,12 @@ export const STAGE1_TRUST_STATUS = Object.freeze({
   sourceAttestationProvider: 'unavailable',
   workflowAllowlistEntries: 0,
   trustedApproverIds: 0,
-  ciRunLimit: null,
+  ciRunBudgetSession: 'unavailable',
 });
 
 const STAGE1_BLOCKERS = Object.freeze([
   'workflow_source_sha_unattested',
-  'ci_run_limit_unconfigured',
+  'ci_run_budget_session_unavailable',
   'stage1_trust_configuration_unavailable',
   'trusted_job_graph_unavailable',
   'run_attempt_write_binding_unavailable',

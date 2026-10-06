@@ -101,8 +101,10 @@ The Stage 1 CLI work currently adds only a fail-closed boundary: `inspect`
 delegates to the Stage 0 read-only host, while live `rerun-flaky` refuses
 before credentials or network access. A reviewed workflow-source attestation
 provider, complete workflow/job allowlist, trusted approver configuration, and
-finite canonical CI budget are absent. Dry-run validates syntax only; it is
-not a pilot or a rerun result. See the [Stage 1 CLI runbook](../../docs/loop-engineering/stage1-cli-runbook.md)
+host-managed LoopState CI budget session are absent. The canonical policy now
+sets `ciRunLimit` to 2 after PR #289; this does not enable reruns because the
+Stage 1 host does not load a persisted session budget bound to that revision.
+Dry-run validates syntax only; it is not a pilot or a rerun result. See the [Stage 1 CLI runbook](../../docs/loop-engineering/stage1-cli-runbook.md)
 and [readiness evidence](../../docs/loop-engineering/stage1-readiness.md).
 The read adapter binds job evidence to GitHub's exact workflow run attempt and
 marks missing attempt IDs incomplete. The guarded writer rechecks that attempt

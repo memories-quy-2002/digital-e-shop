@@ -1,6 +1,6 @@
 # Stage 1 CLI runbook
 
-**Updated:** 2026-10-05
+**Updated:** 2026-10-06
 
 **Status:** Offline implementation only; live reruns are disabled.
 
@@ -14,8 +14,11 @@ that a rerun could be submitted.
 
 The host trust status is intentionally unavailable: there is no reviewed
 workflow-source attestation provider, no trusted workflow/job allowlist, no
-trusted approver list, and the canonical `ciRunLimit` is `null`. Environment
-variables and CLI arguments cannot supply or override these trust inputs.
+trusted approver list, and no host-managed LoopState CI budget session. The
+canonical policy now sets `ciRunLimit` to `2` after PR #289, but the Stage 1
+host does not load and bind a persisted session budget to that policy revision.
+Environment variables and CLI arguments cannot supply or override these trust
+inputs.
 
 ## Current commands
 
@@ -45,7 +48,7 @@ attempt to bypass the refusal, or treat a dry-run as approval or pilot evidence.
 
 | Reason code | Meaning | Operator action |
 | --- | --- | --- |
-| `stage1_prerequisites_unavailable` | At least one trusted Stage 1 prerequisite is absent. Current blockers are `workflow_source_sha_unattested`, `ci_run_limit_unconfigured`, `stage1_trust_configuration_unavailable`, `trusted_job_graph_unavailable`, and `run_attempt_write_binding_unavailable`. | Stop. Complete the separate design, trust, allowlist, and policy reviews before another implementation run. |
+| `stage1_prerequisites_unavailable` | At least one trusted Stage 1 prerequisite is absent. Current blockers are `workflow_source_sha_unattested`, `ci_run_budget_session_unavailable`, `stage1_trust_configuration_unavailable`, `trusted_job_graph_unavailable`, and `run_attempt_write_binding_unavailable`. | Stop. Complete the source trust, allowlist, and host-managed budget-session work; do not change the already-reviewed canonical policy as a workaround. |
 | `interactive_tty_required` | A live rerun was requested without a real interactive terminal. | Stop; do not pipe or automate approval. This does not override the current prerequisite refusal. |
 | `stage1_command_refused` | The command is outside the Stage 1 CLI allowlist. | Use only documented read-only `inspect`; repair, push, and merge remain unavailable. |
 | `repository_not_allowlisted` | The requested repository is not the fixed repository. | Stop and check the command; do not change the repository through an environment override. |
@@ -69,8 +72,9 @@ available from trusted host configuration:
 2. A complete, reviewed workflow and job graph allowlist. It must account for
    reusable workflows, local actions, dependent jobs, secrets, protected
    environments, token permissions, and dynamic matrices.
-3. A finite canonical CI run budget in a separately reviewed and merged policy
-   revision, with persisted state validated against that revision.
+3. A host-managed LoopState session initialized from the reviewed canonical
+   `ciRunLimit: 2` policy and validated against that exact policy revision.
+   Missing, corrupt, stale, or mismatched persisted state must refuse.
 4. A separately reviewed GitHub App `actions:write` capability and numeric
    trusted-approver allowlist. Do not change the Stage 0 Worker or publisher
    permissions to enable reruns.

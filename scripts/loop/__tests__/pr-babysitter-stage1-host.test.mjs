@@ -145,7 +145,7 @@ it('requires a real TTY before the rerun path can construct a host', async (t) =
   assert.equal(fetchCalls, 0);
 });
 
-it('keeps Stage 1 disabled when no reviewed source verifier, workflow allowlist, or finite budget exists', async (t) => {
+it('keeps Stage 1 disabled when trust configuration and a host budget session are unavailable', async (t) => {
   let fetchCalls = 0;
   t.mock.method(globalThis, 'fetch', async () => { fetchCalls += 1; throw new Error('unexpected network'); });
   const env = {
@@ -164,6 +164,7 @@ it('keeps Stage 1 disabled when no reviewed source verifier, workflow allowlist,
 
   assert.equal(result.exitCode, 3);
   assert.match(stderr, /stage1_prerequisites_unavailable/);
+  assert.ok(result.blockers.includes('ci_run_budget_session_unavailable'));
   assert.ok(result.blockers.includes('run_attempt_write_binding_unavailable'));
   assert.ok(result.blockers.includes('trusted_job_graph_unavailable'));
   assert.equal(fetchCalls, 0);
@@ -171,7 +172,7 @@ it('keeps Stage 1 disabled when no reviewed source verifier, workflow allowlist,
     sourceAttestationProvider: 'unavailable',
     workflowAllowlistEntries: 0,
     trustedApproverIds: 0,
-    ciRunLimit: null,
+    ciRunBudgetSession: 'unavailable',
   });
   assert.equal(JSON.stringify(result).includes('must-not-be-read.pem'), false);
 });

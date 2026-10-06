@@ -201,6 +201,9 @@ describe('verification planning', () => {
       'scripts/loop/__tests__/repair-session.test.mjs',
       'scripts/loop/__tests__/verify.test.mjs',
       'scripts/loop/__tests__/workflow.test.mjs',
+      'scripts/loop/__tests__/workflow-source-attestation.test.mjs',
+      'scripts/loop/__tests__/stage1-target.test.mjs',
+      'scripts/loop/__tests__/stage1-prompt.test.mjs',
     ]);
   });
 

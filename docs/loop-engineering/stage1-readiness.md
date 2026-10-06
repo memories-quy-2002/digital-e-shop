@@ -1,8 +1,8 @@
 # Stage 1 readiness evidence
 
-**Updated:** 2026-10-05
+**Updated:** 2026-10-06
 
-**Status:** BLOCKED — no pilot PR was selected, and GitHub could not be reached from the implementation environment. This report records the missing evidence; it does not qualify the repository for a Stage 1 pilot.
+**Status:** BLOCKED — no pilot PR was selected and no live Stage 1 observations were collected. This report records the remaining evidence gaps; it does not qualify the repository for a Stage 1 pilot.
 
 ## Promotion gates
 
@@ -19,7 +19,8 @@
 ## Collection limits
 
 - The maintainer has not selected a same-repository, non-`main` pilot PR. The example PR number in the command below is intentionally not used.
-- `git ls-remote --heads origin main feature/stage1-cli-approval-plan` failed because the environment could not connect to `github.com:443`. No live GitHub or Cloudflare data was collected for this report.
+- PR #289 merged the canonical finite `ciRunLimit: 2` policy. The Stage 1 host still has no persisted LoopState session loaded and validated against that revision, so it reports `ci_run_budget_session_unavailable` and refuses live reruns.
+- No live Stage 1 GitHub or Cloudflare observation set was collected in this run. Local fixtures and static code inspection are not promotion evidence.
 - The GitHub failed-jobs rerun write endpoint accepts `run_id` without `run_attempt`, and its documented request has no conditional-write precondition. A final attempt re-read narrows but cannot close the external rerun race; `run_attempt_write_binding_unavailable` remains a hard gate for live Stage 1 writes.
 - The GitHub job response does not provide the workflow `needs` graph, and current trusted configuration has no approved graph. `trusted_job_graph_unavailable` remains a hard gate until each eligible workflow has a complete reviewed graph.
 - The source-attestation boundary has an integration gap: raw API runs are explicitly unattested, and the verifier currently requires an already-attested `sourceSha` before invoking its provider callback. A reviewed provider contract must define how trusted verification transforms or validates raw run evidence without trusting caller-supplied attestation fields.
@@ -70,4 +71,4 @@ Add one row per fresh observation only after the maintainer selects the pilot PR
 
 Run `node scripts/loop/pr-babysitter-host.mjs inspect --repo memories-quy-2002/digital-e-shop --pr <maintainer-selected-pr>` from its matching clean PR checkout. Preserve `wait` and `escalated` as decisions, not infrastructure failures. Record only bounded identifiers, SHA values, status, classification, reason code, and evidence kind.
 
-Do not enable Stage 1, change the canonical policy, or change GitHub App permissions from this report. Continue to require reviewed workflow-source attestation, a reviewed complete job allowlist, and a finite canonical CI budget.
+Do not enable Stage 1, change the canonical policy, or change GitHub App permissions from this report. Continue to require reviewed workflow-source attestation, a reviewed complete job allowlist, and a host-managed persisted session bound to the finite canonical CI budget.

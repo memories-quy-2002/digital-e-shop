@@ -63,7 +63,7 @@ the accepted contract is explicitly changed.
 2. Review the complete `loop-foundation.yml` dependency/job graph and obtain a fresh required-workflow identity from the maintainer-selected pilot PR.
 3. If the chosen provider needs a CI workflow change, implement that exact producer in its own reviewed workflow PR; do not grant the Stage 0 Worker or rerunnable test job Actions-write capability.
 4. Add positive and negative fixtures for valid signature/identity, replay, wrong repository/workflow/path/ref/source/run/attempt/tested SHA, missing record, and verifier failure.
-5. Keep every Stage 1 write closed until this design and the finite CI budget policy have been reviewed and merged separately.
+5. Keep every Stage 1 write closed until the source-trust design is reviewed and the host can load a persisted LoopState budget session bound to the reviewed finite policy from PR #289.
 
 ## References
 

@@ -125,13 +125,16 @@ use is unknown, evidence is stale or incomplete, the approval is forged,
 expired, replayed, or out of scope, or any retry/rate limit is exhausted. Stage
 1 does not repair code or push branches.
 
-**Current implementation status (2026-10-05):** the standalone
+**Current implementation status (2026-10-06):** the standalone
 `pr-babysitter-stage1-host.mjs` is an offline fail-closed boundary, not an
 enabled rerun host. `inspect` delegates to the read-only Stage 0 host. A live
 `rerun-flaky` request returns `stage1_prerequisites_unavailable` before reading
 credentials or contacting GitHub because no reviewed source-attestation
 provider, workflow/job allowlist, trusted approver list, or finite canonical
-CI budget is configured. `rerun-flaky --dry-run` validates syntax only. Do
+CI budget session is configured. The canonical policy now sets
+`ciRunLimit: 2` after PR #289, but Stage 1 does not yet load a persisted
+LoopState budget session bound to that policy revision. `rerun-flaky --dry-run`
+validates syntax only. Do
 not grant `actions:write` or count this as a pilot. See the [Stage 1 CLI
 runbook](stage1-cli-runbook.md) and [readiness evidence](stage1-readiness.md).
 The guarded writer reads jobs for the exact run attempt and rechecks that
