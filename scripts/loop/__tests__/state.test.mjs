@@ -236,7 +236,8 @@ describe('loop budgets', () => {
   });
 
   it('tracks tokens and CI runs when their limits are unset and enforces configured CI-run limits', () => {
-    const initial = createState();
+    const unboundedPolicy = withStopConditions({ ciRunLimit: null });
+    const initial = createState({ policy: unboundedPolicy });
     const withUsage = recordTokenUsage(initial, { inputTokens: 12, outputTokens: 8 });
     const withCiRun = recordCIRun(recordCIRun(withUsage));
     const ciPolicy = withStopConditions({ ciRunLimit: 2 });
@@ -245,7 +246,7 @@ describe('loop budgets', () => {
 
     assert.equal(withUsage.budgets.tokenUsed, 20);
     assert.equal(withCiRun.budgets.ciRuns, 2);
-    assert.deepEqual(evaluateBudgets(withCiRun, policy), { stop: false, reason: null });
+    assert.deepEqual(evaluateBudgets(withCiRun, unboundedPolicy), { stop: false, reason: null });
     assert.equal(ciLimitedTwice.budgets.ciRuns, 2);
     assert.deepEqual(evaluateBudgets(ciLimitedTwice, ciPolicy), { stop: true, reason: 'ci_run_limit' });
   });
