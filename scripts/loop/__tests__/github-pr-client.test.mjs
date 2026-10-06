@@ -461,6 +461,115 @@ describe('strict GitHub PR read adapter', () => {
     assert.equal(result.runs.length, 1);
   });
 
+  it('reads jobs from the exact observed workflow run attempt', async () => {
+    const { client, calls } = createHarness({
+      route: ({ url }) => {
+        if (url.pathname.endsWith('/actions/runs')) return jsonResponse(200, { total_count: 1, workflow_runs: [{
+          id: 83,
+          repository: { id: REPOSITORY_ID },
+          workflow_id: 19,
+          path: '.github/workflows/ci.yml@main',
+          head_sha: HEAD_SHA,
+          status: 'completed',
+          conclusion: 'failure',
+          run_attempt: 2,
+        }] });
+        if (url.pathname.endsWith('/actions/runs/83/attempts/2/jobs')) return jsonResponse(200, {
+          total_count: 1,
+          jobs: [{ id: 8301, run_id: 83, run_attempt: 2, name: 'unit tests', status: 'completed', conclusion: 'failure' }],
+        });
+        return undefined;
+      },
+    });
+    await client.getPullRequest(PR_NUMBER);
+    await client.getWorkflowRuns(HEAD_SHA);
+
+    const result = await client.getWorkflowRunJobs(83, 2);
+
+    assert.equal(result.runAttempt, 2);
+    assert.equal(result.jobs[0].runId, 83);
+    assert.equal(result.jobs[0].runAttempt, 2);
+    assert.equal(result.jobs[0].id, 8301);
+    assert.ok(calls.some(({ url }) => url.pathname.endsWith('/actions/runs/83/attempts/2/jobs')));
+  });
+
+  it('refuses workflow job reads for an attempt other than the observed attempt', async () => {
+    const { client, calls } = createHarness({
+      route: ({ url }) => url.pathname.endsWith('/actions/runs')
+        ? jsonResponse(200, { total_count: 1, workflow_runs: [{
+          id: 84,
+          repository: { id: REPOSITORY_ID },
+          workflow_id: 19,
+          path: '.github/workflows/ci.yml@main',
+          head_sha: HEAD_SHA,
+          status: 'completed',
+          conclusion: 'failure',
+          run_attempt: 2,
+        }] })
+        : undefined,
+    });
+    await client.getPullRequest(PR_NUMBER);
+    await client.getWorkflowRuns(HEAD_SHA);
+    const before = calls.length;
+
+    await assert.rejects(client.getWorkflowRunJobs(84, 1), (error) => error.code === 'run_attempt_mismatch');
+
+    assert.equal(calls.length, before, 'mismatched attempts must be rejected before another API request');
+  });
+
+  it('marks a workflow collection incomplete when GitHub omits the run attempt', async () => {
+    const { client } = createHarness({
+      route: ({ url }) => url.pathname.endsWith('/actions/runs')
+        ? jsonResponse(200, { total_count: 1, workflow_runs: [{
+          id: 85,
+          repository: { id: REPOSITORY_ID },
+          workflow_id: 19,
+          path: '.github/workflows/ci.yml@main',
+          head_sha: HEAD_SHA,
+          status: 'completed',
+          conclusion: 'failure',
+        }] })
+        : undefined,
+    });
+    await client.getPullRequest(PR_NUMBER);
+
+    const result = await client.getWorkflowRuns(HEAD_SHA);
+
+    assert.equal(result.collectionStatus, 'incomplete');
+    assert.equal(result.runs[0].runAttempt, null);
+  });
+
+  it('marks attempt job evidence incomplete when any job omits or changes run_attempt', async () => {
+    for (const jobAttempt of [undefined, 1]) {
+      const { client } = createHarness({
+        route: ({ url }) => {
+          if (url.pathname.endsWith('/actions/runs')) return jsonResponse(200, { total_count: 1, workflow_runs: [{
+            id: 86,
+            repository: { id: REPOSITORY_ID },
+            workflow_id: 19,
+            path: '.github/workflows/ci.yml@main',
+            head_sha: HEAD_SHA,
+            status: 'completed',
+            conclusion: 'failure',
+            run_attempt: 2,
+          }] });
+          if (url.pathname.endsWith('/actions/runs/86/attempts/2/jobs')) return jsonResponse(200, {
+            total_count: 1,
+            jobs: [{ id: 8601, run_id: 86, run_attempt: jobAttempt, name: 'unit tests', status: 'completed', conclusion: 'failure' }],
+          });
+          return undefined;
+        },
+      });
+      await client.getPullRequest(PR_NUMBER);
+      await client.getWorkflowRuns(HEAD_SHA);
+
+      const result = await client.getWorkflowRunJobs(86, 2);
+
+      assert.equal(result.collectionStatus, 'incomplete');
+      assert.equal(result.jobs.length, 0);
+    }
+  });
+
   it('marks required policy unavailable when a ruleset source is inaccessible or a workflow lacks its source SHA', async () => {
     const inaccessible = createHarness({
       route: ({ url }) => {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { afterEach, before, describe, it } from 'node:test';
-import { mkdtemp, mkdir, realpath, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, realpath, rm, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -84,6 +84,7 @@ function workflowJob(overrides = {}) {
   return {
     id: JOB_ID,
     runId: RUN_ID,
+    runAttempt: 1,
     name: 'unit tests',
     status: 'completed',
     conclusion: 'failure',
@@ -104,9 +105,12 @@ async function createHarness(options = {}) {
     risk: 'low',
     acceptanceCriteria: ['rerun'],
     policy: taskPolicy,
-    now: new Date().toISOString(),
+    now: new Date(options.stateStartedAt ?? Date.now()).toISOString(),
   });
   await saveLoopState(root, state);
+  const statePath = path.join(root, '.loop', 'state', `${TASK_ID}.json`);
+  if (options.stateCorrupt) await writeFile(statePath, '{ invalid state json', 'utf8');
+  if (options.stateMissing) await unlink(statePath);
 
   let currentSnapshot = snapshot(options.snapshotOverrides);
   const events = [];
@@ -114,6 +118,7 @@ async function createHarness(options = {}) {
   const approvals = new WeakSet();
   const approval = Object.freeze({});
   approvals.add(approval);
+  let workflowRunReadCount = 0;
   const target = {
     repositoryId: REPOSITORY_ID,
     prNumber: PR_NUMBER,
@@ -149,19 +154,23 @@ async function createHarness(options = {}) {
     },
     async getWorkflowRuns(testedSha) {
       events.push('read-runs');
+      const runOverrides = options.runOverridesByRead?.[workflowRunReadCount] ?? options.runOverrides;
+      workflowRunReadCount += 1;
       return {
         status: options.runStatus ?? 'current',
         snapshot: currentSnapshot,
         testedSha,
-        runs: options.runs ?? [workflowRun(options.runOverrides)],
+        runs: options.runs ?? [workflowRun(runOverrides)],
         collectionStatus: options.runCollectionStatus ?? 'complete',
       };
     },
-    async getWorkflowRunJobs(runId) {
+    async getWorkflowRunJobs(runId, runAttempt) {
       events.push('read-jobs');
       assert.equal(runId, RUN_ID);
+      assert.equal(runAttempt, target.runAttempt);
       return {
         runId,
+        runAttempt: options.jobRunAttempt ?? target.runAttempt,
         snapshot: currentSnapshot,
         jobs: options.jobs ?? [workflowJob(options.jobOverrides)],
         collectionStatus: options.jobCollectionStatus ?? 'complete',
@@ -194,6 +203,7 @@ async function createHarness(options = {}) {
     async getInstallationToken(capability) {
       events.push('get-token');
       assert.equal(capability, 'actions:rerun');
+      if (options.afterToken) currentSnapshot = snapshot(options.afterToken);
       return INSTALLATION_TOKEN;
     },
   };
@@ -374,6 +384,31 @@ describe('GitHub Actions rerun write adapter', () => {
     assert.equal(persisted.budgets.ciRuns, 0);
   });
 
+  it('refreshes the PR tuple after token mint and aborts before reservation or POST on drift', async () => {
+    const harness = await createHarness({ afterToken: { headSha: '9'.repeat(40) } });
+    const result = await rerun(harness);
+    assert.equal(result.reasonCode, 'stale_pr_tuple');
+    assert.ok(harness.events.includes('get-token'));
+    assert.equal(harness.calls.length, 0);
+    const persisted = await loadLoopState(harness.root, TASK_ID);
+    assert.equal(persisted.budgets.ciRuns, 0);
+    assert.deepEqual(persisted.ciRunAttempts, []);
+  });
+
+  it('rechecks the selected workflow attempt after budget reservation before POST', async () => {
+    const harness = await createHarness({
+      runOverridesByRead: [undefined, undefined, undefined, { runAttempt: 2 }],
+    });
+    const result = await rerun(harness);
+
+    assert.equal(result.status, 'escalate');
+    assert.equal(result.reasonCode, 'run_attempt_mismatch');
+    assert.equal(harness.events.filter((event) => event === 'read-runs').length, 4);
+    assert.equal(harness.calls.length, 0);
+    const state = await loadLoopState(harness.root, TASK_ID);
+    assert.equal(state.ciRunAttempts[0].status, 'rejected');
+  });
+
   it('refuses incomplete PR file evidence and PR-modified workflow or local-action definitions', async () => {
     const incomplete = await createHarness({ fileCollectionStatus: 'incomplete' });
     const incompleteResult = await rerun(incomplete);
@@ -480,6 +515,12 @@ describe('GitHub Actions rerun write adapter', () => {
 
     const wrongJob = await createHarness({ targetOverrides: { failedJobIds: [JOB_ID + 1] } });
     assert.equal((await rerun(wrongJob)).reasonCode, 'failed_job_identity_mismatch');
+
+    const wrongJobAttempt = await createHarness({ jobRunAttempt: 2 });
+    assert.equal((await rerun(wrongJobAttempt)).reasonCode, 'run_attempt_mismatch');
+
+    const wrongJobResultAttempt = await createHarness({ jobs: [workflowJob({ runAttempt: 2 })] });
+    assert.equal((await rerun(wrongJobResultAttempt)).reasonCode, 'run_attempt_mismatch');
   });
 
   it('keeps an uncertain POST consumed and blocks a repeated invocation with the same stable key', async () => {
@@ -501,6 +542,18 @@ describe('GitHub Actions rerun write adapter', () => {
     assert.equal(second.reasonCode, 'duplicate_rerun');
     assert.equal(harness.events.filter((event) => event === 'consume-approval').length, 1);
     assert.equal(harness.calls.length, 1);
+  });
+
+  it('serializes concurrent attempts with the same action key into one GitHub POST', async () => {
+    const harness = await createHarness();
+    const results = await Promise.all([rerun(harness), rerun(harness)]);
+    assert.equal(results.filter((result) => result.status === 'submitted').length, 1);
+    assert.equal(results.filter((result) => result.status === 'refused'
+      && ['duplicate_rerun', 'duplicate_action_attempt'].includes(result.reasonCode)).length, 1);
+    assert.equal(harness.calls.length, 1);
+    const persisted = await loadLoopState(harness.root, TASK_ID);
+    assert.equal(persisted.budgets.ciRuns, 1);
+    assert.equal(persisted.ciRunAttempts.length, 1);
   });
 
   it('maps GitHub conflict, invalid-request, and rate-limit responses to stable escalation reasons', async () => {
@@ -538,5 +591,23 @@ describe('GitHub Actions rerun write adapter', () => {
     });
     assert.equal(next.reasonCode, 'ci_run_limit');
     assert.equal(finite.calls.length, 1);
+  });
+
+  it('refuses missing or corrupt local run state and an exceeded wall-clock budget before approval or POST', async () => {
+    for (const stateOptions of [{ stateMissing: true }, { stateCorrupt: true }]) {
+      const harness = await createHarness(stateOptions);
+      const result = await rerun(harness);
+      assert.equal(result.reasonCode, 'loop_state_unavailable');
+      assert.equal(harness.events.includes('consume-approval'), false);
+      assert.equal(harness.events.includes('get-token'), false);
+      assert.equal(harness.calls.length, 0);
+    }
+
+    const expired = await createHarness({ stateStartedAt: Date.now() - 3_600_000 });
+    const result = await rerun(expired);
+    assert.equal(result.reasonCode, 'max_wall_clock');
+    assert.equal(expired.events.includes('consume-approval'), false);
+    assert.equal(expired.events.includes('get-token'), false);
+    assert.equal(expired.calls.length, 0);
   });
 });

@@ -74,7 +74,13 @@ async function createFixture(options = {}) {
   await cp(path.join(repoRoot, 'Wiki'), path.join(root, 'Wiki'), { recursive: true });
   await cp(path.join(repoRoot, 'docs', 'superpowers', 'plans'), path.join(root, 'docs', 'superpowers', 'plans'), { recursive: true });
   await cp(path.join(repoRoot, 'docs', 'loop-engineering'), path.join(root, 'docs', 'loop-engineering'), { recursive: true });
-  await cp(path.join(repoRoot, 'scripts', 'loop'), path.join(root, 'scripts', 'loop'), { recursive: true });
+  const loopSource = path.join(repoRoot, 'scripts', 'loop');
+  await cp(loopSource, path.join(root, 'scripts', 'loop'), {
+    recursive: true,
+    filter(source) {
+      return !path.relative(loopSource, source).split(path.sep).includes('node_modules');
+    },
+  });
   await cp(path.join(repoRoot, '.github'), path.join(root, '.github'), { recursive: true });
   await cp(path.join(repoRoot, '.node-version'), path.join(root, '.node-version'));
   const verifierMarker = `${root}.nested-repair-verifier-ran`;
@@ -316,7 +322,8 @@ describe('repair sessions', () => {
   });
 
   it('rechecks budgets immediately before verification and blocks an exhausted verifier-stage limit', async () => {
-    const fixture = await createFixture({ maxWallClockSeconds: 1, quickVerifierFixture: true });
+    const maxWallClockSeconds = 30;
+    const fixture = await createFixture({ maxWallClockSeconds, quickVerifierFixture: true });
     const session = await fixture.begin();
     const startedAt = Date.parse(fixture.hostContext.loopState.startedAt);
     const originalNow = Date.now;
@@ -324,7 +331,7 @@ describe('repair sessions', () => {
     Date.now = () => {
       if (new Error().stack.includes('evaluateBudgets')) {
         budgetChecks += 1;
-        return startedAt + (budgetChecks < 3 ? 0 : 1000);
+        return startedAt + (budgetChecks < 3 ? 0 : maxWallClockSeconds * 1000);
       }
       return startedAt;
     };

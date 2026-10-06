@@ -4,7 +4,7 @@ This Wiki records durable Digital-E understanding for maintainers and AI agents.
 
 **Project summary:** Digital-E is an electronics commerce platform built from two independent pnpm packages: a React 19 and Vite storefront/admin client in `client/`, and a NestJS 11 API on the Express 5 adapter in `server/`. MySQL remains the primary runtime database, while Prisma 7 owns a complete typed projection and partial forward-migration layer for the 30 application tables. Firebase is the only auth provider; the Firebase Auth Emulator is a local testing target.
 
-**Last updated:** 2026-10-05
+**Last updated:** 2026-10-06
 
 The current implementation includes authenticated and guest carts, server-authoritative checkout, PayOS and COD payment paths with exact VND amounts, production-only live PayOS configuration, signed webhook processing, simulated-payment delivery protection, bounded admin reconciliation, Firebase-owned production auth emails, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, guest-friendly product comparison, responsive WebP/AVIF product image delivery, customer support tickets, admin analytics, operational alerts, database-backed demo verification, read-only k6 smoke coverage, and opt-in OTLP observability. Legacy payment identifiers remain readable only for historical database compatibility.
 
@@ -37,6 +37,7 @@ The local demo seed creates a linked graph with 28 products across 8 categories 
 - [Testing guide](../docs/TESTING.md): package, integration, smoke, and k6 checks
 - [CI/CD guide](../docs/ci-cd.md): CI, migration gates, deployment, and reset safety
 - [Phase 2 PR Babysitter runbook](../docs/loop-engineering/phase-2-pr-babysitter-runbook.md): staged rollout, credential boundaries, read-only Stage 0 host bootstrap, and verification gates
+- [Stage 1 CLI runbook](../docs/loop-engineering/stage1-cli-runbook.md): current fail-closed CLI behavior, prerequisites, pilot gates, and disable procedure
 - [Hosted Stage 0 runbook](../docs/loop-engineering/hosted-stage0-runbook.md): Cloudflare Worker, D1/Queue setup, non-gating PR report, operations, quotas, and rollback
 - [Prisma workflow](../server/README.prisma.md): schema ownership and demo database operations
 

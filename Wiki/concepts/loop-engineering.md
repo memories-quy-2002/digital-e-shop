@@ -96,3 +96,19 @@ then rechecks the budget immediately before push. Tokens are repository-scoped
 and permission-scoped, not branch-scoped; GitHub branch protection guards
 protected refs. Phase 2B has no merge authority, issue-to-Draft-PR dispatch, or
 post-merge observation. See [[architecture]] and [[index]].
+
+The Stage 1 CLI work currently adds only a fail-closed boundary: `inspect`
+delegates to the Stage 0 read-only host, while live `rerun-flaky` refuses
+before credentials or network access. A reviewed workflow-source attestation
+provider, complete workflow/job allowlist, trusted approver configuration, and
+host-managed LoopState CI budget session are absent. The canonical policy now
+sets `ciRunLimit` to 2 after PR #289; this does not enable reruns because the
+Stage 1 host does not load a persisted session budget bound to that revision.
+Dry-run validates syntax only; it is not a pilot or a rerun result. See the [Stage 1 CLI runbook](../../docs/loop-engineering/stage1-cli-runbook.md)
+and [readiness evidence](../../docs/loop-engineering/stage1-readiness.md).
+The read adapter binds job evidence to GitHub's exact workflow run attempt and
+marks missing attempt IDs incomplete. The guarded writer rechecks that attempt
+after budget reservation, but GitHub's failed-jobs POST accepts only `run_id`,
+so the request cannot atomically bind to the approved attempt. This residual
+race is a hard Stage 1 activation gate, not an attestation the local recheck can
+provide.
