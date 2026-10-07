@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 
+import { isVerifiedWorkflowSourceRecord } from './workflow-source-attestation.mjs';
 import {
   evaluateBudgets,
   finishCIRunAttemptInRepository,
@@ -293,24 +294,29 @@ async function collectTargetEvidence(host, target) {
       || run.testedSha !== target.testedSha || run.headSha !== target.testedSha) {
     return { reasonCode: 'workflow_identity_mismatch' };
   }
-  if (run.sourceShaAttested !== true || typeof run.sourceSha !== 'string'
-      || run.sourceSha.toLowerCase() !== target.entry.sourceSha) {
-    return { reasonCode: 'workflow_source_sha_unattested' };
-  }
   if (typeof host.verifyWorkflowSourceAttestation !== 'function') {
     return { reasonCode: 'workflow_source_sha_unattested' };
   }
-  let sourceAttested = false;
+  let sourceRecord = null;
   try {
-    sourceAttested = await host.verifyWorkflowSourceAttestation({
+    sourceRecord = await host.verifyWorkflowSourceAttestation({
       identity: target.requiredIdentity,
       run,
       snapshot,
-    }) === true;
+    });
   } catch {
-    sourceAttested = false;
+    sourceRecord = null;
   }
-  if (!sourceAttested) return { reasonCode: 'workflow_source_sha_unattested' };
+  if (!isVerifiedWorkflowSourceRecord(sourceRecord)
+      || sourceRecord.repositoryId !== target.requiredIdentity.repositoryId
+      || sourceRecord.workflowPath !== target.entry.path
+      || sourceRecord.workflowRef !== target.entry.ref
+      || sourceRecord.sourceSha !== target.entry.sourceSha
+      || sourceRecord.runId !== target.runId
+      || sourceRecord.runAttempt !== target.runAttempt
+      || sourceRecord.testedSha !== target.testedSha) {
+    return { reasonCode: 'workflow_source_sha_unattested' };
+  }
   if (run.status !== 'completed' || !['failure', 'timed_out'].includes(run.conclusion)) {
     return { reasonCode: 'run_not_failed' };
   }

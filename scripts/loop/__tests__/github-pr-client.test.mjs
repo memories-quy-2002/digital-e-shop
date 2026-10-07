@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { createGitHubPrClient, GitHubPrClientError } from '../github-pr-client.mjs';
+import { createWorkflowSourceVerifier, isVerifiedWorkflowSourceRecord } from '../workflow-source-attestation.mjs';
+import { serializeWorkflowSourceDescriptor } from '../workflow-source-descriptor.mjs';
+import { createHash } from 'node:crypto';
 
 const OWNER = 'octo';
 const REPO = 'shop';
@@ -84,7 +87,7 @@ function createHarness(options = {}) {
     return jsonResponse(404, { message: 'not found' });
   };
 
-  const client = createGitHubPrClient({
+  const clientOptions = {
     repository: REPOSITORY,
     getToken: async (capability) => {
       tokens.push(capability);
@@ -92,7 +95,11 @@ function createHarness(options = {}) {
     },
     downloadHostAllowlist: options.downloadHostAllowlist ?? ['logs.example.test'],
     fetchImpl,
-  });
+  };
+  if (options.verifyWorkflowSourceAttestation !== undefined) {
+    clientOptions.verifyWorkflowSourceAttestation = options.verifyWorkflowSourceAttestation;
+  }
+  const client = createGitHubPrClient(clientOptions);
   return { client, calls, tokens };
 }
 
@@ -131,6 +138,71 @@ function requiredWorkflow(overrides = {}) {
     sha: WORKFLOW_SHA,
     ...overrides,
   };
+}
+
+function sourceWorkflowRun(overrides = {}) {
+  const workflowRef = 'refs/pull/27/merge';
+  return {
+    id: 81,
+    repository: { id: REPOSITORY_ID },
+    workflow_id: 19,
+    path: `.github/workflows/ci.yml@${workflowRef}`,
+    head_sha: HEAD_SHA,
+    event: 'pull_request',
+    status: 'completed',
+    conclusion: 'failure',
+    run_attempt: 2,
+    created_at: '2026-10-07T12:00:00.000Z',
+    updated_at: '2026-10-07T12:05:00.000Z',
+    ...overrides,
+  };
+}
+
+function sourceVerifier() {
+  return createWorkflowSourceVerifier({
+    repository: REPOSITORY,
+    inspectAttestation: async ({ identity, run, snapshot }) => {
+      const descriptor = serializeWorkflowSourceDescriptor({
+        repositoryId: snapshot.repositoryId,
+        workflowId: run.workflowId,
+        workflowPath: run.path,
+        workflowRef: run.ref,
+        runId: run.id,
+        runAttempt: run.runAttempt,
+        eventName: run.event,
+        testedSha: run.testedSha,
+        pullRequest: {
+          number: snapshot.number,
+          baseSha: snapshot.baseSha,
+          headSha: snapshot.headSha,
+          mergeSha: snapshot.mergeSha,
+        },
+      });
+      const descriptorSha256 = createHash('sha256').update(descriptor).digest('hex');
+      const signerUri = `https://github.com/${REPOSITORY}/${identity.path}@${identity.ref}`;
+      return {
+        repositoryId: snapshot.repositoryId,
+        issuer: 'https://token.actions.githubusercontent.com',
+        sourceRepositoryIdentifier: String(snapshot.repositoryId),
+        githubWorkflowRepository: REPOSITORY,
+        workflowPath: identity.path,
+        githubWorkflowRef: identity.ref,
+        githubWorkflowSHA: WORKFLOW_SHA,
+        buildSignerDigest: WORKFLOW_SHA,
+        workflowId: run.workflowId,
+        testedSha: run.testedSha,
+        runId: run.id,
+        runAttempt: run.runAttempt,
+        subjectAlternativeName: { type: 'URI', value: signerUri },
+        buildSignerURI: signerUri,
+        runInvocationURI: `https://github.com/${REPOSITORY}/actions/runs/${run.id}/attempts/${run.runAttempt}`,
+        subjectName: 'digital-e-loop-workflow-source.json',
+        subjectDigest: descriptorSha256,
+        descriptorSha256,
+        verifiedTimestamps: ['2026-10-07T12:02:00.000Z'],
+      };
+    },
+  });
 }
 
 function storedZip(path, text) {
@@ -413,17 +485,23 @@ describe('strict GitHub PR read adapter', () => {
     assert.deepEqual(snapshot.requiredChecks, [{ context: 'main-check', appId: 70 }]);
   });
 
-  it('keeps required workflow evidence unavailable without source-SHA attestation, even for a matching-looking run', async () => {
+  it('keeps source unavailable when verifier is absent', async () => {
     const { client } = createHarness({
       route: ({ url }) => url.pathname.endsWith('/actions/runs')
         ? jsonResponse(200, { total_count: 1, workflow_runs: [{
           id: 81,
           repository: { id: REPOSITORY_ID },
+          workflow_id: 19,
           path: '.github/workflows/ci.yml@main',
           head_sha: HEAD_SHA,
+          event: 'pull_request',
           status: 'completed',
           conclusion: 'success',
           run_attempt: 1,
+          created_at: '2026-10-07T12:00:00.000Z',
+          updated_at: '2026-10-07T12:05:00.000Z',
+          sourceSha: WORKFLOW_SHA,
+          sourceShaAttested: true,
         }] })
         : undefined,
     });
@@ -436,6 +514,78 @@ describe('strict GitHub PR read adapter', () => {
     assert.equal(evidence.testedSha, HEAD_SHA);
     assert.equal(evidence.sourceSha, null);
     assert.equal(evidence.requiredWorkflowKey, 'workflow|repo:7654321|path:.github%2Fworkflows%2Fci.yml|ref:main|sha:' + WORKFLOW_SHA);
+
+    const runs = await client.getWorkflowRuns(HEAD_SHA);
+    assert.equal(Object.hasOwn(runs.runs[0], 'sourceSha'), false);
+    assert.equal(Object.hasOwn(runs.runs[0], 'sourceShaAttested'), false);
+  });
+
+  it('refuses duplicate workflow matches before attestation lookup', async () => {
+    let verifierCalls = 0;
+    const verifier = async () => { verifierCalls += 1; return null; };
+    const { client } = createHarness({
+      verifyWorkflowSourceAttestation: verifier,
+      route: ({ url }) => url.pathname.endsWith('/actions/runs')
+        ? jsonResponse(200, { total_count: 2, workflow_runs: [
+          sourceWorkflowRun(),
+          sourceWorkflowRun({ id: 82 }),
+        ] })
+        : undefined,
+    });
+    await client.getPullRequest(PR_NUMBER);
+
+    const evidence = await client.getRequiredWorkflowEvidence(
+      requiredWorkflow({ ref: 'refs/pull/27/merge' }),
+      HEAD_SHA,
+    );
+
+    assert.equal(evidence.status, 'unavailable');
+    assert.equal(evidence.reasonCode, 'workflow_run_ambiguous');
+    assert.equal(evidence.sourceSha, null);
+    assert.equal(verifierCalls, 0);
+  });
+
+  it('refuses a stale PR tuple after certificate verification', async () => {
+    const { client } = createHarness({
+      changeTupleAfterPrReads: 3,
+      graphBaseSha: (readCount) => readCount > 3 ? 'f'.repeat(40) : BASE_SHA,
+      verifyWorkflowSourceAttestation: sourceVerifier(),
+      route: ({ url }) => url.pathname.endsWith('/actions/runs')
+        ? jsonResponse(200, { total_count: 1, workflow_runs: [sourceWorkflowRun()] })
+        : undefined,
+    });
+    await client.getPullRequest(PR_NUMBER);
+
+    const evidence = await client.getRequiredWorkflowEvidence(
+      requiredWorkflow({ ref: 'refs/pull/27/merge' }),
+      HEAD_SHA,
+    );
+
+    assert.equal(evidence.status, 'stale');
+    assert.equal(evidence.reasonCode, 'pr_tuple_changed');
+    assert.equal(evidence.sourceSha, null);
+  });
+
+  it('returns source SHA only from a matching verifier-owned record', async () => {
+    const { client } = createHarness({
+      verifyWorkflowSourceAttestation: sourceVerifier(),
+      route: ({ url }) => url.pathname.endsWith('/actions/runs')
+        ? jsonResponse(200, { total_count: 1, workflow_runs: [sourceWorkflowRun()] })
+        : undefined,
+    });
+    await client.getPullRequest(PR_NUMBER);
+
+    const evidence = await client.getRequiredWorkflowEvidence(
+      requiredWorkflow({ ref: 'refs/pull/27/merge' }),
+      HEAD_SHA,
+    );
+
+    assert.equal(evidence.status, 'current');
+    assert.equal(evidence.reasonCode, null);
+    assert.equal(evidence.sourceSha, WORKFLOW_SHA);
+    assert.equal(isVerifiedWorkflowSourceRecord(evidence.sourceRecord), true);
+    assert.equal(evidence.sourceRecord.runId, 81);
+    assert.equal(evidence.sourceRecord.runAttempt, 2);
   });
 
   it('does not treat a truncated page without a next link as a complete workflow collection', async () => {
