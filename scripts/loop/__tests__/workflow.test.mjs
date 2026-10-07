@@ -32,6 +32,7 @@ const controlPlaneTests = [
   'scripts/loop/__tests__/workflow.test.mjs',
   'scripts/loop/__tests__/workflow-source-descriptor.test.mjs',
   'scripts/loop/__tests__/workflow-source-attestation.test.mjs',
+  'scripts/loop/__tests__/github-workflow-source-attestation.test.mjs',
   'scripts/loop/__tests__/stage1-target.test.mjs',
   'scripts/loop/__tests__/stage1-source-sha-probe.test.mjs',
   'scripts/loop/__tests__/stage1-prompt.test.mjs',
@@ -196,8 +197,8 @@ describe('read-only Loop source SHA probe workflow contract', () => {
     const workflow = await read(sourceShaProbeWorkflowPath);
     assert.match(workflow, /^name: Loop source SHA probe$/m);
     assert.match(workflow, /\bon:\r?\n  workflow_run:\r?\n    workflows: \["Loop Foundation"\]\r?\n    types: \[completed\]/);
-    assert.match(workflow, /^permissions:\r?\n  actions: read\r?\n  contents: read$/m);
-    assert.match(workflow, /^      actions: read\r?\n      contents: read$/m);
+    assert.match(workflow, /^permissions:\r?\n  actions: read\r?\n  contents: read\r?\n  attestations: read\r?\n  pull-requests: read$/m);
+    assert.match(workflow, /^      actions: read\r?\n      contents: read\r?\n      attestations: read\r?\n      pull-requests: read$/m);
     assert.match(workflow, /^    if: github\.repository == 'memories-quy-2002\/digital-e-shop'$/m);
   });
 
