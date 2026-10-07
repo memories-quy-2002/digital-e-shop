@@ -30,6 +30,7 @@ const controlPlaneTests = [
   'scripts/loop/__tests__/repair-session.test.mjs',
   'scripts/loop/__tests__/verify.test.mjs',
   'scripts/loop/__tests__/workflow.test.mjs',
+  'scripts/loop/__tests__/workflow-source-descriptor.test.mjs',
   'scripts/loop/__tests__/workflow-source-attestation.test.mjs',
   'scripts/loop/__tests__/stage1-target.test.mjs',
   'scripts/loop/__tests__/stage1-source-sha-probe.test.mjs',
@@ -40,6 +41,7 @@ const reviewedActions = [
   'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
   'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020',
 ];
+const attestAction = 'actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6';
 
 async function read(relativePath) {
   return readFile(path.join(repositoryRoot, relativePath), 'utf8');
@@ -59,13 +61,27 @@ function triggerBlockLines(source) {
   return block;
 }
 
-describe('read-only Loop Foundation workflow contract', () => {
+function jobBlock(source, jobName) {
+  const start = source.search(new RegExp(`^  ${jobName}:\\s*$`, 'm'));
+  if (start < 0) return '';
+  const remainder = source.slice(start);
+  const nextJob = remainder.slice(1).search(/^  [A-Za-z0-9_-]+:\s*$/m);
+  return nextJob < 0 ? remainder : remainder.slice(0, nextJob + 1);
+}
+
+function jobPermissionLines(block) {
+  const match = block.match(/^    permissions:\r?\n((?:      [^\r\n]+\r?\n?)+)/m);
+  return match ? match[1].trimEnd().split(/\r?\n/).map((line) => line.trim()) : [];
+}
+
+describe('Loop Foundation workflow contract', () => {
   it('runs only for pull requests to main and pushes to main', async () => {
     const workflow = await read(workflowPath);
     assert.deepEqual(triggerBlockLines(workflow), [
       '  pull_request:',
       '    branches:',
       '      - main',
+      '    types: [opened, reopened, synchronize, labeled]',
       '  push:',
       '    branches:',
       '      - main',
@@ -78,20 +94,68 @@ describe('read-only Loop Foundation workflow contract', () => {
 
   it('pins only the reviewed checkout/setup-node actions and disables checkout credentials', async () => {
     const workflow = await read(workflowPath);
-    const actionRefs = [...workflow.matchAll(/^\s*uses:\s*([^\s#]+)/gm)].map((match) => match[1]);
-    assert.deepEqual(actionRefs, reviewedActions);
-    for (const actionRef of actionRefs) {
+    const testJob = jobBlock(workflow, 'test');
+    const attestationJob = jobBlock(workflow, 'attest-workflow-source');
+    const actionRefs = (block) => [...block.matchAll(/^\s*uses:\s*([^\s#]+)/gm)].map((match) => match[1]);
+    assert.deepEqual(actionRefs(testJob), reviewedActions);
+    assert.deepEqual(actionRefs(attestationJob), [reviewedActions[1], attestAction]);
+    assert.equal(actionRefs(workflow).length, 4);
+    for (const actionRef of [...actionRefs(testJob), ...actionRefs(attestationJob)]) {
       assert.match(actionRef, /^[-A-Za-z0-9_.]+\/[-A-Za-z0-9_.]+@[a-f0-9]{40}$/);
     }
     assert.match(workflow, /^          persist-credentials: false$/m);
+    assert.doesNotMatch(attestationJob, /actions\/checkout@/);
   });
 
-  it('uses the repository Node version file with read-only token permissions', async () => {
+  it('uses the repository Node version file and keeps the default token permission read-only', async () => {
     const [workflow, nodeVersion] = await Promise.all([read(workflowPath), read('.node-version')]);
     assert.equal(nodeVersion.trim(), '24.20.0');
     assert.match(workflow, /^permissions:\r?\n  contents: read\s*$/m);
     assert.match(workflow, /^          node-version-file: \.node-version$/m);
-    assert.doesNotMatch(workflow, /^\s+(?:contents|pull-requests|issues|id-token):\s*write\s*$/m);
+    assert.deepEqual(jobPermissionLines(jobBlock(workflow, 'test')), []);
+  });
+
+  it('attests only labeled same-repository pilot runs after test', async () => {
+    const workflow = await read(workflowPath);
+    const job = jobBlock(workflow, 'attest-workflow-source');
+    assert.notEqual(job, '');
+    assert.match(job, /^    needs: test$/m);
+    assert.match(job, /always\(\)/);
+    assert.match(job, /github\.event_name == 'pull_request'/);
+    assert.match(job, /github\.event\.pull_request\.head\.repo\.full_name == github\.repository/);
+    assert.match(job, /github\.event\.label\.name == 'loop-stage1-attestation-pilot'/);
+    assert.match(job, /github\.event\.pull_request\.state == 'open'/);
+    assert.match(job, /subject-name: digital-e-loop-workflow-source\.json/);
+    assert.match(job, /subject-digest: sha256:\$\{\{ steps\.descriptor\.outputs\.sha256 \}\}/);
+    assert.match(job, /digital-e-loop-workflow-source\.json/);
+    assert.match(job, /`\/repos\/\$\{repository\}\/actions\/runs\/\$\{runId\}`/);
+    assert.match(job, /GITHUB_EVENT_PATH/);
+    assert.match(job, /GITHUB_RUN_ATTEMPT/);
+    assert.match(job, /GITHUB_REPOSITORY_ID/);
+    assert.match(job, /head\.sha/);
+    assert.match(job, /merge_commit_sha/);
+    assert.doesNotMatch(job, /scripts\/loop\//);
+  });
+
+  it('grants OIDC and attestation write permissions only to the pinned no-checkout producer job', async () => {
+    const workflow = await read(workflowPath);
+    const job = jobBlock(workflow, 'attest-workflow-source');
+    assert.deepEqual(jobPermissionLines(job), [
+      'actions: read',
+      'contents: read',
+      'id-token: write',
+      'attestations: write',
+    ]);
+    assert.match(job, new RegExp(`uses: ${attestAction.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+    assert.match(job, /actions\/setup-node@820762786026740c76f36085b0efc47a31fe5020/);
+    assert.match(job, /node-version: 24\.20\.0/);
+    assert.equal([...workflow.matchAll(/^\s*id-token:\s*write\s*$/gm)].length, 1);
+    assert.equal([...workflow.matchAll(/^\s*attestations:\s*write\s*$/gm)].length, 1);
+    assert.doesNotMatch(workflow, /^\s*(?:actions|contents|artifact-metadata):\s*write\s*$/m);
+    assert.doesNotMatch(job, /(?:actions|contents|pull-requests|issues|artifact-metadata):\s*write/);
+    assert.doesNotMatch(job, /\bsecrets\./i);
+    assert.doesNotMatch(job, /github\.workflow_sha|sourceSha|source_sha/);
+    assert.match(job, /GITHUB_OUTPUT/);
   });
 
   it('runs the fixed control-plane Node test list, Stage 1 suites, and three static routing smokes only', async () => {
@@ -116,9 +180,12 @@ describe('read-only Loop Foundation workflow contract', () => {
 
   it('contains no credentials, dependency installation, write actions, or production operations', async () => {
     const workflow = await read(workflowPath);
+    const testJob = jobBlock(workflow, 'test');
+    const attestationJob = jobBlock(workflow, 'attest-workflow-source');
     assert.doesNotMatch(workflow, /\bsecrets\./i);
     assert.doesNotMatch(workflow, /\b(?:pnpm|npm|yarn)\s+(?:install|ci|add)\b/i);
-    assert.doesNotMatch(workflow, /(?:contents|pull-requests|issues|id-token):\s*write/i);
+    assert.doesNotMatch(testJob, /(?:actions|contents|pull-requests|issues|id-token|attestations):\s*write/i);
+    assert.doesNotMatch(attestationJob, /(?:actions|contents|pull-requests|issues|artifact-metadata):\s*write/i);
     assert.doesNotMatch(workflow, /pull_request_target|environment:\s*production|git\s+push|\bgh\s+(?:issue|pr)\s+(?:create|edit|comment|merge)/i);
     assert.doesNotMatch(workflow, /prisma:migrate|test:integration|seed:mock|vercel\s+--prod/i);
   });

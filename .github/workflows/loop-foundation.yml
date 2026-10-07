@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+    types: [opened, reopened, synchronize, labeled]
   push:
     branches:
       - main
@@ -51,6 +52,7 @@ jobs:
             scripts/loop/__tests__/repair-session.test.mjs \
             scripts/loop/__tests__/verify.test.mjs \
             scripts/loop/__tests__/workflow.test.mjs \
+            scripts/loop/__tests__/workflow-source-descriptor.test.mjs \
             scripts/loop/__tests__/workflow-source-attestation.test.mjs \
             scripts/loop/__tests__/stage1-target.test.mjs \
             scripts/loop/__tests__/stage1-source-sha-probe.test.mjs \
@@ -62,3 +64,127 @@ jobs:
           node scripts/loop/verify.mjs --dry-run --mode fast --changed client/src/App.tsx
           node scripts/loop/verify.mjs --dry-run --mode fast --changed server/src/catalog/catalog.service.ts
           node scripts/loop/verify.mjs --dry-run --mode fast --changed .github/workflows/loop-foundation.yml
+
+  attest-workflow-source:
+    name: attest-workflow-source
+    needs: test
+    if: >-
+      always() &&
+      needs.test.result != 'cancelled' &&
+      github.event_name == 'pull_request' &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'loop-stage1-attestation-pilot' &&
+      github.event.pull_request.state == 'open' &&
+      github.event.repository.id == github.repository_id &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.20.0
+
+      - name: Build canonical workflow source descriptor
+        id: descriptor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { createHash } from 'node:crypto';
+          import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
+          import { join } from 'node:path';
+
+          const fail = () => { throw new Error('descriptor_unavailable'); };
+          const isPositiveInteger = (value) => Number.isSafeInteger(value) && value > 0;
+          const isSha = (value) => typeof value === 'string' && /^[a-f0-9]{40}$/.test(value);
+
+          try {
+            const repository = 'memories-quy-2002/digital-e-shop';
+            const repositoryId = Number(process.env.GITHUB_REPOSITORY_ID);
+            const runId = Number(process.env.GITHUB_RUN_ID);
+            const runAttempt = Number(process.env.GITHUB_RUN_ATTEMPT);
+            const apiUrl = new URL(process.env.GITHUB_API_URL);
+            if (process.env.GITHUB_REPOSITORY !== repository
+                || apiUrl.origin !== 'https://api.github.com'
+                || !isPositiveInteger(repositoryId)
+                || !isPositiveInteger(runId)
+                || !isPositiveInteger(runAttempt)
+                || typeof process.env.GH_TOKEN !== 'string'
+                || process.env.GH_TOKEN.length === 0) fail();
+
+            const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+            const pullRequestEvent = event?.pull_request;
+            const pullRequestNumber = pullRequestEvent?.number;
+            if (event?.action !== 'labeled'
+                || event?.label?.name !== 'loop-stage1-attestation-pilot'
+                || pullRequestEvent?.state !== 'open'
+                || event?.repository?.id !== repositoryId
+                || pullRequestEvent?.base?.repo?.id !== repositoryId
+                || pullRequestEvent?.head?.repo?.full_name !== repository
+                || !isPositiveInteger(pullRequestNumber)) fail();
+
+            const runResponse = await fetch(new URL(
+              `/repos/${repository}/actions/runs/${runId}`,
+              apiUrl,
+            ), {
+              headers: {
+                Accept: 'application/vnd.github+json',
+                Authorization: `Bearer ${process.env.GH_TOKEN}`,
+                'X-GitHub-Api-Version': '2022-11-28',
+              },
+              redirect: 'manual',
+            });
+            if (!runResponse.ok || runResponse.status !== 200) fail();
+            const run = await runResponse.json();
+            const pullRequest = {
+              number: pullRequestNumber,
+              baseSha: pullRequestEvent.base.sha,
+              headSha: pullRequestEvent.head.sha,
+              mergeSha: pullRequestEvent.merge_commit_sha,
+            };
+            const workflowRef = `refs/pull/${pullRequestNumber}/merge`;
+            if (run?.id !== runId
+                || run?.run_attempt !== runAttempt
+                || !isPositiveInteger(run?.workflow_id)
+                || run?.path !== '.github/workflows/loop-foundation.yml'
+                || run?.event !== 'pull_request'
+                || run?.repository?.id !== repositoryId
+                || !isSha(run?.head_sha)
+                || (!isSha(pullRequest.baseSha)
+                  || !isSha(pullRequest.headSha)
+                  || !isSha(pullRequest.mergeSha))
+                || (run.head_sha !== pullRequest.headSha && run.head_sha !== pullRequest.mergeSha)
+                || process.env.GITHUB_REF !== workflowRef) fail();
+
+            const descriptor = {
+              schemaVersion: 1,
+              repositoryId,
+              workflowId: run.workflow_id,
+              workflowPath: run.path,
+              workflowRef,
+              runId,
+              runAttempt,
+              eventName: run.event,
+              testedSha: run.head_sha,
+              pullRequest,
+            };
+            const bytes = Buffer.from(JSON.stringify(descriptor), 'utf8');
+            const descriptorPath = join(process.env.RUNNER_TEMP, 'digital-e-loop-workflow-source.json');
+            writeFileSync(descriptorPath, bytes, { flag: 'wx', mode: 0o600 });
+            const sha256 = createHash('sha256').update(bytes).digest('hex');
+            appendFileSync(process.env.GITHUB_OUTPUT, `sha256=${sha256}\n`, { encoding: 'utf8', mode: 0o600 });
+          } catch {
+            fail();
+          }
+          NODE
+
+      - name: Attest workflow source descriptor
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: digital-e-loop-workflow-source.json
+          subject-digest: sha256:${{ steps.descriptor.outputs.sha256 }}
