@@ -41,6 +41,16 @@ These facts make a job-ID write a promising narrower target, but do not by
 themselves prove its behavior under the race. Do not remove the hard gate based
 only on the fact that the `job_id` path parameter is unique.
 
+Read-only evidence from this repository on 2026-10-08 shows distinct job IDs
+across attempts for Hosted Loop Stage 0 run
+[`36960149216`](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/36960149216)
+at the same head SHA: attempt 1 used `verify` job `110691833515` and `deploy`
+job `110691921147`; attempt 2 used `verify` job `110697771002` and `deploy`
+job `110697771558`. This supports per-attempt job identity for that observed
+workflow. It does not establish the behavior of a rerun POST with an old job ID,
+nor does it validate the eligible `loop-foundation.yml` target. No write was
+attempted; the hard gate remains.
+
 ## Approaches considered
 
 ### A. Rerun a job by its attempt-scoped `job_id` — recommended candidate
