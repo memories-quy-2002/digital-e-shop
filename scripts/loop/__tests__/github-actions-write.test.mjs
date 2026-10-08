@@ -286,14 +286,14 @@ afterEach(async () => {
 });
 
 describe('GitHub Actions rerun write adapter', () => {
-  it('consumes exact approval and persists the attempt before posting only the failed-jobs endpoint', async () => {
+  it('consumes exact approval and persists the attempt before posting only the approved job endpoint', async () => {
     const harness = await createHarness();
     const result = await rerun(harness);
 
     assert.equal(result.status, 'submitted', JSON.stringify(result));
     assert.match(result.actionAttemptKey, /^[a-f0-9]{64}$/);
     assert.equal(harness.calls.length, 1);
-    assert.equal(harness.calls[0].url.href, `https://api.github.com/repos/${REPOSITORY}/actions/runs/${RUN_ID}/rerun-failed-jobs`);
+    assert.equal(harness.calls[0].url.href, `https://api.github.com/repos/${REPOSITORY}/actions/jobs/${JOB_ID}/rerun`);
     assert.equal(harness.calls[0].init.method, 'POST');
     assert.equal(harness.calls[0].init.body, undefined);
     assert.equal(harness.calls[0].init.headers.Authorization, `Bearer ${INSTALLATION_TOKEN}`);
@@ -506,6 +506,44 @@ describe('GitHub Actions rerun write adapter', () => {
     assert.equal((await rerun(cancelled)).reasonCode, 'failed_job_not_retryable');
   });
 
+  it('refuses multiple approved root IDs before approval, token minting, budget reservation, or POST', async () => {
+    const harness = await createHarness({ targetOverrides: { failedJobIds: [JOB_ID, JOB_ID + 1] } });
+    const result = await rerun(harness);
+
+    assert.equal(result.reasonCode, 'invalid_target');
+    assert.equal(harness.events.includes('consume-approval'), false);
+    assert.equal(harness.events.includes('get-token'), false);
+    assert.equal(harness.calls.length, 0);
+    const state = await loadLoopState(harness.root, TASK_ID);
+    assert.equal(state.budgets.ciRuns, 0);
+    assert.deepEqual(state.ciRunAttempts, []);
+  });
+
+  it('refuses an attempt with multiple failed roots even when the target names only one', async () => {
+    const harness = await createHarness({
+      jobs: [workflowJob(), workflowJob({ id: JOB_ID + 1, name: 'lint' })],
+      workflowAllowlist: [{
+        repositoryId: REPOSITORY_ID,
+        workflowId: WORKFLOW_ID,
+        path: WORKFLOW_PATH,
+        ref: WORKFLOW_REF,
+        sourceSha: WORKFLOW_SHA,
+        requiredIdentity: REQUIRED_IDENTITY,
+        jobNames: ['unit tests', 'lint'],
+        safety: { noSecrets: true, noProtectedEnvironment: true, noWritePermissions: true },
+      }],
+    });
+    const result = await rerun(harness);
+
+    assert.equal(result.reasonCode, 'failed_job_identity_mismatch');
+    assert.equal(harness.events.includes('consume-approval'), false);
+    assert.equal(harness.events.includes('get-token'), false);
+    assert.equal(harness.calls.length, 0);
+    const state = await loadLoopState(harness.root, TASK_ID);
+    assert.equal(state.budgets.ciRuns, 0);
+    assert.deepEqual(state.ciRunAttempts, []);
+  });
+
   it('refuses substituted run, attempt, and failed-job identities', async () => {
     const absentRun = await createHarness({ runs: [workflowRun({ id: RUN_ID + 1 })] });
     assert.equal((await rerun(absentRun)).reasonCode, 'run_not_observed');
@@ -515,6 +553,12 @@ describe('GitHub Actions rerun write adapter', () => {
 
     const wrongJob = await createHarness({ targetOverrides: { failedJobIds: [JOB_ID + 1] } });
     assert.equal((await rerun(wrongJob)).reasonCode, 'failed_job_identity_mismatch');
+
+    const duplicateJob = await createHarness({ jobs: [
+      workflowJob(), workflowJob({ name: 'unit tests duplicate' }),
+    ] });
+    assert.equal((await rerun(duplicateJob)).reasonCode, 'job_evidence_unavailable');
+    assert.equal(duplicateJob.calls.length, 0);
 
     const wrongJobAttempt = await createHarness({ jobRunAttempt: 2 });
     assert.equal((await rerun(wrongJobAttempt)).reasonCode, 'run_attempt_mismatch');

@@ -1,6 +1,6 @@
 # Stage 1 CLI runbook
 
-**Updated:** 2026-10-06
+**Updated:** 2026-10-08
 
 **Status:** Offline implementation only; live reruns are disabled.
 
@@ -35,6 +35,25 @@ This observation confirms the current refusal: keep reporting
 path, or ref. Any change to the source-identity contract needs a separate
 design review before a provider is implemented. No rerun or Stage 1 capability
 is enabled by this probe.
+
+## Attempt-bound rerun feasibility result
+
+A controlled test on same-repository, non-`main`, documentation-only PR #294
+used the `Loop Foundation` workflow, which has no deployment job. Attempt 1's
+`test` job (`113109016799`) was rerun successfully and produced attempt 2's
+`test` job (`113182145888`), which completed successfully. Submitting the
+attempt 1 job ID again returned GitHub HTTP `403` with
+`Only jobs from the current attempt can be re-run`. The run remained at attempt
+2; the stale ID did not create attempt 3. See the [workflow run](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37714893275)
+and [PR #294](https://github.com/memories-quy-2002/digital-e-shop/pull/294).
+
+This establishes stale-job-ID rejection for the tested job-rerun endpoint.
+The guarded-writer candidate now uses that endpoint with exactly one root job
+ID from matching, complete attempt-specific evidence. Multiple requested roots
+and attempts with multiple failed roots are refused. The candidate is not yet
+reviewed or merged, and the current Stage 1 host continues to refuse live
+reruns until the writer change and every independent trust gate are reviewed
+and available.
 
 ## Current commands
 
@@ -100,19 +119,16 @@ available from trusted host configuration:
 6. A fresh TTY approval bound to the exact PR tuple, tested SHA, workflow/run/
    attempt/job target, capability, and expiry. Confirmation defaults to
    cancel. The host must re-read evidence and reserve budget/idempotency before
-   the one allowed failed-jobs rerun request.
+   the one allowed root-job rerun request.
 
-The current GitHub failed-jobs rerun endpoint accepts a workflow `run_id` but
-no `run_attempt`. Its documented request has no conditional-write precondition
-such as `If-Match`; ETag guidance is for conditional reads and does not provide
-a lock for this POST. The guarded writer now re-reads and verifies the selected
-attempt after reserving budget and immediately before POST, then escalates and
-does not POST if the attempt changed. This narrows the race but cannot
-atomically bind the remote write to the approved attempt if another actor
-reruns the workflow between that final read and POST. Keep
-`run_attempt_write_binding_unavailable` as a hard live gate until a separately
-reviewed design resolves that API limitation; the final read alone is not a
-complete resolution.
+The run-level failed-jobs endpoint accepts a workflow `run_id` without a
+`run_attempt`. The controlled test above found that the job-specific endpoint
+rejects a job ID from an older attempt once a newer attempt is current. The
+local guarded-writer candidate now uses that endpoint and rejects multiple
+roots, but the current host still reports
+`run_attempt_write_binding_unavailable` until this change is reviewed and
+merged. The test does not qualify a workflow's dependent-job closure or enable
+a live pilot.
 
 The job API reports runtime job identities and statuses but does not report
 the workflow's `needs` graph. The current writer allowlist stores only job

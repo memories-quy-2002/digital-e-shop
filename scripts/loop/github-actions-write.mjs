@@ -161,7 +161,7 @@ function normalizeTarget(value, host) {
       || !SHA_PATTERN.test(value.testedSha)
       || !isPositiveInteger(value.workflowId) || !isPositiveInteger(value.runId)
       || !isPositiveInteger(value.runAttempt) || !SAFE_ATTEMPT_PATTERN.test(value.failureAttemptKey)
-      || !Array.isArray(value.failedJobIds) || value.failedJobIds.length === 0 || value.failedJobIds.length > 100
+      || !Array.isArray(value.failedJobIds) || value.failedJobIds.length !== 1
       || value.failedJobIds.some((id) => !isPositiveInteger(id))
       || new Set(value.failedJobIds).size !== value.failedJobIds.length) {
     throw new GitHubActionsWriteError('invalid_target');
@@ -516,8 +516,9 @@ export async function rerunFailedJobs(input) {
     return refused(evidence.reasonCode, 'escalate', actionAttemptKey);
   }
 
+  const jobId = target.failedJobIds[0];
   const url = API_ORIGIN + '/repos/' + encodeURIComponent(host.repository.owner) + '/'
-    + encodeURIComponent(host.repository.name) + '/actions/runs/' + target.runId + '/rerun-failed-jobs';
+    + encodeURIComponent(host.repository.name) + '/actions/jobs/' + jobId + '/rerun';
   let response;
   try {
     response = await host.fetchImpl(url, {
