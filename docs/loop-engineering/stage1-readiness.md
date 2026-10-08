@@ -1,6 +1,6 @@
 # Stage 1 readiness evidence
 
-**Updated:** 2026-10-06
+**Updated:** 2026-10-08
 
 **Status:** BLOCKED — no pilot PR was selected and no live Stage 1 observations were collected. This report records the remaining evidence gaps; it does not qualify the repository for a Stage 1 pilot.
 
@@ -44,6 +44,14 @@ Do not infer the workflow source SHA from the tested SHA, workflow path, or ref.
 - PR #291's hosted `Loop Foundation` test passed on the reviewed PR head ([run 37417234608](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37417234608)); the post-merge `Loop Foundation` run also passed with the new probe suite ([run 37418888640](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37418888640)).
 - The Phase 2 runbook documents one earlier `inspect` result for PR #264 on 2026-09-30. It returned `wait` for missing required-check evidence on the selected merge SHA, but the summary does not contain the complete observation tuple required by this plan; it is historical context and is not counted toward the 10 observations.
 - A cron `last_completed_at` value alone would not prove Queue consumption or Check Run publication. Each requires its own current evidence.
+
+## Current refusal check
+
+On 2026-10-08, `node --test scripts/loop/__tests__/pr-babysitter-stage1-host.test.mjs` passed all 10 tests. The tests confirm the Stage 1 host refuses while trust configuration or a persisted CI budget session is missing, and makes no network request on that path.
+
+A TTY invocation of `rerun-flaky` returned `stage1_prerequisites_unavailable` with all five current blockers, including `run_attempt_write_binding_unavailable`. It exited before credentials or GitHub access. The invocation used PR number `294` only to exercise the early refusal; the host did not inspect PR #294, and the result does not count as a pilot observation.
+
+The same-repository source-attestation PR [#293](https://github.com/memories-quy-2002/digital-e-shop/pull/293) remains open with checks green and no review recorded. The design and plan PR [#294](https://github.com/memories-quy-2002/digital-e-shop/pull/294) also remains open with checks green and no review recorded. These PR checks do not replace the required hosted Stage 1 pilot or the 10-observation readiness set.
 
 ## Static Stage 0 source audit
 

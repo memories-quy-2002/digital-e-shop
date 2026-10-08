@@ -1,6 +1,6 @@
 # Stage 1 CLI runbook
 
-**Updated:** 2026-10-06
+**Updated:** 2026-10-08
 
 **Status:** Offline implementation only; live reruns are disabled.
 
@@ -60,6 +60,26 @@ node scripts/loop/pr-babysitter-stage1-host.mjs rerun-flaky --repo memories-quy-
 The live command is intentionally unavailable. Do not grant `actions:write`,
 attempt to bypass the refusal, or treat a dry-run as approval or pilot evidence.
 
+## Reproduce the current refusal
+
+Run the live command only to confirm the current fail-closed response. The
+Stage 1 host checks its hard-coded prerequisite list before it reads a token,
+inspects the selected PR, or calls GitHub.
+
+```powershell
+node scripts/loop/pr-babysitter-stage1-host.mjs rerun-flaky --repo memories-quy-2002/digital-e-shop --pr <selected-pr>
+```
+
+With the current host, the command exits with code `1` and returns
+`stage1_prerequisites_unavailable`. The blockers include
+`run_attempt_write_binding_unavailable` and the other trust, source-attestation,
+job-graph, and budget gates listed below. This response does not describe the
+selected PR or a workflow attempt. It is not pilot evidence.
+
+The `--dry-run` form checks arguments only. It returns `status: dry-run` and
+does not inspect a PR, approve an action, or test whether GitHub would accept a
+rerun.
+
 ## Refusal codes
 
 | Reason code | Meaning | Operator action |
@@ -68,6 +88,12 @@ attempt to bypass the refusal, or treat a dry-run as approval or pilot evidence.
 | `interactive_tty_required` | A live rerun was requested without a real interactive terminal. | Stop; do not pipe or automate approval. This does not override the current prerequisite refusal. |
 | `stage1_command_refused` | The command is outside the Stage 1 CLI allowlist. | Use only documented read-only `inspect`; repair, push, and merge remain unavailable. |
 | `repository_not_allowlisted` | The requested repository is not the fixed repository. | Stop and check the command; do not change the repository through an environment override. |
+
+`run_attempt_write_binding_unavailable` means the host cannot prove that a
+rerun write still targets the exact workflow attempt covered by approval. The
+job-specific endpoint is a candidate, but GitHub's public documentation does
+not specify what happens when a newer attempt starts before a request uses an
+older job ID. Keep the blocker until that behavior is proven and reviewed.
 
 No current CLI outcome reports a submitted rerun or a new CI pass. Once a
 reviewed host can submit a request, a successful POST must be reported as
