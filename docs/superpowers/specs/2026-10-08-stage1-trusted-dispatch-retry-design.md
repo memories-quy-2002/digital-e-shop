@@ -2,9 +2,9 @@
 
 **Date:** 2026-10-08
 
-**Status:** The maintainer approved this design direction in conversation. This written spec is pending review. It authorizes no implementation, policy change, permission change, workflow dispatch, Check Run update, or live pilot.
+**Status:** Reviewed and approved by the maintainer for implementation planning. It authorizes no implementation, policy change, permission change, workflow dispatch, Check Run update, or live pilot.
 
-**Related:** [Attempt-bound rerun design](2026-10-08-stage1-attempt-bound-rerun-design.md), [attempt-bound implementation plan](../plans/2026-10-08-stage1-attempt-bound-rerun.md), [Stage 1 CLI runbook](../../loop-engineering/stage1-cli-runbook.md), [readiness evidence](../../loop-engineering/stage1-readiness.md), and [workflow-source attestation design](2026-10-05-stage1-workflow-attestation-design.md).
+**Related:** [Attempt-bound rerun design](2026-10-08-stage1-attempt-bound-rerun-design.md), [attempt-bound implementation plan](../plans/2026-10-08-stage1-attempt-bound-rerun.md), [trusted-dispatch implementation plan](../plans/2026-10-08-stage1-trusted-dispatch-retry.md), [Stage 1 CLI runbook](../../loop-engineering/stage1-cli-runbook.md), [readiness evidence](../../loop-engineering/stage1-readiness.md), and [workflow-source attestation design](2026-10-05-stage1-workflow-attestation-design.md).
 
 ## Goal and current decision
 
