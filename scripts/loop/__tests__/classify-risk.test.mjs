@@ -95,6 +95,14 @@ describe('deterministic risk classification', () => {
     );
   });
 
+  it('classifies the canonical Stage 1 recovery action as high risk', () => {
+    const result = classifyRisk({ paths: ['docs/ARCHITECTURE.md'], actions: ['stage1_required_check_recovery'] }, policy);
+    assert.equal(result.level, 'high');
+    assert.equal(result.requiresHumanApproval, true);
+    assert.ok(result.matchedRules.includes('highRiskAction:stage1_required_check_recovery'));
+    assert.throws(() => classifyRisk({ paths: [], actions: ['unknown_action'] }, policy), /unknown action/i);
+  });
+
   it('uses the highest match across mixed paths and never lets hints downgrade deterministic risk', () => {
     const result = classifyRisk({
       paths: ['docs/ARCHITECTURE.md', 'server/src/orders/orders.service.ts'],

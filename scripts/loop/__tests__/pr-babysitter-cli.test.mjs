@@ -18,7 +18,7 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const stage0Repository = 'memories-quy-2002/digital-e-shop';
 const stage0RepositoryId = 743050379;
 const policy = { schemaVersion: 1, protectedPaths: { high: [], critical: [] },
-  riskRules: { low: [], medium: [], high: [], criticalActions: [] },
+  riskRules: { low: [], medium: [], high: [], highRiskActions: ['stage1_required_check_recovery'], criticalActions: [] },
   stopConditions: { maxIterations: 2, maxSameFailure: 2, maxFlakyRetries: 2, maxChangedFiles: 10,
     maxChangedLines: 500, maxWallClockSeconds: 300, tokenLimit: null, ciRunLimit: 2 } };
 function makeHost(overrides = {}) {

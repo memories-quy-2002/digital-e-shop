@@ -26,7 +26,7 @@ const STOP_CONDITION_KEYS = Object.freeze([
   'tokenLimit',
   'ciRunLimit',
 ]);
-const RISK_POLICY_KEYS = Object.freeze(['low', 'medium', 'high', 'criticalActions']);
+const RISK_POLICY_KEYS = Object.freeze(['low', 'medium', 'high', 'criticalActions', 'highRiskActions']);
 const PROTECTED_PATH_KEYS = Object.freeze(['high', 'critical']);
 const FINGERPRINT_PATTERN = /^[a-f0-9]{64}$/i;
 const MAX_CHECK_OBSERVATIONS = 10_000;
@@ -123,7 +123,10 @@ function validatePolicy(policy) {
   }
   assertExactKeys(policy.riskRules, RISK_POLICY_KEYS, 'policy.riskRules');
   if (['low', 'medium', 'high'].some((key) => !Array.isArray(policy.riskRules[key]))
-      || !Array.isArray(policy.riskRules.criticalActions)) {
+      || !Array.isArray(policy.riskRules.criticalActions)
+      || !Array.isArray(policy.riskRules.highRiskActions)
+      || policy.riskRules.highRiskActions.length !== 1
+      || policy.riskRules.highRiskActions[0] !== 'stage1_required_check_recovery') {
     throw new PrDecisionInputError('policy.riskRules entries must be arrays');
   }
   assertExactKeys(policy.stopConditions, STOP_CONDITION_KEYS, 'policy.stopConditions');

@@ -88,7 +88,8 @@ function assertPolicyShape(policy) {
       || !Array.isArray(policy.riskRules.low)
       || !Array.isArray(policy.riskRules.medium)
       || !Array.isArray(policy.riskRules.high)
-      || !Array.isArray(policy.riskRules.criticalActions)) {
+      || !Array.isArray(policy.riskRules.criticalActions)
+      || !Array.isArray(policy.riskRules.highRiskActions)) {
     throw new RiskInputError('a validated LoopPolicy is required');
   }
 }
@@ -111,7 +112,7 @@ export function classifyRisk(input, policy) {
   }
 
   for (const action of actions) {
-    if (!policy.riskRules.criticalActions.includes(action)) {
+    if (!policy.riskRules.criticalActions.includes(action) && !policy.riskRules.highRiskActions.includes(action)) {
       throw new RiskInputError(`unknown action identifier: ${action}`);
     }
   }
@@ -172,10 +173,16 @@ export function classifyRisk(input, policy) {
     level = raiseRisk(level, pathRisk);
   }
 
-  if (actions.length > 0) {
-    level = 'critical';
-    for (const action of actions) matchedRules.add(`criticalAction:${action}`);
-    reasons.add('critical action requires escalation');
+  for (const action of actions) {
+    if (policy.riskRules.criticalActions.includes(action)) {
+      level = 'critical';
+      matchedRules.add(`criticalAction:${action}`);
+      reasons.add('critical action requires escalation');
+    } else {
+      level = raiseRisk(level, 'high');
+      matchedRules.add(`highRiskAction:${action}`);
+      reasons.add('high-risk action requires human approval');
+    }
   }
 
   if (input.hintedRisk !== undefined) {
