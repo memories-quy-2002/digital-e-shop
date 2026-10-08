@@ -12,8 +12,9 @@ contacting GitHub. `rerun-flaky --dry-run` checks command syntax only. It does
 not inspect a PR, authenticate an approver, select an eligible run, or prove
 that a rerun could be submitted.
 
-This branch adds the source-attestation producer, GitHub CLI verifier, and
-read-only workflow-run probe. The Stage 1 host does not wire them into a live
+PR #293 merged the source-attestation producer, GitHub CLI verifier, and
+read-only workflow-run probe into `main`. Positive hosted proof is still
+pending; the Stage 1 host does not wire the provider into a live
 rerun, so its trust status remains unavailable. A trusted workflow/job
 allowlist, trusted approver list, and host-managed LoopState CI budget session
 also remain absent. PR #289 set the canonical `ciRunLimit` to `2`, but the
@@ -32,14 +33,14 @@ and [probe run](https://github.com/memories-quy-2002/digital-e-shop/actions/runs
 are the evidence sources.
 
 That run predates the OIDC certificate verifier and remains historical
-feasibility evidence. The current local implementation creates a canonical
-descriptor and an opt-in attestation for a labeled, same-repository PR. Its
-downstream read-only probe checks the certificate against the exact run,
-attempt, and current PR tuple, then reports only a bounded source-SHA
-candidate. It never trusts raw `workflow_sha`, `source_sha`, or predicate
-fields. The hosted proof remains pending until this implementation is reviewed
-and merged, then exercised by a later same-repository PR whose workflow source
-SHA differs from its tested SHA. The candidate does not enable Stage 1.
+feasibility evidence. PR #293 merged the implementation to `main`. It creates
+a canonical descriptor and an opt-in attestation for a labeled,
+same-repository PR. Its downstream read-only probe checks the certificate
+against the exact run, attempt, and current PR tuple, then reports only a
+bounded source-SHA candidate. It never trusts raw `workflow_sha`, `source_sha`,
+or predicate fields. The later labeled control run below did not produce a
+hosted candidate, so positive hosted proof remains pending. A candidate does
+not enable Stage 1.
 
 ## Attestation contract and verification
 
@@ -68,6 +69,8 @@ without an allowlisted source SHA. Its frozen output exposes
 `sourceShaCandidate` as untrusted feasibility metadata; it never creates the
 verifier-owned record used by trust mode. The Stage 1 CLI does not configure
 this provider, so a candidate cannot authorize a rerun.
+
+On 2026-10-08, the labeled same-repository PR [#297](https://github.com/memories-quy-2002/digital-e-shop/pull/297) produced a successful attestation in [run 37751138161](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37751138161), but the hosted read-only [probe 37751216313](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37751216313) returned `unavailable` with no candidate. A local replay with the current GitHub CLI and local credentials returned the PR merge SHA, but it does not validate the workflow token or hosted execution. Keep the hosted proof gate closed until the discrepancy is explained and a hosted probe returns a candidate for the exact run and PR tuple.
 
 ## Attempt-bound rerun feasibility result
 

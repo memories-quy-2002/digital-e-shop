@@ -6,6 +6,13 @@
 code change, policy change, GitHub App permission change, hosted deployment, or
 live Actions rerun.
 
+**Current status (2026-10-08):** PR #296 merged the attempt-scoped single-job
+writer after a controlled Actions test showed that GitHub rejects an older job
+ID with HTTP 403 once a newer attempt is current. This proposal is retained as
+design history; the standalone host still blocks live reruns until its
+capability gate is reconciled with the writer and all independent trust gates
+pass.
+
 **Related:** [Stage 1 OIDC source-attestation design](2026-10-07-stage1-oidc-workflow-source-attestation-design.md),
 [Stage 1 CLI runbook](../../loop-engineering/stage1-cli-runbook.md), and
 [readiness evidence](../../loop-engineering/stage1-readiness.md).
@@ -151,9 +158,10 @@ job-ID endpoint's behavior if the attempt changes after the read.
 
 ## Independent gates that remain
 
-- Merge and hosted proof for the OIDC workflow-source attestation PR, then
-  verify a later same-repository pilot PR whose workflow source SHA differs
-  from its tested SHA.
+- Obtain positive hosted proof for the merged OIDC workflow-source attestation
+  path, then verify a later same-repository PR whose workflow source SHA differs
+  from its tested SHA. The labeled control probe remains unavailable, so this
+  gate is still open.
 - Review a complete workflow and dependent-job graph for the eligible workflow.
 - Configure a trusted numeric approver identity and a host-managed persisted
   LoopState session bound to the exact canonical policy revision.

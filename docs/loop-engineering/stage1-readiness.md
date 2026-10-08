@@ -2,7 +2,7 @@
 
 **Updated:** 2026-10-08
 
-**Status:** BLOCKED — no pilot PR was selected and no live Stage 1 observations were collected. This report records the remaining evidence gaps; it does not qualify the repository for a Stage 1 pilot.
+**Status:** BLOCKED — no write-capable Stage 1 pilot PR was selected and no live rerun observations were collected. The read-only OIDC control probe below does not qualify the repository for a Stage 1 pilot.
 
 ## Promotion gates
 
@@ -30,7 +30,9 @@ The legacy read-only probe added by PR #291 ran after merge. It found no upstrea
 | Legacy event/API source-SHA candidates | `null` / `null` |
 | Evidence runs | [Loop Foundation](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37418888640), [source SHA probe](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37418918573) |
 
-The current branch implements a deterministic run descriptor, an opt-in OIDC attestation producer, certificate verification with GitHub CLI, and verifier-owned source records for the read and rerun adapters. The downstream `workflow_run` probe checks the signed certificate against one same-repository PR and its current base/head/merge tuple. It ignores raw SHA fields and statement predicates. These local tests do not prove the hosted flow: the implementation has not been merged or exercised with a later labeled PR.
+PR #293 merged this implementation to `main` at `c546532fbd4537c349f29b4600a3270fcef7d329`. It adds a deterministic run descriptor, an opt-in OIDC attestation producer, certificate verification with GitHub CLI, and verifier-owned source records for the read and rerun adapters. The downstream `workflow_run` probe checks the signed certificate against one same-repository PR and its current base/head/merge tuple. It ignores raw SHA fields and statement predicates. The later labeled control PR below did not produce a hosted candidate; keep the source-SHA gate closed until a subsequent hosted probe proves the exact run and PR tuple.
+
+The first post-merge control run was not a PR event: `Loop Foundation` run `37742163945` completed on the main push, and read-only probe run `37742207061` returned `status: unavailable` with `sourceShaCandidate: null`. That is the expected fail-closed result for a push without a same-repository PR association. It confirms the no-candidate path only; it is not positive OIDC proof.
 
 Do not infer the workflow source SHA from the tested SHA, workflow path, or ref. Keep `workflow_source_sha_unattested` as a hard refusal until a hosted certificate proves the source SHA for the exact run attempt and PR tuple. Stage 1 remains disabled.
 
@@ -68,7 +70,13 @@ On 2026-10-08, `node --test scripts/loop/__tests__/pr-babysitter-stage1-host.tes
 
 A TTY invocation of `rerun-flaky` returned `stage1_prerequisites_unavailable` with all five current blockers, including `run_attempt_write_binding_unavailable`. It exited before credentials or GitHub access. The invocation used PR number `294` only to exercise the early refusal; the host did not inspect PR #294, and the result does not count as a pilot observation.
 
-The same-repository source-attestation PR [#293](https://github.com/memories-quy-2002/digital-e-shop/pull/293) remains open with checks green and no review recorded. The design and plan PR [#294](https://github.com/memories-quy-2002/digital-e-shop/pull/294) also remains open with checks green and no review recorded. These PR checks do not replace the required hosted Stage 1 pilot or the 10-observation readiness set.
+## Post-merge labeled OIDC control probe
+
+On 2026-10-08, the labeled, same-repository documentation PR [#297](https://github.com/memories-quy-2002/digital-e-shop/pull/297) triggered producer run [37751138161](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37751138161). Both the test and `attest-workflow-source` jobs succeeded. The downstream read-only probe [37751216313](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37751216313) completed but returned `status: unavailable` and `sourceShaCandidate: null`.
+
+A local read-only reproduction against that run, using the local GitHub CLI credentials, returned a candidate for merge SHA `f72200832dad8deb752a7a2b2d97edc943417c61`. Those credentials differ from the probe workflow's `GITHUB_TOKEN`, so this local result is diagnostic only and does not establish hosted proof. The hosted probe discrepancy remains unresolved; no verifier-owned trust record was produced and no Stage 1 observation was collected.
+
+The successful producer and the local reproduction do not replace the required hosted positive proof, write-capable pilot, or 10-observation readiness set.
 
 ## Static Stage 0 source audit
 

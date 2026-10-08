@@ -2,6 +2,8 @@
 
 > **For agentic workers:** Use `superpowers:executing-plans` to implement this plan inline, task by task. Do not delegate. Steps use checkbox syntax for tracking.
 
+> **Current status (2026-10-08):** PR #296 merged the attempt-scoped single-job writer, and the controlled test recorded in the maintained readiness report confirmed that a stale job ID receives HTTP 403 after a newer attempt becomes current. Tasks 1–2 below preserve the proposal as historical context; the standalone host still reports `run_attempt_write_binding_unavailable` until its capability gate is reconciled with the merged writer and all independent trust gates pass.
+
 **Goal:** Bind any future Stage 1 retry to the exact failed job ID observed in the approved workflow run attempt, while keeping live reruns refused until the stale-job-ID race and every independent trust gate are resolved.
 
 **Architecture:** Reuse the existing attempt-specific job observation and guarded Actions writer. Change the writer's target from a set of failed job IDs to exactly one approved root job and submit only to GitHub's job-rerun route. Keep the Stage 1 host's hard refusal in place; this plan does not activate reruns or configure credentials, permissions, policy, or hosted infrastructure.
