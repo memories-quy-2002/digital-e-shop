@@ -26,6 +26,7 @@ const baseDocuments = {
     low: ['docs/**'],
     medium: ['client/src/**'],
     high: ['.github/workflows/**'],
+    highRiskActions: ['stage1_required_check_recovery'],
     criticalActions: [
       'production_secret_access',
       'production_db_mutation',
@@ -87,6 +88,8 @@ describe('Loop policy loading', () => {
       'disable_security_checks',
       'production_deployment_promotion',
     ]);
+    assert.deepEqual(policy.riskRules.highRiskActions, ['stage1_required_check_recovery']);
+    assert.ok(Object.isFrozen(policy.riskRules.highRiskActions));
     assert.equal(policy.stopConditions.maxIterations, 5);
     assert.equal(policy.stopConditions.maxSameFailure, 2);
     assert.equal(policy.stopConditions.maxFlakyRetries, 3);
@@ -126,6 +129,16 @@ describe('Loop policy loading', () => {
       assert.match(error.message, /high/);
       return true;
     });
+  });
+
+  it('requires exactly the canonical high-risk action ID', async () => {
+    for (const highRiskActions of [undefined, [], ['stage1_required_check_recovery', 'stage1_required_check_recovery'], ['unknown_action'], ['production_db_mutation']]) {
+      const riskRules = { ...baseDocuments['risk-rules.yml'] };
+      if (highRiskActions === undefined) delete riskRules.highRiskActions;
+      else riskRules.highRiskActions = highRiskActions;
+      const fixtureRoot = await createPolicyFixture({ 'risk-rules.yml': riskRules });
+      await assert.rejects(loadLoopPolicy(fixtureRoot), PolicyValidationError);
+    }
   });
 
   it('requires positive integer stop conditions while allowing nullable optional budgets', async () => {

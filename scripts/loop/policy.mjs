@@ -29,6 +29,7 @@ const REQUIRED_CRITICAL_ACTIONS = Object.freeze([
   'disable_security_checks',
   'production_deployment_promotion',
 ]);
+const REQUIRED_HIGH_RISK_ACTIONS = Object.freeze(['stage1_required_check_recovery']);
 
 export class PolicyParseError extends Error {
   constructor(source, cause) {
@@ -128,7 +129,7 @@ function validateProtectedPaths(value, source) {
 }
 
 function validateRiskRules(value, source) {
-  assertExactKeys(value, ['schemaVersion', 'low', 'medium', 'high', 'criticalActions'], source);
+  assertExactKeys(value, ['schemaVersion', 'low', 'medium', 'high', 'criticalActions', 'highRiskActions'], source);
   assertSchemaVersion(value, source);
   validatePatternList(value, ['low', 'medium', 'high'], source);
 
@@ -147,6 +148,25 @@ function validateRiskRules(value, source) {
     const details = [
       missingActions.length ? `missing action(s): ${missingActions.join(', ')}` : null,
       unknownActions.length ? `unknown action(s): ${unknownActions.join(', ')}` : null,
+    ].filter(Boolean);
+    throw new PolicyValidationError(source, details.join('; '));
+  }
+
+  if (!Array.isArray(value.highRiskActions) || value.highRiskActions.some((action) => typeof action !== 'string')) {
+    throw new PolicyValidationError(source, 'highRiskActions must be an array of action identifiers');
+  }
+  const highRiskActionSet = new Set(value.highRiskActions);
+  if (highRiskActionSet.size !== value.highRiskActions.length) {
+    throw new PolicyValidationError(source, 'highRiskActions must not contain duplicates');
+  }
+  const missingHighRiskActions = REQUIRED_HIGH_RISK_ACTIONS.filter((action) => !highRiskActionSet.has(action));
+  const unknownHighRiskActions = value.highRiskActions.filter((action) => !REQUIRED_HIGH_RISK_ACTIONS.includes(action));
+  const overlappingHighRiskActions = value.highRiskActions.filter((action) => REQUIRED_CRITICAL_ACTIONS.includes(action));
+  if (missingHighRiskActions.length || unknownHighRiskActions.length || overlappingHighRiskActions.length) {
+    const details = [
+      missingHighRiskActions.length ? `missing high-risk action(s): ${missingHighRiskActions.join(', ')}` : null,
+      unknownHighRiskActions.length ? `unknown high-risk action(s): ${unknownHighRiskActions.join(', ')}` : null,
+      overlappingHighRiskActions.length ? `high-risk action(s) overlap critical actions: ${overlappingHighRiskActions.join(', ')}` : null,
     ].filter(Boolean);
     throw new PolicyValidationError(source, details.join('; '));
   }
@@ -222,6 +242,7 @@ export async function loadLoopPolicy(repoRoot) {
       medium: Object.freeze([...riskRulesDocument.medium]),
       high: Object.freeze([...riskRulesDocument.high]),
       criticalActions: Object.freeze([...riskRulesDocument.criticalActions]),
+      highRiskActions: Object.freeze([...riskRulesDocument.highRiskActions]),
     }),
     stopConditions: Object.freeze({
       maxIterations: stopConditionsDocument.maxIterations,
