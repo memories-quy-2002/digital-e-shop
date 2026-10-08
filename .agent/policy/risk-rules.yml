@@ -32,5 +32,6 @@
     "direct_push_main",
     "disable_security_checks",
     "production_deployment_promotion"
-  ]
+  ],
+  "highRiskActions": ["stage1_required_check_recovery"]
 }

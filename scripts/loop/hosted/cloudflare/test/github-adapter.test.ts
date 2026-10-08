@@ -59,6 +59,7 @@ function basePolicyFiles() {
       low: ['docs/**'],
       medium: ['client/src/**', 'server/src/**'],
       high: ['scripts/loop/**'],
+      highRiskActions: ['stage1_required_check_recovery'],
       criticalActions: [
         'production_secret_access',
         'production_db_mutation',
@@ -95,9 +96,11 @@ function observerFixture(options: {
   rulesets?: unknown[];
   branchProtection?: unknown;
   failProtection?: boolean;
+  riskRules?: Record<string, unknown>;
 } = {}) {
   let pullRequestIndex = 0;
   const policyFiles = basePolicyFiles();
+  if (options.riskRules) policyFiles['risk-rules.yml'] = options.riskRules as typeof policyFiles['risk-rules.yml'];
   const api = {
     repository,
     repositoryId,
@@ -500,6 +503,20 @@ describe('read-only Stage 0 PR observation', () => {
     expect(result.checkCollectionComplete).toBe(true);
     expect(result.checkObservations).toHaveLength(1);
     expect(result.checkObservations[0]?.testedSha).toBe(mergeSha);
+    expect(result.policy?.riskRules.highRiskActions).toEqual(['stage1_required_check_recovery']);
+  });
+
+  it('fails closed for missing, duplicate, unknown, or critical-overlapping high-risk action IDs', async () => {
+    const valid: Record<string, unknown> = basePolicyFiles()['risk-rules.yml'];
+    for (const highRiskActions of [undefined, [], ['stage1_required_check_recovery', 'stage1_required_check_recovery'], ['unknown_action'], ['production_db_mutation']]) {
+      const riskRules = { ...valid };
+      if (highRiskActions === undefined) delete riskRules.highRiskActions;
+      else riskRules.highRiskActions = highRiskActions;
+      const { observer } = observerFixture({ riskRules });
+      const result = await observer.collect(264);
+      expect(result.policy).toBeNull();
+      expect(result.reasonCode).toBe('canonical_base_policy_unavailable');
+    }
   });
 
   it('does not count required workflow metadata without a trusted source SHA attestation', async () => {

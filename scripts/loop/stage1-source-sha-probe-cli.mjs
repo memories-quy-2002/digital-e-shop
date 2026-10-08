@@ -1,19 +1,22 @@
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
+
+import { createGitHubWorkflowSourceAttestationProvider } from './github-workflow-source-attestation.mjs';
 import {
   fetchUpstreamWorkflowRun,
-  summarizeWorkflowSourceShaEvidence,
+  fetchWorkflowRunPullRequests,
+  inspectWorkflowSourceShaEvidence,
 } from './stage1-source-sha-probe.mjs';
 
 const EXPECTED = Object.freeze({
+  repository: 'memories-quy-2002/digital-e-shop',
   repositoryId: 743050379,
   workflowId: 368298853,
   path: '.github/workflows/loop-foundation.yml',
 });
-const REPOSITORY = 'memories-quy-2002/digital-e-shop';
 
-export async function runSourceShaProbe(env = process.env) {
-  if (env.GITHUB_REPOSITORY !== REPOSITORY) return null;
+export async function runSourceShaProbe(env = process.env, dependencies = {}) {
+  if (env.GITHUB_REPOSITORY !== EXPECTED.repository) return null;
 
   let event;
   try {
@@ -26,18 +29,40 @@ export async function runSourceShaProbe(env = process.env) {
   }
 
   const upstream = event?.workflow_run;
-  if (
-    event?.repository?.id !== EXPECTED.repositoryId
-    || upstream?.workflow_id !== EXPECTED.workflowId
-    || upstream?.path !== EXPECTED.path
-  ) return null;
-
+  if (event?.repository?.id !== EXPECTED.repositoryId
+      || upstream?.workflow_id !== EXPECTED.workflowId
+      || upstream?.path !== EXPECTED.path) return null;
   if (!Number.isSafeInteger(upstream.id) || upstream.id <= 0) {
     throw Object.assign(new Error('event_invalid'), { code: 'event_invalid' });
   }
 
-  const apiRun = await fetchUpstreamWorkflowRun({ runId: upstream.id, token: env.GITHUB_TOKEN });
-  return summarizeWorkflowSourceShaEvidence({ event, apiRun, expected: EXPECTED });
+  const fetchImpl = dependencies.fetchImpl ?? fetch;
+  const apiRun = await fetchUpstreamWorkflowRun({ runId: upstream.id, token: env.GITHUB_TOKEN, fetchImpl });
+  let pullRequestResult = { pullRequests: [], complete: true };
+  if (upstream.event === 'pull_request' && apiRun.event === 'pull_request') {
+    pullRequestResult = await fetchWorkflowRunPullRequests({
+      headBranch: upstream.head_branch,
+      token: env.GITHUB_TOKEN,
+      fetchImpl,
+    });
+  }
+
+  const inspectAttestation = dependencies.inspectAttestation
+    ?? createGitHubWorkflowSourceAttestationProvider({
+      repository: EXPECTED.repository,
+      getToken: async (capability) => {
+        if (capability !== 'observe') throw new Error('observe_capability_required');
+        return env.GITHUB_TOKEN;
+      },
+    });
+  return inspectWorkflowSourceShaEvidence({
+    event,
+    apiRun,
+    pullRequests: pullRequestResult.pullRequests,
+    pullRequestsComplete: pullRequestResult.complete,
+    expected: EXPECTED,
+    inspectAttestation,
+  });
 }
 
 async function main() {
@@ -45,8 +70,28 @@ async function main() {
     const result = await runSourceShaProbe();
     if (result) process.stdout.write(`${JSON.stringify(result)}\n`);
   } catch (error) {
-    const code = ['event_invalid', 'upstream_run_transport_error', 'upstream_run_http_error', 'upstream_run_invalid_json']
-      .includes(error?.code) ? error.code : 'upstream_run_transport_error';
+    const code = [
+      'event_invalid',
+      'upstream_run_transport_error',
+      'upstream_run_http_error',
+      'upstream_run_invalid_json',
+      'pull_request_lookup_transport_error',
+      'pull_request_lookup_http_error',
+      'pull_request_lookup_invalid_json',
+      'invalid_attestation_provider_configuration',
+      'attestation_temp_unavailable',
+      'attestation_cli_unavailable',
+      'attestation_cli_unsupported',
+      'attestation_cli_timeout',
+      'attestation_output_overflow',
+      'attestation_cli_failed',
+      'attestation_output_malformed',
+      'attestation_result_unavailable',
+      'attestation_result_ambiguous',
+      'attestation_claim_mismatch',
+      'attestation_cleanup_failed',
+      'invalid_attestation_inputs',
+    ].includes(error?.code) ? error.code : 'upstream_run_transport_error';
     process.stderr.write(`${code}\n`);
     process.exitCode = 1;
   }

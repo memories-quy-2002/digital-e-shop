@@ -26,7 +26,16 @@ const STOP_CONDITION_KEYS = Object.freeze([
   'tokenLimit',
   'ciRunLimit',
 ]);
-const RISK_POLICY_KEYS = Object.freeze(['low', 'medium', 'high', 'criticalActions']);
+const RISK_POLICY_KEYS = Object.freeze(['low', 'medium', 'high', 'criticalActions', 'highRiskActions']);
+const REQUIRED_CRITICAL_ACTIONS = Object.freeze([
+  'production_secret_access',
+  'production_db_mutation',
+  'branch_protection_bypass',
+  'direct_push_main',
+  'disable_security_checks',
+  'production_deployment_promotion',
+]);
+const REQUIRED_HIGH_RISK_ACTIONS = Object.freeze(['stage1_required_check_recovery']);
 const PROTECTED_PATH_KEYS = Object.freeze(['high', 'critical']);
 const FINGERPRINT_PATTERN = /^[a-f0-9]{64}$/i;
 const MAX_CHECK_OBSERVATIONS = 10_000;
@@ -123,8 +132,26 @@ function validatePolicy(policy) {
   }
   assertExactKeys(policy.riskRules, RISK_POLICY_KEYS, 'policy.riskRules');
   if (['low', 'medium', 'high'].some((key) => !Array.isArray(policy.riskRules[key]))
-      || !Array.isArray(policy.riskRules.criticalActions)) {
+      || !Array.isArray(policy.riskRules.criticalActions)
+      || !Array.isArray(policy.riskRules.highRiskActions)) {
     throw new PrDecisionInputError('policy.riskRules entries must be arrays');
+  }
+  const criticalActions = policy.riskRules.criticalActions;
+  const highRiskActions = policy.riskRules.highRiskActions;
+  const criticalSet = new Set(criticalActions);
+  const highRiskSet = new Set(highRiskActions);
+  if (highRiskActions.some((action) => criticalSet.has(action))) {
+    throw new PrDecisionInputError('policy.riskRules high-risk actions must not overlap critical actions');
+  }
+  if (criticalSet.size !== criticalActions.length
+      || REQUIRED_CRITICAL_ACTIONS.some((action) => !criticalSet.has(action))
+      || criticalActions.some((action) => !REQUIRED_CRITICAL_ACTIONS.includes(action))) {
+    throw new PrDecisionInputError('policy.riskRules.criticalActions must contain the canonical action IDs exactly once');
+  }
+  if (highRiskSet.size !== highRiskActions.length
+      || REQUIRED_HIGH_RISK_ACTIONS.some((action) => !highRiskSet.has(action))
+      || highRiskActions.some((action) => !REQUIRED_HIGH_RISK_ACTIONS.includes(action))) {
+    throw new PrDecisionInputError('policy.riskRules.highRiskActions must contain the canonical action IDs exactly once');
   }
   assertExactKeys(policy.stopConditions, STOP_CONDITION_KEYS, 'policy.stopConditions');
   for (const key of STOP_CONDITION_KEYS) {

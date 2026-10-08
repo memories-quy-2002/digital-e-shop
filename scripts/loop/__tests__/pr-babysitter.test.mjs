@@ -28,6 +28,7 @@ const policy = Object.freeze({
     low: [],
     medium: [],
     high: [],
+    highRiskActions: ['stage1_required_check_recovery'],
     criticalActions: [
       'production_secret_access',
       'production_db_mutation',
@@ -521,5 +522,22 @@ describe('PR Babysitter decision engine', () => {
 
     assert.equal(decision.action, 'escalate');
     assert.equal(decision.reasonCode, 'conflicting_attempt_evidence');
+  });
+
+  it('rejects malformed canonical action lists at the PR policy boundary', () => {
+    const invalidRiskRules = [
+      { ...policy.riskRules, highRiskActions: [] },
+      { ...policy.riskRules, highRiskActions: ['stage1_required_check_recovery', 'stage1_required_check_recovery'] },
+      { ...policy.riskRules, highRiskActions: ['unknown_action'] },
+      { ...policy.riskRules, highRiskActions: ['production_db_mutation'] },
+      { ...policy.riskRules, criticalActions: [...policy.riskRules.criticalActions, 'unknown_action'] },
+      { ...policy.riskRules, criticalActions: [...policy.riskRules.criticalActions, 'production_db_mutation'] },
+      { ...policy.riskRules, criticalActions: [...policy.riskRules.criticalActions, 'stage1_required_check_recovery'] },
+      { ...policy.riskRules, criticalActions: [...policy.riskRules.criticalActions, 'branch_protection_bypass'] },
+      { ...policy.riskRules, criticalActions: policy.riskRules.criticalActions.slice(1) },
+    ];
+    for (const riskRules of invalidRiskRules) {
+      assert.throws(() => decidePrAction(input({ policy: { ...policy, riskRules } })), PrDecisionInputError);
+    }
   });
 });
