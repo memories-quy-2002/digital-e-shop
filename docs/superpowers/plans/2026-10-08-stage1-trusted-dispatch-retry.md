@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Current status (2026-10-08):** PR #295 merged the `stage1_required_check_recovery` high-risk classification while preserving `branch_protection_bypass` as critical and `ciRunLimit: 2`. PR #296 merged the attempt-scoped single-job writer after a controlled stale-job-ID request returned HTTP 403. Phase A below is complete and must not be repeated. These changes do not grant GitHub App permissions or authorize a dispatch, Check Run update, or pilot. The labeled OIDC probe documented in the readiness report still returned `unavailable`; Stage 1 remains fail-closed.
+
 **Goal:** Let a trusted Stage 1 host retry one eligible `client` or `server` required check against the exact current PR SHA, then recover only that original Check Run after the trusted verifier succeeds.
 
 **Architecture:** First resolve the separate policy gate and merge that policy decision before starting a fresh implementation run. The implementation adds a one-use approved `workflow_dispatch` writer, a main-branch verifier that checks out PR code only as test input, and an isolated publisher that can PATCH only the exact previously failed required Check Run. The CLI stays fail-closed until trusted host configuration, budget state, permissions, and live evidence are independently available.
@@ -35,7 +37,7 @@
 
 ---
 
-## Phase A: Resolve the Policy Gate in a Separate Reviewed Run
+## Phase A: Resolve the Policy Gate — completed in PR #295
 
 ### Task 1: Decide whether exact required-check recovery is executable
 
@@ -44,16 +46,15 @@
 - Inspect: `.agent/policy/risk-rules.yml`, `.agent/policy/protected-paths.yml`, `.agent/policy/stop-conditions.yml`, `scripts/loop/policy.mjs`, `scripts/loop/classify-risk.mjs`, `AGENTS.md`
 - If and only if separately approved: modify the minimum policy/schema files above and add focused coverage in `scripts/loop/__tests__/policy.test.mjs` and `scripts/loop/__tests__/classify-risk.test.mjs`.
 
-**Interface:** The policy decision must identify whether publishing a successful result to an existing required Check Run after the fixed verifier passes is a narrowly bounded, human-approved high-risk capability or the critical `branch_protection_bypass` action. Current policy accepts only known critical action IDs and treats each as critical; do not invent an unclassified action ID or omit the operation from classification.
+**Interface:** The merged policy declares `stage1_required_check_recovery` as a distinct high-risk action and keeps `branch_protection_bypass` critical. That classification does not grant an executable write capability; the trusted host, exact authenticated approval, budget, permissions, workflow, and live-pilot gates below still apply.
 
-- [ ] Write a short, reviewable policy proposal for the exact capability and route boundary. Leave `criticalActions`, including `branch_protection_bypass`, unchanged.
-- [ ] If policy review decides the operation is `branch_protection_bypass`, stop this plan and return to design; no implementation or permission change is allowed under this approach.
-- [ ] If policy review decides it is a distinct high-risk operation, specify how the canonical policy schema represents that class, how exact human approval is enforced, and why it cannot create or substitute another required result. Do not implement a policy schema change without a separate explicit review of those exact paths.
-- [ ] Preserve `ciRunLimit: 2` and all stop-condition values.
-- [ ] Run `node --test scripts/loop/__tests__/policy.test.mjs scripts/loop/__tests__/classify-risk.test.mjs` in the policy-change run.
-- [ ] Open a separate PR targeting `main`; wait for the maintainer review and merge. End that run after merge. Start Phase B from the reviewed merged revision in a fresh run.
+- [x] Write and review the policy proposal for the exact capability; leave `criticalActions`, including `branch_protection_bypass`, unchanged.
+- [x] Classify the operation as the distinct high-risk action `stage1_required_check_recovery`; exact authenticated approval remains a host requirement.
+- [x] Preserve `ciRunLimit: 2` and all stop-condition values.
+- [x] Run the policy and classifier tests in the policy-change run; PR #295's required CI passed.
+- [x] Merge the policy change in PR #295, then start later implementation work from the merged revision.
 
-**Expected result:** A merged policy decision that either explicitly allows the exact constrained operation as high-risk or rejects it. A rejection ends this implementation path; do not evade it by renaming the action.
+**Result:** PR #295 merged the high-risk classification. It did not grant App permissions, enable a Stage 1 write, or replace any host approval or readiness gate.
 
 ## Phase B: Implement from the Reviewed Policy in a Fresh Run
 
