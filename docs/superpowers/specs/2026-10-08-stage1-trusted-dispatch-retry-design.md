@@ -4,15 +4,17 @@
 
 **Status:** Reviewed and approved by the maintainer for implementation planning. It authorizes no implementation, policy change, permission change, workflow dispatch, Check Run update, or live pilot.
 
+**Current status (2026-10-08):** PR #295 merged `stage1_required_check_recovery` as a high-risk action, preserving the critical action set. PR #296 merged an attempt-scoped single-job writer after a controlled test returned HTTP 403 for a stale job ID. Those results resolve the earlier policy-classification and stale-job-evidence questions, but they do not grant App permissions or authorize a dispatch/Check Run write. The labeled OIDC probe recorded in the readiness report still returned `unavailable`, and Stage 1 remains fail-closed.
+
 **Related:** [Attempt-bound rerun design](2026-10-08-stage1-attempt-bound-rerun-design.md), [attempt-bound implementation plan](../plans/2026-10-08-stage1-attempt-bound-rerun.md), [trusted-dispatch implementation plan](../plans/2026-10-08-stage1-trusted-dispatch-retry.md), [Stage 1 CLI runbook](../../loop-engineering/stage1-cli-runbook.md), [readiness evidence](../../loop-engineering/stage1-readiness.md), and [workflow-source attestation design](2026-10-05-stage1-workflow-attestation-design.md).
 
 ## Goal and current decision
 
 Replace the Stage 1 write against an old Actions run or job with a new run of a fixed, reviewed verifier from the default branch. The verifier tests the exact current PR commit and, only after success, updates the exact existing PR Check Run that represents the failed required check. This avoids relying on undocumented stale-job-ID behavior and avoids creating a second required check with an ambiguous result.
 
-This is a candidate architecture, not an activation decision. The old job-ID behavior remains unknown. No job-rerun endpoint may be used as a fallback. Stage 1 stays fail-closed until the permission and policy work is separately reviewed, the cross-run Check Run update is proven, and every existing trust, approval, budget, and readiness gate passes.
+This is a candidate architecture, not an activation decision. The old job-ID behavior is now tested for the stale-ID case: the controlled attempt-bound experiment returned HTTP 403, and PR #296 merged a writer bound to one attempt-scoped job ID. The trusted-dispatch approach remains a separate design for required-check recovery; no job-rerun endpoint may be used as a fallback. Stage 1 stays fail-closed until the cross-run Check Run update is proven and every existing trust, approval, budget, and readiness gate passes.
 
-The earlier attempt-bound implementation plan reached its documented unknown-evidence branch. Its implementation tasks remain paused; this spec does not authorize them.
+The earlier attempt-bound plan's stale-job evidence question is resolved by the controlled test and PR #296. The standalone host still retains `run_attempt_write_binding_unavailable` until its capability gate is reconciled with the merged writer; this spec does not authorize host activation.
 
 ## Current GitHub and repository facts
 
@@ -26,11 +28,11 @@ The earlier attempt-bound implementation plan reached its documented unknown-evi
 
 ### A. Keep the job-specific rerun and test the stale-ID race
 
-This changes the least code and preserves the native workflow result. It still depends on an undocumented race contract and needs a controlled Actions write before it can be trusted. If that behavior remains unknown, this path stays disabled.
+This changes the least code and preserves the native workflow result. PR #296 merged a writer bound to one attempt-scoped job ID after the controlled stale-ID test returned HTTP 403. That is evidence for the tested endpoint case, not authorization to enable the standalone host or proof of the complete trusted job graph.
 
 ### B. Dispatch a trusted verifier and update the existing required Check Run — selected
 
-A reviewed main-branch workflow reruns the fixed verification for one approved required context at the exact current PR SHA. A separate, narrowly privileged publisher updates only the matching existing PR Check Run after success. This avoids selecting work through the old run’s job IDs and preserves the current required context and App identity. It adds a trusted workflow, an Actions dispatch capability, and a required-check update capability, all of which need separate policy review.
+A reviewed main-branch workflow reruns the fixed verification for one approved required context at the exact current PR SHA. A separate, narrowly privileged publisher updates only the matching existing PR Check Run after success. This avoids selecting work through the old run’s job IDs and preserves the current required context and App identity. PR #295 classifies this as a high-risk action; the trusted workflow, exact host capability, and least-privilege App permissions still require separate implementation review.
 
 ### C. Publish a separate non-required Stage 1 result
 
@@ -66,7 +68,7 @@ Immediately before the write, the publisher fetches the PR and Check Run again. 
 
 On verifier success, it updates that same Check Run to success, keeps its name and SHA unchanged, and adds a bounded summary and a link to the trusted retry run. On verifier failure, timeout, cancellation, tuple drift, or API ambiguity, it does not publish success and does not try a different Check Run. The previous failed run and the new workflow run remain available as evidence.
 
-Because the updater uses checks:write, this is a privileged required-check recovery capability. The current policy permits only a separate Stage 0 publisher that is always neutral and non-required; it does not authorize this Stage 1 operation. Do not treat that Stage 0 permission as reusable. A separate policy review must decide whether this narrowly bounded operation can be authorized without weakening the branch-protection-bypass guard. If policy classifies it as the critical branch_protection_bypass action, it remains non-executable under the current contract; do not rename the action to evade that result.
+Because the updater uses checks:write, this is a privileged required-check recovery capability. PR #295 now classifies `stage1_required_check_recovery` as high risk while preserving `branch_protection_bypass` as critical. That classification does not grant the capability or make the Stage 1 operation executable. Do not reuse Stage 0 publisher permission. The trusted host, exact authenticated approval, separate least-privilege App permissions, and all fail-closed gates remain mandatory. If future policy review classifies this operation as the critical `branch_protection_bypass`, it remains non-executable; do not rename the action to evade that result.
 
 ### 5. Host independently verifies completion
 
@@ -83,8 +85,8 @@ The host waits for the specific dispatched run and verifies its trusted workflow
 
 ## Required gates before implementation or activation
 
-1. Review and merge a separate, exact-scope policy change for the trusted dispatcher and the Stage 1 required-check updater. The policy and permission change must not be executed in the same run that proposes it; implementation starts from the reviewed merged policy in a fresh run.
-2. Resolve the policy classification for required-check recovery. Preserve branch protection and refuse if the action remains critical or its scope cannot be constrained to one current check-run ID.
+1. **Policy classification completed in PR #295:** verify the merged policy revision before implementation. Any future policy change must be a separate reviewed run; the classification does not grant GitHub App permissions.
+2. **Classification resolved as high risk in PR #295.** Preserve branch protection and refuse if a future scope cannot be constrained to one current Check Run ID or if policy classifies it as critical.
 3. Review the complete trusted workflow graph, including reusable workflows, actions, dependency installation, job permissions, actor validation, and the isolated database service. Exclude the production migration and all deployment paths.
 4. Verify that the actual dispatched run uses the approved main workflow SHA and that its verifier tests the exact current required SHA and only one allowlisted context.
 5. In a separately approved, non-main live pilot using a naturally eligible flaky failure, prove that the Actions App can update the exact PR-created Check Run ID and that branch protection recognizes the updated result. Do not deliberately weaken or fail a security or test job to create this evidence.
