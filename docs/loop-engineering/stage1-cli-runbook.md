@@ -13,7 +13,8 @@ not inspect a PR, authenticate an approver, select an eligible run, or prove
 that a rerun could be submitted.
 
 PR #293 merged the source-attestation producer, GitHub CLI verifier, and
-read-only workflow-run probe into `main`. The Stage 1 host does not wire them into a live
+read-only workflow-run probe into `main`. Positive hosted proof is still
+pending; the Stage 1 host does not wire the provider into a live
 rerun, so its trust status remains unavailable. A trusted workflow/job
 allowlist, trusted approver list, and host-managed LoopState CI budget session
 also remain absent. PR #289 set the canonical `ciRunLimit` to `2`, but the
@@ -32,14 +33,14 @@ and [probe run](https://github.com/memories-quy-2002/digital-e-shop/actions/runs
 are the evidence sources.
 
 That run predates the OIDC certificate verifier and remains historical
-feasibility evidence. The current local implementation creates a canonical
-descriptor and an opt-in attestation for a labeled, same-repository PR. Its
-downstream read-only probe checks the certificate against the exact run,
-attempt, and current PR tuple, then reports only a bounded source-SHA
-candidate. It never trusts raw `workflow_sha`, `source_sha`, or predicate
-fields. The hosted proof remains pending until this implementation is reviewed
-and merged, then exercised by a later same-repository PR whose workflow source
-SHA differs from its tested SHA. The candidate does not enable Stage 1.
+feasibility evidence. PR #293 merged the implementation to `main`. It creates
+a canonical descriptor and an opt-in attestation for a labeled,
+same-repository PR. Its downstream read-only probe checks the certificate
+against the exact run, attempt, and current PR tuple, then reports only a
+bounded source-SHA candidate. It never trusts raw `workflow_sha`, `source_sha`,
+or predicate fields. The later labeled control run below did not produce a
+hosted candidate, so positive hosted proof remains pending. A candidate does
+not enable Stage 1.
 
 ## Attestation contract and verification
 
@@ -68,6 +69,8 @@ without an allowlisted source SHA. Its frozen output exposes
 `sourceShaCandidate` as untrusted feasibility metadata; it never creates the
 verifier-owned record used by trust mode. The Stage 1 CLI does not configure
 this provider, so a candidate cannot authorize a rerun.
+
+On 2026-10-08, the labeled same-repository PR [#297](https://github.com/memories-quy-2002/digital-e-shop/pull/297) produced a successful attestation in [run 37751138161](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37751138161), but the hosted read-only [probe 37751216313](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37751216313) returned `unavailable` with no candidate. A local replay with the current GitHub CLI and local credentials returned the PR merge SHA, but it does not validate the workflow token or hosted execution. Keep the hosted proof gate closed until the discrepancy is explained and a hosted probe returns a candidate for the exact run and PR tuple.
 
 ## Attempt-bound rerun feasibility result
 
@@ -112,6 +115,26 @@ node scripts/loop/pr-babysitter-stage1-host.mjs rerun-flaky --repo memories-quy-
 The live command is intentionally unavailable. Do not grant `actions:write`,
 attempt to bypass the refusal, or treat a dry-run as approval or pilot evidence.
 
+## Reproduce the current refusal
+
+Run the live command only to confirm the current fail-closed response. The
+Stage 1 host checks its hard-coded prerequisite list before it reads a token,
+inspects the selected PR, or calls GitHub.
+
+```powershell
+node scripts/loop/pr-babysitter-stage1-host.mjs rerun-flaky --repo memories-quy-2002/digital-e-shop --pr <selected-pr>
+```
+
+With the current host, the command exits with code `1` and returns
+`stage1_prerequisites_unavailable`. The blockers include
+`run_attempt_write_binding_unavailable` and the other trust, source-attestation,
+job-graph, and budget gates listed below. This response does not describe the
+selected PR or a workflow attempt. It is not pilot evidence.
+
+The `--dry-run` form checks arguments only. It returns `status: dry-run` and
+does not inspect a PR, approve an action, or test whether GitHub would accept a
+rerun.
+
 ## Refusal codes
 
 | Reason code | Meaning | Operator action |
@@ -120,6 +143,12 @@ attempt to bypass the refusal, or treat a dry-run as approval or pilot evidence.
 | `interactive_tty_required` | A live rerun was requested without a real interactive terminal. | Stop; do not pipe or automate approval. This does not override the current prerequisite refusal. |
 | `stage1_command_refused` | The command is outside the Stage 1 CLI allowlist. | Use only documented read-only `inspect`; repair, push, and merge remain unavailable. |
 | `repository_not_allowlisted` | The requested repository is not the fixed repository. | Stop and check the command; do not change the repository through an environment override. |
+
+`run_attempt_write_binding_unavailable` means the host cannot prove that a
+rerun write still targets the exact workflow attempt covered by approval. The
+job-specific endpoint is a candidate, but GitHub's public documentation does
+not specify what happens when a newer attempt starts before a request uses an
+older job ID. Keep the blocker until that behavior is proven and reviewed.
 
 No current CLI outcome reports a submitted rerun or a new CI pass. Once a
 reviewed host can submit a request, a successful POST must be reported as
