@@ -94,7 +94,7 @@ async function verifiedOutput(inputs, overrides = {}) {
           buildSignerDigest: WORKFLOW_SHA,
           sourceRepositoryIdentifier: '9',
           sourceRepositoryDigest: TESTED_SHA,
-          subjectAlternativeName: { type: 'URI', value: SIGNER_URI },
+          subjectAlternativeName: SIGNER_URI,
           buildSignerURI: SIGNER_URI,
           runInvocationURI: `https://github.com/${REPOSITORY}/actions/runs/123/attempts/2`,
           ...overrides.certificate,
@@ -142,6 +142,7 @@ describe('GitHub workflow source attestation provider', () => {
     assert.equal(claims.githubWorkflowSHA, WORKFLOW_SHA);
     assert.equal(claims.sourceRepositoryDigest, undefined);
     assert.equal(claims.subjectName, SUBJECT_NAME);
+    assert.deepEqual(claims.subjectAlternativeName, { type: 'URI', value: SIGNER_URI });
     assert.equal(claims.descriptorSha256, await descriptorDigest(inputs));
     assert.equal(Object.isFrozen(claims), true);
     assert.equal(Object.isFrozen(claims.verifiedTimestamps), true);
@@ -283,7 +284,7 @@ describe('GitHub workflow source attestation provider', () => {
     const variants = [
       { certificate: { issuer: 'https://wrong.example' } },
       { certificate: { githubWorkflowRepository: 'other/repository' } },
-      { certificate: { subjectAlternativeName: { type: 'URI', value: 'https://github.com/other/repo/.github/workflows/ci.yml@refs/heads/main' } } },
+      { certificate: { subjectAlternativeName: 'https://github.com/other/repo/.github/workflows/ci.yml@refs/heads/main' } },
       { certificate: { githubWorkflowRef: 'refs/heads/main' } },
       { certificate: { sourceRepositoryIdentifier: '10' } },
       { certificate: { githubWorkflowSHA: 'e'.repeat(40), buildSignerDigest: 'e'.repeat(40) } },
