@@ -1,6 +1,15 @@
 const RISK_ORDER = Object.freeze(['low', 'medium', 'high', 'critical']);
 const RISK_INDEX = new Map(RISK_ORDER.map((risk, index) => [risk, index]));
 const REGEX_META = '\\^$+?.()|{}[]';
+const REQUIRED_CRITICAL_ACTIONS = Object.freeze([
+  'production_secret_access',
+  'production_db_mutation',
+  'branch_protection_bypass',
+  'direct_push_main',
+  'disable_security_checks',
+  'production_deployment_promotion',
+]);
+const REQUIRED_HIGH_RISK_ACTIONS = Object.freeze(['stage1_required_check_recovery']);
 
 export class RiskInputError extends TypeError {
   constructor(message) {
@@ -91,6 +100,24 @@ function assertPolicyShape(policy) {
       || !Array.isArray(policy.riskRules.criticalActions)
       || !Array.isArray(policy.riskRules.highRiskActions)) {
     throw new RiskInputError('a validated LoopPolicy is required');
+  }
+
+  const criticalActions = policy.riskRules.criticalActions;
+  const highRiskActions = policy.riskRules.highRiskActions;
+  const criticalSet = new Set(criticalActions);
+  const highRiskSet = new Set(highRiskActions);
+  if (highRiskActions.some((action) => criticalSet.has(action))) {
+    throw new RiskInputError('policy.riskRules high-risk actions must not overlap critical actions');
+  }
+  if (criticalSet.size !== criticalActions.length
+      || REQUIRED_CRITICAL_ACTIONS.some((action) => !criticalSet.has(action))
+      || criticalActions.some((action) => !REQUIRED_CRITICAL_ACTIONS.includes(action))) {
+    throw new RiskInputError('policy.riskRules.criticalActions must contain the canonical action IDs exactly once');
+  }
+  if (highRiskSet.size !== highRiskActions.length
+      || REQUIRED_HIGH_RISK_ACTIONS.some((action) => !highRiskSet.has(action))
+      || highRiskActions.some((action) => !REQUIRED_HIGH_RISK_ACTIONS.includes(action))) {
+    throw new RiskInputError('policy.riskRules.highRiskActions must contain the canonical action IDs exactly once');
   }
 }
 
