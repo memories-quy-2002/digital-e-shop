@@ -2,7 +2,7 @@
 
 **Updated:** 2026-10-08
 
-**Status:** BLOCKED — no pilot PR was selected and no live Stage 1 observations were collected. This report records the remaining evidence gaps; it does not qualify the repository for a Stage 1 pilot.
+**Status:** BLOCKED — no write-capable Stage 1 pilot PR was selected and no live rerun observations were collected. The OIDC source-attestation control run below is read-only feasibility evidence and does not qualify the repository for a Stage 1 pilot.
 
 ## Promotion gates
 
@@ -30,7 +30,9 @@ The legacy read-only probe added by PR #291 ran after merge. It found no upstrea
 | Legacy event/API source-SHA candidates | `null` / `null` |
 | Evidence runs | [Loop Foundation](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37418888640), [source SHA probe](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37418918573) |
 
-The current branch implements a deterministic run descriptor, an opt-in OIDC attestation producer, certificate verification with GitHub CLI, and verifier-owned source records for the read and rerun adapters. The downstream `workflow_run` probe checks the signed certificate against one same-repository PR and its current base/head/merge tuple. It ignores raw SHA fields and statement predicates. These local tests do not prove the hosted flow: the implementation has not been merged or exercised with a later labeled PR.
+PR #293 merged this implementation to `main` at `c546532fbd4537c349f29b4600a3270fcef7d329`. It adds a deterministic run descriptor, an opt-in OIDC attestation producer, certificate verification with GitHub CLI, and verifier-owned source records for the read and rerun adapters. The downstream `workflow_run` probe checks the signed certificate against one same-repository PR and its current base/head/merge tuple. It ignores raw SHA fields and statement predicates. Positive hosted proof still requires a later labeled, open, same-repository PR.
+
+The first post-merge control run was not a PR event: `Loop Foundation` run `37742163945` completed on the main push, and read-only probe run `37742207061` returned `status: unavailable` with `sourceShaCandidate: null`. That is the expected fail-closed result for a push without a same-repository PR association. It confirms the no-candidate path only; it is not positive OIDC proof.
 
 Do not infer the workflow source SHA from the tested SHA, workflow path, or ref. Keep `workflow_source_sha_unattested` as a hard refusal until a hosted certificate proves the source SHA for the exact run attempt and PR tuple. Stage 1 remains disabled.
 

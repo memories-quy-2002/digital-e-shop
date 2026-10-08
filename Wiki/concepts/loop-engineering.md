@@ -100,9 +100,9 @@ post-merge observation. See [[architecture]] and [[index]].
 
 The Stage 1 CLI work remains fail-closed: `inspect` delegates to the Stage 0
 read-only host, while live `rerun-flaky` refuses before credentials or network
-access. The branch for PR #293 adds the workflow-source producer, certificate
-verifier, read-only probe, and verifier-owned adapter gates, but the Stage 1
-host does not configure them and hosted proof is pending. PR #296 merged the
+access. PR #293 merged the workflow-source producer, certificate verifier,
+read-only probe, and verifier-owned adapter gates, but the Stage 1 host does
+not configure them and positive hosted proof is pending. PR #296 merged the
 attempt-bound single-job writer, but the standalone host still reports
 `run_attempt_write_binding_unavailable` until its capability gate is reconciled
 with that writer. A complete workflow/job allowlist, trusted approver

@@ -12,8 +12,8 @@ contacting GitHub. `rerun-flaky --dry-run` checks command syntax only. It does
 not inspect a PR, authenticate an approver, select an eligible run, or prove
 that a rerun could be submitted.
 
-This branch adds the source-attestation producer, GitHub CLI verifier, and
-read-only workflow-run probe. The Stage 1 host does not wire them into a live
+PR #293 merged the source-attestation producer, GitHub CLI verifier, and
+read-only workflow-run probe into `main`. The Stage 1 host does not wire them into a live
 rerun, so its trust status remains unavailable. A trusted workflow/job
 allowlist, trusted approver list, and host-managed LoopState CI budget session
 also remain absent. PR #289 set the canonical `ciRunLimit` to `2`, but the
