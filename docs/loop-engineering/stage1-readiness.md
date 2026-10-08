@@ -1,6 +1,6 @@
 # Stage 1 readiness evidence
 
-**Updated:** 2026-10-07
+**Updated:** 2026-10-08
 
 **Status:** BLOCKED — no pilot PR was selected and no live Stage 1 observations were collected. This report records the remaining evidence gaps; it does not qualify the repository for a Stage 1 pilot.
 
@@ -34,12 +34,28 @@ The current branch implements a deterministic run descriptor, an opt-in OIDC att
 
 Do not infer the workflow source SHA from the tested SHA, workflow path, or ref. Keep `workflow_source_sha_unattested` as a hard refusal until a hosted certificate proves the source SHA for the exact run attempt and PR tuple. Stage 1 remains disabled.
 
+## Attempt-bound rerun feasibility experiment
+
+A controlled Actions test on the same-repository, non-`main`, documentation-only PR #294 established that a job ID from an older attempt is rejected after a newer attempt becomes current. The test used the `Loop Foundation` workflow only; no deployment job ran.
+
+| Field | Observed value |
+| --- | --- |
+| PR head SHA | `eff3fc4fb1602dd5eaf2313befb7109d8fa0b04b` |
+| Workflow run | `37714893275` |
+| Attempt 1 job ID | `113109016799` (`test`) |
+| Attempt 2 job ID | `113182145888` (`test`) |
+| Attempt 2 result | `success` |
+| Re-submit attempt 1 job ID | HTTP `403`: `Only jobs from the current attempt can be re-run` |
+| Final run attempt | `2` (no third attempt was created) |
+
+This resolves the stale-job-ID behavior for the tested job-rerun endpoint: a previous-attempt job ID did not start another run. PR #296 merged the guarded-writer change that targets exactly one job ID from the complete, approved attempt-specific response. The standalone Stage 1 host remains fail-closed until its capability gate is reviewed against that writer and the independent trust gates are met. This single test is feasibility evidence, not pilot evidence or authorization to enable Stage 1.
+
 ## Collection limits
 
 - The maintainer has not selected a same-repository, non-`main` pilot PR. The example PR number in the command below is intentionally not used.
 - PR #289 merged the canonical finite `ciRunLimit: 2` policy. The Stage 1 host still has no persisted LoopState session loaded and validated against that revision, so it reports `ci_run_budget_session_unavailable` and refuses live reruns.
 - No live Stage 1 GitHub or Cloudflare observation set was collected in this run. Local fixtures and static code inspection are not promotion evidence.
-- The GitHub failed-jobs rerun write endpoint accepts `run_id` without `run_attempt`, and its documented request has no conditional-write precondition. A final attempt re-read narrows but cannot close the external rerun race; `run_attempt_write_binding_unavailable` remains a hard gate for live Stage 1 writes.
+- The run-level failed-jobs endpoint does not bind a write to `run_attempt`. PR #296 merged the guarded-writer change to submit exactly one attempt-scoped root job ID, and the controlled test above found that GitHub rejects a previous-attempt ID once a newer attempt is current. The standalone Stage 1 host still reports `run_attempt_write_binding_unavailable` and refuses live writes until that host capability gate is reviewed and reconciled with the writer.
 - The GitHub job response does not provide the workflow `needs` graph, and current trusted configuration has no approved graph. `trusted_job_graph_unavailable` remains a hard gate until each eligible workflow has a complete reviewed graph.
 - The source-attestation adapters now accept only immutable records created by the verifier; raw API `sourceSha` and `sourceShaAttested` fields are ignored. The Stage 1 host still does not configure the provider, and hosted producer-to-probe proof remains pending. Do not count local fixtures as hosted evidence.
 - PR #291's hosted `Loop Foundation` test passed on the reviewed PR head ([run 37417234608](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37417234608)); the post-merge `Loop Foundation` run also passed with the new probe suite ([run 37418888640](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37418888640)).

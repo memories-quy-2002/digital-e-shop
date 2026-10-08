@@ -16,6 +16,7 @@ const REQUIRED_CRITICAL_ACTIONS = [
   'disable_security_checks',
   'production_deployment_promotion',
 ];
+const REQUIRED_HIGH_RISK_ACTIONS = ['stage1_required_check_recovery'];
 const STOP_CONDITION_KEYS = [
   'maxIterations',
   'maxSameFailure',
@@ -27,7 +28,7 @@ const STOP_CONDITION_KEYS = [
   'ciRunLimit',
 ] as const;
 const PROTECTED_PATH_KEYS = ['high', 'critical'] as const;
-const RISK_RULE_KEYS = ['low', 'medium', 'high', 'criticalActions'] as const;
+const RISK_RULE_KEYS = ['low', 'medium', 'high', 'criticalActions', 'highRiskActions'] as const;
 const SUPPORTED_CONCLUSIONS = new Set([
   'success',
   'failure',
@@ -57,7 +58,7 @@ const WORKSPACE_ANCHORS = new Set(['.agent', '.github', 'client', 'docs', 'scrip
 export interface Stage0Policy {
   schemaVersion: 1;
   protectedPaths: { high: string[]; critical: string[] };
-  riskRules: { low: string[]; medium: string[]; high: string[]; criticalActions: string[] };
+  riskRules: { low: string[]; medium: string[]; high: string[]; criticalActions: string[]; highRiskActions: string[] };
   stopConditions: Record<(typeof STOP_CONDITION_KEYS)[number], number | null>;
 }
 
@@ -204,7 +205,7 @@ function parsePolicyDocument(value: unknown, filename: (typeof REQUIRED_POLICY_F
     return value;
   }
   if (filename === 'risk-rules.yml') {
-    if (!exactKeys(value, ['schemaVersion', 'low', 'medium', 'high', 'criticalActions']) || value.schemaVersion !== 1
+    if (!exactKeys(value, ['schemaVersion', 'low', 'medium', 'high', 'criticalActions', 'highRiskActions']) || value.schemaVersion !== 1
         || !validatePatternList({
           low: value.low,
           medium: value.medium,
@@ -214,7 +215,13 @@ function parsePolicyDocument(value: unknown, filename: (typeof REQUIRED_POLICY_F
         || value.criticalActions.some((entry) => typeof entry !== 'string')
         || new Set(value.criticalActions as string[]).size !== value.criticalActions.length
         || REQUIRED_CRITICAL_ACTIONS.some((action) => !(value.criticalActions as string[]).includes(action))
-        || (value.criticalActions as string[]).some((action) => !REQUIRED_CRITICAL_ACTIONS.includes(action))) {
+        || (value.criticalActions as string[]).some((action) => !REQUIRED_CRITICAL_ACTIONS.includes(action))
+        || !Array.isArray(value.highRiskActions)
+        || (value.highRiskActions as unknown[]).some((entry) => typeof entry !== 'string')
+        || new Set(value.highRiskActions as string[]).size !== (value.highRiskActions as string[]).length
+        || REQUIRED_HIGH_RISK_ACTIONS.some((action) => !(value.highRiskActions as string[]).includes(action))
+        || (value.highRiskActions as string[]).some((action) => !REQUIRED_HIGH_RISK_ACTIONS.includes(action)
+          || REQUIRED_CRITICAL_ACTIONS.includes(action))) {
       throw new Error('canonical_policy_invalid');
     }
     return value;
@@ -238,6 +245,7 @@ function makePolicy(documents: Map<string, unknown>): Stage0Policy {
     medium: string[];
     high: string[];
     criticalActions: string[];
+    highRiskActions: string[];
   };
   const stopConditions = documents.get('stop-conditions.yml') as Record<(typeof STOP_CONDITION_KEYS)[number], number | null>;
   return {
@@ -248,6 +256,7 @@ function makePolicy(documents: Map<string, unknown>): Stage0Policy {
       medium: [...riskRules.medium],
       high: [...riskRules.high],
       criticalActions: [...riskRules.criticalActions],
+      highRiskActions: [...riskRules.highRiskActions],
     },
     stopConditions: { ...stopConditions },
   };

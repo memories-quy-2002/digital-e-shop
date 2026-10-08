@@ -26,6 +26,7 @@ const policy = {
     low: ['docs/**'],
     medium: ['client/src/**', 'server/src/**'],
     high: ['scripts/loop/**'],
+    highRiskActions: ['stage1_required_check_recovery'],
     criticalActions: [
       'production_secret_access',
       'production_db_mutation',

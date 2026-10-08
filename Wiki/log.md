@@ -115,3 +115,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-10-05 - Codex - Bound Stage 1 job reads to exact workflow attempts, added a pre-POST attempt recheck, and documented that the run-ID-only write API leaves a hard live-activation race gate.
 - 2026-10-06 - Codex - Updated Stage 1 readiness after the finite CI policy merge; distinguish the canonical limit from the still-unavailable host-managed budget session and preserve live rerun gates.
 - 2026-10-07 - Codex - Added opt-in OIDC workflow-source attestation, verifier-owned adapter records, and a read-only certificate probe; hosted proof and all other Stage 1 gates remain pending.
+- 2026-10-08 - Codex - Bound guarded Actions reruns to one job ID from the exact observed attempt, rejected multi-root retries, and recorded the stale-job 403 experiment; Stage 1 remains disabled pending independent trust gates.

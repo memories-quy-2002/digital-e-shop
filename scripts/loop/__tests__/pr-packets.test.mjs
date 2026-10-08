@@ -14,7 +14,7 @@ const fingerprint = 'c'.repeat(64);
 const policy = Object.freeze({
   schemaVersion: 1,
   protectedPaths: { high: ['AGENTS.md'], critical: ['.github/workflows/**'] },
-  riskRules: { low: [], medium: [], high: ['scripts/loop/**'], criticalActions: [
+  riskRules: { low: [], medium: [], high: ['scripts/loop/**'], highRiskActions: ['stage1_required_check_recovery'], criticalActions: [
     'production_secret_access',
     'production_db_mutation',
     'branch_protection_bypass',

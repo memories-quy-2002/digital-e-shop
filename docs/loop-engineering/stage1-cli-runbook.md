@@ -1,6 +1,6 @@
 # Stage 1 CLI runbook
 
-**Updated:** 2026-10-07
+**Updated:** 2026-10-08
 
 **Status:** Offline implementation only; live reruns are disabled.
 
@@ -12,8 +12,8 @@ contacting GitHub. `rerun-flaky --dry-run` checks command syntax only. It does
 not inspect a PR, authenticate an approver, select an eligible run, or prove
 that a rerun could be submitted.
 
-The local source-attestation producer, GitHub CLI verifier, and read-only
-workflow-run probe now exist. The Stage 1 host does not wire them into a live
+This branch adds the source-attestation producer, GitHub CLI verifier, and
+read-only workflow-run probe. The Stage 1 host does not wire them into a live
 rerun, so its trust status remains unavailable. A trusted workflow/job
 allowlist, trusted approver list, and host-managed LoopState CI budget session
 also remain absent. PR #289 set the canonical `ciRunLimit` to `2`, but the
@@ -68,6 +68,25 @@ without an allowlisted source SHA. Its frozen output exposes
 `sourceShaCandidate` as untrusted feasibility metadata; it never creates the
 verifier-owned record used by trust mode. The Stage 1 CLI does not configure
 this provider, so a candidate cannot authorize a rerun.
+
+## Attempt-bound rerun feasibility result
+
+A controlled test on same-repository, non-`main`, documentation-only PR #294
+used the `Loop Foundation` workflow, which has no deployment job. Attempt 1's
+`test` job (`113109016799`) was rerun successfully and produced attempt 2's
+`test` job (`113182145888`), which completed successfully. Submitting the
+attempt 1 job ID again returned GitHub HTTP `403` with
+`Only jobs from the current attempt can be re-run`. The run remained at attempt
+2; the stale ID did not create attempt 3. See the [workflow run](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37714893275)
+and [PR #294](https://github.com/memories-quy-2002/digital-e-shop/pull/294).
+
+This establishes stale-job-ID rejection for the tested job-rerun endpoint.
+The guarded-writer change was merged in PR #296. It uses that endpoint with
+exactly one root job ID from matching, complete attempt-specific evidence.
+Multiple requested roots and attempts with multiple failed roots are refused.
+The standalone Stage 1 host still refuses live reruns; source attestation, the
+trusted job graph, approver configuration, and a host-managed budget session
+remain unavailable.
 
 ## Current commands
 
@@ -134,19 +153,16 @@ available from trusted host configuration:
 6. A fresh TTY approval bound to the exact PR tuple, tested SHA, workflow/run/
    attempt/job target, capability, and expiry. Confirmation defaults to
    cancel. The host must re-read evidence and reserve budget/idempotency before
-   the one allowed failed-jobs rerun request.
+   the one allowed root-job rerun request.
 
-The current GitHub failed-jobs rerun endpoint accepts a workflow `run_id` but
-no `run_attempt`. Its documented request has no conditional-write precondition
-such as `If-Match`; ETag guidance is for conditional reads and does not provide
-a lock for this POST. The guarded writer now re-reads and verifies the selected
-attempt after reserving budget and immediately before POST, then escalates and
-does not POST if the attempt changed. This narrows the race but cannot
-atomically bind the remote write to the approved attempt if another actor
-reruns the workflow between that final read and POST. Keep
-`run_attempt_write_binding_unavailable` as a hard live gate until a separately
-reviewed design resolves that API limitation; the final read alone is not a
-complete resolution.
+The run-level failed-jobs endpoint accepts a workflow `run_id` without a
+`run_attempt`. PR #296 merged the guarded writer's use of one exact job ID from
+the selected attempt, and the controlled test found that the job-specific
+endpoint rejects an ID from an older attempt once a newer attempt is current.
+The standalone host still reports
+`run_attempt_write_binding_unavailable` and remains fail-closed until its
+capability gate is reviewed against the new writer. This test does not qualify
+a workflow's dependent-job closure or enable a live pilot.
 
 The job API reports runtime job identities and statuses but does not report
 the workflow's `needs` graph. The current writer allowlist stores only job
@@ -182,4 +198,5 @@ trust configuration, budget, and pilot evidence.
 
 See [readiness evidence](stage1-readiness.md) for the promotion gates and
 collection limits, and the [OIDC workflow-source attestation design](../superpowers/specs/2026-10-07-stage1-oidc-workflow-source-attestation-design.md)
-for the reviewed trust boundary. No live Stage 1 pilot has run.
+for the proposed trust boundary and its verification criteria. No live Stage 1
+pilot has run.

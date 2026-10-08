@@ -30,8 +30,8 @@ The PR babysitter uses a dedicated GitHub App; it does not reuse the Codex `@Git
 - Installation tokens are scoped to the target repository and to the minimum permission set for one capability. Stage 0 is read-only; reruns and repair require separate Actions-write and Contents-write scopes. Keep the App private key outside the checkout, and never persist OAuth or installation tokens. [GitHub supports repository- and permission-scoped installation tokens](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-an-installation-access-token-for-a-github-app).
 - GitHub records API writes under the App identity; the Loop audit metadata records the authenticated approver ID separately. Repair push approval is requested after validating the final changed paths and is consumed in the same process, so approval credentials do not travel in a `RepairPacket` or `.loop/state/`.
 - `scripts/loop/github-auth-provider.mjs` implements App device flow, resolves the principal from `/user`, checks the host-owned numeric user-ID allowlist, requests repository-scoped capability tokens, and issues opaque, single-use TTY approvals. Actions rerun approval binds the PR SHA tuple, tested SHA, exact required identity, workflow run/attempt, failed job IDs, and path scope. `scripts/loop/github-pr-client.mjs` implements fixed-origin, read-only PR/check/ruleset/workflow/review reads, complete changed-file evidence, and bounded redacted job-log reads. `scripts/loop/pr-babysitter-host.mjs` assembles the fixed-repository Stage 0 entrypoint, pins policy to the PR base commit, verifies a clean checkout at the PR head, and exposes only `inspect` with an `observe` installation token.
-- `scripts/loop/github-actions-write.mjs` exposes only the failed-jobs rerun endpoint. It requires a fresh same-repository PR tuple, complete PR-file/run/job evidence, a trusted workflow/job allowlist, a finite `LoopState` CI-run budget, and exact one-use approval before minting the Actions-write token. It reserves the stable attempt key before POST; uncertain network outcomes remain consumed. The host allowlist pins stable job names while each approval pins the observed per-run job IDs and attempt.
-- The local OIDC source-attestation path now builds a deterministic descriptor for one workflow run attempt, verifies the GitHub certificate through `gh attestation verify`, and creates a private verifier-owned record. The read adapter and guarded rerun writer ignore caller-supplied `sourceSha` and `sourceShaAttested` fields; only that record can carry the exact source `{ repositoryId, path, ref, sha }`. The current verifier requires the attested workflow to belong to the observed repository. Stage 1's host does not configure this provider, and the hosted producer-to-probe proof remains pending. `runPrBabysitterCli` remains the host-injected API; `runPrBabysitterStage0` is the standalone read-only entrypoint and cannot rerun, repair, push, or merge.
+- `scripts/loop/github-actions-write.mjs` exposes only the job-specific rerun endpoint and accepts exactly one approved root job ID from complete evidence for the selected workflow attempt. It requires a fresh same-repository PR tuple, complete PR-file/run/job evidence, a trusted workflow/job allowlist, a finite `LoopState` CI-run budget, and exact one-use approval before minting the Actions-write token. It reserves the stable attempt key before POST; uncertain network outcomes remain consumed. Multiple requested roots or multiple failed roots are refused before approval or budget reservation. The host allowlist pins stable job names while each approval pins the observed per-run job ID and attempt.
+- The OIDC source-attestation path builds a deterministic descriptor for one workflow run attempt, verifies the GitHub certificate through `gh attestation verify`, and creates a private verifier-owned record. The read adapter and guarded rerun writer ignore caller-supplied `sourceSha` and `sourceShaAttested` fields; only that record can carry the exact source `{ repositoryId, path, ref, sha }`. Required-workflow source repository IDs may differ from the PR repository, but the exact identity must match trusted host configuration and a host-provided attestation. The standard GitHub run adapter has no source-SHA attestation, so required-workflow evidence remains unavailable until a trusted provider is wired. The verifier requires the attested workflow to belong to the observed repository. Stage 1's host does not configure this provider, and hosted producer-to-probe proof remains pending. `runPrBabysitterCli` remains the host-injected API; `runPrBabysitterStage0` is the standalone read-only entrypoint and cannot rerun, repair, push, or merge.
 - `scripts/loop/repair-session.mjs` provides a vendor-neutral repair handshake. A trusted host creates a sanitized session bound to the current PR SHA tuple, tested SHA, workspace fingerprint, exact allowed paths, failure evidence, and validated `LoopState` budgets. It accepts only a bounded JSON write/delete proposal, consumes the exact `repair:workspace` approval, checks paths before writing, rechecks the PR tuple immediately before the write, commits locally, and runs the fixed verifier only after a fresh budget check. If the verifier budget expires after commit, the host persists the committed SHA to `LoopState` without claiming verification or consuming an iteration. This module does not run a model or push to GitHub; the separate PR Babysitter orchestration requires fresh `contents:write` approval and budget checks before token minting and immediately before push.
 - Required workflow rules identify `{ repository_id, path, ref, sha }`, where `sha` is the workflow source revision. The opt-in producer runs only for a labeled, open, same-repository PR and does not check out or execute PR code. Its descriptor binds repository/workflow IDs, path/ref, run ID/attempt, tested SHA, and the full PR tuple. The downstream `workflow_run` probe reads the exact run and one current same-repository PR, then reports only a certificate-backed `sourceShaCandidate`; that output is feasibility metadata, not a trusted record or green required-workflow result. Raw `workflow_sha` fields and statement predicates never establish identity. Require the later hosted proof, including a source SHA different from the tested SHA, before treating the attestation path as proven. See [required workflow rules](https://docs.github.com/en/enterprise-cloud@latest/rest/repos/rules?apiVersion=2026-03-10), [workflow runs](https://docs.github.com/en/rest/actions/workflow-runs), and the [Stage 1 runbook](../../docs/loop-engineering/stage1-cli-runbook.md).
 
@@ -100,18 +100,23 @@ post-merge observation. See [[architecture]] and [[index]].
 
 The Stage 1 CLI work remains fail-closed: `inspect` delegates to the Stage 0
 read-only host, while live `rerun-flaky` refuses before credentials or network
-access. The local workflow-source producer, certificate verifier, read-only
-probe, and verifier-owned adapter gates now exist, but the Stage 1 host does
-not configure them and hosted proof is pending. A complete workflow/job
-allowlist, trusted approver configuration, and host-managed LoopState CI
-budget session also remain absent. PR #289 set `ciRunLimit` to 2; that does
-not enable reruns because the host does not bind a persisted budget session to
-the policy revision. Dry-run validates syntax only. See the [Stage 1 CLI
+access. The branch for PR #293 adds the workflow-source producer, certificate
+verifier, read-only probe, and verifier-owned adapter gates, but the Stage 1
+host does not configure them and hosted proof is pending. PR #296 merged the
+attempt-bound single-job writer, but the standalone host still reports
+`run_attempt_write_binding_unavailable` until its capability gate is reconciled
+with that writer. A complete workflow/job allowlist, trusted approver
+configuration, and host-managed LoopState CI budget session also remain absent.
+PR #289 set `ciRunLimit` to 2; that does not enable reruns because the host does
+not bind a persisted budget session to the policy revision. Dry-run validates
+syntax only. See the [Stage 1 CLI
 runbook](../../docs/loop-engineering/stage1-cli-runbook.md) and [readiness
 evidence](../../docs/loop-engineering/stage1-readiness.md).
 The read adapter binds job evidence to GitHub's exact workflow run attempt and
-marks missing attempt IDs incomplete. The guarded writer rechecks that attempt
-after budget reservation, but GitHub's failed-jobs POST accepts only `run_id`,
-so the request cannot atomically bind to the approved attempt. This residual
-race is a hard Stage 1 activation gate, not an attestation the local recheck can
-provide.
+marks missing attempt IDs incomplete. PR #296 merged a guarded writer that
+rechecks the attempt after budget reservation and posts only the approved job
+ID. A controlled test on non-main PR #294 observed that GitHub rejects a
+previous-attempt job ID with `403` once a newer attempt is current. This
+evidence does not verify the dependent-job closure: that graph, hosted source
+attestation, trusted approver, host wiring, and host-managed budget session
+remain Stage 1 activation gates.
