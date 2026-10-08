@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import { afterEach, before, describe, it } from 'node:test';
+import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, realpath, rm, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
 import { createGitHubActionsWriteHost, rerunFailedJobs } from '../github-actions-write.mjs';
+import { createWorkflowSourceVerifier } from '../workflow-source-attestation.mjs';
+import { serializeWorkflowSourceDescriptor } from '../workflow-source-descriptor.mjs';
 import { loadLoopPolicy } from '../policy.mjs';
 import { createLoopState, loadLoopState, saveLoopState } from '../state.mjs';
 
@@ -70,8 +73,9 @@ function workflowRun(overrides = {}) {
     ref: WORKFLOW_REF,
     headSha: HEAD_SHA,
     testedSha: HEAD_SHA,
-    sourceSha: WORKFLOW_SHA,
-    sourceShaAttested: true,
+    event: 'pull_request',
+    createdAt: '2026-10-07T12:00:00.000Z',
+    updatedAt: '2026-10-07T12:05:00.000Z',
     runNumber: 41,
     runAttempt: 1,
     status: 'completed',
@@ -90,6 +94,53 @@ function workflowJob(overrides = {}) {
     conclusion: 'failure',
     ...overrides,
   };
+}
+
+function sourceVerifier() {
+  return createWorkflowSourceVerifier({
+    repository: REPOSITORY,
+    inspectAttestation: async ({ identity, run, snapshot }) => {
+      const descriptor = serializeWorkflowSourceDescriptor({
+        repositoryId: snapshot.repositoryId,
+        workflowId: run.workflowId,
+        workflowPath: run.path,
+        workflowRef: run.ref,
+        runId: run.id,
+        runAttempt: run.runAttempt,
+        eventName: run.event,
+        testedSha: run.testedSha,
+        pullRequest: {
+          number: snapshot.number,
+          baseSha: snapshot.baseSha,
+          headSha: snapshot.headSha,
+          mergeSha: snapshot.mergeSha,
+        },
+      });
+      const descriptorSha256 = createHash('sha256').update(descriptor).digest('hex');
+      const signerUri = `https://github.com/${REPOSITORY}/${identity.path}@${identity.ref}`;
+      return {
+        repositoryId: snapshot.repositoryId,
+        issuer: 'https://token.actions.githubusercontent.com',
+        sourceRepositoryIdentifier: String(snapshot.repositoryId),
+        githubWorkflowRepository: REPOSITORY,
+        workflowPath: identity.path,
+        githubWorkflowRef: identity.ref,
+        githubWorkflowSHA: WORKFLOW_SHA,
+        buildSignerDigest: WORKFLOW_SHA,
+        workflowId: run.workflowId,
+        testedSha: run.testedSha,
+        runId: run.id,
+        runAttempt: run.runAttempt,
+        subjectAlternativeName: { type: 'URI', value: signerUri },
+        buildSignerURI: signerUri,
+        runInvocationURI: `https://github.com/${REPOSITORY}/actions/runs/${run.id}/attempts/${run.runAttempt}`,
+        subjectName: 'digital-e-loop-workflow-source.json',
+        subjectDigest: descriptorSha256,
+        descriptorSha256,
+        verifiedTimestamps: ['2026-10-07T12:02:00.000Z'],
+      };
+    },
+  });
 }
 
 async function createHarness(options = {}) {
@@ -230,6 +281,7 @@ async function createHarness(options = {}) {
       noWritePermissions: true,
     },
   }];
+  const verifyWorkflowSourceAttestation = sourceVerifier();
   const hostOptions = {
     repository: REPOSITORY,
     repositoryId: REPOSITORY_ID,
@@ -239,9 +291,12 @@ async function createHarness(options = {}) {
     prClient: readClient,
     approvalProvider,
     workflowAllowlist,
-    verifyWorkflowSourceAttestation: async ({ identity, run }) => options.verifySourceAttestation === false
-      ? false
-      : run.sourceShaAttested === true && run.sourceSha === identity.sha,
+    verifyWorkflowSourceAttestation: async (evidence) => {
+      events.push('verify-source');
+      if (options.verifySourceAttestation === false) return null;
+      if (Object.hasOwn(options, 'sourceRecord')) return options.sourceRecord;
+      return verifyWorkflowSourceAttestation(evidence);
+    },
     fetchImpl,
   };
   if (options.omitOptionalHostCallbacks) {
@@ -424,15 +479,38 @@ describe('GitHub Actions rerun write adapter', () => {
     }
   });
 
-  it('requires an exact trusted workflow and attested source SHA before approval', async () => {
-    const unattested = await createHarness({ runOverrides: { sourceSha: null, sourceShaAttested: false } });
-    const unattestedResult = await rerun(unattested);
-    assert.equal(unattestedResult.reasonCode, 'workflow_source_sha_unattested');
-    assert.equal(unattested.events.includes('consume-approval'), false);
+  it('ignores caller sourceSha and sourceShaAttested fields', async () => {
+    const harness = await createHarness({
+      runOverrides: { sourceSha: 'e'.repeat(40), sourceShaAttested: false },
+    });
+    const result = await rerun(harness);
+    assert.equal(result.status, 'submitted');
+    assert.equal(harness.events.includes('verify-source'), true);
+    assert.equal(harness.calls.length, 1);
+  });
+
+  it('refuses an unbranded source record before job lookup', async () => {
+    const unbranded = await createHarness({
+      sourceRecord: {
+        repositoryId: REPOSITORY_ID,
+        workflowPath: WORKFLOW_PATH,
+        workflowRef: WORKFLOW_REF,
+        sourceSha: WORKFLOW_SHA,
+        runId: RUN_ID,
+        runAttempt: 1,
+        testedSha: HEAD_SHA,
+      },
+    });
+    const unbrandedResult = await rerun(unbranded);
+    assert.equal(unbrandedResult.reasonCode, 'workflow_source_sha_unattested');
+    assert.equal(unbranded.events.includes('read-jobs'), false);
+    assert.equal(unbranded.events.includes('consume-approval'), false);
+    assert.equal(unbranded.calls.length, 0);
 
     const deniedAttestation = await createHarness({ verifySourceAttestation: false });
     const deniedResult = await rerun(deniedAttestation);
     assert.equal(deniedResult.reasonCode, 'workflow_source_sha_unattested');
+    assert.equal(deniedAttestation.events.includes('read-jobs'), false);
     assert.equal(deniedAttestation.calls.length, 0);
 
     const wrongIdentity = await createHarness({ targetOverrides: { requiredIdentity: { ...REQUIRED_IDENTITY, sha: 'e'.repeat(40) } } });
@@ -440,7 +518,18 @@ describe('GitHub Actions rerun write adapter', () => {
     assert.equal(identityResult.reasonCode, 'workflow_not_allowlisted');
   });
 
-  it('supports an attested required workflow sourced from a separately allowlisted repository', async () => {
+  it('accepts only an exact verifier-owned source record before existing attempt, job, approval, and budget checks', async () => {
+    const harness = await createHarness();
+    const result = await rerun(harness);
+    assert.equal(result.status, 'submitted');
+    assert.ok(harness.events.indexOf('verify-source') < harness.events.indexOf('read-jobs'));
+    assert.ok(harness.events.indexOf('read-jobs') < harness.events.indexOf('consume-approval'));
+    assert.ok(harness.events.indexOf('consume-approval') < harness.events.indexOf('get-token'));
+    assert.ok(harness.events.indexOf('get-token') < harness.events.indexOf('post'));
+    assert.equal(harness.calls.length, 1);
+  });
+
+  it('refuses a source record for a different repository identity', async () => {
     const requiredIdentity = { ...REQUIRED_IDENTITY, repositoryId: REPOSITORY_ID + 1 };
     const harness = await createHarness({
       targetOverrides: { requiredIdentity },
@@ -457,8 +546,9 @@ describe('GitHub Actions rerun write adapter', () => {
     });
 
     const result = await rerun(harness);
-    assert.equal(result.status, 'submitted');
-    assert.equal(harness.calls.length, 1);
+    assert.equal(result.reasonCode, 'workflow_source_sha_unattested');
+    assert.equal(harness.events.includes('read-jobs'), false);
+    assert.equal(harness.calls.length, 0);
   });
 
   it('allows optional host callbacks to be omitted while keeping writes fail-closed', async () => {

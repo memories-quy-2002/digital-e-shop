@@ -4,6 +4,7 @@ import { inflateRawSync } from 'node:zlib';
 import { fingerprintFailure } from './fingerprint-failure.mjs';
 import { normalizeCheckObservation, normalizePrSnapshot, normalizeRequiredCheckSnapshot } from './pr-evidence.mjs';
 import { redactVerificationOutput } from './verify.mjs';
+import { isVerifiedWorkflowSourceRecord } from './workflow-source-attestation.mjs';
 
 const API_ORIGIN = 'https://api.github.com';
 const API_VERSION = '2026-03-10';
@@ -576,7 +577,10 @@ function decodeLogBody(bytes, contentType, maxBytes) {
 }
 
 export function createGitHubPrClient(options) {
-  const allowedOptions = new Set(['repository', 'getToken', 'apiOrigin', 'graphqlOrigin', 'fetchImpl', 'downloadHostAllowlist']);
+  const allowedOptions = new Set([
+    'repository', 'getToken', 'apiOrigin', 'graphqlOrigin', 'fetchImpl', 'downloadHostAllowlist',
+    'verifyWorkflowSourceAttestation',
+  ]);
   if (!isRecord(options) || Object.keys(options).some((key) => !allowedOptions.has(key))) fail('invalid_configuration');
   const parsedRepository = parseRepository(options.repository);
   const apiOrigin = options.apiOrigin ?? API_ORIGIN;
@@ -584,6 +588,7 @@ export function createGitHubPrClient(options) {
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
   const getToken = options.getToken;
   const downloadHostAllowlist = options.downloadHostAllowlist ?? [];
+  const verifyWorkflowSourceAttestation = options.verifyWorkflowSourceAttestation ?? null;
 
   let parsedApi;
   let parsedGraphql;
@@ -596,6 +601,7 @@ export function createGitHubPrClient(options) {
   if (parsedApi.origin !== API_ORIGIN || parsedApi.href !== API_ORIGIN + '/'
       || parsedGraphql.origin !== API_ORIGIN || parsedGraphql.href !== API_ORIGIN + '/graphql'
       || typeof getToken !== 'function' || typeof fetchImpl !== 'function'
+      || (verifyWorkflowSourceAttestation !== null && typeof verifyWorkflowSourceAttestation !== 'function')
       || !Array.isArray(downloadHostAllowlist)
       || downloadHostAllowlist.some((host) => typeof host !== 'string' || !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(host))) {
     fail('invalid_configuration');
@@ -946,8 +952,6 @@ export function createGitHubPrClient(options) {
         event: typeof run.event === 'string' ? run.event : null,
         headSha,
         testedSha,
-        sourceSha: null,
-        sourceShaAttested: false,
         runNumber: isPositiveInteger(run.run_number) ? run.run_number : null,
         runAttempt,
         status: typeof run.status === 'string' ? run.status : 'unknown',
@@ -1004,12 +1008,97 @@ export function createGitHubPrClient(options) {
         sourceSha: null,
       });
     }
+    if (matches.length !== 1) {
+      return Object.freeze({
+        status: 'unavailable',
+        reasonCode: 'workflow_run_ambiguous',
+        requiredWorkflowKey,
+        testedSha,
+        sourceSha: null,
+      });
+    }
+    if (typeof verifyWorkflowSourceAttestation !== 'function') {
+      return Object.freeze({
+        status: 'unavailable',
+        reasonCode: 'workflow_source_sha_unattested',
+        requiredWorkflowKey,
+        testedSha,
+        sourceSha: null,
+      });
+    }
+
+    const run = matches[0];
+    const identity = Object.freeze({
+      type: 'workflow',
+      repositoryId: requiredWorkflow.repositoryId,
+      path: requiredWorkflow.path,
+      ref: requiredWorkflow.ref,
+      sha: requiredWorkflow.sha,
+    });
+    if (!isPositiveInteger(run.workflowId) || !isPositiveInteger(run.runAttempt)
+        || run.event !== 'pull_request' || !run.createdAt || !run.updatedAt
+        || (run.testedSha !== collection.snapshot.headSha && run.testedSha !== collection.snapshot.mergeSha)) {
+      return Object.freeze({
+        status: 'unavailable',
+        reasonCode: 'workflow_source_sha_unattested',
+        requiredWorkflowKey,
+        testedSha,
+        sourceSha: null,
+      });
+    }
+
+    let sourceRecord;
+    try {
+      sourceRecord = await verifyWorkflowSourceAttestation({ identity, run, snapshot: collection.snapshot });
+    } catch {
+      sourceRecord = null;
+    }
+    if (!isVerifiedWorkflowSourceRecord(sourceRecord)
+        || sourceRecord.repositoryId !== requiredWorkflow.repositoryId
+        || sourceRecord.workflowPath !== requiredWorkflow.path
+        || sourceRecord.workflowRef !== requiredWorkflow.ref
+        || sourceRecord.sourceSha !== requiredWorkflow.sha
+        || sourceRecord.runId !== run.id || sourceRecord.runAttempt !== run.runAttempt
+        || sourceRecord.testedSha !== testedSha) {
+      return Object.freeze({
+        status: 'unavailable',
+        reasonCode: 'workflow_source_sha_unattested',
+        requiredWorkflowKey,
+        testedSha,
+        sourceSha: null,
+      });
+    }
+
+    let currentSnapshot;
+    try {
+      currentSnapshot = await readPullRequest(collection.snapshot.number);
+      activeSnapshot = currentSnapshot;
+    } catch {
+      return Object.freeze({
+        status: 'unavailable',
+        reasonCode: 'workflow_source_sha_unattested',
+        requiredWorkflowKey,
+        testedSha,
+        sourceSha: null,
+      });
+    }
+    if (!sameTuple(normalizedTuple(currentSnapshot), normalizedTuple(collection.snapshot))) {
+      return Object.freeze({
+        ...staleResult('pr_tuple_changed'),
+        requiredWorkflowKey,
+        testedSha,
+        sourceSha: null,
+        sourceRecord: null,
+      });
+    }
     return Object.freeze({
-      status: 'unavailable',
-      reasonCode: 'workflow_source_sha_unattested',
+      status: 'current',
+      reasonCode: null,
       requiredWorkflowKey,
       testedSha,
-      sourceSha: null,
+      sourceSha: sourceRecord.sourceSha,
+      sourceRecord,
+      snapshot: currentSnapshot,
     });
   }
 
