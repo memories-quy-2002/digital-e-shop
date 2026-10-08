@@ -196,7 +196,7 @@ function parseVerifiedResult(stdout, { repository, identity, expected }) {
   const subjectDigestKeys = isRecord(subjectDigest) ? Object.keys(subjectDigest) : [];
   const invocation = parseRunInvocationURI(certificate.runInvocationURI, repository);
   const expectedSignerURI = `https://github.com/${repository}/${expected.workflowPath}@${expected.workflowRef}`;
-  const san = certificate.subjectAlternativeName;
+  const sanUri = certificate.subjectAlternativeName;
   const timestampClaims = verifiedRunTimestamps(
     verification.verifiedTimestamps,
     expected.createdAt,
@@ -210,7 +210,7 @@ function parseVerifiedResult(stdout, { repository, identity, expected }) {
       || !isSha(certificate.githubWorkflowSHA)
       || certificate.githubWorkflowSHA !== certificate.buildSignerDigest
       || (identity.sha !== undefined && certificate.githubWorkflowSHA !== identity.sha)
-      || san?.type !== 'URI' || san.value !== expectedSignerURI
+      || typeof sanUri !== 'string' || sanUri !== expectedSignerURI
       || certificate.buildSignerURI !== expectedSignerURI
       || !invocation || invocation.runId !== expected.runId
       || invocation.runAttempt !== expected.runAttempt
@@ -231,7 +231,7 @@ function parseVerifiedResult(stdout, { repository, identity, expected }) {
     githubWorkflowRef: certificate.githubWorkflowRef,
     githubWorkflowSHA: certificate.githubWorkflowSHA,
     buildSignerDigest: certificate.buildSignerDigest,
-    subjectAlternativeName: Object.freeze({ type: san.type, value: san.value }),
+    subjectAlternativeName: Object.freeze({ type: 'URI', value: sanUri }),
     buildSignerURI: certificate.buildSignerURI,
     runId: invocation.runId,
     runAttempt: invocation.runAttempt,
