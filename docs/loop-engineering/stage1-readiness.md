@@ -1,6 +1,6 @@
 # Stage 1 readiness evidence
 
-**Updated:** 2026-10-08
+**Updated:** 2026-10-09
 
 **Status:** BLOCKED — no write-capable Stage 1 pilot PR was selected and no live rerun observations were collected. The read-only OIDC control probe below does not qualify the repository for a Stage 1 pilot.
 
@@ -15,6 +15,16 @@
 | Zero stale-SHA actionable decisions | No eligible observation set | Not assessed |
 | Zero protected/infrastructure misclassifications | No eligible observation set | Not assessed |
 | Bounded metadata without credentials, raw logs, or review bodies | No live Stage 1 observation set | Not assessed |
+
+## Hosted diagnostics status (2026-10-09)
+
+The diagnostic implementation passed local targeted checks: the source-SHA probe suite passed 12 tests; Task 2 verification passed 2 portable Node tests, 87 Worker tests, and Worker typecheck. These results validate local behavior and fixtures only. They are not hosted observations, root-cause evidence, or Stage 1 promotion evidence. The cross-suite Node verification passed 58 tests, and the documentation contract check passed 5 tests. The final Worker rerun passed 87 tests; its final typecheck result is pending.
+
+Unavailable probe results carry a fixed allowlisted `reasonCode`; the existing candidate-success result retains exactly seven keys. Refusals return a null candidate, and unavailable workflow path metadata is present only for the canonical `.github/workflows/loop-foundation.yml` path. Unknown error text is not emitted. Worker failures carry a fixed processing `stage` and allowlisted `reasonCode`; unknown codes map to `stage0_<stage>_failed`. Invalid PR/check normalization uses `pr_snapshot_invalid` or `check_observation_invalid`. Incomplete policy/check evidence retains its existing wait/unavailable behavior; diagnostics do not turn it green or change retry/ack behavior.
+
+On 2026-10-09, a read-only D1 sample showed 258 historical retry records with reason `stage0_queue_processing_failed`, 0 PR-state rows, and 0 Check Run mappings. This is not current Queue backlog, a consumer root-cause finding, or pilot evidence. The scheduler `last_completed_at` value `2026-10-09T01:30:36.918Z` proves only that a sweep completed; it does not prove downstream consumption, publication, or deployed source identity. Do not infer automatic dead-letter replay.
+
+The active Worker version `cce89ad4-8891-49c9-884e-c1fbfa9aa82f` was uploaded on 2026-10-06, but no commit-SHA attestation correlates it to source. The canonical policy parser's `highRiskActions` support merged on 2026-10-08; this policy drift is a separate deployment concern, not an established cause of probe or Queue failures. The GitHub workflow-source probe requires a separately reviewed merge and a fresh eligible PR observation because `workflow_run` uses default-branch code; it does not depend on a Cloudflare deployment. Worker diagnostics separately require a protected deployment and correlation of its source commit with the active Worker version. A later eligible PR may exercise both paths. Stage 1 remains BLOCKED pending fresh evidence and all independent promotion gates.
 
 ## Source-SHA feasibility probe
 

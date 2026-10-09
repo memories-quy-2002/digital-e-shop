@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-09-loop-hosted-diagnostics-design.md`
 
-**Status:** Approved on 2026-10-09; implementation in progress with Luna subagents.
+**Status:** Approved on 2026-10-09; Tasks 1 and 2 implementation and Task 3 documentation are complete. Final cross-surface review and PR preparation remain pending.
 
 ## Global Constraints
 
@@ -36,11 +36,11 @@
 
 **Interfaces:** Keep `inspectWorkflowSourceShaEvidence(input)` and `runSourceShaProbe(env, dependencies)` signatures. Export `normalizeSourceShaProbeErrorCode(error, fallback)` from the core; it returns only an existing allowlisted code or the caller's fixed fallback. The CLI imports it instead of maintaining a second provider-error list.
 
-- [ ] Add refusal-table tests covering each code from the spec, provider exceptions, null provider results, and claim mismatches. Assert unavailable status and null source candidate in every refused case.
-- [ ] Retain the success assertion with exactly the original seven keys. Add hostile `.code`, message, stack/cause, and payload sentinels; assert none appear in serialized results. Retain ignored-foreign-event no-output behavior.
-- [ ] Run `node --test scripts/loop/__tests__/stage1-source-sha-probe.test.mjs` and confirm new assertions fail for missing reasons.
-- [ ] Implement fixed reason assignment at existing refusal guards. Split combined guards only to label their existing failures; preserve their logical coverage and order. Use the normalizer in the provider catch and CLI catch.
-- [ ] Re-run the same command; all assertions must pass. Re-read each original guard against the patch.
+- [x] Add refusal-table tests covering each code from the spec, provider exceptions, null provider results, and claim mismatches. Assert unavailable status and null source candidate in every refused case.
+- [x] Retain the success assertion with exactly the original seven keys. Add hostile `.code`, message, stack/cause, and payload sentinels; assert none appear in serialized results. Retain ignored-foreign-event no-output behavior.
+- [x] Run `node --test scripts/loop/__tests__/stage1-source-sha-probe.test.mjs` and confirm new assertions fail for missing reasons.
+- [x] Implement fixed reason assignment at existing refusal guards. Split combined guards only to label their existing failures; preserve their logical coverage and order. Use the normalizer in the provider catch and CLI catch.
+- [x] Re-run the same command; all assertions must pass. Re-read each original guard against the patch.
 
 ## Task 2: Worker observer and consumer boundaries
 
@@ -48,12 +48,12 @@
 
 **Interfaces:** Keep observer/consumer public call signatures and successful results. Introduce a bounded observer error with fixed codes `pr_snapshot_invalid` and `check_observation_invalid`. Consumer diagnostic failures carry only fixed `code` and `stage`, using the stages and fallback mapping in the spec. Enumerate accepted existing provider/storage/Queue error codes from their definitions; do not accept arbitrary strings or error messages.
 
-- [ ] Add observer tests for malformed PR snapshot and malformed selected check evidence; assert fixed typed codes and no response content in diagnostic fields. Retain policy-incomplete wait fixtures.
-- [ ] Add consumer fault injection at every stage in the spec. Assert failed work does not acknowledge/publish subsequently, stored reason is bounded where delivery registration succeeded, and an acquired lease is released.
-- [ ] Add hostile valid-looking `.code` with message/stack/cause sentinels; assert fallback code and fixed stage. Add `setDeliveryStatus` failure after an observer failure; assert the original diagnostic survives.
-- [ ] Run `pnpm --dir scripts/loop/hosted/cloudflare test` and confirm the new diagnostic assertions fail.
-- [ ] Wrap only observer normalization boundaries; keep transport and incomplete-evidence handling. Track the consumer's current fixed stage before each operation, map known error codes, and emit bounded metadata in existing retry logs/storage. Preserve retries and successful return shape.
-- [ ] Run `pnpm --dir scripts/loop/hosted/cloudflare test` and `pnpm --dir scripts/loop/hosted/cloudflare typecheck`; both must pass. Verify existing corruption, stale policy, concurrency, and report tests remain unchanged or strengthened.
+- [x] Add observer tests for malformed PR snapshot and malformed selected check evidence; assert fixed typed codes and no response content in diagnostic fields. Retain policy-incomplete wait fixtures.
+- [x] Add consumer fault injection at every stage in the spec. Assert failed work does not acknowledge/publish subsequently, stored reason is bounded where delivery registration succeeded, and an acquired lease is released.
+- [x] Add hostile valid-looking `.code` with message/stack/cause sentinels; assert fallback code and fixed stage. Add `setDeliveryStatus` failure after an observer failure; assert the original diagnostic survives.
+- [x] Run `pnpm --dir scripts/loop/hosted/cloudflare test` and confirm the new diagnostic assertions fail.
+- [x] Wrap only observer normalization boundaries; keep transport and incomplete-evidence handling. Track the consumer's current fixed stage before each operation, map known error codes, and emit bounded metadata in existing retry logs/storage. Preserve retries and successful return shape.
+- [x] Run `pnpm --dir scripts/loop/hosted/cloudflare test` and `pnpm --dir scripts/loop/hosted/cloudflare typecheck`; both must pass. Verify existing corruption, stale policy, concurrency, and report tests remain unchanged or strengthened.
 
 ## Task 3: Documentation, verification, and one reviewable PR
 
@@ -61,9 +61,9 @@
 
 **Interfaces:** Document the diagnostics implemented by Tasks 1 and 2, with no new runtime capability. Wiki index date and append-only log entry follow repository rules.
 
-- [ ] Document how to interpret stage/reason codes and the default-branch rollout dependency. Record historical D1 evidence as a dated read-only sample; keep all Stage 1 promotion gates blocked pending fresh evidence.
-- [ ] Document deployment-version/source-SHA correlation and the separate maintainer-controlled deployment. Do not assume Queue retry records equal live backlog or that deploying current code resolves the unknown consumer failure.
-- [ ] Run `node --test scripts/loop/__tests__/stage1-source-sha-probe.test.mjs scripts/loop/__tests__/github-workflow-source-attestation.test.mjs scripts/loop/__tests__/workflow.test.mjs scripts/loop/__tests__/verify.test.mjs scripts/loop/__tests__/pr-runbook.test.mjs`.
+- [x] Document how to interpret stage/reason codes and the default-branch rollout dependency. Record historical D1 evidence as a dated read-only sample; keep all Stage 1 promotion gates blocked pending fresh evidence.
+- [x] Document deployment-version/source-SHA correlation and the separate maintainer-controlled deployment. Do not assume Queue retry records equal live backlog or that deploying current code resolves the unknown consumer failure.
+- [x] Run `node --test scripts/loop/__tests__/stage1-source-sha-probe.test.mjs scripts/loop/__tests__/github-workflow-source-attestation.test.mjs scripts/loop/__tests__/workflow.test.mjs scripts/loop/__tests__/verify.test.mjs scripts/loop/__tests__/pr-runbook.test.mjs` (58/58 passed against implementation revision before documentation completion; root will rerun the documentation contract check).
 - [ ] Run the full Worker test command and typecheck once after final edits. Run `git diff --check` and inspect exact changed paths, diagnostic strings, decision guards, and token transport boundaries.
 - [ ] Perform Luna review using the preserved execution method; fix demonstrated findings within approved scope and repeat affected checks only.
 - [ ] Commit exact paths with Conventional Commit messages on `bugfix/loop-hosted-diagnostics`, then prepare one PR into main under existing authorization. Include behavior changes, test evidence, limits, and the separate hosted rollout step. Do not merge or deploy as part of this plan.

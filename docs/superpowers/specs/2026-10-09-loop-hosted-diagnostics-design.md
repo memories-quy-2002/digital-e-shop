@@ -20,9 +20,12 @@ This is diagnostic work, not a claim that Stage 1 is ready.
   with `stage0_queue_processing_failed`, no PR state, and no Check Run mapping.
   These are historical records, not a measurement of current Queue backlog.
   A completed scheduler sweep does not prove consumer or publisher completion.
-- Current local baseline: 2 portable Node tests, 70 Worker tests, and Worker
-  typecheck pass. Neither consumer root cause nor hosted attestation discrepancy
-  has been established. Policy drift is a separate deployment concern.
+- Current local evidence after Tasks 1 and 2: 2 portable Node tests, 87 Worker
+  tests, and Worker typecheck pass; the focused probe suite passes 12 tests. The
+  cross-suite verification passed 58/58 against the implementation revision
+  before documentation completion. Neither consumer root cause nor hosted
+  attestation discrepancy has been established. Policy drift is a separate
+  deployment concern.
 
 ## Design choice
 
@@ -135,8 +138,15 @@ version, bindings, and tests together; do not claim a version timestamp proves
 its source. No deployment, Queue redelivery/purge, secret change, or remote D1
 mutation belongs to implementation.
 
-The downstream workflow-run probe uses trusted default-branch code, so a PR
-containing diagnostics does not itself prove the new hosted probe. After merge
-and any approved Worker deployment, exercise a fresh eligible PR, inspect the
-new bounded evidence, and fix only a demonstrated cause in subsequent work.
-Do not promise full Stage 1 qualification from a diagnostic PR.
+A 2026-10-09 read-only D1 sample found 258 historical retry records with
+`stage0_queue_processing_failed`, no PR-state records, and no Check Run
+mappings. This dated sample is not current backlog, cause proof, or pilot
+evidence. Scheduler completion at `2026-10-09T01:30:36.918Z` does not prove
+consumer completion or publication. The active version
+`cce89ad4-8891-49c9-884e-c1fbfa9aa82f` was uploaded on 2026-10-06 without a
+commit-SHA attestation. The downstream workflow-run probe uses trusted
+default-branch code, so a PR containing diagnostics does not itself prove the
+new hosted probe. After separately reviewed merge and approved protected
+deployment, correlate source commit and active version, then exercise a fresh
+eligible PR and inspect bounded evidence. Fix only a demonstrated cause in
+subsequent work. Do not promise full Stage 1 qualification from a diagnostic PR.
