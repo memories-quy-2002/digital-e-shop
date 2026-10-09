@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-09-loop-hosted-diagnostics-design.md`
 
-**Status:** Approved on 2026-10-09; Tasks 1 and 2 implementation and Task 3 documentation are complete. Final cross-surface review and PR preparation remain pending.
+**Status:** Local implementation and Luna task/whole-branch reviews completed on 2026-10-09. Hosted CI and rollout evidence remain separate handoff requirements.
 
 ## Global Constraints
 
@@ -65,8 +65,8 @@
 - [x] Document deployment-version/source-SHA correlation and the separate maintainer-controlled deployment. Do not assume Queue retry records equal live backlog or that deploying current code resolves the unknown consumer failure.
 - [x] Run `node --test scripts/loop/__tests__/stage1-source-sha-probe.test.mjs scripts/loop/__tests__/github-workflow-source-attestation.test.mjs scripts/loop/__tests__/workflow.test.mjs scripts/loop/__tests__/verify.test.mjs scripts/loop/__tests__/pr-runbook.test.mjs` (58/58 passed; documentation contract rerun passed 5/5 after the update).
 - [x] Run the full Worker test command and typecheck once after final edits. Run `git diff --check` and inspect exact changed paths, diagnostic strings, decision guards, and token transport boundaries (2 portable + 87 Worker tests and typecheck passed).
-- [ ] Perform Luna review using the preserved execution method; fix demonstrated findings within approved scope and repeat affected checks only.
-- [ ] Commit exact paths with Conventional Commit messages on `bugfix/loop-hosted-diagnostics`, then prepare one PR into main under existing authorization. Include behavior changes, test evidence, limits, and the separate hosted rollout step. Do not merge or deploy as part of this plan.
+- [x] Perform Luna review using the preserved execution method; fix demonstrated findings within approved scope and repeat affected checks only (task reviews and final whole-branch review approved).
+- [x] Commit exact paths with Conventional Commit messages on `bugfix/loop-hosted-diagnostics`, then prepare one PR into main under existing authorization. Include behavior changes, test evidence, limits, and the separate hosted rollout step. Do not merge or deploy as part of this plan (branch commits and PR handoff prepared).
 
 ## Completion boundary
 
