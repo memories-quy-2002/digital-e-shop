@@ -830,7 +830,7 @@ const vi: Dictionary = {
     bankTransfer: "Chuyển khoản",
     cashOnDelivery: "Thanh toán khi nhận hàng",
     copyright:
-      "© 2026 Digital-E. Xây dựng cho việc mua sắm đồ công nghệ hằng ngày.",
+      "© 2026 Digital-E. Nguyen Manh Phu Quy",
     terms: "Điều khoản dịch vụ",
     privacy: "Chính sách bảo mật",
     cookies: "Chính sách cookie",
