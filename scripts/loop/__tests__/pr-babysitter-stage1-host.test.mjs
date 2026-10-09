@@ -11,6 +11,7 @@ import { assertCheckoutMatchesPr, assertEligiblePullRequest } from '../pr-babysi
 import {
   assertStage1Command,
   createPrBabysitterStage1Host,
+  createStage1WorkflowSourceVerifier,
   runPrBabysitterStage1,
   STAGE1_TRUST_STATUS,
 } from '../pr-babysitter-stage1-host.mjs';
@@ -22,6 +23,24 @@ const execFileAsync = promisify(execFile);
 function errorWithCode(code) {
   return (error) => error?.code === code;
 }
+
+it('uses a dedicated read-only source-attestation installation capability', async () => {
+  let providerOptions;
+  const verifier = createStage1WorkflowSourceVerifier({
+    getObserveToken: async (capability) => {
+      assert.equal(capability, 'source-attestation:read');
+      return 'observe-token';
+    },
+    providerFactory: (options) => {
+      providerOptions = options;
+      return { inspectWorkflowSourceAttestation: async () => null };
+    },
+  });
+
+  assert.equal(typeof verifier, 'function');
+  assert.equal(await providerOptions.getToken('observe'), 'observe-token');
+  await assert.rejects(providerOptions.getToken('actions:write'), (error) => error?.reasonCode === 'stage1_read_only');
+});
 
 it('allows only inspect and rerun-flaky for the fixed same-repository entrypoint', () => {
   assert.equal(assertStage1Command({ command: 'inspect', repository, dryRun: false }, false), true);
@@ -169,7 +188,7 @@ it('keeps Stage 1 disabled when trust configuration and a host budget session ar
   assert.ok(result.blockers.includes('trusted_job_graph_unavailable'));
   assert.equal(fetchCalls, 0);
   assert.deepEqual(STAGE1_TRUST_STATUS, {
-    sourceAttestationProvider: 'unavailable',
+    sourceAttestationProvider: 'configured',
     workflowAllowlistEntries: 0,
     trustedApproverIds: 0,
     ciRunBudgetSession: 'unavailable',

@@ -1,6 +1,6 @@
 # Stage 1 CLI runbook
 
-**Updated:** 2026-10-08
+**Updated:** 2026-10-09
 
 **Status:** Offline implementation only; live reruns are disabled.
 
@@ -12,15 +12,21 @@ contacting GitHub. `rerun-flaky --dry-run` checks command syntax only. It does
 not inspect a PR, authenticate an approver, select an eligible run, or prove
 that a rerun could be submitted.
 
-PR #293 merged the source-attestation producer, GitHub CLI verifier, and
-read-only workflow-run probe into `main`. Positive hosted proof is still
-pending; the Stage 1 host does not wire the provider into a live
-rerun, so its trust status remains unavailable. A trusted workflow/job
-allowlist, trusted approver list, and host-managed LoopState CI budget session
-also remain absent. PR #289 set the canonical `ciRunLimit` to `2`, but the
-Stage 1 host does not bind a persisted session budget to that policy revision.
-Environment variables and CLI arguments cannot supply or override these trust
-inputs.
+PR #300 merged the source-attestation producer and recorded a successful
+hosted producer-to-probe result. The Stage 1 `inspect` path now configures the
+GitHub CLI attestation provider with a separate `source-attestation:read`
+installation token and asks the
+PR client to verify each required-workflow identity from a fresh, complete
+ruleset snapshot. It reports `workflowEvidence.status: "verified"` and a
+bounded `sourceSha` only when the verifier returns its private record and the
+PR client confirms that record matches the exact workflow identity, run,
+attempt, tested SHA, and current PR tuple. The probe's `sourceShaCandidate` is
+never used as trust input. `inspect` is still read-only. The trusted
+approver/job configuration and host-managed LoopState CI budget session remain
+absent, so the live rerun command remains blocked. PR #289 set the canonical
+`ciRunLimit` to `2`, but the Stage 1 host does not bind a persisted session
+budget to that policy revision. Environment variables and CLI arguments
+cannot supply or override these trust inputs.
 
 ## Source-SHA feasibility result
 
@@ -39,8 +45,7 @@ same-repository PR. Its downstream read-only probe checks the certificate
 against the exact run, attempt, and current PR tuple, then reports only a
 bounded source-SHA candidate. It never trusts raw `workflow_sha`, `source_sha`,
 or predicate fields. The later labeled control run below did not produce a
-hosted candidate, so positive hosted proof remains pending. A candidate does
-not enable Stage 1.
+hosted candidate. A candidate does not enable Stage 1.
 
 ## Attestation contract and verification
 
@@ -67,10 +72,11 @@ complete page of PRs by `head_branch`. It requires one same-repository PR whose
 head SHA or merge SHA matches the tested SHA, then verifies the certificate
 without an allowlisted source SHA. Its frozen output exposes
 `sourceShaCandidate` as untrusted feasibility metadata; it never creates the
-verifier-owned record used by trust mode. The Stage 1 CLI does not configure
-this provider, so a candidate cannot authorize a rerun.
+verifier-owned record used by trust mode. The Stage 1 CLI does not consume this
+probe output; it independently performs verifier-backed inspection from fresh
+PR and required-workflow observations. A candidate cannot authorize a rerun.
 
-On 2026-10-08, the labeled same-repository PR [#297](https://github.com/memories-quy-2002/digital-e-shop/pull/297) produced a successful attestation in [run 37751138161](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37751138161), but the hosted read-only [probe 37751216313](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37751216313) returned `unavailable` with no candidate. A local replay with the current GitHub CLI and local credentials returned the PR merge SHA, but it does not validate the workflow token or hosted execution. Keep the hosted proof gate closed until the discrepancy is explained and a hosted probe returns a candidate for the exact run and PR tuple.
+On 2026-10-08, the labeled same-repository PR [#297](https://github.com/memories-quy-2002/digital-e-shop/pull/297) produced a successful attestation in [run 37751138161](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37751138161), but the hosted read-only [probe 37751216313](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37751216313) returned `unavailable` with no candidate. This remains historical negative evidence for that run. After the verifier wiring fix, PR #300's fresh producer run [37880908533](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37880908533) succeeded and the read-only probe [37880957685](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37880957685) returned `candidate_present` for the exact PR tuple. That proves hosted producer-to-probe feasibility only; it is not a Stage 1 host inspection record or rerun authorization.
 
 ## Attempt-bound rerun feasibility result
 
@@ -87,8 +93,9 @@ This establishes stale-job-ID rejection for the tested job-rerun endpoint.
 The guarded-writer change was merged in PR #296. It uses that endpoint with
 exactly one root job ID from matching, complete attempt-specific evidence.
 Multiple requested roots and attempts with multiple failed roots are refused.
-The standalone Stage 1 host still refuses live reruns; source attestation, the
-trusted job graph, approver configuration, and a host-managed budget session
+The standalone Stage 1 host still refuses live reruns. Its read-only inspect
+path can now verify source attestation for a current required workflow; the
+trusted job graph, approver configuration, and host-managed budget session
 remain unavailable.
 
 ## Current commands
@@ -104,7 +111,12 @@ node scripts/loop/pr-babysitter-stage1-host.mjs inspect --repo memories-quy-2002
 The PR number must be selected by the maintainer; the placeholder above is not
 a pilot identity. Interpret `wait` and `escalated` as decisions, not as CI
 success or infrastructure failure. Required workflow evidence without a
-trusted source-SHA attestation remains unavailable.
+matching verifier-owned source attestation remains unavailable. Source
+verification uses GitHub CLI 2.92.0 or later and a dedicated App installation
+token with the `source-attestation:read` capability. That token adds
+only repository `Attestations: read` to the existing observe permissions;
+Stage 0's observe token is unchanged. The installed App must have this
+repository permission enabled. It does not grant Actions write access.
 
 Syntax-only dry run:
 
@@ -125,7 +137,7 @@ inspects the selected PR, or calls GitHub.
 node scripts/loop/pr-babysitter-stage1-host.mjs rerun-flaky --repo memories-quy-2002/digital-e-shop --pr <selected-pr>
 ```
 
-With the current host, the command exits with code `1` and returns
+With the current host, the command exits with code `3` and returns
 `stage1_prerequisites_unavailable`. The blockers include
 `run_attempt_write_binding_unavailable` and the other trust, source-attestation,
 job-graph, and budget gates listed below. This response does not describe the
@@ -163,10 +175,11 @@ available from trusted host configuration:
 1. The reviewed OIDC producer and verifier must prove the exact workflow source
    SHA from certificate claims and bind it to repository ID, workflow path/ref,
    run ID and attempt, tested SHA, and the current PR tuple. Only the
-   verifier-owned record may carry that identity into the adapters. The local
-   adapter wiring exists, but the Stage 1 host does not configure it and hosted
-   proof is pending. Unknown or mismatched evidence must refuse without
-   fallback.
+   verifier-owned record may carry that identity into the adapters. Stage 1
+   `inspect` configures the verifier; a run-level result remains unavailable
+   unless fresh required-workflow identity and attestation evidence match
+   exactly. Unknown or mismatched evidence must refuse without fallback. The
+   hosted producer-to-probe proof does not substitute for a host observation.
 2. A complete, reviewed workflow and job graph allowlist. It must account for
    reusable workflows, local actions, dependent jobs, secrets, protected
    environments, token permissions, and dynamic matrices.
@@ -229,3 +242,10 @@ See [readiness evidence](stage1-readiness.md) for the promotion gates and
 collection limits, and the [OIDC workflow-source attestation design](../superpowers/specs/2026-10-07-stage1-oidc-workflow-source-attestation-design.md)
 for the proposed trust boundary and its verification criteria. No live Stage 1
 pilot has run.
+
+On 2026-10-09, local `inspect --pr 300` refused with
+`app_configuration_missing` before contacting GitHub. The local environment had
+no Stage 1 GitHub App configuration, and the repository had no open PR to
+inspect. Therefore the App-backed verifier and effective `Attestations: read`
+installation permission remain unverified; this refusal is not a pilot
+observation.
