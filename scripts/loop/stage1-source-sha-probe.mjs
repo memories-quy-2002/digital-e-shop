@@ -61,7 +61,7 @@ function unavailable({ runId = null, runAttempt = null, workflowId = null, path 
     runId: isPositiveInteger(runId) ? runId : null,
     runAttempt: isPositiveInteger(runAttempt) ? runAttempt : null,
     workflowId: isPositiveInteger(workflowId) ? workflowId : null,
-    path: typeof path === 'string' && path.length <= 1024 ? path : null,
+    path: path === '.github/workflows/loop-foundation.yml' ? path : null,
     testedSha: normalizeSha(testedSha),
     sourceShaCandidate: null,
     ...(typeof reasonCode === 'string' ? { reasonCode } : {}),

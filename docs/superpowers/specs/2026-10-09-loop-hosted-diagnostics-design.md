@@ -33,8 +33,11 @@ the failing boundary. Do not introduce a telemetry service or dependency.
 
 ## Probe contract
 
-Retain all existing metadata, null handling, verification guards, status values,
-and the candidate-success shape. Add `reasonCode` only to unavailable results.
+Retain existing validated IDs/SHAs, verification guards, status values, and the
+candidate-success shape. Unavailable path metadata is the canonical fixed
+`.github/workflows/loop-foundation.yml` only when the sampled path equals that
+value; otherwise it is null, so malformed event text is never echoed.
+Add `reasonCode` only to unavailable results.
 It is a fixed enum, never derived from exception text or response content:
 
 - `probe_identity_mismatch`: repository/workflow/path comparison failed.

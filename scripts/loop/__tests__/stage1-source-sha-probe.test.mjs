@@ -372,3 +372,25 @@ it('keeps CLI refusal exits bounded and ignores foreign repositories without out
   assert.equal(ignored.stdout, '');
   assert.equal(ignored.stderr, '');
 });
+
+it('does not echo untrusted paths, event bodies, or returned claims in refusal metadata', async () => {
+  const sentinels = ['SECRET_event_path', 'SECRET_api_path', 'SECRET_event_body', 'SECRET_claim'];
+  const invalidEventPath = await inspect({
+    event: eventPayload({ path: sentinels[0], body: sentinels[2] }),
+  });
+  assert.equal(invalidEventPath.reasonCode, 'probe_identity_mismatch');
+  assert.equal(invalidEventPath.path, null);
+  assert.equal(JSON.stringify(invalidEventPath).includes('SECRET_'), false);
+
+  const invalidApiPath = await inspect({
+    apiRun: workflowRun({ path: sentinels[1] }),
+  });
+  assert.equal(invalidApiPath.reasonCode, 'probe_identity_mismatch');
+  assert.equal(JSON.stringify(invalidApiPath).includes(sentinels[1]), false);
+
+  const untrustedClaims = await inspect({
+    claims: certificateClaims({ githubWorkflowSHA: sentinels[3] }),
+  });
+  assert.equal(untrustedClaims.reasonCode, 'probe_claims_mismatch');
+  assert.equal(JSON.stringify(untrustedClaims).includes(sentinels[3]), false);
+});
