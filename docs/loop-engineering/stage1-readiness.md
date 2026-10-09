@@ -9,8 +9,8 @@
 | Gate | Evidence collected | Result |
 | --- | --- | --- |
 | At least 10 representative failed or pending observations | 0 of 10 in this run | Blocked |
-| Cron sweep completion | Not independently observed | Blocked |
-| Downstream Queue processing | Not independently observed | Blocked |
+| Cron sweep completion | Read-only D1 completion record `2026-10-09T01:30:36.918Z`; deployed source unverified | Observed record; pilot pending |
+| Downstream Queue processing | No successful consumer completion observed; historical retry records are not current backlog evidence | Blocked |
 | Check Run publication | Not independently observed | Blocked |
 | Zero stale-SHA actionable decisions | No eligible observation set | Not assessed |
 | Zero protected/infrastructure misclassifications | No eligible observation set | Not assessed |
