@@ -4,6 +4,26 @@
 
 **Status:** BLOCKED — no write-capable Stage 1 pilot PR was selected and no live rerun observations were collected. The read-only OIDC control probe below does not qualify the repository for a Stage 1 pilot.
 
+## Trusted dispatch retry implementation (2026-10-09)
+
+The implementation branch now contains a fixed workflow-dispatch path, a
+shared `client`/`server` verifier action used by normal CI, a separate
+`checks: write` publisher that can update only the previously failed Check Run,
+and a read-only observer bound to GitHub's returned `workflow_run_id`. These
+are local code and mock/static-test results; hosted CI for this implementation
+and the live cross-run update behavior remain unobserved. The standalone host
+continues to refuse because its trusted approver, workflow/actor configuration,
+persisted CI budget session, and dispatch/observer runtime are unavailable.
+No App permission, branch protection, or production configuration was changed.
+
+Before PR #302 was merged, its live read-only inspection returned
+`ready-for-human` with all five required check identities matched and green on
+head SHA `77dca7fd0f04b705182a669dd1d2254559e448c9`. The same snapshot reported
+zero required workflow identities and an empty `workflowEvidence` array. This
+is historical required-check evidence for that PR; it is not proof of the
+workflow source-attestation path, trusted dispatch, Check Run publication, or
+a Stage 1 pilot.
+
 ## Promotion gates
 
 | Gate | Evidence collected | Result |
@@ -46,9 +66,9 @@ PR #293 merged this implementation to `main` at `c546532fbd4537c349f29b4600a3270
 
 The first post-merge control run was not a PR event: `Loop Foundation` run `37742163945` completed on the main push, and read-only probe run `37742207061` returned `status: unavailable` with `sourceShaCandidate: null`. That is the expected fail-closed result for a push without a same-repository PR association. It confirms the no-candidate path only; it is not positive OIDC proof.
 
-Do not infer the workflow source SHA from the tested SHA, workflow path, or ref. PR #300's hosted control probe below verified a candidate for one exact run attempt and PR tuple. The Stage 1 host still cannot load a verifier-owned attestation record, so `workflow_source_sha_unattested` remains a hard refusal for Stage 1 operations.
+Do not infer the workflow source SHA from the tested SHA, workflow path, or ref. PR #300's hosted control probe below verified a candidate for one exact run attempt and PR tuple. That evidence concerns required-workflow observations. The trusted-dispatch workflow source is separately bound to the PR base SHA and must be verified from the exact returned workflow run; no live dispatch has tested that path.
 
-## Attempt-bound rerun feasibility experiment
+## Historical attempt-bound rerun feasibility experiment
 
 A controlled Actions test on the same-repository, non-`main`, documentation-only PR #294 established that a job ID from an older attempt is rejected after a newer attempt becomes current. The test used the `Loop Foundation` workflow only; no deployment job ran.
 
@@ -62,15 +82,15 @@ A controlled Actions test on the same-repository, non-`main`, documentation-only
 | Re-submit attempt 1 job ID | HTTP `403`: `Only jobs from the current attempt can be re-run` |
 | Final run attempt | `2` (no third attempt was created) |
 
-This resolves the stale-job-ID behavior for the tested job-rerun endpoint: a previous-attempt job ID did not start another run. PR #296 merged the guarded-writer change that targets exactly one job ID from the complete, approved attempt-specific response. The standalone Stage 1 host remains fail-closed until its capability gate is reviewed against that writer and the independent trust gates are met. This single test is feasibility evidence, not pilot evidence or authorization to enable Stage 1.
+This establishes stale-job-ID behavior for the tested job-rerun endpoint only. PR #296 merged a guarded writer for that design, which the selected trusted-dispatch path does not call. This single test is historical feasibility evidence, not pilot evidence or authorization to enable Stage 1.
 
 ## Collection limits
 
 - The maintainer has not selected a same-repository, non-`main` pilot PR. The example PR number in the command below is intentionally not used.
 - PR #289 merged the canonical finite `ciRunLimit: 2` policy. The Stage 1 host still has no persisted LoopState session loaded and validated against that revision, so it reports `ci_run_budget_session_unavailable` and refuses live reruns.
 - No live Stage 1 GitHub or Cloudflare observation set was collected in this run. Local fixtures and static code inspection are not promotion evidence.
-- The run-level failed-jobs endpoint does not bind a write to `run_attempt`. PR #296 merged the guarded-writer change to submit exactly one attempt-scoped root job ID, and the controlled test above found that GitHub rejects a previous-attempt ID once a newer attempt is current. The standalone Stage 1 host still reports `run_attempt_write_binding_unavailable` and refuses live writes until that host capability gate is reviewed and reconciled with the writer.
-- The GitHub job response does not provide the workflow `needs` graph, and current trusted configuration has no approved graph. `trusted_job_graph_unavailable` remains a hard gate until each eligible workflow has a complete reviewed graph.
+- The legacy run/job-rerun endpoint is not called by the trusted-dispatch path. The host refuses unless its dispatch runtime, trusted actor/approver configuration, and persisted budget session are available.
+- The retry workflow statically defines the verifier and publisher dependency, but there is no host-owned runtime configuration or live run observation yet. Local workflow tests are not evidence of hosted job results.
 - The source-attestation adapters now accept only immutable records created by the verifier; raw API `sourceSha` and `sourceShaAttested` fields are ignored. PR #300 proves the hosted producer-to-probe path for one tuple. Stage 1 `inspect` now configures the verifier with a separate repository-scoped `source-attestation:read` token; the installed App must grant `Attestations: read`. This does not make the probe candidate a Stage 1 host trust record, and live App-backed inspection has not yet been verified.
 - PR #291's hosted `Loop Foundation` test passed on the reviewed PR head ([run 37417234608](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37417234608)); the post-merge `Loop Foundation` run also passed with the new probe suite ([run 37418888640](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37418888640)).
 - The Phase 2 runbook documents one earlier `inspect` result for PR #264 on 2026-09-30. It returned `wait` for missing required-check evidence on the selected merge SHA, but the summary does not contain the complete observation tuple required by this plan; it is historical context and is not counted toward the 10 observations.
@@ -80,7 +100,7 @@ This resolves the stale-job-ID behavior for the tested job-rerun endpoint: a pre
 
 On 2026-10-08, `node --test scripts/loop/__tests__/pr-babysitter-stage1-host.test.mjs` passed all 10 tests. The tests confirm the Stage 1 host refuses while trust configuration or a persisted CI budget session is missing, and makes no network request on that path.
 
-A TTY invocation of `rerun-flaky` returned `stage1_prerequisites_unavailable` with all five current blockers, including `run_attempt_write_binding_unavailable`. It exited before credentials or GitHub access. The invocation used PR number `294` only to exercise the early refusal; the host did not inspect PR #294, and the result does not count as a pilot observation.
+A TTY invocation of `rerun-flaky` on 2026-10-08 returned `stage1_prerequisites_unavailable` with the then-current five blockers, including `run_attempt_write_binding_unavailable`. It exited before credentials or GitHub access. The invocation used PR number `294` only to exercise the early refusal; the host did not inspect PR #294, and the result does not count as a pilot observation.
 
 ## Post-merge labeled OIDC control probe
 
@@ -143,6 +163,6 @@ Add one row per fresh observation only after the maintainer selects the pilot PR
 
 Run `node scripts/loop/pr-babysitter-host.mjs inspect --repo memories-quy-2002/digital-e-shop --pr <maintainer-selected-pr>` from its matching clean PR checkout. Preserve `wait` and `escalated` as decisions, not infrastructure failures. Record only bounded identifiers, SHA values, status, classification, reason code, and evidence kind.
 
-PR #300 is the same-repository control PR for the opt-in producer and downstream probe. Its latest accepted result is recorded above. This proves only source identity for that exact run attempt and PR tuple. The workflow/job graph, trusted approver, host-managed budget session, and run-attempt write binding remain separate blockers.
+PR #300 is the same-repository control PR for the opt-in producer and downstream probe. Its latest accepted result is recorded above. This proves only source identity for that exact run attempt and PR tuple. Trusted approver/actor configuration, host-managed budget session, complete host wiring, hosted trusted-dispatch evidence, and cross-run Check Run behavior remain separate blockers.
 
 Do not enable Stage 1, change the canonical policy, or change GitHub App permissions from this report. Continue to require reviewed workflow-source attestation, a reviewed complete job allowlist, and a host-managed persisted session bound to the finite canonical CI budget.

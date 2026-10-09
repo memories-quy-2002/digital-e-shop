@@ -30,6 +30,7 @@ function defaultPermissions(capability = 'observe') {
   };
   if (capability === 'source-attestation:read') return { ...observe, attestations: 'read' };
   if (capability === 'actions:rerun') return { ...observe, actions: 'write' };
+  if (capability === 'stage1:required-check-recovery') return { ...observe, actions: 'write' };
   if (capability === 'contents:write') return { ...observe, contents: 'write' };
   return observe;
 }
@@ -87,7 +88,7 @@ function createHarness(options = {}) {
       const requested = JSON.parse(init.body);
       const capability = requested.permissions.contents === 'write'
         ? 'contents:write'
-        : requested.permissions.actions === 'write' ? 'actions:rerun'
+        : requested.permissions.actions === 'write' ? (requested.permissions.checks === 'write' ? 'actions:rerun' : 'stage1:required-check-recovery')
           : requested.permissions.attestations === 'read' ? 'source-attestation:read' : 'observe';
       return response(201, options.installationResponse ?? {
         token: INSTALLATION_TOKEN,
@@ -419,6 +420,36 @@ describe('GitHub App authentication and approval provider', () => {
       harness.provider.requestApproval(approvalScope({ capability: 'actions:rerun', paths: ['.github/workflows/ci.yml'] })),
       (error) => error instanceof GitHubAuthProviderError && error.code === 'invalid_scope',
     );
+  });
+
+  it('binds Stage 1 approval to every immutable target field and grants actions write only', async () => {
+    const harness = createHarness();
+    await harness.provider.authenticateApprover();
+    const target = {
+      repositoryId: REPOSITORY_ID, prNumber: 42, baseSha: 'a'.repeat(40), headSha: 'b'.repeat(40), mergeSha: 'c'.repeat(40),
+      testedSha: 'c'.repeat(40), context: 'client', appId: 15368, checkRunId: 12345, workflowId: 77,
+      workflowPath: '.github/workflows/stage1-trusted-retry.yml', workflowRef: 'main', workflowSourceSha: 'a'.repeat(40), requestId: '1'.repeat(32),
+      actorId: 9988, actorLogin: 'digital-e-loop-runner[bot]',
+    };
+    const scope = approvalScope({ capability: 'stage1:required-check-recovery', paths: [target.workflowPath], stage1Target: target });
+    const approval = await harness.provider.requestApproval(scope);
+    const prompt = harness.promptEvents.find((event) => event.type === 'approval');
+    assert.equal(prompt.capability, 'stage1:required-check-recovery');
+    assert.deepEqual(prompt.stage1Target, target);
+    await harness.provider.getInstallationToken('stage1:required-check-recovery');
+    const tokenRequest = JSON.parse(harness.calls.find((call) => call.url.pathname.endsWith('/access_tokens')).body);
+    assert.equal(tokenRequest.permissions.actions, 'write');
+    assert.equal(tokenRequest.permissions.checks, 'read');
+    assert.equal(tokenRequest.permissions.contents, undefined);
+    for (const changed of [
+      { ...target, headSha: 'f'.repeat(40) }, { ...target, checkRunId: 12346 }, { ...target, workflowId: 78 },
+      { ...target, requestId: '2'.repeat(32) },
+    ]) {
+      assert.throws(() => harness.provider.consumeApproval(approval, { ...scope, stage1Target: changed }),
+        (error) => ['approval_scope_mismatch', 'invalid_scope'].includes(error.code));
+    }
+    assert.equal(harness.provider.consumeApproval(approval, scope), undefined);
+    assert.throws(() => harness.provider.consumeApproval(approval, scope), (error) => error.code === 'approval_replayed');
   });
 
   it('expires an unconsumed approval and rejects malformed or unsafe path scopes', async () => {

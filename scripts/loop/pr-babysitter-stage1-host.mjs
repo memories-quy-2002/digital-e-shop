@@ -17,8 +17,9 @@ const STAGE1_BLOCKERS = Object.freeze([
   'workflow_source_sha_unattested',
   'ci_run_budget_session_unavailable',
   'stage1_trust_configuration_unavailable',
+  'stage1_dispatch_runtime_unavailable',
   'trusted_job_graph_unavailable',
-  'run_attempt_write_binding_unavailable',
+  'stage1_host_observer_unavailable',
 ]);
 
 export function assertStage1Command(args, isTTY) {
@@ -35,7 +36,8 @@ export function assertStage1Command(args, isTTY) {
 }
 
 // Stage 1 inspection reuses the independently tested read-only bootstrap. It has no
-// Actions adapter; rerun is routed only after the separate trust and budget gates exist.
+// write adapter; retry remains refused unless a separate host-owned approval,
+// budget, workflow identity, and observer runtime is configured and reviewed.
 export async function createPrBabysitterStage1Host({ prNumber, repoRoot = process.cwd(), env = process.env } = {}) {
   return createPrBabysitterStage0Host({
     prNumber,

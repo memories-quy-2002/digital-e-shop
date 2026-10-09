@@ -73,6 +73,26 @@ function validActionTarget(value, repositoryId) {
 }
 
 function validApprovalPayload(payload, now) {
+  if (payload?.capability === 'stage1:required-check-recovery') {
+    const target = payload.stage1Target;
+    return hasExactKeys(payload, ['type', 'repositoryId', 'repository', 'prNumber', 'revision', 'capability', 'paths', 'stage1Target', 'approverId', 'expiresAt'])
+      && isPositiveInteger(payload.repositoryId) && validRepositoryName(payload.repository)
+      && isPositiveInteger(payload.prNumber) && isPositiveInteger(payload.approverId)
+      && isFutureTimestamp(payload.expiresAt, now) && hasExactKeys(payload.revision, ['baseSha', 'headSha', 'mergeSha'])
+      && isSha(payload.revision.baseSha) && isSha(payload.revision.headSha)
+      && (payload.revision.mergeSha === null || isSha(payload.revision.mergeSha))
+      && Array.isArray(payload.paths) && payload.paths.length === 1 && payload.paths[0] === '.github/workflows/stage1-trusted-retry.yml'
+      && hasExactKeys(target, ['repositoryId', 'prNumber', 'baseSha', 'headSha', 'mergeSha', 'testedSha', 'context', 'appId', 'checkRunId', 'workflowId', 'workflowPath', 'workflowRef', 'workflowSourceSha', 'requestId', 'actorId', 'actorLogin'])
+      && target.repositoryId === payload.repositoryId && target.prNumber === payload.prNumber
+      && target.baseSha.toLowerCase() === payload.revision.baseSha.toLowerCase() && target.headSha.toLowerCase() === payload.revision.headSha.toLowerCase()
+      && target.mergeSha === payload.revision.mergeSha && isSha(target.testedSha)
+      && [target.headSha.toLowerCase(), target.mergeSha?.toLowerCase()].includes(target.testedSha.toLowerCase())
+      && ['client', 'server'].includes(target.context) && target.appId === 15368 && isPositiveInteger(target.checkRunId)
+      && isPositiveInteger(target.workflowId) && target.workflowPath === '.github/workflows/stage1-trusted-retry.yml'
+      && target.workflowRef === 'main' && target.workflowSourceSha.toLowerCase() === target.baseSha.toLowerCase()
+      && /^[a-f0-9]{32}$/.test(target.requestId) && isPositiveInteger(target.actorId)
+      && target.actorLogin === 'digital-e-loop-runner[bot]';
+  }
   const keys = [
     'type', 'repositoryId', 'repository', 'prNumber', 'revision', 'capability', 'paths',
     'testedSha', 'actionTarget', 'approverId', 'expiresAt',
@@ -109,6 +129,14 @@ function validJobGraph(value) {
 }
 
 function validReviewContext(review, payload) {
+  if (payload.capability === 'stage1:required-check-recovery') {
+    return isRecord(review) && ['repositoryId', 'prNumber', 'revision', 'capability', 'paths', 'stage1Target',
+      'branch', 'classification', 'remainingCIRuns', 'remainingFlakyRetries'].every((key) => Object.hasOwn(review, key))
+      && ['repositoryId', 'prNumber', 'revision', 'capability', 'paths', 'stage1Target'].every((key) => isDeepStrictEqual(review[key], payload[key]))
+      && isSafeText(review.branch) && review.classification === 'flaky'
+      && Number.isSafeInteger(review.remainingCIRuns) && review.remainingCIRuns > 0 && review.remainingCIRuns <= 100_000
+      && Number.isSafeInteger(review.remainingFlakyRetries) && review.remainingFlakyRetries > 0 && review.remainingFlakyRetries <= 100_000;
+  }
   if (!isRecord(review)
       || !['repositoryId', 'prNumber', 'revision', 'capability', 'paths', 'testedSha', 'actionTarget',
         'branch', 'classification', 'remainingCIRuns', 'remainingFlakyRetries', 'jobGraph']
@@ -179,8 +207,12 @@ export function createStage1Prompt({ input, output, getReviewContext, now = Date
         remainingCIRuns: review.remainingCIRuns,
         remainingFlakyRetries: review.remainingFlakyRetries,
         jobGraph: review.jobGraph,
+      ...(payload.stage1Target ? { stage1Target: payload.stage1Target } : {}),
       }, null, 2) + '\n');
-      return await terminal.question('Rerun failed jobs and their dependent jobs? Type RERUN: ') === 'RERUN';
+      const confirmation = payload.capability === 'stage1:required-check-recovery'
+        ? 'Dispatch the trusted verifier and update this existing Check Run only after success? Type RECOVER: '
+        : 'Rerun failed jobs and their dependent jobs? Type RERUN: ';
+      return await terminal.question(confirmation) === (payload.capability === 'stage1:required-check-recovery' ? 'RECOVER' : 'RERUN');
     } finally {
       terminal.close();
     }

@@ -19,10 +19,11 @@ const CAPABILITY_PERMISSIONS = Object.freeze({
   observe: OBSERVE_PERMISSIONS,
   'source-attestation:read': Object.freeze({ ...OBSERVE_PERMISSIONS, attestations: 'read' }),
   'actions:rerun': Object.freeze({ ...OBSERVE_PERMISSIONS, actions: 'write' }),
+  'stage1:required-check-recovery': Object.freeze({ ...OBSERVE_PERMISSIONS, actions: 'write' }),
   'contents:write': Object.freeze({ ...OBSERVE_PERMISSIONS, contents: 'write' }),
 });
 
-const APPROVAL_CAPABILITIES = new Set(['actions:rerun', 'repair:workspace', 'contents:write']);
+const APPROVAL_CAPABILITIES = new Set(['actions:rerun', 'stage1:required-check-recovery', 'repair:workspace', 'contents:write']);
 const ERROR_MESSAGES = Object.freeze({
   invalid_configuration: 'GitHub authentication provider configuration is invalid.',
   interactive_tty_required: 'A trusted interactive TTY is required for this operation.',
@@ -243,7 +244,7 @@ function normalizeActionTarget(value) {
 }
 
 function normalizeScope(scope, expectedRepositoryId) {
-  const allowedKeys = new Set(['repositoryId', 'prNumber', 'baseSha', 'headSha', 'mergeSha', 'capability', 'paths', 'testedSha', 'actionTarget']);
+  const allowedKeys = new Set(['repositoryId', 'prNumber', 'baseSha', 'headSha', 'mergeSha', 'capability', 'paths', 'testedSha', 'actionTarget', 'stage1Target']);
   assertExactKeys(scope, allowedKeys, 'invalid_scope');
   if (!parsePositiveInteger(scope.repositoryId) || scope.repositoryId !== expectedRepositoryId) fail('invalid_scope');
   if (!parsePositiveInteger(scope.prNumber)) fail('invalid_scope');
@@ -252,6 +253,24 @@ function normalizeScope(scope, expectedRepositoryId) {
   if (typeof scope.capability !== 'string' || !APPROVAL_CAPABILITIES.has(scope.capability)) fail('invalid_scope');
   if (scope.capability === 'actions:rerun') {
     if (!SHA_PATTERN.test(scope.testedSha) || !Object.hasOwn(scope, 'actionTarget')) fail('invalid_scope');
+  } else if (scope.capability === 'stage1:required-check-recovery') {
+    if (!isRecord(scope.stage1Target) || Object.keys(scope.stage1Target).sort().join(',') !== [
+      'appId', 'checkRunId', 'context', 'mergeSha', 'headSha', 'baseSha', 'prNumber', 'repositoryId', 'testedSha',
+      'workflowId', 'workflowPath', 'workflowRef', 'workflowSourceSha', 'requestId', 'actorId', 'actorLogin',
+    ].sort().join(',') || !['baseSha', 'headSha', 'testedSha', 'workflowSourceSha'].every((key) => typeof scope.stage1Target[key] === 'string')
+      || scope.stage1Target.repositoryId !== expectedRepositoryId
+      || scope.stage1Target.prNumber !== scope.prNumber || scope.stage1Target.baseSha.toLowerCase() !== scope.baseSha.toLowerCase()
+      || scope.stage1Target.headSha.toLowerCase() !== scope.headSha.toLowerCase()
+      || scope.stage1Target.mergeSha !== scope.mergeSha || !SHA_PATTERN.test(scope.stage1Target.testedSha)
+      || ![scope.headSha.toLowerCase(), scope.mergeSha?.toLowerCase()].includes(scope.stage1Target.testedSha.toLowerCase())
+      || !['client', 'server'].includes(scope.stage1Target.context) || scope.stage1Target.appId !== 15368
+      || !parsePositiveInteger(scope.stage1Target.checkRunId) || !parsePositiveInteger(scope.stage1Target.workflowId)
+      || scope.stage1Target.workflowPath !== '.github/workflows/stage1-trusted-retry.yml'
+      || scope.stage1Target.workflowRef !== 'main' || scope.stage1Target.workflowSourceSha.toLowerCase() !== scope.baseSha.toLowerCase()
+      || !/^[a-f0-9]{32}$/.test(scope.stage1Target.requestId) || !parsePositiveInteger(scope.stage1Target.actorId)
+      || scope.stage1Target.actorLogin !== 'digital-e-loop-runner[bot]') fail('invalid_scope');
+  } else if (Object.hasOwn(scope, 'stage1Target')) {
+    fail('invalid_scope');
   } else if (Object.hasOwn(scope, 'testedSha') || Object.hasOwn(scope, 'actionTarget')) {
     fail('invalid_scope');
   }
@@ -265,6 +284,7 @@ function normalizeScope(scope, expectedRepositoryId) {
     paths: Object.freeze(normalizePaths(scope.paths)),
     ...(scope.capability === 'actions:rerun' ? { testedSha: scope.testedSha.toLowerCase() } : {}),
     ...(scope.capability === 'actions:rerun' ? { actionTarget: normalizeActionTarget(scope.actionTarget) } : {}),
+    ...(scope.capability === 'stage1:required-check-recovery' ? { stage1Target: Object.freeze({ ...scope.stage1Target }) } : {}),
   });
 }
 
@@ -277,6 +297,7 @@ function sameScope(left, right) {
     && left.capability === right.capability
     && left.testedSha === right.testedSha
     && canonicalJson(left.actionTarget) === canonicalJson(right.actionTarget)
+    && canonicalJson(left.stage1Target) === canonicalJson(right.stage1Target)
     && left.paths.length === right.paths.length
     && left.paths.every((path, index) => path === right.paths[index]);
 }
@@ -482,6 +503,7 @@ export function createGitHubAuthProvider(options) {
       paths: [...scope.paths],
       ...(scope.testedSha ? { testedSha: scope.testedSha } : {}),
       ...(scope.actionTarget ? { actionTarget: scope.actionTarget } : {}),
+      ...(scope.stage1Target ? { stage1Target: scope.stage1Target } : {}),
       approverId: authenticatedPrincipal.id,
       expiresAt,
     });

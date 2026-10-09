@@ -975,6 +975,54 @@ export function createGitHubPrClient(options) {
     });
   }
 
+  async function getWorkflowRunById(runIdInput) {
+    if (!isPositiveInteger(runIdInput)) fail('invalid_options');
+    let response;
+    try {
+      response = await apiJson(repositoryPath + '/actions/runs/' + runIdInput, { method: 'GET' });
+    } catch (error) {
+      if (error instanceof GitHubPrClientError) return Object.freeze({ status: 'unavailable', reasonCode: error.code, runId: runIdInput });
+      return Object.freeze({ status: 'unavailable', reasonCode: 'network_error', runId: runIdInput });
+    }
+    if (!isRecord(response) || response.id !== runIdInput) return Object.freeze({ status: 'incomplete', reasonCode: 'run_id_mismatch', runId: runIdInput });
+    const workflow = parseWorkflowPath(response.path);
+    const sourceSha = normalizeSha(response.head_sha);
+    const repositoryId = isPositiveInteger(response.repository?.id) ? response.repository.id : null;
+    const workflowId = isPositiveInteger(response.workflow_id) ? response.workflow_id : null;
+    const actorId = isPositiveInteger(response.actor?.id) ? response.actor.id : null;
+    const actorLogin = typeof response.actor?.login === 'string' && response.actor.login.length <= 100 ? response.actor.login : null;
+    const status = OBSERVATION_STATUSES.has(response.status) ? response.status : null;
+    const conclusion = response.conclusion === null || SUPPORTED_CONCLUSIONS.has(response.conclusion) ? response.conclusion : null;
+    if (!workflow || !sourceSha || !repositoryId || !workflowId || !actorId || !actorLogin || !status
+      || (status === 'completed' && !conclusion) || (status !== 'completed' && conclusion !== null)
+      || response.event !== 'workflow_dispatch' || typeof response.run_attempt !== 'number' || !isPositiveInteger(response.run_attempt)) {
+      return Object.freeze({ status: 'incomplete', reasonCode: 'run_evidence_incomplete', runId: runIdInput });
+    }
+    let jobs;
+    try {
+      const result = await paginate(repositoryPath + '/actions/runs/' + runIdInput + '/jobs', 'jobs', { filter: 'latest' });
+      const normalized = [];
+      let complete = result.complete && result.values.length > 0;
+      for (const job of result.values) {
+        if (!isRecord(job) || !isPositiveInteger(job.id) || job.run_id !== runIdInput
+          || job.run_attempt !== response.run_attempt || typeof job.name !== 'string' || job.name.length === 0 || job.name.length > 100
+          || !OBSERVATION_STATUSES.has(job.status)
+          || (job.status === 'completed' && !SUPPORTED_CONCLUSIONS.has(job.conclusion))
+          || (job.status !== 'completed' && job.conclusion !== null)) {
+          complete = false;
+          continue;
+        }
+        normalized.push(Object.freeze({ id: job.id, name: job.name, status: job.status, conclusion: job.conclusion }));
+      }
+      jobs = Object.freeze({ collectionStatus: complete ? 'complete' : 'incomplete', jobs: Object.freeze(normalized) });
+    } catch {
+      jobs = Object.freeze({ collectionStatus: 'unavailable', jobs: Object.freeze([]) });
+    }
+    return Object.freeze({ status: jobs.collectionStatus === 'complete' ? 'current' : 'incomplete',
+      run: Object.freeze({ id: runIdInput, repositoryId, workflowId, path: workflow.path, ref: workflow.ref,
+        event: response.event, sourceSha, actorId, actorLogin, status, conclusion, runAttempt: response.run_attempt }), jobs });
+  }
+
   async function getRequiredWorkflowEvidence(requiredWorkflowInput, testedShaInput) {
     let requiredWorkflow;
     try {
@@ -1417,6 +1465,7 @@ export function createGitHubPrClient(options) {
     getPullRequestFiles,
     getCommitCheckRuns,
     getWorkflowRuns,
+    getWorkflowRunById,
     getRequiredWorkflowEvidence,
     getWorkflowRunJobs,
     getRequiredCheckSnapshot,

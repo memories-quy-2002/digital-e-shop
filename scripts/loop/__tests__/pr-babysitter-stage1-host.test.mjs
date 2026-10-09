@@ -184,7 +184,8 @@ it('keeps Stage 1 disabled when trust configuration and a host budget session ar
   assert.equal(result.exitCode, 3);
   assert.match(stderr, /stage1_prerequisites_unavailable/);
   assert.ok(result.blockers.includes('ci_run_budget_session_unavailable'));
-  assert.ok(result.blockers.includes('run_attempt_write_binding_unavailable'));
+  assert.ok(result.blockers.includes('stage1_dispatch_runtime_unavailable'));
+  assert.ok(result.blockers.includes('stage1_host_observer_unavailable'));
   assert.ok(result.blockers.includes('trusted_job_graph_unavailable'));
   assert.equal(fetchCalls, 0);
   assert.deepEqual(STAGE1_TRUST_STATUS, {

@@ -955,4 +955,48 @@ describe('strict GitHub PR read adapter', () => {
     assert.equal(result.files[0].text.includes('ghs_zip_secret_value'), false);
     assert.equal(result.files[0].text.includes('Authorization: [REDACTED]'), true);
   });
+
+  it('observes one workflow run ID with independent source SHA, actor, and exact attempt jobs', async () => {
+    const { client, calls } = createHarness({
+      route: ({ url }) => {
+        if (url.pathname.endsWith('/actions/runs/901')) return jsonResponse(200, {
+          id: 901, repository: { id: REPOSITORY_ID }, workflow_id: 77,
+          path: '.github/workflows/stage1-trusted-retry.yml@refs/heads/main', event: 'workflow_dispatch',
+          head_sha: WORKFLOW_SHA, actor: { id: 9988, login: 'digital-e-loop-runner[bot]' },
+          status: 'completed', conclusion: 'success', run_attempt: 1,
+        });
+        if (url.pathname.endsWith('/actions/runs/901/jobs')) return jsonResponse(200, {
+          total_count: 2, jobs: [
+            { id: 9011, run_id: 901, run_attempt: 1, name: 'verify', status: 'completed', conclusion: 'success' },
+            { id: 9012, run_id: 901, run_attempt: 1, name: 'publish', status: 'completed', conclusion: 'success' },
+          ],
+        });
+        return undefined;
+      },
+    });
+    const result = await client.getWorkflowRunById(901);
+    assert.equal(result.status, 'current');
+    assert.equal(result.run.id, 901);
+    assert.equal(result.run.sourceSha, WORKFLOW_SHA);
+    assert.equal(result.run.actorId, 9988);
+    assert.equal(result.run.path, '.github/workflows/stage1-trusted-retry.yml');
+    assert.deepEqual(result.jobs.jobs.map((job) => job.name), ['verify', 'publish']);
+    assert.equal(calls.some(({ url }) => url.pathname.endsWith('/actions/runs/901')), true);
+  });
+
+  it('marks a run incomplete when workflow source identity or attempt-bound job evidence is missing', async () => {
+    const { client } = createHarness({
+      route: ({ url }) => {
+        if (url.pathname.endsWith('/actions/runs/902')) return jsonResponse(200, {
+          id: 902, repository: { id: REPOSITORY_ID }, workflow_id: 77,
+          path: '.github/workflows/stage1-trusted-retry.yml@refs/heads/main', event: 'workflow_dispatch',
+          actor: { id: 9988, login: 'digital-e-loop-runner[bot]' }, status: 'completed', conclusion: 'success', run_attempt: 1,
+        });
+        return undefined;
+      },
+    });
+    const result = await client.getWorkflowRunById(902);
+    assert.equal(result.status, 'incomplete');
+    assert.equal(result.reasonCode, 'run_evidence_incomplete');
+  });
 });

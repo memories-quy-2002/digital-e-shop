@@ -231,3 +231,25 @@ it('requires explicit CONTINUE for device authentication and rejects expired cod
     streams.close();
   }
 });
+
+it('shows the exact Stage 1 recovery target and keeps cancellation as the default', async () => {
+  const streams = createTty();
+  const target = { repositoryId: 987654, prNumber: 42, baseSha: sha('a'), headSha: sha('b'), mergeSha: sha('c'),
+    testedSha: sha('c'), context: 'client', appId: 15368, checkRunId: 12345, workflowId: 77,
+    workflowPath: '.github/workflows/stage1-trusted-retry.yml', workflowRef: 'main', workflowSourceSha: sha('a'), requestId: '1'.repeat(32),
+    actorId: 9988, actorLogin: 'digital-e-loop-runner[bot]' };
+  const payload = { type: 'approval', repositoryId: 987654, repository: 'memories-quy-2002/digital-e-shop', prNumber: 42,
+    revision: { baseSha: sha('a'), headSha: sha('b'), mergeSha: sha('c') }, capability: 'stage1:required-check-recovery',
+    paths: [target.workflowPath], stage1Target: target, approverId: 1001, expiresAt: new Date(now + 60_000).toISOString() };
+  const review = { repositoryId: payload.repositoryId, prNumber: 42, revision: payload.revision, capability: payload.capability,
+    paths: payload.paths, stage1Target: target, branch: 'feature/test', classification: 'flaky', remainingCIRuns: 2, remainingFlakyRetries: 1 };
+  const prompt = createStage1Prompt({ ...streams, now: () => now, getReviewContext: async () => review });
+  try {
+    assert.equal(await answerPrompt(prompt, streams, payload, ''), false);
+    assert.match(streams.text(), /"checkRunId":\s*12345/);
+    assert.match(streams.text(), /"workflowSourceSha"/);
+    assert.match(streams.text(), /Type RECOVER:/);
+  } finally {
+    streams.close();
+  }
+});

@@ -1,0 +1,132 @@
+name: Stage 1 trusted required-check recovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_id: { description: One-use host request identifier, required: true, type: string }
+      pr_number: { description: Pull request number, required: true, type: string }
+      base_sha: { description: Approved main base SHA and trusted workflow source SHA, required: true, type: string }
+      head_sha: { description: Approved pull request head SHA, required: true, type: string }
+      merge_sha: { description: Approved merge SHA or empty, required: false, type: string }
+      tested_sha: { description: Exact SHA carrying the failed required check, required: true, type: string }
+      context: { description: Exact supported required check, required: true, type: choice, options: [client, server] }
+      app_id: { description: Required GitHub Actions app ID, required: true, type: string }
+      check_run_id: { description: Existing failed Check Run ID, required: true, type: string }
+      policy_fingerprint: { description: Observed required-check policy fingerprint, required: true, type: string }
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stage1-${{ inputs.request_id }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: >-
+      github.repository == 'memories-quy-2002/digital-e-shop' &&
+      github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' &&
+      github.actor == 'digital-e-loop-runner[bot]' && github.sha == inputs.base_sha &&
+      inputs.context != '' && inputs.app_id == '15368' &&
+      inputs.request_id != '' &&
+      inputs.pr_number != '' && inputs.check_run_id != '' &&
+      inputs.policy_fingerprint != '' && inputs.tested_sha != '' &&
+      (inputs.tested_sha == inputs.head_sha || inputs.tested_sha == inputs.merge_sha)
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: digital_e_shop_ci
+          MYSQL_USER: ci_user
+          MYSQL_PASSWORD: ci_password
+        ports: [3306:3306]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uci_user -pci_password"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      VITE_API_BASE_URL: https://e-commerce-express-server-app.vercel.app
+      DATABASE_URL: mysql://ci_user:ci_password@127.0.0.1:3306/digital_e_shop_ci
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USER: ci_user
+      DB_PASSWORD: ci_password
+      DB_NAME: digital_e_shop_ci
+      JWT_SECRET_KEY: ci-access-secret
+      JWT_REFRESH_SECRET_KEY: ci-refresh-secret
+      CSRF_SECRET: ci-csrf-secret
+    steps:
+      - name: Validate bounded dispatch target before checkout
+        env:
+          STAGE1_REQUEST_ID: ${{ inputs.request_id }}
+          STAGE1_PR_NUMBER: ${{ inputs.pr_number }}
+          STAGE1_BASE_SHA: ${{ inputs.base_sha }}
+          STAGE1_HEAD_SHA: ${{ inputs.head_sha }}
+          STAGE1_MERGE_SHA: ${{ inputs.merge_sha }}
+          STAGE1_TESTED_SHA: ${{ inputs.tested_sha }}
+          STAGE1_CONTEXT: ${{ inputs.context }}
+          STAGE1_APP_ID: ${{ inputs.app_id }}
+          STAGE1_CHECK_RUN_ID: ${{ inputs.check_run_id }}
+          STAGE1_POLICY_FINGERPRINT: ${{ inputs.policy_fingerprint }}
+        run: |
+          const positive = (value) => /^(?:[1-9]\d{0,14})$/.test(value) && Number.isSafeInteger(Number(value));
+          const sha = (value) => /^[a-f0-9]{40}$/i.test(value);
+          const valid = /^[a-f0-9]{32}$/.test(process.env.STAGE1_REQUEST_ID)
+            && positive(process.env.STAGE1_PR_NUMBER)
+            && sha(process.env.STAGE1_BASE_SHA) && process.env.STAGE1_BASE_SHA === process.env.GITHUB_SHA
+            && sha(process.env.STAGE1_HEAD_SHA)
+            && (process.env.STAGE1_MERGE_SHA === '' || sha(process.env.STAGE1_MERGE_SHA))
+            && sha(process.env.STAGE1_TESTED_SHA)
+            && (process.env.STAGE1_TESTED_SHA === process.env.STAGE1_HEAD_SHA || process.env.STAGE1_TESTED_SHA === process.env.STAGE1_MERGE_SHA)
+            && ['client', 'server'].includes(process.env.STAGE1_CONTEXT)
+            && process.env.STAGE1_APP_ID === '15368'
+            && positive(process.env.STAGE1_CHECK_RUN_ID)
+            && /^[a-f0-9]{64}$/i.test(process.env.STAGE1_POLICY_FINGERPRINT);
+          if (!valid) process.exitCode = 1;
+        shell: node {0}
+      - name: Checkout trusted workflow and verifier source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Checkout exact pull request source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tested_sha }}
+          path: tested
+          persist-credentials: false
+      - name: Run the shared fixed verifier
+        uses: ./trusted/.github/actions/stage1-verify
+        with:
+          context: ${{ inputs.context }}
+          source-directory: tested
+
+  publish:
+    needs: verify
+    if: always() && needs.verify.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      administration: read
+      checks: write
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout trusted publisher source only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.20.0
+      - name: Update the exact prior failed Check Run
+        env:
+          STAGE1_GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/loop/stage1-check-run-publisher.mjs
+

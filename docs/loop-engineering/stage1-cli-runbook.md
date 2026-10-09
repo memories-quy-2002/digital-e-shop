@@ -2,7 +2,32 @@
 
 **Updated:** 2026-10-09
 
-**Status:** Offline implementation only; live reruns are disabled.
+**Status:** Trusted dispatch implementation is under review; the standalone host remains fail-closed and no live retry or Check Run update has been enabled.
+
+## Trusted dispatch implementation status (2026-10-09)
+
+The reviewed direction replaces the older attempt-bound job-rerun writer. The
+implementation branch adds a selector for one failed `client` or `server`
+Check Run from App `15368`, a one-use approval for its complete PR tuple and
+workflow identity, a budget-reserved dispatch to the fixed workflow on
+`main`, a separate verifier and Check Run publisher, and an observer bound to
+the `workflow_run_id` returned by GitHub. The verifier checks the exact
+approved SHA using the same composite action now referenced by normal CI.
+Only the publisher job has `checks: write`; it cannot checkout or run PR code.
+
+These changes are local implementation and mock/static-test evidence. They do
+not establish that GitHub accepts a cross-run update or that branch protection
+recognizes it. The existing standalone CLI still refuses because the trusted
+approver ID, host-owned workflow/actor configuration, persisted LoopState
+budget session, and fully wired dispatch/observer runtime are unavailable.
+The GitHub App has not been granted Actions write, and no dispatch, Check Run
+PATCH, pilot, or main-branch change has occurred.
+
+PR #302's live inspection reported all five required check contexts green on
+its head SHA (`77dca7fd0f04b705182a669dd1d2254559e448c9`). Its required-workflow
+policy contained zero identities and `workflowEvidence` was empty. This is
+current-check evidence for that PR only; it did not exercise workflow-source
+attestation, trusted retry dispatch, or Check Run publication.
 
 This runbook describes the current Stage 1 CLI boundary and the gates for a
 future pilot. The current host does not submit Actions reruns. Its `inspect`
@@ -78,7 +103,7 @@ PR and required-workflow observations. A candidate cannot authorize a rerun.
 
 On 2026-10-08, the labeled same-repository PR [#297](https://github.com/memories-quy-2002/digital-e-shop/pull/297) produced a successful attestation in [run 37751138161](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37751138161), but the hosted read-only [probe 37751216313](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37751216313) returned `unavailable` with no candidate. This remains historical negative evidence for that run. After the verifier wiring fix, PR #300's fresh producer run [37880908533](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37880908533) succeeded and the read-only probe [37880957685](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37880957685) returned `candidate_present` for the exact PR tuple. That proves hosted producer-to-probe feasibility only; it is not a Stage 1 host inspection record or rerun authorization.
 
-## Attempt-bound rerun feasibility result
+## Historical attempt-bound rerun feasibility result
 
 A controlled test on same-repository, non-`main`, documentation-only PR #294
 used the `Loop Foundation` workflow, which has no deployment job. Attempt 1's
@@ -139,8 +164,8 @@ node scripts/loop/pr-babysitter-stage1-host.mjs rerun-flaky --repo memories-quy-
 
 With the current host, the command exits with code `3` and returns
 `stage1_prerequisites_unavailable`. The blockers include
-`run_attempt_write_binding_unavailable` and the other trust, source-attestation,
-job-graph, and budget gates listed below. This response does not describe the
+`stage1_dispatch_runtime_unavailable` and `stage1_host_observer_unavailable`,
+along with trust, source-attestation, job-graph, and budget gates. This response does not describe the
 selected PR or a workflow attempt. It is not pilot evidence.
 
 The `--dry-run` form checks arguments only. It returns `status: dry-run` and
@@ -151,16 +176,18 @@ rerun.
 
 | Reason code | Meaning | Operator action |
 | --- | --- | --- |
-| `stage1_prerequisites_unavailable` | At least one trusted Stage 1 prerequisite is absent. Current blockers are `workflow_source_sha_unattested`, `ci_run_budget_session_unavailable`, `stage1_trust_configuration_unavailable`, `trusted_job_graph_unavailable`, and `run_attempt_write_binding_unavailable`. | Stop. Complete the source trust, allowlist, and host-managed budget-session work; do not change the already-reviewed canonical policy as a workaround. |
+| `stage1_prerequisites_unavailable` | At least one trusted Stage 1 prerequisite is absent. Current blockers include `workflow_source_sha_unattested`, `ci_run_budget_session_unavailable`, `stage1_trust_configuration_unavailable`, `stage1_dispatch_runtime_unavailable`, `trusted_job_graph_unavailable`, and `stage1_host_observer_unavailable`. | Stop. Complete host-owned trust, workflow configuration, and persisted budget-session work; do not change the already-reviewed canonical policy as a workaround. |
 | `interactive_tty_required` | A live rerun was requested without a real interactive terminal. | Stop; do not pipe or automate approval. This does not override the current prerequisite refusal. |
 | `stage1_command_refused` | The command is outside the Stage 1 CLI allowlist. | Use only documented read-only `inspect`; repair, push, and merge remain unavailable. |
 | `repository_not_allowlisted` | The requested repository is not the fixed repository. | Stop and check the command; do not change the repository through an environment override. |
 
-`run_attempt_write_binding_unavailable` means the host cannot prove that a
-rerun write still targets the exact workflow attempt covered by approval. The
-job-specific endpoint is a candidate, but GitHub's public documentation does
-not specify what happens when a newer attempt starts before a request uses an
-older job ID. Keep the blocker until that behavior is proven and reviewed.
+The trusted-dispatch path does not use a run-rerun or job-rerun endpoint. It
+dispatches one fixed verifier from `main`, then observes only the exact run ID
+returned by GitHub. The older `run_attempt_write_binding_unavailable` blocker
+belongs to the superseded attempt-bound design; it is not a Stage 1 dispatch
+capability or a reason to enable a write. Current host/configuration,
+authenticated-approver, persisted-budget, workflow-identity, and live-readiness
+gates remain fail-closed.
 
 No current CLI outcome reports a submitted rerun or a new CI pass. Once a
 reviewed host can submit a request, a successful POST must be reported as
@@ -192,26 +219,25 @@ available from trusted host configuration:
 5. A maintainer-selected same-repository, non-`main` pilot PR and fresh
    read-only evidence showing the exact current SHA tuple and an eligible
    flaky failure. Do not use a deliberately weakened security or test job.
-6. A fresh TTY approval bound to the exact PR tuple, tested SHA, workflow/run/
-   attempt/job target, capability, and expiry. Confirmation defaults to
-   cancel. The host must re-read evidence and reserve budget/idempotency before
-   the one allowed root-job rerun request.
+6. A fresh TTY approval bound to the exact PR tuple, tested SHA, required
+   context/App ID, existing Check Run ID, fixed workflow identity/source SHA,
+   actor, request ID, capability, and expiry. Confirmation defaults to cancel.
+   The host must re-read evidence, consume approval once, reserve budget, and
+   dispatch once to the fixed workflow ID on `main`.
 
-The run-level failed-jobs endpoint accepts a workflow `run_id` without a
-`run_attempt`. PR #296 merged the guarded writer's use of one exact job ID from
-the selected attempt, and the controlled test found that the job-specific
-endpoint rejects an ID from an older attempt once a newer attempt is current.
-The standalone host still reports
-`run_attempt_write_binding_unavailable` and remains fail-closed until its
-capability gate is reviewed against the new writer. This test does not qualify
-a workflow's dependent-job closure or enable a live pilot.
+The earlier run/job-rerun endpoint is not used by the trusted-dispatch path.
+The new writer permits only the fixed `workflow_dispatch` endpoint and requires
+GitHub's returned `workflow_run_id`; uncertain outcomes consume the reserved
+attempt and never trigger a second dispatch. The host must poll only that run
+ID and independently verify its source SHA, actor, verifier/publisher jobs,
+current PR tuple, policy, and original Check Run before reporting
+`ready-for-human`.
 
-The job API reports runtime job identities and statuses but does not report
-the workflow's `needs` graph. The current writer allowlist stores only job
-names, while the TTY review requires a complete graph. A future host must load
-the graph from trusted reviewed configuration or parse the exact attested
-workflow source; unknown dependencies or dynamic graphs remain blocked by
-`trusted_job_graph_unavailable`.
+The standalone Stage 1 CLI still refuses because the host-owned approver ID,
+workflow/actor configuration, persisted budget session, and dispatch/observer
+runtime are not configured. Caller environment variables cannot supply them.
+The existing app installation also lacks the separately reviewed
+`actions:write` permission. Do not attempt a live dispatch or Check Run update.
 
 PR #290 added the dedicated Stage 1 target, prompt, source-attestation, and
 host suites to both fixed test lists. PR #291 added the original source-SHA
@@ -221,11 +247,12 @@ The current branch adds the OIDC descriptor, producer, verifier, adapter
 guards, and certificate-backed read-only probe. Local tests pass; the hosted
 producer-to-probe proof has not run.
 
-For the pilot, inspect first, approve and submit once, then inspect the new
-attempt and record only bounded identifiers, timestamps, SHA values, budget
-consumption, status, and reason code. Never record credentials, raw CI logs,
-review bodies, or prompts. A missing Stage 0 report is not evidence that CI
-passed.
+For a separately authorized pilot after merge, inspect first, approve and
+dispatch once, then observe the exact returned run ID. Record only bounded
+identifiers, timestamps, SHA values, budget consumption, status, and reason
+code. Never record credentials, raw CI logs, review bodies, or prompts. A
+green workflow without the exact original Check Run becoming green is not
+success.
 
 ## Disable procedure
 
