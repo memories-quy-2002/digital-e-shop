@@ -303,6 +303,36 @@ it('does not inspect events from another repository and returns only bounded met
   }
 });
 
+it('uses the attestation method from a provider object', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'source-sha-probe-'));
+  const eventPath = join(directory, 'event.json');
+  let inspected = false;
+  try {
+    await writeFile(eventPath, JSON.stringify(eventPayload()));
+    const result = await runSourceShaProbe({
+      GITHUB_REPOSITORY: repository,
+      GITHUB_EVENT_PATH: eventPath,
+      GITHUB_TOKEN: 'secret-token',
+    }, {
+      fetchImpl: async (url) => String(url).includes('/actions/runs/')
+        ? { ok: true, status: 200, json: async () => workflowRun() }
+        : { ok: true, status: 200, headers: new Headers(), json: async () => [pullRequest()] },
+      sourceAttestationProvider: {
+        inspectWorkflowSourceAttestation: async ({ run, snapshot }) => {
+          inspected = true;
+          return certificateClaims({ run, snapshot });
+        },
+      },
+    });
+
+    assert.equal(inspected, true);
+    assert.equal(result.status, 'candidate_present');
+    assert.equal(result.sourceShaCandidate, sourceSha);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 it('assigns a fixed reason code to each existing probe refusal', async () => {
   const cases = [
     ['probe_identity_mismatch', { event: eventPayload({ workflow_id: 1 }) }],
