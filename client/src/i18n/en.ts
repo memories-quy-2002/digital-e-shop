@@ -828,7 +828,7 @@ const en = {
     payments: "Payments",
     bankTransfer: "Bank transfer",
     cashOnDelivery: "Cash on delivery",
-    copyright: "© 2026 Digital-E. Built for everyday tech shopping.",
+    copyright: "© 2026 Digital-E. Nguyen Manh Phu Quy",
     terms: "Terms of service",
     privacy: "Privacy policy",
     cookies: "Cookie policy",
