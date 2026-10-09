@@ -63,8 +63,8 @@
 
 - [x] Document how to interpret stage/reason codes and the default-branch rollout dependency. Record historical D1 evidence as a dated read-only sample; keep all Stage 1 promotion gates blocked pending fresh evidence.
 - [x] Document deployment-version/source-SHA correlation and the separate maintainer-controlled deployment. Do not assume Queue retry records equal live backlog or that deploying current code resolves the unknown consumer failure.
-- [x] Run `node --test scripts/loop/__tests__/stage1-source-sha-probe.test.mjs scripts/loop/__tests__/github-workflow-source-attestation.test.mjs scripts/loop/__tests__/workflow.test.mjs scripts/loop/__tests__/verify.test.mjs scripts/loop/__tests__/pr-runbook.test.mjs` (58/58 passed against implementation revision before documentation completion; root will rerun the documentation contract check).
-- [ ] Run the full Worker test command and typecheck once after final edits. Run `git diff --check` and inspect exact changed paths, diagnostic strings, decision guards, and token transport boundaries.
+- [x] Run `node --test scripts/loop/__tests__/stage1-source-sha-probe.test.mjs scripts/loop/__tests__/github-workflow-source-attestation.test.mjs scripts/loop/__tests__/workflow.test.mjs scripts/loop/__tests__/verify.test.mjs scripts/loop/__tests__/pr-runbook.test.mjs` (58/58 passed; documentation contract rerun passed 5/5 after the update).
+- [x] Run the full Worker test command and typecheck once after final edits. Run `git diff --check` and inspect exact changed paths, diagnostic strings, decision guards, and token transport boundaries (2 portable + 87 Worker tests and typecheck passed).
 - [ ] Perform Luna review using the preserved execution method; fix demonstrated findings within approved scope and repeat affected checks only.
 - [ ] Commit exact paths with Conventional Commit messages on `bugfix/loop-hosted-diagnostics`, then prepare one PR into main under existing authorization. Include behavior changes, test evidence, limits, and the separate hosted rollout step. Do not merge or deploy as part of this plan.
 

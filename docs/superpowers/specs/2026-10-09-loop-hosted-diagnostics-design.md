@@ -22,8 +22,8 @@ This is diagnostic work, not a claim that Stage 1 is ready.
   A completed scheduler sweep does not prove consumer or publisher completion.
 - Current local evidence after Tasks 1 and 2: 2 portable Node tests, 87 Worker
   tests, and Worker typecheck pass; the focused probe suite passes 12 tests. The
-  cross-suite verification passed 58/58 against the implementation revision
-  before documentation completion. Neither consumer root cause nor hosted
+  cross-suite verification passed 58/58; the updated documentation contract
+  passed 5 tests. Neither consumer root cause nor hosted
   attestation discrepancy has been established. Policy drift is a separate
   deployment concern.
 

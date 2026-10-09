@@ -18,7 +18,7 @@
 
 ## Hosted diagnostics status (2026-10-09)
 
-The diagnostic implementation passed local targeted checks: the source-SHA probe suite passed 12 tests; Task 2 verification passed 2 portable Node tests, 87 Worker tests, and Worker typecheck. These results validate local behavior and fixtures only. They are not hosted observations, root-cause evidence, or Stage 1 promotion evidence. The cross-suite Node verification passed 58 tests, and the documentation contract check passed 5 tests. The final Worker rerun passed 87 tests; its final typecheck result is pending.
+The diagnostic implementation passed local targeted checks: the source-SHA probe suite passed 12 tests; the Cloudflare package passed 2 portable Node tests, 87 Worker tests, and Worker typecheck, including the final verification run. These results validate local behavior and fixtures only. They are not hosted observations, root-cause evidence, or Stage 1 promotion evidence. The cross-suite Node verification passed 58 tests, and the documentation contract check passed 5 tests after the documentation update.
 
 Unavailable probe results carry a fixed allowlisted `reasonCode`; the existing candidate-success result retains exactly seven keys. Refusals return a null candidate, and unavailable workflow path metadata is present only for the canonical `.github/workflows/loop-foundation.yml` path. Unknown error text is not emitted. Worker failures carry a fixed processing `stage` and allowlisted `reasonCode`; unknown codes map to `stage0_<stage>_failed`. Invalid PR/check normalization uses `pr_snapshot_invalid` or `check_observation_invalid`. Incomplete policy/check evidence retains its existing wait/unavailable behavior; diagnostics do not turn it green or change retry/ack behavior.
 
