@@ -120,6 +120,16 @@ export interface GitHubObserverConfiguration extends GitHubAppCredentials {
   checkRunName: string;
 }
 
+class Stage0ObserverError extends Error {
+  readonly code: 'pr_snapshot_invalid' | 'check_observation_invalid';
+
+  constructor(code: Stage0ObserverError['code']) {
+    super(code);
+    this.name = 'Stage0ObserverError';
+    this.code = code;
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -751,12 +761,22 @@ async function collectChecksForSha(
   const observations: Record<string, unknown>[] = [];
   let complete = runsResult.collectionStatus === 'complete' && statusesResult.collectionStatus === 'complete';
   for (const item of runsResult.items) {
-    const observation = await mapCheckRun(item, snapshot, testedSha);
+    let observation: Record<string, unknown> | null;
+    try {
+      observation = await mapCheckRun(item, snapshot, testedSha);
+    } catch {
+      throw new Stage0ObserverError('check_observation_invalid');
+    }
     if (!observation) complete = false;
     else observations.push(observation);
   }
   for (const item of statusesResult.items) {
-    const observation = await mapCommitStatus(item, snapshot, testedSha);
+    let observation: Record<string, unknown> | null;
+    try {
+      observation = await mapCommitStatus(item, snapshot, testedSha);
+    } catch {
+      throw new Stage0ObserverError('check_observation_invalid');
+    }
     if (!observation) complete = false;
     else observations.push(observation);
   }
@@ -905,7 +925,11 @@ export function createGitHubObserver(
 
   async function readSnapshot(prNumber: number): Promise<Stage0PrSnapshot> {
     const result = await api.getPullRequest(prNumber);
-    return normalizePullRequest(result, configuration);
+    try {
+      return normalizePullRequest(result, configuration);
+    } catch {
+      throw new Stage0ObserverError('pr_snapshot_invalid');
+    }
   }
 
   async function collect(prNumber: number): Promise<Stage0Observation> {
@@ -921,11 +945,10 @@ export function createGitHubObserver(
     const [requiredResult, checksResults, metadataResult] = await Promise.all([
       readRequiredCheckSnapshot(api, before, null).catch(() => unavailableRequiredChecks(before, 'required_check_policy_unavailable')),
       Promise.all([...new Set([before.mergeSha, before.headSha].filter((sha): sha is string => Boolean(sha)))]
-        .map(async (testedSha) => collectChecksForSha(api, before, testedSha).catch(() => ({
-          testedSha,
-          observations: [],
-          complete: false,
-        })))),
+        .map(async (testedSha) => collectChecksForSha(api, before, testedSha).catch((error: unknown) => {
+          if (error instanceof Stage0ObserverError) throw error;
+          return { testedSha, observations: [], complete: false };
+        }))),
       readMetadata(api, before.number).catch(() => ({
         changedFiles: { collectionStatus: 'incomplete' as const, count: 0 },
         reviewSummary: {

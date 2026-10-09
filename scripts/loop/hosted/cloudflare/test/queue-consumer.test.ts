@@ -221,12 +221,122 @@ describe('Stage 0 Queue consumer', () => {
       registerDelivery: vi.fn(async () => { throw new Error('sensitive D1 failure'); }),
     };
 
-    await expect(processStage0QueueMessage(message('delivery-d1-failure'), {
+    const error = await processStage0QueueMessage(message('delivery-d1-failure'), {
       ...deps,
       storage: failingStorage,
-    })).rejects.toThrow('sensitive D1 failure');
+    }).catch((value: unknown) => value);
+    expect(error).toMatchObject({ code: 'stage0_register_delivery_failed', stage: 'register_delivery' });
+    expect((error as Error).message).not.toContain('sensitive D1 failure');
     expect(deps.observer.collect).not.toHaveBeenCalled();
     expect(deps.publisher.publish).not.toHaveBeenCalled();
+  });
+
+  it('does not overwrite a duplicate delivery when its status lookup fails', async () => {
+    const deps = dependencies();
+    await processStage0QueueMessage(message('delivery-duplicate-status'), deps);
+    const setStatus = vi.fn(deps.storage.setDeliveryStatus);
+    const storage = {
+      ...deps.storage,
+      getDeliveryStatus: vi.fn(async () => { throw new Error('status lookup unavailable'); }),
+      setDeliveryStatus: setStatus,
+    };
+
+    const error = await processStage0QueueMessage(message('delivery-duplicate-status'), { ...deps, storage })
+      .catch((value: unknown) => value);
+
+    expect(error).toMatchObject({ code: 'stage0_register_delivery_failed', stage: 'register_delivery' });
+    expect(setStatus).not.toHaveBeenCalled();
+    expect(await deps.storage.getDeliveryStatus('delivery-duplicate-status')).toBe('processed');
+  });
+
+  it('keeps observer failure diagnostics bounded when retry status recording also fails', async () => {
+    const deps = dependencies();
+    const secret = 'hostile-diagnostic-sentinel';
+    const hostile = Object.assign(new Error(secret), {
+      code: 'plausible_but_unrecognized_code',
+      cause: new Error('hostile-cause-sentinel'),
+    });
+    vi.mocked(deps.observer.collect).mockRejectedValueOnce(hostile);
+    const setStatus = vi.fn(async (_id: string, status: 'processed' | 'retry', reason?: string | null) => {
+      if (status === 'retry') throw new Error('status-write-sentinel');
+      return await deps.storage.setDeliveryStatus(_id, status, reason);
+    });
+    const release = vi.fn(deps.storage.releaseLease);
+    const storage = { ...deps.storage, setDeliveryStatus: setStatus, releaseLease: release };
+
+    const error = await processStage0QueueMessage(message('delivery-hostile'), { ...deps, storage }).catch((value: unknown) => value);
+
+    expect(error).toMatchObject({ code: 'stage0_observe_failed', stage: 'observe' });
+    const diagnostic = error as { code: string; stage: string; message: string };
+    expect(JSON.stringify(diagnostic)).not.toContain(secret);
+    expect(await deps.storage.getDeliveryStatus('delivery-hostile')).toBe('received');
+    expect(setStatus).toHaveBeenCalledWith('delivery-hostile', 'retry', 'stage0_observe_failed');
+    expect(release).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    'register_delivery', 'claim_lease', 'observe', 'normalize_snapshot', 'load_state', 'reconcile_state',
+    'save_state', 'decide', 'load_report_mapping', 'publish_report', 'save_report_mapping', 'mark_processed',
+  ] as const)('records bounded diagnostics and preserves retry semantics at %s', async (stage) => {
+    const deps = dependencies();
+    const secret = `secret-${stage}`;
+    const failure = Object.assign(new Error(secret), { code: `untrusted_${stage}_failure` });
+    const release = vi.fn(deps.storage.releaseLease);
+    const storage = { ...deps.storage, releaseLease: release };
+    const collected = createCollected();
+    const observer = { ...deps.observer };
+    const publisher = { ...deps.publisher };
+
+    if (stage === 'register_delivery') storage.registerDelivery = vi.fn(async () => { throw failure; });
+    if (stage === 'claim_lease') storage.claimLease = vi.fn(async () => { throw failure; });
+    if (stage === 'observe') observer.collect = vi.fn(async () => { throw failure; });
+    if (stage === 'normalize_snapshot') observer.collect = vi.fn(async () => ({
+      ...collected,
+      prSnapshot: { ...collected.prSnapshot, headSha: 'invalid' },
+    }));
+    if (stage === 'load_state') storage.loadPrState = vi.fn(async () => { throw failure; });
+    if (stage === 'reconcile_state') {
+      collected.checkObservations = [{ hostile: secret }] as unknown as never[];
+      observer.collect = vi.fn(async () => collected);
+    }
+    if (stage === 'save_state') storage.savePrState = vi.fn(async () => { throw failure; });
+    if (stage === 'decide') {
+      collected.requiredCheckSnapshot = { ...collected.requiredCheckSnapshot, requiredWorkflows: null } as never;
+      observer.collect = vi.fn(async () => collected);
+    }
+    if (stage === 'load_report_mapping') storage.getCheckRunMapping = vi.fn(async () => { throw failure; });
+    if (stage === 'publish_report') publisher.publish = vi.fn(async () => { throw failure; });
+    if (stage === 'save_report_mapping') storage.saveCheckRunMapping = vi.fn(async () => { throw failure; });
+    if (stage === 'mark_processed') {
+      const setStatus = deps.storage.setDeliveryStatus;
+      let processedFailureUsed = false;
+      storage.setDeliveryStatus = vi.fn(async (id, status, reason) => {
+        if (status === 'processed' && !processedFailureUsed) {
+          processedFailureUsed = true;
+          throw failure;
+        }
+        return setStatus(id, status, reason);
+      });
+    }
+
+    const error = await processStage0QueueMessage(message(`delivery-${stage}`), {
+      ...deps, storage, observer, publisher,
+    }).catch((value: unknown) => value);
+
+    const expectedCode = stage === 'publish_report' || stage === 'save_report_mapping'
+      ? 'report_failed' : `stage0_${stage}_failed`;
+    expect(error).toMatchObject({ code: expectedCode, stage });
+    const diagnostic = error as { code: string; stage: string; message: string };
+    expect(JSON.stringify(diagnostic)).not.toContain(secret);
+    if (stage === 'register_delivery') {
+      expect(await deps.storage.getDeliveryStatus(`delivery-${stage}`)).toBeNull();
+    } else {
+      expect(await deps.storage.getDeliveryStatus(`delivery-${stage}`)).toBe('retry');
+      const row = await testEnv.STAGE0_DB.prepare('SELECT reason_code FROM delivery_records WHERE delivery_id = ?')
+        .bind(`delivery-${stage}`).first<{ reason_code: string | null }>();
+      expect(row?.reason_code).toBe(expectedCode);
+    }
+    expect(release).toHaveBeenCalledTimes(stage === 'claim_lease' ? 0 : stage === 'register_delivery' ? 0 : 1);
   });
 
   it('does not let concurrent messages publish for the same PR tuple', async () => {

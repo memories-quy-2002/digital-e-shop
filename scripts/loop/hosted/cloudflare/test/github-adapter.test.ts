@@ -489,6 +489,29 @@ describe('fixed GitHub read API client', () => {
 });
 
 describe('read-only Stage 0 PR observation', () => {
+  it('reports malformed PR snapshots with a fixed observer code', async () => {
+    const secret = 'response-secret-sentinel';
+    const { observer } = observerFixture({ pullRequests: [prSnapshot({ base: { ...prSnapshot().base, sha: secret } })] });
+
+    await expect(observer.collect(264)).rejects.toMatchObject({ code: 'pr_snapshot_invalid' });
+    try { await observer.collect(264); } catch (error) {
+      expect(JSON.stringify(error)).not.toContain(secret);
+      expect((error as Error).message).not.toContain(secret);
+    }
+  });
+
+  it('reports invalid normalized check evidence with a fixed observer code', async () => {
+    const hostile = { id: 15, app: { id: 15368 }, head_sha: mergeSha, status: 'completed', conclusion: 'success' };
+    Object.defineProperty(hostile, 'name', { get() { throw new Error('secret-check-response'); } });
+    const { observer } = observerFixture({ checkRuns: () => [hostile] });
+
+    await expect(observer.collect(264)).rejects.toMatchObject({ code: 'check_observation_invalid' });
+    try { await observer.collect(264); } catch (error) {
+      expect(JSON.stringify(error)).not.toContain('secret-check-response');
+      expect((error as Error).message).not.toContain('sentinel');
+    }
+  });
+
   it('loads policy at the exact base SHA and binds both check collections to the PR tuple', async () => {
     const { api, observer } = observerFixture();
 

@@ -182,10 +182,74 @@ function recordCurrentObservations(
   return next;
 }
 
+type QueueProcessingStage = 'register_delivery' | 'claim_lease' | 'observe' | 'normalize_snapshot'
+  | 'load_state' | 'reconcile_state' | 'save_state' | 'decide' | 'load_report_mapping'
+  | 'publish_report' | 'save_report_mapping' | 'mark_processed';
+
+const RECOGNIZED_ERROR_CODES = new Set([
+  'invalid_queue_message', 'queue_repository_mismatch', 'lease_busy', 'canonical_base_policy_unavailable',
+  'observation_failed', 'report_failed', 'pr_snapshot_invalid', 'check_observation_invalid',
+  'configuration_invalid', 'app_key_invalid', 'token_request_failed', 'token_request_unauthorized',
+  'token_request_forbidden', 'token_request_not_found', 'token_request_unprocessable',
+  'token_request_rate_limited', 'token_response_invalid', 'token_request_network_error',
+  'token_request_timeout', 'token_request_redirect_rejected', 'request_limit_reached', 'network_error',
+  'redirect_rejected', 'response_too_large', 'invalid_response', 'bad_request', 'unauthorized',
+  'forbidden', 'not_found', 'rate_limited', 'unprocessable_entity', 'api_unavailable',
+  'pagination_rejected', 'pagination_limit', 'delivery_id_conflict', 'delivery_not_found',
+  'pr_state_invalid', 'pr_state_corrupt', 'pr_state_too_large', 'check_run_mapping_invalid',
+  'reconciliation_cursor_invalid', 'database_error', 'report_configuration_invalid', 'report_input_invalid',
+  'policy_incomplete', 'report_check_is_required', 'stale_pr_tuple', 'stale_required_check_policy',
+  'lookup_incomplete', 'lookup_ambiguous', 'response_invalid', 'report_write_refused',
+  'github_auth_configuration_invalid', 'github_auth_app_key_invalid', 'github_auth_token_request_failed',
+  'github_auth_token_request_unauthorized', 'github_auth_token_request_forbidden',
+  'github_auth_token_request_not_found', 'github_auth_token_request_unprocessable',
+  'github_auth_token_request_rate_limited', 'github_auth_token_response_invalid',
+  'github_auth_token_request_network_error', 'github_auth_token_request_timeout',
+  'github_auth_token_request_redirect_rejected', 'github_api_configuration_invalid',
+  'github_api_request_limit_reached', 'github_api_network_error', 'github_api_redirect_rejected',
+  'github_api_response_too_large', 'github_api_invalid_response', 'github_api_bad_request',
+  'github_api_unauthorized', 'github_api_forbidden', 'github_api_not_found', 'github_api_rate_limited',
+  'github_api_unprocessable_entity', 'github_api_unavailable', 'github_api_pagination_rejected',
+  'github_api_pagination_limit',
+]);
+
+class Stage0QueueDiagnosticError extends Error {
+  readonly code: string;
+  readonly stage: QueueProcessingStage;
+
+  constructor(code: string, stage: QueueProcessingStage) {
+    super(code);
+    this.name = 'Stage0QueueDiagnosticError';
+    this.code = code;
+    this.stage = stage;
+  }
+}
+
+function recognizedErrorCode(error: unknown): string | null {
+  let code: unknown;
+  try {
+    if (typeof error !== 'object' || error === null || !('code' in error)) return null;
+    code = error.code;
+  } catch {
+    return null;
+  }
+  if (typeof code !== 'string') return null;
+  if (RECOGNIZED_ERROR_CODES.has(code)) return code;
+  const match = /^token_request_http_(\d{3})$/.exec(code);
+  if (match && Number(match[1]) >= 100 && Number(match[1]) <= 599) return code;
+  const authMatch = /^github_auth_token_request_http_(\d{3})$/.exec(code);
+  if (authMatch && Number(authMatch[1]) >= 100 && Number(authMatch[1]) <= 599) return code;
+  return null;
+}
+
+function diagnosticError(error: unknown, stage: QueueProcessingStage): Stage0QueueDiagnosticError {
+  if (error instanceof Stage0QueueDiagnosticError) return error;
+  const code = recognizedErrorCode(error) ?? `stage0_${stage}_failed`;
+  return new Stage0QueueDiagnosticError(code, stage);
+}
+
 function safeFailureReason(error: unknown): string {
-  if (typeof error === 'object' && error !== null && 'code' in error
-      && typeof error.code === 'string' && /^[a-z][a-z0-9_]{0,80}$/.test(error.code)) return error.code;
-  return 'stage0_queue_processing_failed';
+  return recognizedErrorCode(error) ?? 'stage0_queue_consumer_setup_failed';
 }
 
 export async function processStage0QueueMessage(
@@ -204,41 +268,51 @@ export async function processStage0QueueMessage(
   const now = dependencies.now ?? Date.now;
   const nowMs = now();
   if (!Number.isSafeInteger(nowMs) || nowMs < 1) throw new Stage0QueueError('observation_failed');
-
-  const registered = await dependencies.storage.registerDelivery({
-    ...input,
-    expiresAt: nowMs + DELIVERY_RETENTION_MS,
-  });
-  if (registered === 'duplicate' && await dependencies.storage.getDeliveryStatus(input.deliveryId) === 'processed') {
-    return { status: 'duplicate' };
-  }
-
   const leaseOwner = crypto.randomUUID().replaceAll('-', '');
-  const leaseAcquired = await dependencies.storage.claimLease(
-    input.repositoryId,
-    input.prNumber,
-    leaseOwner,
-    nowMs,
-    PR_PROCESSING_LEASE_MS,
-  );
-  if (!leaseAcquired) {
-    await dependencies.storage.setDeliveryStatus(input.deliveryId, 'retry', 'lease_busy').catch(() => undefined);
-    throw new Stage0QueueError('lease_busy');
-  }
-
+  let stage: QueueProcessingStage = 'register_delivery';
+  let registered = false;
+  let duplicateStatusUnknown = false;
+  let leaseAcquired = false;
   try {
+    const registration = await dependencies.storage.registerDelivery({
+      ...input,
+      expiresAt: nowMs + DELIVERY_RETENTION_MS,
+    });
+    registered = true;
+    if (registration === 'duplicate') {
+      stage = 'register_delivery';
+      duplicateStatusUnknown = true;
+      if (await dependencies.storage.getDeliveryStatus(input.deliveryId) === 'processed') return { status: 'duplicate' };
+      duplicateStatusUnknown = false;
+    }
+    stage = 'claim_lease';
+    leaseAcquired = await dependencies.storage.claimLease(
+      input.repositoryId,
+      input.prNumber,
+      leaseOwner,
+      nowMs,
+      PR_PROCESSING_LEASE_MS,
+    );
+    if (!leaseAcquired) throw new Stage0QueueError('lease_busy');
+
+    stage = 'observe';
     const collected = await dependencies.observer.collect(input.prNumber);
+    stage = 'normalize_snapshot';
     const snapshot = prDecisionSnapshot(collected.prSnapshot);
     if (collected.prSnapshot.repository.toLowerCase() !== dependencies.repository.toLowerCase()
         || collected.prSnapshot.repositoryId !== dependencies.repositoryId
         || collected.prSnapshot.number !== input.prNumber) {
       throw new Stage0QueueError('queue_repository_mismatch');
     }
+    stage = 'load_state';
     const existingState = await dependencies.storage.loadPrState(input.repositoryId, input.prNumber);
     let prState = existingState ?? createPrBabysitterState(snapshot);
+    stage = 'reconcile_state';
     prState = recordCurrentObservations(prState, snapshot, collected.prSnapshot, collected.checkObservations);
+    stage = 'save_state';
     await dependencies.storage.savePrState(input.repositoryId, input.prNumber, prState);
 
+    stage = 'decide';
     let decision: ReportPublicationInput['decision'];
     if (!collected.policy) {
       decision = {
@@ -269,12 +343,14 @@ export async function processStage0QueueMessage(
     }
 
     if (collected.requiredCheckSnapshot.collectionStatus === 'complete') {
+      stage = 'load_report_mapping';
       const mapping = await dependencies.storage.getCheckRunMapping(
         input.repositoryId,
         input.prNumber,
         snapshot.headSha,
       );
       try {
+        stage = 'publish_report';
         const published = await dependencies.publisher.publish({
           snapshot: collected.prSnapshot,
           decision,
@@ -289,6 +365,7 @@ export async function processStage0QueueMessage(
         if (!Number.isSafeInteger(published.checkRunId) || published.checkRunId < 1) {
           throw new Stage0QueueError('report_failed');
         }
+        stage = 'save_report_mapping';
         await dependencies.storage.saveCheckRunMapping({
           repositoryId: input.repositoryId,
           prNumber: input.prNumber,
@@ -302,14 +379,19 @@ export async function processStage0QueueMessage(
       }
     }
 
+    stage = 'mark_processed';
     await dependencies.storage.setDeliveryStatus(input.deliveryId, 'processed', null);
     return { status: 'processed', action: decision.action, reasonCode: decision.reasonCode };
   } catch (error) {
-    const reasonCode = safeFailureReason(error);
-    await dependencies.storage.setDeliveryStatus(input.deliveryId, 'retry', reasonCode).catch(() => undefined);
-    throw error;
+    const diagnostic = diagnosticError(error, stage);
+    if (registered && !duplicateStatusUnknown) {
+      await dependencies.storage.setDeliveryStatus(input.deliveryId, 'retry', diagnostic.code).catch(() => undefined);
+    }
+    throw diagnostic;
   } finally {
-    await dependencies.storage.releaseLease(input.repositoryId, input.prNumber, leaseOwner).catch(() => false);
+    if (leaseAcquired) {
+      await dependencies.storage.releaseLease(input.repositoryId, input.prNumber, leaseOwner).catch(() => false);
+    }
   }
 }
 
@@ -353,6 +435,7 @@ export async function handleQueue(batch: MessageBatch<unknown>, env: Env): Promi
         prNumber: message.body.prNumber,
         attempt: message.attempts,
         reasonCode,
+        stage: error instanceof Stage0QueueDiagnosticError ? error.stage : 'register_delivery',
       });
       message.retry({ delaySeconds: Math.min(300, 15 * (2 ** Math.min(Math.max(message.attempts - 1, 0), 4))) });
     }
