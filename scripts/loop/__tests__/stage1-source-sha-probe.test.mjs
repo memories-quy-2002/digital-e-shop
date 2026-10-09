@@ -1,14 +1,17 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { runSourceShaProbe } from '../stage1-source-sha-probe-cli.mjs';
 import {
   fetchUpstreamWorkflowRun,
   fetchWorkflowRunPullRequests,
   inspectWorkflowSourceShaEvidence,
+  normalizeSourceShaProbeErrorCode,
 } from '../stage1-source-sha-probe.mjs';
 import { serializeWorkflowSourceDescriptor } from '../workflow-source-descriptor.mjs';
 
@@ -125,10 +128,11 @@ function inspect(inputs = {}) {
     event = eventPayload(),
     apiRun = workflowRun(),
     pullRequests = [pullRequest()],
+    pullRequestsComplete = true,
     claims = certificateClaims({ run: apiRun }),
     inspectAttestation = async () => claims,
   } = inputs;
-  return inspectWorkflowSourceShaEvidence({ event, apiRun, pullRequests, expected, inspectAttestation });
+  return inspectWorkflowSourceShaEvidence({ event, apiRun, pullRequests, pullRequestsComplete, expected: inputs.expected ?? expected, inspectAttestation });
 }
 
 it('reports unavailable for push and old runs', async () => {
@@ -297,4 +301,74 @@ it('does not inspect events from another repository and returns only bounded met
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+it('assigns a fixed reason code to each existing probe refusal', async () => {
+  const cases = [
+    ['probe_identity_mismatch', { event: eventPayload({ workflow_id: 1 }) }],
+    ['probe_run_mismatch', { apiRun: workflowRun({ run_attempt: 3 }) }],
+    ['probe_event_unsupported', { event: eventPayload({ event: 'push' }), apiRun: workflowRun({ event: 'push' }) }],
+    ['probe_pr_lookup_invalid', { event: eventPayload({ head_branch: '' }), apiRun: workflowRun({ head_branch: '' }) }],
+    ['probe_pr_lookup_incomplete', { pullRequestsComplete: false }],
+    ['probe_pr_missing', { pullRequests: [] }],
+    ['probe_pr_ambiguous', { pullRequests: [pullRequest(), pullRequest({ number: 28 })] }],
+    ['probe_pr_tuple_mismatch', { pullRequests: [pullRequest({ merge_commit_sha: 'd'.repeat(40) })] }],
+    ['probe_run_timestamps_invalid', { apiRun: workflowRun({ created_at: 'invalid' }) }],
+    ['probe_descriptor_invalid', {
+      expected: { ...expected, path: '.github/workflows/bad name.yml' },
+      event: { ...eventPayload(), workflow_run: { ...eventPayload().workflow_run, path: '.github/workflows/bad name.yml' } },
+      apiRun: workflowRun({ path: '.github/workflows/bad name.yml' }),
+    }],
+    ['probe_attestation_provider_unavailable', { inspectAttestation: null }],
+    ['probe_claims_mismatch', { claims: null }],
+  ];
+
+  for (const [reasonCode, inputs] of cases) {
+    const result = await inspect(inputs);
+    assert.equal(result.status, 'unavailable', reasonCode);
+    assert.equal(result.sourceShaCandidate, null, reasonCode);
+    assert.equal(result.reasonCode, reasonCode, reasonCode);
+  }
+});
+
+it('keeps provider errors bounded and shares a fixed error-code allowlist', async () => {
+  const sentinel = 'SECRET_SENTINEL_message_stack_cause_code';
+  const error = Object.assign(new Error(sentinel), {
+    code: sentinel,
+    stack: sentinel,
+    cause: new Error(sentinel),
+  });
+  const result = await inspect({ inspectAttestation: async () => { throw error; } });
+  assert.equal(result.reasonCode, 'probe_attestation_failed');
+  assert.equal(JSON.stringify(result).includes(sentinel), false);
+
+  const known = await inspect({
+    inspectAttestation: async () => { throw Object.assign(new Error(sentinel), { code: 'attestation_cli_failed' }); },
+  });
+  assert.equal(known.reasonCode, 'attestation_cli_failed');
+  assert.equal(JSON.stringify(known).includes(sentinel), false);
+  assert.equal(normalizeSourceShaProbeErrorCode({ code: 'attestation_cli_failed' }, 'event_invalid'), 'attestation_cli_failed');
+  assert.equal(normalizeSourceShaProbeErrorCode({ code: sentinel }, 'event_invalid'), 'event_invalid');
+  assert.equal(normalizeSourceShaProbeErrorCode({}, 'event_invalid'), 'event_invalid');
+});
+
+it('keeps CLI refusal exits bounded and ignores foreign repositories without output', async () => {
+  const script = fileURLToPath(new URL('../stage1-source-sha-probe-cli.mjs', import.meta.url));
+  const sentinel = 'SECRET_SENTINEL_cli_environment';
+  const refused = spawnSync(process.execPath, [script], {
+    encoding: 'utf8',
+    env: { ...process.env, GITHUB_REPOSITORY: repository, GITHUB_EVENT_PATH: sentinel, GITHUB_TOKEN: sentinel },
+  });
+  assert.equal(refused.status, 1);
+  assert.equal(refused.stderr.trim(), 'event_invalid');
+  assert.equal(refused.stdout, '');
+  assert.equal(`${refused.stdout}${refused.stderr}`.includes(sentinel), false);
+
+  const ignored = spawnSync(process.execPath, [script], {
+    encoding: 'utf8',
+    env: { ...process.env, GITHUB_REPOSITORY: 'someone/else', GITHUB_EVENT_PATH: sentinel, GITHUB_TOKEN: sentinel },
+  });
+  assert.equal(ignored.status, 0);
+  assert.equal(ignored.stdout, '');
+  assert.equal(ignored.stderr, '');
 });
