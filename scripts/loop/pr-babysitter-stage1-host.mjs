@@ -3,9 +3,11 @@ import { pathToFileURL } from 'node:url';
 
 import { parsePrBabysitterArguments, runPrBabysitterCli, PR_BABYSITTER_EXIT_CODES } from './pr-babysitter-cli.mjs';
 import { createPrBabysitterStage0Host, STAGE0_REPOSITORY } from './pr-babysitter-host.mjs';
+import { createGitHubWorkflowSourceAttestationProvider } from './github-workflow-source-attestation.mjs';
+import { createWorkflowSourceVerifier } from './workflow-source-attestation.mjs';
 
 export const STAGE1_TRUST_STATUS = Object.freeze({
-  sourceAttestationProvider: 'unavailable',
+  sourceAttestationProvider: 'configured',
   workflowAllowlistEntries: 0,
   trustedApproverIds: 0,
   ciRunBudgetSession: 'unavailable',
@@ -35,7 +37,36 @@ export function assertStage1Command(args, isTTY) {
 // Stage 1 inspection reuses the independently tested read-only bootstrap. It has no
 // Actions adapter; rerun is routed only after the separate trust and budget gates exist.
 export async function createPrBabysitterStage1Host({ prNumber, repoRoot = process.cwd(), env = process.env } = {}) {
-  return createPrBabysitterStage0Host({ prNumber, repoRoot, env });
+  return createPrBabysitterStage0Host({
+    prNumber,
+    repoRoot,
+    env,
+    createWorkflowSourceVerifier: ({ getObserveToken }) => createStage1WorkflowSourceVerifier({ getObserveToken }),
+  });
+}
+
+export function createStage1WorkflowSourceVerifier({
+  getObserveToken,
+  providerFactory = createGitHubWorkflowSourceAttestationProvider,
+} = {}) {
+  if (typeof getObserveToken !== 'function' || typeof providerFactory !== 'function') {
+    throw Object.assign(new Error('stage1_source_attestation_configuration_invalid'), {
+      reasonCode: 'stage1_source_attestation_configuration_invalid',
+    });
+  }
+  const provider = providerFactory({
+    repository: STAGE0_REPOSITORY,
+    getToken: async (capability) => {
+      if (capability !== 'observe') {
+        throw Object.assign(new Error('stage1_read_only'), { reasonCode: 'stage1_read_only' });
+      }
+      return getObserveToken('source-attestation:read');
+    },
+  });
+  return createWorkflowSourceVerifier({
+    repository: STAGE0_REPOSITORY,
+    inspectAttestation: provider.inspectWorkflowSourceAttestation,
+  });
 }
 
 function writeJson(stream, value) {

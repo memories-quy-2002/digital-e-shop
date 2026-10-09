@@ -17,6 +17,7 @@ const OBSERVE_PERMISSIONS = Object.freeze({
 
 const CAPABILITY_PERMISSIONS = Object.freeze({
   observe: OBSERVE_PERMISSIONS,
+  'source-attestation:read': Object.freeze({ ...OBSERVE_PERMISSIONS, attestations: 'read' }),
   'actions:rerun': Object.freeze({ ...OBSERVE_PERMISSIONS, actions: 'write' }),
   'contents:write': Object.freeze({ ...OBSERVE_PERMISSIONS, contents: 'write' }),
 });

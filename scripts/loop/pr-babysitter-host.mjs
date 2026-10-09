@@ -301,8 +301,8 @@ function summarizeReviews(reviews) {
   };
 }
 
-function summarizeWorkflowEvidence(requiredWorkflows, collection, testedSha) {
-  return requiredWorkflows.map((identity) => {
+function summarizeWorkflowEvidence(requiredWorkflows, collection, testedSha, sourceEvidence = []) {
+  return requiredWorkflows.map((identity, index) => {
     let reasonCode = 'workflow_source_sha_unattested';
     if (!collection || collection.status !== 'current' || collection.collectionStatus !== 'complete') {
       reasonCode = 'workflow_collection_incomplete';
@@ -311,12 +311,14 @@ function summarizeWorkflowEvidence(requiredWorkflows, collection, testedSha) {
         && run.path === identity.path && run.ref === identity.ref && run.testedSha === testedSha);
       if (matchingRuns.length === 0) reasonCode = 'required_workflow_not_found';
     }
+    const verified = sourceEvidence[index]?.status === 'current'
+      && typeof sourceEvidence[index]?.sourceSha === 'string';
     return {
       identity: { repositoryId: identity.repositoryId, path: identity.path, ref: identity.ref, sha: identity.sha },
       testedSha,
-      status: 'unavailable',
-      sourceSha: null,
-      reasonCode,
+      status: verified ? 'verified' : 'unavailable',
+      sourceSha: verified ? sourceEvidence[index].sourceSha : null,
+      reasonCode: verified ? null : sourceEvidence[index]?.reasonCode ?? reasonCode,
     };
   });
 }
@@ -355,8 +357,16 @@ function buildStage0Summary(requiredCheckSnapshot, selected, checkCollectionComp
   };
 }
 
-export async function createPrBabysitterStage0Host({ prNumber, repoRoot = process.cwd(), env = process.env } = {}) {
+export async function createPrBabysitterStage0Host({
+  prNumber,
+  repoRoot = process.cwd(),
+  env = process.env,
+  createWorkflowSourceVerifier = null,
+} = {}) {
   if (!Number.isSafeInteger(prNumber) || prNumber < 1) throw new Stage0HostError('invalid_arguments');
+  if (createWorkflowSourceVerifier !== null && typeof createWorkflowSourceVerifier !== 'function') {
+    throw new Stage0HostError('invalid_source_attestation_configuration');
+  }
   const root = await validateCheckout(repoRoot);
   const appConfig = await validateAppConfig(env, root);
 
@@ -370,16 +380,28 @@ export async function createPrBabysitterStage0Host({ prNumber, repoRoot = proces
     trustedApproverIds: [],
     prompt,
   });
-  let installationToken;
+  const installationTokens = new Map();
   const getObserveToken = async (capability = 'observe') => {
-    if (capability !== 'observe') throw new Stage0HostError('stage0_read_only');
-    if (!installationToken) installationToken = await authProvider.getInstallationToken('observe');
-    return installationToken;
+    if (capability !== 'observe'
+        && !(createWorkflowSourceVerifier && capability === 'source-attestation:read')) {
+      throw new Stage0HostError('stage0_read_only');
+    }
+    if (!installationTokens.has(capability)) {
+      installationTokens.set(capability, await authProvider.getInstallationToken(capability));
+    }
+    return installationTokens.get(capability);
   };
   // Mint one tightly scoped token now so an invalid App installation fails before inspection starts.
   await getObserveToken('observe');
 
-  const prClient = createGitHubPrClient({ repository: STAGE0_REPOSITORY, getToken: getObserveToken });
+  const verifyWorkflowSourceAttestation = createWorkflowSourceVerifier
+    ? await createWorkflowSourceVerifier({ getObserveToken })
+    : null;
+  const prClient = createGitHubPrClient({
+    repository: STAGE0_REPOSITORY,
+    getToken: getObserveToken,
+    ...(verifyWorkflowSourceAttestation ? { verifyWorkflowSourceAttestation } : {}),
+  });
   let initialSnapshot;
   try {
     initialSnapshot = await prClient.getPullRequest(prNumber);
@@ -440,10 +462,17 @@ export async function createPrBabysitterStage0Host({ prNumber, repoRoot = proces
             try { workflowCollection = await prClient.getWorkflowRuns(selected.testedSha); }
             catch { workflowCollection = null; }
           }
+          const sourceEvidence = verifyWorkflowSourceAttestation && requiredCheckSnapshot.collectionStatus === 'complete'
+            ? await Promise.all(requiredCheckSnapshot.requiredWorkflows.map(async (identity) => {
+              try { return await prClient.getRequiredWorkflowEvidence(identity, selected.testedSha); }
+              catch { return null; }
+            }))
+            : [];
           const workflowEvidence = summarizeWorkflowEvidence(
             requiredCheckSnapshot.requiredWorkflows,
             workflowCollection,
             selected.testedSha,
+            sourceEvidence,
           );
           const observations = isCurrent
             ? observationCoverage(selected.result, requiredKeys).observations

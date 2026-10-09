@@ -28,6 +28,7 @@ function defaultPermissions(capability = 'observe') {
     actions: 'read',
     administration: 'read',
   };
+  if (capability === 'source-attestation:read') return { ...observe, attestations: 'read' };
   if (capability === 'actions:rerun') return { ...observe, actions: 'write' };
   if (capability === 'contents:write') return { ...observe, contents: 'write' };
   return observe;
@@ -86,7 +87,8 @@ function createHarness(options = {}) {
       const requested = JSON.parse(init.body);
       const capability = requested.permissions.contents === 'write'
         ? 'contents:write'
-        : requested.permissions.actions === 'write' ? 'actions:rerun' : 'observe';
+        : requested.permissions.actions === 'write' ? 'actions:rerun'
+          : requested.permissions.attestations === 'read' ? 'source-attestation:read' : 'observe';
       return response(201, options.installationResponse ?? {
         token: INSTALLATION_TOKEN,
         expires_at: '2026-09-28T09:00:00Z',
@@ -246,6 +248,20 @@ describe('GitHub App authentication and approval provider', () => {
     assert.deepEqual(JSON.parse(calls[0].body).repository_ids, [REPOSITORY_ID]);
     assert.deepEqual(JSON.parse(calls[1].body).repository_ids, [REPOSITORY_ID]);
     await assert.rejects(harness.provider.getInstallationToken('contents:delete'), GitHubAuthProviderError);
+  });
+
+  it('adds attestations read only to the dedicated source-attestation capability', async () => {
+    const harness = createHarness();
+
+    await harness.provider.getInstallationToken('source-attestation:read');
+
+    const tokenCall = callFor(harness.calls, '/app/installations/' + INSTALLATION_ID + '/access_tokens', 'POST');
+    assert.deepEqual(JSON.parse(tokenCall.body), {
+      repository_ids: [REPOSITORY_ID],
+      permissions: defaultPermissions('source-attestation:read'),
+    });
+    assert.deepEqual(defaultPermissions('observe').attestations, undefined);
+    await assert.rejects(harness.provider.getInstallationToken('attestations:write'), GitHubAuthProviderError);
   });
 
   it('fails closed when GitHub returns a token without the requested permission', async () => {
