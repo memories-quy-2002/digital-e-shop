@@ -48,7 +48,7 @@ export async function runSourceShaProbe(env = process.env, dependencies = {}) {
     });
   }
 
-  const inspectAttestation = dependencies.inspectAttestation
+  const sourceAttestationProvider = dependencies.sourceAttestationProvider
     ?? createGitHubWorkflowSourceAttestationProvider({
       repository: EXPECTED.repository,
       getToken: async (capability) => {
@@ -56,6 +56,8 @@ export async function runSourceShaProbe(env = process.env, dependencies = {}) {
         return env.GITHUB_TOKEN;
       },
     });
+  const inspectAttestation = dependencies.inspectAttestation
+    ?? sourceAttestationProvider.inspectWorkflowSourceAttestation;
   return inspectWorkflowSourceShaEvidence({
     event,
     apiRun,
