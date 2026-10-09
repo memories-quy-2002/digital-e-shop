@@ -26,6 +26,8 @@ On 2026-10-09, a read-only D1 sample showed 258 historical retry records with re
 
 The active Worker version `cce89ad4-8891-49c9-884e-c1fbfa9aa82f` was uploaded on 2026-10-06, but no commit-SHA attestation correlates it to source. The canonical policy parser's `highRiskActions` support merged on 2026-10-08; this policy drift is a separate deployment concern, not an established cause of probe or Queue failures. The GitHub workflow-source probe requires a separately reviewed merge and a fresh eligible PR observation because `workflow_run` uses default-branch code; it does not depend on a Cloudflare deployment. Worker diagnostics separately require a protected deployment and correlation of its source commit with the active Worker version. A later eligible PR may exercise both paths. Stage 1 remains BLOCKED pending fresh evidence and all independent promotion gates.
 
+The post-merge `main` push at `a3b998e26da1852b572bd07fd05ba1f403e351af` completed Loop Foundation run `37874576925`; its read-only source probe `37874653137` returned `probe_event_unsupported`. This is the expected refusal for a push without a same-repository PR association. The probe's bounded refusal diagnostics are working, but this run provides no positive source-SHA proof and does not count toward the Stage 1 pilot observations.
+
 ## Source-SHA feasibility probe
 
 The legacy read-only probe added by PR #291 ran after merge. It found no upstream source-SHA field in the GitHub event or matching run response. That result motivated the OIDC design; it is not an attestation, pilot observation, or authorization to rerun Actions.
