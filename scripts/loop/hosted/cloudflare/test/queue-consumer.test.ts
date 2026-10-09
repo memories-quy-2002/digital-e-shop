@@ -3,7 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { normalizePrSnapshot, normalizeRequiredCheckSnapshot } from '../../../pr-evidence.mjs';
 import { createD1Stage0Storage } from '../src/storage/d1';
-import { processStage0QueueMessage, type Stage0QueueMessage } from '../src/handlers/queue';
+import { handleQueue, processStage0QueueMessage, type Stage0QueueMessage } from '../src/handlers/queue';
+
+const runtimeMock = vi.hoisted(() => ({ create: vi.fn() }));
+vi.mock('../src/github/observer', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/github/observer')>();
+  return { ...actual, createGitHubObserverRuntime: runtimeMock.create };
+});
 
 interface TestEnvironment {
   STAGE0_DB: D1Database;
@@ -139,6 +145,47 @@ beforeEach(async () => {
 });
 
 describe('Stage 0 Queue consumer', () => {
+  it('logs the same generated fallback code that it stores before retrying', async () => {
+    const secret = 'queue-observer-hostile-sentinel';
+    runtimeMock.create.mockReturnValue({
+      configuration: {
+        appId: 5130911,
+        installationId: 166381027,
+        repositoryId,
+        repository,
+        privateKey: 'unused-test-key',
+        checkRunName: 'Loop Engineering Stage 0',
+      },
+      auth: { getInstallationToken: vi.fn() },
+      observer: { collect: vi.fn(async () => { throw Object.assign(new Error(secret), { code: 'unknown_valid_looking_code' }); }) },
+    });
+    const ack = vi.fn();
+    const retry = vi.fn();
+    const log = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const queueMessage = { body: message('delivery-queue-log'), attempts: 1, ack, retry };
+
+    try {
+      await handleQueue({ messages: [queueMessage] } as unknown as MessageBatch<unknown>, {
+        EVENT_QUEUE: {} as unknown as Queue<Stage0QueueMessage>,
+        STAGE0_DB: testEnv.STAGE0_DB,
+      });
+
+      expect(ack).not.toHaveBeenCalled();
+      expect(retry).toHaveBeenCalledOnce();
+      expect(log).toHaveBeenCalledWith('stage0_queue_message_retry', expect.objectContaining({
+        reasonCode: 'stage0_observe_failed',
+        stage: 'observe',
+      }));
+      expect(log.mock.calls.flat().join(' ')).not.toContain(secret);
+      const row = await testEnv.STAGE0_DB.prepare('SELECT reason_code FROM delivery_records WHERE delivery_id = ?')
+        .bind('delivery-queue-log').first<{ reason_code: string | null }>();
+      expect(row?.reason_code).toBe('stage0_observe_failed');
+    } finally {
+      log.mockRestore();
+      runtimeMock.create.mockReset();
+    }
+  });
+
   it('records Phase 2A state, publishes an observation, and acknowledges duplicate deliveries idempotently', async () => {
     const deps = dependencies();
 

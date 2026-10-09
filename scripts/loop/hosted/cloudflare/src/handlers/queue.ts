@@ -249,6 +249,7 @@ function diagnosticError(error: unknown, stage: QueueProcessingStage): Stage0Que
 }
 
 function safeFailureReason(error: unknown): string {
+  if (error instanceof Stage0QueueDiagnosticError) return error.code;
   return recognizedErrorCode(error) ?? 'stage0_queue_consumer_setup_failed';
 }
 

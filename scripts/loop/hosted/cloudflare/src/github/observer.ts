@@ -946,7 +946,12 @@ export function createGitHubObserver(
       readRequiredCheckSnapshot(api, before, null).catch(() => unavailableRequiredChecks(before, 'required_check_policy_unavailable')),
       Promise.all([...new Set([before.mergeSha, before.headSha].filter((sha): sha is string => Boolean(sha)))]
         .map(async (testedSha) => collectChecksForSha(api, before, testedSha).catch((error: unknown) => {
-          if (error instanceof Stage0ObserverError) throw error;
+          if (error instanceof Stage0ObserverError) {
+            console.warn('stage0_check_observation_incomplete', {
+              reasonCode: error.code,
+              stage: 'observe',
+            });
+          }
           return { testedSha, observations: [], complete: false };
         }))),
       readMetadata(api, before.number).catch(() => ({

@@ -504,11 +504,21 @@ describe('read-only Stage 0 PR observation', () => {
     const hostile = { id: 15, app: { id: 15368 }, head_sha: mergeSha, status: 'completed', conclusion: 'success' };
     Object.defineProperty(hostile, 'name', { get() { throw new Error('secret-check-response'); } });
     const { observer } = observerFixture({ checkRuns: () => [hostile] });
+    const log = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-    await expect(observer.collect(264)).rejects.toMatchObject({ code: 'check_observation_invalid' });
-    try { await observer.collect(264); } catch (error) {
-      expect(JSON.stringify(error)).not.toContain('secret-check-response');
-      expect((error as Error).message).not.toContain('sentinel');
+    try {
+      const result = await observer.collect(264);
+      expect(result.checkCollectionComplete).toBe(false);
+      expect(result.collectionStatus).toBe('incomplete');
+      expect(result.checkObservations).toEqual([]);
+      expect(result.reasonCode).toBe('evidence_collection_incomplete');
+      expect(log).toHaveBeenCalledWith('stage0_check_observation_incomplete', {
+        reasonCode: 'check_observation_invalid',
+        stage: 'observe',
+      });
+      expect(log.mock.calls.flat().join(' ')).not.toContain('secret-check-response');
+    } finally {
+      log.mockRestore();
     }
   });
 
