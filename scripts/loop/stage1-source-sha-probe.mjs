@@ -11,6 +11,30 @@ const OIDC_ISSUER = 'https://token.actions.githubusercontent.com';
 const SUBJECT_NAME = 'digital-e-loop-workflow-source.json';
 const SHA_PATTERN = /^[a-f0-9]{40}$/;
 const DIGEST_PATTERN = /^[a-f0-9]{64}$/;
+const SOURCE_SHA_PROBE_ERROR_CODES = new Set([
+  'event_invalid',
+  'upstream_run_transport_error', 'upstream_run_http_error', 'upstream_run_invalid_json',
+  'pull_request_lookup_transport_error', 'pull_request_lookup_http_error', 'pull_request_lookup_invalid_json',
+  'invalid_attestation_provider_configuration', 'attestation_temp_unavailable', 'attestation_cli_unavailable',
+  'attestation_cli_unsupported', 'attestation_cli_timeout', 'attestation_output_overflow',
+  'attestation_cli_failed', 'attestation_output_malformed', 'attestation_result_unavailable',
+  'attestation_result_ambiguous', 'attestation_claim_mismatch', 'attestation_cleanup_failed',
+  'invalid_attestation_inputs',
+  'probe_identity_mismatch', 'probe_run_mismatch', 'probe_event_unsupported',
+  'probe_pr_lookup_invalid', 'probe_pr_lookup_incomplete', 'probe_pr_missing', 'probe_pr_ambiguous',
+  'probe_pr_tuple_mismatch', 'probe_run_timestamps_invalid', 'probe_descriptor_invalid',
+  'probe_attestation_provider_unavailable', 'probe_attestation_failed', 'probe_claims_mismatch',
+]);
+
+export function normalizeSourceShaProbeErrorCode(error, fallback) {
+  const safeFallback = SOURCE_SHA_PROBE_ERROR_CODES.has(fallback) ? fallback : 'upstream_run_transport_error';
+  try {
+    const code = error?.code;
+    return SOURCE_SHA_PROBE_ERROR_CODES.has(code) ? code : safeFallback;
+  } catch {
+    return safeFallback;
+  }
+}
 
 function boundedError(code) {
   const error = new Error(code);
@@ -31,15 +55,16 @@ function normalizeTimestamp(value) {
   return new Date(value).toISOString();
 }
 
-function unavailable({ runId = null, runAttempt = null, workflowId = null, path = null, testedSha = null } = {}) {
+function unavailable({ runId = null, runAttempt = null, workflowId = null, path = null, testedSha = null, reasonCode } = {}) {
   return Object.freeze({
     status: 'unavailable',
     runId: isPositiveInteger(runId) ? runId : null,
     runAttempt: isPositiveInteger(runAttempt) ? runAttempt : null,
     workflowId: isPositiveInteger(workflowId) ? workflowId : null,
-    path: typeof path === 'string' && path.length <= 1024 ? path : null,
+    path: path === '.github/workflows/loop-foundation.yml' ? path : null,
     testedSha: normalizeSha(testedSha),
     sourceShaCandidate: null,
+    ...(typeof reasonCode === 'string' ? { reasonCode } : {}),
   });
 }
 
@@ -150,7 +175,9 @@ export async function inspectWorkflowSourceShaEvidence({
   if (!expected || event?.repository?.id !== expected.repositoryId
       || apiRun?.repository?.id !== expected.repositoryId
       || eventRun?.workflow_id !== expected.workflowId || eventRun?.path !== expected.path
-      || apiRun?.workflow_id !== expected.workflowId || apiRun?.path !== expected.path) return initial;
+      || apiRun?.workflow_id !== expected.workflowId || apiRun?.path !== expected.path) {
+    return unavailable({ ...initial, reasonCode: 'probe_identity_mismatch' });
+  }
 
   const runId = eventRun.id;
   const runAttempt = eventRun.run_attempt;
@@ -166,21 +193,21 @@ export async function inspectWorkflowSourceShaEvidence({
   if (!isPositiveInteger(runId) || apiRun.id !== runId
       || !isPositiveInteger(runAttempt) || apiRun.run_attempt !== runAttempt
       || !testedSha || normalizedApiSha !== testedSha
-      || eventRun.head_branch !== apiRun.head_branch) return unavailable(common);
+      || eventRun.head_branch !== apiRun.head_branch) return unavailable({ ...common, reasonCode: 'probe_run_mismatch' });
 
-  if (eventRun.event !== 'pull_request' || apiRun.event !== 'pull_request') return unavailable(common);
+  if (eventRun.event !== 'pull_request' || apiRun.event !== 'pull_request') return unavailable({ ...common, reasonCode: 'probe_event_unsupported' });
   if (typeof apiRun.head_branch !== 'string' || apiRun.head_branch.length === 0
       || apiRun.head_branch.length > 255 || /[\x00-\x1f\x7f]/.test(apiRun.head_branch)
-      || !Array.isArray(pullRequests) || pullRequests.length > 100 || pullRequestsComplete !== true) {
-    return unavailable(common);
-  }
+      || !Array.isArray(pullRequests) || pullRequests.length > 100) return unavailable({ ...common, reasonCode: 'probe_pr_lookup_invalid' });
+  if (pullRequestsComplete !== true) return unavailable({ ...common, reasonCode: 'probe_pr_lookup_incomplete' });
 
   const associatedPullRequests = pullRequests.filter((pullRequest) =>
     sameRepository(pullRequest?.head?.repo, expected.repository)
       && pullRequest.head.repo.id === expected.repositoryId
       && sameRepository(pullRequest?.base?.repo, expected.repository)
       && pullRequest.base.repo.id === expected.repositoryId);
-  if (associatedPullRequests.length !== 1) return unavailable(common);
+  if (associatedPullRequests.length === 0) return unavailable({ ...common, reasonCode: 'probe_pr_missing' });
+  if (associatedPullRequests.length !== 1) return unavailable({ ...common, reasonCode: 'probe_pr_ambiguous' });
 
   const pullRequest = associatedPullRequests[0];
   const baseSha = normalizeSha(pullRequest?.base?.sha);
@@ -196,11 +223,11 @@ export async function inspectWorkflowSourceShaEvidence({
   };
   if (!isPositiveInteger(pullRequestNumber) || !baseSha || !headSha || !mergeSha
       || pullRequest.head.ref !== apiRun.head_branch
-      || (testedSha !== headSha && testedSha !== mergeSha)) return unavailable(common);
+      || (testedSha !== headSha && testedSha !== mergeSha)) return unavailable({ ...common, reasonCode: 'probe_pr_tuple_mismatch' });
 
   const createdAt = normalizeTimestamp(apiRun.created_at);
   const updatedAt = normalizeTimestamp(apiRun.updated_at);
-  if (!createdAt || !updatedAt || Date.parse(createdAt) > Date.parse(updatedAt)) return unavailable(common);
+  if (!createdAt || !updatedAt || Date.parse(createdAt) > Date.parse(updatedAt)) return unavailable({ ...common, reasonCode: 'probe_run_timestamps_invalid' });
 
   const workflowRef = `refs/pull/${pullRequestNumber}/merge`;
   const run = Object.freeze({
@@ -218,7 +245,8 @@ export async function inspectWorkflowSourceShaEvidence({
   });
   const frozenSnapshot = Object.freeze(snapshot);
   const descriptor = descriptorFor({ expected, run, snapshot: frozenSnapshot, workflowRef });
-  if (!descriptor || typeof inspectAttestation !== 'function') return unavailable(common);
+  if (!descriptor) return unavailable({ ...common, reasonCode: 'probe_descriptor_invalid' });
+  if (typeof inspectAttestation !== 'function') return unavailable({ ...common, reasonCode: 'probe_attestation_provider_unavailable' });
   const descriptorSha256 = createHash('sha256').update(descriptor).digest('hex');
 
   let claims;
@@ -233,12 +261,12 @@ export async function inspectWorkflowSourceShaEvidence({
       run,
       snapshot: frozenSnapshot,
     });
-  } catch {
-    return unavailable(common);
+  } catch (error) {
+    return unavailable({ ...common, reasonCode: normalizeSourceShaProbeErrorCode(error, 'probe_attestation_failed') });
   }
 
   if (!claimsMatchRun(claims, { expected, run, snapshot: frozenSnapshot, workflowRef, descriptorSha256 })) {
-    return unavailable(common);
+    return unavailable({ ...common, reasonCode: 'probe_claims_mismatch' });
   }
   return candidateResult({
     ...common,

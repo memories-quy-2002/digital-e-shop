@@ -6,6 +6,7 @@ import {
   fetchUpstreamWorkflowRun,
   fetchWorkflowRunPullRequests,
   inspectWorkflowSourceShaEvidence,
+  normalizeSourceShaProbeErrorCode,
 } from './stage1-source-sha-probe.mjs';
 
 const EXPECTED = Object.freeze({
@@ -70,28 +71,7 @@ async function main() {
     const result = await runSourceShaProbe();
     if (result) process.stdout.write(`${JSON.stringify(result)}\n`);
   } catch (error) {
-    const code = [
-      'event_invalid',
-      'upstream_run_transport_error',
-      'upstream_run_http_error',
-      'upstream_run_invalid_json',
-      'pull_request_lookup_transport_error',
-      'pull_request_lookup_http_error',
-      'pull_request_lookup_invalid_json',
-      'invalid_attestation_provider_configuration',
-      'attestation_temp_unavailable',
-      'attestation_cli_unavailable',
-      'attestation_cli_unsupported',
-      'attestation_cli_timeout',
-      'attestation_output_overflow',
-      'attestation_cli_failed',
-      'attestation_output_malformed',
-      'attestation_result_unavailable',
-      'attestation_result_ambiguous',
-      'attestation_claim_mismatch',
-      'attestation_cleanup_failed',
-      'invalid_attestation_inputs',
-    ].includes(error?.code) ? error.code : 'upstream_run_transport_error';
+    const code = normalizeSourceShaProbeErrorCode(error, 'upstream_run_transport_error');
     process.stderr.write(`${code}\n`);
     process.exitCode = 1;
   }
