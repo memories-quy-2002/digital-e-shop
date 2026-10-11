@@ -11,18 +11,29 @@ const target = Object.freeze({ repository: 'memories-quy-2002/digital-e-shop', r
 
 function setup(response = new Response(JSON.stringify({ workflow_run_id: 8001 }), { status: 200 }), revalidate = async (candidate) => candidate) {
   const calls = [];
+  const events = [];
   let reserved = [];
+  const finished = [];
+  let revalidationCount = 0;
   const host = createStage1DispatchHost({ repository: target.repository, repositoryId: target.repositoryId, workflowId: target.workflowId,
-    workflowPath: target.workflowPath, getReadToken: async () => 'read-token', getWriteToken: async () => 'write-token',
-    revalidate: async (candidate, token) => { assert.equal(token, 'read-token'); return revalidate(candidate); },
-    consumeApproval: async (_approval, candidate) => assert.deepEqual(candidate, target),
-    reserveBudget: async (key) => { reserved.push(key); return true; },
-    fetchImpl: async (url, init) => { calls.push({ url: new URL(url), init }); return response; } });
-  return { host, calls, reserved };
+    workflowPath: target.workflowPath,
+    getReadToken: async () => { events.push('read-token'); return 'read-token'; },
+    getWriteToken: async () => { events.push('write-token'); return 'write-token'; },
+    revalidate: async (candidate, token) => {
+      assert.equal(token, 'read-token');
+      revalidationCount += 1;
+      events.push(`revalidate-${revalidationCount}`);
+      return revalidate(candidate, revalidationCount);
+    },
+    consumeApproval: async (_approval, candidate) => { events.push('consume-approval'); assert.deepEqual(candidate, target); },
+    reserveBudget: async (key) => { events.push('reserve-budget'); reserved.push(key); return true; },
+    finishBudget: async (key, status) => { events.push('finish-budget'); finished.push({ key, status }); },
+    fetchImpl: async (url, init) => { events.push('dispatch'); calls.push({ url: new URL(url), init }); return response; } });
+  return { host, calls, reserved, finished, events };
 }
 
-it('dispatches once to fixed workflow on main with bounded exact-target inputs and requires returned run ID', async () => {
-  const { host, calls, reserved } = setup();
+it('dispatches once to fixed workflow on main with bounded exact-target inputs after a post-token tuple check', async () => {
+  const { host, calls, reserved, finished, events } = setup();
   const result = await dispatchStage1Retry({ host, decision: { action: 'retry-check', reasonCode: 'same_revision_pass_then_fail' }, target, approval: {} });
   assert.equal(result.status, 'submitted');
   assert.equal(result.workflowRunId, 8001);
@@ -30,14 +41,19 @@ it('dispatches once to fixed workflow on main with bounded exact-target inputs a
   assert.equal(calls[0].url.href, 'https://api.github.com/repos/memories-quy-2002/digital-e-shop/actions/workflows/77/dispatches');
   assert.equal(calls[0].init.method, 'POST');
   assert.equal(calls[0].init.redirect, 'manual');
+  assert.ok(calls[0].init.signal instanceof AbortSignal);
+  assert.equal(calls[0].init.signal.aborted, false);
   assert.equal(calls[0].init.headers['X-GitHub-Api-Version'], '2026-03-10');
   assert.equal(calls[0].init.headers.Authorization, 'Bearer write-token');
   const body = JSON.parse(calls[0].init.body);
   assert.equal(body.ref, 'main');
   assert.equal(body.inputs.check_run_id, '1234');
   assert.equal(body.inputs.tested_sha, target.testedSha);
-  assert.equal(body.return_run_details, true);
+  assert.equal(Object.hasOwn(body, 'return_run_details'), false);
   assert.equal(reserved.length, 1);
+  assert.deepEqual(finished.map((entry) => entry.status), ['submitted']);
+  assert.deepEqual(events, ['read-token', 'revalidate-1', 'consume-approval', 'write-token',
+    'read-token', 'revalidate-2', 'reserve-budget', 'dispatch', 'finish-budget']);
 });
 
 it('escalates uncertain responses without issuing another request', async () => {
@@ -49,6 +65,16 @@ it('escalates uncertain responses without issuing another request', async () => 
     assert.equal(result.status, 'escalate');
     assert.equal(setupResult.calls.length, 1);
     assert.equal(setupResult.reserved.length, 1);
+    assert.deepEqual(setupResult.finished.map((entry) => entry.status), ['uncertain']);
+  }
+});
+
+it('marks definitive client errors rejected while preserving uncertainty for server errors', async () => {
+  for (const [status, expected] of [[403, 'rejected'], [422, 'rejected'], [503, 'uncertain']]) {
+    const setupResult = setup(new Response('{}', { status }));
+    await dispatchStage1Retry({ host: setupResult.host,
+      decision: { action: 'retry-check', reasonCode: 'same_revision_pass_then_fail' }, target, approval: {} });
+    assert.deepEqual(setupResult.finished.map((entry) => entry.status), [expected]);
   }
 });
 
@@ -63,6 +89,17 @@ it('refuses target drift before reserving budget or performing network I/O', asy
 
 it('refuses actor identity drift after approval and before reserving budget or dispatching', async () => {
   const { host, calls, reserved } = setup(undefined, async (candidate) => ({ ...candidate, actorId: 9999 }));
+  const result = await dispatchStage1Retry({ host,
+    decision: { action: 'retry-check', reasonCode: 'same_revision_pass_then_fail' }, target, approval: {} });
+  assert.equal(result.reasonCode, 'stage1_target_stale');
+  assert.equal(calls.length, 0);
+  assert.equal(reserved.length, 0);
+});
+
+it('revalidates the approved tuple after minting the write token and before reserving budget', async () => {
+  const { host, calls, reserved } = setup(undefined, (candidate, count) => count === 1
+    ? candidate
+    : { ...candidate, headSha: 'e'.repeat(40) });
   const result = await dispatchStage1Retry({ host,
     decision: { action: 'retry-check', reasonCode: 'same_revision_pass_then_fail' }, target, approval: {} });
   assert.equal(result.reasonCode, 'stage1_target_stale');

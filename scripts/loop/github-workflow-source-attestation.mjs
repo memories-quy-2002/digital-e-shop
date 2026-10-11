@@ -14,6 +14,9 @@ const MAX_OUTPUT_BYTES = 256 * 1024;
 const MAX_TIMESTAMP_RESULTS = 16;
 const CLI_TIMEOUT_MS = 20_000;
 const MINIMUM_GH_VERSION = Object.freeze([2, 92, 0]);
+const STAGE1_WORKFLOW_PATH = '.github/workflows/stage1-trusted-retry.yml';
+const STAGE1_WORKFLOW_REF = 'refs/heads/main';
+const STAGE1_ACTOR_LOGIN = 'digital-e-loop-runner[bot]';
 
 class WorkflowSourceAttestationError extends Error {
   constructor(code) {
@@ -85,7 +88,7 @@ function mapExecutionError(error, phase) {
   return 'attestation_cli_unavailable';
 }
 
-function validDescriptorInput({ repository, identity, run, snapshot }) {
+function validDescriptorInput({ repository, identity, run, snapshot, dispatchTarget }) {
   if (!validRepository(repository) || !isRecord(identity) || identity.type !== 'workflow'
       || !isPositiveInteger(identity.repositoryId) || !isPositiveInteger(snapshot?.repositoryId)
       || identity.repositoryId !== snapshot.repositoryId
@@ -105,6 +108,7 @@ function validDescriptorInput({ repository, identity, run, snapshot }) {
   if (createdAt === null || updatedAt === null || createdAt > updatedAt) return null;
 
   let pullRequest = null;
+  let descriptorDispatchTarget;
   if (run.event === 'pull_request') {
     if (!isPositiveInteger(snapshot.number) || !isSha(snapshot.baseSha)
         || !isSha(snapshot.headSha) || !isSha(snapshot.mergeSha)
@@ -115,7 +119,30 @@ function validDescriptorInput({ repository, identity, run, snapshot }) {
       headSha: snapshot.headSha,
       mergeSha: snapshot.mergeSha,
     };
-  }
+  } else if (run.event === 'workflow_dispatch') {
+    if (run.path !== STAGE1_WORKFLOW_PATH || run.ref !== STAGE1_WORKFLOW_REF
+        || identity.sha !== snapshot.baseSha || run.testedSha !== snapshot.baseSha
+        || !isPositiveInteger(snapshot.number) || !isSha(snapshot.baseSha) || !isSha(snapshot.headSha)
+        || (snapshot.mergeSha !== null && !isSha(snapshot.mergeSha))
+        || !isRecord(dispatchTarget) || !isPositiveInteger(run.actorId) || run.actorLogin !== STAGE1_ACTOR_LOGIN
+        || dispatchTarget.prNumber !== snapshot.number || dispatchTarget.baseSha !== snapshot.baseSha
+        || dispatchTarget.headSha !== snapshot.headSha || dispatchTarget.mergeSha !== snapshot.mergeSha
+        || dispatchTarget.actorId !== run.actorId || dispatchTarget.actorLogin !== run.actorLogin) return null;
+    descriptorDispatchTarget = {
+      number: snapshot.number,
+      baseSha: snapshot.baseSha,
+      headSha: snapshot.headSha,
+      mergeSha: snapshot.mergeSha,
+      testedSha: dispatchTarget.testedSha,
+      context: dispatchTarget.context,
+      appId: dispatchTarget.appId,
+      checkRunId: dispatchTarget.checkRunId,
+      policyFingerprint: dispatchTarget.policyFingerprint,
+      requestId: dispatchTarget.requestId,
+      actorId: run.actorId,
+      actorLogin: run.actorLogin,
+    };
+  } else return null;
 
   try {
     const descriptorBytes = serializeWorkflowSourceDescriptor({
@@ -128,6 +155,7 @@ function validDescriptorInput({ repository, identity, run, snapshot }) {
       eventName: run.event,
       testedSha: run.testedSha,
       pullRequest,
+      ...(descriptorDispatchTarget ? { dispatchTarget: descriptorDispatchTarget } : {}),
     });
     return {
       descriptorBytes,
@@ -141,6 +169,7 @@ function validDescriptorInput({ repository, identity, run, snapshot }) {
       workflowPath: run.path,
       workflowRef: run.ref,
       repositoryId: snapshot.repositoryId,
+      ...(descriptorDispatchTarget ? { dispatchTarget: Object.freeze(descriptorDispatchTarget) } : {}),
     };
   } catch {
     return null;
@@ -275,8 +304,8 @@ export function createGitHubWorkflowSourceAttestationProvider({
     }
   }
 
-  async function inspectWorkflowSourceAttestation({ identity, run, snapshot } = {}) {
-    const expected = validDescriptorInput({ repository, identity, run, snapshot });
+  async function inspectWorkflowSourceAttestation({ identity, run, snapshot, dispatchTarget } = {}) {
+    const expected = validDescriptorInput({ repository, identity, run, snapshot, dispatchTarget });
     if (!expected) reject('invalid_attestation_inputs');
 
     let token;

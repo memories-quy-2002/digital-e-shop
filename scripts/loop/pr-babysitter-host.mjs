@@ -362,22 +362,29 @@ export async function createPrBabysitterStage0Host({
   repoRoot = process.cwd(),
   env = process.env,
   createWorkflowSourceVerifier = null,
+  trustedApproverIds = [],
+  stage1Prompt = null,
+  stage1Enabled = false,
 } = {}) {
   if (!Number.isSafeInteger(prNumber) || prNumber < 1) throw new Stage0HostError('invalid_arguments');
   if (createWorkflowSourceVerifier !== null && typeof createWorkflowSourceVerifier !== 'function') {
     throw new Stage0HostError('invalid_source_attestation_configuration');
   }
+  if (!Array.isArray(trustedApproverIds) || (stage1Prompt !== null && typeof stage1Prompt !== 'function')
+      || typeof stage1Enabled !== 'boolean' || (stage1Enabled && stage1Prompt === null)) {
+    throw new Stage0HostError('invalid_stage1_configuration');
+  }
   const root = await validateCheckout(repoRoot);
   const appConfig = await validateAppConfig(env, root);
 
-  const prompt = Object.assign(async () => false, { isTTY: false });
+  const prompt = stage1Prompt ?? Object.assign(async () => false, { isTTY: false });
   const authProvider = createGitHubAuthProvider({
     appId: appConfig.appId,
     appClientId: appConfig.appClientId,
     installationId: appConfig.installationId,
     repositoryId: STAGE0_REPOSITORY_ID,
     getAppPrivateKey: async () => appConfig.key,
-    trustedApproverIds: [],
+    trustedApproverIds,
     prompt,
   });
   const installationTokens = new Map();
@@ -435,9 +442,12 @@ export async function createPrBabysitterStage0Host({
     },
     adapters: {
       pr: {
-        async collect(number) {
+        async collect(number, options = {}) {
+          if (options === null || typeof options !== 'object' || Array.isArray(options)
+              || Object.keys(options).some((key) => key !== 'testedSha')) throw new Stage0HostError('invalid_options');
           const prSnapshot = await readCurrentSnapshot(number);
           const testedShas = [...new Set([prSnapshot.mergeSha, prSnapshot.headSha].filter(Boolean))];
+          if (options.testedSha !== undefined && !testedShas.includes(options.testedSha)) throw new Stage0HostError('tested_sha_not_in_current_pr');
           const [files, requiredCheckSnapshot, reviews, ...checkResults] = await Promise.all([
             prClient.getPullRequestFiles(number),
             prClient.getRequiredCheckSnapshot({ baseRef: prSnapshot.baseRef, headSha: prSnapshot.headSha }),
@@ -448,7 +458,9 @@ export async function createPrBabysitterStage0Host({
             })),
           ]);
           const requiredKeys = new Set(requiredCheckSnapshot.requiredCheckKeys);
-          const selected = chooseCheckCollection(checkResults, requiredKeys, prSnapshot);
+          const selected = options.testedSha
+            ? checkResults.find((item) => item.testedSha === options.testedSha)
+            : chooseCheckCollection(checkResults, requiredKeys, prSnapshot);
           const isCurrent = selected.result && isCurrentResult(selected.result, prSnapshot);
           const metadataWithinOutputBound = requiredCheckSnapshot.requiredChecks.length <= MAX_OUTPUT_IDENTITIES
             && requiredCheckSnapshot.requiredWorkflows.length <= MAX_OUTPUT_IDENTITIES;
@@ -458,10 +470,8 @@ export async function createPrBabysitterStage0Host({
           ));
 
           let workflowCollection = null;
-          if (requiredCheckSnapshot.requiredWorkflows.length > 0) {
-            try { workflowCollection = await prClient.getWorkflowRuns(selected.testedSha); }
-            catch { workflowCollection = null; }
-          }
+          try { workflowCollection = await prClient.getWorkflowRuns(selected.testedSha); }
+          catch { workflowCollection = null; }
           const sourceEvidence = verifyWorkflowSourceAttestation && requiredCheckSnapshot.collectionStatus === 'complete'
             ? await Promise.all(requiredCheckSnapshot.requiredWorkflows.map(async (identity) => {
               try { return await prClient.getRequiredWorkflowEvidence(identity, selected.testedSha); }
@@ -483,12 +493,20 @@ export async function createPrBabysitterStage0Host({
             requiredCheckSnapshot,
             checkObservations: observations,
             checkCollectionComplete,
+            changedFiles: files,
+            workflowRuns: workflowCollection,
             stage0Summary: buildStage0Summary(requiredCheckSnapshot, selected, checkCollectionComplete, checkCollectionsBySha,
               workflowEvidence, files, reviews),
           };
         },
         async refresh(number) {
           return readCurrentSnapshot(number);
+        },
+        async getWorkflowByPath(workflowPath) {
+          return prClient.getWorkflowByPath(workflowPath);
+        },
+        async getWorkflowRunById(runId) {
+          return prClient.getWorkflowRunById(runId);
         },
       },
       state: {
@@ -504,7 +522,13 @@ export async function createPrBabysitterStage0Host({
           await savePrBabysitterState(root, state);
         },
       },
-      auth: { getInstallationToken: getObserveToken },
+      auth: stage1Enabled ? {
+        getInstallationToken: getObserveToken,
+        authenticateApprover: authProvider.authenticateApprover,
+        requestApproval: authProvider.requestApproval,
+        consumeApproval: authProvider.consumeApproval,
+        getStage1WriteToken: () => authProvider.getInstallationToken('stage1:required-check-recovery'),
+      } : { getInstallationToken: getObserveToken },
       repair: Object.freeze({}),
       writer: Object.freeze({}),
       budget: async () => ({ stop: true, reasonCode: 'stage0_read_only' }),

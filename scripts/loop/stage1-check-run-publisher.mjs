@@ -1,4 +1,4 @@
-import { createGitHubPrClient } from './github-pr-client.mjs';
+import { createGitHubPrClient, GITHUB_PR_SNAPSHOT_QUERY } from './github-pr-client.mjs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -24,6 +24,59 @@ function validTarget(target) {
     && /^[a-f0-9]{64}$/i.test(target.policyFingerprint);
 }
 
+export function createStage1PublisherTransport({ target, token, fetchImpl = globalThis.fetch } = {}) {
+  if (!validTarget(target) || typeof token !== 'string' || token.length === 0 || token.length > 8192
+      || /[\x00-\x20\x7f]/.test(token) || typeof fetchImpl !== 'function') {
+    throw new TypeError('publisher_transport_invalid');
+  }
+  return async (input, init = {}) => {
+    let url;
+    try { url = new URL(input); } catch { throw new Error('publisher_transport_route_rejected'); }
+    if (url.origin !== API_ORIGIN || url.username || url.password || url.hash || url.pathname.split('/').includes('..')) {
+      throw new Error('publisher_transport_route_rejected');
+    }
+    const method = (init.method ?? 'GET').toUpperCase();
+    const authorization = new Headers(init.headers).get('Authorization');
+    if (authorization !== `Bearer ${token}`) throw new Error('publisher_transport_credential_rejected');
+    const prefix = `/repos/${REPOSITORY}`;
+    let allowed = false;
+    if (method === 'GET' && url.pathname === `${prefix}/pulls/${target.prNumber}` && url.search === '') allowed = true;
+    const testedCommitPath = `${prefix}/commits/${target.testedSha}`;
+    if (method === 'GET' && [
+      `${testedCommitPath}/check-runs`, `${testedCommitPath}/status`,
+    ].some((route) => route.toLowerCase() === url.pathname.toLowerCase())) {
+      const allowedKeys = new Set(['page', 'per_page']);
+      allowed = [...url.searchParams.keys()].every((key) => allowedKeys.has(key))
+        && (url.pathname.endsWith('/check-runs') || url.pathname.endsWith('/status'));
+    }
+    if (method === 'GET' && url.pathname === `${prefix}/actions/runs`) {
+      const allowedKeys = new Set(['head_sha', 'page', 'per_page']);
+      allowed = url.searchParams.get('head_sha') === target.testedSha
+        && [...url.searchParams.keys()].every((key) => allowedKeys.has(key));
+    }
+    if (method === 'POST' && url.pathname === '/graphql' && url.search === '') {
+      let body;
+      try { body = JSON.parse(init.body); } catch { body = null; }
+      allowed = body !== null && Object.keys(body).sort().join(',') === 'query,variables'
+        && body.query === GITHUB_PR_SNAPSHOT_QUERY
+        && body.variables?.owner === 'memories-quy-2002'
+        && body.variables?.name === 'digital-e-shop'
+        && body.variables?.number === target.prNumber
+        && Object.keys(body.variables).sort().join(',') === 'name,number,owner';
+    }
+    if (method === 'PATCH' && url.pathname === `${prefix}/check-runs/${target.checkRunId}` && url.search === '') {
+      let body;
+      try { body = JSON.parse(init.body); } catch { body = null; }
+      allowed = body !== null && Object.keys(body).sort().join(',') === 'conclusion,output'
+        && body.conclusion === 'success' && Object.keys(body.output ?? {}).sort().join(',') === 'summary,title'
+        && body.output.title === 'Verified by trusted Stage 1 retry'
+        && typeof body.output.summary === 'string' && body.output.summary.length > 0 && body.output.summary.length <= 1024;
+    }
+    if (!allowed) throw new Error('publisher_transport_route_rejected');
+    return fetchImpl(url, init);
+  };
+}
+
 export async function publishVerifiedStage1Check({ token, repository, target, retryRunUrl, readTarget, fetchImpl = globalThis.fetch, verifierResult } = {}) {
   if (!validTarget(target) || repository !== REPOSITORY || typeof readTarget !== 'function' || typeof fetchImpl !== 'function') return refuse('publisher_configuration_invalid');
   if (verifierResult !== 'success') return refuse('verifier_not_successful');
@@ -37,18 +90,14 @@ export async function publishVerifiedStage1Check({ token, repository, target, re
   let evidence;
   try { evidence = await readTarget(target); } catch { return refuse('publisher_evidence_unavailable'); }
   if (!evidence || evidence.collectionStatus !== 'complete' || !tupleMatches(evidence.prSnapshot, target)
-    || evidence.requiredCheckSnapshot?.collectionStatus !== 'complete'
-    || evidence.requiredCheckSnapshot.policyFingerprint !== target.policyFingerprint
-    || !Array.isArray(evidence.requiredCheckSnapshot.requiredChecks)
-    || evidence.requiredCheckSnapshot.requiredChecks.filter((identity) => identity?.context === target.context && identity.appId === target.appId).length !== 1
-    || !Array.isArray(evidence.requiredCheckSnapshot.requiredCheckKeys)
-    || evidence.requiredCheckSnapshot.requiredCheckKeys.filter((key) => key === `${target.context}|app:${target.appId}`).length !== 1
-    || !Array.isArray(evidence.requiredCheckSnapshot.requiredWorkflows)
     || evidence.checkCollectionComplete !== true || evidence.workflowRuns?.collectionStatus !== 'complete'
+    || !Array.isArray(evidence.workflowRuns.runs)
     || evidence.workflowRuns.runs.some((run) => run.testedSha === target.testedSha && run.status !== 'completed')) return refuse('publisher_target_stale');
   const exact = evidence.checkObservations?.filter((item) => item.checkId === `check:${target.checkRunId}`
     && item.requiredCheckKey === `${target.context}|app:${target.appId}` && item.testedSha === target.testedSha);
-  if (exact?.length !== 1 || exact[0].status !== 'completed' || exact[0].conclusion !== 'failure') return refuse('publisher_check_mismatch');
+  if (exact?.length !== 1 || exact[0].provider !== 'github-check' || exact[0].status !== 'completed'
+    || exact[0].conclusion !== 'failure' || exact[0].headSha !== target.headSha
+    || exact[0].baseSha !== target.baseSha || exact[0].mergeSha !== target.mergeSha) return refuse('publisher_check_mismatch');
 
   const url = new URL(`/repos/${REPOSITORY}/check-runs/${target.checkRunId}`, API_ORIGIN);
   if (url.origin !== API_ORIGIN || url.pathname !== `/repos/${REPOSITORY}/check-runs/${target.checkRunId}`) return refuse('publisher_route_rejected');
@@ -70,20 +119,20 @@ export async function publishVerifiedStage1Check({ token, repository, target, re
   return Object.freeze({ status: 'published', checkRunId: target.checkRunId, testedSha: target.testedSha });
 }
 
-export function createStage1PublisherReadTarget({ token, fetchImpl = globalThis.fetch }) {
+export function createStage1PublisherReadTarget({ token, target, fetchImpl = globalThis.fetch }) {
+  const transport = createStage1PublisherTransport({ token, target, fetchImpl });
   const prClient = createGitHubPrClient({ repository: REPOSITORY, getToken: async (capability) => {
     if (capability !== 'observe') throw new Error('read_only');
     return token;
-  }, fetchImpl });
+  }, fetchImpl: transport });
   return async (target) => {
     const prSnapshot = await prClient.getPullRequest(target.prNumber);
-    const [requiredCheckSnapshot, collection, workflowRuns] = await Promise.all([
-      prClient.getRequiredCheckSnapshot({ baseRef: prSnapshot.baseRef, headSha: target.testedSha }),
+    const [collection, workflowRuns] = await Promise.all([
       prClient.getCommitCheckRuns(target.testedSha),
       prClient.getWorkflowRuns(target.testedSha),
     ]);
     return { collectionStatus: collection.checkCollectionComplete ? 'complete' : 'incomplete', prSnapshot,
-      requiredCheckSnapshot, checkObservations: collection.observations, checkCollectionComplete: collection.checkCollectionComplete, workflowRuns };
+      checkObservations: collection.observations, checkCollectionComplete: collection.checkCollectionComplete, workflowRuns };
   };
 }
 
@@ -105,9 +154,10 @@ async function runPublisherCli() {
       mergeSha: inputs.merge_sha || null, testedSha: inputs.tested_sha, context: inputs.context, appId: Number(inputs.app_id),
       checkRunId: Number(inputs.check_run_id), policyFingerprint: inputs.policy_fingerprint,
     };
+    const transport = createStage1PublisherTransport({ token, target, fetchImpl: globalThis.fetch });
     const result = await publishVerifiedStage1Check({ token, repository, target,
       retryRunUrl: `https://github.com/${REPOSITORY}/actions/runs/${runId}`, verifierResult: 'success',
-      readTarget: createStage1PublisherReadTarget({ token }), fetchImpl: globalThis.fetch });
+      readTarget: createStage1PublisherReadTarget({ token, target, fetchImpl: globalThis.fetch }), fetchImpl: transport });
     process.stdout.write(`${JSON.stringify(result)}\n`);
     if (result.status !== 'published') process.exitCode = 1;
   } catch { fail(); }

@@ -964,6 +964,7 @@ describe('strict GitHub PR read adapter', () => {
           path: '.github/workflows/stage1-trusted-retry.yml@refs/heads/main', event: 'workflow_dispatch',
           head_sha: WORKFLOW_SHA, actor: { id: 9988, login: 'digital-e-loop-runner[bot]' },
           status: 'completed', conclusion: 'success', run_attempt: 1,
+          created_at: '2026-10-07T12:00:00Z', updated_at: '2026-10-07T12:05:00Z',
         });
         if (url.pathname.endsWith('/actions/runs/901/jobs')) return jsonResponse(200, {
           total_count: 2, jobs: [
@@ -998,5 +999,22 @@ describe('strict GitHub PR read adapter', () => {
     const result = await client.getWorkflowRunById(902);
     assert.equal(result.status, 'incomplete');
     assert.equal(result.reasonCode, 'run_evidence_incomplete');
+  });
+
+  it('resolves only one active workflow by the fixed Stage 1 path', async () => {
+    const { client, calls } = createHarness({
+      route: ({ url }) => {
+        if (url.pathname.endsWith('/actions/workflows')) return jsonResponse(200, { total_count: 2, workflows: [
+          { id: 77, path: '.github/workflows/stage1-trusted-retry.yml', state: 'active' },
+          { id: 78, path: '.github/workflows/loop-foundation.yml', state: 'active' },
+        ] });
+        return undefined;
+      },
+    });
+    assert.deepEqual(await client.getWorkflowByPath('.github/workflows/stage1-trusted-retry.yml'), {
+      status: 'current', workflowId: 77, path: '.github/workflows/stage1-trusted-retry.yml', state: 'active',
+    });
+    assert.equal(calls.some(({ url }) => url.pathname.endsWith('/actions/workflows')), true);
+    await assert.rejects(client.getWorkflowByPath('../untrusted.yml'), { code: 'workflow_path_not_allowlisted' });
   });
 });

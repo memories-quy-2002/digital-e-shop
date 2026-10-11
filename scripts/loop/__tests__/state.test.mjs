@@ -7,10 +7,12 @@ import path from 'node:path';
 import { loadLoopPolicy } from '../policy.mjs';
 import {
   LoopStateCorruptError,
+  LoopStateAlreadyExistsError,
   LoopStateNotFoundError,
   LoopStatePathError,
   LoopStateValidationError,
   createLoopState,
+  createLoopStateInRepository,
   evaluateBudgets,
   finishCIRunAttempt,
   finishCIRunAttemptInRepository,
@@ -109,6 +111,15 @@ describe('loop state persistence', () => {
     const savedDirectory = path.join(root, '.loop', 'state');
     assert.deepEqual(await readdir(savedDirectory), ['github-issue-241.json']);
     assert.deepEqual(await loadLoopState(root, state.taskId), updatedState);
+  });
+
+  it('creates an explicitly initialized budget session only once', async () => {
+    const root = await createRepoFixture();
+    const state = createState();
+    await createLoopStateInRepository(root, state);
+    assert.deepEqual(await loadLoopState(root, state.taskId), state);
+    await assert.rejects(createLoopStateInRepository(root, state), LoopStateAlreadyExistsError);
+    assert.deepEqual(await loadLoopState(root, state.taskId), state);
   });
 
   it('fails closed for missing or malformed state instead of resetting progress', async () => {

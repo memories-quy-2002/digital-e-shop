@@ -82,10 +82,11 @@ function validApprovalPayload(payload, now) {
       && isSha(payload.revision.baseSha) && isSha(payload.revision.headSha)
       && (payload.revision.mergeSha === null || isSha(payload.revision.mergeSha))
       && Array.isArray(payload.paths) && payload.paths.length === 1 && payload.paths[0] === '.github/workflows/stage1-trusted-retry.yml'
-      && hasExactKeys(target, ['repositoryId', 'prNumber', 'baseSha', 'headSha', 'mergeSha', 'testedSha', 'context', 'appId', 'checkRunId', 'workflowId', 'workflowPath', 'workflowRef', 'workflowSourceSha', 'requestId', 'actorId', 'actorLogin'])
+      && hasExactKeys(target, ['repositoryId', 'prNumber', 'baseSha', 'headSha', 'mergeSha', 'testedSha', 'context', 'appId', 'checkRunId', 'policyFingerprint', 'workflowId', 'workflowPath', 'workflowRef', 'workflowSourceSha', 'requestId', 'actorId', 'actorLogin'])
       && target.repositoryId === payload.repositoryId && target.prNumber === payload.prNumber
       && target.baseSha.toLowerCase() === payload.revision.baseSha.toLowerCase() && target.headSha.toLowerCase() === payload.revision.headSha.toLowerCase()
       && target.mergeSha === payload.revision.mergeSha && isSha(target.testedSha)
+      && typeof target.policyFingerprint === 'string' && /^[a-f0-9]{64}$/i.test(target.policyFingerprint)
       && [target.headSha.toLowerCase(), target.mergeSha?.toLowerCase()].includes(target.testedSha.toLowerCase())
       && ['client', 'server'].includes(target.context) && target.appId === 15368 && isPositiveInteger(target.checkRunId)
       && isPositiveInteger(target.workflowId) && target.workflowPath === '.github/workflows/stage1-trusted-retry.yml'

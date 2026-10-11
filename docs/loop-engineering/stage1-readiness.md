@@ -1,20 +1,40 @@
 # Stage 1 readiness evidence
 
-**Updated:** 2026-10-09
+**Updated:** 2026-10-10
 
-**Status:** BLOCKED — no write-capable Stage 1 pilot PR was selected and no live rerun observations were collected. The read-only OIDC control probe below does not qualify the repository for a Stage 1 pilot.
+**Status:** BLOCKED — the trusted-dispatch implementation is on `feature/stage1-trusted-dispatch`, but this revision has no hosted CI result or live Stage 1 pilot. The GitHub App lacks `actions:write`; the local trust identities and per-PR budget session have not been configured. Historical read-only OIDC probes do not qualify the repository for a Stage 1 pilot.
 
-## Trusted dispatch retry implementation (2026-10-09)
+## Trusted dispatch retry implementation (2026-10-10)
 
-The implementation branch now contains a fixed workflow-dispatch path, a
-shared `client`/`server` verifier action used by normal CI, a separate
-`checks: write` publisher that can update only the previously failed Check Run,
-and a read-only observer bound to GitHub's returned `workflow_run_id`. These
-are local code and mock/static-test results; hosted CI for this implementation
-and the live cross-run update behavior remain unobserved. The standalone host
-continues to refuse because its trusted approver, workflow/actor configuration,
-persisted CI budget session, and dispatch/observer runtime are unavailable.
-No App permission, branch protection, or production configuration was changed.
+The feature branch connects the fixed workflow dispatch to the trusted host,
+typed approval, exact tuple revalidation, one-use finite-budget reservation,
+source-attestation verification, exact returned-run observer, and a publisher
+restricted to the original failed Check Run. Its fixed workflow has separate
+`verify`, `attest`, and `publish` jobs; only `publish` receives `checks: write`.
+The host's App installation needs `actions:write` to dispatch. Local unit and
+static tests are implementation evidence only. No hosted CI for this branch,
+cross-run Check Run update, or Stage 1 pilot has been observed. No App
+permission, branch protection, or production configuration was changed.
+
+The host reads trusted approver and workflow actor numeric IDs only from the
+fixed user-local file documented in the [CLI runbook](stage1-cli-runbook.md).
+It stores the per-PR finite-budget LoopState under the OS-resolved user home,
+and canonicalizes both paths before each budget operation. It refuses to use
+the session if the effective `<OS home>/.loop/state/` path is inside the PR
+checkout, so checkout-local ignored state cannot become the budget ledger.
+This does not isolate the store from other processes running as the same
+operating-system account.
+The trust loader resolves that fixed path through `os.userInfo().homedir`,
+ignores `USERPROFILE`, and fails closed if the operating-system home is
+unavailable or invalid. After review and merge, launch the CLI entrypoint from
+a clean reviewed `main` checkout with the selected PR worktree as the current
+directory; the runbook documents the PowerShell wrapper. This keeps executable
+host modules on the reviewed revision while the host observes the PR checkout.
+`initialize-budget` creates one local LoopState for the current PR base/head
+tuple after typed TTY confirmation; dispatch refuses missing, corrupt, stale,
+or exhausted state. This branch does not create the local file or grant App
+permissions. The workflow must first be reviewed and merged before it can be
+dispatched from `main`.
 
 Before PR #302 was merged, its live read-only inspection returned
 `ready-for-human` with all five required check identities matched and green on
@@ -24,7 +44,7 @@ is historical required-check evidence for that PR; it is not proof of the
 workflow source-attestation path, trusted dispatch, Check Run publication, or
 a Stage 1 pilot.
 
-## Promotion gates
+## Hosted Stage 0 promotion gates (snapshot from 2026-10-09)
 
 | Gate | Evidence collected | Result |
 | --- | --- | --- |
@@ -84,19 +104,19 @@ A controlled Actions test on the same-repository, non-`main`, documentation-only
 
 This establishes stale-job-ID behavior for the tested job-rerun endpoint only. PR #296 merged a guarded writer for that design, which the selected trusted-dispatch path does not call. This single test is historical feasibility evidence, not pilot evidence or authorization to enable Stage 1.
 
-## Collection limits
+## Historical pilot/readiness snapshot (2026-10-09)
 
 - The maintainer has not selected a same-repository, non-`main` pilot PR. The example PR number in the command below is intentionally not used.
-- PR #289 merged the canonical finite `ciRunLimit: 2` policy. The Stage 1 host still has no persisted LoopState session loaded and validated against that revision, so it reports `ci_run_budget_session_unavailable` and refuses live reruns.
+- PR #289 merged the canonical finite `ciRunLimit: 2` policy. The current host now supports one-time, exact-tuple LoopState initialization, but no local budget session has been configured for a pilot.
 - No live Stage 1 GitHub or Cloudflare observation set was collected in this run. Local fixtures and static code inspection are not promotion evidence.
-- The legacy run/job-rerun endpoint is not called by the trusted-dispatch path. The host refuses unless its dispatch runtime, trusted actor/approver configuration, and persisted budget session are available.
-- The retry workflow statically defines the verifier and publisher dependency, but there is no host-owned runtime configuration or live run observation yet. Local workflow tests are not evidence of hosted job results.
+- The legacy run/job-rerun endpoint is not called by the trusted-dispatch path. The host dispatches only the fixed workflow, and requires local trust identities, the App's `actions:write`, and an exact persisted budget session.
+- The retry workflow defines fixed verifier, attestation, and publisher jobs. This branch has no hosted workflow result yet; static workflow tests are not evidence of hosted job results.
 - The source-attestation adapters now accept only immutable records created by the verifier; raw API `sourceSha` and `sourceShaAttested` fields are ignored. PR #300 proves the hosted producer-to-probe path for one tuple. Stage 1 `inspect` now configures the verifier with a separate repository-scoped `source-attestation:read` token; the installed App must grant `Attestations: read`. This does not make the probe candidate a Stage 1 host trust record, and live App-backed inspection has not yet been verified.
 - PR #291's hosted `Loop Foundation` test passed on the reviewed PR head ([run 37417234608](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37417234608)); the post-merge `Loop Foundation` run also passed with the new probe suite ([run 37418888640](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37418888640)).
 - The Phase 2 runbook documents one earlier `inspect` result for PR #264 on 2026-09-30. It returned `wait` for missing required-check evidence on the selected merge SHA, but the summary does not contain the complete observation tuple required by this plan; it is historical context and is not counted toward the 10 observations.
 - A cron `last_completed_at` value alone would not prove Queue consumption or Check Run publication. Each requires its own current evidence.
 
-## Current refusal check
+## Historical refusal check (2026-10-08)
 
 On 2026-10-08, `node --test scripts/loop/__tests__/pr-babysitter-stage1-host.test.mjs` passed all 10 tests. The tests confirm the Stage 1 host refuses while trust configuration or a persisted CI budget session is missing, and makes no network request on that path.
 
@@ -161,8 +181,16 @@ Add one row per fresh observation only after the maintainer selects the pilot PR
 
 ## Next evidence step
 
-Run `node scripts/loop/pr-babysitter-host.mjs inspect --repo memories-quy-2002/digital-e-shop --pr <maintainer-selected-pr>` from its matching clean PR checkout. Preserve `wait` and `escalated` as decisions, not infrastructure failures. Record only bounded identifiers, SHA values, status, classification, reason code, and evidence kind.
+After review and merge, select a same-repository non-`main` pilot PR and run
+`inspect` using the trusted-main invocation in the [CLI runbook](stage1-cli-runbook.md),
+with the matching PR worktree as its current directory. Confirm current
+required-check and workflow evidence before initializing the local budget
+session. Configure the local trust file and separately approve the GitHub
+App's `actions:write` permission before invoking `rerun-flaky` in a real TTY.
+Preserve `wait` and `escalate` as decisions, not infrastructure failures.
+Record only bounded IDs, SHA values, status, classification, reason code, and
+evidence kind.
 
-PR #300 is the same-repository control PR for the opt-in producer and downstream probe. Its latest accepted result is recorded above. This proves only source identity for that exact run attempt and PR tuple. Trusted approver/actor configuration, host-managed budget session, complete host wiring, hosted trusted-dispatch evidence, and cross-run Check Run behavior remain separate blockers.
+PR #300 is the same-repository control PR for the opt-in producer and downstream probe. Its latest accepted result is recorded above. This proves only source identity for that exact run attempt and PR tuple. Local trusted approver/actor configuration, App `actions:write`, an initialized budget session, hosted trusted-dispatch evidence, and cross-run Check Run behavior remain separate blockers.
 
 Do not enable Stage 1, change the canonical policy, or change GitHub App permissions from this report. Continue to require reviewed workflow-source attestation, a reviewed complete job allowlist, and a host-managed persisted session bound to the finite canonical CI budget.

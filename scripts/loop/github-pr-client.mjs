@@ -21,7 +21,7 @@ const REVISION_PATTERN = /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/i;
 const SUPPORTED_CONCLUSIONS = new Set(['success', 'failure', 'cancelled', 'timed_out', 'action_required', 'neutral', 'skipped']);
 const OBSERVATION_STATUSES = new Set(['queued', 'in_progress', 'completed']);
 
-const GRAPHQL_PULL_REQUEST_QUERY = `query LoopPrSnapshot($owner: String!, $name: String!, $number: Int!) {
+export const GITHUB_PR_SNAPSHOT_QUERY = `query LoopPrSnapshot($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
       baseRefName
@@ -719,7 +719,7 @@ export function createGitHubPrClient(options) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          query: GRAPHQL_PULL_REQUEST_QUERY,
+          query: GITHUB_PR_SNAPSHOT_QUERY,
           variables: { owner: parsedRepository.owner, name: parsedRepository.name, number: prNumber },
         }),
       }),
@@ -975,6 +975,20 @@ export function createGitHubPrClient(options) {
     });
   }
 
+  async function getWorkflowByPath(workflowPathInput) {
+    if (workflowPathInput !== '.github/workflows/stage1-trusted-retry.yml') fail('workflow_path_not_allowlisted');
+    let collection;
+    try { collection = await paginate(repositoryPath + '/actions/workflows', 'workflows'); }
+    catch (error) {
+      if (error instanceof GitHubPrClientError) return Object.freeze({ status: 'unavailable', reasonCode: error.code });
+      return Object.freeze({ status: 'unavailable', reasonCode: 'network_error' });
+    }
+    const matches = collection.values.filter((workflow) => isRecord(workflow) && workflow.path === workflowPathInput);
+    if (!collection.complete || matches.length !== 1 || !isPositiveInteger(matches[0].id)
+      || matches[0].state !== 'active') return Object.freeze({ status: 'incomplete', reasonCode: 'workflow_identity_unavailable' });
+    return Object.freeze({ status: 'current', workflowId: matches[0].id, path: workflowPathInput, state: 'active' });
+  }
+
   async function getWorkflowRunById(runIdInput) {
     if (!isPositiveInteger(runIdInput)) fail('invalid_options');
     let response;
@@ -991,9 +1005,11 @@ export function createGitHubPrClient(options) {
     const workflowId = isPositiveInteger(response.workflow_id) ? response.workflow_id : null;
     const actorId = isPositiveInteger(response.actor?.id) ? response.actor.id : null;
     const actorLogin = typeof response.actor?.login === 'string' && response.actor.login.length <= 100 ? response.actor.login : null;
+    const createdAt = stableTimestamp(response.created_at);
+    const updatedAt = stableTimestamp(response.updated_at);
     const status = OBSERVATION_STATUSES.has(response.status) ? response.status : null;
     const conclusion = response.conclusion === null || SUPPORTED_CONCLUSIONS.has(response.conclusion) ? response.conclusion : null;
-    if (!workflow || !sourceSha || !repositoryId || !workflowId || !actorId || !actorLogin || !status
+    if (!workflow || !sourceSha || !repositoryId || !workflowId || !actorId || !actorLogin || !createdAt || !updatedAt || !status
       || (status === 'completed' && !conclusion) || (status !== 'completed' && conclusion !== null)
       || response.event !== 'workflow_dispatch' || typeof response.run_attempt !== 'number' || !isPositiveInteger(response.run_attempt)) {
       return Object.freeze({ status: 'incomplete', reasonCode: 'run_evidence_incomplete', runId: runIdInput });
@@ -1020,7 +1036,8 @@ export function createGitHubPrClient(options) {
     }
     return Object.freeze({ status: jobs.collectionStatus === 'complete' ? 'current' : 'incomplete',
       run: Object.freeze({ id: runIdInput, repositoryId, workflowId, path: workflow.path, ref: workflow.ref,
-        event: response.event, sourceSha, actorId, actorLogin, status, conclusion, runAttempt: response.run_attempt }), jobs });
+        event: response.event, sourceSha, headSha: sourceSha, testedSha: sourceSha, createdAt, updatedAt,
+        actorId, actorLogin, status, conclusion, runAttempt: response.run_attempt }), jobs });
   }
 
   async function getRequiredWorkflowEvidence(requiredWorkflowInput, testedShaInput) {
@@ -1465,6 +1482,7 @@ export function createGitHubPrClient(options) {
     getPullRequestFiles,
     getCommitCheckRuns,
     getWorkflowRuns,
+    getWorkflowByPath,
     getWorkflowRunById,
     getRequiredWorkflowEvidence,
     getWorkflowRunJobs,

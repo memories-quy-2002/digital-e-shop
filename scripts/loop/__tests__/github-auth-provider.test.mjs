@@ -427,7 +427,7 @@ describe('GitHub App authentication and approval provider', () => {
     await harness.provider.authenticateApprover();
     const target = {
       repositoryId: REPOSITORY_ID, prNumber: 42, baseSha: 'a'.repeat(40), headSha: 'b'.repeat(40), mergeSha: 'c'.repeat(40),
-      testedSha: 'c'.repeat(40), context: 'client', appId: 15368, checkRunId: 12345, workflowId: 77,
+      testedSha: 'c'.repeat(40), context: 'client', appId: 15368, checkRunId: 12345, policyFingerprint: 'd'.repeat(64), workflowId: 77,
       workflowPath: '.github/workflows/stage1-trusted-retry.yml', workflowRef: 'main', workflowSourceSha: 'a'.repeat(40), requestId: '1'.repeat(32),
       actorId: 9988, actorLogin: 'digital-e-loop-runner[bot]',
     };

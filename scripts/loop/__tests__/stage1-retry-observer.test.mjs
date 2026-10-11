@@ -14,7 +14,9 @@ function run(overrides = {}) {
     path: target.workflowPath, ref: 'refs/heads/main', event: 'workflow_dispatch', sourceSha: target.workflowSourceSha,
     actorId: target.actorId, actorLogin: target.actorLogin, status: 'completed', conclusion: 'success' },
     jobs: { collectionStatus: 'complete', jobs: [
-      { name: 'verify', status: 'completed', conclusion: 'success' }, { name: 'publish', status: 'completed', conclusion: 'success' },
+      { name: 'verify', status: 'completed', conclusion: 'success' },
+      { name: 'attest', status: 'completed', conclusion: 'success' },
+      { name: 'publish', status: 'completed', conclusion: 'success' },
     ] }, ...overrides };
 }
 
@@ -64,6 +66,12 @@ it('escalates source, actor, job, tuple, policy, and required-check mismatches',
     const result = await observeStage1Retry(args({ getRun: async () => observation }));
     assert.equal(result.action, 'escalate');
   }
+  const extraJob = run({ jobs: { collectionStatus: 'complete', jobs: [
+    ...run().jobs.jobs, { name: 'unreviewed', status: 'completed', conclusion: 'success' },
+  ] } });
+  const extraJobResult = await observeStage1Retry(args({ getRun: async () => extraJob }));
+  assert.equal(extraJobResult.action, 'escalate');
+  assert.equal(extraJobResult.reasonCode, 'retry_job_graph_mismatch');
   assert.equal((await observeStage1Retry(args({ readCurrent: async () => evidence({ prSnapshot: { ...evidence().prSnapshot, headSha: 'f'.repeat(40) } }) }))).reasonCode,
     'completion_evidence_stale_or_incomplete');
   assert.equal((await observeStage1Retry(args({ readCurrent: async () => evidence({ requiredCheckSnapshot: { ...evidence().requiredCheckSnapshot, policyFingerprint: 'f'.repeat(64) } }) }))).reasonCode,

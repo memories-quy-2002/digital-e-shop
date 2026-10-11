@@ -55,7 +55,10 @@ export async function observeStage1Retry({ target, workflowRunId, getRun, readCu
       || observed.event !== 'workflow_dispatch' || observed.sourceSha !== target.workflowSourceSha
       || observed.actorId !== target.actorId || observed.actorLogin !== target.actorLogin || observed.conclusion !== 'success') return escalate('retry_run_identity_mismatch');
   const jobs = run.jobs.jobs;
-  for (const name of ['verify', 'publish']) {
+  if (!Array.isArray(jobs) || jobs.length !== 3
+      || new Set(jobs.map((job) => job?.name)).size !== 3
+      || jobs.some((job) => !['verify', 'attest', 'publish'].includes(job?.name))) return escalate('retry_job_graph_mismatch');
+  for (const name of ['verify', 'attest', 'publish']) {
     const matched = jobs.filter((job) => job.name === name);
     if (matched.length !== 1 || matched[0].status !== 'completed' || matched[0].conclusion !== 'success') return escalate('retry_job_not_successful');
   }

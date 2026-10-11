@@ -27,6 +27,8 @@ const controlPlaneTests = [
   'scripts/loop/__tests__/telemetry.test.mjs',
   'scripts/loop/__tests__/pr-contracts.test.mjs',
   'scripts/loop/__tests__/github-pr-client.test.mjs',
+  'scripts/loop/__tests__/stage1-trust-config.test.mjs',
+  'scripts/loop/__tests__/stage1-workflow-source-descriptor-cli.test.mjs',
   'scripts/loop/__tests__/stage1-check-target.test.mjs',
   'scripts/loop/__tests__/github-auth-provider.test.mjs',
   'scripts/loop/__tests__/stage1-dispatch-write.test.mjs',
@@ -219,8 +221,11 @@ describe('Stage 1 trusted retry workflow contract', () => {
   });
 
   it('limits the retry workflow to fixed main dispatch and an isolated read-only verifier job', async () => {
-    const workflow = await read(trustedRetryWorkflowPath);
+    const [workflow, publisherSource] = await Promise.all([
+      read(trustedRetryWorkflowPath), read('scripts/loop/stage1-check-run-publisher.mjs'),
+    ]);
     const verify = jobBlock(workflow, 'verify');
+    const attest = jobBlock(workflow, 'attest');
     const publish = jobBlock(workflow, 'publish');
     const triggers = triggerBlockLines(workflow);
     assert.equal(triggers[0], '  workflow_dispatch:');
@@ -239,8 +244,20 @@ describe('Stage 1 trusted retry workflow contract', () => {
     assert.match(verify, /path: tested/);
     assert.match(verify, /source-directory: tested/);
     assert.match(verify, /uses: \.\/trusted\/\.github\/actions\/stage1-verify/);
-    assert.deepEqual(jobPermissionLines(publish), ['actions: read', 'administration: read', 'checks: write', 'contents: read', 'pull-requests: read']);
-    assert.match(publish, /^    needs: verify$/m);
+    assert.deepEqual(jobPermissionLines(publish), ['actions: read', 'checks: write', 'contents: read', 'pull-requests: read']);
+    assert.match(attest, /^    needs: verify$/m);
+    assert.deepEqual(jobPermissionLines(attest), ['actions: read', 'contents: read', 'id-token: write', 'attestations: write']);
+    assert.match(attest, /node scripts\/loop\/stage1-workflow-source-descriptor-cli\.mjs/);
+    assert.match(attest, new RegExp(`uses: ${attestAction.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+    assert.match(attest, /subject-name: digital-e-loop-workflow-source\.json/);
+    assert.match(attest, /subject-digest: sha256:\$\{\{ steps\.descriptor\.outputs\.sha256 \}\}/);
+    assert.match(attest, /ref: \$\{\{ github\.sha \}\}/);
+    assert.doesNotMatch(attest, /inputs\.tested_sha|path: tested|actions\/checkout.*pull.?request/i);
+    assert.doesNotMatch(publish, /administration:\s*read/i);
+    assert.doesNotMatch(publisherSource, /getRequiredCheckSnapshot/);
+    assert.doesNotMatch(publisherSource, /return_run_details/);
+    assert.match(publish, /^    needs: \[verify, attest\]$/m);
+    assert.match(publish, /needs\.attest\.result == 'success'/);
     assert.match(publish, /Checkout trusted publisher source only/);
     assert.doesNotMatch(publish, /tested_sha|checkout.*pull.?request|download-artifact/i);
     assert.doesNotMatch(workflow, /production-migrate|environment:\s*production|secrets\.|actions:\s*write|contents:\s*write/i);

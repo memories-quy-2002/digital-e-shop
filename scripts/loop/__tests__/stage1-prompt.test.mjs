@@ -235,7 +235,7 @@ it('requires explicit CONTINUE for device authentication and rejects expired cod
 it('shows the exact Stage 1 recovery target and keeps cancellation as the default', async () => {
   const streams = createTty();
   const target = { repositoryId: 987654, prNumber: 42, baseSha: sha('a'), headSha: sha('b'), mergeSha: sha('c'),
-    testedSha: sha('c'), context: 'client', appId: 15368, checkRunId: 12345, workflowId: 77,
+    testedSha: sha('c'), context: 'client', appId: 15368, checkRunId: 12345, policyFingerprint: 'd'.repeat(64), workflowId: 77,
     workflowPath: '.github/workflows/stage1-trusted-retry.yml', workflowRef: 'main', workflowSourceSha: sha('a'), requestId: '1'.repeat(32),
     actorId: 9988, actorLogin: 'digital-e-loop-runner[bot]' };
   const payload = { type: 'approval', repositoryId: 987654, repository: 'memories-quy-2002/digital-e-shop', prNumber: 42,

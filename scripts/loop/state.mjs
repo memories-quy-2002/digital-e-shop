@@ -68,6 +68,13 @@ export class LoopStateNotFoundError extends LoopStateError {
   }
 }
 
+export class LoopStateAlreadyExistsError extends LoopStateError {
+  constructor(taskId) {
+    super(`Loop state already exists for task ${taskId}`);
+    this.taskId = taskId;
+  }
+}
+
 export class LoopStateCorruptError extends LoopStateError {
   constructor(source, message, options = {}) {
     super(`Loop state is corrupt at ${source}: ${message}`, options);
@@ -639,6 +646,23 @@ async function withStateLock(repoRoot, taskId, operation) {
 export async function saveLoopState(repoRoot, state) {
   validateLoopState(state);
   return withStateLock(repoRoot, state.taskId, (realRoot) => saveLoopStateUnlocked(realRoot, state));
+}
+
+export async function createLoopStateInRepository(repoRoot, state) {
+  validateLoopState(state);
+  return withStateLock(repoRoot, state.taskId, async (realRoot) => {
+    const stateDirectory = await getStateDirectory(realRoot, { create: true });
+    const target = stateFilePath(stateDirectory, state.taskId);
+    try {
+      await lstat(target);
+      throw new LoopStateAlreadyExistsError(state.taskId);
+    } catch (error) {
+      if (error instanceof LoopStateAlreadyExistsError) throw error;
+      if (error.code !== 'ENOENT') throw error;
+    }
+    await saveLoopStateUnlocked(realRoot, state);
+    return state;
+  });
 }
 
 export async function reserveCIRunAttemptInRepository(repoRoot, taskId, actionAttemptKey, policy, expectedRevision) {

@@ -9,6 +9,7 @@ Loop Engineering is a bounded, auditable control plane around coding work—not 
 - `.agent/policy/` owns versioned path, action, and stop-condition policy; an agent must not silently weaken it during an active run.
 - `.agent/loops/` describes the feature inner loop and the future PR babysitter contract.
 - `.loop/state/<task-id>.json` and `.loop/pr/` are local, gitignored metadata. They store stable IDs, hashes, counters, statuses, and failure fingerprints—not prompts or customer data.
+- Stage 1's per-PR CI budget session is stored under the OS-resolved user home in `.loop/state/`. The host canonicalizes the home and checkout paths for every budget operation and refuses a checkout containing that store, so checkout-local state cannot become the authoritative counter. This remains user-local storage, not an OS sandbox against other processes running as that user.
 - `AGENTS.md` remains the repository operating contract; this Wiki page explains why these boundaries exist.
 
 ## Safety boundaries
@@ -106,29 +107,45 @@ and permission-scoped, not branch-scoped; GitHub branch protection guards
 protected refs. Phase 2B has no merge authority, issue-to-Draft-PR dispatch, or
 post-merge observation. See [[architecture]] and [[index]].
 
-The Stage 1 CLI work remains fail-closed: `inspect` delegates to the Stage 0
-read-only host with the source verifier attached, while live `rerun-flaky`
-refuses before credentials or network access. PR #293 merged the workflow-source
-producer, certificate verifier, read-only probe, and verifier-owned adapter
-gates. PR #300 later proved the hosted producer-to-probe path on a current
-tuple; this is not a Stage 1 host observation. The labeled PR #297 probe's
-earlier `unavailable` result remains historical evidence for that run. The
-local host currently lacks GitHub App configuration, and effective
-`Attestations: read` access has not been verified. PR #298 fixed the GitHub CLI
-SAN parsing. PR #296 merged the attempt-bound single-job writer as historical
-code; the selected Stage 1 recovery path does not call run/job-rerun endpoints.
-A complete workflow/actor allowlist, trusted approver configuration, and
-host-managed LoopState CI budget session remain absent.
-PR #289 set `ciRunLimit` to 2; that does not enable reruns because the host does
-not bind a persisted budget session to the policy revision. Dry-run validates
-syntax only. See the [Stage 1 CLI
+The Stage 1 CLI remains fail-closed. `inspect` delegates to the read-only host
+with the source verifier attached. `initialize-budget` creates one local
+LoopState session after typed TTY confirmation and binds it to the current PR
+base/head tuple and canonical limits. `rerun-flaky` connects exact flaky
+evidence, trusted approver confirmation, post-approval tuple checks, budget
+reservation, a fixed `workflow_dispatch`, OIDC source verification, and an
+observer for the returned run ID. The user-local trust file is the only source
+of numeric approver and workflow actor IDs; env and CLI inputs cannot override
+them. The workflow supports only `client` and `server` checks from App `15368`,
+and the publisher transport permits fixed reads plus one success PATCH to the
+original failed Check Run.
+
+After review and merge, operators launch this CLI from a clean reviewed
+`main` checkout while keeping the selected PR worktree as the process current
+directory. This keeps executable host modules on the trusted revision while
+the host derives the target SHA and `.loop/pr/` observation state from the PR
+checkout. Stage 1's finite CI budget is stored under the OS-resolved user home;
+the host fails closed if that effective store path overlaps the PR checkout.
+The local trust loader resolves its fixed config path from
+`os.userInfo().homedir`; it ignores `USERPROFILE` and fails closed if OS home
+resolution is unavailable or invalid.
+
+The implementation is local to `feature/stage1-trusted-dispatch`; its
+`verify`, `attest`, and `publish` jobs have not run on GitHub. The workflow must
+be reviewed and merged before it can dispatch from `main`. The App currently
+lacks `actions:write`, and no local trust file, budget session, or live pilot
+is configured. No App permissions were changed. PR #293 merged the earlier
+workflow-source producer, certificate verifier, read-only probe, and
+verifier-owned adapter gates; PR #300 proved that producer-to-probe path for
+one current tuple, which is not a Stage 1 host observation. PR #296's
+attempt-bound job writer is historical code; the selected recovery path does
+not call run/job-rerun endpoints. See the [Stage 1 CLI
 runbook](../../docs/loop-engineering/stage1-cli-runbook.md) and [readiness
 evidence](../../docs/loop-engineering/stage1-readiness.md).
 The read adapter binds job evidence to GitHub's exact workflow run attempt and
-marks missing attempt IDs incomplete. PR #296 merged a guarded writer that
-rechecks the attempt after budget reservation and posts only the approved job
-ID. A controlled test on non-main PR #294 observed that GitHub rejects a
-previous-attempt job ID with `403` once a newer attempt is current. This
-evidence does not verify the dependent-job closure: that graph, hosted source
-attestation, trusted approver, host wiring, and host-managed budget session
-remain Stage 1 activation gates.
+marks missing attempt IDs incomplete. A controlled test on non-main PR #294
+observed that GitHub rejects a previous-attempt job ID with `403` once a newer
+attempt is current. This evidence motivated the workflow-dispatch design; it
+does not prove the new dependent-job graph or cross-run Check Run publication.
+Stage 1 still needs hosted CI on the reviewed revision, a user-local trust
+file, an initialized exact-tuple budget session under the OS-resolved user
+home, App `actions:write`, and a live pilot before promotion.

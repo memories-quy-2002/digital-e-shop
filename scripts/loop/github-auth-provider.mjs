@@ -256,7 +256,7 @@ function normalizeScope(scope, expectedRepositoryId) {
   } else if (scope.capability === 'stage1:required-check-recovery') {
     if (!isRecord(scope.stage1Target) || Object.keys(scope.stage1Target).sort().join(',') !== [
       'appId', 'checkRunId', 'context', 'mergeSha', 'headSha', 'baseSha', 'prNumber', 'repositoryId', 'testedSha',
-      'workflowId', 'workflowPath', 'workflowRef', 'workflowSourceSha', 'requestId', 'actorId', 'actorLogin',
+      'policyFingerprint', 'workflowId', 'workflowPath', 'workflowRef', 'workflowSourceSha', 'requestId', 'actorId', 'actorLogin',
     ].sort().join(',') || !['baseSha', 'headSha', 'testedSha', 'workflowSourceSha'].every((key) => typeof scope.stage1Target[key] === 'string')
       || scope.stage1Target.repositoryId !== expectedRepositoryId
       || scope.stage1Target.prNumber !== scope.prNumber || scope.stage1Target.baseSha.toLowerCase() !== scope.baseSha.toLowerCase()
@@ -265,6 +265,7 @@ function normalizeScope(scope, expectedRepositoryId) {
       || ![scope.headSha.toLowerCase(), scope.mergeSha?.toLowerCase()].includes(scope.stage1Target.testedSha.toLowerCase())
       || !['client', 'server'].includes(scope.stage1Target.context) || scope.stage1Target.appId !== 15368
       || !parsePositiveInteger(scope.stage1Target.checkRunId) || !parsePositiveInteger(scope.stage1Target.workflowId)
+      || typeof scope.stage1Target.policyFingerprint !== 'string' || !/^[a-f0-9]{64}$/i.test(scope.stage1Target.policyFingerprint)
       || scope.stage1Target.workflowPath !== '.github/workflows/stage1-trusted-retry.yml'
       || scope.stage1Target.workflowRef !== 'main' || scope.stage1Target.workflowSourceSha.toLowerCase() !== scope.baseSha.toLowerCase()
       || !/^[a-f0-9]{32}$/.test(scope.stage1Target.requestId) || !parsePositiveInteger(scope.stage1Target.actorId)
