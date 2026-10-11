@@ -17,6 +17,9 @@ on:
 permissions:
   contents: read
 
+# PR code runs under a main dispatch; deny the separate cache token capability.
+cache-mode: none
+
 concurrency:
   group: stage1-${{ inputs.request_id }}
   cancel-in-progress: false

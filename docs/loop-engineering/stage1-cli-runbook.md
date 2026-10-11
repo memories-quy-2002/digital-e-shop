@@ -1,6 +1,6 @@
 # Stage 1 CLI runbook
 
-**Updated:** 2026-10-10
+**Updated:** 2026-10-11
 
 **Status:** The trusted dispatch host and recovery workflow are implemented on `feature/stage1-trusted-dispatch`. Stage 1 remains blocked for live use until the change is reviewed and merged, local trust identities and a per-PR budget session are configured, the GitHub App receives `actions:write`, and a maintainer-selected pilot proves the full hosted path.
 
@@ -22,13 +22,19 @@ and one PATCH of the approved existing Check Run. The retry workflow has
 separate `verify`, `attest`, and `publish` jobs; only `publish` receives
 `checks: write`, while the host's GitHub App needs `actions:write` to dispatch.
 
-These changes have local unit and static-test coverage only. They do not prove
+Local tests and normal PR CI do not prove
 that GitHub accepts a cross-run Check Run update or that branch protection
 recognizes it. The Stage 1 workflow is not yet on `main`, the App has not been
 granted `actions:write`, no user-local trust file or budget session has been
 configured, and no dispatch, Check Run PATCH, or live pilot has occurred. No
 App permission, branch protection, production configuration, or main-branch
 change was made.
+
+The recovery workflow declares `cache-mode: none` for every job. GitHub's
+scoped cache tokens therefore deny restore and save operations even though
+the dispatch runs under `main` and the verifier executes PR code. Read-only
+`GITHUB_TOKEN` permissions alone do not protect the default-branch cache.
+See the [cache access contract](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#controlling-cache-access-with-cache-mode).
 
 PR #302's live inspection reported all five required check contexts green on
 its head SHA (`77dca7fd0f04b705182a669dd1d2254559e448c9`). Its required-workflow

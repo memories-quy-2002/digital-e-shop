@@ -4,6 +4,13 @@ Loop Engineering is a bounded, auditable control plane around coding work—not 
 
 ## Control-plane placement
 
+The Stage 1 recovery workflow denies cache restore/save with workflow-wide
+`cache-mode: none`. Its verifier executes PR code in a `main` dispatch, so a
+read-only GitHub token is insufficient: the separate cache token must also be
+restricted to prevent default-branch cache poisoning. Normal PR CI and the
+live recovery pilot are distinct evidence; see the
+[readiness guide](../../docs/loop-engineering/stage1-readiness.md).
+
 - `scripts/loop/` owns the implementation: policy, risk classifier, state/budgets, verification runner, failure classifier, and controller.
 - `scripts/loop/hosted/cloudflare/` contains Hosted Stage 0: signed webhook ingress, repository-scoped GitHub App observation, D1 idempotency/state, Queue processing, scheduled open-PR reconciliation, and a separate report-only Check Run capability.
 - `.agent/policy/` owns versioned path, action, and stop-condition policy; an agent must not silently weaken it during an active run.

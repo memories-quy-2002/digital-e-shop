@@ -1,8 +1,8 @@
 # Stage 1 readiness evidence
 
-**Updated:** 2026-10-10
+**Updated:** 2026-10-11
 
-**Status:** BLOCKED — the trusted-dispatch implementation is on `feature/stage1-trusted-dispatch`, but this revision has no hosted CI result or live Stage 1 pilot. The GitHub App lacks `actions:write`; the local trust identities and per-PR budget session have not been configured. Historical read-only OIDC probes do not qualify the repository for a Stage 1 pilot.
+**Status:** BLOCKED — the trusted-dispatch implementation is on `feature/stage1-trusted-dispatch`, but no live Stage 1 pilot has occurred. Normal PR CI is recorded separately below. The GitHub App lacks `actions:write`; the local trust identities and per-PR budget session have not been configured. Historical read-only OIDC probes do not qualify the repository for a Stage 1 pilot.
 
 ## Trusted dispatch retry implementation (2026-10-10)
 
@@ -12,9 +12,27 @@ source-attestation verification, exact returned-run observer, and a publisher
 restricted to the original failed Check Run. Its fixed workflow has separate
 `verify`, `attest`, and `publish` jobs; only `publish` receives `checks: write`.
 The host's App installation needs `actions:write` to dispatch. Local unit and
-static tests are implementation evidence only. No hosted CI for this branch,
+static tests are implementation evidence only. No live recovery workflow,
 cross-run Check Run update, or Stage 1 pilot has been observed. No App
 permission, branch protection, or production configuration was changed.
+
+## Implementation PR CI (2026-10-11)
+
+[PR #304](https://github.com/memories-quy-2002/digital-e-shop/pull/304) at
+`ed5a4fefd8bb8ab1852c96acd98490f4a91a677b` passed client/server, Loop Foundation,
+dependency review, verify, and GitGuardian. CodeQL analysis jobs completed,
+but the CodeQL gate reported a new high cache-poisoning alert in the recovery
+workflow: dispatch on `main` retained a separate cache write capability while
+executing PR code. This is normal PR CI evidence, not recovery-pilot proof.
+
+The follow-up remediation sets workflow-wide `cache-mode: none` with a
+regression contract that prevents job overrides from restoring cache access.
+GitHub enforces it using scoped cache tokens; `contents: read` alone does not
+limit cache writes. See the [cache access contract](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#controlling-cache-access-with-cache-mode).
+Hosted CodeQL on the remediation commit must be checked independently; this
+document does not claim the alert is cleared or the live dispatch is proven.
+
+## Local trust and budget prerequisites
 
 The host reads trusted approver and workflow actor numeric IDs only from the
 fixed user-local file documented in the [CLI runbook](stage1-cli-runbook.md).

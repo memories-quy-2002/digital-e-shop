@@ -202,6 +202,12 @@ describe('Loop Foundation workflow contract', () => {
 });
 
 describe('Stage 1 trusted retry workflow contract', () => {
+  it('denies cache tokens to every recovery job that runs in the main branch scope', async () => {
+    const workflow = await read(trustedRetryWorkflowPath);
+    assert.match(workflow, /^cache-mode: none$/m);
+    assert.doesNotMatch(workflow, /^\s+cache-mode:\s*(?:read|write|write-only)\b/m);
+  });
+
   it('shares the client and server verification action with normal CI without changing required job IDs', async () => {
     const [ci, action] = await Promise.all([read(ciWorkflowPath), read(verifierActionPath)]);
     for (const job of ['client', 'server']) {
