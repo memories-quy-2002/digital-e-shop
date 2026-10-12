@@ -2,7 +2,26 @@
 
 **Updated:** 2026-10-12
 
-**Status:** BLOCKED — the trusted-dispatch implementation is on `feature/stage1-trusted-dispatch`, but no live Stage 1 pilot has occurred. As of the current 2026-10-12 check, App permissions, the policy-reader environment, local trust identities and CLI are configured. PR #304 has green CI but still needs human review and merge. There is no eligible pilot PR and no per-PR budget session.
+**Status:** BLOCKED — implementation PR #304 is merged, but no live Stage 1 recovery pilot has occurred. A fresh GitHub search on 2026-10-12 found no open PRs, so no eligible pilot target or per-PR budget session exists. Local host configuration, trust identities and GitHub CLI availability were not verified in this shell session.
+
+## Current Stage 1 position (2026-10-12)
+
+PR #304 merged into `main` at
+`875eb82e0886edd622737136eb6a8f5fbbd313ae`. The current local feature branch
+is `090c12f4d93465d503ca967a853d96432170a889`, while the locally recorded
+`origin/main` is the merge SHA; the working checkout is therefore not a clean
+trusted-main runtime for pilot execution. GitHub App read-only search found no
+open pull requests. No dispatch, recovery workflow, or Check Run publication
+has been observed. The only safe next step is to wait for or create a genuine,
+eligible feature PR and observe a naturally occurring same-revision flaky
+failure; do not manufacture one.
+
+The existing checklist also requires an explicit human review record. The
+maintainer merged #304, but the available evidence in this audit does not
+establish a formal human review of its final head. Local App permissions,
+policy-reader environment, trust file, and CLI installation were not
+revalidated in this shell. These are separate checklist items, not evidence
+that the GitHub App installation itself is misconfigured.
 
 ## Current configuration and PR check (2026-10-12)
 

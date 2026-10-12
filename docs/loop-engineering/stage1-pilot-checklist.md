@@ -1,7 +1,7 @@
 # Stage 1 pilot checklist
 
 **Updated:** 2026-10-12
-**Status:** Configuration ready; implementation review and live pilot pending.
+**Status:** Implementation merged; live pilot and promotion evidence pending.
 
 Use the [CLI runbook](stage1-cli-runbook.md) for trusted-main invocation,
 configuration paths and interactive commands. Store bounded observation rows
@@ -10,18 +10,21 @@ approval bodies. Local fixtures do not count as hosted observations.
 
 ## Gate A: reviewed implementation
 
-- [ ] The final implementation head has complete required CI, including
+- [x] The final implementation head has complete required CI, including
   client/server, Loop Foundation, dependency review, CodeQL and GitGuardian.
-- [ ] A human reviewer approves the final head and configuration boundary.
-- [ ] The maintainer confirms and merges into `main`; no direct push or bypass.
+- [ ] Record a human review of the final head and configuration boundary. The
+  project review rule remains unmet if merge occurred without a review.
+- [x] The maintainer merged the implementation into `main`; no direct push or
+  bypass.
 - [ ] A clean trusted-main checkout matches canonical current `main` exactly.
 
-Implementation commit `dbb48a1bd7aeff46c630d66f10566448f014accb` on PR #304
-has complete successful CI. The current head `9306f57b600ea6eb0d0d4bb6fa03199f76d77a6c`
-adds only this readiness documentation; fresh CI was in progress when checked.
-The PR is mergeable and has no human approval. It edits workflows and is not
-an eligible recovery pilot. The project still requires a human review before a
-maintainer merges it.
+PR #304 was merged into `main` at `875eb82e0886edd622737136eb6a8f5fbbd313ae`
+on 2026-10-12. Its implementation CI completed successfully. A live GitHub
+search on 2026-10-12 found no open PRs, so there is no current pilot target.
+This local branch is `feature/stage1-trusted-dispatch` at
+`090c12f4d93465d503ca967a853d96432170a889`, behind the locally recorded
+`origin/main`; it is not the clean trusted-main checkout required for pilot
+operations.
 
 ## Gate B: effective permissions and identities
 
@@ -38,15 +41,16 @@ maintainer merges it.
   reviewed observe, source-attestation-read and `actions:write` scopes; the
   policy reader cannot dispatch and does not replace the authenticated TTY
   approver.
-- [x] Configure local host App identifiers and an external private-key file
+- [ ] Re-verify local host App identifiers and the external private-key file
   through the runbook. Verify numeric approver and dispatcher actor IDs before
   creating the fixed user-local trust file; do not guess the bot ID.
-- [x] GitHub CLI meets the attestation verifier's documented minimum version
+- [ ] Verify GitHub CLI meets the attestation verifier's documented minimum version
   (`2.102.0`).
 
-Effective permissions, environment protection, local trust identities and the
-CLI version were verified on 2026-10-12. The environment secret was verified
-through metadata only; its value was not read back.
+Effective App permissions and environment protection were previously verified
+on 2026-10-12; the environment secret was verified through metadata only. Local
+host trust identities and the CLI are not verified in this session. Never read
+back or print the environment secret value.
 
 ## Gate C: one selected eligible PR
 
@@ -63,8 +67,7 @@ through metadata only; its value was not read back.
   trusted-main code after exact `INITIALIZE <pr>` confirmation. Keep canonical
   `ciRunLimit: 2` and never overwrite or reset counters.
 
-The latest open-PR check found only PR #304. No eligible pilot PR has been
-selected.
+The latest open-PR check found no PRs. No eligible pilot PR has been selected.
 
 ## Gate D: one approved recovery and its evidence
 
@@ -83,19 +86,24 @@ selected.
 - [ ] Confirm `ready-for-human` only from fresh unchanged tuple/policy evidence;
   record CI budget consumption and token revocation evidence without tokens.
 
-## Gate E: promotion evidence
+## Gate E: Stage 1 activation and later promotion
 
-- [ ] Collect at least ten representative failed/pending PR observations and
-  the ten bounded rerun decisions required by the Phase 2 runbook, across
-  approved sessions and eligible PRs. Never exceed the two-run session budget
-  to reach a sample count.
+- [ ] Before enabling Stage 1, collect the ten representative failed/pending
+  PR observations required for promotion from Stage 0 to Stage 1. Current
+  readiness evidence records 0 of 10; do not substitute fixtures or fabricate
+  flaky failures.
 - [ ] Zero stale-SHA actionable decisions, protected/infrastructure
-  misclassifications, duplicate dispatches or retry-budget overruns.
+  misclassifications, duplicate dispatches or retry-budget overruns in the
+  Stage 1 pilot.
 - [ ] For hosted Stage 0 promotion, independently prove consumer completion,
   Check Run publication and deployed-source correlation; cron completion
   alone is insufficient.
-- [ ] Update readiness with bounded metadata and evidence links; then obtain
-  the maintainer's promotion review. Merge remains human-controlled.
+- [ ] Update readiness with bounded metadata and evidence links; keep the
+  promotion decision human-controlled.
+
+Collecting ten bounded rerun decisions is a separate promotion gate from Stage
+1 to Stage 2. Stage 2 is deferred by the maintainer and is outside this task.
+Do not spend CI budget or run repair work to satisfy that later gate now.
 
 Required observation fields: `observedAt`, repository/PR IDs, base/head/merge
 SHAs, tested SHA, required context/App ID, Check Run ID, workflow run/attempt,
