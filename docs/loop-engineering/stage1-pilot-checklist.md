@@ -1,7 +1,7 @@
 # Stage 1 pilot checklist
 
 **Updated:** 2026-10-12
-**Status:** Prepared only; no live pilot or new promotion observations.
+**Status:** Configuration ready; implementation review and live pilot pending.
 
 Use the [CLI runbook](stage1-cli-runbook.md) for trusted-main invocation,
 configuration paths and interactive commands. Store bounded observation rows
@@ -16,33 +16,35 @@ approval bodies. Local fixtures do not count as hosted observations.
 - [ ] The maintainer confirms and merges into `main`; no direct push or bypass.
 - [ ] A clean trusted-main checkout matches canonical current `main` exactly.
 
-PR #304 at `23d00d04ac74c1e2af81b3efa6e96e7c2717960a` has successful observed
-checks, but those checks do not cover the newer local token/policy changes.
-The current review listing has no human approval. PR #304 edits workflows and
-is not an eligible recovery pilot.
+PR #304 at `dbb48a1bd7aeff46c630d66f10566448f014accb` has complete successful
+CI for the latest implementation, is mergeable, and still has no human
+approval. It edits workflows and is not an eligible recovery pilot. The
+project still requires a human review before a maintainer merges it.
 
 ## Gate B: effective permissions and identities
 
-- [ ] Dedicated policy-reader App installed only on this repository, with all
+- [x] Dedicated policy-reader App installed only on this repository, with all
   six read-only permissions listed in the runbook. Verify effective
   installation grants rather than inferring them from App settings.
-- [ ] Environment `stage1-policy-reader` restricts branches to `main`; configure
-  human review where supported. Set `STAGE1_POLICY_APP_CLIENT_ID` and
-  `STAGE1_POLICY_APP_PRIVATE_KEY` directly in environment Settings.
-- [ ] Verify the pinned token action requests one repository, only read
+- [x] Environment `stage1-policy-reader` restricts branches to `main`, requires
+  reviewer `memories-quy-2002`, blocks self-review, and contains
+  `STAGE1_POLICY_APP_CLIENT_ID` plus encrypted `STAGE1_POLICY_APP_PRIVATE_KEY`.
+- [x] Verify the pinned token action requests one repository, only read
   permissions, and automatic post-job revocation. Never share its token across
   jobs or give the policy-reader key write privileges.
-- [ ] Dispatcher App is separately granted its reviewed observe,
-  source-attestation-read and Actions-write scopes; the policy reader cannot
-  dispatch and does not replace the authenticated TTY approver.
-- [ ] Configure local host App identifiers and an external private-key file
+- [x] Dispatcher App installation is limited to this repository and has the
+  reviewed observe, source-attestation-read and `actions:write` scopes; the
+  policy reader cannot dispatch and does not replace the authenticated TTY
+  approver.
+- [x] Configure local host App identifiers and an external private-key file
   through the runbook. Verify numeric approver and dispatcher actor IDs before
   creating the fixed user-local trust file; do not guess the bot ID.
-- [ ] GitHub CLI meets the attestation verifier's documented minimum version.
+- [x] GitHub CLI meets the attestation verifier's documented minimum version
+  (`2.102.0`).
 
-The 2026-10-12 audit has no host credentials or trust file. Connector reads
-branch protection with HTTP 403; that connector is not the dispatcher App.
-No App configuration or secret provisioning was performed.
+Effective permissions, environment protection, local trust identities and the
+CLI version were verified on 2026-10-12. The environment secret was verified
+through metadata only; its value was not read back.
 
 ## Gate C: one selected eligible PR
 
@@ -59,7 +61,8 @@ No App configuration or secret provisioning was performed.
   trusted-main code after exact `INITIALIZE <pr>` confirmation. Keep canonical
   `ciRunLimit: 2` and never overwrite or reset counters.
 
-Only PR #304 was open in the audit. No eligible pilot PR has been selected.
+The latest open-PR check found only PR #304. No eligible pilot PR has been
+selected.
 
 ## Gate D: one approved recovery and its evidence
 

@@ -2,7 +2,36 @@
 
 **Updated:** 2026-10-12
 
-**Status:** BLOCKED — the trusted-dispatch implementation is on `feature/stage1-trusted-dispatch`, but no live Stage 1 pilot has occurred. Normal PR CI is recorded separately below. Local App credentials and trust identities are absent in the current audit; effective dispatcher `actions:write`, policy-reader installation/environment configuration, and a per-PR budget session remain unverified. Historical read-only OIDC probes do not qualify the repository for a Stage 1 pilot.
+**Status:** BLOCKED — the trusted-dispatch implementation is on `feature/stage1-trusted-dispatch`, but no live Stage 1 pilot has occurred. As of the current 2026-10-12 check, App permissions, the policy-reader environment, local trust identities and CLI are configured. PR #304 has green CI but still needs human review and merge. There is no eligible pilot PR and no per-PR budget session.
+
+## Current configuration and PR check (2026-10-12)
+
+The dedicated `digital-e-policy-reader` App is installed only on this
+repository with Administration, Actions, Checks, Contents, Pull requests,
+Commit statuses and implicit Metadata all read-only. Environment
+`stage1-policy-reader` permits only `main`, requires reviewer
+`memories-quy-2002`, blocks self-review, and contains the expected client ID
+and encrypted private-key secret. Secret verification used GitHub metadata;
+the secret value was not read back.
+
+The `digital-e-loop-runner` App installation for this repository now grants
+`actions:write` along with its reviewed read and Check Runs capabilities. The
+user-local host config and trust identities are present, and GitHub CLI
+2.102.0 is available. This config does not create a pilot budget or count as
+pilot evidence.
+
+PR [#304](https://github.com/memories-quy-2002/digital-e-shop/pull/304) is
+open at head `dbb48a1bd7aeff46c630d66f10566448f014accb` against base
+`d105b740f1514315dfd21fbad306e8a865a1994d`. Its 15 latest check runs are
+completed with success or skipped conclusions, and the combined commit status
+is successful. The PR is mergeable, but the review list has no human approval;
+its workflow changes also make it ineligible for the recovery pilot. The only
+open PR is #304. No eligible recovery target, dispatch, Check Run update, or
+live pilot observation exists.
+
+The repository's observed main branch protection reports zero required PR
+approvals. The project workflow still requires a human review before merge;
+do not infer that GitHub's mergeable state satisfies that requirement.
 
 ## Trusted dispatch retry implementation (2026-10-10)
 
@@ -40,9 +69,8 @@ The local workflow now requests a repository-scoped read-only policy token
 from the pinned official token action in environment `stage1-policy-reader`.
 The Actions token is confined to the original Check Run PATCH. Missing/equal
 tokens, denied reads, changed policy, incomplete evidence, or a changed PR
-tuple refuse publication. The environment, reader App installation, secret,
-dispatcher credentials and live hosted proof have not been configured by this
-run. Local implementation is not evidence of effective installation rights.
+tuple refuse publication. Current provisioning is recorded above; local
+implementation and configuration remain distinct from live hosted proof.
 See the [pilot checklist](stage1-pilot-checklist.md).
 
 ## Read-only audit on 2026-10-12
