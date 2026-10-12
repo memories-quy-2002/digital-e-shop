@@ -4,11 +4,19 @@ Loop Engineering is a bounded, auditable control plane around coding work—not 
 
 ## Control-plane placement
 
+The Stage 1 recovery workflow denies cache restore/save with workflow-wide
+`cache-mode: none`. Its verifier executes PR code in a `main` dispatch, so a
+read-only GitHub token is insufficient: the separate cache token must also be
+restricted to prevent default-branch cache poisoning. Normal PR CI and the
+live recovery pilot are distinct evidence; see the
+[readiness guide](../../docs/loop-engineering/stage1-readiness.md).
+
 - `scripts/loop/` owns the implementation: policy, risk classifier, state/budgets, verification runner, failure classifier, and controller.
 - `scripts/loop/hosted/cloudflare/` contains Hosted Stage 0: signed webhook ingress, repository-scoped GitHub App observation, D1 idempotency/state, Queue processing, scheduled open-PR reconciliation, and a separate report-only Check Run capability.
 - `.agent/policy/` owns versioned path, action, and stop-condition policy; an agent must not silently weaken it during an active run.
 - `.agent/loops/` describes the feature inner loop and the future PR babysitter contract.
 - `.loop/state/<task-id>.json` and `.loop/pr/` are local, gitignored metadata. They store stable IDs, hashes, counters, statuses, and failure fingerprints—not prompts or customer data.
+- Stage 1's per-PR CI budget session is stored under the OS-resolved user home in `.loop/state/`. The host canonicalizes the home and checkout paths for every budget operation and refuses a checkout containing that store, so checkout-local state cannot become the authoritative counter. This remains user-local storage, not an OS sandbox against other processes running as that user.
 - `AGENTS.md` remains the repository operating contract; this Wiki page explains why these boundaries exist.
 
 ## Safety boundaries
@@ -31,6 +39,7 @@ The PR babysitter uses a dedicated GitHub App; it does not reuse the Codex `@Git
 - GitHub records API writes under the App identity; the Loop audit metadata records the authenticated approver ID separately. Repair push approval is requested after validating the final changed paths and is consumed in the same process, so approval credentials do not travel in a `RepairPacket` or `.loop/state/`.
 - `scripts/loop/github-auth-provider.mjs` implements App device flow, resolves the principal from `/user`, checks the host-owned numeric user-ID allowlist, requests repository-scoped capability tokens, and issues opaque, single-use TTY approvals. Actions rerun approval binds the PR SHA tuple, tested SHA, exact required identity, workflow run/attempt, failed job IDs, and path scope. `scripts/loop/github-pr-client.mjs` implements fixed-origin, read-only PR/check/ruleset/workflow/review reads, complete changed-file evidence, and bounded redacted job-log reads. `scripts/loop/pr-babysitter-host.mjs` assembles the fixed-repository Stage 0 entrypoint, pins policy to the PR base commit, verifies a clean checkout at the PR head, and exposes only `inspect` with an `observe` installation token; when Stage 1 attaches source verification, the verifier receives a separate `source-attestation:read` token.
 - `scripts/loop/github-actions-write.mjs` exposes only the job-specific rerun endpoint and accepts exactly one approved root job ID from complete evidence for the selected workflow attempt. It requires a fresh same-repository PR tuple, complete PR-file/run/job evidence, a trusted workflow/job allowlist, a finite `LoopState` CI-run budget, and exact one-use approval before minting the Actions-write token. It reserves the stable attempt key before POST; uncertain network outcomes remain consumed. Multiple requested roots or multiple failed roots are refused before approval or budget reservation. The host allowlist pins stable job names while each approval pins the observed per-run job ID and attempt.
+- The reviewed Stage 1 recovery design replaces that older rerun path with an exact Check Run recovery flow: the host selects one failed `client`/`server` check from App `15368`, approves the full PR tuple and trusted workflow/actor identity once, reserves the CI budget, then dispatches only the fixed `stage1-trusted-retry.yml` workflow on `main`. The verifier job runs the shared fixed CI action against the approved SHA with read-only permissions. A separate publisher job can PATCH only the original Check Run after verifier success and does not checkout or execute PR code. The read-only observer polls only the returned workflow run ID and rechecks the current tuple, policy, required checks, source SHA, actor, and both job results. Mock/static tests do not prove GitHub's cross-run Check Run update or branch-protection behavior.
 - The OIDC source-attestation path builds a deterministic descriptor for one workflow run attempt, verifies the GitHub certificate through `gh attestation verify`, and creates a private verifier-owned record. The read adapter and guarded rerun writer ignore caller-supplied `sourceSha` and `sourceShaAttested` fields; only that record can carry the exact source `{ repositoryId, path, ref, sha }`. Required-workflow source repository IDs may differ from the PR repository, but the exact identity must match trusted host configuration and a host-provided attestation. The verifier requires the attested workflow to belong to the observed repository. Stage 1 `inspect` now configures this verifier, and PR #300 proves the hosted producer-to-probe path for one current tuple; neither result supplies a live host record or enables reruns. `runPrBabysitterCli` remains the host-injected API; `runPrBabysitterStage0` is the standalone read-only entrypoint and cannot rerun, repair, push, or merge.
 - `scripts/loop/repair-session.mjs` provides a vendor-neutral repair handshake. A trusted host creates a sanitized session bound to the current PR SHA tuple, tested SHA, workspace fingerprint, exact allowed paths, failure evidence, and validated `LoopState` budgets. It accepts only a bounded JSON write/delete proposal, consumes the exact `repair:workspace` approval, checks paths before writing, rechecks the PR tuple immediately before the write, commits locally, and runs the fixed verifier only after a fresh budget check. If the verifier budget expires after commit, the host persists the committed SHA to `LoopState` without claiming verification or consuming an iteration. This module does not run a model or push to GitHub; the separate PR Babysitter orchestration requires fresh `contents:write` approval and budget checks before token minting and immediately before push.
 - Required workflow rules identify `{ repository_id, path, ref, sha }`, where `sha` is the workflow source revision. The opt-in producer runs only for a labeled, open, same-repository PR and does not check out or execute PR code. Its descriptor binds repository/workflow IDs, path/ref, run ID/attempt, tested SHA, and the full PR tuple. The downstream `workflow_run` probe reads the exact run and one current same-repository PR, then reports only a certificate-backed `sourceShaCandidate`; that output is feasibility metadata, not a trusted record or green required-workflow result. Raw `workflow_sha` fields and statement predicates never establish identity. Require the later hosted proof, including a source SHA different from the tested SHA, before treating the attestation path as proven. See [required workflow rules](https://docs.github.com/en/enterprise-cloud@latest/rest/repos/rules?apiVersion=2026-03-10), [workflow runs](https://docs.github.com/en/rest/actions/workflow-runs), and the [Stage 1 runbook](../../docs/loop-engineering/stage1-cli-runbook.md).
@@ -105,30 +114,58 @@ and permission-scoped, not branch-scoped; GitHub branch protection guards
 protected refs. Phase 2B has no merge authority, issue-to-Draft-PR dispatch, or
 post-merge observation. See [[architecture]] and [[index]].
 
-The Stage 1 CLI work remains fail-closed: `inspect` delegates to the Stage 0
-read-only host with the source verifier attached, while live `rerun-flaky`
-refuses before credentials or network access. PR #293 merged the workflow-source
-producer, certificate verifier, read-only probe, and verifier-owned adapter
-gates. PR #300 later proved the hosted producer-to-probe path on a current
-tuple; this is not a Stage 1 host observation. The labeled PR #297 probe's
-earlier `unavailable` result remains historical evidence for that run. The
-local host currently lacks GitHub App configuration, and effective
-`Attestations: read` access has not been verified. PR #298 fixed the GitHub CLI
-SAN parsing. PR #296 merged the
-attempt-bound single-job writer, but the standalone host still reports
-`run_attempt_write_binding_unavailable` until its capability gate is reconciled
-with that writer. A complete workflow/job allowlist, trusted approver
-configuration, and host-managed LoopState CI budget session also remain absent.
-PR #289 set `ciRunLimit` to 2; that does not enable reruns because the host does
-not bind a persisted budget session to the policy revision. Dry-run validates
-syntax only. See the [Stage 1 CLI
+The Stage 1 CLI remains fail-closed. `inspect` delegates to the read-only host
+with the source verifier attached. `initialize-budget` creates one local
+LoopState session after typed TTY confirmation and binds it to the current PR
+base/head tuple and canonical limits. `rerun-flaky` connects exact flaky
+evidence, trusted approver confirmation, post-approval tuple checks, budget
+reservation, a fixed `workflow_dispatch`, OIDC source verification, and an
+observer for the returned run ID. The user-local trust file is the only source
+of numeric approver and workflow actor IDs; env and CLI inputs cannot override
+them. The workflow supports only `client` and `server` checks from App `15368`,
+and the publisher transport permits fixed reads plus one success PATCH to the
+original failed Check Run.
+
+Before that PATCH, the publisher independently reloads complete branch
+protection/ruleset policy, compares its fingerprint with the approved target,
+and requires exactly one matching context/App ID. Missing, changed, ambiguous,
+or inaccessible policy refuses publication. The read-only transport uses a
+separate App installation token, while the Actions token transport permits
+only the existing exact Check Run PATCH. The SHA-pinned official token action
+mints the reader only in the trusted publisher's `stage1-policy-reader`
+environment, scopes it to this repository, requests read permissions, and
+revokes it after the job. Missing/reused tokens refuse before dispatch-event
+parsing. The reader installation, protected environment configuration, and
+live proof remain unverified; this run has not provisioned credentials or
+changed App permissions. See the [Stage 1 CLI runbook](../../docs/loop-engineering/stage1-cli-runbook.md).
+
+After review and merge, operators launch this CLI from a clean reviewed
+`main` checkout while keeping the selected PR worktree as the process current
+directory. This keeps executable host modules on the trusted revision while
+the host derives the target SHA and `.loop/pr/` observation state from the PR
+checkout. Stage 1's finite CI budget is stored under the OS-resolved user home;
+the host fails closed if that effective store path overlaps the PR checkout.
+The local trust loader resolves its fixed config path from
+`os.userInfo().homedir`; it ignores `USERPROFILE` and fails closed if OS home
+resolution is unavailable or invalid.
+
+The implementation is local to `feature/stage1-trusted-dispatch`; its
+`verify`, `attest`, and `publish` jobs have not run on GitHub. The workflow must
+be reviewed and merged before it can dispatch from `main`. The App currently
+lacks `actions:write`, and no local trust file, budget session, or live pilot
+is configured. No App permissions were changed. PR #293 merged the earlier
+workflow-source producer, certificate verifier, read-only probe, and
+verifier-owned adapter gates; PR #300 proved that producer-to-probe path for
+one current tuple, which is not a Stage 1 host observation. PR #296's
+attempt-bound job writer is historical code; the selected recovery path does
+not call run/job-rerun endpoints. See the [Stage 1 CLI
 runbook](../../docs/loop-engineering/stage1-cli-runbook.md) and [readiness
 evidence](../../docs/loop-engineering/stage1-readiness.md).
 The read adapter binds job evidence to GitHub's exact workflow run attempt and
-marks missing attempt IDs incomplete. PR #296 merged a guarded writer that
-rechecks the attempt after budget reservation and posts only the approved job
-ID. A controlled test on non-main PR #294 observed that GitHub rejects a
-previous-attempt job ID with `403` once a newer attempt is current. This
-evidence does not verify the dependent-job closure: that graph, hosted source
-attestation, trusted approver, host wiring, and host-managed budget session
-remain Stage 1 activation gates.
+marks missing attempt IDs incomplete. A controlled test on non-main PR #294
+observed that GitHub rejects a previous-attempt job ID with `403` once a newer
+attempt is current. This evidence motivated the workflow-dispatch design; it
+does not prove the new dependent-job graph or cross-run Check Run publication.
+Stage 1 still needs hosted CI on the reviewed revision, a user-local trust
+file, an initialized exact-tuple budget session under the OS-resolved user
+home, App `actions:write`, and a live pilot before promotion.

@@ -21,7 +21,7 @@ const REVISION_PATTERN = /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/i;
 const SUPPORTED_CONCLUSIONS = new Set(['success', 'failure', 'cancelled', 'timed_out', 'action_required', 'neutral', 'skipped']);
 const OBSERVATION_STATUSES = new Set(['queued', 'in_progress', 'completed']);
 
-const GRAPHQL_PULL_REQUEST_QUERY = `query LoopPrSnapshot($owner: String!, $name: String!, $number: Int!) {
+export const GITHUB_PR_SNAPSHOT_QUERY = `query LoopPrSnapshot($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
       baseRefName
@@ -719,7 +719,7 @@ export function createGitHubPrClient(options) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          query: GRAPHQL_PULL_REQUEST_QUERY,
+          query: GITHUB_PR_SNAPSHOT_QUERY,
           variables: { owner: parsedRepository.owner, name: parsedRepository.name, number: prNumber },
         }),
       }),
@@ -973,6 +973,71 @@ export function createGitHubPrClient(options) {
       collectionStatus: complete ? 'complete' : 'incomplete',
       checkCollectionComplete: complete,
     });
+  }
+
+  async function getWorkflowByPath(workflowPathInput) {
+    if (workflowPathInput !== '.github/workflows/stage1-trusted-retry.yml') fail('workflow_path_not_allowlisted');
+    let collection;
+    try { collection = await paginate(repositoryPath + '/actions/workflows', 'workflows'); }
+    catch (error) {
+      if (error instanceof GitHubPrClientError) return Object.freeze({ status: 'unavailable', reasonCode: error.code });
+      return Object.freeze({ status: 'unavailable', reasonCode: 'network_error' });
+    }
+    const matches = collection.values.filter((workflow) => isRecord(workflow) && workflow.path === workflowPathInput);
+    if (!collection.complete || matches.length !== 1 || !isPositiveInteger(matches[0].id)
+      || matches[0].state !== 'active') return Object.freeze({ status: 'incomplete', reasonCode: 'workflow_identity_unavailable' });
+    return Object.freeze({ status: 'current', workflowId: matches[0].id, path: workflowPathInput, state: 'active' });
+  }
+
+  async function getWorkflowRunById(runIdInput) {
+    if (!isPositiveInteger(runIdInput)) fail('invalid_options');
+    let response;
+    try {
+      response = await apiJson(repositoryPath + '/actions/runs/' + runIdInput, { method: 'GET' });
+    } catch (error) {
+      if (error instanceof GitHubPrClientError) return Object.freeze({ status: 'unavailable', reasonCode: error.code, runId: runIdInput });
+      return Object.freeze({ status: 'unavailable', reasonCode: 'network_error', runId: runIdInput });
+    }
+    if (!isRecord(response) || response.id !== runIdInput) return Object.freeze({ status: 'incomplete', reasonCode: 'run_id_mismatch', runId: runIdInput });
+    const workflow = parseWorkflowPath(response.path);
+    const sourceSha = normalizeSha(response.head_sha);
+    const repositoryId = isPositiveInteger(response.repository?.id) ? response.repository.id : null;
+    const workflowId = isPositiveInteger(response.workflow_id) ? response.workflow_id : null;
+    const actorId = isPositiveInteger(response.actor?.id) ? response.actor.id : null;
+    const actorLogin = typeof response.actor?.login === 'string' && response.actor.login.length <= 100 ? response.actor.login : null;
+    const createdAt = stableTimestamp(response.created_at);
+    const updatedAt = stableTimestamp(response.updated_at);
+    const status = OBSERVATION_STATUSES.has(response.status) ? response.status : null;
+    const conclusion = response.conclusion === null || SUPPORTED_CONCLUSIONS.has(response.conclusion) ? response.conclusion : null;
+    if (!workflow || !sourceSha || !repositoryId || !workflowId || !actorId || !actorLogin || !createdAt || !updatedAt || !status
+      || (status === 'completed' && !conclusion) || (status !== 'completed' && conclusion !== null)
+      || response.event !== 'workflow_dispatch' || typeof response.run_attempt !== 'number' || !isPositiveInteger(response.run_attempt)) {
+      return Object.freeze({ status: 'incomplete', reasonCode: 'run_evidence_incomplete', runId: runIdInput });
+    }
+    let jobs;
+    try {
+      const result = await paginate(repositoryPath + '/actions/runs/' + runIdInput + '/jobs', 'jobs', { filter: 'latest' });
+      const normalized = [];
+      let complete = result.complete && result.values.length > 0;
+      for (const job of result.values) {
+        if (!isRecord(job) || !isPositiveInteger(job.id) || job.run_id !== runIdInput
+          || job.run_attempt !== response.run_attempt || typeof job.name !== 'string' || job.name.length === 0 || job.name.length > 100
+          || !OBSERVATION_STATUSES.has(job.status)
+          || (job.status === 'completed' && !SUPPORTED_CONCLUSIONS.has(job.conclusion))
+          || (job.status !== 'completed' && job.conclusion !== null)) {
+          complete = false;
+          continue;
+        }
+        normalized.push(Object.freeze({ id: job.id, name: job.name, status: job.status, conclusion: job.conclusion }));
+      }
+      jobs = Object.freeze({ collectionStatus: complete ? 'complete' : 'incomplete', jobs: Object.freeze(normalized) });
+    } catch {
+      jobs = Object.freeze({ collectionStatus: 'unavailable', jobs: Object.freeze([]) });
+    }
+    return Object.freeze({ status: jobs.collectionStatus === 'complete' ? 'current' : 'incomplete',
+      run: Object.freeze({ id: runIdInput, repositoryId, workflowId, path: workflow.path, ref: workflow.ref,
+        event: response.event, sourceSha, headSha: sourceSha, testedSha: sourceSha, createdAt, updatedAt,
+        actorId, actorLogin, status, conclusion, runAttempt: response.run_attempt }), jobs });
   }
 
   async function getRequiredWorkflowEvidence(requiredWorkflowInput, testedShaInput) {
@@ -1417,6 +1482,8 @@ export function createGitHubPrClient(options) {
     getPullRequestFiles,
     getCommitCheckRuns,
     getWorkflowRuns,
+    getWorkflowByPath,
+    getWorkflowRunById,
     getRequiredWorkflowEvidence,
     getWorkflowRunJobs,
     getRequiredCheckSnapshot,

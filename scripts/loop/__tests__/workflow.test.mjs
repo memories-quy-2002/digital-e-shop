@@ -7,6 +7,9 @@ import { fileURLToPath } from 'node:url';
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const workflowPath = '.github/workflows/loop-foundation.yml';
 const sourceShaProbeWorkflowPath = '.github/workflows/loop-source-sha-probe.yml';
+const ciWorkflowPath = '.github/workflows/ci.yml';
+const trustedRetryWorkflowPath = '.github/workflows/stage1-trusted-retry.yml';
+const verifierActionPath = '.github/actions/stage1-verify/action.yml';
 const controlPlaneTests = [
   'scripts/loop/__tests__/policy.test.mjs',
   'scripts/loop/__tests__/classify-risk.test.mjs',
@@ -24,12 +27,18 @@ const controlPlaneTests = [
   'scripts/loop/__tests__/telemetry.test.mjs',
   'scripts/loop/__tests__/pr-contracts.test.mjs',
   'scripts/loop/__tests__/github-pr-client.test.mjs',
+  'scripts/loop/__tests__/stage1-trust-config.test.mjs',
+  'scripts/loop/__tests__/stage1-workflow-source-descriptor-cli.test.mjs',
+  'scripts/loop/__tests__/stage1-check-target.test.mjs',
   'scripts/loop/__tests__/github-auth-provider.test.mjs',
+  'scripts/loop/__tests__/stage1-dispatch-write.test.mjs',
   'scripts/loop/__tests__/github-actions-write.test.mjs',
   'scripts/loop/__tests__/pr-worktree-guard.test.mjs',
   'scripts/loop/__tests__/repair-session.test.mjs',
   'scripts/loop/__tests__/verify.test.mjs',
   'scripts/loop/__tests__/workflow.test.mjs',
+  'scripts/loop/__tests__/stage1-check-run-publisher.test.mjs',
+  'scripts/loop/__tests__/stage1-retry-observer.test.mjs',
   'scripts/loop/__tests__/workflow-source-descriptor.test.mjs',
   'scripts/loop/__tests__/workflow-source-attestation.test.mjs',
   'scripts/loop/__tests__/github-workflow-source-attestation.test.mjs',
@@ -189,6 +198,96 @@ describe('Loop Foundation workflow contract', () => {
     assert.doesNotMatch(attestationJob, /(?:actions|contents|pull-requests|issues|artifact-metadata):\s*write/i);
     assert.doesNotMatch(workflow, /pull_request_target|environment:\s*production|git\s+push|\bgh\s+(?:issue|pr)\s+(?:create|edit|comment|merge)/i);
     assert.doesNotMatch(workflow, /prisma:migrate|test:integration|seed:mock|vercel\s+--prod/i);
+  });
+});
+
+describe('Stage 1 trusted retry workflow contract', () => {
+  it('mints a repository-scoped read-only policy token only in the protected publisher and revokes it after the job', async () => {
+    const workflow = await read(trustedRetryWorkflowPath);
+    const publish = jobBlock(workflow, 'publish');
+    assert.match(publish, /environment: stage1-policy-reader/);
+    assert.match(publish, /uses: actions\/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1/);
+    assert.match(publish, /owner: memories-quy-2002/);
+    assert.match(publish, /repositories: digital-e-shop/);
+    assert.match(publish, /client-id: \$\{\{ vars\.STAGE1_POLICY_APP_CLIENT_ID \}\}/);
+    assert.match(publish, /private-key: \$\{\{ secrets\.STAGE1_POLICY_APP_PRIVATE_KEY \}\}/);
+    assert.match(publish, /skip-token-revoke: false/);
+    const permissions = [...publish.matchAll(/^          (permission-[\w-]+): (\w+)$/gm)].map((match) => [match[1], match[2]]);
+    assert.deepEqual(permissions, [['permission-administration', 'read'], ['permission-actions', 'read'],
+      ['permission-checks', 'read'], ['permission-contents', 'read'], ['permission-pull-requests', 'read'], ['permission-statuses', 'read']]);
+    assert.match(publish, /STAGE1_POLICY_READ_TOKEN: \$\{\{ steps\.policy-token\.outputs\.token \}\}/);
+    assert.match(publish, /STAGE1_GITHUB_TOKEN: \$\{\{ github\.token \}\}/);
+    for (const job of ['verify', 'attest']) assert.doesNotMatch(jobBlock(workflow, job), /secrets\.|STAGE1_POLICY_(?:APP|READ_TOKEN)|create-github-app-token/);
+  });
+  it('denies cache tokens to every recovery job that runs in the main branch scope', async () => {
+    const workflow = await read(trustedRetryWorkflowPath);
+    assert.match(workflow, /^cache-mode: none$/m);
+    assert.doesNotMatch(workflow, /^\s+cache-mode:\s*(?:read|write|write-only)\b/m);
+  });
+
+  it('shares the client and server verification action with normal CI without changing required job IDs', async () => {
+    const [ci, action] = await Promise.all([read(ciWorkflowPath), read(verifierActionPath)]);
+    for (const job of ['client', 'server']) {
+      assert.match(ci, new RegExp(`^  ${job}:$`, 'm'));
+      const block = jobBlock(ci, job);
+      assert.match(block, /uses: actions\/checkout@[a-f0-9]{40}/);
+      assert.match(block, /uses: \.\/\.github\/actions\/stage1-verify/);
+      assert.match(block, new RegExp(`context: ${job}`));
+      assert.match(block, /source-directory: \./);
+    }
+    for (const command of ['pnpm exec tsc --noEmit', 'pnpm lint', 'pnpm test -- --run', 'pnpm build',
+      'pnpm prisma:validate', 'pnpm typecheck', 'pnpm test:integration', 'pnpm run vercel-build']) assert.ok(action.includes(command));
+    assert.match(action, /cache-dependency-path: \$\{\{ inputs\.source-directory \}\}\/client\/pnpm-lock\.yaml/);
+    assert.match(action, /cache-dependency-path: \$\{\{ inputs\.source-directory \}\}\/server\/pnpm-lock\.yaml/);
+    assert.match(action, /pnpm\/action-setup@[a-f0-9]{40}/);
+    assert.match(action, /actions\/setup-node@[a-f0-9]{40}/);
+  });
+
+  it('limits the retry workflow to fixed main dispatch and an isolated read-only verifier job', async () => {
+    const [workflow, publisherSource] = await Promise.all([
+      read(trustedRetryWorkflowPath), read('scripts/loop/stage1-check-run-publisher.mjs'),
+    ]);
+    const verify = jobBlock(workflow, 'verify');
+    const attest = jobBlock(workflow, 'attest');
+    const publish = jobBlock(workflow, 'publish');
+    const triggers = triggerBlockLines(workflow);
+    assert.equal(triggers[0], '  workflow_dispatch:');
+    assert.equal(triggers[1], '    inputs:');
+    assert.equal(triggers.some((line) => /pull_request|push|schedule/.test(line)), false);
+    assert.match(verify, /github\.repository == 'memories-quy-2002\/digital-e-shop'/);
+    assert.match(verify, /github\.ref == 'refs\/heads\/main'/);
+    assert.match(verify, /github\.sha == inputs\.base_sha/);
+    assert.match(verify, /github\.actor == 'digital-e-loop-runner\[bot\]'/);
+    assert.ok(verify.indexOf('Validate bounded dispatch target before checkout') < verify.indexOf('Checkout trusted workflow and verifier source'));
+    assert.match(verify, /STAGE1_REQUEST_ID/);
+    assert.match(verify, /STAGE1_POLICY_FINGERPRINT/);
+    assert.match(verify, /Number\.isSafeInteger/);
+    assert.deepEqual(jobPermissionLines(verify), ['contents: read']);
+    assert.match(verify, /ref: \$\{\{ inputs\.tested_sha \}\}/);
+    assert.match(verify, /path: tested/);
+    assert.match(verify, /source-directory: tested/);
+    assert.match(verify, /uses: \.\/trusted\/\.github\/actions\/stage1-verify/);
+    assert.deepEqual(jobPermissionLines(publish), ['actions: read', 'checks: write', 'contents: read', 'pull-requests: read']);
+    assert.match(attest, /^    needs: verify$/m);
+    assert.deepEqual(jobPermissionLines(attest), ['actions: read', 'contents: read', 'id-token: write', 'attestations: write']);
+    assert.match(attest, /node scripts\/loop\/stage1-workflow-source-descriptor-cli\.mjs/);
+    assert.match(attest, new RegExp(`uses: ${attestAction.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+    assert.match(attest, /subject-name: digital-e-loop-workflow-source\.json/);
+    assert.match(attest, /subject-digest: sha256:\$\{\{ steps\.descriptor\.outputs\.sha256 \}\}/);
+    assert.match(attest, /ref: \$\{\{ github\.sha \}\}/);
+    assert.doesNotMatch(attest, /inputs\.tested_sha|path: tested|actions\/checkout.*pull.?request/i);
+    assert.doesNotMatch(publish, /^\s+administration:\s*read/im);
+    assert.match(publisherSource, /getRequiredCheckSnapshot/);
+    assert.match(publisherSource, /publisher_policy_stale_or_incomplete/);
+    assert.doesNotMatch(publisherSource, /return_run_details/);
+    assert.match(publish, /^    needs: \[verify, attest\]$/m);
+    assert.match(publish, /needs\.attest\.result == 'success'/);
+    assert.match(publish, /Checkout trusted publisher source only/);
+    assert.doesNotMatch(publish, /tested_sha|checkout.*pull.?request|download-artifact/i);
+    assert.doesNotMatch(workflow, /production-migrate|environment:\s*production|actions:\s*write|contents:\s*write/i);
+    assert.deepEqual([...workflow.matchAll(/secrets\.([A-Z0-9_]+)/g)].map((match) => match[1]), ['STAGE1_POLICY_APP_PRIVATE_KEY']);
+    assert.doesNotMatch(verify, /checks:\s*write/i);
+    assert.doesNotMatch(workflow, /download-artifact|pull_request_target|git\s+push/i);
   });
 });
 

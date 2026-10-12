@@ -115,4 +115,26 @@ describe('workflow source descriptor', () => {
     assert.equal(bytes.toString('utf8').startsWith('{"schemaVersion":1,'), true);
     assert.equal(bytes.includes(Buffer.from('\n')), false);
   });
+
+  it('binds a trusted dispatch descriptor to the exact PR tuple and dispatch actor', () => {
+    const target = { number: 17, baseSha: BASE_SHA, headSha: HEAD_SHA, mergeSha: TESTED_SHA, testedSha: TESTED_SHA,
+      context: 'client', appId: 15368, checkRunId: 88, policyFingerprint: 'e'.repeat(64), requestId: '1'.repeat(32),
+      actorId: 9988, actorLogin: 'digital-e-loop-runner[bot]' };
+    const input = { repositoryId: 9, workflowId: 42, workflowPath: '.github/workflows/stage1-trusted-retry.yml',
+      workflowRef: 'refs/heads/main', runId: 123, runAttempt: 2, eventName: 'workflow_dispatch', testedSha: BASE_SHA,
+      pullRequest: null, dispatchTarget: target };
+    const descriptor = createWorkflowSourceDescriptor(input);
+
+    assert.equal(descriptor.schemaVersion, 2);
+    assert.deepEqual(descriptor.dispatchTarget, target);
+    assert.equal(Object.isFrozen(descriptor.dispatchTarget), true);
+    assert.equal(serializeWorkflowSourceDescriptor(input).toString('utf8').includes('"requestId":"' + target.requestId + '"'), true);
+    for (const invalid of [
+      { ...input, workflowPath: '.github/workflows/other.yml' },
+      { ...input, testedSha: TESTED_SHA },
+      { ...input, dispatchTarget: { ...target, actorId: 0 } },
+      { ...input, dispatchTarget: { ...target, requestId: 'bad' } },
+      { ...input, dispatchTarget: { ...target, mergeSha: 'f'.repeat(40) } },
+    ]) assert.throws(() => createWorkflowSourceDescriptor(invalid));
+  });
 });

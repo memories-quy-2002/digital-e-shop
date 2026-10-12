@@ -14,6 +14,9 @@ const WORKFLOW_SHA = 'd'.repeat(40);
 const TESTED_SHA = 'a'.repeat(40);
 const BASE_SHA = 'b'.repeat(40);
 const HEAD_SHA = 'c'.repeat(40);
+const STAGE1_WORKFLOW_PATH = '.github/workflows/stage1-trusted-retry.yml';
+const STAGE1_WORKFLOW_REF = 'refs/heads/main';
+const STAGE1_ACTOR_LOGIN = 'digital-e-loop-runner[bot]';
 const SUBJECT_NAME = 'digital-e-loop-workflow-source.json';
 const OIDC_ISSUER = 'https://token.actions.githubusercontent.com';
 const SIGNER_URI = `https://github.com/${REPOSITORY}/${WORKFLOW_PATH}@${WORKFLOW_REF}`;
@@ -51,8 +54,58 @@ function makeInputs({ allowlistedSha = WORKFLOW_SHA, runOverrides = {}, snapshot
   return { identity, run, snapshot };
 }
 
-function descriptorDigest({ identity, run, snapshot }) {
-  const bytes = serializeWorkflowSourceDescriptor({
+function makeDispatchInputs() {
+  const actorId = 77;
+  const dispatchTarget = {
+    prNumber: 17,
+    baseSha: BASE_SHA,
+    headSha: HEAD_SHA,
+    mergeSha: TESTED_SHA,
+    testedSha: HEAD_SHA,
+    context: 'client',
+    appId: 15368,
+    checkRunId: 456,
+    policyFingerprint: 'f'.repeat(64),
+    requestId: '1'.repeat(32),
+    actorId,
+    actorLogin: STAGE1_ACTOR_LOGIN,
+  };
+  return {
+    identity: {
+      type: 'workflow',
+      repositoryId: 9,
+      path: STAGE1_WORKFLOW_PATH,
+      ref: STAGE1_WORKFLOW_REF,
+      sha: BASE_SHA,
+    },
+    run: {
+      id: 123,
+      runAttempt: 2,
+      repositoryId: 9,
+      workflowId: 42,
+      path: STAGE1_WORKFLOW_PATH,
+      ref: STAGE1_WORKFLOW_REF,
+      event: 'workflow_dispatch',
+      headSha: BASE_SHA,
+      testedSha: BASE_SHA,
+      actorId,
+      actorLogin: STAGE1_ACTOR_LOGIN,
+      createdAt: '2026-10-07T12:00:00.000Z',
+      updatedAt: '2026-10-07T12:05:00.000Z',
+    },
+    snapshot: {
+      repositoryId: 9,
+      number: 17,
+      baseSha: BASE_SHA,
+      headSha: HEAD_SHA,
+      mergeSha: TESTED_SHA,
+    },
+    dispatchTarget,
+  };
+}
+
+function descriptorDigest({ identity, run, snapshot, dispatchTarget }) {
+  const input = {
     repositoryId: snapshot.repositoryId,
     workflowId: run.workflowId,
     workflowPath: run.path,
@@ -61,13 +114,30 @@ function descriptorDigest({ identity, run, snapshot }) {
     runAttempt: run.runAttempt,
     eventName: run.event,
     testedSha: run.testedSha,
-    pullRequest: {
+    pullRequest: run.event === 'pull_request' ? {
       number: snapshot.number,
       baseSha: snapshot.baseSha,
       headSha: snapshot.headSha,
       mergeSha: snapshot.mergeSha,
-    },
-  });
+    } : null,
+    ...(dispatchTarget ? {
+      dispatchTarget: {
+        number: dispatchTarget.prNumber,
+        baseSha: dispatchTarget.baseSha,
+        headSha: dispatchTarget.headSha,
+        mergeSha: dispatchTarget.mergeSha,
+        testedSha: dispatchTarget.testedSha,
+        context: dispatchTarget.context,
+        appId: dispatchTarget.appId,
+        checkRunId: dispatchTarget.checkRunId,
+        policyFingerprint: dispatchTarget.policyFingerprint,
+        requestId: dispatchTarget.requestId,
+        actorId: dispatchTarget.actorId,
+        actorLogin: dispatchTarget.actorLogin,
+      },
+    } : {}),
+  };
+  const bytes = serializeWorkflowSourceDescriptor(input);
   assert.equal(identity.repositoryId, snapshot.repositoryId);
   return hashDescriptor(bytes);
 }
@@ -148,6 +218,28 @@ describe('GitHub workflow source attestation provider', () => {
     assert.equal(Object.isFrozen(claims.verifiedTimestamps), true);
     assert.equal(calls[1].args.includes('--signer-digest'), true);
     assert.equal(calls[1].args.at(-1), WORKFLOW_SHA);
+  });
+
+  it('includes dispatchTarget when verifying the Stage 1 workflow_dispatch descriptor', async () => {
+    const inputs = makeDispatchInputs();
+    const output = await verifiedOutput(inputs, {
+      certificate: {
+        githubWorkflowRef: STAGE1_WORKFLOW_REF,
+        githubWorkflowSHA: BASE_SHA,
+        buildSignerDigest: BASE_SHA,
+        subjectAlternativeName: `https://github.com/${REPOSITORY}/${STAGE1_WORKFLOW_PATH}@${STAGE1_WORKFLOW_REF}`,
+        buildSignerURI: `https://github.com/${REPOSITORY}/${STAGE1_WORKFLOW_PATH}@${STAGE1_WORKFLOW_REF}`,
+      },
+    });
+    const { calls, execFileImpl } = makeExecFile({ verificationOutput: output });
+    const provider = providerFor(execFileImpl);
+
+    const claims = await provider.inspectWorkflowSourceAttestation(inputs);
+
+    assert.equal(claims.descriptorSha256, await descriptorDigest(inputs));
+    assert.deepEqual(calls[1].args.slice(0, 2), ['attestation', 'verify']);
+    assert.equal(calls[1].args.includes('--signer-digest'), true);
+    assert.equal(calls[1].args.at(-1), BASE_SHA);
   });
 
   it('binds the signed certificate to the exact run and attempt', async () => {

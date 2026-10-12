@@ -274,4 +274,45 @@ describe('workflow source verifier', () => {
     assert.equal(await unavailable(evidence), null);
     assert.equal(await throwing(evidence), null);
   });
+
+  it('attests the fixed Stage 1 dispatch source against the run actor and exact approved PR tuple', async () => {
+    const baseSha = '1'.repeat(40);
+    const headSha = '2'.repeat(40);
+    const mergeSha = '3'.repeat(40);
+    const workflowPath = '.github/workflows/stage1-trusted-retry.yml';
+    const workflowRef = 'refs/heads/main';
+    const target = { repository: REPOSITORY, repositoryId: 9, prNumber: 42, baseSha, headSha, mergeSha,
+      testedSha: mergeSha, context: 'server', appId: 15368, checkRunId: 700, policyFingerprint: '4'.repeat(64),
+      workflowId: 77, workflowPath, workflowRef: 'main', workflowSourceSha: baseSha,
+      actorId: 9988, actorLogin: 'digital-e-loop-runner[bot]', requestId: '5'.repeat(32) };
+    const evidence = {
+      identity: { type: 'workflow', repositoryId: 9, path: workflowPath, ref: workflowRef, sha: baseSha },
+      run: { id: 800, runAttempt: 1, repositoryId: 9, workflowId: 77, path: workflowPath, ref: workflowRef,
+        event: 'workflow_dispatch', headSha: baseSha, testedSha: baseSha, createdAt: RUN_CREATED_AT,
+        updatedAt: RUN_UPDATED_AT, actorId: 9988, actorLogin: 'digital-e-loop-runner[bot]' },
+      snapshot: { repositoryId: 9, number: 42, baseSha, headSha, mergeSha },
+      dispatchTarget: target,
+    };
+    const bytes = serializeWorkflowSourceDescriptor({ repositoryId: 9, workflowId: 77, workflowPath, workflowRef,
+      runId: 800, runAttempt: 1, eventName: 'workflow_dispatch', testedSha: baseSha, pullRequest: null,
+      dispatchTarget: { number: 42, baseSha, headSha, mergeSha, testedSha: mergeSha, context: 'server', appId: 15368,
+        checkRunId: 700, policyFingerprint: '4'.repeat(64), requestId: '5'.repeat(32), actorId: 9988,
+        actorLogin: 'digital-e-loop-runner[bot]' } });
+    const digest = createHash('sha256').update(bytes).digest('hex');
+    const signerUri = `https://github.com/${REPOSITORY}/${workflowPath}@${workflowRef}`;
+    const claims = { repositoryId: 9, issuer: 'https://token.actions.githubusercontent.com',
+      sourceRepositoryIdentifier: '9', githubWorkflowRepository: REPOSITORY, workflowPath, githubWorkflowRef: workflowRef,
+      githubWorkflowSHA: baseSha, buildSignerDigest: baseSha, workflowId: 77, testedSha: baseSha, runId: 800,
+      runAttempt: 1, subjectAlternativeName: { type: 'URI', value: signerUri }, buildSignerURI: signerUri,
+      runInvocationURI: `https://github.com/${REPOSITORY}/actions/runs/800/attempts/1`,
+      subjectName: 'digital-e-loop-workflow-source.json', subjectDigest: digest, descriptorSha256: digest,
+      verifiedTimestamps: [VERIFIED_AT] };
+    const verify = createWorkflowSourceVerifier({ repository: REPOSITORY, inspectAttestation: async () => claims });
+    const record = await verify(evidence);
+    assert.equal(record.sourceSha, baseSha);
+    assert.equal(record.dispatchTarget.requestId, target.requestId);
+    assert.equal(isVerifiedWorkflowSourceRecord(record), true);
+    assert.equal(await verify({ ...evidence, run: { ...evidence.run, actorId: 9987 } }), null);
+    assert.equal(await verify({ ...evidence, dispatchTarget: { ...target, headSha: 'f'.repeat(40) } }), null);
+  });
 });

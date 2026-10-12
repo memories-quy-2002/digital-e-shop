@@ -11,6 +11,12 @@ const DESCRIPTOR_KEYS = Object.freeze([
   'pullRequest',
 ]);
 const PULL_REQUEST_KEYS = Object.freeze(['number', 'baseSha', 'headSha', 'mergeSha']);
+const DISPATCH_TARGET_KEYS = Object.freeze([
+  'number', 'baseSha', 'headSha', 'mergeSha', 'testedSha', 'context', 'appId', 'checkRunId',
+  'policyFingerprint', 'requestId', 'actorId', 'actorLogin',
+]);
+const STAGE1_WORKFLOW_PATH = '.github/workflows/stage1-trusted-retry.yml';
+const STAGE1_ACTOR_LOGIN = 'digital-e-loop-runner[bot]';
 
 export const WORKFLOW_SOURCE_DESCRIPTOR_VERSION = 1;
 
@@ -73,8 +79,39 @@ function normalizePullRequest(value) {
   });
 }
 
+function normalizeDispatchTarget(value, testedSha) {
+  assertExactKeys(value, DISPATCH_TARGET_KEYS);
+  assertSha(value.baseSha);
+  assertSha(value.headSha);
+  if (value.mergeSha !== null) assertSha(value.mergeSha);
+  assertSha(value.testedSha);
+  if (!isPositiveInteger(value.number) || !['client', 'server'].includes(value.context)
+      || value.appId !== 15368 || !isPositiveInteger(value.checkRunId)
+      || typeof value.policyFingerprint !== 'string' || !/^[a-f0-9]{64}$/i.test(value.policyFingerprint)
+      || typeof value.requestId !== 'string' || !/^[a-f0-9]{32}$/.test(value.requestId)
+      || !isPositiveInteger(value.actorId) || value.actorLogin !== STAGE1_ACTOR_LOGIN
+      || value.testedSha !== value.headSha && value.testedSha !== value.mergeSha
+      || testedSha !== value.baseSha) throw new TypeError('invalid_workflow_source_descriptor');
+  return Object.freeze({
+    number: value.number,
+    baseSha: value.baseSha,
+    headSha: value.headSha,
+    mergeSha: value.mergeSha,
+    testedSha: value.testedSha,
+    context: value.context,
+    appId: value.appId,
+    checkRunId: value.checkRunId,
+    policyFingerprint: value.policyFingerprint.toLowerCase(),
+    requestId: value.requestId,
+    actorId: value.actorId,
+    actorLogin: value.actorLogin,
+  });
+}
+
 export function createWorkflowSourceDescriptor(input) {
-  assertExactKeys(input, DESCRIPTOR_KEYS);
+  if (!isRecord(input)) throw new TypeError('invalid_workflow_source_descriptor');
+  const isDispatch = input.eventName === 'workflow_dispatch';
+  assertExactKeys(input, isDispatch ? [...DESCRIPTOR_KEYS, 'dispatchTarget'] : DESCRIPTOR_KEYS);
   if (!isPositiveInteger(input.repositoryId)
       || !isPositiveInteger(input.workflowId)
       || !isValidWorkflowPath(input.workflowPath)
@@ -88,17 +125,23 @@ export function createWorkflowSourceDescriptor(input) {
   assertSha(input.testedSha);
 
   let pullRequest = null;
+  let dispatchTarget = null;
   if (input.eventName === 'pull_request') {
     pullRequest = normalizePullRequest(input.pullRequest);
     if (input.testedSha !== pullRequest.headSha && input.testedSha !== pullRequest.mergeSha) {
       throw new TypeError('invalid_workflow_source_descriptor');
     }
+  } else if (isDispatch) {
+    if (input.workflowPath !== STAGE1_WORKFLOW_PATH || input.workflowRef !== 'refs/heads/main' || input.pullRequest !== null) {
+      throw new TypeError('invalid_workflow_source_descriptor');
+    }
+    dispatchTarget = normalizeDispatchTarget(input.dispatchTarget, input.testedSha);
   } else if (input.pullRequest !== null) {
     throw new TypeError('invalid_workflow_source_descriptor');
   }
 
   return Object.freeze({
-    schemaVersion: WORKFLOW_SOURCE_DESCRIPTOR_VERSION,
+    schemaVersion: isDispatch ? 2 : WORKFLOW_SOURCE_DESCRIPTOR_VERSION,
     repositoryId: input.repositoryId,
     workflowId: input.workflowId,
     workflowPath: input.workflowPath,
@@ -108,6 +151,7 @@ export function createWorkflowSourceDescriptor(input) {
     eventName: input.eventName,
     testedSha: input.testedSha,
     pullRequest,
+    ...(isDispatch ? { dispatchTarget } : {}),
   });
 }
 

@@ -13,7 +13,7 @@ import {
 import { redactVerificationOutput } from './verify.mjs';
 
 export const PR_BABYSITTER_EXIT_CODES = Object.freeze({ ready: 0, wait: 1, escalated: 2, refused: 3, infrastructure: 4 });
-const COMMANDS = new Set(['inspect', 'decide', 'rerun-flaky', 'begin-repair', 'validate-repair', 'escalation']);
+const COMMANDS = new Set(['inspect', 'decide', 'rerun-flaky', 'initialize-budget', 'begin-repair', 'validate-repair', 'escalation']);
 const SHA = /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/i;
 
 export function parsePrBabysitterArguments(argv) {
@@ -53,6 +53,9 @@ function validHost(host) {
 function validHostFor(host, command) {
   if (!validHost(host)) return false;
   const { actions, repair, verifier, writer, auth } = host.adapters;
+  if (command === 'rerun-flaky' && actions?.stage1 === true) return typeof actions.recover === 'function'
+    && typeof auth.authenticateApprover === 'function' && typeof auth.requestApproval === 'function'
+    && typeof auth.consumeApproval === 'function' && typeof auth.getStage1WriteToken === 'function';
   if (command === 'rerun-flaky') return isRecord(actions) && isRecord(actions.host)
     && typeof actions.getTarget === 'function' && typeof actions.rerunFailedJobs === 'function'
     && typeof auth.authenticateApprover === 'function' && typeof auth.requestApproval === 'function';
@@ -224,6 +227,18 @@ export async function runPrBabysitterCli({ argv, trustedHost, io = {} }) {
     if (args.command === 'rerun-flaky') {
       if (io.isTTY !== true) return { exitCode: PR_BABYSITTER_EXIT_CODES.refused };
       if (decision.action !== 'retry-check') return { exitCode: exitFor(decision.action), decision };
+      if (host.adapters.actions?.stage1 === true) {
+        const result = await host.adapters.actions.recover({ decision, observations: collected.checkObservations,
+          prSnapshot: collected.prSnapshot, collected, prState });
+        const action = result?.action ?? result?.status ?? 'refused';
+        emit(output, output.stdout, {
+          status: action,
+          reasonCode: result?.reasonCode ?? null,
+          ...(Number.isSafeInteger(result?.workflowRunId) ? { workflowRunId: result.workflowRunId } : {}),
+          ...(Number.isSafeInteger(result?.checkRunId) ? { checkRunId: result.checkRunId } : {}),
+        });
+        return { exitCode: exitFor(action), result };
+      }
       const budget = await host.adapters.budget('actions:rerun');
       if (budget?.stop) return { exitCode: PR_BABYSITTER_EXIT_CODES.refused };
       await auth.authenticateApprover();

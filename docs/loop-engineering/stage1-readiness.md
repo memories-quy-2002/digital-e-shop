@@ -1,10 +1,147 @@
 # Stage 1 readiness evidence
 
-**Updated:** 2026-10-09
+**Updated:** 2026-10-12
 
-**Status:** BLOCKED — no write-capable Stage 1 pilot PR was selected and no live rerun observations were collected. The read-only OIDC control probe below does not qualify the repository for a Stage 1 pilot.
+**Status:** BLOCKED — the trusted-dispatch implementation is on `feature/stage1-trusted-dispatch`, but no live Stage 1 pilot has occurred. As of the current 2026-10-12 check, App permissions, the policy-reader environment, local trust identities and CLI are configured. PR #304 has green CI but still needs human review and merge. There is no eligible pilot PR and no per-PR budget session.
 
-## Promotion gates
+## Current configuration and PR check (2026-10-12)
+
+The dedicated `digital-e-policy-reader` App is installed only on this
+repository with Administration, Actions, Checks, Contents, Pull requests,
+Commit statuses and implicit Metadata all read-only. Environment
+`stage1-policy-reader` permits only `main`, requires reviewer
+`memories-quy-2002`, blocks self-review, and contains the expected client ID
+and encrypted private-key secret. Secret verification used GitHub metadata;
+the secret value was not read back.
+
+The `digital-e-loop-runner` App installation for this repository now grants
+`actions:write` along with its reviewed read and Check Runs capabilities. The
+user-local host config and trust identities are present, and GitHub CLI
+2.102.0 is available. This config does not create a pilot budget or count as
+pilot evidence.
+
+Implementation commit `dbb48a1bd7aeff46c630d66f10566448f014accb` on PR #304
+was checked against base `d105b740f1514315dfd21fbad306e8a865a1994d`: all 15
+check runs completed with success or skipped conclusions and the combined
+commit status was successful. The later documentation-only update is current
+head `9306f57b600ea6eb0d0d4bb6fa03199f76d77a6c`; its fresh CI was in progress
+when observed. The PR is mergeable but has no human approval, and its workflow
+changes make it ineligible for the recovery pilot. The only open PR is #304.
+No eligible recovery target, dispatch, Check Run update, or live pilot
+observation exists.
+
+The repository's observed main branch protection reports zero required PR
+approvals. The project workflow still requires a human review before merge;
+do not infer that GitHub's mergeable state satisfies that requirement.
+
+## Trusted dispatch retry implementation (2026-10-10)
+
+The feature branch connects the fixed workflow dispatch to the trusted host,
+typed approval, exact tuple revalidation, one-use finite-budget reservation,
+source-attestation verification, exact returned-run observer, and a publisher
+restricted to the original failed Check Run. Its fixed workflow has separate
+`verify`, `attest`, and `publish` jobs; only `publish` receives `checks: write`.
+The host's App installation needs `actions:write` to dispatch. Local unit and
+static tests are implementation evidence only. No live recovery workflow,
+cross-run Check Run update, or Stage 1 pilot has been observed. No App
+permission, branch protection, or production configuration was changed.
+
+## Implementation PR CI (2026-10-11)
+
+[PR #304](https://github.com/memories-quy-2002/digital-e-shop/pull/304) at
+`ed5a4fefd8bb8ab1852c96acd98490f4a91a677b` passed client/server, Loop Foundation,
+dependency review, verify, and GitGuardian. CodeQL analysis jobs completed,
+but the CodeQL gate reported a new high cache-poisoning alert in the recovery
+workflow: dispatch on `main` retained a separate cache write capability while
+executing PR code. This is normal PR CI evidence, not recovery-pilot proof.
+
+The follow-up remediation sets workflow-wide `cache-mode: none` with a
+regression contract that prevents job overrides from restoring cache access.
+GitHub enforces it using scoped cache tokens; `contents: read` alone does not
+limit cache writes. See the [cache access contract](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#controlling-cache-access-with-cache-mode).
+Hosted CodeQL on the remediation commit must be checked independently; this
+document does not claim the alert is cleared or the live dispatch is proven.
+
+## Local trust and budget prerequisites
+
+The publisher now also requires freshly collected complete required-check
+policy with the approved fingerprint and exact context/App ID before PATCH.
+The local workflow now requests a repository-scoped read-only policy token
+from the pinned official token action in environment `stage1-policy-reader`.
+The Actions token is confined to the original Check Run PATCH. Missing/equal
+tokens, denied reads, changed policy, incomplete evidence, or a changed PR
+tuple refuse publication. Current provisioning is recorded above; local
+implementation and configuration remain distinct from live hosted proof.
+See the [pilot checklist](stage1-pilot-checklist.md).
+
+## Read-only audit on 2026-10-12
+
+The separate-reader implementation passed 405 local Loop tests across 31
+suites and an independent read-only code review. Targeted tests first failed
+on the prior transport/CLI behavior, then passed after the fix. They include
+read/write token routing, unavailable/expired credentials, policy changes,
+PR tuple changes, paginated rules and publisher-only credential isolation.
+The local Node version was 24.21.0; hosted workflows remain pinned to 24.20.0.
+These results are not live dispatch or promotion evidence.
+
+The GitHub connector observed PR #304 open on exact head
+`23d00d04ac74c1e2af81b3efa6e96e7c2717960a` and base
+`d960cd0a3c6ff132560491cafc98dfa0e08f4726`. The Check Runs endpoint returned
+14 entries on one page; every entry was completed with `success` or `skipped`.
+Client/server, dependency-review, GitGuardian, Loop Foundation `test`, Worker
+`verify`, CodeQL and all three analysis jobs reported success. The commit-status
+endpoint also reported both Vercel preview statuses successful. The
+[CodeQL Check Run](https://github.com/memories-quy-2002/digital-e-shop/runs/114350668385)
+was observed successful; this audit did not independently read security-alert
+disposition. These results cover that remote head only, not the newer local
+publisher-policy/token changes. Hosted CI must run on their eventual revision.
+
+The first review page contained only a bot `COMMENTED` review, with no human
+approval. The open-PR list contained only #304; its workflow changes make it
+ineligible as a Stage 1 recovery pilot. No pilot was selected. The REST PR
+response reported `merge_commit_sha: null`; this audit does not infer a fresh
+head/base/merge tuple from that value.
+
+Connector branch-protection access returned HTTP 403 `Resource not accessible
+by integration`. None of the four `LOOP_GITHUB_APP_*` host configuration names
+used by the runbook were present in the process or Windows user environment;
+the user-local trust file was absent. GitHub CLI was unavailable on PATH and
+the checked standard installation paths. No private key, secret value,
+installation token, App permission, branch protection, dispatch, or Check Run
+write was accessed or changed. These are local/connector capability limits,
+not proof that the repository owner's App installation lacks a permission.
+
+## Local host configuration
+
+The host reads trusted approver and workflow actor numeric IDs only from the
+fixed user-local file documented in the [CLI runbook](stage1-cli-runbook.md).
+It stores the per-PR finite-budget LoopState under the OS-resolved user home,
+and canonicalizes both paths before each budget operation. It refuses to use
+the session if the effective `<OS home>/.loop/state/` path is inside the PR
+checkout, so checkout-local ignored state cannot become the budget ledger.
+This does not isolate the store from other processes running as the same
+operating-system account.
+The trust loader resolves that fixed path through `os.userInfo().homedir`,
+ignores `USERPROFILE`, and fails closed if the operating-system home is
+unavailable or invalid. After review and merge, launch the CLI entrypoint from
+a clean reviewed `main` checkout with the selected PR worktree as the current
+directory; the runbook documents the PowerShell wrapper. This keeps executable
+host modules on the reviewed revision while the host observes the PR checkout.
+`initialize-budget` creates one local LoopState for the current PR base/head
+tuple after typed TTY confirmation; dispatch refuses missing, corrupt, stale,
+or exhausted state. This branch does not create the local file or grant App
+permissions. The workflow must first be reviewed and merged before it can be
+dispatched from `main`.
+
+Before PR #302 was merged, its live read-only inspection returned
+`ready-for-human` with all five required check identities matched and green on
+head SHA `77dca7fd0f04b705182a669dd1d2254559e448c9`. The same snapshot reported
+zero required workflow identities and an empty `workflowEvidence` array. This
+is historical required-check evidence for that PR; it is not proof of the
+workflow source-attestation path, trusted dispatch, Check Run publication, or
+a Stage 1 pilot.
+
+## Hosted Stage 0 promotion gates (snapshot from 2026-10-09)
 
 | Gate | Evidence collected | Result |
 | --- | --- | --- |
@@ -46,9 +183,9 @@ PR #293 merged this implementation to `main` at `c546532fbd4537c349f29b4600a3270
 
 The first post-merge control run was not a PR event: `Loop Foundation` run `37742163945` completed on the main push, and read-only probe run `37742207061` returned `status: unavailable` with `sourceShaCandidate: null`. That is the expected fail-closed result for a push without a same-repository PR association. It confirms the no-candidate path only; it is not positive OIDC proof.
 
-Do not infer the workflow source SHA from the tested SHA, workflow path, or ref. PR #300's hosted control probe below verified a candidate for one exact run attempt and PR tuple. The Stage 1 host still cannot load a verifier-owned attestation record, so `workflow_source_sha_unattested` remains a hard refusal for Stage 1 operations.
+Do not infer the workflow source SHA from the tested SHA, workflow path, or ref. PR #300's hosted control probe below verified a candidate for one exact run attempt and PR tuple. That evidence concerns required-workflow observations. The trusted-dispatch workflow source is separately bound to the PR base SHA and must be verified from the exact returned workflow run; no live dispatch has tested that path.
 
-## Attempt-bound rerun feasibility experiment
+## Historical attempt-bound rerun feasibility experiment
 
 A controlled Actions test on the same-repository, non-`main`, documentation-only PR #294 established that a job ID from an older attempt is rejected after a newer attempt becomes current. The test used the `Loop Foundation` workflow only; no deployment job ran.
 
@@ -62,25 +199,25 @@ A controlled Actions test on the same-repository, non-`main`, documentation-only
 | Re-submit attempt 1 job ID | HTTP `403`: `Only jobs from the current attempt can be re-run` |
 | Final run attempt | `2` (no third attempt was created) |
 
-This resolves the stale-job-ID behavior for the tested job-rerun endpoint: a previous-attempt job ID did not start another run. PR #296 merged the guarded-writer change that targets exactly one job ID from the complete, approved attempt-specific response. The standalone Stage 1 host remains fail-closed until its capability gate is reviewed against that writer and the independent trust gates are met. This single test is feasibility evidence, not pilot evidence or authorization to enable Stage 1.
+This establishes stale-job-ID behavior for the tested job-rerun endpoint only. PR #296 merged a guarded writer for that design, which the selected trusted-dispatch path does not call. This single test is historical feasibility evidence, not pilot evidence or authorization to enable Stage 1.
 
-## Collection limits
+## Historical pilot/readiness snapshot (2026-10-09)
 
 - The maintainer has not selected a same-repository, non-`main` pilot PR. The example PR number in the command below is intentionally not used.
-- PR #289 merged the canonical finite `ciRunLimit: 2` policy. The Stage 1 host still has no persisted LoopState session loaded and validated against that revision, so it reports `ci_run_budget_session_unavailable` and refuses live reruns.
+- PR #289 merged the canonical finite `ciRunLimit: 2` policy. The current host now supports one-time, exact-tuple LoopState initialization, but no local budget session has been configured for a pilot.
 - No live Stage 1 GitHub or Cloudflare observation set was collected in this run. Local fixtures and static code inspection are not promotion evidence.
-- The run-level failed-jobs endpoint does not bind a write to `run_attempt`. PR #296 merged the guarded-writer change to submit exactly one attempt-scoped root job ID, and the controlled test above found that GitHub rejects a previous-attempt ID once a newer attempt is current. The standalone Stage 1 host still reports `run_attempt_write_binding_unavailable` and refuses live writes until that host capability gate is reviewed and reconciled with the writer.
-- The GitHub job response does not provide the workflow `needs` graph, and current trusted configuration has no approved graph. `trusted_job_graph_unavailable` remains a hard gate until each eligible workflow has a complete reviewed graph.
+- The legacy run/job-rerun endpoint is not called by the trusted-dispatch path. The host dispatches only the fixed workflow, and requires local trust identities, the App's `actions:write`, and an exact persisted budget session.
+- The retry workflow defines fixed verifier, attestation, and publisher jobs. This branch has no hosted workflow result yet; static workflow tests are not evidence of hosted job results.
 - The source-attestation adapters now accept only immutable records created by the verifier; raw API `sourceSha` and `sourceShaAttested` fields are ignored. PR #300 proves the hosted producer-to-probe path for one tuple. Stage 1 `inspect` now configures the verifier with a separate repository-scoped `source-attestation:read` token; the installed App must grant `Attestations: read`. This does not make the probe candidate a Stage 1 host trust record, and live App-backed inspection has not yet been verified.
 - PR #291's hosted `Loop Foundation` test passed on the reviewed PR head ([run 37417234608](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37417234608)); the post-merge `Loop Foundation` run also passed with the new probe suite ([run 37418888640](https://github.com/memories-quy-2002/digital-e-shop/actions/runs/37418888640)).
 - The Phase 2 runbook documents one earlier `inspect` result for PR #264 on 2026-09-30. It returned `wait` for missing required-check evidence on the selected merge SHA, but the summary does not contain the complete observation tuple required by this plan; it is historical context and is not counted toward the 10 observations.
 - A cron `last_completed_at` value alone would not prove Queue consumption or Check Run publication. Each requires its own current evidence.
 
-## Current refusal check
+## Historical refusal check (2026-10-08)
 
 On 2026-10-08, `node --test scripts/loop/__tests__/pr-babysitter-stage1-host.test.mjs` passed all 10 tests. The tests confirm the Stage 1 host refuses while trust configuration or a persisted CI budget session is missing, and makes no network request on that path.
 
-A TTY invocation of `rerun-flaky` returned `stage1_prerequisites_unavailable` with all five current blockers, including `run_attempt_write_binding_unavailable`. It exited before credentials or GitHub access. The invocation used PR number `294` only to exercise the early refusal; the host did not inspect PR #294, and the result does not count as a pilot observation.
+A TTY invocation of `rerun-flaky` on 2026-10-08 returned `stage1_prerequisites_unavailable` with the then-current five blockers, including `run_attempt_write_binding_unavailable`. It exited before credentials or GitHub access. The invocation used PR number `294` only to exercise the early refusal; the host did not inspect PR #294, and the result does not count as a pilot observation.
 
 ## Post-merge labeled OIDC control probe
 
@@ -141,8 +278,16 @@ Add one row per fresh observation only after the maintainer selects the pilot PR
 
 ## Next evidence step
 
-Run `node scripts/loop/pr-babysitter-host.mjs inspect --repo memories-quy-2002/digital-e-shop --pr <maintainer-selected-pr>` from its matching clean PR checkout. Preserve `wait` and `escalated` as decisions, not infrastructure failures. Record only bounded identifiers, SHA values, status, classification, reason code, and evidence kind.
+After review and merge, select a same-repository non-`main` pilot PR and run
+`inspect` using the trusted-main invocation in the [CLI runbook](stage1-cli-runbook.md),
+with the matching PR worktree as its current directory. Confirm current
+required-check and workflow evidence before initializing the local budget
+session. Configure the local trust file and separately approve the GitHub
+App's `actions:write` permission before invoking `rerun-flaky` in a real TTY.
+Preserve `wait` and `escalate` as decisions, not infrastructure failures.
+Record only bounded IDs, SHA values, status, classification, reason code, and
+evidence kind.
 
-PR #300 is the same-repository control PR for the opt-in producer and downstream probe. Its latest accepted result is recorded above. This proves only source identity for that exact run attempt and PR tuple. The workflow/job graph, trusted approver, host-managed budget session, and run-attempt write binding remain separate blockers.
+PR #300 is the same-repository control PR for the opt-in producer and downstream probe. Its latest accepted result is recorded above. This proves only source identity for that exact run attempt and PR tuple. Local trusted approver/actor configuration, App `actions:write`, an initialized budget session, hosted trusted-dispatch evidence, and cross-run Check Run behavior remain separate blockers.
 
 Do not enable Stage 1, change the canonical policy, or change GitHub App permissions from this report. Continue to require reviewed workflow-source attestation, a reviewed complete job allowlist, and a host-managed persisted session bound to the finite canonical CI budget.

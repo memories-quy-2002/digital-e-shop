@@ -1,17 +1,22 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { Readable } from 'node:stream';
 import { promisify } from 'node:util';
 import { it } from 'node:test';
 
 import { assertCheckoutMatchesPr, assertEligiblePullRequest } from '../pr-babysitter-host.mjs';
+import { loadLoopPolicy } from '../policy.mjs';
+import { createLoopState, createLoopStateInRepository, loadLoopState, saveLoopState } from '../state.mjs';
 
 import {
   assertStage1Command,
   createPrBabysitterStage1Host,
   createStage1WorkflowSourceVerifier,
+  initializeStage1Budget,
+  readStage1BudgetSession,
   runPrBabysitterStage1,
   STAGE1_TRUST_STATUS,
 } from '../pr-babysitter-stage1-host.mjs';
@@ -42,13 +47,117 @@ it('uses a dedicated read-only source-attestation installation capability', asyn
   await assert.rejects(providerOptions.getToken('actions:write'), (error) => error?.reasonCode === 'stage1_read_only');
 });
 
-it('allows only inspect and rerun-flaky for the fixed same-repository entrypoint', () => {
+it('allows inspect, initialize-budget, and rerun-flaky for the fixed same-repository entrypoint', () => {
   assert.equal(assertStage1Command({ command: 'inspect', repository, dryRun: false }, false), true);
+  assert.equal(assertStage1Command({ command: 'initialize-budget', repository, dryRun: false }, true), true);
   assert.equal(assertStage1Command({ command: 'rerun-flaky', repository, dryRun: false }, true), true);
 
   for (const command of ['decide', 'escalation', 'begin-repair', 'validate-repair', 'push', 'merge', 'unknown']) {
     assert.throws(() => assertStage1Command({ command, repository, dryRun: false }, true),
       errorWithCode('stage1_command_refused'));
+  }
+});
+
+it('creates one budget session for the observed PR tuple only after exact TTY confirmation', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'digital-e-stage1-budget-'));
+  const checkoutRoot = path.join(root, 'checkout');
+  const userHome = path.join(root, 'user-home');
+  await Promise.all([mkdir(checkoutRoot), mkdir(userHome)]);
+  const originalUserInfo = os.userInfo;
+  os.userInfo = () => ({ homedir: userHome });
+  t.after(async () => {
+    os.userInfo = originalUserInfo;
+    await rm(root, { recursive: true, force: true });
+  });
+  const snapshot = {
+    repository, number: 7, state: 'open', draft: false, baseRef: 'main',
+    headRef: 'feature/stage1-pilot', baseSha: 'a'.repeat(40), headSha: 'b'.repeat(40), mergeSha: null,
+  };
+  const policy = await loadLoopPolicy();
+  const taskId = 'stage1-pr-7-aaaaaaaaaaaa-bbbbbbbbbbbb';
+  const checkoutBudget = createLoopState({ taskId, branch: snapshot.headRef,
+    baseSha: snapshot.baseSha, headSha: snapshot.headSha, risk: 'high',
+    acceptanceCriteria: ['stage1-trusted-dispatch', 'stage1-required-check-green'], policy });
+  await createLoopStateInRepository(checkoutRoot, checkoutBudget);
+  const host = {
+    config: { repoRoot: checkoutRoot, policy },
+    adapters: { pr: { refresh: async (prNumber) => { assert.equal(prNumber, 7); return snapshot; } } },
+  };
+  let output = '';
+  const result = await initializeStage1Budget({ host, prNumber: 7,
+    input: Readable.from(['INITIALIZE 7\n']), output: { write(value) { output += value; } } });
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.taskId, taskId);
+  assert.match(output, /"baseSha":"a{40}"/);
+  assert.match(output, /"headSha":"b{40}"/);
+  const state = await loadLoopState(userHome, result.taskId);
+  assert.equal(state.branch, snapshot.headRef);
+  assert.equal(state.baseSha, snapshot.baseSha);
+  assert.equal(state.headSha, snapshot.headSha);
+  assert.equal(state.budgets.ciRunLimit, host.config.policy.stopConditions.ciRunLimit);
+  assert.equal((await loadLoopState(checkoutRoot, result.taskId)).budgets.ciRuns, 0);
+
+  await saveLoopState(userHome, { ...state, budgets: { ...state.budgets, ciRuns: 1 } });
+  assert.equal((await loadLoopState(checkoutRoot, result.taskId)).budgets.ciRuns, 0);
+  assert.equal((await readStage1BudgetSession(7, snapshot, policy)).budgets.ciRuns, 1,
+    'a checkout-local forged session cannot reset the user-local CI counter');
+
+  const duplicate = await initializeStage1Budget({ host, prNumber: 7,
+    input: Readable.from(['INITIALIZE 7\n']), output: { write() {} } });
+  assert.equal(duplicate.exitCode, 3);
+  assert.equal(duplicate.reasonCode, 'ci_run_budget_session_exists');
+});
+
+it('refuses a budget session when the operating-system home cannot be resolved', async () => {
+  const originalUserInfo = os.userInfo;
+  os.userInfo = () => { throw new Error('home lookup failed'); };
+  try {
+    await assert.rejects(readStage1BudgetSession(7, {
+      baseSha: 'a'.repeat(40), headSha: 'b'.repeat(40), headRef: 'feature/stage1-pilot',
+    }, await loadLoopPolicy()), { reasonCode: 'ci_run_budget_session_unavailable' });
+  } finally {
+    os.userInfo = originalUserInfo;
+  }
+});
+
+it('refuses budget state when its OS-home path is inside the canonical PR checkout', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'digital-e-stage1-budget-overlap-'));
+  const originalUserInfo = os.userInfo;
+  const policy = await loadLoopPolicy();
+  const snapshot = {
+    repository, number: 7, state: 'open', draft: false, baseRef: 'main',
+    headRef: 'feature/stage1-pilot', baseSha: 'a'.repeat(40), headSha: 'b'.repeat(40), mergeSha: null,
+  };
+  const taskId = 'stage1-pr-7-aaaaaaaaaaaa-bbbbbbbbbbbb';
+  t.after(async () => {
+    os.userInfo = originalUserInfo;
+    await rm(root, { recursive: true, force: true });
+  });
+
+  for (const layout of ['checkout-is-home', 'checkout-contains-home']) {
+    const checkoutRoot = path.join(root, layout);
+    const userHome = layout === 'checkout-is-home' ? checkoutRoot : path.join(checkoutRoot, 'profile');
+    await mkdir(userHome, { recursive: true });
+    os.userInfo = () => ({ homedir: userHome });
+
+    const forged = createLoopState({ taskId, branch: snapshot.headRef,
+      baseSha: snapshot.baseSha, headSha: snapshot.headSha, risk: 'high',
+      acceptanceCriteria: ['stage1-trusted-dispatch', 'stage1-required-check-green'], policy });
+    await createLoopStateInRepository(userHome, forged);
+
+    await assert.rejects(readStage1BudgetSession(7, snapshot, policy, { repoRoot: checkoutRoot }),
+      { reasonCode: 'ci_run_budget_session_unavailable' }, layout);
+
+    const host = {
+      config: { repoRoot: checkoutRoot, policy },
+      adapters: { pr: { refresh: async () => snapshot } },
+    };
+    await assert.rejects(initializeStage1Budget({ host, prNumber: 7,
+      input: Readable.from(['INITIALIZE 7\n']), output: { write() {} } }),
+    { reasonCode: 'ci_run_budget_session_unavailable' }, layout);
+    assert.equal((await loadLoopState(userHome, taskId)).budgets.ciRuns, 0,
+      `${layout}: the forged session remains untouched`);
   }
 });
 
@@ -164,7 +273,7 @@ it('requires a real TTY before the rerun path can construct a host', async (t) =
   assert.equal(fetchCalls, 0);
 });
 
-it('keeps Stage 1 disabled when trust configuration and a host budget session are unavailable', async (t) => {
+it('ignores trust environment overrides and fails closed when the user-local trust file is absent', async (t) => {
   let fetchCalls = 0;
   t.mock.method(globalThis, 'fetch', async () => { fetchCalls += 1; throw new Error('unexpected network'); });
   const env = {
@@ -182,16 +291,14 @@ it('keeps Stage 1 disabled when trust configuration and a host budget session ar
   });
 
   assert.equal(result.exitCode, 3);
-  assert.match(stderr, /stage1_prerequisites_unavailable/);
-  assert.ok(result.blockers.includes('ci_run_budget_session_unavailable'));
-  assert.ok(result.blockers.includes('run_attempt_write_binding_unavailable'));
-  assert.ok(result.blockers.includes('trusted_job_graph_unavailable'));
+  assert.match(stderr, /stage1_trust_configuration_unavailable/);
+  assert.equal(result.reasonCode, 'stage1_trust_configuration_unavailable');
   assert.equal(fetchCalls, 0);
   assert.deepEqual(STAGE1_TRUST_STATUS, {
     sourceAttestationProvider: 'configured',
-    workflowAllowlistEntries: 0,
-    trustedApproverIds: 0,
-    ciRunBudgetSession: 'unavailable',
+    workflowAllowlistEntries: 1,
+    trustedApproverIds: 'user-local-config',
+    ciRunBudgetSession: 'explicit-per-pr',
   });
   assert.equal(JSON.stringify(result).includes('must-not-be-read.pem'), false);
 });

@@ -7,6 +7,9 @@ const SUBJECT_NAME = 'digital-e-loop-workflow-source.json';
 const DEFAULT_REPOSITORY = 'memories-quy-2002/digital-e-shop';
 const SHA_PATTERN = /^[a-f0-9]{40}$/;
 const DIGEST_PATTERN = /^[a-f0-9]{64}$/;
+const STAGE1_WORKFLOW_PATH = '.github/workflows/stage1-trusted-retry.yml';
+const STAGE1_WORKFLOW_REF = 'refs/heads/main';
+const STAGE1_ACTOR_LOGIN = 'digital-e-loop-runner[bot]';
 const verifiedWorkflowSourceRecords = new WeakSet();
 
 function isRecord(value) {
@@ -41,7 +44,7 @@ function invocationMatches(value, repository, runId, runAttempt) {
   return match !== null && Number(match[1]) === runId && Number(match[2]) === runAttempt;
 }
 
-function captureEvidence({ identity, run, snapshot } = {}) {
+function captureEvidence({ identity, run, snapshot, dispatchTarget } = {}) {
   if (!isRecord(identity) || !isRecord(run) || !isRecord(snapshot)) return null;
   try {
     return Object.freeze({
@@ -64,6 +67,8 @@ function captureEvidence({ identity, run, snapshot } = {}) {
         testedSha: run.testedSha,
         createdAt: run.createdAt,
         updatedAt: run.updatedAt,
+        actorId: run.actorId,
+        actorLogin: run.actorLogin,
       }),
       snapshot: Object.freeze({
         repositoryId: snapshot.repositoryId,
@@ -72,24 +77,58 @@ function captureEvidence({ identity, run, snapshot } = {}) {
         headSha: snapshot.headSha,
         mergeSha: snapshot.mergeSha,
       }),
+      ...(isRecord(dispatchTarget) ? { dispatchTarget: Object.freeze({ ...dispatchTarget }) } : {}),
     });
   } catch {
     return null;
   }
 }
 
-function prepareEvidence({ identity, run, snapshot, repository }) {
+function prepareEvidence({ identity, run, snapshot, dispatchTarget, repository }) {
   if (!validRepository(repository) || !isRecord(identity) || identity.type !== 'workflow'
       || !isPositiveInteger(identity.repositoryId) || !isSha(identity.sha)
       || typeof identity.path !== 'string' || typeof identity.ref !== 'string'
       || !isRecord(run) || !isPositiveInteger(run.id) || !isPositiveInteger(run.runAttempt)
       || !isPositiveInteger(run.repositoryId) || run.repositoryId !== identity.repositoryId
       || !isPositiveInteger(run.workflowId) || run.path !== identity.path || run.ref !== identity.ref
-      || run.event !== 'pull_request' || !isSha(run.testedSha) || run.headSha !== run.testedSha
+      || !isSha(run.testedSha) || run.headSha !== run.testedSha
       || !isRecord(snapshot) || snapshot.repositoryId !== identity.repositoryId
       || !isPositiveInteger(snapshot.number) || !isSha(snapshot.baseSha)
-      || !isSha(snapshot.headSha) || !isSha(snapshot.mergeSha)
-      || (run.testedSha !== snapshot.headSha && run.testedSha !== snapshot.mergeSha)) return null;
+      || !isSha(snapshot.headSha) || (snapshot.mergeSha !== null && !isSha(snapshot.mergeSha))) return null;
+
+  let pullRequest = null;
+  let attestedDispatchTarget;
+  if (run.event === 'pull_request') {
+    if (!isSha(snapshot.mergeSha) || (run.testedSha !== snapshot.headSha && run.testedSha !== snapshot.mergeSha)) return null;
+    pullRequest = {
+      number: snapshot.number,
+      baseSha: snapshot.baseSha,
+      headSha: snapshot.headSha,
+      mergeSha: snapshot.mergeSha,
+    };
+  } else if (run.event === 'workflow_dispatch') {
+    if (identity.path !== STAGE1_WORKFLOW_PATH || identity.ref !== STAGE1_WORKFLOW_REF
+        || run.testedSha !== snapshot.baseSha || identity.sha !== snapshot.baseSha
+        || !isPositiveInteger(run.actorId) || run.actorLogin !== STAGE1_ACTOR_LOGIN
+        || !isRecord(dispatchTarget)) return null;
+    attestedDispatchTarget = {
+      number: snapshot.number,
+      baseSha: snapshot.baseSha,
+      headSha: snapshot.headSha,
+      mergeSha: snapshot.mergeSha,
+      testedSha: dispatchTarget.testedSha,
+      context: dispatchTarget.context,
+      appId: dispatchTarget.appId,
+      checkRunId: dispatchTarget.checkRunId,
+      policyFingerprint: dispatchTarget.policyFingerprint,
+      requestId: dispatchTarget.requestId,
+      actorId: run.actorId,
+      actorLogin: run.actorLogin,
+    };
+    if (dispatchTarget.prNumber !== snapshot.number || dispatchTarget.baseSha !== snapshot.baseSha
+        || dispatchTarget.headSha !== snapshot.headSha || dispatchTarget.mergeSha !== snapshot.mergeSha
+        || dispatchTarget.actorId !== run.actorId || dispatchTarget.actorLogin !== run.actorLogin) return null;
+  } else return null;
 
   const createdAt = timestampMilliseconds(run.createdAt);
   const updatedAt = timestampMilliseconds(run.updatedAt);
@@ -106,12 +145,8 @@ function prepareEvidence({ identity, run, snapshot, repository }) {
       runAttempt: run.runAttempt,
       eventName: run.event,
       testedSha: run.testedSha,
-      pullRequest: {
-        number: snapshot.number,
-        baseSha: snapshot.baseSha,
-        headSha: snapshot.headSha,
-        mergeSha: snapshot.mergeSha,
-      },
+      pullRequest,
+      ...(attestedDispatchTarget ? { dispatchTarget: attestedDispatchTarget } : {}),
     });
   } catch {
     return null;
@@ -122,6 +157,7 @@ function prepareEvidence({ identity, run, snapshot, repository }) {
     createdAt,
     updatedAt,
     signerUri: `https://github.com/${repository}/${identity.path}@${identity.ref}`,
+    ...(attestedDispatchTarget ? { dispatchTarget: Object.freeze(attestedDispatchTarget) } : {}),
   };
 }
 
@@ -143,9 +179,9 @@ export function createWorkflowSourceVerifier({
   inspectAttestation,
   repository = DEFAULT_REPOSITORY,
 } = {}) {
-  return async function verifyWorkflowSourceAttestation({ identity, run, snapshot } = {}) {
+  return async function verifyWorkflowSourceAttestation({ identity, run, snapshot, dispatchTarget } = {}) {
     if (typeof inspectAttestation !== 'function') return null;
-    const captured = captureEvidence({ identity, run, snapshot });
+    const captured = captureEvidence({ identity, run, snapshot, dispatchTarget });
     if (!captured) return null;
     const expected = prepareEvidence({ ...captured, repository });
     if (!expected) return null;
@@ -192,6 +228,7 @@ export function createWorkflowSourceVerifier({
       testedSha: captured.run.testedSha,
       descriptorSha256: expected.descriptorSha256,
       verifiedAt,
+      ...(expected.dispatchTarget ? { dispatchTarget: expected.dispatchTarget } : {}),
     });
     verifiedWorkflowSourceRecords.add(record);
     return record;
