@@ -49,7 +49,7 @@ const controlPlaneTests = [
 ];
 const reviewedActions = [
   'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
-  'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020',
+  'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1',
 ];
 const attestAction = 'actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6';
 
@@ -157,7 +157,7 @@ describe('Loop Foundation workflow contract', () => {
       'attestations: write',
     ]);
     assert.match(job, new RegExp(`uses: ${attestAction.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
-    assert.match(job, /actions\/setup-node@820762786026740c76f36085b0efc47a31fe5020/);
+    assert.match(job, /actions\/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1/);
     assert.match(job, /node-version: 24\.20\.0/);
     assert.equal([...workflow.matchAll(/^\s*id-token:\s*write\s*$/gm)].length, 1);
     assert.equal([...workflow.matchAll(/^\s*attestations:\s*write\s*$/gm)].length, 1);
