@@ -126,6 +126,19 @@ them. The workflow supports only `client` and `server` checks from App `15368`,
 and the publisher transport permits fixed reads plus one success PATCH to the
 original failed Check Run.
 
+Before that PATCH, the publisher independently reloads complete branch
+protection/ruleset policy, compares its fingerprint with the approved target,
+and requires exactly one matching context/App ID. Missing, changed, ambiguous,
+or inaccessible policy refuses publication. The read-only transport uses a
+separate App installation token, while the Actions token transport permits
+only the existing exact Check Run PATCH. The SHA-pinned official token action
+mints the reader only in the trusted publisher's `stage1-policy-reader`
+environment, scopes it to this repository, requests read permissions, and
+revokes it after the job. Missing/reused tokens refuse before dispatch-event
+parsing. The reader installation, protected environment configuration, and
+live proof remain unverified; this run has not provisioned credentials or
+changed App permissions. See the [Stage 1 CLI runbook](../../docs/loop-engineering/stage1-cli-runbook.md).
+
 After review and merge, operators launch this CLI from a clean reviewed
 `main` checkout while keeping the selected PR worktree as the process current
 directory. This keeps executable host modules on the trusted revision while

@@ -202,6 +202,23 @@ describe('Loop Foundation workflow contract', () => {
 });
 
 describe('Stage 1 trusted retry workflow contract', () => {
+  it('mints a repository-scoped read-only policy token only in the protected publisher and revokes it after the job', async () => {
+    const workflow = await read(trustedRetryWorkflowPath);
+    const publish = jobBlock(workflow, 'publish');
+    assert.match(publish, /environment: stage1-policy-reader/);
+    assert.match(publish, /uses: actions\/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1/);
+    assert.match(publish, /owner: memories-quy-2002/);
+    assert.match(publish, /repositories: digital-e-shop/);
+    assert.match(publish, /client-id: \$\{\{ vars\.STAGE1_POLICY_APP_CLIENT_ID \}\}/);
+    assert.match(publish, /private-key: \$\{\{ secrets\.STAGE1_POLICY_APP_PRIVATE_KEY \}\}/);
+    assert.match(publish, /skip-token-revoke: false/);
+    const permissions = [...publish.matchAll(/^          (permission-[\w-]+): (\w+)$/gm)].map((match) => [match[1], match[2]]);
+    assert.deepEqual(permissions, [['permission-administration', 'read'], ['permission-actions', 'read'],
+      ['permission-checks', 'read'], ['permission-contents', 'read'], ['permission-pull-requests', 'read'], ['permission-statuses', 'read']]);
+    assert.match(publish, /STAGE1_POLICY_READ_TOKEN: \$\{\{ steps\.policy-token\.outputs\.token \}\}/);
+    assert.match(publish, /STAGE1_GITHUB_TOKEN: \$\{\{ github\.token \}\}/);
+    for (const job of ['verify', 'attest']) assert.doesNotMatch(jobBlock(workflow, job), /secrets\.|STAGE1_POLICY_(?:APP|READ_TOKEN)|create-github-app-token/);
+  });
   it('denies cache tokens to every recovery job that runs in the main branch scope', async () => {
     const workflow = await read(trustedRetryWorkflowPath);
     assert.match(workflow, /^cache-mode: none$/m);
@@ -259,14 +276,16 @@ describe('Stage 1 trusted retry workflow contract', () => {
     assert.match(attest, /subject-digest: sha256:\$\{\{ steps\.descriptor\.outputs\.sha256 \}\}/);
     assert.match(attest, /ref: \$\{\{ github\.sha \}\}/);
     assert.doesNotMatch(attest, /inputs\.tested_sha|path: tested|actions\/checkout.*pull.?request/i);
-    assert.doesNotMatch(publish, /administration:\s*read/i);
-    assert.doesNotMatch(publisherSource, /getRequiredCheckSnapshot/);
+    assert.doesNotMatch(publish, /^\s+administration:\s*read/im);
+    assert.match(publisherSource, /getRequiredCheckSnapshot/);
+    assert.match(publisherSource, /publisher_policy_stale_or_incomplete/);
     assert.doesNotMatch(publisherSource, /return_run_details/);
     assert.match(publish, /^    needs: \[verify, attest\]$/m);
     assert.match(publish, /needs\.attest\.result == 'success'/);
     assert.match(publish, /Checkout trusted publisher source only/);
     assert.doesNotMatch(publish, /tested_sha|checkout.*pull.?request|download-artifact/i);
-    assert.doesNotMatch(workflow, /production-migrate|environment:\s*production|secrets\.|actions:\s*write|contents:\s*write/i);
+    assert.doesNotMatch(workflow, /production-migrate|environment:\s*production|actions:\s*write|contents:\s*write/i);
+    assert.deepEqual([...workflow.matchAll(/secrets\.([A-Z0-9_]+)/g)].map((match) => match[1]), ['STAGE1_POLICY_APP_PRIVATE_KEY']);
     assert.doesNotMatch(verify, /checks:\s*write/i);
     assert.doesNotMatch(workflow, /download-artifact|pull_request_target|git\s+push/i);
   });

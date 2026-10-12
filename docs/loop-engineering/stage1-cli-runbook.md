@@ -1,6 +1,6 @@
 # Stage 1 CLI runbook
 
-**Updated:** 2026-10-11
+**Updated:** 2026-10-12
 
 **Status:** The trusted dispatch host and recovery workflow are implemented on `feature/stage1-trusted-dispatch`. Stage 1 remains blocked for live use until the change is reviewed and merged, local trust identities and a per-PR budget session are configured, the GitHub App receives `actions:write`, and a maintainer-selected pilot proves the full hosted path.
 
@@ -21,6 +21,52 @@ source-attestation verifier. The publisher token is confined to fixed reads
 and one PATCH of the approved existing Check Run. The retry workflow has
 separate `verify`, `attest`, and `publish` jobs; only `publish` receives
 `checks: write`, while the host's GitHub App needs `actions:write` to dispatch.
+
+Before PATCH, the publisher independently reads complete branch protection
+and paginated rulesets through the existing policy adapter. It requires the
+current policy fingerprint to match the approved fingerprint and exactly one
+required identity matching the original context and App ID. Missing, changed,
+ambiguous, or inaccessible policy returns `publisher_policy_stale_or_incomplete`
+without a write; read failures may return `publisher_evidence_unavailable`.
+The policy-reader transport permits only fixed evidence/policy reads, including
+one fixed read-only GraphQL query. It rejects every PATCH. The separate Actions
+token transport rejects reads and permits only the exact Check Run PATCH.
+
+This is a live pilot prerequisite: [reading branch protection requires
+repository Administration: read](https://docs.github.com/en/rest/branches/branch-protection#get-branch-protection).
+The publisher now consumes `STAGE1_POLICY_READ_TOKEN` for those reads and keeps
+`github.token` only for the Check Run PATCH. Missing or reused token strings
+refuse before the CLI reads the dispatch event. The fixed workflow mints the
+read token using the official SHA-pinned `actions/create-github-app-token`
+v3.2.0 action in the `stage1-policy-reader` environment, requesting only read
+permissions for this repository and retaining automatic post-job revocation.
+This implementation does not provision that environment, install an App,
+configure secrets, or grant permissions. A denied read is never an empty
+required-check policy. Cross-repository workflow sources outside the fixed
+transport remain unavailable.
+
+### Policy-reader configuration before pilot
+
+Configure a dedicated read-only GitHub App installed only on
+`memories-quy-2002/digital-e-shop`. Its repository permissions are
+Administration, Actions, Checks, Contents, Pull requests, and Commit statuses:
+all `read`; Metadata read is implicit. Do not reuse an App private key with
+write privileges for this reader. The dispatcher App and numeric approver
+configuration remain separate from this publisher identity.
+
+Create environment `stage1-policy-reader`, restrict deployment branches to
+`main`, enable a human reviewer where the repository plan supports it, and
+configure environment variable `STAGE1_POLICY_APP_CLIENT_ID` plus environment
+secret `STAGE1_POLICY_APP_PRIVATE_KEY` using GitHub Settings. Never paste key
+values into prompts, logs, tracked files, or `.loop/` state. Neither the key nor
+the installation token is available to `verify` or `attest`; only the trusted
+publisher references them. Keep `skip-token-revoke: false`. Installation must
+grant all the requested read permissions; missing installation approval fails
+token minting. Verify this configuration from a reviewed `main` revision
+before dispatching a pilot.
+
+See the [pilot checklist](stage1-pilot-checklist.md) for exact-SHA evidence and
+remaining human/configuration gates.
 
 Local tests and normal PR CI do not prove
 that GitHub accepts a cross-run Check Run update or that branch protection
