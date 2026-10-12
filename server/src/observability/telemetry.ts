@@ -7,6 +7,7 @@ import { resourceFromAttributes } from "@opentelemetry/resources";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import process from "node:process";
+import { isPushMetricExporter } from "./metric-exporter-guard";
 import { sanitizeTelemetryUrl } from "./url-sanitizer";
 
 const getOtlpEndpoint = (signal: "TRACES" | "METRICS") => {
@@ -73,6 +74,14 @@ if (telemetryEnabled) {
                 process.env.OTEL_EXPORTER_OTLP_HEADERS,
         );
 
+        const metricExporter = new OTLPMetricExporter({
+            url: getOtlpEndpoint("METRICS"),
+            headers: metricHeaders,
+        });
+        if (!isPushMetricExporter(metricExporter)) {
+            throw new Error("OpenTelemetry metrics exporter does not implement the SDK contract");
+        }
+
         sdk = new NodeSDK({
             resource: resourceFromAttributes({
                 "service.name":
@@ -85,10 +94,7 @@ if (telemetryEnabled) {
                 headers: traceHeaders,
             }),
             metricReader: new PeriodicExportingMetricReader({
-                exporter: new OTLPMetricExporter({
-                    url: getOtlpEndpoint("METRICS"),
-                    headers: metricHeaders,
-                }),
+                exporter: metricExporter,
                 exportIntervalMillis: metricExportInterval(),
             }),
             instrumentations: [
