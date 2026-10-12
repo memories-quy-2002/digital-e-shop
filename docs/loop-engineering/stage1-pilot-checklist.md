@@ -16,10 +16,12 @@ approval bodies. Local fixtures do not count as hosted observations.
 - [ ] The maintainer confirms and merges into `main`; no direct push or bypass.
 - [ ] A clean trusted-main checkout matches canonical current `main` exactly.
 
-PR #304 at `dbb48a1bd7aeff46c630d66f10566448f014accb` has complete successful
-CI for the latest implementation, is mergeable, and still has no human
-approval. It edits workflows and is not an eligible recovery pilot. The
-project still requires a human review before a maintainer merges it.
+Implementation commit `dbb48a1bd7aeff46c630d66f10566448f014accb` on PR #304
+has complete successful CI. The current head `9306f57b600ea6eb0d0d4bb6fa03199f76d77a6c`
+adds only this readiness documentation; fresh CI was in progress when checked.
+The PR is mergeable and has no human approval. It edits workflows and is not
+an eligible recovery pilot. The project still requires a human review before a
+maintainer merges it.
 
 ## Gate B: effective permissions and identities
 

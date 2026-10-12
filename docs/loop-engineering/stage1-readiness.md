@@ -20,14 +20,15 @@ user-local host config and trust identities are present, and GitHub CLI
 2.102.0 is available. This config does not create a pilot budget or count as
 pilot evidence.
 
-PR [#304](https://github.com/memories-quy-2002/digital-e-shop/pull/304) is
-open at head `dbb48a1bd7aeff46c630d66f10566448f014accb` against base
-`d105b740f1514315dfd21fbad306e8a865a1994d`. Its 15 latest check runs are
-completed with success or skipped conclusions, and the combined commit status
-is successful. The PR is mergeable, but the review list has no human approval;
-its workflow changes also make it ineligible for the recovery pilot. The only
-open PR is #304. No eligible recovery target, dispatch, Check Run update, or
-live pilot observation exists.
+Implementation commit `dbb48a1bd7aeff46c630d66f10566448f014accb` on PR #304
+was checked against base `d105b740f1514315dfd21fbad306e8a865a1994d`: all 15
+check runs completed with success or skipped conclusions and the combined
+commit status was successful. The later documentation-only update is current
+head `9306f57b600ea6eb0d0d4bb6fa03199f76d77a6c`; its fresh CI was in progress
+when observed. The PR is mergeable but has no human approval, and its workflow
+changes make it ineligible for the recovery pilot. The only open PR is #304.
+No eligible recovery target, dispatch, Check Run update, or live pilot
+observation exists.
 
 The repository's observed main branch protection reports zero required PR
 approvals. The project workflow still requires a human review before merge;
