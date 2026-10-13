@@ -1,4 +1,6 @@
 import { readFile, realpath } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -8,7 +10,12 @@ const POLICY_FILES = Object.freeze({
   protectedPaths: 'protected-paths.yml',
   riskRules: 'risk-rules.yml',
   stopConditions: 'stop-conditions.yml',
+  autonomy: 'autonomy.yml',
 });
+
+const AUTONOMY_CAPABILITIES = Object.freeze(['observe', 'propose_patch', 'run_fixed_verifier', 'open_draft_pr']);
+const AUTONOMY_CATEGORIES = Object.freeze(['documentation', 'frontend']);
+const AUTONOMY_RISKS = Object.freeze(['low', 'medium']);
 
 const STOP_CONDITION_KEYS = Object.freeze([
   'maxIterations',
@@ -30,6 +37,7 @@ const REQUIRED_CRITICAL_ACTIONS = Object.freeze([
   'production_deployment_promotion',
 ]);
 const REQUIRED_HIGH_RISK_ACTIONS = Object.freeze(['stage1_required_check_recovery']);
+const execFileAsync = promisify(execFile);
 
 export class PolicyParseError extends Error {
   constructor(source, cause) {
@@ -191,6 +199,70 @@ function validateStopConditions(value, source) {
   }
 }
 
+function eligiblePatternCoversProtectedPath(eligiblePattern, protectedPattern) {
+  if (eligiblePattern === protectedPattern || eligiblePattern === '**') return true;
+  if (!eligiblePattern.endsWith('/**')) return false;
+  const prefix = eligiblePattern.slice(0, -3);
+  return protectedPattern === prefix || protectedPattern.startsWith(`${prefix}/`);
+}
+
+function validateUniqueList(value, key, source, allowedValues) {
+  if (!Array.isArray(value[key]) || value[key].length === 0) {
+    throw new PolicyValidationError(source, `${key} must be a non-empty array`);
+  }
+  const values = value[key];
+  if (values.some((item) => typeof item !== 'string') || new Set(values).size !== values.length) {
+    throw new PolicyValidationError(source, `${key} must contain unique strings`);
+  }
+  const unknown = values.filter((item) => !allowedValues.includes(item));
+  if (unknown.length) throw new PolicyValidationError(source, `${key} contains unsupported value(s): ${unknown.join(', ')}`);
+}
+
+function validateAutonomyPolicy(value, source, protectedPaths, riskRules) {
+  assertExactKeys(value, [
+    'schemaVersion', 'enabled', 'autoMergeEnabled', 'ownerActorIds', 'eligibleActors', 'optInLabel',
+    'eligibleCategories', 'eligiblePaths', 'eligibleRisks', 'runner', 'capabilities', 'budgets',
+  ], source);
+  assertSchemaVersion(value, source);
+  for (const key of ['enabled', 'autoMergeEnabled']) {
+    if (typeof value[key] !== 'boolean') throw new PolicyValidationError(source, `${key} must be boolean`);
+  }
+  for (const key of ['ownerActorIds', 'eligibleActors']) {
+    if (!Array.isArray(value[key]) || value[key].length === 0 || value[key].some((id) => !Number.isSafeInteger(id) || id <= 0)
+      || new Set(value[key]).size !== value[key].length) {
+      throw new PolicyValidationError(source, `${key} must contain unique positive actor IDs`);
+    }
+  }
+  if (!value.ownerActorIds.every((id) => value.eligibleActors.includes(id))) {
+    throw new PolicyValidationError(source, 'eligibleActors must include every owner actor ID');
+  }
+  if (typeof value.optInLabel !== 'string' || !/^[a-z0-9][a-z0-9:_-]{0,49}$/.test(value.optInLabel)) {
+    throw new PolicyValidationError(source, 'optInLabel must be a bounded lowercase label');
+  }
+  validateUniqueList(value, 'eligibleCategories', source, AUTONOMY_CATEGORIES);
+  validateUniqueList(value, 'eligibleRisks', source, AUTONOMY_RISKS);
+  validateUniqueList(value, 'capabilities', source, AUTONOMY_CAPABILITIES);
+  validatePatternList(value, ['eligiblePaths'], source);
+
+  assertExactKeys(value.runner, ['provider', 'model'], source);
+  if (value.runner.provider !== 'openai' || value.runner.model !== 'GPT-6-Luna') {
+    throw new PolicyValidationError(source, 'runner must be OpenAI GPT-6-Luna with no fallback');
+  }
+  assertExactKeys(value.budgets, ['maxModelCalls', 'maxDeliveryGenerations', 'taskConcurrency', 'maxHostedWorkflowRuns'], source);
+  for (const [key, maximum] of Object.entries({ maxModelCalls: 8, maxDeliveryGenerations: 2, taskConcurrency: 1, maxHostedWorkflowRuns: 3 })) {
+    if (!Number.isSafeInteger(value.budgets[key]) || value.budgets[key] <= 0 || value.budgets[key] > maximum) {
+      throw new PolicyValidationError(source, `${key} must be a positive integer no greater than ${maximum}`);
+    }
+  }
+
+  for (const eligiblePath of value.eligiblePaths) {
+    const protectedPatterns = [...protectedPaths.high, ...protectedPaths.critical, ...riskRules.high];
+    if (protectedPatterns.some((protectedPattern) => eligiblePatternCoversProtectedPath(eligiblePath, protectedPattern))) {
+      throw new PolicyValidationError(source, `eligible path ${eligiblePath} covers a protected or high-risk path`);
+    }
+  }
+}
+
 function isPathInside(parent, candidate) {
   const relative = path.relative(parent, candidate);
   return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
@@ -254,5 +326,43 @@ export async function loadLoopPolicy(repoRoot) {
       tokenLimit: stopConditionsDocument.tokenLimit,
       ciRunLimit: stopConditionsDocument.ciRunLimit,
     }),
+  });
+}
+
+export async function loadAutonomyPolicy(repoRoot, trustedRevision) {
+  if (typeof trustedRevision !== 'string' || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(trustedRevision)) {
+    throw new PolicyValidationError(path.posix.join(POLICY_DIRECTORY, POLICY_FILES.autonomy), 'trustedRevision must be a full lowercase Git object ID');
+  }
+
+  const loopPolicy = await loadLoopPolicy(repoRoot);
+  const requestedRoot = repoRoot ?? path.resolve(MODULE_DIRECTORY, '../..');
+  const realRoot = await realpath(path.resolve(requestedRoot));
+  let checkedOutRevision;
+  try {
+    ({ stdout: checkedOutRevision } = await execFileAsync('git', ['-C', realRoot, 'rev-parse', '--verify', 'HEAD'], { windowsHide: true, timeout: 5000 }));
+  } catch (error) {
+    throw new PolicyValidationError(path.posix.join(POLICY_DIRECTORY, POLICY_FILES.autonomy), `cannot verify repository revision: ${error.message}`);
+  }
+  if (checkedOutRevision.trim() !== trustedRevision) {
+    throw new PolicyValidationError(path.posix.join(POLICY_DIRECTORY, POLICY_FILES.autonomy), 'trustedRevision does not match the checked-out repository revision');
+  }
+  const document = await readPolicyFile(realRoot, POLICY_FILES.autonomy, (value, source) => {
+    validateAutonomyPolicy(value, source, loopPolicy.protectedPaths, loopPolicy.riskRules);
+  });
+
+  return Object.freeze({
+    schemaVersion: 1,
+    enabled: document.enabled,
+    autoMergeEnabled: document.autoMergeEnabled,
+    ownerActorIds: Object.freeze([...document.ownerActorIds]),
+    eligibleActors: Object.freeze([...document.eligibleActors]),
+    optInLabel: document.optInLabel,
+    eligibleCategories: Object.freeze([...document.eligibleCategories]),
+    eligiblePaths: Object.freeze([...document.eligiblePaths]),
+    eligibleRisks: Object.freeze([...document.eligibleRisks]),
+    runner: Object.freeze({ provider: document.runner.provider, model: document.runner.model }),
+    capabilities: Object.freeze([...document.capabilities]),
+    budgets: Object.freeze({ ...document.budgets }),
+    trustedRevision,
   });
 }

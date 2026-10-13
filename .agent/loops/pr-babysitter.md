@@ -101,3 +101,13 @@ completed. A confirmed empty required-policy snapshot may produce
 - Never merge, bypass branch protection, alter production data, run production
   migrations/resets, or promote a production deployment. Human review remains
   required before merge.
+
+The autonomy policy's narrow unattended exception applies only to bounded
+implementation and fixed verification for an eligible, explicitly opted-in
+task. It does not waive required human review before merge. Auto-merge remains
+disabled, and workflow-specific required checks and approval gates remain in
+force. A future trusted host must use the single configured GPT-6-Luna runner,
+enforce the three-run hosted workflow cap and one-task concurrency limit, and
+fail closed on missing, invalid, unknown-key, or stale policy context. The
+loader's `trustedRevision` is an expected revision binding supplied by a
+trusted host, not an authenticated claim by itself.
