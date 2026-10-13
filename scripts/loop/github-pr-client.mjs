@@ -386,6 +386,20 @@ function conclusionForStatus(state) {
   return null;
 }
 
+function hasMatchingPullRequestAssociation(check, snapshot) {
+  if (!Array.isArray(check.pull_requests) || check.pull_requests.length !== 1) return false;
+  const association = check.pull_requests[0];
+  if (!isRecord(association) || association.number !== snapshot.number
+      || !isRecord(association.base) || !isRecord(association.base.repo)
+      || !isRecord(association.head) || !isRecord(association.head.repo)) return false;
+  return association.base.ref === snapshot.baseRef
+    && normalizeSha(association.base.sha) === snapshot.baseSha
+    && association.base.repo.id === snapshot.baseRepositoryId
+    && association.head.ref === snapshot.headRef
+    && normalizeSha(association.head.sha) === snapshot.headSha
+    && association.head.repo.id === snapshot.headRepositoryId;
+}
+
 function mapCheckRun(check, snapshot, testedSha) {
   if (!isRecord(check) || !isPositiveInteger(check.id) || normalizeSha(check.head_sha) !== testedSha) return null;
   if (!OBSERVATION_STATUSES.has(check.status)) return null;
@@ -406,7 +420,7 @@ function mapCheckRun(check, snapshot, testedSha) {
       stderr: safeTitle,
     });
   }
-  return normalizeCheckObservation({
+  const observation = normalizeCheckObservation({
     checkId: 'check:' + check.id,
     requiredCheckKey: context + (appId === null ? '|legacy' : '|app:' + appId),
     requiredWorkflowKey: null,
@@ -423,6 +437,74 @@ function mapCheckRun(check, snapshot, testedSha) {
     protectedPathTouched: false,
     failureFingerprint,
   });
+  return Object.freeze({
+    observation,
+    hasMatchingPullRequestAssociation: hasMatchingPullRequestAssociation(check, snapshot),
+    checkSuiteId: isPositiveInteger(check.check_suite?.id) ? check.check_suite.id : null,
+    startedAt: stableTimestamp(check.started_at),
+    completedAt: stableTimestamp(check.completed_at),
+  });
+}
+
+function hasValidCheckRunInterval(checkRun) {
+  if (!checkRun.startedAt || !checkRun.completedAt) return false;
+  return Date.parse(checkRun.completedAt) >= Date.parse(checkRun.startedAt);
+}
+
+function bindSameRevisionPasses(checkRuns) {
+  const groups = new Map();
+  for (const checkRun of checkRuns) {
+    const observation = checkRun.observation;
+    const identity = canonicalJson([
+      observation.provider, observation.requiredCheckKey, observation.requiredWorkflowKey,
+      observation.headSha, observation.baseSha, observation.mergeSha, observation.testedSha,
+    ]);
+    const group = groups.get(identity) ?? [];
+    group.push(checkRun);
+    groups.set(identity, group);
+  }
+
+  const observations = [];
+  for (const group of groups.values()) {
+    if (group.length === 1 || group.some((checkRun) => !checkRun.hasMatchingPullRequestAssociation
+        || checkRun.checkSuiteId === null
+        || !hasValidCheckRunInterval(checkRun))
+        || group.some((checkRun) => checkRun.checkSuiteId !== group[0].checkSuiteId)) {
+      observations.push(...group.map(({ observation }) => observation));
+      continue;
+    }
+
+    const ordered = [...group].sort((left, right) => Date.parse(left.startedAt) - Date.parse(right.startedAt));
+    const unambiguousSequence = new Set(ordered.map(({ startedAt }) => startedAt)).size === ordered.length
+      && ordered.slice(1).every((checkRun, index) => (
+        Date.parse(ordered[index].completedAt) < Date.parse(checkRun.startedAt)
+      ));
+    if (!unambiguousSequence) {
+      observations.push(...group.map(({ observation }) => observation));
+      continue;
+    }
+
+    const latest = ordered.at(-1);
+    if (latest.observation.status === 'completed' && latest.observation.conclusion === 'failure') {
+      const passedBeforeFailure = ordered.slice(0, -1).some((candidate) => (
+        candidate.observation.status === 'completed'
+        && candidate.observation.conclusion === 'success'
+        && Date.parse(candidate.completedAt) < Date.parse(latest.startedAt)
+      ));
+      if (!passedBeforeFailure) {
+        observations.push(...group.map(({ observation }) => observation));
+        continue;
+      }
+      observations.push(normalizeCheckObservation({
+        ...latest.observation,
+        previouslyPassedRevision: latest.observation.testedSha,
+      }));
+      continue;
+    }
+
+    observations.push(latest.observation);
+  }
+  return observations;
 }
 
 function mapCommitStatus(status, snapshot, testedSha) {
@@ -892,16 +974,18 @@ export function createGitHubPrClient(options) {
     const checkRunsPath = repositoryPath + '/commits/' + encodeURIComponent(testedSha) + '/check-runs';
     const statusPath = repositoryPath + '/commits/' + encodeURIComponent(testedSha) + '/status';
     const [checkRuns, statuses] = await Promise.all([
-      paginate(checkRunsPath, 'check_runs'),
+      paginate(checkRunsPath, 'check_runs', { filter: 'all' }),
       paginate(statusPath, 'statuses', {}, { expectedSha: testedSha }),
     ]);
+    const mappedCheckRuns = [];
     const observations = [];
     let complete = checkRuns.complete && statuses.complete;
     for (const check of checkRuns.values) {
-      const observation = mapCheckRun(check, before, testedSha);
-      if (observation) observations.push(observation);
+      const mapped = mapCheckRun(check, before, testedSha);
+      if (mapped) mappedCheckRuns.push(mapped);
       else complete = false;
     }
+    observations.push(...bindSameRevisionPasses(mappedCheckRuns));
     for (const status of statuses.values) {
       const observation = mapCommitStatus(status, before, testedSha);
       if (observation) observations.push(observation);

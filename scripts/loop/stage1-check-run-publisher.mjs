@@ -54,9 +54,13 @@ export function createStage1PublisherTransport({ target, token, capability = 'pu
     if (method === 'GET' && [
       `${testedCommitPath}/check-runs`, `${testedCommitPath}/status`,
     ].some((route) => route.toLowerCase() === url.pathname.toLowerCase())) {
-      const allowedKeys = new Set(['page', 'per_page']);
+      const isCheckRunList = url.pathname.toLowerCase().endsWith('/check-runs');
+      const allowedKeys = new Set(isCheckRunList ? ['filter', 'page', 'per_page'] : ['page', 'per_page']);
+      const filterValues = url.searchParams.getAll('filter');
       allowed = [...url.searchParams.keys()].every((key) => allowedKeys.has(key))
-        && (url.pathname.endsWith('/check-runs') || url.pathname.endsWith('/status'));
+        && (isCheckRunList
+          ? filterValues.length === 1 && filterValues[0] === 'all'
+          : url.pathname.endsWith('/status') && filterValues.length === 0);
     }
     if (method === 'GET' && url.pathname === `${prefix}/actions/runs`) {
       const allowedKeys = new Set(['head_sha', 'page', 'per_page']);

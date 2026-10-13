@@ -1,10 +1,27 @@
 # Stage 1 CLI runbook
 
-**Updated:** 2026-10-12
+**Updated:** 2026-10-13
 
-**Status:** The trusted dispatch host and recovery workflow are implemented on `feature/stage1-trusted-dispatch`. Stage 1 remains blocked for live use until the change is reviewed and merged, local trust identities and a per-PR budget session are configured, the GitHub App receives `actions:write`, and a maintainer-selected pilot proves the full hosted path.
+**Status:** The trusted-dispatch implementation from PR #304 is merged to `main` at `875eb82e0886edd622737136eb6a8f5fbbd313ae`. This establishes implementation availability only. The required human review record for the final head and configuration boundary has not been established; a reviewer is currently unavailable. No eligible live pilot has been selected, and no host recovery dispatch, verified recovery source attestation, or original Check Run update has occurred. The current host session has no usable Stage 1 App configuration or per-PR budget session.
 
-## Current implementation status (2026-10-10)
+## Readiness lifecycle and current snapshot (2026-10-13)
+
+Keep these milestones separate:
+
+1. **Implementation merged:** PR #304 is on `main`. Merge and local implementation checks do not establish the required human review record, Stage 1 activation, or a live recovery pilot. A formal GitHub PR approval is subject to GitHub's restriction that the PR author cannot approve their own PR. This review record is separate from the trusted host's one-use TTY maintainer approval, which consents to the exact recovery operation and scope.
+2. **Stage 0-to-Stage 1 pilot authorization:** Before authorizing even one supervised recovery pilot, establish the required human review record and configuration gates, verify the clean trusted-`main` host and exact local trust identities, establish the bounded per-PR budget, and collect ten representative failed or pending Stage 0 PR observations with the required classification safeguards. The ten observations need not all be natural flaky failures; a natural `same_revision_pass_then_fail` failure is specifically required for the selected recovery target. The maintainer separately authorizes the exact pilot through the real TTY flow.
+3. **Live Stage 1 recovery evidence:** After those pre-pilot gates, select an eligible same-repository feature PR and perform one explicitly approved recovery. Gate D records the exact dispatch and returned run, attestation, jobs, policy, original Check Run update, and budget outcome. Until that complete evidence exists, the live recovery path is unproven; a passing synthetic drill is not a substitute.
+4. **Stage 1-to-Stage 2 promotion:** This is a later, separate human decision with its own bounded rerun-decision/fixture and safety criteria. It is deferred and outside this pilot task.
+
+This ordering is based on explicit prerequisites, not the printed order of checklist sections. Gate D is post-authorization pilot evidence; it is not evidence that may be fabricated to satisfy Stage 0-to-Stage 1 authorization.
+
+The connected GitHub read-only snapshot on 2026-10-13 showed PR #309 green and PR #310 with the `SYNTHETIC_STAGE1_DRILL` marker: attempt 1 passed and attempt 2 failed at the same SHA. PR #309 contributes no failed/pending observation or live recovery eligibility. PR #310 is synthetic and contributes no qualifying observation or natural-flake/live-pilot evidence. No new qualifying observations were added from these two examined PRs; prior readiness records were not recounted, so this is not a global historical total. Neither PR is eligible for a live pilot. No live recovery source attestation or original Check Run PATCH has been observed. PR and run reads came from the connected GitHub read-only source. GitHub CLI authentication succeeds outside the sandbox as `memories-quy-2002`; the sandbox could not access the Windows credential store, and OAuth CLI authentication does not prove GitHub App permissions.
+
+Fresh connected GitHub evidence shows Stage 0 run `37875125233` cancelled at `2026-10-13T03:39:56Z`, Stage 0 push run `38216754911` successful at `03:40:26Z` on `875eb82e0886edd622737136eb6a8f5fbbd313ae`, and old CI run `35555634277` cancelled at `03:44:55Z`. Current CI run `38216754992` has client/server success but remains in progress because `production-migrate` waits for the Production environment reviewer. The older run shared the current main CI group and its cancellation preceded the current run; direct lock evidence is unavailable through the connected adapter. The earlier cancellation attempt failed because `gh` was logged out before the maintainer logged in. Today's sandbox auth error reflects Windows credential-store availability. Host prerequisites remain incomplete: Node 24.20.0 is available at its pinned installation path but not on `PATH`; the fixed trust file has expected structure but numeric identities are unverified; four `LOOP_GITHUB_APP_*` variables and the user-local Stage 1 budget session are absent. CLI OAuth auth succeeds outside the sandbox but does not establish App permissions. No key or secret value was inspected; no Stage 1 attestation, original Check Run update, or Production approval occurred.
+
+The old CI run `35555634277` shared the current main CI concurrency group; cancellation preceded current run `38216754992`, and the exact workflow at both revisions sets `cancel-in-progress: false`. Direct lock state was unavailable through the adapter. Stage 0 run `37875125233` is now cancelled, and Stage 0 push `38216754911` succeeded on current `main`; see the fresh run statuses above. Current CI has successful client/server jobs but still waits on the Production environment reviewer for `production-migrate`. The latest actual-worktree run using Node 24.20.0 and test concurrency 1 passed 409/409 tests across 31 suites from the canonical 35-file list; three workflow dry-run routing checks passed, and `git diff --check` passed. One intervening run passed 408/409 due to an unchanged nested repair-session verifier failure; the focused repair-session rerun passed 12/12 and the subsequent full run passed. The failure was intermittent and its nested test output was not captured, so it remains a verification risk with no established root cause. These local results do not establish full hosted validation, deployment, or live recovery proof. The readiness documentation passed specification and quality review and remains a local change pending hosted validation.
+
+## Current implementation status (2026-10-12)
 
 The reviewed direction replaces the older attempt-bound job-rerun writer. The
 implementation branch adds a selector for one failed `client` or `server`
@@ -68,13 +85,22 @@ before dispatching a pilot.
 See the [pilot checklist](stage1-pilot-checklist.md) for exact-SHA evidence and
 remaining human/configuration gates.
 
-Local tests and normal PR CI do not prove
-that GitHub accepts a cross-run Check Run update or that branch protection
-recognizes it. The Stage 1 workflow is not yet on `main`, the App has not been
-granted `actions:write`, no user-local trust file or budget session has been
-configured, and no dispatch, Check Run PATCH, or live pilot has occurred. No
-App permission, branch protection, production configuration, or main-branch
-change was made.
+Local tests and normal PR CI do not prove that GitHub accepts a cross-run
+Check Run update or that branch protection recognizes it. The reader App,
+runner `actions:write`, user-local trust configuration, and GitHub CLI were
+available on 2026-10-12; no per-PR budget session is initialized. PR #309 is
+green and is not an eligible recovery target. PR #310 was deliberately used
+for a synthetic drill: attempt 1 passed, while an explicitly injected test
+failed on attempt 2 at the same SHA. This synthetic event does not count as a
+natural flaky observation or toward the representative promotion set. The
+read-only host escalated because the GitHub adapter returned only the latest
+Check Run and omitted the first pass. No trusted host recovery dispatch or
+Check Run PATCH occurred. Keep the synthetic PR clearly labeled and do not
+merge it as production behavior.
+With the unmerged adapter fix, a fresh local read-only `inspect` returned
+`retry-check/same_revision_pass_then_fail` for the observed same-SHA history.
+That diagnostic did not dispatch a retry or update a Check Run and is not
+reviewed-host or promotion evidence.
 
 The recovery workflow declares `cache-mode: none` for every job. GitHub's
 scoped cache tokens therefore deny restore and save operations even though
@@ -100,6 +126,19 @@ are not authoritative for Stage 1 budget checks; a checkout that contains the
 user-local store cannot be used for this budget session.
 `rerun-flaky --dry-run` checks syntax only and provides no eligibility or
 approval evidence.
+
+The Check Runs adapter must request `filter=all`, because GitHub's default
+returns only the latest check run. A prior successful run is eligible as
+flaky-history evidence only when each run has exactly one raw PR association
+matching the fresh snapshot's PR number, base/head repository IDs, refs, and
+SHAs; both runs also share the required context/App ID, provider, tested SHA,
+and Check Suite ID. Each completed interval must have valid timestamps, and
+the runs must form a unique, strictly ordered, non-overlapping sequence. Fresh
+before-and-after PR snapshots must agree on the current base/head/merge tuple,
+which binds the observations to its current merge SHA. Historical Check Run
+API records do not independently supply a merge SHA. Missing or ambiguous
+evidence remains non-actionable. This history signal does not establish
+changed-scope coverage or authorize repair.
 
 PR #300 merged the source-attestation producer and recorded a successful
 hosted producer-to-probe result. The Stage 1 `inspect` path now configures the
@@ -295,11 +334,7 @@ Syntax-only dry run:
 Invoke-TrustedStage1 -CliArgs @('rerun-flaky', '--repo', 'memories-quy-2002/digital-e-shop', '--pr', '123', '--dry-run')
 ```
 
-The live command requires the budget session, trust file, a real TTY, current
-eligible flaky evidence, and a separately approved App installation with
-`actions:write`. The current installation lacks `actions:write`, and this
-branch has not put the workflow on `main`; no live dispatch can be proven from
-this checkout. A dry-run is not approval or pilot evidence.
+The live command requires the budget session, trust file, a real TTY, current`r`neligible flaky evidence, and a separately approved App installation with`r`n`actions:write`. Installation metadata checked on 2026-10-13 confirms`r`n`actions:write`; PR #304 merged the workflow to canonical `main` at`r`n`875eb82`. The current snapshots of PR #309 and #310 provide no eligible`r`nnatural flaky observation, and no per-PR budget session is configured. The`r`nuser-local trust file has the expected structure, but its approver and actor`r`nIDs remain unverified. No live dispatch can be proven from this checkout. A`r`ndry-run is not approval or pilot evidence.
 
 ## Fail-closed preflight
 
@@ -385,10 +420,7 @@ ID and independently verify its source SHA, actor, verifier/publisher jobs,
 current PR tuple, policy, and original Check Run before reporting
 `ready-for-human`.
 
-At this branch revision, the local trust file and budget session are not
-configured, the App lacks `actions:write`, and the workflow is not yet on
-`main`. Do not attempt a live dispatch or Check Run update. These gates are
-separate from the historical PR #300 producer-to-probe result below.
+Current snapshot (2026-10-13): the user-local trust file exists with the`r`nexpected structure, but its numeric approver and workflow-actor IDs are`r`nunverified; no per-PR budget session exists. Installation metadata confirms`r`n`actions:write`, and PR #304 merged the trusted workflow to `main` at`r`n`875eb82`. Live dispatch still requires eligible natural flaky evidence,`r`nverified trust identities, a matching budget session, and one-use TTY approval.`r`nDo not attempt a live dispatch or Check Run update. These gates are separate`r`nfrom the historical PR #300 producer-to-probe result below.
 
 PR #290 added the dedicated Stage 1 target, prompt, source-attestation, and
 host suites to both fixed test lists. PR #291 added the original source-SHA

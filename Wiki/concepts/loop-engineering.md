@@ -126,6 +126,21 @@ them. The workflow supports only `client` and `server` checks from App `15368`,
 and the publisher transport permits fixed reads plus one success PATCH to the
 original failed Check Run.
 
+The GitHub Check Runs reader requests the complete run history with
+`filter=all`; GitHub otherwise returns only the latest run for each check.
+It may bind `previouslyPassedRevision` to a failure only when each run has
+exactly one raw PR association matching the fresh snapshot's PR number,
+base/head repository IDs, refs, and SHAs; both runs also share the required
+context/App identity, provider, tested SHA, and Check Suite ID. Each completed
+interval must have valid timestamps, and the runs must form a unique, strictly
+ordered, non-overlapping sequence. Fresh before-and-after PR snapshots must
+agree on the current base/head/merge tuple, which binds the observations to
+its current merge SHA. Historical Check Run API records do not independently
+supply a merge SHA. Missing or ambiguous evidence leaves the failure
+unclassified as flaky. The Check Run remains outside verifier-confirmed
+changed scope; this history signal does not authorize repair. See [GitHub
+Check Runs API](https://docs.github.com/en/rest/checks/runs?apiVersion=latest).
+
 Before that PATCH, the publisher independently reloads complete branch
 protection/ruleset policy, compares its fingerprint with the approved target,
 and requires exactly one matching context/App ID. Missing, changed, ambiguous,
@@ -135,9 +150,10 @@ only the existing exact Check Run PATCH. The SHA-pinned official token action
 mints the reader only in the trusted publisher's `stage1-policy-reader`
 environment, scopes it to this repository, requests read permissions, and
 revokes it after the job. Missing/reused tokens refuse before dispatch-event
-parsing. The reader installation, protected environment configuration, and
-live proof remain unverified; this run has not provisioned credentials or
-changed App permissions. See the [Stage 1 CLI runbook](../../docs/loop-engineering/stage1-cli-runbook.md).
+parsing. The reader App, protected environment, runner permissions, local
+trust configuration, and CLI were configured by 2026-10-12. This does not
+prove the hosted cross-run Check Run update or count as a recovery pilot. See
+the [Stage 1 CLI runbook](../../docs/loop-engineering/stage1-cli-runbook.md).
 
 After review and merge, operators launch this CLI from a clean reviewed
 `main` checkout while keeping the selected PR worktree as the process current
@@ -149,23 +165,58 @@ The local trust loader resolves its fixed config path from
 `os.userInfo().homedir`; it ignores `USERPROFILE` and fails closed if OS home
 resolution is unavailable or invalid.
 
-The implementation is local to `feature/stage1-trusted-dispatch`; its
-`verify`, `attest`, and `publish` jobs have not run on GitHub. The workflow must
-be reviewed and merged before it can dispatch from `main`. The App currently
-lacks `actions:write`, and no local trust file, budget session, or live pilot
-is configured. No App permissions were changed. PR #293 merged the earlier
-workflow-source producer, certificate verifier, read-only probe, and
-verifier-owned adapter gates; PR #300 proved that producer-to-probe path for
-one current tuple, which is not a Stage 1 host observation. PR #296's
-attempt-bound job writer is historical code; the selected recovery path does
-not call run/job-rerun endpoints. See the [Stage 1 CLI
-runbook](../../docs/loop-engineering/stage1-cli-runbook.md) and [readiness
-evidence](../../docs/loop-engineering/stage1-readiness.md).
-The read adapter binds job evidence to GitHub's exact workflow run attempt and
-marks missing attempt IDs incomplete. A controlled test on non-main PR #294
-observed that GitHub rejects a previous-attempt job ID with `403` once a newer
-attempt is current. This evidence motivated the workflow-dispatch design; it
-does not prove the new dependent-job graph or cross-run Check Run publication.
-Stage 1 still needs hosted CI on the reviewed revision, a user-local trust
-file, an initialized exact-tuple budget session under the OS-resolved user
-home, App `actions:write`, and a live pilot before promotion.
+PR #304 merged the trusted Stage 1 dispatch implementation to `main` at
+`875eb82e0886edd622737136eb6a8f5fbbd313ae`. This is implementation status,
+not an established human review record or operational evidence. A formal
+GitHub PR approval is subject to the restriction that the PR author cannot
+approve their own PR. That review record is separate from the trusted host's
+one-use TTY maintainer approval and exact operation-scope consent. At the
+2026-10-13 connected GitHub read-only snapshot, PR #309 was green and supplied
+no failed/pending observation. PR #310's
+`SYNTHETIC_STAGE1_DRILL` passed on attempt 1 and failed on attempt 2 at the same
+SHA; it is not a natural flaky observation and counts zero toward Stage 0
+promotion or live recovery. The two examined open candidates yielded no new
+qualifying observations and zero eligible pilots; prior readiness records
+were not recounted, so this is not a global historical total. PR and run
+observations came from the connected GitHub read-only source. GitHub CLI
+authentication succeeds outside the sandbox as `memories-quy-2002`; sandbox
+credential errors reflect Windows credential-store availability. OAuth CLI
+authentication does not establish GitHub App permissions.
+
+Keep rollout milestones separate. Stage 0-to-Stage 1 pilot authorization
+requires ten representative failed or pending Stage 0 PR observations (not
+necessarily ten flakes), the classification/hosted-evidence safeguards, the
+required human review record, trusted-main and App/local trust prerequisites, and
+a per-PR budget. A natural `same_revision_pass_then_fail` is specifically
+required for the selected live recovery. Only after authorization may the
+maintainer approve one exact recovery in a real TTY; its returned run, verified
+source attestation, allowlisted jobs, unchanged policy/tuple, original Check
+Run update, and budget outcome must all be observed to call the pilot
+complete. Stage 1-to-Stage 2 rerun-decision criteria are later and deferred.
+
+No live recovery dispatch, host source-attestation proof, or original Check Run
+PATCH has been observed. On 2026-10-13, Node 24.20.0 was installed but not on
+`PATH`; the user-local trust file had expected shape but identity correctness
+was unverified; the four `LOOP_GITHUB_APP_*` variables and local Stage 1 budget
+directory were absent. Fresh connected GitHub evidence shows Stage 0 run
+`37875125233` cancelled at `03:39:56Z`, Stage 0 push `38216754911` successful
+at `03:40:26Z` on `875eb82e0886edd622737136eb6a8f5fbbd313ae`, and old CI
+`35555634277` cancelled at `03:44:55Z`. Current CI `38216754992` began at
+`03:44:57Z` on the same SHA; client/server succeeded, while `production-migrate`
+waits for the Production environment reviewer. The old run shared the main CI
+concurrency group and its cancellation preceded the new run, but direct lock
+evidence was unavailable through the adapter. The Stage 0 run uses a separate
+group. No Production approval was made by the agent.
+
+The latest fixed Loop Foundation run in the actual linked source worktree
+passed 409/409 tests across 31 suites using Node 24.20.0 with test concurrency
+1; three workflow dry-run routing checks and `git diff --check` passed. One
+intervening full 35-file run passed 408/409 because the unchanged nested
+`repair-session` verifier exited nonzero; its focused test file then passed
+12/12, and the subsequent full run passed. The nested failure was intermittent
+and its output was not captured, so no root cause is established. These
+results are provisional; hosted validation and live recovery remain unproven.
+Readiness
+documentation passed specification and quality review and remains a local
+change pending hosted validation. See the [Stage 1 CLI runbook](../../docs/loop-engineering/stage1-cli-runbook.md)
+and [readiness evidence](../../docs/loop-engineering/stage1-readiness.md).
