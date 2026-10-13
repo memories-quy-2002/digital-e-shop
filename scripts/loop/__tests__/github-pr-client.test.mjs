@@ -115,6 +115,15 @@ function prResponse(overrides = {}) {
   };
 }
 
+function pullRequestAssociation(overrides = {}) {
+  return {
+    number: PR_NUMBER,
+    head: { ref: 'feature/loop', sha: HEAD_SHA, repo: { id: REPOSITORY_ID } },
+    base: { ref: 'main', sha: BASE_SHA, repo: { id: REPOSITORY_ID } },
+    ...overrides,
+  };
+}
+
 function checkRun(overrides = {}) {
   return {
     id: 123,
@@ -124,6 +133,7 @@ function checkRun(overrides = {}) {
     conclusion: 'failure',
     completed_at: '2026-09-28T08:05:00Z',
     check_suite: { id: 88 },
+    pull_requests: [pullRequestAssociation()],
     app: { id: 71, slug: 'github-actions' },
     output: { title: 'TOKEN=ghs_super_secret_value', summary: 'Test failed at test/example.mjs:4' },
     ...overrides,
@@ -363,13 +373,146 @@ describe('strict GitHub PR read adapter', () => {
     assert.equal(JSON.stringify(failure).includes('ghs_super_secret_value'), false);
   });
 
+  it('binds a later failure to an earlier successful run of the same required check and revision', async () => {
+    const successful = checkRun({
+      id: 122,
+      name: 'client',
+      app: { id: 15368 },
+      conclusion: 'success',
+      started_at: '2026-09-28T08:01:00Z',
+      completed_at: '2026-09-28T08:02:00Z',
+    });
+    const failed = checkRun({
+      id: 123,
+      name: 'client',
+      app: { id: 15368 },
+      conclusion: 'failure',
+      started_at: '2026-09-28T08:04:00Z',
+      completed_at: '2026-09-28T08:05:00Z',
+    });
+    const { client, calls } = createHarness({
+      route: ({ url }) => url.pathname.endsWith('/check-runs')
+        ? jsonResponse(200, { total_count: 2, check_runs: [failed, successful] })
+        : undefined,
+    });
+    await client.getPullRequest(PR_NUMBER);
+
+    const result = await client.getCommitCheckRuns(HEAD_SHA);
+
+    const failure = result.observations.find((item) => item.checkId === 'check:123');
+    assert.equal(result.collectionStatus, 'complete');
+    assert.equal(result.observations.length, 1, 'a uniquely ordered retry history yields only its latest required-check result');
+    assert.equal(failure.previouslyPassedRevision, HEAD_SHA);
+    assert.equal(failure.coversRelevantScope, false);
+    assert.equal(calls.find((call) => call.url.pathname.endsWith('/check-runs')).url.searchParams.get('filter'), 'all');
+  });
+
+  it('does not bind prior passes unless every run has one matching PR association', async () => {
+    const mismatchCases = [
+      { name: 'PR number', association: pullRequestAssociation({ number: PR_NUMBER + 1 }) },
+      { name: 'repository', association: pullRequestAssociation({ head: { ref: 'feature/loop', sha: HEAD_SHA, repo: { id: REPOSITORY_ID + 1 } } }) },
+      { name: 'base repository', association: pullRequestAssociation({ base: { ref: 'main', sha: BASE_SHA, repo: { id: REPOSITORY_ID + 1 } } }) },
+      { name: 'base ref', association: pullRequestAssociation({ base: { ref: 'other', sha: BASE_SHA, repo: { id: REPOSITORY_ID } } }) },
+      { name: 'base revision', association: pullRequestAssociation({ base: { ref: 'main', sha: 'f'.repeat(40), repo: { id: REPOSITORY_ID } } }) },
+      { name: 'head ref', association: pullRequestAssociation({ head: { ref: 'other', sha: HEAD_SHA, repo: { id: REPOSITORY_ID } } }) },
+      { name: 'head revision', association: pullRequestAssociation({ head: { ref: 'feature/loop', sha: 'f'.repeat(40), repo: { id: REPOSITORY_ID } } }) },
+      { name: 'missing association', association: null },
+      { name: 'ambiguous associations with one match', association: [pullRequestAssociation(), pullRequestAssociation({ number: PR_NUMBER + 1 })] },
+    ];
+
+    for (const { name, association } of mismatchCases) {
+      const successOverrides = association === null
+        ? { pull_requests: [] }
+        : { pull_requests: Array.isArray(association) ? association : [association] };
+      const successful = checkRun({ id: 122, name: 'client', app: { id: 15368 }, conclusion: 'success',
+        started_at: '2026-09-28T08:01:00Z', completed_at: '2026-09-28T08:02:00Z', ...successOverrides });
+      const failed = checkRun({ id: 123, name: 'client', app: { id: 15368 }, conclusion: 'failure',
+        started_at: '2026-09-28T08:04:00Z', completed_at: '2026-09-28T08:05:00Z' });
+      const { client } = createHarness({
+        route: ({ url }) => url.pathname.endsWith('/check-runs')
+          ? jsonResponse(200, { total_count: 2, check_runs: [failed, successful] })
+          : undefined,
+      });
+      await client.getPullRequest(PR_NUMBER);
+
+      const result = await client.getCommitCheckRuns(HEAD_SHA);
+
+      assert.equal(result.observations.length, 2, name);
+      const failure = result.observations.find((item) => item.checkId === 'check:123');
+      assert.ok(failure, name);
+      assert.equal(failure.previouslyPassedRevision, undefined, name);
+    }
+
+    const successful = checkRun({ id: 122, name: 'client', app: { id: 15368 }, conclusion: 'success',
+      started_at: '2026-09-28T08:01:00Z', completed_at: '2026-09-28T08:02:00Z' });
+    const failed = checkRun({ id: 123, name: 'client', app: { id: 15368 }, conclusion: 'failure',
+      started_at: '2026-09-28T08:04:00Z', completed_at: '2026-09-28T08:05:00Z', pull_requests: [] });
+    const { client } = createHarness({
+      route: ({ url }) => url.pathname.endsWith('/check-runs')
+        ? jsonResponse(200, { total_count: 2, check_runs: [failed, successful] })
+        : undefined,
+    });
+    await client.getPullRequest(PR_NUMBER);
+    const result = await client.getCommitCheckRuns(HEAD_SHA);
+    assert.equal(result.observations.length, 2, 'the failed target also needs a matching association');
+    assert.equal(result.observations.find((item) => item.checkId === 'check:123').previouslyPassedRevision, undefined);
+  });
+
+  it('keeps unrelated, mismatched-suite, or overlapping check histories ambiguous', async () => {
+    const failureStartedAt = '2026-09-28T08:04:00Z';
+    const cases = [
+      checkRun({ id: 122, name: 'server', app: { id: 15368 }, conclusion: 'success',
+        started_at: '2026-09-28T08:01:00Z', completed_at: '2026-09-28T08:02:00Z' }),
+      checkRun({ id: 124, name: 'client', app: { id: 15368 }, conclusion: 'success', check_suite: { id: 87 },
+        started_at: '2026-09-28T08:01:00Z', completed_at: '2026-09-28T08:02:00Z' }),
+      checkRun({ id: 125, name: 'client', app: { id: 15368 }, conclusion: 'success',
+        started_at: '2026-09-28T08:03:00Z', completed_at: '2026-09-28T08:04:30Z' }),
+    ];
+
+    for (const successful of cases) {
+      const failed = checkRun({ id: 123, name: 'client', app: { id: 15368 }, conclusion: 'failure',
+        started_at: failureStartedAt, completed_at: '2026-09-28T08:05:00Z' });
+      const { client } = createHarness({
+        route: ({ url }) => url.pathname.endsWith('/check-runs')
+          ? jsonResponse(200, { total_count: 2, check_runs: [successful, failed] })
+          : undefined,
+      });
+      await client.getPullRequest(PR_NUMBER);
+
+      const result = await client.getCommitCheckRuns(HEAD_SHA);
+
+      const failure = result.observations.find((item) => item.checkId === 'check:123');
+      assert.equal(result.observations.length, 2);
+      assert.ok(failure);
+      assert.equal(failure.previouslyPassedRevision, undefined);
+    }
+  });
+
+  it('selects the latest successful result after a fully ordered same-suite failure', async () => {
+    const failed = checkRun({ id: 123, name: 'client', app: { id: 15368 }, conclusion: 'failure',
+      started_at: '2026-09-28T08:01:00Z', completed_at: '2026-09-28T08:02:00Z' });
+    const successful = checkRun({ id: 124, name: 'client', app: { id: 15368 }, conclusion: 'success',
+      started_at: '2026-09-28T08:03:00Z', completed_at: '2026-09-28T08:04:00Z' });
+    const { client } = createHarness({
+      route: ({ url }) => url.pathname.endsWith('/check-runs')
+        ? jsonResponse(200, { total_count: 2, check_runs: [failed, successful] })
+        : undefined,
+    });
+    await client.getPullRequest(PR_NUMBER);
+
+    const result = await client.getCommitCheckRuns(HEAD_SHA);
+
+    assert.equal(result.observations.length, 1);
+    assert.equal(result.observations[0].checkId, 'check:124');
+    assert.equal(result.observations[0].conclusion, 'success');
+  });
   it('marks a paginated check collection incomplete when a later page fails', async () => {
     const { client, calls } = createHarness({
       route: ({ url }) => {
         if (!url.pathname.endsWith('/check-runs')) return undefined;
         if (url.searchParams.get('page') === '2') return jsonResponse(403, { message: 'private error body' });
         return jsonResponse(200, { total_count: 1, check_runs: [checkRun({ conclusion: 'success' })] }, {
-          link: '<' + apiUrl(url.pathname + '?per_page=100&page=2') + '>; rel="next"',
+          link: '<' + apiUrl(url.pathname + '?per_page=100&page=2&filter=all') + '>; rel="next"',
         });
       },
     });
