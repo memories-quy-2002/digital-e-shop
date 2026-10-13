@@ -76,7 +76,8 @@ describe('deterministic task lifecycle', () => {
   });
 
   it('refuses model or write reservations when required limits are exhausted or unknown', () => {
-    const current = record();
+    const current = record({ state: 'planning' });
+    const deliveryTask = record({ state: 'delivering' });
     assert.throws(() => reserveTaskBudget(current, { kind: 'model', expectedVersion: current.version }, { ...context, loopPolicy: { ...loopPolicy, stopConditions: { ...stopConditions, maxIterations: null } } }), TaskTransitionError);
     assert.throws(() => reserveTaskBudget(current, { kind: 'model', expectedVersion: current.version }, { ...context, loopState: { ...loopState, budgets: { ...loopState.budgets, tokenUsed: null } } }), TaskTransitionError);
     const reserved = reserveTaskBudget(current, { kind: 'model', expectedVersion: current.version }, context);
@@ -89,7 +90,7 @@ describe('deterministic task lifecycle', () => {
     const nextModel = reserveTaskBudget(reserved, { kind: 'model', expectedVersion: reserved.version }, { ...context, loopState: recordedUsage });
     assert.equal(nextModel.budgets.modelCalls, 2);
     assert.equal(nextModel.budgets.lastModelTokenUsed, 10);
-    const delivery = reserveTaskBudget(current, { kind: 'delivery', expectedVersion: current.version }, context);
+    const delivery = reserveTaskBudget(deliveryTask, { kind: 'delivery', expectedVersion: deliveryTask.version }, context);
     const nextDelivery = reserveTaskBudget(delivery, { kind: 'delivery', expectedVersion: delivery.version }, context);
     assert.equal(nextDelivery.budgets.deliveries, 2);
     assert.throws(() => reserveTaskBudget(nextDelivery, { kind: 'delivery', expectedVersion: nextDelivery.version }, context), TaskTransitionError);
@@ -114,8 +115,31 @@ describe('deterministic task lifecycle', () => {
   it('allows model reservations when the canonical token budget is explicitly disabled', () => {
     const unlimitedLoopPolicy = Object.freeze({ schemaVersion: 1, stopConditions: Object.freeze({ ...stopConditions, tokenLimit: null }) });
     const unlimitedLoopState = createLoopState({ taskId: record().taskId, branch: 'feature/task-contract', baseSha: 'd'.repeat(40), headSha: 'e'.repeat(40), risk: 'low', acceptanceCriteria: ['tests'], policy: unlimitedLoopPolicy, now: '2026-10-13T00:00:00.000Z' });
-    const reserved = reserveTaskBudget(record(), { kind: 'model', expectedVersion: 1 }, { policy, loopPolicy: unlimitedLoopPolicy, loopState: unlimitedLoopState });
+    const task = record({ state: 'planning' });
+    const reserved = reserveTaskBudget(task, { kind: 'model', expectedVersion: 1 }, { policy, loopPolicy: unlimitedLoopPolicy, loopState: unlimitedLoopState });
     assert.equal(reserved.budgets.modelCalls, 1);
     assert.equal(reserved.budgets.lastModelTokenUsed, null);
+  });
+
+  it('rejects reservations for terminal, approval-waiting, cancelling, and incompatible phases', () => {
+    const reservations = [
+      { kind: 'model', allowed: ['planning', 'executing', 'verifying', 'reporting'] },
+      { kind: 'repair', allowed: ['planning', 'executing'] },
+      { kind: 'delivery', allowed: ['delivering'] },
+    ];
+    const forbiddenStates = ['completed', 'cancelled', 'escalated', 'failed', 'waiting-approval', 'cancelling'];
+    for (const state of forbiddenStates) {
+      for (const { kind } of reservations) {
+        const task = record({ state });
+        assert.throws(() => reserveTaskBudget(task, { kind, expectedVersion: task.version }, context), TaskTransitionError, `${kind} should be refused in ${state}`);
+      }
+    }
+    for (const { kind, allowed } of reservations) {
+      for (const state of ['queued', 'planning', 'executing', 'verifying', 'delivering', 'monitoring', 'merging', 'merged', 'reporting']) {
+        if (allowed.includes(state)) continue;
+        const task = record({ state, ...(state === 'merged' ? { confirmedMergeSha: 'f'.repeat(40), links: { ...record().links, pr: { repositoryId: 1234, number: 7, baseSha: 'd'.repeat(40), headSha: 'e'.repeat(40), mergeSha: 'f'.repeat(40) } } } : {}) });
+        assert.throws(() => reserveTaskBudget(task, { kind, expectedVersion: task.version }, context), TaskTransitionError, `${kind} should be refused in ${state}`);
+      }
+    }
   });
 });

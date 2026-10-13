@@ -6,6 +6,11 @@ export class TaskTransitionError extends Error {
 }
 
 const TERMINAL = new Set(['completed', 'cancelled', 'escalated', 'failed']);
+const RESERVATION_PHASES = Object.freeze({
+  model: new Set(['planning', 'executing', 'verifying', 'reporting']),
+  repair: new Set(['planning', 'executing']),
+  delivery: new Set(['delivering']),
+});
 const EDGES = Object.freeze({
   queued: { start: 'planning', 'wait-approval': 'waiting-approval', cancel: 'cancelling' },
   planning: { execute: 'executing', 'wait-approval': 'waiting-approval', fail: 'failed', escalate: 'escalated', cancel: 'cancelling' },
@@ -155,6 +160,9 @@ export function reserveTaskBudget(input, reservation, trustedContext) {
   assertExactKeys(reservation, ['kind', 'expectedVersion'], 'reservation');
   if (!['model', 'repair', 'delivery'].includes(reservation.kind)) fail('reservation kind is invalid');
   if (!Number.isSafeInteger(reservation.expectedVersion) || reservation.expectedVersion !== record.version) fail('reservation expectedVersion is stale or invalid');
+  if (TERMINAL.has(record.state) || !RESERVATION_PHASES[reservation.kind].has(record.state)) {
+    fail(`reservation kind ${reservation.kind} is not allowed in task state ${record.state}`);
+  }
   // The host must atomically compare-and-save this next version before starting the operation.
   // Token-cost estimates and durable reservation storage remain host responsibilities.
   let reconciled;
