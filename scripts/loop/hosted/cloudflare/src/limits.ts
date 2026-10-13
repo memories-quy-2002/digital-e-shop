@@ -20,7 +20,11 @@ export function unavailableEvidence(
     | 'webhook_ingress_not_configured'
     | 'queue_unavailable'
     | 'route_not_found'
-    | 'method_not_allowed',
+    | 'method_not_allowed'
+    | 'issue_task_ingress_not_configured'
+    | 'canonical_autonomy_policy_unavailable'
+    | 'task_storage_unavailable'
+    | 'task_conflict',
 ) {
   return { collectionStatus: 'unavailable' as const, reasonCode };
 }

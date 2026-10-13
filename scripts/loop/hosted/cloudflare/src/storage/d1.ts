@@ -1,9 +1,12 @@
 import { validatePrBabysitterState } from '../../../../pr-state-contract.mjs';
+import { validateTaskRecord } from '../../../../tasks/contracts.mjs';
 
 const REVISION_PATTERN = /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/i;
 const DELIVERY_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const STABLE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,119}$/;
 const MAX_PR_STATE_BYTES = 256 * 1024;
+const MAX_TASK_RECORD_BYTES = 32 * 1024;
+const TASK_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/;
 
 export interface D1DeliveryInput {
   deliveryId: string;
@@ -29,6 +32,8 @@ export interface CheckRunMapping {
   updatedAt: string;
 }
 
+export type TaskRecord = ReturnType<typeof validateTaskRecord>;
+
 type DeliveryStatus = 'received' | 'processed' | 'retry';
 
 export class D1Stage0StorageError extends Error {
@@ -41,6 +46,11 @@ export class D1Stage0StorageError extends Error {
     | 'pr_state_too_large'
     | 'check_run_mapping_invalid'
     | 'reconciliation_cursor_invalid'
+    | 'task_record_invalid'
+    | 'task_record_corrupt'
+    | 'task_not_found'
+    | 'task_conflict'
+    | 'task_lease_invalid'
     | 'database_error';
 
   constructor(code: D1Stage0StorageError['code']) {
@@ -146,6 +156,235 @@ export function createD1Stage0Storage(db: D1Database) {
       if (error instanceof D1Stage0StorageError) throw error;
       throw new D1Stage0StorageError('database_error');
     }
+  }
+
+  function validateAndSerializeTask(recordInput: unknown): { record: TaskRecord; json: string } {
+    let record: TaskRecord;
+    try {
+      record = validateTaskRecord(recordInput) as TaskRecord;
+    } catch {
+      throw new D1Stage0StorageError('task_record_invalid');
+    }
+    const json = JSON.stringify(record);
+    if (new TextEncoder().encode(json).byteLength > MAX_TASK_RECORD_BYTES) {
+      throw new D1Stage0StorageError('task_record_invalid');
+    }
+    return { record, json };
+  }
+
+  async function createTaskRecord(recordInput: unknown): Promise<'created'> {
+    const { record, json } = validateAndSerializeTask(recordInput);
+    try {
+      await db.prepare(
+        'INSERT INTO task_records (task_id, repository_id, issue_number, generation, version, state, record_json, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      ).bind(
+        record.taskId,
+        record.key.repositoryId,
+        record.key.issueNumber,
+        record.key.generation,
+        record.version,
+        record.state,
+        json,
+        new Date().toISOString(),
+      ).run();
+      return 'created';
+    } catch (error) {
+      if (error instanceof D1Stage0StorageError) throw error;
+      const code = String((error as { cause?: { message?: unknown } })?.cause?.message ?? error).toLowerCase();
+      if (code.includes('unique') || code.includes('primary key')) throw new D1Stage0StorageError('task_conflict');
+      throw new D1Stage0StorageError('database_error');
+    }
+  }
+
+  async function createTaskRecordIfAbsent(recordInput: unknown): Promise<'created' | 'duplicate'> {
+    const { record, json } = validateAndSerializeTask(recordInput);
+    try {
+      const inserted = await db.prepare(
+        'INSERT INTO task_records (task_id, repository_id, issue_number, generation, version, state, record_json, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING',
+      ).bind(
+        record.taskId,
+        record.key.repositoryId,
+        record.key.issueNumber,
+        record.key.generation,
+        record.version,
+        record.state,
+        json,
+        new Date().toISOString(),
+      ).run();
+      if ((inserted.meta?.changes ?? 0) === 1) return 'created';
+      const existing = await loadTaskRecord(record.taskId);
+      if (existing.key.repositoryId !== record.key.repositoryId
+          || existing.key.issueNumber !== record.key.issueNumber
+          || existing.key.generation !== record.key.generation
+          || existing.requestDigest !== record.requestDigest
+          || existing.sourceRevision !== record.sourceRevision
+          || existing.policyRevision !== record.policyRevision) {
+        throw new D1Stage0StorageError('task_conflict');
+      }
+      return 'duplicate';
+    } catch (error) {
+      if (error instanceof D1Stage0StorageError) throw error;
+      throw new D1Stage0StorageError('database_error');
+    }
+  }
+
+  async function loadTaskRecord(taskId: string): Promise<TaskRecord> {
+    if (typeof taskId !== 'string' || !TASK_ID_PATTERN.test(taskId)) {
+      throw new D1Stage0StorageError('task_record_invalid');
+    }
+    try {
+      const row = await db.prepare('SELECT record_json FROM task_records WHERE task_id = ?')
+        .bind(taskId).first<{ record_json: string }>();
+      if (!row) throw new D1Stage0StorageError('task_not_found');
+      if (new TextEncoder().encode(row.record_json).byteLength > MAX_TASK_RECORD_BYTES) {
+        throw new D1Stage0StorageError('task_record_corrupt');
+      }
+      let parsed: unknown;
+      try { parsed = JSON.parse(row.record_json); }
+      catch { throw new D1Stage0StorageError('task_record_corrupt'); }
+      try {
+        const record = validateTaskRecord(parsed) as TaskRecord;
+        if (record.taskId !== taskId) throw new D1Stage0StorageError('task_record_corrupt');
+        return record;
+      } catch (error) {
+        if (error instanceof D1Stage0StorageError) throw error;
+        throw new D1Stage0StorageError('task_record_corrupt');
+      }
+    } catch (error) {
+      if (error instanceof D1Stage0StorageError) throw error;
+      throw new D1Stage0StorageError('database_error');
+    }
+  }
+
+  async function saveTaskRecord(recordInput: unknown, expectedVersion: number, lease?: { owner: string; now: number }): Promise<'saved' | 'stale'> {
+    const { record, json } = validateAndSerializeTask(recordInput);
+    if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 1 || record.version !== expectedVersion + 1) {
+      throw new D1Stage0StorageError('task_record_invalid');
+    }
+    const current = await loadTaskRecord(record.taskId);
+    if (current.key.repositoryId !== record.key.repositoryId
+        || current.key.issueNumber !== record.key.issueNumber
+        || current.key.generation !== record.key.generation
+        || current.requestDigest !== record.requestDigest
+        || current.sourceRevision !== record.sourceRevision
+        || current.policyRevision !== record.policyRevision
+        || current.deadline !== record.deadline
+        || JSON.stringify(current.acceptanceIds) !== JSON.stringify(record.acceptanceIds)) {
+      throw new D1Stage0StorageError('task_record_invalid');
+    }
+    try {
+      if (lease) {
+        const result = await db.batch([
+          db.prepare('UPDATE task_records SET version = ?, state = ?, record_json = ?, updated_at = ? WHERE task_id = ? AND version = ? ' +
+            'AND EXISTS (SELECT 1 FROM task_execution_leases WHERE task_id = ? AND lease_owner = ? AND task_version = ? AND lease_until > ?)')
+            .bind(record.version, record.state, json, new Date().toISOString(), record.taskId, expectedVersion,
+              record.taskId, lease.owner, expectedVersion, lease.now),
+          db.prepare('UPDATE task_execution_leases SET task_version = ? WHERE task_id = ? AND lease_owner = ? AND task_version = ? AND lease_until > ? ' +
+            'AND EXISTS (SELECT 1 FROM task_records WHERE task_id = ? AND version = ?)')
+            .bind(record.version, record.taskId, lease.owner, expectedVersion, lease.now, record.taskId, record.version),
+        ]);
+        return result[0].meta?.changes === 1 && result[1].meta?.changes === 1 ? 'saved' : 'stale';
+      }
+      const result = await db.prepare(
+        'UPDATE task_records SET version = ?, state = ?, record_json = ?, updated_at = ? WHERE task_id = ? AND version = ?',
+      ).bind(record.version, record.state, json, new Date().toISOString(), record.taskId, expectedVersion).run();
+      return (result.meta?.changes ?? 0) === 1 ? 'saved' : 'stale';
+    } catch {
+      throw new D1Stage0StorageError('database_error');
+    }
+  }
+
+  async function compareAndSaveTaskRecord(recordInput: unknown, expectedVersion: number): Promise<'saved' | 'stale'> {
+    return saveTaskRecord(recordInput, expectedVersion);
+  }
+
+  async function compareAndSaveTaskRecordUnderLease(recordInput: unknown, expectedVersion: number, owner: string, now: number): Promise<'saved' | 'stale'> {
+    if (!STABLE_ID_PATTERN.test(owner) || !Number.isSafeInteger(now) || now < 1) throw new D1Stage0StorageError('task_lease_invalid');
+    return saveTaskRecord(recordInput, expectedVersion, { owner, now });
+  }
+
+  async function claimTaskLease(
+    taskId: string,
+    owner: string,
+    nowMs: number,
+    leaseMs: number,
+    expectedVersion: number,
+  ): Promise<boolean> {
+    if (typeof taskId !== 'string' || !TASK_ID_PATTERN.test(taskId)
+        || !STABLE_ID_PATTERN.test(owner) || !Number.isSafeInteger(nowMs) || nowMs < 1
+        || !Number.isSafeInteger(leaseMs) || leaseMs < 1 || leaseMs > 15 * 60 * 1000
+        || !Number.isSafeInteger(expectedVersion) || expectedVersion < 1) {
+      throw new D1Stage0StorageError('task_lease_invalid');
+    }
+    try {
+      const result = await db.prepare(
+        "INSERT INTO task_execution_leases (task_id, lease_owner, task_version, lease_until) " +
+        "SELECT task_id, ?, version, ? FROM task_records WHERE task_id = ? AND version = ? " +
+        "AND state NOT IN ('completed', 'cancelled', 'escalated', 'failed') " +
+        "AND NOT EXISTS (SELECT 1 FROM task_execution_leases other JOIN task_records active ON active.task_id = other.task_id " +
+        'WHERE active.repository_id = task_records.repository_id AND other.task_id <> task_records.task_id) ' +
+        'ON CONFLICT(task_id) DO UPDATE SET lease_owner = excluded.lease_owner, task_version = excluded.task_version, lease_until = excluded.lease_until ' +
+        'WHERE task_execution_leases.lease_until <= ? OR task_execution_leases.lease_owner = ?',
+      ).bind(owner, nowMs + leaseMs, taskId, expectedVersion, nowMs, owner).run();
+      return (result.meta?.changes ?? 0) === 1;
+    } catch {
+      throw new D1Stage0StorageError('database_error');
+    }
+  }
+
+  async function releaseTaskLease(taskId: string, owner: string): Promise<boolean> {
+    if (typeof taskId !== 'string' || !TASK_ID_PATTERN.test(taskId) || !STABLE_ID_PATTERN.test(owner)) {
+      throw new D1Stage0StorageError('task_lease_invalid');
+    }
+    try {
+      const result = await db.prepare(
+        'DELETE FROM task_execution_leases WHERE task_id = ? AND lease_owner = ?',
+      ).bind(taskId, owner).run();
+      return (result.meta?.changes ?? 0) === 1;
+    } catch {
+      throw new D1Stage0StorageError('database_error');
+    }
+  }
+
+  async function loadTaskLease(taskId: string): Promise<{ owner: string; taskVersion: number; leaseUntil: number } | null> {
+    if (!TASK_ID_PATTERN.test(taskId)) throw new D1Stage0StorageError('task_lease_invalid');
+    try {
+      const row = await db.prepare('SELECT lease_owner, task_version, lease_until FROM task_execution_leases WHERE task_id = ?')
+        .bind(taskId).first<{ lease_owner: string; task_version: number; lease_until: number }>();
+      if (!row) return null;
+      if (!STABLE_ID_PATTERN.test(row.lease_owner) || !Number.isSafeInteger(row.task_version) || row.task_version < 1
+          || !Number.isSafeInteger(row.lease_until) || row.lease_until < 1) throw new D1Stage0StorageError('task_lease_invalid');
+      return { owner: row.lease_owner, taskVersion: row.task_version, leaseUntil: row.lease_until };
+    } catch (error) {
+      if (error instanceof D1Stage0StorageError) throw error;
+      throw new D1Stage0StorageError('database_error');
+    }
+  }
+
+  async function listTaskRecordsForReconciliation(repositoryId: number, now: number, limit: number): Promise<TaskRecord[]> {
+    if (!Number.isSafeInteger(repositoryId) || repositoryId < 1 || !Number.isSafeInteger(now) || now < 1
+        || !Number.isSafeInteger(limit) || limit < 1 || limit > 20) throw new D1Stage0StorageError('configuration_invalid');
+    try {
+      const rows = await db.prepare('SELECT t.record_json FROM task_records t LEFT JOIN task_execution_leases l ON l.task_id = t.task_id ' +
+        "WHERE t.repository_id = ? AND t.state NOT IN ('completed','failed','escalated','cancelled','waiting-approval') " +
+        'AND (l.task_id IS NULL OR l.lease_until <= ?) ORDER BY t.updated_at ASC, t.task_id ASC LIMIT ?')
+        .bind(repositoryId, now, limit).all<{ record_json: string }>();
+      return rows.results.map((row) => {
+        const record = validateTaskRecord(JSON.parse(row.record_json)) as TaskRecord;
+        if (record.key.repositoryId !== repositoryId) throw new D1Stage0StorageError('task_record_corrupt');
+        return record;
+      });
+    } catch (error) {
+      if (error instanceof D1Stage0StorageError) throw error;
+      throw new D1Stage0StorageError('task_record_corrupt');
+    }
+  }
+
+  async function assertTaskLease(taskId: string, owner: string, now: number, expectedVersion: number): Promise<boolean> {
+    if (!STABLE_ID_PATTERN.test(owner) || !Number.isSafeInteger(now) || now < 1
+        || !Number.isSafeInteger(expectedVersion) || expectedVersion < 1) throw new D1Stage0StorageError('task_lease_invalid');
+    const lease = await loadTaskLease(taskId);
+    return lease !== null && lease.owner === owner && lease.taskVersion === expectedVersion && lease.leaseUntil > now;
   }
 
   async function getDeliveryStatus(deliveryId: string): Promise<DeliveryStatus | null> {
@@ -403,6 +642,16 @@ export function createD1Stage0Storage(db: D1Database) {
 
   return Object.freeze({
     registerDelivery,
+    createTaskRecord,
+    createTaskRecordIfAbsent,
+    loadTaskRecord,
+    compareAndSaveTaskRecord,
+    compareAndSaveTaskRecordUnderLease,
+    claimTaskLease,
+    releaseTaskLease,
+    loadTaskLease,
+    assertTaskLease,
+    listTaskRecordsForReconciliation,
     getDeliveryStatus,
     setDeliveryStatus,
     claimLease,

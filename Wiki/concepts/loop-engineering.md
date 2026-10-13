@@ -83,6 +83,25 @@ The 2026-10-09 read-only D1 sample contained 258 historical retry records with `
 
 ## Rollout boundary
 
+The Autonomous Issue-to-Merge work is tracked separately in
+`docs/superpowers/plans/2026-10-13-autonomous-issue-to-merge.md`. The
+`feature/autonomous-task-lifecycle` branch adds a strict TaskRecord v2 contract
+and reducer, an additive D1 task table, validated persistence with optimistic
+version updates, and expiring owner-bound execution leases. The current slice
+also adds signed Issue webhook routing, canonical autonomy policy loading at
+the default branch's immutable commit SHA, a fail-closed authorizer/task
+factory, idempotent D1 task creation, and a separate metadata-only task Queue
+producer. Tasks 3–7 now add a pinned no-network Docker runner, a lease-bound
+host runtime, exact-path patch and delivery gates, CI/merge evidence checks,
+bounded reconciliation, and a one-use completion proof. The production Queue
+consumer and runner service binding are still unprovisioned, and automatic
+worktree resume, live CI rerun/repair, native merge writing, and Issue completion
+comments remain unimplemented. The current host's Codex workspace-write
+sandbox allows reads outside its worktree, so it is not an acceptable
+unattended boundary for untrusted Issue text; see
+[task-runner.md](../../docs/loop-engineering/task-runner.md). Autonomy and
+auto-merge remain disabled.
+
 Hosted Stage 0 has a Cloudflare Worker implementation with mocked API/D1/Queue tests and fixed-verifier coverage. The D1 database, Queues, Worker bindings, public IDs, and required secret names were observed as configured on 2026-10-09; secret values were not read. The active Worker version still lacks verified source-commit provenance, and live PR pilot completion is unproved. Its Check Run report is always `neutral`, bounded, attached to the revalidated head SHA, and explicitly non-gating. PR and main-push validation runs without Cloudflare/App secrets; only a manual `workflow_dispatch` from `main` can enter the protected production deployment job. See [[0007-hosted-stage0-report-check]] and the [hosted runbook](../../docs/loop-engineering/hosted-stage0-runbook.md).
 
 The Phase 2A decision core and the Phase 2B GitHub App auth, observation
@@ -220,3 +239,9 @@ Readiness
 documentation passed specification and quality review and remains a local
 change pending hosted validation. See the [Stage 1 CLI runbook](../../docs/loop-engineering/stage1-cli-runbook.md)
 and [readiness evidence](../../docs/loop-engineering/stage1-readiness.md).
+
+## Autonomous Issue-to-Merge status
+
+The implementation plan and source now cover signed Issue ingress, digest-only TaskRecord/D1 state and leases, Queue dispatch handling, a pinned no-network Docker runner, a lease-bound host runtime, exact-scope PR delivery, evidence-driven CI/merge gates, bounded reconciliation, and a one-use completion proof. The completion reducer refuses `completed` unless the host freshly verifies merged PR identity/SHA, full verification, required checks, and attested workflow sources. The runtime checks the Issue digest and eligibility before dispatch acceptance and rechecks before model or delivery writes. Dirty canonical policy checkouts fail closed.
+
+This branch is still local implementation evidence. The canonical autonomy policy remains disabled and does not grant auto-merge. Automatic worktree resume, live CI rerun/repair executors, native merge writing, Issue completion-comment writing, and production Worker-to-host binding are not implemented. No OpenAI API call, GitHub write, push, merge, or deployment has been performed. See the [task runner guide](../../docs/loop-engineering/task-runner.md) and [implementation plan](../../docs/superpowers/plans/2026-10-13-autonomous-issue-to-merge.md).

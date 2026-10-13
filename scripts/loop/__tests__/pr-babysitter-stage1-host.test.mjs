@@ -274,6 +274,9 @@ it('requires a real TTY before the rerun path can construct a host', async (t) =
 });
 
 it('ignores trust environment overrides and fails closed when the user-local trust file is absent', async (t) => {
+  const taskHome = await mkdtemp(path.join(os.tmpdir(), 'digital-e-stage1-absent-trust-'));
+  t.mock.method(os, 'userInfo', () => ({ homedir: taskHome }));
+  t.after(() => rm(taskHome, { recursive: true, force: true }));
   let fetchCalls = 0;
   t.mock.method(globalThis, 'fetch', async () => { fetchCalls += 1; throw new Error('unexpected network'); });
   const env = {

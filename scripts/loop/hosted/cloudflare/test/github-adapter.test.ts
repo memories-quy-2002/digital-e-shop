@@ -113,6 +113,7 @@ function observerFixture(options: {
       return value;
     }),
     getRepository: vi.fn(async () => ({ id: repositoryId, default_branch: 'main' })),
+    getCommit: vi.fn(async (_ref: string) => ({ sha: baseSha })),
     getRepositoryById: vi.fn(async (id: number) => ({ id, full_name: repository })),
     getBranchProtection: vi.fn(async () => {
       if (options.failProtection) throw new Error('sensitive api failure');
@@ -383,6 +384,27 @@ describe('GitHub App authentication', () => {
 });
 
 describe('fixed GitHub read API client', () => {
+  it('reads a trusted branch commit and the autonomy policy at an immutable revision', async () => {
+    const urls: string[] = [];
+    const api = createGitHubApiClient({
+      repository: 'memories-quy-2002/digital-e-shop',
+      repositoryId,
+      getToken: async () => 'ghs_test',
+      fetchImpl: async (input) => {
+        urls.push(String(input));
+        return Response.json(String(input).includes('/contents/')
+          ? { encoding: 'base64', content: btoa('{}') }
+          : { sha: baseSha });
+      },
+    });
+
+    await expect(api.getCommit('main')).resolves.toMatchObject({ sha: baseSha });
+    await expect(api.getPolicyFile('autonomy.yml', baseSha)).resolves.toMatchObject({ encoding: 'base64' });
+    expect(urls[0]).toContain('/commits/main');
+    expect(urls[1]).toContain(`/contents/.agent/policy/autonomy.yml?ref=${baseSha}`);
+    expect(() => api.getPolicyFile('autonomy.yml', 'main')).toThrow('configuration_invalid');
+  });
+
   it.each(['repository', 'branch protection', 'open pull requests'])('uses a Worker-supported redirect mode for %s', async (route) => {
     const api = createGitHubApiClient({
       repository: 'memories-quy-2002/digital-e-shop',

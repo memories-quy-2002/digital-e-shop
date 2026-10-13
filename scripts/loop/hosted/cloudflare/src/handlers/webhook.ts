@@ -1,5 +1,10 @@
 import type { Env } from '../index';
 import { STAGE0_LIMITS, unavailableEvidence } from '../limits';
+import { authorizeIssueTask } from '../../../../tasks/issue-ingress.mjs';
+import { createGitHubObserverRuntime } from '../github/observer';
+import { createD1Stage0Storage } from '../storage/d1';
+import { loadCanonicalAutonomyPolicy } from './issue-policy';
+import type { IssueTaskQueueMessage } from './issue-task-queue';
 import type { Stage0QueueMessage } from './queue';
 
 const supportedPullRequestActions = new Set([
@@ -12,7 +17,8 @@ const supportedPullRequestActions = new Set([
 const maxDeliveryIdLength = 128;
 const maxWebhookSecretLength = 4096;
 const maxCheckRunNameLength = 100;
-type IgnoredReasonCode = 'unsupported_event' | 'unsupported_action' | 'wrong_repository' | 'self_check_run';
+type IgnoredReasonCode = 'unsupported_event' | 'unsupported_action' | 'wrong_repository' | 'self_check_run'
+  | 'policy_disabled' | 'policy_revision_mismatch' | 'actor_not_eligible' | 'opt_in_missing' | 'pull_request_issue';
 type RejectedReasonCode =
   | 'invalid_webhook_headers'
   | 'invalid_webhook_body'
@@ -24,6 +30,11 @@ interface WebhookConfiguration {
   repositoryId: number;
   appId: number;
   checkRunName: string;
+}
+
+export interface IssueIngressServices {
+  loadPolicy(env: Env, repositoryId: number): Promise<{ policy: Record<string, unknown>; sourceRevision: string }>;
+  createTaskRecordIfAbsent(env: Env, record: unknown): Promise<'created' | 'duplicate'>;
 }
 
 type BodyReadResult =
@@ -79,6 +90,108 @@ function getConfiguration(env: Env): WebhookConfiguration | null {
   }
 
   return { secret, repositoryId, appId, checkRunName };
+}
+
+const defaultIssueIngressServices: IssueIngressServices = {
+  async loadPolicy(env, repositoryId) {
+    const runtime = createGitHubObserverRuntime(env);
+    return loadCanonicalAutonomyPolicy(runtime.api, repositoryId);
+  },
+  async createTaskRecordIfAbsent(env, record) {
+    if (!env.STAGE0_DB) throw new Error('task_storage_unavailable');
+    return createD1Stage0Storage(env.STAGE0_DB).createTaskRecordIfAbsent(record);
+  },
+};
+
+function issueEnvelope(payload: Record<string, unknown>): {
+  action: string;
+  repositoryId: number;
+  issueNumber: number;
+  actorId: number;
+  labels: string[];
+  body: string;
+  isPullRequest: boolean;
+} | null {
+  if (!isRecord(payload.issue) || !isRecord(payload.sender)) return null;
+  const issue = payload.issue;
+  const repositoryId = getRepositoryId(payload);
+  if (!positiveInteger(issue.number) || repositoryId === null
+      || !positiveInteger(payload.sender.id) || typeof payload.action !== 'string'
+      || !Array.isArray(issue.labels) || issue.labels.length > 100
+      || issue.labels.some((label) => !isRecord(label) || typeof label.name !== 'string' || label.name.length > 100)
+      || typeof issue.body !== 'string') return null;
+  return {
+    action: payload.action,
+    repositoryId,
+    issueNumber: issue.number,
+    actorId: payload.sender.id,
+    labels: issue.labels.map((label) => (label as Record<string, unknown>).name as string),
+    body: issue.body,
+    isPullRequest: Object.prototype.hasOwnProperty.call(issue, 'pull_request'),
+  };
+}
+
+async function acceptIssueTask(
+  payload: Record<string, unknown>,
+  deliveryId: string,
+  env: Env,
+  services: IssueIngressServices,
+): Promise<Response> {
+  if (!env.TASK_QUEUE || !env.STAGE0_DB) return response(unavailableEvidence('issue_task_ingress_not_configured'), 503);
+  const envelope = issueEnvelope(payload);
+  if (!envelope) return rejected('invalid_webhook_body');
+  if (envelope.repositoryId !== parsePositiveId(env.GITHUB_REPOSITORY_ID)) return ignored('wrong_repository');
+
+  let trusted: { policy: Record<string, unknown>; sourceRevision: string };
+  try {
+    trusted = await services.loadPolicy(env, envelope.repositoryId);
+  } catch {
+    console.warn('issue_task_policy_unavailable');
+    return response(unavailableEvidence('canonical_autonomy_policy_unavailable'), 503);
+  }
+  const now = new Date();
+  const deadline = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  let authorization: Awaited<ReturnType<typeof authorizeIssueTask>>;
+  try {
+    authorization = await authorizeIssueTask({
+      ...envelope,
+      configuredRepositoryId: parsePositiveId(env.GITHUB_REPOSITORY_ID),
+      sourceRevision: trusted.sourceRevision,
+      policy: trusted.policy,
+      now: now.toISOString(),
+      deadline: deadline.toISOString(),
+    });
+  } catch {
+    return rejected('invalid_webhook_body');
+  }
+  if (authorization.status === 'ignored') return ignored(authorization.reasonCode as IgnoredReasonCode);
+
+  let taskStatus: 'created' | 'duplicate';
+  try {
+    taskStatus = await services.createTaskRecordIfAbsent(env, authorization.record);
+  } catch (error) {
+    const code = isRecord(error) && error.code === 'task_conflict' ? 'task_conflict' : 'task_storage_unavailable';
+    return response(unavailableEvidence(code), code === 'task_conflict' ? 409 : 503);
+  }
+
+  const task = authorization.record;
+  const message: IssueTaskQueueMessage = {
+    kind: 'issue_task',
+    deliveryId,
+    repositoryId: task.key.repositoryId,
+    issueNumber: task.key.issueNumber,
+    generation: task.key.generation,
+    taskId: task.taskId,
+    sourceRevision: task.sourceRevision,
+    policyRevision: task.policyRevision,
+  };
+  try {
+    await env.TASK_QUEUE.send(message, { contentType: 'json' });
+  } catch {
+    console.warn('issue_task_queue_send_failed');
+    return response(unavailableEvidence('queue_unavailable'), 503);
+  }
+  return response({ status: 'accepted', taskStatus }, 202);
 }
 
 function validateContentLength(value: string | null): 'valid' | 'invalid' | 'too_large' {
@@ -183,7 +296,11 @@ function isOwnCheckRun(payload: Record<string, unknown>, configuration: WebhookC
   );
 }
 
-export async function handleWebhook(request: Request, env: Env): Promise<Response> {
+export async function handleWebhook(
+  request: Request,
+  env: Env,
+  issueServices: IssueIngressServices = defaultIssueIngressServices,
+): Promise<Response> {
   if (request.method !== 'POST') {
     return Response.json(unavailableEvidence('method_not_allowed'), {
       status: 405,
@@ -218,7 +335,7 @@ export async function handleWebhook(request: Request, env: Env): Promise<Respons
     return rejected('invalid_signature');
   }
 
-  if (event !== 'pull_request' && event !== 'check_run') return ignored('unsupported_event');
+  if (event !== 'pull_request' && event !== 'check_run' && event !== 'issues') return ignored('unsupported_event');
 
   const payload = parseJsonBody(body.bytes);
   if (!payload) return rejected('invalid_webhook_body');
@@ -228,6 +345,8 @@ export async function handleWebhook(request: Request, env: Env): Promise<Respons
       ? ignored('self_check_run')
       : ignored('unsupported_event');
   }
+
+  if (event === 'issues') return acceptIssueTask(payload, deliveryId, env, issueServices);
 
   const eventAction = payload.action;
   const actualRepositoryId = getRepositoryId(payload);

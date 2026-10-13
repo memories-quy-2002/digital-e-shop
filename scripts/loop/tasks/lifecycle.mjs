@@ -1,5 +1,6 @@
 import { validateTaskRecord } from './contracts.mjs';
 import { validateLoopState } from '../state.mjs';
+import { consumeTaskCompletionProof } from './completion.mjs';
 
 export class TaskTransitionError extends Error {
   constructor(message, options = {}) { super(message, options); this.name = new.target.name; }
@@ -16,7 +17,7 @@ const EDGES = Object.freeze({
   planning: { execute: 'executing', 'wait-approval': 'waiting-approval', fail: 'failed', escalate: 'escalated', cancel: 'cancelling' },
   executing: { verify: 'verifying', 'wait-approval': 'waiting-approval', fail: 'failed', escalate: 'escalated', cancel: 'cancelling' },
   verifying: { deliver: 'delivering', retry: 'retry-wait', fail: 'failed', escalate: 'escalated' },
-  delivering: { monitor: 'monitoring', fail: 'failed', escalate: 'escalated' },
+  delivering: { monitor: 'monitoring', 'delivery-confirmed': 'monitoring', fail: 'failed', escalate: 'escalated' },
   monitoring: { merge: 'merging', report: 'reporting', retry: 'retry-wait', escalate: 'escalated' },
   merging: { 'merge-confirmed': 'merged', report: 'reporting', escalate: 'escalated' },
   merged: { report: 'reporting' },
@@ -29,7 +30,7 @@ const EDGES = Object.freeze({
 function fail(message) { throw new TaskTransitionError(message); }
 function validateEvent(record, event) {
   if (!event || typeof event !== 'object' || Array.isArray(event)) fail('event is invalid');
-  const allowed = ['type', 'taskId', 'attempt', 'epoch', 'expectedVersion', 'reason', 'pr', 'mergeSha'];
+  const allowed = ['type', 'taskId', 'attempt', 'epoch', 'expectedVersion', 'reason', 'pr', 'mergeSha', 'completionProof'];
   if (Object.keys(event).some((key) => !allowed.includes(key))) fail('event has unsupported fields');
   if (event.taskId !== record.taskId || event.attempt !== record.attempt || event.epoch !== record.epoch) fail('event identity, attempt, or epoch does not match');
   if (!Number.isSafeInteger(event.expectedVersion) || event.expectedVersion !== record.version) fail('event expectedVersion is stale or invalid');
@@ -112,9 +113,9 @@ function reconcile(record, context, event) {
     const next = context.prSnapshot;
     if (next.repositoryId !== prior.repositoryId || next.number !== prior.number) fail('PR identity changed');
     const confirmedMerge = event.type === 'merge-confirmed'
-      && prior.mergeSha === null && typeof next.mergeSha === 'string';
-    if (next.baseSha !== prior.baseSha || next.headSha !== prior.headSha
-      || (next.mergeSha !== prior.mergeSha && !confirmedMerge)) fail('PR tuple changed; task requires escalation');
+      && typeof next.mergeSha === 'string';
+    if (event.type !== 'delivery-confirmed' && (next.baseSha !== prior.baseSha || next.headSha !== prior.headSha
+      || (next.mergeSha !== prior.mergeSha && !confirmedMerge))) fail('PR tuple changed; task requires escalation');
   }
   return { conditions, loop };
 }
@@ -136,6 +137,36 @@ export function advanceTask(input, event, trustedContext) {
   if (event.type === 'pr-updated') return escalate(record, 'pr_tuple_changed');
   const target = EDGES[record.state]?.[event.type];
   if (!target) fail('transition is not allowed');
+  if (event.type === 'complete' && (record.confirmedMergeSha === null
+      || !consumeTaskCompletionProof(event.completionProof, record))) return escalate(record, 'completion_evidence_missing');
+  if (event.type === 'monitor' || event.type === 'delivery-confirmed') {
+    assertExactKeys(event.pr, ['repositoryId', 'number', 'baseSha', 'headSha', 'mergeSha'], 'delivery PR evidence');
+    const observed = trustedContext?.prSnapshot;
+    const loop = trustedContext?.loopState;
+    if (!observed || event.pr.repositoryId !== record.key.repositoryId
+        || event.pr.repositoryId !== observed.repositoryId || event.pr.number !== observed.number
+        || event.pr.baseSha !== observed.baseSha || event.pr.headSha !== observed.headSha
+        || event.pr.mergeSha !== observed.mergeSha || event.pr.baseSha !== loop.baseSha
+        || event.pr.headSha !== loop.headSha) fail('delivery PR evidence does not match host observation');
+    if (event.type === 'monitor' && record.links.pr !== null) fail('delivery PR evidence already linked');
+    if (event.type === 'delivery-confirmed') {
+      const prior = record.links.pr;
+      const verification = trustedContext.verification;
+      if (!prior || prior.repositoryId !== event.pr.repositoryId || prior.number !== event.pr.number
+          || prior.baseSha !== event.pr.baseSha || verification?.mode !== 'full' || verification.passed !== true
+          || !Array.isArray(verification.commands) || verification.commands.length < 1
+          || verification.commands.some((command) => command.exitCode !== 0 || command.signal !== null || command.spawnErrorCode !== null)
+          || !Array.isArray(verification.requiredExternalChecks)
+          || (verification.complete !== true && !(verification.complete === false && verification.requiredExternalChecks.length > 0))
+          || verification.revisionStable !== true
+          || verification.workspaceStable !== true || verification.verifiedRevision !== event.pr.headSha
+          || verification.currentRevision !== event.pr.headSha || !/^[a-f0-9]{64}$/.test(verification.verifiedWorkspaceFingerprint ?? '')
+          || verification.verifiedWorkspaceFingerprint !== verification.currentWorkspaceFingerprint
+          || verification.currentWorkspaceFingerprint !== trustedContext.hostWorkspaceFingerprint) fail('verified delivery evidence required');
+    }
+  } else if (event.pr !== undefined && event.type !== 'pr-updated') {
+    fail('PR evidence is unsupported for this transition');
+  }
   if (event.type === 'merge-confirmed') {
     if (typeof event.mergeSha !== 'string' || !/^[a-f0-9]{40,64}$/i.test(event.mergeSha)
       || !record.links.pr || trustedContext?.prSnapshot?.mergeSha?.toLowerCase() !== event.mergeSha.toLowerCase()) {
@@ -143,6 +174,7 @@ export function advanceTask(input, event, trustedContext) {
     }
   }
   const next = { ...record, state: target, version: record.version + 1 };
+  if (event.type === 'monitor' || event.type === 'delivery-confirmed') next.links = { ...record.links, pr: structuredClone(event.pr) };
   if (event.type === 'merge-confirmed') {
     next.confirmedMergeSha = event.mergeSha.toLowerCase();
     next.links.pr = { ...next.links.pr, mergeSha: event.mergeSha.toLowerCase() };

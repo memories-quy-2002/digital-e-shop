@@ -212,6 +212,22 @@ describe('verification planning', () => {
       'scripts/loop/__tests__/stage1-source-sha-probe.test.mjs',
       'scripts/loop/__tests__/stage1-prompt.test.mjs',
       'scripts/loop/__tests__/pr-babysitter-stage1-host.test.mjs',
+      'scripts/loop/__tests__/task-contracts.test.mjs',
+      'scripts/loop/__tests__/task-lifecycle.test.mjs',
+      'scripts/loop/__tests__/task-ingress.test.mjs',
+      'scripts/loop/__tests__/task-session.test.mjs',
+      'scripts/loop/__tests__/task-completion.test.mjs',
+      'scripts/loop/__tests__/task-ci.test.mjs',
+      'scripts/loop/__tests__/task-merge.test.mjs',
+      'scripts/loop/__tests__/runner-protocol.test.mjs',
+      'scripts/loop/__tests__/runner-host.test.mjs',
+      'scripts/loop/__tests__/runner-docker.test.mjs',
+      'scripts/loop/__tests__/runner-docker-image.test.mjs',
+      'scripts/loop/__tests__/runner-apply-patch.test.mjs',
+      'scripts/loop/__tests__/runner-task-pipeline.test.mjs',
+      'scripts/loop/__tests__/task-worktree.test.mjs',
+      'scripts/loop/__tests__/task-runtime.test.mjs',
+      'scripts/loop/__tests__/github-issue-delivery.test.mjs',
     ]);
   });
 

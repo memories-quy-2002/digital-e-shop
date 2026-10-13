@@ -28,6 +28,40 @@ function event(task, type, fields = {}) {
 }
 
 describe('deterministic task lifecycle', () => {
+  it('attaches a freshly observed PR only when the delivery matches the host checkout tuple', () => {
+    const task = record({ state: 'delivering' });
+    const pr = { repositoryId: 1234, number: 7, baseSha: loopState.baseSha, headSha: loopState.headSha, mergeSha: null };
+    const advanced = advanceTask(task, event(task, 'monitor', { pr }), { ...context, prSnapshot: pr });
+    assert.deepEqual(advanced.record.links.pr, pr);
+    assert.equal(advanced.record.state, 'monitoring');
+    assert.throws(() => advanceTask(task, event(task, 'monitor', { pr }), context), TaskTransitionError);
+    assert.throws(() => advanceTask(task, event(task, 'monitor', { pr: { ...pr, headSha: 'f'.repeat(40) } }), { ...context, prSnapshot: pr }), TaskTransitionError);
+  });
+
+  it('does not complete reporting without a host-issued current completion proof', () => {
+    const task = record({ state: 'reporting' });
+    const result = advanceTask(task, event(task, 'complete'), context);
+    assert.equal(result.record.state, 'escalated');
+    assert.equal(result.reason, 'completion_evidence_missing');
+  });
+  it('adopts a repaired head only after explicit delivery with matching fresh host verification', () => {
+    const prior = { repositoryId: 1234, number: 7, baseSha: loopState.baseSha, headSha: loopState.headSha, mergeSha: null };
+    const task = record({ state: 'delivering', budgets: { modelCalls: 3, repairs: 1, deliveries: 2, lastModelTokenUsed: null },
+      links: { loopStateTaskId: record().taskId, pr: prior } });
+    const pr = { ...prior, headSha: 'f'.repeat(40) };
+    const verification = { mode: 'full', complete: true, commands: [{ id: 'loop-tests', exitCode: 0, signal: null, spawnErrorCode: null }], requiredExternalChecks: [],
+      passed: true, revisionStable: true, workspaceStable: true, verifiedRevision: pr.headSha,
+      currentRevision: pr.headSha, verifiedWorkspaceFingerprint: 'a'.repeat(64), currentWorkspaceFingerprint: 'a'.repeat(64) };
+    const deliveredContext = { ...context, loopState: { ...loopState, headSha: pr.headSha }, prSnapshot: pr,
+      verification, hostWorkspaceFingerprint: 'a'.repeat(64) };
+    const result = advanceTask(task, event(task, 'delivery-confirmed', { pr }), deliveredContext);
+    assert.equal(result.record.state, 'monitoring');
+    assert.deepEqual(result.record.links.pr, pr);
+    assert.deepEqual(result.record.budgets, task.budgets);
+    assert.throws(() => advanceTask(task, event(task, 'delivery-confirmed', { pr }), { ...deliveredContext, verification: undefined }), TaskTransitionError);
+    assert.throws(() => advanceTask(task, event(task, 'delivery-confirmed', { pr }), { ...deliveredContext, verification: { ...verification, mode: 'fast' } }), TaskTransitionError);
+    assert.throws(() => advanceTask(task, event(task, 'delivery-confirmed', { pr }), { ...deliveredContext, verification: { ...verification, complete: false } }), TaskTransitionError);
+  });
   it('advances only declared state edges and rejects wrong identity, attempt, and epoch', () => {
     const queued = record();
     const started = advanceTask(queued, event(queued, 'start'), context);
@@ -62,7 +96,9 @@ describe('deterministic task lifecycle', () => {
     assert.equal(merged.record.confirmedMergeSha, mergeSha);
     const reporting = advanceTask(merged.record, event(merged.record, 'report'), context);
     assert.equal(reporting.record.state, 'reporting');
-    assert.equal(advanceTask(reporting.record, event(reporting.record, 'complete'), context).record.state, 'completed');
+    const incomplete = advanceTask(reporting.record, event(reporting.record, 'complete'), context);
+    assert.equal(incomplete.record.state, 'escalated');
+    assert.equal(incomplete.reason, 'completion_evidence_missing');
   });
 
   it('does not let PR tuple changes or restarts reset task or LoopState counters', () => {

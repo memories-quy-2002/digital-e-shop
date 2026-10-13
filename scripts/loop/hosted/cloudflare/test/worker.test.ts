@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { decidePrAction } from '../../../pr-babysitter.mjs';
 import { incompleteEvidence, STAGE0_LIMITS } from '../src/limits';
 import worker, { type Env } from '../src/index';
+import { handleWebhook } from '../src/handlers/webhook';
+import type { IssueTaskQueueMessage } from '../src/handlers/issue-task-queue';
 import type { Stage0QueueMessage } from '../src/handlers/queue';
 import { decisionFixtures } from './decision-fixtures.mjs';
 
@@ -11,6 +13,16 @@ const webhookSecret = 'unit-test-webhook-secret';
 const checkRunName = 'Loop Engineering Stage 0';
 const repositoryId = 123456;
 const appId = 5130911;
+const trustedRevision = 'a'.repeat(40);
+const autonomyPolicy = Object.freeze({
+  schemaVersion: 1, enabled: true, autoMergeEnabled: false,
+  ownerActorIds: Object.freeze([93824124]), eligibleActors: Object.freeze([93824124]), optInLabel: 'autonomous:run',
+  eligibleCategories: Object.freeze(['documentation']), eligiblePaths: Object.freeze(['docs/API.md']),
+  eligibleRisks: Object.freeze(['low']), runner: Object.freeze({ provider: 'openai', model: 'GPT-6-Luna' }),
+  capabilities: Object.freeze(['observe']),
+  budgets: Object.freeze({ maxModelCalls: 8, maxDeliveryGenerations: 2, taskConcurrency: 1, maxHostedWorkflowRuns: 3 }),
+  trustedRevision,
+});
 
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -34,6 +46,15 @@ function pullRequestPayload(action: string, targetRepositoryId = repositoryId) {
     number: 42,
     repository: { id: targetRepositoryId },
     pull_request: { number: 42 },
+  };
+}
+
+function issuePayload(action = 'opened', targetRepositoryId = repositoryId) {
+  return {
+    action,
+    repository: { id: targetRepositoryId },
+    sender: { id: 93824124 },
+    issue: { number: 42, body: 'Implement a small frontend improvement.', labels: [{ name: 'autonomous:run' }] },
   };
 }
 
@@ -61,16 +82,21 @@ async function webhookRequest(options: {
 function webhookEnv(send = vi.fn(async (_message: unknown, _options?: unknown) => undefined)): {
   env: Env;
   send: typeof send;
+  taskSend: ReturnType<typeof vi.fn>;
 } {
+  const taskSend = vi.fn(async (_message: IssueTaskQueueMessage, _options?: unknown) => undefined);
   return {
     env: {
       EVENT_QUEUE: { send } as unknown as Queue<Stage0QueueMessage>,
+      TASK_QUEUE: { send: taskSend } as unknown as Queue<IssueTaskQueueMessage>,
+      STAGE0_DB: {} as D1Database,
       GITHUB_WEBHOOK_SECRET: webhookSecret,
       GITHUB_REPOSITORY_ID: String(repositoryId),
       GITHUB_APP_ID: String(appId),
       STAGE0_CHECK_RUN_NAME: checkRunName,
     },
     send,
+    taskSend,
   };
 }
 
@@ -195,7 +221,7 @@ describe('hosted Stage 0 Worker runtime', () => {
 
   it('acknowledges unsupported events and actions without queueing them', async () => {
     const { env, send } = webhookEnv();
-    const unsupportedEvent = await webhookRequest({ event: 'issues', payload: { action: 'opened' } });
+    const unsupportedEvent = await webhookRequest({ event: 'member', payload: { action: 'added' } });
     const unsupportedAction = await webhookRequest({ payload: pullRequestPayload('closed') });
 
     const eventResponse = await worker.fetch(unsupportedEvent, env);
@@ -293,6 +319,102 @@ describe('hosted Stage 0 Worker runtime', () => {
       'same-delivery-id',
       'same-delivery-id',
     ]);
+  });
+
+  it('creates one metadata-only Issue task for signed eligible opt-in deliveries', async () => {
+    const { env, taskSend } = webhookEnv();
+    const tasks = new Map<string, unknown>();
+    const services = {
+      loadPolicy: vi.fn(async () => ({ policy: autonomyPolicy, sourceRevision: trustedRevision })),
+      createTaskRecordIfAbsent: vi.fn(async (_env: Env, record: { taskId: string }) => {
+        if (tasks.has(record.taskId)) return 'duplicate' as const;
+        tasks.set(record.taskId, record);
+        return 'created' as const;
+      }),
+    };
+    const request = await webhookRequest({ event: 'issues', deliveryId: 'issue-delivery-42', payload: issuePayload() });
+    const first = await handleWebhook(request, env, services);
+    const duplicateRequest = await webhookRequest({ event: 'issues', deliveryId: 'issue-delivery-42', payload: issuePayload() });
+    const duplicate = await handleWebhook(duplicateRequest, env, services);
+
+    expect(first.status).toBe(202);
+    expect(await first.json()).toEqual({ status: 'accepted', taskStatus: 'created' });
+    expect(await duplicate.json()).toEqual({ status: 'accepted', taskStatus: 'duplicate' });
+    expect(tasks.size).toBe(1);
+    expect(services.createTaskRecordIfAbsent).toHaveBeenCalledTimes(2);
+    expect(taskSend).toHaveBeenCalledTimes(2);
+    expect(taskSend.mock.calls[0]?.[0]).toMatchObject({
+      kind: 'issue_task', taskId: 'repo-123456-issue-42-g1', repositoryId, issueNumber: 42,
+      sourceRevision: trustedRevision, policyRevision: trustedRevision,
+    });
+    expect(JSON.stringify(taskSend.mock.calls[0]?.[0])).not.toContain('Implement a small');
+    expect(JSON.stringify([...tasks.values()])).not.toContain('Implement a small');
+  });
+
+  it('keeps Issue ingress fail-closed for disabled policy and noneligible actors', async () => {
+    for (const [policy, actorId, reasonCode] of [
+      [Object.freeze({ ...autonomyPolicy, enabled: false }), 93824124, 'policy_disabled'],
+      [autonomyPolicy, 55, 'actor_not_eligible'],
+    ] as const) {
+      const { env, taskSend } = webhookEnv();
+      const services = {
+        loadPolicy: vi.fn(async () => ({ policy, sourceRevision: trustedRevision })),
+        createTaskRecordIfAbsent: vi.fn(),
+      };
+      const payload = issuePayload();
+      payload.sender.id = actorId;
+      const result = await handleWebhook(
+        await webhookRequest({ event: 'issues', payload }), env, services,
+      );
+      expect(await result.json()).toMatchObject({ status: 'ignored', reasonCode });
+      expect(services.createTaskRecordIfAbsent).not.toHaveBeenCalled();
+      expect(taskSend).not.toHaveBeenCalled();
+    }
+  });
+
+  it('ignores Issues without opt-in or from other repositories and rejects unsupported or malformed Issues', async () => {
+    const cases = [
+      { payload: { ...issuePayload(), issue: { ...issuePayload().issue, labels: [] } }, status: 202, body: { status: 'ignored', reasonCode: 'opt_in_missing' } },
+      { payload: issuePayload('edited'), status: 202, body: { status: 'ignored', reasonCode: 'unsupported_action' } },
+      { payload: issuePayload('opened', repositoryId + 1), status: 202, body: { status: 'ignored', reasonCode: 'wrong_repository' } },
+      { payload: { ...issuePayload(), issue: { ...issuePayload().issue, number: 0 } }, status: 400, body: { status: 'rejected', reasonCode: 'invalid_webhook_body' } },
+      { payload: { ...issuePayload(), issue: { ...issuePayload().issue, body: 'x'.repeat(70 * 1024) } }, status: 400, body: { status: 'rejected', reasonCode: 'invalid_webhook_body' } },
+    ];
+    for (const testCase of cases) {
+      const { env, taskSend } = webhookEnv();
+      const services = {
+        loadPolicy: vi.fn(async () => ({ policy: autonomyPolicy, sourceRevision: trustedRevision })),
+        createTaskRecordIfAbsent: vi.fn(async () => 'created' as const),
+      };
+      const result = await handleWebhook(
+        await webhookRequest({ event: 'issues', payload: testCase.payload }), env, services,
+      );
+      expect(result.status).toBe(testCase.status);
+      expect(await result.json()).toEqual(testCase.body);
+      expect(services.createTaskRecordIfAbsent).not.toHaveBeenCalled();
+      expect(taskSend).not.toHaveBeenCalled();
+    }
+  });
+
+  it('returns a retryable bounded error when task queue delivery fails after idempotent persistence', async () => {
+    const { env, taskSend } = webhookEnv();
+    taskSend.mockRejectedValueOnce(new Error('sensitive queue detail'));
+    const services = {
+      loadPolicy: vi.fn(async () => ({ policy: autonomyPolicy, sourceRevision: trustedRevision })),
+      createTaskRecordIfAbsent: vi.fn(async () => 'created' as const),
+    };
+    const log = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const result = await handleWebhook(
+        await webhookRequest({ event: 'issues', payload: issuePayload() }), env, services,
+      );
+      expect(result.status).toBe(503);
+      expect(await result.json()).toEqual({ collectionStatus: 'unavailable', reasonCode: 'queue_unavailable' });
+      expect(log.mock.calls.flat().join(' ')).not.toContain('sensitive queue detail');
+      expect(services.createTaskRecordIfAbsent).toHaveBeenCalledTimes(1);
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it('does not acknowledge a Queue failure or log the thrown error', async () => {

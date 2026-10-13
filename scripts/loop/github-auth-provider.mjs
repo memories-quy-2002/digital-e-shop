@@ -21,9 +21,10 @@ const CAPABILITY_PERMISSIONS = Object.freeze({
   'actions:rerun': Object.freeze({ ...OBSERVE_PERMISSIONS, actions: 'write' }),
   'stage1:required-check-recovery': Object.freeze({ ...OBSERVE_PERMISSIONS, actions: 'write' }),
   'contents:write': Object.freeze({ ...OBSERVE_PERMISSIONS, contents: 'write' }),
+  'issue:delivery': Object.freeze({ metadata: 'read', contents: 'write', pull_requests: 'write' }),
 });
 
-const APPROVAL_CAPABILITIES = new Set(['actions:rerun', 'stage1:required-check-recovery', 'repair:workspace', 'contents:write']);
+const APPROVAL_CAPABILITIES = new Set(['actions:rerun', 'stage1:required-check-recovery', 'repair:workspace', 'contents:write', 'issue:delivery']);
 const ERROR_MESSAGES = Object.freeze({
   invalid_configuration: 'GitHub authentication provider configuration is invalid.',
   interactive_tty_required: 'A trusted interactive TTY is required for this operation.',
@@ -244,6 +245,21 @@ function normalizeActionTarget(value) {
 }
 
 function normalizeScope(scope, expectedRepositoryId) {
+  if (scope?.capability === 'issue:delivery') {
+    const keys = ['repositoryId', 'capability', 'taskId', 'issueNumber', 'generation', 'branch', 'baseSha', 'headSha', 'workspaceFingerprint', 'paths'];
+    if (!isRecord(scope) || Object.keys(scope).sort().join('|') !== keys.sort().join('|')
+        || scope.repositoryId !== expectedRepositoryId || !parsePositiveInteger(scope.issueNumber)
+        || !parsePositiveInteger(scope.generation)
+        || scope.taskId !== `repo-${expectedRepositoryId}-issue-${scope.issueNumber}-g${scope.generation}`
+        || scope.branch !== `codex/issue-${scope.issueNumber}-g${scope.generation}`
+        || typeof scope.baseSha !== 'string' || !SHA_PATTERN.test(scope.baseSha)
+        || typeof scope.headSha !== 'string' || !SHA_PATTERN.test(scope.headSha)
+        || typeof scope.workspaceFingerprint !== 'string' || !/^[a-f0-9]{64}$/i.test(scope.workspaceFingerprint)) fail('invalid_scope');
+    const paths = normalizePaths(scope.paths);
+    if (!paths.length) fail('invalid_scope');
+    return Object.freeze({ ...scope, baseSha: scope.baseSha.toLowerCase(), headSha: scope.headSha.toLowerCase(),
+      workspaceFingerprint: scope.workspaceFingerprint.toLowerCase(), paths: Object.freeze(paths) });
+  }
   const allowedKeys = new Set(['repositoryId', 'prNumber', 'baseSha', 'headSha', 'mergeSha', 'capability', 'paths', 'testedSha', 'actionTarget', 'stage1Target']);
   assertExactKeys(scope, allowedKeys, 'invalid_scope');
   if (!parsePositiveInteger(scope.repositoryId) || scope.repositoryId !== expectedRepositoryId) fail('invalid_scope');
@@ -290,6 +306,7 @@ function normalizeScope(scope, expectedRepositoryId) {
 }
 
 function sameScope(left, right) {
+  if (left.capability === 'issue:delivery' || right.capability === 'issue:delivery') return canonicalJson(left) === canonicalJson(right);
   return left.repositoryId === right.repositoryId
     && left.prNumber === right.prNumber
     && left.baseSha === right.baseSha
@@ -505,6 +522,10 @@ export function createGitHubAuthProvider(options) {
       ...(scope.testedSha ? { testedSha: scope.testedSha } : {}),
       ...(scope.actionTarget ? { actionTarget: scope.actionTarget } : {}),
       ...(scope.stage1Target ? { stage1Target: scope.stage1Target } : {}),
+      ...(scope.capability === 'issue:delivery' ? {
+        taskId: scope.taskId, issueNumber: scope.issueNumber, generation: scope.generation,
+        branch: scope.branch, workspaceFingerprint: scope.workspaceFingerprint,
+      } : {}),
       approverId: authenticatedPrincipal.id,
       expiresAt,
     });

@@ -32,6 +32,7 @@ function defaultPermissions(capability = 'observe') {
   if (capability === 'actions:rerun') return { ...observe, actions: 'write' };
   if (capability === 'stage1:required-check-recovery') return { ...observe, actions: 'write' };
   if (capability === 'contents:write') return { ...observe, contents: 'write' };
+  if (capability === 'issue:delivery') return { metadata: 'read', contents: 'write', pull_requests: 'write' };
   return observe;
 }
 
@@ -86,7 +87,7 @@ function createHarness(options = {}) {
     if (url.href === 'https://api.github.com/app/installations/' + INSTALLATION_ID + '/access_tokens') {
       if (options.installationResponse instanceof Response) return options.installationResponse;
       const requested = JSON.parse(init.body);
-      const capability = requested.permissions.contents === 'write'
+      const capability = requested.permissions.pull_requests === 'write' ? 'issue:delivery' : requested.permissions.contents === 'write'
         ? 'contents:write'
         : requested.permissions.actions === 'write' ? (requested.permissions.checks === 'write' ? 'actions:rerun' : 'stage1:required-check-recovery')
           : requested.permissions.attestations === 'read' ? 'source-attestation:read' : 'observe';
@@ -158,6 +159,40 @@ function approvalScope(overrides = {}) {
     ...overrides,
   };
 }
+
+function issueDeliveryScope(overrides = {}) {
+  return {
+    repositoryId: REPOSITORY_ID, capability: 'issue:delivery', taskId: `repo-${REPOSITORY_ID}-issue-42-g1`,
+    issueNumber: 42, generation: 1, branch: 'codex/issue-42-g1', baseSha: 'a'.repeat(40),
+    headSha: 'b'.repeat(40), workspaceFingerprint: 'c'.repeat(64), paths: ['docs/API.md'], ...overrides,
+  };
+}
+
+it('mints only the repository-scoped contents and PR permissions for Issue delivery', async () => {
+  const harness = createHarness();
+  assert.equal(await harness.provider.getInstallationToken('issue:delivery'), INSTALLATION_TOKEN);
+  const tokenCall = callFor(harness.calls, '/app/installations/' + INSTALLATION_ID + '/access_tokens', 'POST');
+  assert.deepEqual(JSON.parse(tokenCall.body).permissions, defaultPermissions('issue:delivery'));
+});
+
+it('binds Issue delivery approval to the exact task, branch, revision, fingerprint and paths', async () => {
+  const harness = createHarness();
+  await harness.provider.authenticateApprover();
+  const scope = issueDeliveryScope();
+  const approval = await harness.provider.requestApproval(scope);
+  for (const override of [
+    { workspaceFingerprint: 'd'.repeat(64) }, { headSha: 'e'.repeat(40) },
+    { taskId: `repo-${REPOSITORY_ID}-issue-43-g1`, issueNumber: 43, branch: 'codex/issue-43-g1' },
+    { paths: ['docs/TESTING.md'] },
+  ]) {
+    assert.throws(() => harness.provider.consumeApproval(approval, { ...scope, ...override }), { code: 'approval_scope_mismatch' });
+  }
+  assert.equal(harness.promptEvents.find((value) => value.type === 'approval').taskId, scope.taskId);
+  harness.provider.consumeApproval(approval, scope);
+  assert.throws(() => harness.provider.consumeApproval(approval, scope), { code: 'approval_replayed' });
+  await assert.rejects(harness.provider.requestApproval(issueDeliveryScope({ branch: 'main' })), { code: 'invalid_scope' });
+  await assert.rejects(harness.provider.requestApproval(issueDeliveryScope({ prNumber: 42 })), { code: 'invalid_scope' });
+});
 
 describe('GitHub App authentication and approval provider', () => {
   it('polls device authorization and resolves identity from GitHub /user, ignoring caller identity', async () => {

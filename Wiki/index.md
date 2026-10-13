@@ -59,7 +59,7 @@ Domain objects and their relationships belong under `entities/`. Current pages c
 Cross-cutting behavior belongs under `concepts/`, such as authentication, validation, inventory movement, [[api-response-contract]], guest checkout, order lifecycle, and [[loop-engineering]].
 
 - [[api-response-contract]]: canonical success/error metadata, compatibility aliases, request IDs, and pagination boundaries
-- [[loop-engineering]]: bounded local control plane, Phase 2A PR decision/evidence core, Phase 2B GitHub App auth and Cloudflare-hosted Stage 0 observer/report implementation, Stage 1 trusted dispatch and exact Check Run recovery, current retry-history correlation gap and focused fix, vendor-neutral path-approved repair sessions, head/base/merge SHA binding, OIDC source-attestation verification, and user-local host-managed run budgets with checkout-overlap refusal
+- [[loop-engineering]]: bounded local control plane, Phase 2A PR decision/evidence core, Phase 2B GitHub App auth and Cloudflare-hosted Stage 0 observer/report implementation, Stage 1 trusted dispatch and exact Check Run recovery, vendor-neutral repair sessions, and Autonomous Issue-to-Merge local implementation status with its disabled-policy and live-pilot gates
 
 ### Decisions
 

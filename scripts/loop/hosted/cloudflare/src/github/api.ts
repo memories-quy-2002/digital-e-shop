@@ -55,6 +55,7 @@ export interface GitHubApiClient {
   readonly requestLimit: number;
   getPullRequest(number: number): Promise<unknown | null>;
   getRepository(): Promise<unknown | null>;
+  getCommit(ref: string): Promise<unknown | null>;
   getRepositoryById(id: number): Promise<unknown | null>;
   getBranchProtection(baseRef: string): Promise<unknown | null>;
   getRuleset(id: number): Promise<unknown | null>;
@@ -351,6 +352,13 @@ export function createGitHubApiClient(options: GitHubApiOptions) {
     getRepository() {
       return getJson(repositoryPath);
     },
+    getCommit(ref: string) {
+      if (typeof ref !== 'string' || ref.length < 1 || ref.length > 255
+          || !/^[A-Za-z0-9._/-]+$/.test(ref) || ref.includes('..')) {
+        throw new GitHubApiError('configuration_invalid');
+      }
+      return getJson(repositoryPath + '/commits/' + encodeURIComponent(ref));
+    },
     getRepositoryById(id: number) {
       if (!isPositiveInteger(id)) throw new GitHubApiError('configuration_invalid');
       return getJson('/repositories/' + id);
@@ -363,7 +371,7 @@ export function createGitHubApiClient(options: GitHubApiOptions) {
       return getJson(repositoryPath + '/rulesets/' + id);
     },
     getPolicyFile(path: string, ref: string) {
-      if (!['protected-paths.yml', 'risk-rules.yml', 'stop-conditions.yml'].includes(path)
+      if (!['protected-paths.yml', 'risk-rules.yml', 'stop-conditions.yml', 'autonomy.yml'].includes(path)
           || !REVISION_PATTERN.test(ref)) throw new GitHubApiError('configuration_invalid');
       return getJson(repositoryPath + '/contents/.agent/policy/' + path, { ref });
     },

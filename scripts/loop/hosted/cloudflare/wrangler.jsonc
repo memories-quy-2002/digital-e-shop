@@ -53,6 +53,10 @@
           {
             "binding": "EVENT_QUEUE",
             "queue": "digital-e-loop-stage0-events"
+          },
+          {
+            "binding": "TASK_QUEUE",
+            "queue": "digital-e-loop-issue-tasks"
           }
         ],
         "consumers": [

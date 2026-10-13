@@ -5,6 +5,7 @@ import { createGitHubObserverRuntime } from '../github/observer';
 import { STAGE0_LIMITS } from '../limits';
 import { createD1Stage0Storage } from '../storage/d1';
 import type { Stage0QueueMessage } from './queue';
+import { handleTaskReconciliation } from './task-reconciliation';
 
 const SCHEDULER_LEASE_MS = 14 * 60 * 1000;
 
@@ -243,6 +244,8 @@ export async function runScheduledReconciliation(input: {
 }
 
 export async function handleScheduled(_controller: ScheduledController, env: Env): Promise<void> {
+  try { await handleTaskReconciliation(env); }
+  catch { console.warn('issue_task_reconciliation_unavailable'); }
   if (!env.EVENT_QUEUE || !env.STAGE0_DB) {
     console.warn('stage0_scheduled_reconciliation_unavailable');
     return;
