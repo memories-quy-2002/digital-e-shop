@@ -334,11 +334,7 @@ Syntax-only dry run:
 Invoke-TrustedStage1 -CliArgs @('rerun-flaky', '--repo', 'memories-quy-2002/digital-e-shop', '--pr', '123', '--dry-run')
 ```
 
-The live command requires the budget session, trust file, a real TTY, current
-eligible flaky evidence, and a separately approved App installation with
-`actions:write`. The current installation lacks `actions:write`, and this
-branch has not put the workflow on `main`; no live dispatch can be proven from
-this checkout. A dry-run is not approval or pilot evidence.
+The live command requires the budget session, trust file, a real TTY, current`r`neligible flaky evidence, and a separately approved App installation with`r`n`actions:write`. Installation metadata checked on 2026-10-13 confirms`r`n`actions:write`; PR #304 merged the workflow to canonical `main` at`r`n`875eb82`. The current snapshots of PR #309 and #310 provide no eligible`r`nnatural flaky observation, and no per-PR budget session is configured. The`r`nuser-local trust file has the expected structure, but its approver and actor`r`nIDs remain unverified. No live dispatch can be proven from this checkout. A`r`ndry-run is not approval or pilot evidence.
 
 ## Fail-closed preflight
 
@@ -424,10 +420,7 @@ ID and independently verify its source SHA, actor, verifier/publisher jobs,
 current PR tuple, policy, and original Check Run before reporting
 `ready-for-human`.
 
-At this branch revision, the local trust file and budget session are not
-configured, the App lacks `actions:write`, and the workflow is not yet on
-`main`. Do not attempt a live dispatch or Check Run update. These gates are
-separate from the historical PR #300 producer-to-probe result below.
+Current snapshot (2026-10-13): the user-local trust file exists with the`r`nexpected structure, but its numeric approver and workflow-actor IDs are`r`nunverified; no per-PR budget session exists. Installation metadata confirms`r`n`actions:write`, and PR #304 merged the trusted workflow to `main` at`r`n`875eb82`. Live dispatch still requires eligible natural flaky evidence,`r`nverified trust identities, a matching budget session, and one-use TTY approval.`r`nDo not attempt a live dispatch or Check Run update. These gates are separate`r`nfrom the historical PR #300 producer-to-probe result below.
 
 PR #290 added the dedicated Stage 1 target, prompt, source-attestation, and
 host suites to both fixed test lists. PR #291 added the original source-SHA
