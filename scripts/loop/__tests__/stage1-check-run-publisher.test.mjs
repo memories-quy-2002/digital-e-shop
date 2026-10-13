@@ -87,8 +87,14 @@ it('confines the policy-reader token to exact read endpoints and denies every wr
     return new Response('{}', { status: 200 });
   } });
   await transport(`https://api.github.com/repos/${repository}/pulls/7`, { headers: { Authorization: 'Bearer workflow-token' } });
-  await transport(`https://api.github.com/repos/${repository}/commits/${target.testedSha}/check-runs?page=1&per_page=100`,
+  await transport(`https://api.github.com/repos/${repository}/commits/${target.testedSha}/check-runs?filter=all&per_page=100&page=1`,
     { headers: { Authorization: 'Bearer workflow-token' } });
+  await assert.rejects(transport(`https://api.github.com/repos/${repository}/commits/${target.testedSha}/check-runs?page=1&per_page=100`,
+    { headers: { Authorization: 'Bearer workflow-token' } }));
+  await assert.rejects(transport(`https://api.github.com/repos/${repository}/commits/${target.testedSha}/CHECK-RUNS?page=1&per_page=100`,
+    { headers: { Authorization: 'Bearer workflow-token' } }));
+  await assert.rejects(transport(`https://api.github.com/repos/${repository}/commits/${target.testedSha}/check-runs?filter=latest&page=1&per_page=100`,
+    { headers: { Authorization: 'Bearer workflow-token' } }));
   await transport(`https://api.github.com/repos/${repository}/actions/runs?head_sha=${target.testedSha}&page=1&per_page=100`,
     { headers: { Authorization: 'Bearer workflow-token' } });
   await transport(`https://api.github.com/repos/${repository}/branches/main/protection`,
@@ -113,7 +119,7 @@ it('confines the policy-reader token to exact read endpoints and denies every wr
       output: { title: 'Verified by trusted Stage 1 retry', summary: 'fixture' } }) }));
   assert.deepEqual(calls, [
     { href: `https://api.github.com/repos/${repository}/pulls/7`, method: undefined },
-    { href: `https://api.github.com/repos/${repository}/commits/${target.testedSha}/check-runs?page=1&per_page=100`, method: undefined },
+    { href: `https://api.github.com/repos/${repository}/commits/${target.testedSha}/check-runs?filter=all&per_page=100&page=1`, method: undefined },
     { href: `https://api.github.com/repos/${repository}/actions/runs?head_sha=${target.testedSha}&page=1&per_page=100`, method: undefined },
     { href: `https://api.github.com/repos/${repository}/branches/main/protection`, method: undefined },
   ]);
