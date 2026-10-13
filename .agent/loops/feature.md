@@ -2,6 +2,12 @@
 
 This document describes the bounded inner loop for low- and medium-risk repository work. It is an operating contract, not an autonomous issue dispatcher.
 
+## Optional autonomy policy
+
+The canonical extension at `../../.agent/policy/autonomy.yml` is disabled by default and does not itself provide a dispatcher or write capability. A separately reviewed trusted host may opt in only tasks matching its owner actor, label, category, exact path, risk, runner, capability, and finite-budget allowlists. GPT-6-Luna is the only permitted model; missing, invalid, unknown-key, or stale policy context fails closed. The host must authenticate its expected revision; the loader's `trustedRevision` argument is not authentication.
+
+The initial scope is documentation and selected frontend UI paths. High-risk work requires authenticated approval bound to exact normalized paths, and critical paths/actions remain refused. This permits eligible work to run unattended through implementation and fixed verification only. It does not waive the repository's human review requirement before merge, enable auto-merge, or enable production operations. Hosted workflow fanout is limited to three runs per task, with one task at a time. Existing required checks and human approval gates remain in effect.
+
 ## Input
 
 - A concise goal, acceptance criteria, non-goals, constraints, and verification expectations.
