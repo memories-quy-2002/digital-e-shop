@@ -57,7 +57,14 @@ const baseDocuments = {
     eligibleActors: [93824124],
     optInLabel: 'autonomous:run',
     eligibleCategories: ['documentation', 'frontend'],
-    eligiblePaths: ['docs/**', 'client/src/**'],
+    eligiblePaths: [
+      'docs/API.md', 'docs/ARCHITECTURE.md', 'docs/DEVELOPMENT.md', 'docs/TESTING.md',
+      'client/src/features/products/pages/ProductPage.tsx',
+      'client/src/features/products/pages/ProductComparisonPage.tsx',
+      'client/src/features/products/components/RecommendedProduct.tsx',
+      'client/src/features/products/components/ComparisonTray.tsx',
+      'client/src/features/products/components/ComparisonTable.tsx',
+    ],
     eligibleRisks: ['low', 'medium'],
     runner: { provider: 'openai', model: 'GPT-6-Luna' },
     capabilities: ['observe', 'propose_patch', 'run_fixed_verifier', 'open_draft_pr'],
@@ -146,6 +153,41 @@ describe('Loop policy loading', () => {
       assert.match(error.message, /GPT-6-Luna/);
       return true;
     });
+  });
+
+  it('rejects allowlist patterns that intersect protected rules using classifier glob and case semantics', async () => {
+    for (const eligiblePath of [
+      'client/src/features/products/**',
+      'Client/src/features/products/**',
+      'docs/**',
+    ]) {
+      const fixtureRoot = await createPolicyFixture({
+        'autonomy.yml': { ...baseDocuments['autonomy.yml'], eligiblePaths: [eligiblePath] },
+      });
+      await assert.rejects(loadAutonomyPolicy(fixtureRoot, getHeadRevision(fixtureRoot)), (error) => {
+        assert.ok(error instanceof PolicyValidationError);
+        assert.match(error.message, /protected/i);
+        return true;
+      }, `accepted protected intersection: ${eligiblePath}`);
+    }
+  });
+
+  it('refuses policy bytes modified after the trusted commit for autonomy, protected paths, or risk rules', async () => {
+    const changedFiles = [
+      ['autonomy.yml', { ...baseDocuments['autonomy.yml'], optInLabel: 'changed:after-commit' }],
+      ['protected-paths.yml', { ...baseDocuments['protected-paths.yml'], critical: ['**/.env*', 'unrelated/**'] }],
+      ['risk-rules.yml', { ...baseDocuments['risk-rules.yml'], low: ['docs/**', 'elsewhere/**'] }],
+    ];
+
+    for (const [filename, changedDocument] of changedFiles) {
+      const fixtureRoot = await createPolicyFixture();
+      await writeFile(path.join(fixtureRoot, '.agent', 'policy', filename), JSON.stringify(changedDocument), 'utf8');
+      await assert.rejects(loadAutonomyPolicy(fixtureRoot, getHeadRevision(fixtureRoot)), (error) => {
+        assert.ok(error instanceof PolicyValidationError);
+        assert.match(error.message, /canonical|revision|changed/i);
+        return true;
+      }, `accepted working-tree policy change: ${filename}`);
+    }
   });
 
   it('loads and validates the three checked-in policy documents as one versioned policy', async () => {

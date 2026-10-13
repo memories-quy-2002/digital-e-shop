@@ -199,11 +199,51 @@ function validateStopConditions(value, source) {
   }
 }
 
-function eligiblePatternCoversProtectedPath(eligiblePattern, protectedPattern) {
-  if (eligiblePattern === protectedPattern || eligiblePattern === '**') return true;
-  if (!eligiblePattern.endsWith('/**')) return false;
-  const prefix = eligiblePattern.slice(0, -3);
-  return protectedPattern === prefix || protectedPattern.startsWith(`${prefix}/`);
+function segmentPatternsIntersect(left, right) {
+  const a = [...left.toLowerCase()];
+  const b = [...right.toLowerCase()];
+  const pending = [[0, 0, false]];
+  const visited = new Set();
+
+  while (pending.length) {
+    const [i, j, consumed] = pending.pop();
+    const key = `${i}:${j}:${consumed}`;
+    if (visited.has(key)) continue;
+    visited.add(key);
+    if (i === a.length && j === b.length && consumed) return true;
+    if (a[i] === '*') pending.push([i + 1, j, consumed]);
+    if (b[j] === '*') pending.push([i, j + 1, consumed]);
+
+    if (i < a.length && j < b.length) {
+      const compatible = a[i] === '*' || b[j] === '*' || a[i] === b[j];
+      if (compatible) {
+        pending.push([a[i] === '*' ? i : i + 1, b[j] === '*' ? j : j + 1, true]);
+      }
+    }
+  }
+  return false;
+}
+
+function policyPatternsIntersect(left, right) {
+  const a = left.split('/');
+  const b = right.split('/');
+  const pending = [[0, 0]];
+  const visited = new Set();
+
+  while (pending.length) {
+    const [i, j] = pending.pop();
+    const key = `${i}:${j}`;
+    if (visited.has(key)) continue;
+    visited.add(key);
+    if (i === a.length && j === b.length) return true;
+    if (a[i] === '**') pending.push([i + 1, j]);
+    if (b[j] === '**') pending.push([i, j + 1]);
+    if (a[i] === '**' && j < b.length && b[j] !== '**') pending.push([i, j + 1]);
+    if (b[j] === '**' && i < a.length && a[i] !== '**') pending.push([i + 1, j]);
+    if (i < a.length && j < b.length && a[i] !== '**' && b[j] !== '**'
+      && segmentPatternsIntersect(a[i], b[j])) pending.push([i + 1, j + 1]);
+  }
+  return false;
 }
 
 function validateUniqueList(value, key, source, allowedValues) {
@@ -257,8 +297,8 @@ function validateAutonomyPolicy(value, source, protectedPaths, riskRules) {
 
   for (const eligiblePath of value.eligiblePaths) {
     const protectedPatterns = [...protectedPaths.high, ...protectedPaths.critical, ...riskRules.high];
-    if (protectedPatterns.some((protectedPattern) => eligiblePatternCoversProtectedPath(eligiblePath, protectedPattern))) {
-      throw new PolicyValidationError(source, `eligible path ${eligiblePath} covers a protected or high-risk path`);
+    if (protectedPatterns.some((protectedPattern) => policyPatternsIntersect(eligiblePath, protectedPattern))) {
+      throw new PolicyValidationError(source, `eligible path ${eligiblePath} intersects a protected or high-risk path`);
     }
   }
 }
@@ -268,7 +308,7 @@ function isPathInside(parent, candidate) {
   return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
 }
 
-async function readPolicyFile(realRoot, filename, validator) {
+async function readPolicyText(realRoot, filename) {
   const source = path.posix.join(POLICY_DIRECTORY, filename);
   const policyRoot = await realpath(path.join(realRoot, POLICY_DIRECTORY)).catch((error) => {
     throw new PolicyValidationError(source, `cannot resolve policy directory: ${error.message}`);
@@ -287,20 +327,35 @@ async function readPolicyFile(realRoot, filename, validator) {
     throw new PolicyValidationError(source, 'policy file resolves outside the policy directory');
   }
 
-  const text = await readFile(realFile, 'utf8');
+  return readFile(realFile, 'utf8');
+}
+
+async function readPolicyFile(realRoot, filename, validator, trustedRevision) {
+  const source = path.posix.join(POLICY_DIRECTORY, filename);
+  let text = await readPolicyText(realRoot, filename);
+  if (trustedRevision) {
+    let committedText;
+    try {
+      ({ stdout: committedText } = await execFileAsync('git', ['-C', realRoot, 'show', `${trustedRevision}:${source}`], { windowsHide: true, timeout: 5000 }));
+    } catch {
+      throw new PolicyValidationError(source, 'cannot load canonical policy bytes from trustedRevision');
+    }
+    const normalizeLineEndings = (value) => value.replace(/\r\n?/g, '\n');
+    if (normalizeLineEndings(text) !== normalizeLineEndings(committedText)) {
+      throw new PolicyValidationError(source, 'working-tree policy bytes do not match trustedRevision');
+    }
+    text = committedText;
+  }
   const document = parsePolicyDocument(text, source);
   validator(document, source);
   return document;
 }
 
-export async function loadLoopPolicy(repoRoot) {
-  const requestedRoot = repoRoot ?? path.resolve(MODULE_DIRECTORY, '../..');
-  const realRoot = await realpath(path.resolve(requestedRoot));
-
+async function loadLoopPolicyFromRoot(realRoot, trustedRevision) {
   const [protectedPathsDocument, riskRulesDocument, stopConditionsDocument] = await Promise.all([
-    readPolicyFile(realRoot, POLICY_FILES.protectedPaths, validateProtectedPaths),
-    readPolicyFile(realRoot, POLICY_FILES.riskRules, validateRiskRules),
-    readPolicyFile(realRoot, POLICY_FILES.stopConditions, validateStopConditions),
+    readPolicyFile(realRoot, POLICY_FILES.protectedPaths, validateProtectedPaths, trustedRevision),
+    readPolicyFile(realRoot, POLICY_FILES.riskRules, validateRiskRules, trustedRevision),
+    readPolicyFile(realRoot, POLICY_FILES.stopConditions, validateStopConditions, trustedRevision),
   ]);
 
   return Object.freeze({
@@ -329,12 +384,17 @@ export async function loadLoopPolicy(repoRoot) {
   });
 }
 
+export async function loadLoopPolicy(repoRoot) {
+  const requestedRoot = repoRoot ?? path.resolve(MODULE_DIRECTORY, '../..');
+  const realRoot = await realpath(path.resolve(requestedRoot));
+  return loadLoopPolicyFromRoot(realRoot);
+}
+
 export async function loadAutonomyPolicy(repoRoot, trustedRevision) {
   if (typeof trustedRevision !== 'string' || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(trustedRevision)) {
     throw new PolicyValidationError(path.posix.join(POLICY_DIRECTORY, POLICY_FILES.autonomy), 'trustedRevision must be a full lowercase Git object ID');
   }
 
-  const loopPolicy = await loadLoopPolicy(repoRoot);
   const requestedRoot = repoRoot ?? path.resolve(MODULE_DIRECTORY, '../..');
   const realRoot = await realpath(path.resolve(requestedRoot));
   let checkedOutRevision;
@@ -346,9 +406,19 @@ export async function loadAutonomyPolicy(repoRoot, trustedRevision) {
   if (checkedOutRevision.trim() !== trustedRevision) {
     throw new PolicyValidationError(path.posix.join(POLICY_DIRECTORY, POLICY_FILES.autonomy), 'trustedRevision does not match the checked-out repository revision');
   }
+  const loopPolicy = await loadLoopPolicyFromRoot(realRoot, trustedRevision);
   const document = await readPolicyFile(realRoot, POLICY_FILES.autonomy, (value, source) => {
     validateAutonomyPolicy(value, source, loopPolicy.protectedPaths, loopPolicy.riskRules);
-  });
+  }, trustedRevision);
+  let finalRevision;
+  try {
+    ({ stdout: finalRevision } = await execFileAsync('git', ['-C', realRoot, 'rev-parse', '--verify', 'HEAD'], { windowsHide: true, timeout: 5000 }));
+  } catch {
+    throw new PolicyValidationError(path.posix.join(POLICY_DIRECTORY, POLICY_FILES.autonomy), 'cannot recheck repository revision');
+  }
+  if (finalRevision.trim() !== trustedRevision) {
+    throw new PolicyValidationError(path.posix.join(POLICY_DIRECTORY, POLICY_FILES.autonomy), 'repository revision changed while loading policy');
+  }
 
   return Object.freeze({
     schemaVersion: 1,
