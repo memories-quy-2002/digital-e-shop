@@ -24,7 +24,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run shared client verifier
-        uses: ./.github/actions/stage1-verify
+        uses: ./.github/actions/package-verify
         with:
           context: client
           source-directory: .
@@ -62,7 +62,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run shared server verifier
-        uses: ./.github/actions/stage1-verify
+        uses: ./.github/actions/package-verify
         with:
           context: server
           source-directory: .

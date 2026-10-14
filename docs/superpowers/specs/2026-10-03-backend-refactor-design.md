@@ -174,9 +174,7 @@ The user approved this written design on 2026-10-03. Implementation-plan
 review and execution-method selection remain pending.
 
 AGENTS.md and canonical risk policy require approval for the high paths above.
-Caller-created approval records cannot replace trusted approval. Implementation
-must not proceed through a guarded loop/repair session without its required
-trusted host approval. Critical paths/actions are excluded entirely.
+Caller-created approval records cannot replace trusted approval. Implementation must not proceed without the required approval for the exact high-risk paths above.
 
 The brainstorming workflow requires review of this written design before an
 implementation plan, followed by review of that plan. Recommended execution:

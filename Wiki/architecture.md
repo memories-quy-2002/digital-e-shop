@@ -257,32 +257,6 @@ application has not been converted to Prisma.
   Local Docker uses `digital_e_shop_local` on `127.0.0.1:3307`; runtime,
   Prisma, and demo-seed guards reject remote targets by default.
 
-## Loop Engineering control plane
-
-- The Phase 1 local control plane lives in `scripts/loop/`: versioned policy,
-  deterministic risk classification, compact state/budgets, fixed verification
-  planning/execution, structured failure classification, and the bounded
-  controller. It surrounds repository work; it is not part of the storefront or
-  NestJS runtime.
-- `.agent/policy/` supplies path/action risk and stop conditions; `.agent/loops/`
-  documents the feature loop and future PR babysitter. `.loop/state/` is local
-  gitignored metadata and never stores prompt history or credentials.
-- The fixed runner is defense-in-depth, not an OS sandbox. Phase 1 performs no
-  issue dispatch or GitHub writes; high/critical/protected work, merges, and
-  production operations remain under explicit human control. See
-  [[loop-engineering]].
-- Phase 2A PR Babysitter adds a GitHub-agnostic decision core with head/base/merge SHA
-  binding, required check and workflow evidence, bounded packets, and
-  privacy-safe telemetry. Phase 2B adds GitHub App device-flow identity,
-  exact-scope approval, a read-only PR/check/ruleset/workflow adapter, and a
-  narrowly scoped Actions rerun adapter. Its vendor-neutral local repair
-  session consumes exact workspace approval, applies a bounded patch proposal,
-  runs the fixed verifier, and commits locally. CLI orchestration and branch
-  push are not yet implemented; Stage 2 stays disabled. Required workflow
-  evidence stays unavailable until a trusted source SHA attestation is
-  available. The host must enforce run-local `LoopState` budgets before every
-  model, verifier, rerun, or push action.
-
 ## Observability
 
 - `server/src/observability/telemetry.ts` starts OpenTelemetry before Nest and

@@ -1,5 +1,5 @@
 name: Digital-E fixed CI verifier
-description: Runs the reviewed client or server verification used by normal CI and Stage 1.
+description: Runs the reviewed client or server verification used by normal CI.
 inputs:
   context:
     description: Required context to verify.

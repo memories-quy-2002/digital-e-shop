@@ -16,8 +16,8 @@
 - Preserve routes, aliases, payload keys, HTTP statuses, error messages, ordering, pagination semantics, and the unpaginated product response.
 - Preserve guards, ownership, CSRF, cookie flow, and Firebase verification.
 - No API-wide normalization, neighboring repository conversion, or dependency installation.
-- Require approval for `server/src/cart/cart.repository.ts`, classified high; never manufacture loop approval records.
-- Preserve existing client and scripts/loop changes; edits belong only to the paths listed here and the Wiki paths below.
+- Require approval for `server/src/cart/cart.repository.ts`, classified high; never manufacture approval records.
+- Preserve existing client changes; edits belong only to the paths listed here and the Wiki paths below.
 - Execution is bounded by canonical stop conditions: 25 files / 1,000 changed lines / 1,800 seconds / 5 iterations / 2 same failures / 3 flaky retries. Measure the actual run diff; do not reset counters or treat a new task heading as a new run.
 
 ## Review Focus
@@ -78,4 +78,4 @@ Argument types remain their current string/number/number[] types. Wrap the pool 
 
 ## Handoff
 
-Report exact edited paths, command results, existing environment failures, and any remaining callbacks in neighboring APIs. Plan B and C are independently reviewable deliverables; this plan does not authorize silently starting a fresh loop run or resetting budgets.
+Report exact edited paths, command results, existing environment failures, and any remaining callbacks in neighboring APIs. Plan B and C are independently reviewable deliverables; this plan does not authorize silently expanding scope or resetting budgets.

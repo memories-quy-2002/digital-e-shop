@@ -19,7 +19,7 @@
 - Preserve routes, aliases, payload keys, HTTP statuses, error messages, ordering, pagination semantics, and the unpaginated product response.
 - High scope: all listed orders paths and `products/products.repository.ts`. Required scope refinement: add `server/src/orders/orders.errors.ts` to avoid a cancellation-to-facade import cycle; this is part of this plan's review, not an already-executed change.
 - Canonical run limits: 25 files / 1,000 changed lines / 1,800 seconds / 5 iterations / 2 same failures / 3 flaky retries. If the measured cumulative diff reaches a bound, stop with a verified partial result and the exact remaining task; do not auto-reset state or commit to bypass the bound.
-- No edits to payments, guards, auth, inventory, schema, or loop policy. Existing unrelated changes are preserved.
+- No edits to payments, guards, auth, inventory, schema. Existing unrelated changes are preserved.
 
 ## Review Focus
 
