@@ -498,7 +498,7 @@ Before opening a PR, run the relevant checks for the changed surface. PR summari
 
 Use this structured workflow for any non-trivial AI coding task. It keeps changes small, reviewable, and safe.
 
-1. **Inspect** — Read the relevant files first. Use CodeGraph/Grep to map the touched surface before editing. Read `AGENTS.md` and `Wiki/index.md`.
+1. **Inspect** — Read the relevant files first. Use GitNexus/Grep to map the touched surface before editing. Read `AGENTS.md` and `Wiki/index.md`.
 2. **Clarify assumptions** — State assumptions explicitly. If a requirement is ambiguous and the choice changes behavior, ask once; otherwise pick the obvious default and note it.
 3. **Plan** — Write a short step list (use the todo list for multi-step work). Identify the files to change and the verification commands you will run.
 4. **Implement** — Make the smallest safe change. Match surrounding style. Preserve API contracts, auth/CSRF/CORS, and route aliases.
@@ -601,7 +601,7 @@ for role selection, ownership, handoff, model, verification, and delivery rules.
 - For broad tasks that need delegation, read `docs/CODEX_ORCHESTRATION.md`.
 - Use Context7 when the task is about a library, framework, SDK, API, CLI tool, or cloud service. Resolve the library ID first, then query the docs.
 - Inspect existing patterns before editing.
-- Use CodeGraph for structural lookup before broad manual scanning when it is available.
+- Use GitNexus for structural lookup before broad manual scanning when it is available.
 - Before spawning a new sub-agent, check whether an existing Codex sub-agent is already active and suitable for the task. Reuse active sub-agents when their current role matches or is close enough. Spawn a new sub-agent only when the task is materially different from the work the existing sub-agents are already handling, or when parallel ownership needs to stay isolated.
 - Make the smallest safe change that satisfies the request.
 - Avoid large rewrites unless explicitly requested.

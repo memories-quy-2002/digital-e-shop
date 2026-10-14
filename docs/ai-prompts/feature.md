@@ -38,7 +38,7 @@ decisions.
 2. Read [CODEX_ORCHESTRATION.md](../CODEX_ORCHESTRATION.md) before delegating.
    Use only the Luna model for delegated sub-agents.
 3. Inspect routes, callers, API helpers, tests, configuration, and related Wiki
-   pages. Use CodeGraph or Grep to map the touched surface.
+   pages. Use GitNexus or Grep to map the touched surface.
 4. Choose the existing location. Use `client/src/features/your_domain/` for
    domain UI, `client/src/pages/` for generic pages, and
    `server/src/your_feature/` for Nest feature code.

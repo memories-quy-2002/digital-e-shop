@@ -37,7 +37,7 @@ contract change.
 1. Read [AGENTS.md](../../AGENTS.md), [Wiki/index.md](../../Wiki/index.md), and
    [Wiki/architecture.md](../../Wiki/architecture.md).
 2. Inspect the target, callers, callees, routes, API contracts, tests, package
-   scripts, and configuration. Use CodeGraph or Grep.
+   scripts, and configuration. Use GitNexus or Grep.
 3. Record current behavior and invariants that must remain true.
 4. Identify whether the change belongs to a client feature, generic page,
    server module, or shared cross-cutting layer.

@@ -4,3 +4,38 @@ enabled = true
 max_concurrent_threads_per_session = 2
 default_subagent_model = "gpt-6-luna"
 # Main Codex selects reasoning effort per task at spawn time.
+
+# Local MCP packages download on first launch through npx/uvx. Keep secrets in
+# each developer's environment or MCP sign-in state, never in this file.
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
+
+[mcp_servers.composio]
+url = "https://connect.composio.dev/mcp"
+
+[mcp_servers.mem0]
+url = "https://mcp.mem0.ai/mcp"
+
+[mcp_servers.filesystem]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem", "."]
+
+[mcp_servers.gitnexus]
+command = "npx"
+args = ["-y", "gitnexus@latest", "mcp"]
+startup_timeout_sec = 30
+
+[mcp_servers.chrome-devtools]
+command = "npx"
+args = ["-y", "chrome-devtools-mcp@latest"]
+startup_timeout_sec = 30
+
+[mcp_servers.playwright]
+command = "npx"
+args = ["-y", "@playwright/mcp@latest"]
+startup_timeout_sec = 30
+
+[mcp_servers.markitdown]
+command = "uvx"
+args = ["--python", "3.12", "--from", "markitdown-mcp", "markitdown-mcp"]
+startup_timeout_sec = 30

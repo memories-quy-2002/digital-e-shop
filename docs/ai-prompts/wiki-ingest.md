@@ -33,7 +33,7 @@ decisions.
 1. Read [AGENTS.md](../../AGENTS.md) under `LLM Wiki maintenance rules`.
    Read `Wiki/index.md`, `Wiki/overview.md`, and
    `Wiki/architecture.md`.
-2. Inspect current source with CodeGraph or Grep. Confirm every route, file,
+2. Inspect current source with GitNexus or Grep. Confirm every route, file,
    function, flag, environment variable, and business rule before documenting.
 3. Choose one location:
    - `Wiki/entities/your_name.md`: a domain object
