@@ -1,10 +1,13 @@
 # Retail P0 operations design
 
 Date: 2026-10-14
-Status: proposed written design; awaiting owner review before implementation.
+Status: written design approved by the owner on 2026-10-14; implementation has not started.
 Scope authorized: all three P0 capabilities, with sandbox-first acceptance.
 Related: [roadmap and tracker](../../backlog/README.md),
 [deferred P1](../../backlog/P1.md), [QA checklist](../../bmad/qa-checklist.md).
+
+Implementation: [P0 task plan](../plans/2026-10-14-retail-p0-operations.md),
+awaiting plan review and execution-method selection.
 
 ## Outcome and boundary
 

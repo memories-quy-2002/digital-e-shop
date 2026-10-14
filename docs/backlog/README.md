@@ -6,6 +6,7 @@ Digital-E targets one electronics retailer. The requested release contains all
 three P0 capabilities; P1 remains deferred until P0 is accepted.
 
 - [P0 written design](../superpowers/specs/2026-10-14-retail-p0-operations-design.md)
+- [P0 implementation plan](../superpowers/plans/2026-10-14-retail-p0-operations.md)
 - [Deferred P1 backlog](./P1.md)
 
 ## P0 acceptance tracker
