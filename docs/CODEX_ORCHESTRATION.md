@@ -1,81 +1,133 @@
-# Codex Sub-Agent Orchestration
+# Codex orchestration
 
-This file defines the default multi-agent working pattern for Codex tasks in this repository.
+The user is the Product Owner and describes outcomes in natural language.
+Main Codex owns analysis, planning, specialist selection, integration,
+validation, review, and delivery. Work starts on demand in the active session.
 
-Use it when a task is broad enough to benefit from parallel review, isolated implementation, or independent verification. For small tasks, use one primary agent only.
+## Repository configuration
 
-## Model policy
+```text
+.codex/
+  config.toml
+  agents/
+    architect.toml
+    backend.toml
+    frontend.toml
+    qa.toml
+    reviewer.toml
+    devops.toml
+```
 
-When delegation is approved or requested, use only the Luna model for
-sub-agents. Do not substitute another model. The primary agent remains
-accountable for scope, integration, security decisions, and final verification.
+`config.toml` enables agents and limits concurrent subagents to two, excluding
+Main Codex. All six specialists use `gpt-6-luna` with medium reasoning,
+preserving the repository's Luna delegation policy. The session default also
+uses Luna so a generic delegated task has the same default.
 
-## Core Pattern
+Custom TOML files are discovered from `.codex/agents/`. Each defines `name`,
+`description`, and `developer_instructions`; its filename matches its name.
+The project must be trusted for project configuration to load. Start a new
+Codex session after changing configuration.
 
-Use a 4-agent orchestrator-worker pattern:
+Agents inherit the parent session's permissions and tools. File ownership and
+read-only role instructions are coordination rules, not an OS permission
+boundary. Managed approval requirements still apply.
 
-1. Main Agent
-   - Owns the user request, planning, file ownership, final decisions, integration, and final response.
-   - Reads `AGENTS.md` first.
-   - Reads this file before delegating work.
-   - Keeps public APIs stable unless the user explicitly asks for behavior changes.
-   - Receives short reports from sub-agents and integrates only the useful findings.
+See the official [subagents guide](https://learn.chatgpt.com/docs/agent-configuration/subagents)
+and [configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference).
+These files configure native Codex agents; no separate orchestration service
+or application runtime is needed.
 
-2. Backend Agent
-   - Owns backend-only investigation or implementation.
-   - Scope: `server/src/<feature>`, `server/src/guards`, `server/src/pipes`, `server/src/filters`, `server/src/interceptors`, `server/src/middleware`, `server/src/config`, and `server/src/shared`.
-   - Focus: auth guards, CSRF, ownership checks, Zod validation, repository/SQL boundaries, error handling, TypeScript types, and route contracts.
-   - Must not edit client files.
+## Choose only the roles needed
 
-3. Frontend Agent
-   - Owns frontend-only investigation or implementation.
-   - Scope: `client/src/features`, `client/src/api`, `client/src/components`, `client/src/context`, `client/src/lib`, `client/src/routes`, `client/src/styles`, and `client/src/utils`.
-   - Focus: React behavior, loading/empty/error states, responsive layout, Tailwind/Radix/SCSS maintainability, accessibility basics, and API helper reuse.
-   - Must not edit server files.
+| Role | Use for | Default ownership |
+| --- | --- | --- |
+| Main Codex | Scope, integration, validation, Git, final report | Shared files and final decisions |
+| Architect | Module boundaries, contracts, schema design, complex flow design | Investigation/design; assigned docs only |
+| Backend | API, persistence, business logic | Exact assigned server paths |
+| Frontend | React, UI/UX, client state and API integration | Exact assigned client paths |
+| QA | Tests, browser evidence, failure classification | Verification; assigned test files only |
+| Reviewer | Correctness, security, regression and quality review | Read-only diff review |
+| DevOps | CI/CD or deployment configuration and operational plans | Read-only unless exact config edits are approved |
 
-4. Verification Agent
-   - Owns targeted checks that can run independently.
-   - Scope: package-local typecheck, build, lint, Vitest, read-only k6 scripts, HTTP smoke checks, browser checks, and focused regression review.
-   - Must not run write-heavy performance tests against shared data.
-   - For UI changes, must record route, viewport, locale, theme, and visible outcome.
-   - Must report exact commands, pass/fail status, browser evidence, and environment limitations.
+For a small UI fix, Main Codex can act directly or use one Frontend agent.
+A checkout feature may need Architect first, Backend and Frontend for independent
+implementation slices, then QA and Reviewer after integration. Six available
+roles do not imply six agents per task.
 
-## When To Use Sub-Agents
+Delegate when independent ownership, specialist investigation, or independent
+review provides a concrete benefit. Keep local work in Main Codex when the
+overhead exceeds the task or the next step depends on one answer.
 
-Use sub-agents when at least one condition is true:
+Before spawning, inspect existing agents and reuse a suitable agent. Keep no
+more than two subagents concurrently active. Wait for dependent tasks before
+starting their consumers. Specialists must return to Main Codex and must not
+spawn more agents.
 
-- The task touches clearly separate backend and frontend areas.
-- The task needs independent review after implementation.
-- The task has multiple unrelated questions that can be answered in parallel.
-- The task risks context overload in a single conversation.
-- The user explicitly asks for sub-agents, delegation, or orchestration.
+Reuse follow-up tasks for fixes. Respect the host lifecycle: release completed
+agents when supported, or allow automatic eviction. Never exceed the session
+limit. Limit unnecessary context and repeated scans. Concurrency caps simultaneous
+usage; they do not cap total tokens or cost.
 
-Do not use sub-agents when:
+If the host exposes named agent selection, use the corresponding custom role.
+If it only offers generic spawning, provide the role's instructions in a bounded
+task packet and explicitly select the allowed Luna model and reasoning effort.
+If Luna or subagent tools are unavailable, report that limitation and let Main
+Codex handle the work; do not silently substitute a delegated model.
 
-- The task is small and local to one file.
-- The next step is blocked on one answer that the main agent can inspect faster.
-- Multiple agents would need to edit the same files.
-- The overhead would be larger than the work.
+## Handoff and file ownership
 
-## Handoff Rules
+Read `AGENTS.md`, `docs/ai-prompts/README.md`, and `Wiki/index.md` first.
+Choose the closest task prompt for each packet.
 
-Sub-agent handoffs must be explicit and bounded.
+Every delegated task must specify:
 
-Each delegated task must include:
+- Role and goal with observable acceptance criteria.
+- Exact owned paths and hard exclusions.
+- Whether edits are allowed and any required exact-scope approval.
+- Inputs, dependencies, and relevant compatibility/security constraints.
+- Verification expectations and the report contract below.
 
-- Role name.
-- Goal.
-- File or module ownership.
-- Hard exclusions.
-- Required output format.
-- Whether edits are allowed.
-- Verification expectations.
+Give agents only necessary context. Never assign overlapping write ownership.
+Main Codex owns shared contract files and integrates changes when two slices
+need the same file. Reviewers inspect an integrated diff; they do not edit it.
+Agents report scope conflicts before making changes.
 
-The main agent should give sub-agents only the context needed for the task. Prefer short task packets over full history unless exact context is required.
+```text
+Role: frontend
+Goal: Implement the approved wishlist UI acceptance criteria.
+Owned paths: exact client feature files assigned by Main Codex.
+Exclusions: server files, auth infrastructure, shared contract files, Git operations.
+Edits: allowed within owned paths only.
+Dependencies: agreed backend API contract.
+Verification: relevant client checks and available browser evidence.
+Return: the report contract below.
+```
 
-## Report Contract
+## Delivery and validation
 
-Sub-agents return this exact short report:
+1. Inspect the repository and classify paths/actions before writing.
+2. Define scope, acceptance criteria, assumptions, and file ownership.
+3. Implement directly or delegate only the useful bounded slices.
+4. Integrate reports and inspect the actual diff. Fix relevant findings.
+5. Run the checks for the changed surface from `AGENTS.md`. Use isolated data
+   for integration tests. Configuration/documentation-only work needs no app build.
+6. Review correctness, security, accidental scope changes, and verification.
+7. Commit the task changes on a feature/bugfix/hotfix branch after validation.
+   Create or update a PR only when requested. Report changed files, behavior,
+   commands/results, assumptions, and remaining risks.
+
+Main Codex owns commits and remote actions. Never push directly to `main`.
+Merging requires explicit authorization, passing required quality gates, and
+at least one human review. Deployment requires explicit permission and existing
+environment gates. Protected paths and actions retain the repository's approval
+requirements.
+
+This workflow runs only when requested. Background monitoring, cron, unattended
+dispatchers, workers, and queues are outside this orchestration setup.
+
+## Report contract
+
+Return a concise report; use `none` for an empty field:
 
 ```text
 Status: pass | findings | blocked
@@ -84,7 +136,7 @@ Files changed: none | path list
 Findings:
 - [P0|P1|P2|P3] path:line: evidence and impact
 Verification:
-- command or browser route, viewport, locale, theme, and result
+- exact command or browser route, viewport, locale, theme, and result
 Assumptions:
 - assumption or none
 Risks:
@@ -93,143 +145,5 @@ Next action:
 - concrete next action or none
 ```
 
-The main agent should not paste long sub-agent logs into the final answer. Summarize the integrated result.
-
-## File Ownership
-
-Avoid concurrent edits to the same files.
-
-Recommended split:
-
-- Backend Agent: server files only.
-- Frontend Agent: client files only.
-- Verification Agent: no edits unless explicitly assigned test/config files.
-- Main Agent: integration, conflict resolution, docs, final cleanup.
-
-If two agents need the same file, the main agent keeps ownership and delegates read-only review instead.
-
-## Default Task Packets
-
-### Backend Agent
-
-```text
-Read AGENTS.md and docs/CODEX_ORCHESTRATION.md.
-
-Role: Backend Agent.
-Goal: Investigate or implement only the backend slice of this task.
-Scope: server files only.
-Do not edit client files.
-Preserve auth, CSRF, ownership checks, route contracts, and database schema.
-Keep controllers thin and SQL inside repositories.
-
-Return:
-Status: pass | findings | blocked
-Role: backend agent
-Files changed: none | path list
-Findings:
-- [P0|P1|P2|P3] path:line: evidence and impact
-Verification:
-- command or result
-Assumptions:
-- assumption or none
-Risks:
-- remaining risk or none
-Next action:
-- concrete next action or none
-```
-
-### Frontend Agent
-
-```text
-Read AGENTS.md and docs/CODEX_ORCHESTRATION.md.
-
-Role: Frontend Agent.
-Goal: Investigate or implement only the frontend slice of this task.
-Scope: client files only.
-Do not edit server files.
-Use existing API helpers, context providers, React Router patterns, Tailwind/Radix primitives, and SCSS structure.
-Preserve cookie and CSRF request behavior.
-For UI changes, verify English and Vietnamese, light and dark themes, responsive
-layout, focus states, loading and error recovery, and browser evidence.
-
-Return:
-Status: pass | findings | blocked
-Role: frontend agent
-Files changed: none | path list
-Findings:
-- [P0|P1|P2|P3] path:line: evidence and impact
-Verification:
-- command or browser route, viewport, locale, theme, and result
-Assumptions:
-- assumption or none
-Risks:
-- remaining risk or none
-Next action:
-- concrete next action or none
-```
-
-### Verification Agent
-
-```text
-Read AGENTS.md and docs/CODEX_ORCHESTRATION.md.
-
-Role: Verification Agent.
-Goal: Verify the current changes with targeted checks.
-Do not make product code edits unless explicitly assigned.
-Do not run write-heavy tests against real or shared data.
-If this task is delegated, use only the Luna model.
-
-Prefer relevant commands:
-- pnpm --dir client exec tsc -p tsconfig.json --noEmit
-- pnpm --dir client test -- --run
-- pnpm --dir client build
-- pnpm --dir client lint
-- pnpm --dir server typecheck
-- pnpm --dir server test -- --run
-- pnpm --dir server build
-- pnpm --dir server lint
-- server read-only k6 scripts only when requested
-- Playwright or the available browser harness for changed UI routes
-
-Return:
-Status: pass | findings | blocked
-Role: verification agent
-Files changed: none | path list
-Findings:
-- [P0|P1|P2|P3] path:line: evidence and impact
-Verification:
-- command or browser route, viewport, locale, theme, and result
-Assumptions:
-- assumption or none
-Risks:
-- remaining risk or none
-Next action:
-- concrete next action or none
-```
-
-## Practical Defaults For This Repo
-
-For normal feature work:
-
-1. Main Agent inspects relevant files and defines file ownership.
-2. Main Agent edits the critical path locally.
-3. Sub-agents are used only for independent backend, frontend, or verification slices.
-4. Main Agent reviews reports and integrates findings.
-5. Main Agent runs final targeted verification.
-6. Main Agent summarizes changed files, behavior, verification, and risks.
-
-For broad full-stack tasks:
-
-1. Backend Agent handles backend API/service/repository validation.
-2. Frontend Agent handles UI/API integration.
-3. Verification Agent runs checks after the main integration step.
-4. Main Agent owns final merge decisions and prevents conflicting edits.
-
-## Notes On Standards
-
-This pattern follows two common agent orchestration ideas:
-
-- Handoff pattern: a coordinator routes bounded work to specialized agents and defines what context they receive.
-- Orchestrator-worker pattern: a lead agent decomposes the work, delegates independent slices, and composes the final result.
-
-In this repository, prefer controlled delegation over autonomous handoffs. The main agent remains accountable for correctness, reviewability, and final verification.
+Main Codex verifies agent claims against the diff and command results, then
+summarizes the integrated result without pasting long logs.
