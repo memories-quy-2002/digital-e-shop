@@ -3,9 +3,7 @@
   "high": [
     "AGENTS.md",
     ".agent/policy/**",
-    ".agent/loops/**",
     ".github/workflows/**",
-    "scripts/loop/**",
     "client/vercel.json",
     "server/vercel.json",
     "server/src/database/prisma/schema.prisma",

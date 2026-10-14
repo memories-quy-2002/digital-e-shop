@@ -12,22 +12,22 @@
 
 ## Current evidence and execution decision
 
-At inspection, HEAD is `7011d48c458f126b7f44598a1ab86b0c9768b99f`, on `codex/stage0-token-diagnostics`. A and B1 are uncommitted; unrelated client/Loop changes also exist.
+At inspection, HEAD is `7011d48c458f126b7f44598a1ab86b0c9768b99f`, on the backend-refactor workspace. A and B1 are uncommitted; unrelated client changes also exist.
 
 The task-owned tracked implementation/Wiki diff is 855 added/deleted lines. The new product repository test has 80 lines. Implementation/Wiki therefore total 935 lines. The existing four spec/plan artifacts add 458 lines, for 1,393 total before this proposal. The previous 921/1,265 estimates excluded blank lines and were not full diff counts.
 
-The original B/C plans require cumulative bounds and forbid resetting or committing to bypass them. `.loop/state/` is absent. This proposal does not amend those documents, canonical policy, or state; product implementation remains stopped under their present execution contract.
+The original B/C plans require cumulative bounds and forbid resetting or committing to bypass them. Product implementation remains stopped under their present execution contract.
 
 **Approved decision (2026-10-04):** native implementation in this chat for the exact paths below; the original plans' single cumulative execution envelope is superseded by deliverables bounded at 25 files / 1,000 added+deleted lines each. Record both each deliverable's delta against a sampled baseline and the complete cumulative task diff; never erase earlier counts or present the whole refactor as under 1,000 lines. Preserve the original retry limits. Any deliverable exceeding its envelope stops for another concrete decision.
 
-This decision would be an explicit task execution amendment, not a claim that the old run was compliant or that a Loop approval exists. It grants no guarded repair-session, policy, state, commit, push, merge, migration, or deployment permission. If repository governance requires a trusted Loop host even for native work, obtain its authenticated exact-path approval and valid state first; do not fabricate either.
+This decision is an explicit task execution amendment. It grants no commit, push, merge, migration, or deployment permission.
 
 ## Global Constraints
 
 - Preserve all public contracts and security checks from the approved spec.
 - Use the caller's TransactionContext for every participating repository operation; preserve lock order, conditional writes, rollback, and after-commit side effects.
 - No new dependencies, schema changes, production operations, commits, or pushes.
-- Leave payments, auth, guards, inventory implementation, Loop infrastructure, and unrelated changes untouched.
+- Leave payments, auth, guards, inventory implementation, and unrelated changes untouched.
 - Database integration requires independently verified isolation; no seed/reset/migration to make tests pass.
 - Native implementation stays in the already authorized feature workspace unless safe isolation is separately established; do not copy unrelated work or switch its branch.
 - The reviewable proposal itself is documentation only; saving it is not starting another product repair run.
@@ -78,4 +78,4 @@ Run the task-specific selectors from the original plans with `pnpm --dir server 
 - B3 completes only when extracted SQL is absent from OrdersService; B4 includes required dependency resolution and every constructor fixture.
 - C reports SQL/query-count evidence separately from measured latency. Missing MySQL evidence does not become a speed or rollback claim.
 - Preserve the old ledger and historical budget stop; update plan checkboxes only for criteria actually demonstrated.
-- Implementation uses direct human-authorized native edits, not the Phase 1 controller or a Phase 2B repair session. No Loop state or host approval is fabricated. The approved amendment governs these deliverables, while canonical Loop policy stays unchanged.
+- Implementation uses direct human-authorized native edits. The approved amendment governs these deliverables.

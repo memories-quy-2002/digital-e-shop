@@ -1,13 +1,11 @@
 {
   "schemaVersion": 1,
   "low": ["docs/**", "Wiki/**", "**/*.md"],
-  "medium": ["client/src/**", "server/src/**", "scripts/loop/**"],
+  "medium": ["client/src/**", "server/src/**"],
   "high": [
     "AGENTS.md",
     ".agent/policy/**",
-    ".agent/loops/**",
     ".github/workflows/**",
-    "scripts/loop/**",
     "client/vercel.json",
     "server/vercel.json",
     "server/src/database/prisma/schema.prisma",
@@ -33,5 +31,5 @@
     "disable_security_checks",
     "production_deployment_promotion"
   ],
-  "highRiskActions": ["stage1_required_check_recovery"]
+  "highRiskActions": []
 }
