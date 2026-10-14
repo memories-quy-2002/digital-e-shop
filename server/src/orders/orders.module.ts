@@ -23,10 +23,12 @@ import { ProductsModule } from "../products/products.module";
 import { PaymentsModule } from "../payments/payments.module";
 import { UsersModule } from "../users/users.module";
 import { ProductAlertsModule } from "../product-alerts/product-alerts.module";
+import { ShippingModule } from "../shipping/shipping.module";
+import { CustomerShippingController } from "../shipping/customer-shipping.controller";
 
 @Module({
-    imports: [NestConfigModule, CartModule, InventoryModule, NotificationsModule, PromotionsModule, ProductsModule, ProductAlertsModule, PaymentsModule, UsersModule],
-    controllers: [OrdersController, GuestOrdersController, AdminPaymentsController],
+    imports: [ShippingModule, NestConfigModule, CartModule, InventoryModule, NotificationsModule, PromotionsModule, ProductsModule, ProductAlertsModule, PaymentsModule, UsersModule],
+    controllers: [OrdersController, GuestOrdersController, AdminPaymentsController, CustomerShippingController],
     providers: [
         NestOrdersService,
         NestOrdersCancellationService,
@@ -43,6 +45,6 @@ import { ProductAlertsModule } from "../product-alerts/product-alerts.module";
 })
 export class OrdersModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {
-        consumer.apply(createRateLimitMiddleware(100)).forRoutes(OrdersController, GuestOrdersController);
+        consumer.apply(createRateLimitMiddleware(100)).forRoutes(OrdersController, GuestOrdersController, CustomerShippingController);
     }
 }

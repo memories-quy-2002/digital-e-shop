@@ -90,6 +90,9 @@ export type GuestPurchaseRequest = {
     shipping: GuestCheckoutShipping;
     discountCode?: string;
     paymentMethod: GuestPaymentMethod;
+    shippingQuoteId: string;
+    deliveryAddress: import("../shipping/types").DeliveryAddress;
+    locale: "en" | "vi";
 };
 
 export type GuestPayOSCheckoutRequest = {
@@ -98,6 +101,9 @@ export type GuestPayOSCheckoutRequest = {
     shipping: GuestCheckoutShipping;
     discountCode?: string;
     paymentMethod: PayOSPaymentMethod;
+    shippingQuoteId: string;
+    deliveryAddress: import("../shipping/types").DeliveryAddress;
+    locale: "en" | "vi";
 };
 
 export type GuestOrderItem = {

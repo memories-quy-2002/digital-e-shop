@@ -4,3 +4,5 @@
 @use "./layout/app-shell";
 @use "./features/auth/auth-shell";
 @use "./features/admin/payments";
+@use "./features/admin/operations";
+@use "./features/shipping/shipping";

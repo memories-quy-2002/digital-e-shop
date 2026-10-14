@@ -1,4 +1,6 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
+import { OrderEmailService } from "./order-email.service";
+import { ShippingQuoteService } from "../shipping/shipping-quote.service";
 import { randomUUID } from "node:crypto";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { PAYMENT_PROVIDER } from "../payments/payment.types";
@@ -39,6 +41,8 @@ export class CheckoutReservationService {
     constructor(
         private readonly repository: CheckoutReservationRepository,
         private readonly promotionsRepository: PromotionsRepository,
+        private readonly shippingQuoteService: ShippingQuoteService,
+        @Optional() private readonly orderEmails?: OrderEmailService,
     ) {}
 
     async reserveInventory(input: CheckoutReservationInput): Promise<CheckoutReservation> {
@@ -57,6 +61,28 @@ export class CheckoutReservationService {
         return withTransaction(async (tx) => {
             const productIds = aggregatedItems.map((item) => item.productId).sort((a, b) => a - b);
             const lockedProducts = await this.repository.lockProducts(tx, productIds);
+            const lockedProductsById = new Map(lockedProducts.map((product) => [Number(product.id), product]));
+            let lockedSubtotal = 0;
+            for (const item of input.authoritativeCart) {
+                const productId = getProductId(item as ReservationCartItem);
+                const quantity = getQuantity(item as ReservationCartItem);
+                const product = lockedProductsById.get(productId);
+                const catalogPrice = Number(product?.price);
+                const catalogSalePriceValue = product?.sale_price == null ? null : Number(product.sale_price);
+                const catalogSalePrice = catalogSalePriceValue !== null && catalogSalePriceValue > 0
+                    ? catalogSalePriceValue
+                    : null;
+                const cartPrice = Number(item.price);
+                const cartSalePrice = item.sale_price == null ? null : Number(item.sale_price);
+                if (!product || !Number.isFinite(catalogPrice) || catalogPrice !== cartPrice
+                    || catalogSalePrice !== cartSalePrice || !Number.isSafeInteger(quantity) || quantity <= 0) {
+                    throw createReservationError("Product price changed. Refresh your cart and delivery quote.");
+                }
+                lockedSubtotal += (catalogSalePrice ?? catalogPrice) * quantity;
+            }
+            if (!Number.isSafeInteger(Math.round(lockedSubtotal + Number.EPSILON)) || Math.round(lockedSubtotal + Number.EPSILON) !== input.authoritativeTotalPrice) {
+                throw createReservationError("Cart total changed. Refresh your cart and delivery quote.");
+            }
             const activeReservations = await this.repository.getActiveReservationQuantities(tx, productIds);
             const stockByProductId = new Map(lockedProducts.map((product) => [product.id, Number(product.stock) || 0]));
             const reservedByProductId = new Map(
@@ -110,14 +136,18 @@ export class CheckoutReservationService {
                 appliedDiscount = promotion.discount;
             }
 
+            if (!input.deliveryCheckout || !this.shippingQuoteService) throw createReservationError("A delivery quote is required");
+            const delivery = await this.shippingQuoteService.validateQuote(tx, input.deliveryCheckout, input.authoritativeCart, input.authoritativeTotalPrice, appliedDiscount);
+            if (this.orderEmails) await this.orderEmails.snapshotPending(tx, pendingCheckout.insertId, identity, input.deliveryCheckout.locale);
+            await tx.query("UPDATE pending_checkouts SET total_price = ?, discount = ?, pricing_snapshot = ?, delivery_snapshot = ?, shipping_address = ? WHERE id = ?", [delivery.pricing.itemsSubtotal + delivery.pricing.shippingFee, delivery.pricing.merchandiseDiscount, JSON.stringify(delivery.pricing), JSON.stringify(delivery.delivery), JSON.stringify(delivery.delivery.address), pendingCheckout.insertId]);
             return {
                 pendingCheckoutId: pendingCheckout.insertId,
                 reservationToken,
                 expiresAt,
                 cartSnapshot: input.authoritativeCart,
                 pricingSnapshot: {
-                    totalPrice: input.authoritativeTotalPrice,
-                    discount: appliedDiscount,
+                    totalPrice: delivery.pricing.itemsSubtotal + delivery.pricing.shippingFee,
+                    discount: delivery.pricing.merchandiseDiscount,
                 },
                 shippingAddress: input.shippingAddress,
                 items: aggregatedItems,

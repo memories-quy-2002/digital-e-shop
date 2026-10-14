@@ -28,14 +28,18 @@ export class TasksRepository {
         return Number(row.id);
     }
 
-    claimDue(limit = 20, now = new Date()): Promise<TaskLease[]> {
+    claimDue(limit = 20, now = new Date(), businessKeyPrefix?: string): Promise<TaskLease[]> {
         boundBatch(limit);
         return withTransaction(async (tx) => {
             // Lock only the bounded due set. Network work starts after this transaction commits.
+            const scope = businessKeyPrefix ? "business_key LIKE ?" : "";
+            const values = businessKeyPrefix
+                ? [`${businessKeyPrefix}%`, now, now, limit]
+                : [now, now, limit];
             const rows = await tx.query<TaskRow[]>(
                 `SELECT id, kind, business_key, payload, attempt, first_attempt_at FROM operations_tasks
-                 WHERE (state = 'READY' AND due_at <= ?) OR (state = 'RUNNING' AND lease_expires_at <= ?)
-                 ORDER BY due_at, id LIMIT ? FOR UPDATE SKIP LOCKED`, [now, now, limit],
+                 WHERE ${scope ? `${scope} AND ` : ""}((state = 'READY' AND due_at <= ?) OR (state = 'RUNNING' AND lease_expires_at <= ?))
+                 ORDER BY due_at, id LIMIT ? FOR UPDATE SKIP LOCKED`, values,
             );
             const leases: TaskLease[] = [];
             for (const row of rows) {

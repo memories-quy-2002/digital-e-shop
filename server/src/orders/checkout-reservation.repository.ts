@@ -19,7 +19,7 @@ export class CheckoutReservationRepository {
 
         const placeholders = productIds.map(() => "?").join(", ");
         return tx.query<LockedProductRow[]>(
-            `SELECT id, name, stock
+            `SELECT id, name, price, sale_price, stock
              FROM products
              WHERE id IN (${placeholders}) AND stock >= 0
              ORDER BY id
@@ -127,7 +127,7 @@ export class CheckoutReservationRepository {
             `SELECT id, payment_provider, provider_reference, provider_order_code,
                     payment_amount, payment_currency, payment_fx_rate,
                     reservation_token, user_id, guest_email, guest_name, guest_phone,
-                    guest_order_token_hash, cart_json, total_price, discount, shipping_address, status, expires_at,
+                    pricing_snapshot, delivery_snapshot, contact_snapshot, guest_order_token_hash, cart_json, total_price, discount, shipping_address, status, expires_at,
                     discount_id, created_at, consumed_at
              FROM pending_checkouts
              WHERE payment_provider = ? AND provider_order_code = ?

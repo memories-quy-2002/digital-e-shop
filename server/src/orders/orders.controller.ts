@@ -228,6 +228,9 @@ export class OrdersController {
             discountCode?: string;
             shippingAddress: string;
             paymentMethod: PaymentProviderName;
+            locale?: "en" | "vi";
+            shippingQuoteId: string;
+            deliveryAddress: import("../shipping/shipping.types").DeliveryAddress;
         },
     ) {
         const { totalPrice, cart, discountCode, shippingAddress, paymentMethod } = body;
@@ -252,6 +255,9 @@ export class OrdersController {
                 discountCode,
                 shippingAddress,
                 paymentMethod,
+                shippingQuoteId: body.shippingQuoteId,
+                deliveryAddress: body.deliveryAddress,
+                locale: body.locale,
             });
             return {
                 orderId: order.id,
@@ -282,6 +288,8 @@ export class OrdersController {
     async createPayOSCheckoutSession(
         @Param("uid") uid: string,
         @Body(new ZodValidationPipe(checkoutSessionSchema)) body: {
+            shippingQuoteId: string;
+            deliveryAddress: import("../shipping/shipping.types").DeliveryAddress;
             totalPrice: number;
             cart: Array<{ productId: number; quantity: number; price: number; sale_price?: number | null }>;
             discount: number;

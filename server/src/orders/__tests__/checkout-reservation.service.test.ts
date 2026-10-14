@@ -8,6 +8,8 @@ vi.mock("../../database/transaction", () => ({
 
 import { CheckoutReservationService } from "../checkout-reservation.service";
 import { hashGuestOrderToken } from "../guest-order-token";
+import { deliveryCheckout } from "../../shipping/__tests__/checkout-fixture";
+const quoteService = { validateQuote: async (_tx: unknown, _checkout: unknown, _cart: unknown, subtotal: number, discount: number) => ({ pricing: { itemsSubtotal: subtotal, merchandiseDiscount: discount, shippingFee: 0, payableTotal: subtotal - discount }, delivery: {} }) };
 
 type CheckoutState = {
     id: number;
@@ -37,6 +39,8 @@ function createMockRepository() {
         lockProducts: vi.fn(async (_tx: unknown, productIds: number[]) => productIds.map((id) => ({
             id,
             name: `Product ${id}`,
+            price: 10,
+            sale_price: null,
             stock: state.stockByProductId.get(id) ?? 0,
         }))),
         getActiveReservationQuantities: vi.fn(async (_tx: unknown, productIds: number[]) => {
@@ -99,7 +103,7 @@ function installSerializedTransactions() {
         });
         await previous;
         try {
-            return await work({});
+            return await work({ query: vi.fn().mockResolvedValue({ affectedRows: 1 }) });
         } finally {
             release();
         }
@@ -108,6 +112,7 @@ function installSerializedTransactions() {
 
 const reservationInput = (uid: string, quantity = 1, expiresAt = new Date(Date.now() + 35 * 60_000)) => ({
     uid,
+    deliveryCheckout: { ...deliveryCheckout, quoteIdentity: { kind: "authenticated" as const, userId: uid } },
     authoritativeCart: [{ product_id: 1, product_name: "Product 1", price: 10, sale_price: null, quantity }],
     authoritativeTotalPrice: quantity * 10,
     discount: 0,
@@ -125,7 +130,7 @@ describe("CheckoutReservationService", () => {
         const { repository, state } = createMockRepository();
         state.stockByProductId.set(1, 2);
         state.stockByProductId.set(2, 2);
-        const service = new CheckoutReservationService(repository as never, promotionsRepository as never);
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never);
 
         const result = await service.reserveInventory({
             ...reservationInput("user-a", 1),
@@ -156,11 +161,21 @@ describe("CheckoutReservationService", () => {
         expect(result.reservationToken).toMatch(/^[0-9a-f-]{36}$/i);
     });
 
+    it("rejects a PayOS reservation when the locked catalog price changed after quote creation", async () => {
+        const { repository } = createMockRepository();
+        repository.lockProducts.mockResolvedValueOnce([{ id: 1, name: "Product 1", price: 11, sale_price: null, stock: 1 }]);
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never);
+
+        await expect(service.reserveInventory(reservationInput("user-a"))).rejects.toThrow(/price changed/i);
+        expect(repository.insertPendingCheckout).not.toHaveBeenCalled();
+    });
+
     it("persists a guest contact snapshot without assigning a user ID", async () => {
         const { repository } = createMockRepository();
-        const service = new CheckoutReservationService(repository as never, promotionsRepository as never);
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never);
 
         await service.reserveInventory({
+            deliveryCheckout: { ...deliveryCheckout, quoteIdentity: { kind: "guest", guestCartId: "11111111-1111-4111-8111-111111111111" } },
             authoritativeCart: [{ product_id: 1, product_name: "Product 1", price: 10, sale_price: null, quantity: 1 }],
             authoritativeTotalPrice: 10,
             discount: 0,
@@ -189,7 +204,7 @@ describe("CheckoutReservationService", () => {
 
     it("allows only one concurrent quantity-one reservation against stock one", async () => {
         const { repository } = createMockRepository();
-        const service = new CheckoutReservationService(repository as never, promotionsRepository as never);
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never);
 
         const results = await Promise.allSettled([
             service.reserveInventory(reservationInput("user-a")),
@@ -203,7 +218,7 @@ describe("CheckoutReservationService", () => {
 
     it("does not subtract expired, released, or consumed reservations", async () => {
         const { repository, state } = createMockRepository();
-        const service = new CheckoutReservationService(repository as never, promotionsRepository as never);
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never);
         const expiresAt = new Date(Date.now() + 35 * 60_000);
 
         state.checkouts.push({ id: 1, status: "PENDING", expiresAt, reservationToken: "pending-token" });
@@ -220,7 +235,7 @@ describe("CheckoutReservationService", () => {
 
     it("releases a reservation idempotently", async () => {
         const { repository } = createMockRepository();
-        const service = new CheckoutReservationService(repository as never, promotionsRepository as never);
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never);
         const reservation = await service.reserveInventory(reservationInput("user-a"));
 
         await expect(service.releaseReservation(reservation.reservationToken, "stripe_session_creation_failed")).resolves.toBeUndefined();
@@ -240,7 +255,7 @@ describe("CheckoutReservationService", () => {
             discount: 3,
             promotion: { id: 3, discount_code: "SAVE10", discount_percent: 10 },
         });
-        const service = new CheckoutReservationService(repository as never, promotionsRepository as never);
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never);
 
         const result = await service.reserveInventory({
             ...reservationInput("user-promo"),

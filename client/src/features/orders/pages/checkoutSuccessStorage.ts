@@ -6,6 +6,7 @@ export type CheckoutSuccessData = {
     totalPrice: number;
     discount: number;
     subtotal: number;
+    shippingFee?: number;
     itemsCount: number;
     placedAt: string;
     currency?: CurrencyCode;

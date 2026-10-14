@@ -16,8 +16,10 @@ import { generateGuestOrderToken, hashGuestOrderToken } from "./guest-order-toke
 import type { GuestPayOSCheckoutPayload } from "./orders.dto";
 import type { CartItemRow } from "../cart/cart.types";
 import type { OrderIdentity } from "./orders.types";
+import type { DeliveryCheckoutInput } from "./orders.dto";
+import type { QuoteCheckout } from "../shipping/shipping-quote.service";
 
-type AuthenticatedPayOSCheckoutInput = {
+type AuthenticatedPayOSCheckoutInput = DeliveryCheckoutInput & {
     totalPrice: number;
     cart: CartCheckoutItem[];
     discount?: number;
@@ -26,6 +28,7 @@ type AuthenticatedPayOSCheckoutInput = {
 };
 
 type AuthoritativePayOSCheckoutInput = {
+    deliveryCheckout: QuoteCheckout;
     authoritativeCart: CartItemRow[];
     authoritativeTotalPrice: number;
     discount: number;
@@ -92,11 +95,12 @@ export class NestOrdersPayOSService {
                 discount: calculatePromotionDiscount(promotion, checkoutValidation.authoritativeTotalPrice),
                 discountCode: input.discountCode,
                 shippingAddress: input.shippingAddress,
+                deliveryCheckout: { shippingQuoteId: input.shippingQuoteId, deliveryAddress: input.deliveryAddress, locale: input.locale, quoteIdentity: { kind: "authenticated", userId: uid } },
             },
         );
     }
 
-    async createGuestCheckoutSession(payload: GuestPayOSCheckoutPayload): Promise<PayOSCheckoutResult & { guestOrderToken: string }> {
+    async createGuestCheckoutSession(payload: GuestPayOSCheckoutPayload, guestCartId?: string): Promise<PayOSCheckoutResult & { guestOrderToken: string }> {
         const preview = await this.cartService.previewGuestCart(payload.cart, payload.discountCode);
         if (preview.cartItems.length === 0) {
             throw createCheckoutError("Your cart is empty. Refresh your cart and try again.", HTTP_STATUS.BAD_REQUEST);
@@ -129,6 +133,7 @@ export class NestOrdersPayOSService {
             discount: preview.promotion.discount,
             discountCode: payload.discountCode,
             shippingAddress: JSON.stringify(payload.shipping),
+            deliveryCheckout: { shippingQuoteId: payload.shippingQuoteId, deliveryAddress: payload.deliveryAddress, locale: payload.locale, quoteIdentity: { kind: "guest", guestCartId: guestCartId || "" } },
         });
         return { ...result, guestOrderToken };
     }
@@ -138,6 +143,7 @@ export class NestOrdersPayOSService {
         input: AuthoritativePayOSCheckoutInput,
     ): Promise<PayOSCheckoutResult> {
         const reservationBase = {
+            deliveryCheckout: input.deliveryCheckout,
             authoritativeCart: input.authoritativeCart,
             authoritativeTotalPrice: input.authoritativeTotalPrice,
             discount: input.discount,
@@ -151,7 +157,7 @@ export class NestOrdersPayOSService {
 
         let paymentLinkId: string | null = null;
         try {
-            const payableTotal = Math.max(input.authoritativeTotalPrice - reservation.pricingSnapshot.discount, 0);
+            const payableTotal = Math.max(reservation.pricingSnapshot.totalPrice - reservation.pricingSnapshot.discount, 0);
             if (payableTotal <= 0) {
                 throw createCheckoutError("Order total must be greater than zero to pay with PayOS.", HTTP_STATUS.BAD_REQUEST);
             }

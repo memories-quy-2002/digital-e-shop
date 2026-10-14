@@ -73,6 +73,10 @@ const parseMultipartJson = (value: unknown) => {
 const attributesInputSchema = z.preprocess(parseMultipartJson, productAttributesSchema).optional().default([]);
 
 export const productCreateSchema = z.object({
+    parcelWeightGrams: z.coerce.number().int().min(1).max(30000).optional(),
+    parcelLengthCm: z.coerce.number().int().min(1).max(200).optional(),
+    parcelWidthCm: z.coerce.number().int().min(1).max(200).optional(),
+    parcelHeightCm: z.coerce.number().int().min(1).max(200).optional(),
     name: requiredText("Product name"),
     description: z.string().trim().optional().default(""),
     category: requiredText("Category"),
@@ -85,6 +89,11 @@ export const productCreateSchema = z.object({
     price: nonNegativeNumber("Price"),
     inventory: z.coerce.number({ error: "Inventory must be a number" }).int("Inventory must be a whole number").nonnegative("Inventory cannot be negative"),
     imageUrl: z.string().trim().optional(),
+}).superRefine((data, context) => {
+    const fields = ["parcelWeightGrams", "parcelLengthCm", "parcelWidthCm", "parcelHeightCm"] as const;
+    if (fields.some((field) => data[field] !== undefined)) for (const field of fields) {
+        if (data[field] === undefined) context.addIssue({ code: "custom", path: [field], message: "Supply all parcel dimensions and weight" });
+    }
 });
 
 export const productUpdateSchema = z.object({

@@ -20,10 +20,11 @@ import { OrdersModule } from "../orders.module";
 import { NestOrderTimelineService } from "../orders.timeline.service";
 import { NestInventoryService } from "../../inventory/inventory.service";
 import { NestNotificationsService } from "../../notifications/notifications.service";
+import { OrderEmailService } from "../order-email.service";
 
 type RepositoryCallback = (error: Error | null, rows: unknown) => void;
 
-function buildService({ orderId = 9, paymentProvider: ledgerProvider, paymentStatus = "pending", initialOrderStatus = 0, deliveredAt = null, restoredAt = null, simulated = false, userId = "user-1", items = [{ product_id: 4, quantity: 2 }], productRows = [{ id: 4, price: 100, sale_price: null, stock: 5 }], productStockAffectedRows = 1, alerts = undefined } = {}) {
+function buildService({ orderId = 9, paymentProvider: ledgerProvider, paymentStatus = "pending", initialOrderStatus = 0, deliveredAt = null, restoredAt = null, shipmentCreationState = null, simulated = false, userId = "user-1", items = [{ product_id: 4, quantity: 2 }], productRows = [{ id: 4, price: 100, sale_price: null, stock: 5 }], productStockAffectedRows = 1, alerts = undefined } = {}) {
     const tx = { query: vi.fn() };
     let orderStatus = initialOrderStatus;
     const orderRepository = Object.assign(new OrdersRepository({} as never), {
@@ -48,8 +49,10 @@ function buildService({ orderId = 9, paymentProvider: ledgerProvider, paymentSta
 
     tx.query.mockImplementation(async (sql: string) => {
         const normalizedSql = sql.trimStart();
+        if (sql.startsWith("SELECT status, delivery_snapshot FROM orders")) return [{ status: orderStatus }];
+        if (sql.startsWith("SELECT state FROM shipments")) return [];
         if (sql.includes("SELECT user_id, status") && sql.includes("FROM orders")) {
-            return [{ user_id: userId, status: orderStatus, delivered_at: deliveredAt, inventory_restored_at: restoredAt }];
+            return [{ user_id: userId, status: orderStatus, delivered_at: deliveredAt, inventory_restored_at: restoredAt, shipment_creation_state: shipmentCreationState }];
         }
         if (sql.includes("SELECT id, user_id, status, total_price")) {
             return [{ id: 9, user_id: "user-1", status: orderStatus, total_price: 50, discount: 0 }];
@@ -104,7 +107,7 @@ describe("order lifecycle", () => {
             { provide: NestOrderTimelineService, useValue: fixture.timeline },
             { provide: NestInventoryService, useValue: fixture.inventory },
             { provide: NestNotificationsService, useValue: fixture.notifications },
-        ] }).useMocker(() => ({})).compile();
+        ] }).useMocker((token) => token === OrderEmailService ? { emit: vi.fn() } : ({})).compile();
         try {
             await expect(moduleRef.get(NestOrdersService).cancelOrder(9, "user-1")).resolves.toMatchObject({ status: 2 });
             expect(fixture.notifications.notifyOrderStatus).toHaveBeenCalledOnce();
@@ -128,6 +131,16 @@ describe("order lifecycle", () => {
         }));
         expect(timeline.createTimelineEventInTransaction).toHaveBeenCalledTimes(1);
         expect(notifications.notifyOrderStatus).toHaveBeenCalledTimes(1);
+    });
+
+    it("blocks cancellation while an outbound shipment creation may have reached the carrier", async () => {
+        for (const shipmentCreationState of ["READY", "RUNNING", "SUCCEEDED", "REVIEW_REQUIRED"]) {
+            const { service, tx, notifications } = buildService({ shipmentCreationState });
+
+            await expect(service.cancelOrder(9, "user-1")).rejects.toMatchObject({ statusCode: 409 });
+            expect(tx.query.mock.calls.some(([sql]) => String(sql).startsWith("UPDATE products"))).toBe(false);
+            expect(notifications.notifyOrderStatus).not.toHaveBeenCalled();
+        }
     });
 
     it("locks unique products once in ID order and keeps duplicate item stock and alert transitions sequential", async () => {
@@ -184,14 +197,14 @@ describe("order lifecycle", () => {
         const result = await service.changeOrderStatus(41, 1, "admin-1");
         expect(result.status).toBe(1);
         expect(tx.query).toHaveBeenCalledWith(
-            expect.stringContaining("UPDATE orders SET status = 1, delivered_at = COALESCE(delivered_at, UTC_TIMESTAMP())"),
-            [41],
+            expect.stringContaining("UPDATE orders SET status = 1, delivered_at = COALESCE(delivered_at, ?)"),
+            [expect.any(Date), 41],
         );
         const cashPaymentUpdate = tx.query.mock.calls.find(([sql]) => String(sql).includes("UPDATE order_payments SET status = 'paid'"));
         expect(cashPaymentUpdate?.[0]).toEqual(expect.stringContaining("reconciliation_status = 'MANUAL_CONFIRMED'"));
         expect(cashPaymentUpdate?.[0]).toEqual(expect.stringContaining("last_reconciled_at = UTC_TIMESTAMP()"));
         expect(cashPaymentUpdate?.[0]).toEqual(expect.stringContaining("provider_status = 'COLLECTED'"));
-        expect(cashPaymentUpdate?.[1]).toEqual([41]);
+        expect(cashPaymentUpdate?.[1]).toEqual([expect.any(Date), 41]);
     });
 
     it("does not complete an unpaid PayOS order as delivered", async () => {
@@ -251,14 +264,14 @@ describe("order lifecycle", () => {
     });
 
     it("repeating Done does not add a second delivery event or payment update", async () => {
-        const { service, tx, timeline } = buildService({ orderId: 41, paymentProvider: "cash" });
+        const { service, tx } = buildService({ orderId: 41, paymentProvider: "cash" });
         await service.changeOrderStatus(41, 1, "admin-1");
         await service.changeOrderStatus(41, 1, "admin-1");
-        expect(timeline.createTimelineEventInTransaction).toHaveBeenCalledTimes(1);
+        expect(tx.query.mock.calls.filter(([sql]) => String(sql).includes("INSERT INTO order_status_events")).length).toBe(1);
         expect(tx.query.mock.calls.filter(([sql]) => String(sql).includes("UPDATE order_payments SET status = 'paid'")).length).toBe(1);
     });
 
-    it("backfills a missing timestamp on a legacy delivered PayOS order without rejecting or paying it", async () => {
+    it("preserves a missing historical delivery timestamp without restarting warranty or paying it", async () => {
         const { service, tx, timeline } = buildService({
             orderId: 42,
             paymentProvider: "payos",
@@ -267,10 +280,7 @@ describe("order lifecycle", () => {
 
         await expect(service.changeOrderStatus(42, 1, "admin-1")).resolves.toMatchObject({ id: 42, status: 1 });
 
-        expect(tx.query).toHaveBeenCalledWith(
-            "UPDATE orders SET delivered_at = COALESCE(delivered_at, UTC_TIMESTAMP()) WHERE id = ?",
-            [42],
-        );
+        expect(tx.query.mock.calls.some(([sql]) => String(sql).startsWith("UPDATE orders"))).toBe(false);
         expect(tx.query.mock.calls.filter(([sql]) => String(sql).includes("UPDATE order_payments SET status = 'paid'")).length).toBe(0);
         expect(timeline.createTimelineEventInTransaction).not.toHaveBeenCalled();
     });

@@ -48,7 +48,8 @@ The payment lifecycle follows the order reservation:
 2. PayOS creates a provider link, or COD creates a pending payment
 3. PayOS finalizes only after a verified webhook or guarded reconciliation
 4. COD becomes collected only through the guarded admin confirmation
-5. Refunds remain manual ledger operations
+5. Evidence-backed manual refunds record net merchandise allocations; the
+   earlier gross-price refund route is retired
 
 The finalizer checks the exact provider order code, payment-link reference,
 amount, currency, and payment status. Idempotency keys, unique provider
@@ -74,4 +75,6 @@ Payment record definitions live in
 `server/src/payments/payment-reconciliation.repository.ts`.
 
 See [[vnd-payment-operations]], [[0005-vietnam-first-vnd-catalog-and-mock-payos]],
-and the [API guide](../../docs/API.md).
+[[shipping-and-fulfillment]], and the [API guide](../../docs/API.md). COD
+remittance and evidence-backed manual refunds are recorded separately from
+delivery collection; see [[after-sales-request]].

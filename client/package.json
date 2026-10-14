@@ -37,6 +37,7 @@
         "lint": "eslint src --ext .js,.mjs,.cjs,.ts,.mts,.cts,.jsx,.tsx --max-warnings=0 --format=pretty",
         "test": "vitest",
         "test:ui": "vitest --ui",
+        "test:e2e": "playwright test e2e/retail-p0.spec.ts",
         "preview": "vite preview"
     },
     "browserslist": {
@@ -53,6 +54,7 @@
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
+        "@playwright/test": "^1.64.0",
         "@tailwindcss/vite": "^4.3.3",
         "@testing-library/dom": "^10.4.2",
         "@testing-library/jest-dom": "^7.0.1",

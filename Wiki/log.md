@@ -101,3 +101,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-10-14 - Codex - Split guest order routes into their own rate-limited controller and made the address book a keyboard-submittable form with linked inline validation; see [[architecture]].
 - 2026-10-14 - Codex - Added a keyboard skip link to the admin shell and regression coverage for its content target; see [[architecture]].
 - 2026-10-14 — Codex: document the transactional operations task foundation and fenced leases.
+- 2026-10-14 - Codex - Completed retail P0 fulfillment, COD/refund evidence, durable transactional email, sandbox checkout coverage, and operator recovery documentation; live provider and scheduler verification remain pending.

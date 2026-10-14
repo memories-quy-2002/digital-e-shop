@@ -35,12 +35,12 @@ describe("operations task database integration", () => {
     it("integration gives one concurrent claimant each task and fences an expired worker", async () => {
         const id = await enqueue('-claim');
         const now = new Date(Date.now() + 1000);
-        const batches = await Promise.all([repository.claimDue(1, now), repository.claimDue(1, now)]);
+        const batches = await Promise.all([repository.claimDue(1, now, prefix), repository.claimDue(1, now, prefix)]);
         const leases = batches.flat();
         expect(leases).toHaveLength(1);
         expect(leases[0].id).toBe(id);
         expect(await repository.finish(leases[0], { kind: "success" }, new Date(now.getTime() + 60001))).toBe(false);
-        const [reclaimed] = await repository.claimDue(1, new Date(now.getTime() + 60001));
+        const [reclaimed] = await repository.claimDue(1, new Date(now.getTime() + 60001), prefix);
         expect(reclaimed.attempt).toBe(2);
         expect(reclaimed.token).not.toBe(leases[0].token);
         expect(await repository.finish(leases[0], { kind: "success" }, now)).toBe(false);
@@ -50,14 +50,14 @@ describe("operations task database integration", () => {
         await enqueue('-bounds-a');
         await enqueue('-bounds-b');
         const now = new Date(Date.now() + 2000);
-        const first = await repository.claimDue(1, now);
+        const first = await repository.claimDue(1, now, prefix);
         expect(first).toHaveLength(1);
         await repository.finish(first[0], { kind: "retryable", reason: "timeout" }, now);
-        const second = await repository.claimDue(100, now);
+        const second = await repository.claimDue(100, now, prefix);
         expect(second).toHaveLength(1);
         await repository.finish(second[0], { kind: "success" }, now);
-        expect(await repository.claimDue(20, new Date(now.getTime() + 29999))).toEqual([]);
-        expect(await repository.claimDue(20, new Date(now.getTime() + 30000))).toHaveLength(1);
+        expect(await repository.claimDue(20, new Date(now.getTime() + 29999), prefix)).toEqual([]);
+        expect(await repository.claimDue(20, new Date(now.getTime() + 30000), prefix)).toHaveLength(1);
         expect(() => repository.claimDue(101)).toThrow();
     });
 });

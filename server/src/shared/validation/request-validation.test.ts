@@ -3,8 +3,10 @@ import { z } from "zod";
 import { parseBody, getValidationMessage } from "./request-validation";
 import { purchaseSchema } from "../../orders/orders.validator";
 import { productCreateSchema } from "../../products/products.validator";
+import { deliveryCheckout } from "../../shipping/__tests__/checkout-fixture";
 
 const purchase = {
+    ...deliveryCheckout,
     totalPrice: 100,
     cart: [{ productId: 1, quantity: 1, price: 100 }],
     discount: 0,

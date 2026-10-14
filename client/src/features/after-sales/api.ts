@@ -1,6 +1,6 @@
 import http from "../../lib/http";
 import { AFTER_SALES_PAGINATION } from "./constants";
-import type { AfterSalesCreateInput, AfterSalesListPage, AfterSalesListQuery, AfterSalesRequest, GuestAfterSalesCreateInput } from "./types";
+import type { AfterSalesCreateInput, AfterSalesListPage, AfterSalesListQuery, AfterSalesRequest, GuestAfterSalesCreateInput, ManualRefundInput } from "./types";
 
 const normalizeQuery = (query: AfterSalesListQuery = {}) => ({ page: query.page || AFTER_SALES_PAGINATION.FIRST_PAGE, limit: Math.min(query.limit || AFTER_SALES_PAGINATION.DEFAULT_PAGE_SIZE, AFTER_SALES_PAGINATION.MAX_PAGE_SIZE), ...(query.status ? { status: query.status } : {}), ...(query.kind ? { kind: query.kind } : {}) });
 
@@ -51,5 +51,10 @@ export async function transitionAdminAfterSalesRequest(id: number, status: After
 
 export async function confirmAdminAfterSalesRefund(id: number, input: { refundReference: string; currency: string; idempotencyKey: string; note?: string }): Promise<AfterSalesRequest> {
     const response = await http.post(`/api/admin/after-sales/requests/${id}/refund`, input);
+    return response.data.request as AfterSalesRequest;
+}
+
+export async function confirmAdminManualRefund(id: number, input: ManualRefundInput): Promise<AfterSalesRequest> {
+    const response = await http.post(`/api/admin/after-sales/requests/${id}/manual-refund`, input);
     return response.data.request as AfterSalesRequest;
 }

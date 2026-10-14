@@ -18,8 +18,10 @@ import { NestOrdersService } from "../orders.service";
 import { NestOrdersCancellationService } from "../orders-cancellation.service";
 import { guestOrderLookupSchema, guestPurchaseSchema } from "../orders.validator";
 import { hashGuestOrderToken } from "../guest-order-token";
+import { deliveryCheckout } from "../../shipping/__tests__/checkout-fixture";
 
 const guestPayload = () => ({
+    ...deliveryCheckout,
     cart: [{ productId: 7, quantity: 2 }],
     contact: {
         email: "buyer@example.com",
@@ -92,6 +94,8 @@ function buildService() {
         promotions as never,
         productAttributes as never,
         new NestOrdersCancellationService(ordersRepository, timeline as never, inventory as never),
+        undefined,
+        { validateQuote: async (_tx: unknown, _checkout: unknown, _cart: unknown, subtotal: number, discount: number) => ({ pricing: { itemsSubtotal: subtotal, merchandiseDiscount: Math.round(discount), shippingFee: 0, payableTotal: subtotal - Math.round(discount), currency: "VND" }, delivery: {} }) } as never,
     );
 
     return { service, tx, cartService, checkoutReservations, ordersRepository, timeline, inventory, notifications, promotions };
@@ -154,7 +158,7 @@ describe("guest purchase controller", () => {
             guestOrderToken: "raw-token-once",
         } as never);
 
-        const response = await controller.makeGuestPurchase(guestPayload());
+        const response = await controller.makeGuestPurchase(guestPayload(), { cookies: { digitalEGuestCartId: "11111111-1111-4111-8111-111111111111" } } as never);
 
         expect(response).toEqual(expect.objectContaining({
             orderId: 91,
@@ -163,7 +167,7 @@ describe("guest purchase controller", () => {
         }));
         expect(ordersService.makeGuestPurchase).toHaveBeenCalledWith(expect.objectContaining({
             cart: [{ productId: 7, quantity: 2 }],
-        }));
+        }), "11111111-1111-4111-8111-111111111111");
     });
 
     it("returns only a guest-safe order after the service verifies both lookup values", async () => {
@@ -229,13 +233,14 @@ describe("guest purchase transaction", () => {
     it("commits an authenticated order and records the in-app notification", async () => {
         const { service, cartService, notifications } = buildService();
         vi.mocked(cartService.validateCheckoutSubmission).mockResolvedValue({
-            cartItems: [{ product_id: 7, product_name: "Widget", price: 8, sale_price: null, stock: 5, quantity: 2 }],
+            cartItems: [{ product_id: 7, product_name: "Widget", price: 10, sale_price: 8, stock: 5, quantity: 2 }],
             issues: [],
             mismatches: [],
             authoritativeTotalPrice: 16,
         });
 
         await service.makePurchase("user-1", {
+            ...deliveryCheckout,
             totalPrice: 16,
             cart: [{ productId: 7, quantity: 2, price: 8 }],
             discount: 0,

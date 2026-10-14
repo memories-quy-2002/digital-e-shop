@@ -12,11 +12,12 @@ const mocks = vi.hoisted(() => ({
     clearGuestCartServer: vi.fn(),
     guestPayOSSession: vi.fn(),
     payosAuthSession: vi.fn(),
-    customerAddresses: vi.fn(),
-    customerOrders: vi.fn(),
     httpGet: vi.fn(),
     httpPost: vi.fn(),
     navigate: vi.fn(),
+    fetchCustomerAddresses: vi.fn(),
+    fetchCustomerOrders: vi.fn(),
+    onValidationRefresh: vi.fn(),
 }));
 
 vi.mock("../../../context/AuthContext", () => ({ useAuth: () => mocks.auth }));
@@ -30,10 +31,11 @@ vi.mock("../api", () => ({
     clearGuestCartServer: mocks.clearGuestCartServer,
     createGuestPayOSCheckoutSession: mocks.guestPayOSSession,
     createPayOSCheckoutSession: mocks.payosAuthSession,
-    fetchCustomerOrders: mocks.customerOrders,
+    fetchCustomerOrders: mocks.fetchCustomerOrders,
 }));
+vi.mock("../../users/api", () => ({ fetchCustomerAddresses: mocks.fetchCustomerAddresses }));
 vi.mock("../../../lib/http", () => ({ default: { get: mocks.httpGet, post: mocks.httpPost } }));
-vi.mock("../../users/api", () => ({ fetchCustomerAddresses: mocks.customerAddresses }));
+vi.mock("../../shipping/components/DeliveryQuoteForm", () => ({ default: ({ onQuoteChange, addressPrefill }: { onQuoteChange: (address: unknown, quote: unknown) => void; addressPrefill?: unknown }) => <><button type="button" onClick={() => onQuoteChange({ recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", provinceCode: "1", provinceName: "HCMC", wardCode: "2", wardName: "HCMC", districtCode: "3", country: "VN" }, { id: "quote-1", expiresAt: new Date(Date.now() + 60000).toISOString(), pricing: { itemsSubtotal: 160, merchandiseDiscount: 0, shippingFee: 20000, payableTotal: 20160, currency: "VND" }, parcel: { grams: 500, lengthCm: 10, widthCm: 10, heightCm: 10 }, serviceTypeId: 2, address: {}, expectedDeliveryAt: null, sandbox: true, parcelEstimated: true })}>Request test quote</button><output data-testid="address-prefill">{addressPrefill ? JSON.stringify(addressPrefill) : ""}</output></> }));
 vi.mock("react-helmet-async", () => ({ Helmet: () => null }));
 
 const cart = [{
@@ -61,7 +63,7 @@ const renderCheckout = () => render(
                 discountCode={null}
                 subtotal={160}
                 validationIssues={[]}
-                onValidationRefresh={vi.fn()}
+                onValidationRefresh={mocks.onValidationRefresh}
             />
         </LocaleProvider>
     </MemoryRouter>,
@@ -69,11 +71,7 @@ const renderCheckout = () => render(
 
 const fillRequiredFields = () => {
     fireEvent.change(screen.getByLabelText("Email address"), { target: { value: "guest@example.com" } });
-    fireEvent.change(screen.getByLabelText("First name"), { target: { value: "Guest" } });
-    fireEvent.change(screen.getByLabelText("Last name"), { target: { value: "Buyer" } });
-    fireEvent.change(screen.getByLabelText("Street address"), { target: { value: "1 Main Street" } });
-    fireEvent.change(screen.getByLabelText("City"), { target: { value: "HCMC" } });
-    fireEvent.change(screen.getByLabelText("Country"), { target: { value: "VN" } });
+    fireEvent.click(screen.getByRole("button", { name: "Request test quote" }));
 };
 
 describe("CheckoutPaymentPage guest checkout", () => {
@@ -82,8 +80,8 @@ describe("CheckoutPaymentPage guest checkout", () => {
         sessionStorage.clear();
         mocks.auth.userData = null;
         mocks.auth.loading = false;
-        mocks.customerAddresses.mockResolvedValue([]);
-        mocks.customerOrders.mockResolvedValue([]);
+        mocks.fetchCustomerAddresses.mockResolvedValue([]);
+        mocks.fetchCustomerOrders.mockResolvedValue([]);
         mocks.guestPurchase.mockResolvedValue({
             orderId: 42,
             order: { id: 42, date_added: "2026-09-08T10:00:00.000Z", total_price: 160, discount: 0 },
@@ -111,9 +109,13 @@ describe("CheckoutPaymentPage guest checkout", () => {
 
         await waitFor(() => expect(mocks.guestPurchase).toHaveBeenCalledWith({
             cart: [{ productId: 10, quantity: 2 }],
-            contact: { email: "guest@example.com", name: "Guest Buyer" },
+            contact: { email: "guest@example.com", name: "Guest Buyer", phone: "0901234567" },
             shipping: { address: "1 Main Street", city: "HCMC", country: "VN" },
+            discountCode: undefined,
             paymentMethod,
+            shippingQuoteId: "quote-1",
+            deliveryAddress: { recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", provinceCode: "1", provinceName: "HCMC", wardCode: "2", wardName: "HCMC", districtCode: "3", country: "VN" },
+            locale: "en",
         }));
         expect(mocks.guestPurchase.mock.calls[0][0]).not.toHaveProperty("totalPrice");
         expect(mocks.guestPurchase.mock.calls[0][0]).not.toHaveProperty("cart[0].price");
@@ -134,9 +136,13 @@ describe("CheckoutPaymentPage guest checkout", () => {
 
         await waitFor(() => expect(mocks.guestPayOSSession).toHaveBeenCalledWith({
             cart: [{ productId: 10, quantity: 2 }],
-            contact: { email: "guest@example.com", name: "Guest Buyer" },
+            contact: { email: "guest@example.com", name: "Guest Buyer", phone: "0901234567" },
             shipping: { address: "1 Main Street", city: "HCMC", country: "VN" },
+            discountCode: undefined,
             paymentMethod: "payos",
+            shippingQuoteId: "quote-1",
+            deliveryAddress: { recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", provinceCode: "1", provinceName: "HCMC", wardCode: "2", wardName: "HCMC", districtCode: "3", country: "VN" },
+            locale: "en",
         }));
         expect(mocks.guestPurchase).not.toHaveBeenCalled();
         expect(JSON.parse(sessionStorage.getItem("checkoutPending") || "{}")).toMatchObject({
@@ -176,27 +182,6 @@ describe("CheckoutPaymentPage guest checkout", () => {
         expect(storedCheckout).not.toHaveProperty("country");
     });
 
-    it("shows a clickable recent order address when no saved address is available", async () => {
-        mocks.auth.userData = { id: "user-1" };
-        mocks.customerOrders.mockResolvedValue([{
-            id: 42,
-            date_added: "2026-09-08T10:00:00.000Z",
-            status: 1,
-            total_price: 160,
-            discount: 0,
-            shipping_address: JSON.stringify({ address: "42 Nguyen Hue", city: "HCMC", country: "VN" }),
-        }]);
-
-        renderCheckout();
-
-        const recommendation = await screen.findByRole("button", { name: /use address from order #42/i });
-        fireEvent.click(recommendation);
-
-        expect(screen.getByLabelText("Street address")).toHaveValue("42 Nguyen Hue");
-        expect(screen.getByLabelText("City")).toHaveValue("HCMC");
-        expect(screen.getByLabelText("Country")).toHaveValue("VN");
-    });
-
     it("stores the complete authenticated shipping snapshot and preserves the order flow", async () => {
         mocks.auth.userData = { id: "user-1" };
         mocks.httpGet.mockResolvedValue({
@@ -228,6 +213,66 @@ describe("CheckoutPaymentPage guest checkout", () => {
 
         await waitFor(() => expect(mocks.httpPost).toHaveBeenCalledWith("/api/orders/purchase/user-1", expect.objectContaining({
             shippingAddress: JSON.stringify({ address: "1 Main Street", city: "HCMC", country: "VN" }),
+            shippingQuoteId: "quote-1",
+            deliveryAddress: expect.objectContaining({ provinceCode: "1", wardCode: "2" }),
+            locale: "en",
         })));
+    });
+
+    it("prefills saved and recent addresses while requiring explicit province and ward confirmation", async () => {
+        mocks.auth.userData = { id: "user-1" };
+        mocks.fetchCustomerAddresses.mockResolvedValue([{
+            id: 3,
+            label: "Home",
+            recipient_name: "Saved Buyer",
+            phone_number: "0901111222",
+            address_line: "9 Saved Road",
+            city: "Old City",
+            country: "VN",
+            is_default: true,
+        }]);
+        mocks.fetchCustomerOrders.mockResolvedValue([{
+            id: 22,
+            date_added: "2026-10-12T10:00:00.000Z",
+            status: 1,
+            total_price: 200,
+            discount: 0,
+            shipping_address: JSON.stringify({ address: "4 Previous Street", city: "Old District", country: "VN" }),
+        }]);
+        renderCheckout();
+
+        fireEvent.change(await screen.findByLabelText("Saved address"), { target: { value: "3" } });
+        await waitFor(() => expect(screen.getByTestId("address-prefill")).toHaveTextContent('"recipientName":"Saved Buyer"'));
+        expect(screen.getByTestId("address-prefill")).toHaveTextContent('"addressLine":"9 Saved Road"');
+        expect(screen.getByTestId("address-prefill")).not.toHaveTextContent("provinceCode");
+
+        fireEvent.change(screen.getByLabelText("Recent order address"), { target: { value: "22" } });
+        await waitFor(() => expect(screen.getByTestId("address-prefill")).toHaveTextContent('"addressLine":"4 Previous Street"'));
+        expect(screen.getByTestId("address-prefill")).not.toHaveTextContent("provinceCode");
+    });
+
+    it("rejects checkout when the authoritative cart refresh changes quote pricing facts", async () => {
+        mocks.auth.userData = { id: "user-1" };
+        mocks.httpGet.mockResolvedValue({ status: 200, data: { valid: true, cartItems: [{ ...cart[0], sale_price: 90 }] } });
+        renderCheckout();
+        fillRequiredFields();
+        fireEvent.click(screen.getByDisplayValue("cash"));
+        await waitFor(() => expect(screen.getByRole("button", { name: "Place order" })).toBeEnabled());
+        fireEvent.click(screen.getByRole("button", { name: "Place order" }));
+
+        await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("checkout.priceChanged"));
+        expect(await screen.findByRole("alert")).toHaveTextContent("checkout.priceChanged");
+        expect(mocks.httpPost).not.toHaveBeenCalledWith("/api/orders/purchase/user-1", expect.anything());
+    });
+
+    it("announces checkout validation errors to assistive technology", async () => {
+        renderCheckout();
+        fireEvent.click(screen.getByRole("button", { name: "Request test quote" }));
+        fireEvent.click(screen.getByDisplayValue("cash"));
+        await waitFor(() => expect(screen.getByRole("button", { name: "Place order" })).toBeEnabled());
+        fireEvent.click(screen.getByRole("button", { name: "Place order" }));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("Email is required");
+        expect(screen.getByRole("alert")).toHaveAttribute("aria-live", "assertive");
     });
 });

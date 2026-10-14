@@ -1,12 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, GoneException, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { mapToHttpException } from "#src/core/errors/http-exception-mapper";
 import type { Request } from "express";
 import { AuthGuard } from "../guards/auth.guard";
 import { Roles, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { AfterSalesService } from "./after-sales.service";
-import { afterSalesListQuerySchema, afterSalesStatusSchema, refundConfirmationSchema } from "./after-sales.validator";
-import type { AfterSalesListQuery, AfterSalesStatusTransition, RefundConfirmationInput } from "./after-sales.types";
+import { ManualRefundService, manualRefundInputSchema, type ManualRefundInput } from "./manual-refund.service";
+import { afterSalesListQuerySchema, afterSalesStatusSchema } from "./after-sales.validator";
+import type { AfterSalesListQuery, AfterSalesStatusTransition } from "./after-sales.types";
 
 type AuthenticatedRequest = Request & { user?: { id?: string | number; role?: string } };
 
@@ -14,7 +15,16 @@ type AuthenticatedRequest = Request & { user?: { id?: string | number; role?: st
 @UseGuards(AuthGuard, RolesGuard)
 @Roles("admin")
 export class AdminAfterSalesController {
-    constructor(private readonly service: AfterSalesService) {}
+    constructor(private readonly service: AfterSalesService, private readonly manualRefunds: ManualRefundService) {}
+
+    @Post(":id/manual-refund")
+    async manualRefund(@Param("id") id: string, @Req() req: AuthenticatedRequest, @Body(new ZodValidationPipe(manualRefundInputSchema)) body: ManualRefundInput) {
+        try {
+            await this.manualRefunds.confirm(Number(id), String(req.user?.id || ""), body);
+            const request = await this.service.getAdminRequest(Number(id));
+            return { request, msg: "Manual refund transfer recorded" };
+        } catch (error) { throw mapToHttpException(error, "Unable to record manual refund"); }
+    }
 
     @Get()
     async list(@Query(new ZodValidationPipe(afterSalesListQuerySchema)) query: AfterSalesListQuery) {
@@ -50,16 +60,7 @@ export class AdminAfterSalesController {
     }
 
     @Post(":id/refund")
-    async refund(
-        @Param("id") id: string,
-        @Req() req: AuthenticatedRequest,
-        @Body(new ZodValidationPipe(refundConfirmationSchema)) body: RefundConfirmationInput,
-    ) {
-        try {
-            const request = await this.service.confirmRefund(Number(id), String(req.user?.id || ""), body);
-            return { request, msg: "After-sales refund confirmed successfully" };
-        } catch (error) {
-            throw mapToHttpException(error, "Unable to confirm after-sales refund");
-        }
+    async refund() {
+        throw new GoneException("Use the evidence-backed manual-refund endpoint.");
     }
 }

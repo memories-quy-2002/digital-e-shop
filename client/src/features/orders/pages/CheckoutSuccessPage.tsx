@@ -22,6 +22,9 @@ import { parseShippingAddress } from "../shippingAddress";
 import { formatMoney } from "../../../utils/currency";
 import { CUSTOMER_ROUTES } from "../../../routes/customerRoutes";
 import type { GuestOrderDetail } from "../types";
+import ShipmentTimeline from "../../shipping/components/ShipmentTimeline";
+import { fetchCustomerShipment, fetchGuestShipment } from "../../shipping/api";
+import type { ShipmentSummary } from "../../shipping/types";
 import {
     clearPendingCheckout,
     readCheckoutSuccess,
@@ -34,12 +37,14 @@ const guestOrderToCheckoutSuccess = (order: GuestOrderDetail, guestOrderToken: s
     const shipping = parseShippingAddress(order.shipping_address);
     const totalPrice = Number(order.total_price) || 0;
     const discount = Number(order.discount) || 0;
+    const subtotal = order.items.reduce((sum, item) => sum + Number(item.totalPrice || 0), 0);
 
     return {
         orderId: String(order.id),
         totalPrice,
         discount,
-        subtotal: Math.max(0, totalPrice - discount),
+        subtotal,
+        shippingFee: Math.max(0, totalPrice - subtotal),
         itemsCount: order.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
         placedAt: order.date_added,
         currency: order.currency === CURRENCY_CODE.USD ? CURRENCY_CODE.USD : CURRENCY_CODE.VND,
@@ -81,6 +86,7 @@ const CheckoutSuccessPage = () => {
     const [pollingTimedOut, setPollingTimedOut] = useState(false);
     const [copyStatus, setCopyStatus] = useState("Copy access token");
     const [showGuestToken, setShowGuestToken] = useState(false);
+    const [shipment, setShipment] = useState<ShipmentSummary | null>(null);
 
     useEffect(() => {
         const orderId = Number(orderData?.orderId);
@@ -138,6 +144,7 @@ const CheckoutSuccessPage = () => {
                             totalPrice: pending?.totalPrice ?? 0,
                             discount: pending?.discount ?? 0,
                             subtotal: pending?.subtotal ?? pending?.totalPrice ?? 0,
+                            shippingFee: pending?.shippingFee ?? 0,
                             itemsCount: pending?.itemsCount ?? 0,
                             placedAt: order.date_added,
                             paymentMethod: pending?.paymentMethod || PAYMENT_METHOD.PAYOS,
@@ -169,6 +176,16 @@ const CheckoutSuccessPage = () => {
     }, [loading, orderData, payOSOrderCode, pollForOrder, routeData]);
 
     const combinedData = routeData || polledOrder || orderData;
+    useEffect(() => {
+        let active = true;
+        const id = Number(combinedData?.orderId);
+        if (!Number.isSafeInteger(id) || id <= 0) return () => { active = false; };
+        const load = guestOrderToken
+            ? fetchGuestShipment(id, guestOrderToken)
+            : userData?.id ? fetchCustomerShipment(id) : Promise.resolve(null);
+        void load.then((result) => { if (active) setShipment(result); }).catch(() => { if (active) setShipment(null); });
+        return () => { active = false; };
+    }, [combinedData?.orderId, guestOrderToken, userData?.id]);
     const isGuestOrder = Boolean(combinedData?.guestOrderToken || guestOrderToken);
     const paymentLabel =
         combinedData?.paymentMethod === PAYMENT_METHOD.CASH
@@ -179,6 +196,7 @@ const CheckoutSuccessPage = () => {
     const summaryCards = [
         { label: "Order ID", value: combinedData?.orderId || "Pending" },
         { label: "Order total", value: formatMoney(combinedData?.totalPrice ?? 0, combinedData?.currency) },
+        { label: "Shipping", value: formatMoney(combinedData?.shippingFee ?? 0, combinedData?.currency) },
         { label: "Discount", value: formatMoney(combinedData?.discount ?? 0, combinedData?.currency) },
         { label: "Items", value: `${combinedData?.itemsCount ?? 0}` },
     ];
@@ -314,6 +332,8 @@ const CheckoutSuccessPage = () => {
                     </article>
                 </section>
 
+                <ShipmentTimeline shipment={shipment} />
+
                 <section className="success__details">
                     <article className="success__card">
                         <div className="success__card__header">
@@ -373,6 +393,10 @@ const CheckoutSuccessPage = () => {
                             <div>
                                 <span>Subtotal</span>
                                 <strong>{formatMoney(combinedData?.subtotal ?? combinedData?.totalPrice ?? 0, combinedData?.currency)}</strong>
+                            </div>
+                            <div>
+                                <span>Shipping</span>
+                                <strong>{formatMoney(combinedData?.shippingFee ?? 0, combinedData?.currency)}</strong>
                             </div>
                         </div>
                     </article>

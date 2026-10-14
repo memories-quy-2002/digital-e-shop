@@ -10,7 +10,10 @@
 
 **Spec:** [Approved design](../specs/2026-10-14-retail-p0-operations-design.md), approved by the owner on 2026-10-14.
 
-Status: implementation plan awaiting owner review and execution-method selection.
+Status: implementation and local sandbox acceptance complete on
+`feature/retail-p0-operations`; live GHN/Resend/PayOS and external scheduler
+verification remain pending. Task 1 was committed separately; the remaining
+implementation and documentation changes are committed after final review.
 
 ## Global Constraints
 

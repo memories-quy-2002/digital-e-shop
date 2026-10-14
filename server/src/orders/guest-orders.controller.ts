@@ -1,4 +1,6 @@
-import { Body, Controller, HttpCode, HttpException, Optional, Post } from "@nestjs/common";
+import { Body, Controller, HttpCode, HttpException, Optional, Post, Req, ForbiddenException } from "@nestjs/common";
+import type { Request } from "express";
+import { GUEST_CART_COOKIE, isGuestCartId } from "../cart/guest-cart";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { createHttpException } from "#src/core/errors/http-exception";
@@ -18,9 +20,12 @@ export class GuestOrdersController {
     @HttpCode(HTTP_STATUS.CREATED)
     async makeGuestPurchase(
         @Body(new ZodValidationPipe(guestPurchaseSchema)) body: GuestPurchasePayload,
+        @Req() req: Request,
     ) {
         try {
-            const result = await this.ordersService.makeGuestPurchase(body);
+            const guestCartId = req?.cookies?.[GUEST_CART_COOKIE];
+            if (req?.cookies?.accessToken || !isGuestCartId(guestCartId)) throw new ForbiddenException("Refresh cart identity before checkout");
+            const result = await this.ordersService.makeGuestPurchase(body, guestCartId);
             return {
                 orderId: result.order.id,
                 order: result.order,
@@ -67,10 +72,13 @@ export class GuestOrdersController {
     @HttpCode(HTTP_STATUS.OK)
     async createGuestPayOSCheckoutSession(
         @Body(new ZodValidationPipe(guestPayOSCheckoutSchema)) body: GuestPayOSCheckoutPayload,
+        @Req() req: Request,
     ) {
         try {
             if (!this.ordersPayOSService) throw new HttpException({ msg: "PayOS checkout is not configured" }, HTTP_STATUS.SERVICE_UNAVAILABLE);
-            const result = await this.ordersPayOSService.createGuestCheckoutSession(body);
+            const guestCartId = req?.cookies?.[GUEST_CART_COOKIE];
+            if (req?.cookies?.accessToken || !isGuestCartId(guestCartId)) throw new ForbiddenException("Refresh cart identity before checkout");
+            const result = await this.ordersPayOSService.createGuestCheckoutSession(body, guestCartId);
             return {
                 url: result.url,
                 orderCode: result.orderCode,

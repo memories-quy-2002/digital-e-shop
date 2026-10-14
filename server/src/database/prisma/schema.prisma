@@ -32,7 +32,39 @@ model OperationsTask {
   @@map("operations_tasks")
 }
 
+model DeliveryQuote {
+  id                 String @id @db.Char(36)
+  fingerprint        String @db.Char(64)
+  ownerHash          String @map("owner_hash") @db.Char(64)
+  provider           String @db.VarChar(16)
+  serviceTypeId      Int @map("service_type_id")
+  address            Json
+  parcel             Json
+  pricing            Json
+  expectedDeliveryAt DateTime? @map("expected_delivery_at") @db.DateTime(3)
+  expiresAt          DateTime @map("expires_at") @db.DateTime(3)
+  consumedAt         DateTime? @map("consumed_at") @db.DateTime(3)
+  createdAt          DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  @@index([ownerHash, expiresAt], map: "idx_delivery_quotes_owner")
+  @@index([expiresAt], map: "idx_delivery_quotes_expiry")
+  @@map("delivery_quotes")
+}
+
+model SandboxCarrierShipment {
+  clientReference String @id @map("client_reference") @db.VarChar(50)
+  providerOrderCode String @unique @map("provider_order_code") @db.VarChar(100)
+  inputHash String @map("input_hash") @db.Char(64)
+  snapshot Json
+  updatedAt DateTime @default(now()) @map("updated_at") @db.DateTime(3)
+  @@map("sandbox_carrier_shipments")
+}
+
 model User {
+  financialEvidenceUploads FinancialEvidence[]
+  codSettlementEvents CodSettlementEvent[]
+  manualRefundOperations ManualRefundOperation[]
+  transactionalEmails TransactionalEmail[] @relation("TransactionalEmailAdmin")
   id                         String    @id @db.VarChar(255)
   username                   String    @db.VarChar(16)
   email                      String    @db.VarChar(255)
@@ -166,6 +198,10 @@ model Wishlist {
 }
 
 model Product {
+  parcelGrams            Int? @map("parcel_grams")
+  parcelLengthCm         Int? @map("parcel_length_cm")
+  parcelWidthCm          Int? @map("parcel_width_cm")
+  parcelHeightCm         Int? @map("parcel_height_cm")
   id                     Int      @id @default(autoincrement())
   name                   String   @db.VarChar(255)
   description            String   @default("No description available") @db.VarChar(255)
@@ -373,7 +409,51 @@ model Discount {
   @@map("discounts")
 }
 
+model Shipment {
+  id                 Int @id @default(autoincrement())
+  orderId            Int @unique(map: "uq_shipment_order") @map("order_id")
+  state              String @default("UNFULFILLED") @db.VarChar(24)
+  provider           String @db.VarChar(16)
+  clientReference    String @unique(map: "uq_shipment_client") @map("client_reference") @db.VarChar(50)
+  providerOrderCode  String? @map("provider_order_code") @db.VarChar(100)
+  expectedCodVnd     BigInt @map("expected_cod_vnd") @db.UnsignedBigInt
+  actualFeeVnd       BigInt? @map("actual_fee_vnd") @db.UnsignedBigInt
+  expectedDeliveryAt DateTime? @map("expected_delivery_at") @db.DateTime(3)
+  deliveredAt        DateTime? @map("delivered_at") @db.DateTime(3)
+  providerUpdatedAt  DateTime? @map("provider_updated_at") @db.DateTime(3)
+  stockReceivedAt    DateTime? @map("stock_received_at") @db.DateTime(3)
+  sandbox            Boolean @default(false)
+  createdAt          DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt          DateTime @default(now()) @map("updated_at") @db.DateTime(3)
+  order              Order @relation(fields: [orderId], references: [id], map: "fk_shipment_order")
+  events             ShipmentEvent[]
+
+  @@unique([provider, providerOrderCode], map: "uq_shipment_provider_order")
+  @@map("shipments")
+}
+
+model ShipmentEvent {
+  id               Int @id @default(autoincrement())
+  shipmentId       Int @map("shipment_id")
+  state            String @db.VarChar(24)
+  actorId          String? @map("actor_id") @db.VarChar(255)
+  publicNote       String @map("public_note") @db.VarChar(255)
+  providerEventKey String? @unique(map: "uq_shipment_provider_event") @map("provider_event_key") @db.Char(64)
+  providerPayload  Json? @map("provider_payload")
+  processedAt      DateTime? @map("processed_at") @db.DateTime(3)
+  createdAt        DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  shipment         Shipment @relation(fields: [shipmentId], references: [id], map: "fk_shipment_event")
+
+  @@index([shipmentId, id], map: "idx_shipment_events")
+  @@map("shipment_events")
+}
+
 model Order {
+  contactSnapshot Json? @map("contact_snapshot")
+  codSettlement CodSettlement?
+  shipment               Shipment?
+  pricingSnapshot        Json? @map("pricing_snapshot")
+  deliverySnapshot       Json? @map("delivery_snapshot")
   id                      Int       @id @default(autoincrement())
   userId                  String?   @map("user_id") @db.VarChar(255)
   guestEmail              String?   @map("guest_email") @db.VarChar(255)
@@ -405,6 +485,9 @@ model Order {
 }
 
 model PendingCheckout {
+  contactSnapshot Json? @map("contact_snapshot")
+  pricingSnapshot        Json? @map("pricing_snapshot")
+  deliverySnapshot       Json? @map("delivery_snapshot")
   id                  Int       @id @default(autoincrement())
   stripeSessionId     String?   @unique(map: "uq_pending_checkouts_session") @map("stripe_session_id") @db.VarChar(255)
   paymentProvider     String?   @map("payment_provider") @db.VarChar(32)
@@ -477,6 +560,7 @@ model DiscountRedemption {
 }
 
 model OrderItem {
+  manualRefundUnits ManualRefundUnit[]
   id                     Int      @id @default(autoincrement())
   orderId                Int      @map("order_id")
   productId              Int      @map("product_id")
@@ -500,6 +584,7 @@ model OrderItem {
 }
 
 model OrderPayment {
+  manualRefundOperations ManualRefundOperation[]
   id                      Int       @id @default(autoincrement())
   orderId                 Int       @map("order_id")
   provider                String    @db.VarChar(32)
@@ -606,6 +691,7 @@ model SupportTicket {
 }
 
 model AfterSalesRequest {
+  manualRefundOperations ManualRefundOperation[]
   id                    Int       @id @default(autoincrement())
   orderId               Int       @map("order_id")
   userId                String?   @map("user_id") @db.VarChar(255)
@@ -668,4 +754,152 @@ model AfterSalesEvent {
   @@index([requestId, createdAt], map: "after_sales_events_request_created_idx")
   @@index([actorUserId, createdAt], map: "after_sales_events_actor_created_idx")
   @@map("after_sales_events")
+}
+model FinancialEvidence {
+  id         Int      @id @default(autoincrement())
+  uploadedBy String   @map("uploaded_by") @db.VarChar(255)
+  originalFilename String @map("original_filename") @db.VarChar(255)
+  mimeType   String   @map("mime_type") @db.VarChar(100)
+  byteSize   Int      @map("byte_size") @db.UnsignedInt
+  sha256     String   @db.Char(64)
+  content    Bytes    @db.LongBlob
+  createdAt  DateTime @default(now()) @map("created_at") @db.DateTime(0)
+
+  uploader               User                    @relation(fields: [uploadedBy], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  codSettlementEvents   CodSettlementEvent[]
+  manualRefundOperations ManualRefundOperation[]
+
+  @@index([uploadedBy], map: "financial_evidence_uploaded_by_idx")
+  @@map("financial_evidence")
+}
+
+model CodSettlement {
+  id              Int      @id @default(autoincrement())
+  orderId         Int      @unique(map: "uq_cod_settlements_order") @map("order_id")
+  expectedCodVnd  BigInt   @default(0) @map("expected_cod_vnd") @db.UnsignedBigInt
+  collectedVnd    BigInt   @default(0) @map("collected_vnd") @db.UnsignedBigInt
+  carrierFeeVnd   BigInt   @default(0) @map("carrier_fee_vnd") @db.UnsignedBigInt
+  remittedVnd     BigInt   @default(0) @map("remitted_vnd") @db.UnsignedBigInt
+  currency        String   @default("VND") @db.Char(3)
+  status          String   @default("PENDING") @db.VarChar(16)
+  createdAt       DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime(0)
+
+  order  Order                @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  events CodSettlementEvent[]
+
+  @@map("cod_settlements")
+}
+
+model CodSettlementEvent {
+  id              Int      @id @default(autoincrement())
+  settlementId    Int      @map("settlement_id")
+  eventType       String   @map("event_type") @db.VarChar(16)
+  actorId         String?  @map("actor_id") @db.VarChar(255)
+  amountVnd       BigInt   @map("amount_vnd") @db.UnsignedBigInt
+  carrierFeeVnd   BigInt   @default(0) @map("carrier_fee_vnd") @db.UnsignedBigInt
+  transferReference String? @unique(map: "uq_cod_settlement_transfer_reference") @map("transfer_reference") @db.VarChar(191)
+  transferDate    DateTime? @map("transfer_date") @db.Date
+  evidenceId      Int?     @map("evidence_id")
+  previousValues  Json?    @map("previous_values")
+  newValues       Json     @map("new_values")
+  createdAt       DateTime @default(now()) @map("created_at") @db.DateTime(0)
+
+  settlement CodSettlement    @relation(fields: [settlementId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  actor      User?            @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  evidence   FinancialEvidence? @relation(fields: [evidenceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([settlementId, createdAt], map: "cod_settlement_events_settlement_created_idx")
+  @@index([actorId], map: "cod_settlement_events_actor_idx")
+  @@map("cod_settlement_events")
+}
+
+model ManualRefundOperation {
+  id               Int      @id @default(autoincrement())
+  requestId        Int      @map("request_id")
+  orderPaymentId   Int      @map("order_payment_id")
+  actorId          String   @map("actor_id") @db.VarChar(255)
+  idempotencyKey   String   @unique(map: "uq_manual_refund_idempotency") @map("idempotency_key") @db.VarChar(191)
+  transferReference String  @unique(map: "uq_manual_refund_transfer_reference") @map("transfer_reference") @db.VarChar(191)
+  transferDate     DateTime @map("transfer_date") @db.Date
+  reviewedReason   String   @map("reviewed_reason") @db.VarChar(500)
+  amountVnd        BigInt   @map("amount_vnd") @db.UnsignedBigInt
+  currency         String   @default("VND") @db.Char(3)
+  evidenceId       Int      @map("evidence_id")
+  createdAt        DateTime @default(now()) @map("created_at") @db.DateTime(0)
+
+  request     AfterSalesRequest @relation(fields: [requestId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  payment     OrderPayment      @relation(fields: [orderPaymentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  actor       User              @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  evidence    FinancialEvidence @relation(fields: [evidenceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  units       ManualRefundUnit[]
+
+  @@index([requestId, createdAt], map: "manual_refund_request_created_idx")
+  @@index([orderPaymentId], map: "manual_refund_payment_idx")
+  @@index([actorId], map: "manual_refund_actor_idx")
+  @@map("manual_refund_operations")
+}
+
+model ManualRefundUnit {
+  operationId Int    @map("operation_id")
+  orderItemId Int    @map("order_item_id")
+  unitIndex   Int    @map("unit_index") @db.UnsignedInt
+  netVnd      BigInt @map("net_vnd") @db.UnsignedBigInt
+
+  operation ManualRefundOperation @relation(fields: [operationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  orderItem OrderItem             @relation(fields: [orderItemId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([operationId, orderItemId, unitIndex])
+  @@unique([orderItemId, unitIndex], map: "uq_manual_refund_order_unit")
+  @@map("manual_refund_units")
+}
+
+model TransactionalEmail {
+  id                         Int       @id @default(autoincrement())
+  eventKey                   String    @unique(map: "uq_transactional_email_event") @map("event_key") @db.VarChar(191)
+  eventType                  String    @map("event_type") @db.VarChar(40)
+  recipient                  String    @db.VarChar(254)
+  locale                     String    @db.VarChar(2)
+  subject                    String    @db.Text
+  textBody                   String    @map("text_body") @db.MediumText
+  htmlBody                   String    @map("html_body") @db.MediumText
+  snapshot                   Json
+  contentHash                String    @map("content_hash") @db.Char(64)
+  state                      String    @default("PENDING") @db.VarChar(24)
+  providerMessageId          String?   @unique(map: "uq_transactional_email_provider") @map("provider_message_id") @db.VarChar(191)
+  acceptedAt                 DateTime? @map("accepted_at") @db.DateTime(3)
+  deliveredAt                DateTime? @map("delivered_at") @db.DateTime(3)
+  bouncedAt                  DateTime? @map("bounced_at") @db.DateTime(3)
+  lastErrorCode              String?   @map("last_error_code") @db.VarChar(80)
+  resendOfId                 Int?      @map("resend_of_id")
+  createdByAdminId           String?   @map("created_by_admin_id") @db.VarChar(255)
+  unknownOutcomeAcknowledged Boolean   @default(false) @map("unknown_outcome_acknowledged")
+  createdAt                  DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt                  DateTime  @default(now()) @map("updated_at") @db.DateTime(3)
+
+  resendOf      TransactionalEmail?  @relation("TransactionalEmailResends", fields: [resendOfId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_transactional_email_resend_of")
+  resends       TransactionalEmail[] @relation("TransactionalEmailResends")
+  createdByAdmin User?               @relation("TransactionalEmailAdmin", fields: [createdByAdminId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_transactional_email_admin")
+  deliveryEvents EmailDeliveryEvent[]
+
+  @@index([state, id], map: "idx_transactional_email_state")
+  @@index([resendOfId], map: "idx_transactional_email_resend_of")
+  @@index([createdByAdminId], map: "idx_transactional_email_admin")
+  @@map("transactional_emails")
+}
+
+model EmailDeliveryEvent {
+  id                Int      @id @default(autoincrement())
+  providerEventId   String   @unique(map: "uq_email_delivery_event_provider") @map("provider_event_id") @db.VarChar(191)
+  emailId           Int      @map("email_id")
+  providerMessageId String   @map("provider_message_id") @db.VarChar(191)
+  eventType         String   @map("event_type") @db.VarChar(40)
+  payloadHash       String   @map("payload_hash") @db.Char(64)
+  receivedAt        DateTime @default(now()) @map("received_at") @db.DateTime(3)
+
+  email TransactionalEmail @relation(fields: [emailId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_email_delivery_event_email")
+
+  @@index([emailId, receivedAt], map: "idx_email_delivery_event_email")
+  @@index([providerMessageId], map: "idx_email_delivery_event_message")
+  @@map("email_delivery_events")
 }

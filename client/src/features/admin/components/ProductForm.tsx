@@ -3,6 +3,8 @@ import { Form } from "../../../components/ui/legacy";
 import LazyLoadingImage from "../../../utils/LazyLoadingImage";
 import { getResponsiveImageSource, THUMBNAIL_IMAGE_WIDTHS } from "../../../utils/images";
 import type { ProductAttributeRow } from "../../products/api";
+import ParcelFields from "../../shipping/components/ParcelFields";
+import type { ShippingParcel } from "../../shipping/types";
 
 export type ProductFormMode = "create" | "edit";
 
@@ -61,6 +63,8 @@ type ProductFormProps = {
     onUploadImage?: () => void;
     isUploading?: boolean;
     currentStock?: number;
+    parcel?: ShippingParcel;
+    onParcelChange?: (next: ShippingParcel) => void;
 };
 
 type FormFieldShellProps = {
@@ -118,6 +122,8 @@ const ProductForm = ({
     onUploadImage,
     isUploading = false,
     currentStock = 0,
+    parcel,
+    onParcelChange,
 }: ProductFormProps) => {
     const id = (field: string) => `${idPrefix}-${field}`;
     const isCreate = mode === "create";
@@ -128,6 +134,7 @@ const ProductForm = ({
 
     return (
         <div className="admin__product-form">
+            {parcel && onParcelChange ? <ParcelFields value={parcel} onChange={onParcelChange} idPrefix={idPrefix} /> : null}
             <fieldset className="admin__product-form__fieldset">
                 <legend className="admin__product-form__legend">Product identity</legend>
                 <p className="admin__product-form__description">

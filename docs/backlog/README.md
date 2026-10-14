@@ -17,9 +17,9 @@ local simulation, not as a successful provider staging or production test.
 
 | ID | Capability | Implementation | Acceptance evidence |
 | --- | --- | --- | --- |
-| P0-01 | Order fulfillment and carrier integration | Not started | None |
-| P0-02 | COD settlement and evidence-backed manual refunds | Not started | None |
-| P0-03 | Transactional email, durable retries and operator recovery | Not started | None |
+| P0-01 | Order fulfillment and carrier integration | Implemented; local sandbox | Shipping/fulfillment unit and isolated-MySQL tests; `client test:e2e` covers guest quote and COD checkout across 8 browser variants; provider staging is pending |
+| P0-02 | COD settlement and evidence-backed manual refunds | Implemented; local sandbox | COD/refund allocation and isolated-MySQL tests; private evidence checks; retail P0 sandbox integration suite |
+| P0-03 | Transactional email, durable retries and operator recovery | Implemented; local sandbox | Durable task and email policy tests; injected accepted/failure fixtures, retry/recovery and transaction-hook integration tests |
 
 ## Completion rules
 
@@ -38,5 +38,8 @@ local simulation, not as a successful provider staging or production test.
 - Provider staging/live verification remains explicitly pending until accounts,
   verified sender/domain, secrets and scheduler infrastructure are provisioned.
 
-The three rows cannot be marked complete merely because the design exists,
-one happy-path demo works, or adapters have been declared.
+The local implementation and sandbox acceptance are complete. The sandbox is
+simulation evidence only. GHN/Resend staging, live payment and transfer
+reconciliation, and external scheduler provisioning remain pending until
+accounts, verified sender/domain, secrets and scheduler infrastructure are
+provisioned and tested.

@@ -140,6 +140,9 @@ export async function createPayOSCheckoutSession(
         totalPrice: number;
         discount: number;
         shippingAddress: string;
+        shippingQuoteId: string;
+        deliveryAddress: import("../shipping/types").DeliveryAddress;
+        locale: "en" | "vi";
     },
 ): Promise<PayOSCheckoutResponse> {
     const response = await http.post(`/api/orders/payos-checkout-session/${uid}`, payload);

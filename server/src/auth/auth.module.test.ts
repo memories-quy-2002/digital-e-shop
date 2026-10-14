@@ -23,6 +23,9 @@ describe("AuthModule CSRF middleware", () => {
             "users/register",
             "users/refresh",
             "orders/webhooks/payos",
+            { path: "shipping/webhooks/ghn", method: 1 },
+            { path: "email/webhooks/resend", method: 1 },
+            { path: "operations/run", method: 1 },
         ]);
         expect(middlewareConfig.forRoutes).toHaveBeenCalledWith("*");
     });

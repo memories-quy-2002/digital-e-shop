@@ -41,6 +41,9 @@ import ProductForm, {
     type ProductFormValues,
 } from "../components/ProductForm";
 import { validateProductEdit } from "../utils/validateProductEdit";
+import { saveProductParcel } from "../../shipping/api";
+import type { ShippingParcel } from "../../shipping/types";
+import { validateParcel } from "../../shipping/components/ParcelFields";
 
 const ITEMS_PER_PAGE = 8;
 
@@ -101,6 +104,7 @@ const AdminProductPage = () => {
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [editValidationErrors, setEditValidationErrors] = useState<ProductFormErrors>({});
+    const [editParcel, setEditParcel] = useState<ShippingParcel>({ grams: 0, lengthCm: 0, widthCm: 0, heightCm: 0 });
     const [attributeError, setAttributeError] = useState<string | undefined>();
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
@@ -184,6 +188,7 @@ const AdminProductPage = () => {
         const productWithAttributes = product as ProductWithAttributes;
         const details = parseProductDetails(product.specifications);
         setSelectedProduct(productWithAttributes);
+        setEditParcel({ grams: Number(productWithAttributes.parcel_grams) || 0, lengthCm: Number(productWithAttributes.parcel_length_cm) || 0, widthCm: Number(productWithAttributes.parcel_width_cm) || 0, heightCm: Number(productWithAttributes.parcel_height_cm) || 0 });
         setEditForm({
             name: product.name,
             sku: product.sku || "",
@@ -281,6 +286,12 @@ const AdminProductPage = () => {
         }
 
         setEditValidationErrors({});
+        const parcelIssues = Object.values(validateParcel(editParcel));
+        if (parcelIssues.length > 0) {
+            addToast("Update product", "Enter valid positive whole-number parcel dimensions.");
+            document.getElementById("manage-product-parcel-grams")?.focus();
+            return;
+        }
         const price = Number(editForm.price);
         const salePrice = editForm.salePrice.trim() === "" ? null : Number(editForm.salePrice);
         const warrantyMonths = editForm.warrantyMonths.trim() === "" ? null : Number(editForm.warrantyMonths);
@@ -315,6 +326,7 @@ const AdminProductPage = () => {
                     specifications: rowsFromText(editForm.specifications),
                 }),
             });
+            await saveProductParcel(selectedProduct.id, editParcel);
 
             const updatedProduct = normalizeProduct(updated);
             setProducts((currentProducts) =>
@@ -693,6 +705,8 @@ const AdminProductPage = () => {
                                         onRemoveAttribute={removeAttribute}
                                         attributeError={attributeError}
                                         currentStock={Number(editForm.stock) || 0}
+                                        parcel={editParcel}
+                                        onParcelChange={setEditParcel}
                                     />
                                 </form>
                             </Modal.Body>

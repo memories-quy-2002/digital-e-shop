@@ -24,6 +24,9 @@ vi.mock("../../../components/layout/Layout", () => ({
     default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 vi.mock("react-helmet-async", () => ({ Helmet: () => null }));
+const mockTranslate = vi.hoisted(() => (key: string) => key);
+vi.mock("../../../hooks/useT", () => ({ useT: () => mockTranslate }));
+vi.mock("../../shipping/api", () => ({ fetchCustomerShipment: vi.fn().mockResolvedValue(null), fetchGuestShipment: vi.fn().mockResolvedValue(null) }));
 
 describe("CheckoutSuccessPage guest flow", () => {
     beforeEach(() => {

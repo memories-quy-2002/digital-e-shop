@@ -59,3 +59,8 @@ request as refunded.
 
 The first release does not automate replacement shipping, carrier pickup, or
 external PayOS refunds.
+
+Evidence-backed manual refunds require private operator evidence and compute
+the refundable net merchandise allocation on the server. A confirmation event
+can enqueue a transactional email; the durable delivery policy is documented
+in [[transactional-email-operations]].

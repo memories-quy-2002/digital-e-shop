@@ -197,3 +197,14 @@ export class NestAuthController {
         return res.status(HTTP_STATUS.OK).json(buildSuccessResponse({ csrfToken: token }, requestIdFrom(req)));
     }
 }
+
+@Controller("csrf")
+export class NestCsrfController {
+    @Get()
+    @HttpCode(HttpStatus.OK)
+    async getCsrfToken(@Req() req: Request, @Res() res: Response) {
+        const { generateCsrfToken } = await import("#src/middleware/csrf.middleware");
+        const token = generateCsrfToken(req as Request, res as Response);
+        return res.status(HTTP_STATUS.OK).json(buildSuccessResponse({ csrfToken: token }, requestIdFrom(req)));
+    }
+}

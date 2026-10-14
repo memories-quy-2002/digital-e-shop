@@ -138,6 +138,9 @@ export class NestProductsService {
                         inventory: Number(inventory),
                 });
                 await this.productAttributesRepository.replaceForProduct(tx, result.insertId, attributes as ProductAttributeInput[]);
+                if (data.parcelWeightGrams !== undefined) await this.productsRepository.setParcelInTransaction(tx, result.insertId, {
+                    grams: data.parcelWeightGrams, lengthCm: data.parcelLengthCm, widthCm: data.parcelWidthCm, heightCm: data.parcelHeightCm,
+                });
                 await this.inventoryService.createMovementsInTransaction(tx, [{
                     productId: result.insertId,
                     movementType: "initial_stock",

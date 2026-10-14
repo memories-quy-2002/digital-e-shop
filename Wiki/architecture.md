@@ -32,6 +32,9 @@ digital-e-shop/
       config/              Typed environment, CORS, and database configuration
       database/            Prisma schema/client, migrations, and seeders
       payments/            Provider boundary and payment ledger types
+      shipping/            Delivery quotes, carrier adapters, and fulfillment lifecycle
+      transactional-email/ Provider boundary, templates, and verified webhooks
+      operations/          Durable tasks, bounded runner, and private evidence
       shared/              Shared constants, interfaces, and utilities
       app.module.ts        Nest composition root
       main.ts              Cached Nest bootstrap

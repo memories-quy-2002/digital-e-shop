@@ -11,6 +11,11 @@ Follow the [development guide](./DEVELOPMENT.md) to configure the local environm
 
 Use only the disposable local database. This flow writes one COD order. Do not place demo orders against production or shared data.
 
+For the retail P0 fulfillment and financial-operations demo, use the dedicated
+[sandbox instructions](./TESTING.md#retail-p0-sandbox). They exercise mock COD,
+shipping, and email adapters against an explicitly allowlisted local database;
+they do not verify GHN, Resend, PayOS, bank transfers, or production scheduling.
+
 ## Follow the customer journey
 
 1. Open [`/shops`](http://localhost:5173/shops) and choose an in-stock seeded product.

@@ -8,11 +8,14 @@ import { AfterSalesController } from "./after-sales.controller";
 import { AfterSalesGuestController } from "./after-sales-guest.controller";
 import { AfterSalesRepository } from "./after-sales.repository";
 import { AfterSalesService } from "./after-sales.service";
+import { FinancialOperationsModule } from "../operations/financial-operations.module";
+import { ManualRefundService } from "./manual-refund.service";
+import { ManualRefundRepository } from "./manual-refund.repository";
 
 @Module({
-    imports: [NestConfigModule, PaymentsModule],
+    imports: [NestConfigModule, PaymentsModule, FinancialOperationsModule],
     controllers: [AfterSalesController, AfterSalesGuestController, AdminAfterSalesController],
-    providers: [AfterSalesRepository, AfterSalesService],
+    providers: [AfterSalesRepository, AfterSalesService, ManualRefundService, ManualRefundRepository],
     exports: [AfterSalesService],
 })
 export class AfterSalesModule implements NestModule {

@@ -234,5 +234,5 @@ export class PromotionsRepository {
 
 const calculateDiscount = (promotion: PromotionRow, totalPrice: number): number => {
     const percent = Math.min(Math.max(Number(promotion.discount_percent) || 0, 0), 100);
-    return Math.min(Number(totalPrice), (Number(totalPrice) * percent) / 100);
+    return Math.round(Math.min(Number(totalPrice), (Number(totalPrice) * percent) / 100));
 };

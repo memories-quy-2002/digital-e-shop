@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { HTTP_STATUS } from "../../../constants/http-status";
 import { PAYMENT_METHOD, type PaymentMethod } from "../constants";
 import { Form } from "../../../components/ui/legacy";
@@ -9,8 +9,6 @@ import { useToast } from "../../../context/ToastContext";
 import { CashStackIcon, CheckCircleIcon, ShieldIcon } from "../../../components/common/Icons";
 import http from "../../../lib/http";
 import { toUtcIsoString } from "../../../utils/dateTime";
-import { fetchCustomerAddresses } from "../../users/api";
-import type { CustomerAddress } from "../../users/api";
 import {
     createGuestPayOSCheckoutSession,
     createGuestPurchase,
@@ -32,14 +30,21 @@ import {
 } from "../pages/checkoutSuccessStorage";
 import { normalizeCheckoutEmail, validateCheckoutEmail, validateCheckoutForm } from "../checkoutValidation";
 import { getApiErrorMessage, getApiErrorPayload } from "../../../lib/api-contract";
-import {
-    formatShippingAddress,
-    getRecentOrderAddresses,
-    serializeShippingAddress,
-    type RecentOrderAddress,
-} from "../shippingAddress";
+import { getRecentOrderAddresses, serializeShippingAddress, type RecentOrderAddress } from "../shippingAddress";
 import { formatCurrency } from "../../../utils/currency";
 import { useT } from "../../../hooks/useT";
+import { useLocale } from "../../../context/LocaleContext";
+import DeliveryQuoteForm from "../../shipping/components/DeliveryQuoteForm";
+import type { DeliveryAddress, ShippingQuote } from "../../shipping/types";
+import { fetchCustomerAddresses } from "../../users/api";
+import type { CustomerAddress } from "../../users/types";
+
+type DeliveryAddressPrefill = {
+    key: string;
+    recipientName?: string;
+    recipientPhone?: string;
+    addressLine: string;
+};
 
 interface CheckoutForm {
     email: string;
@@ -73,7 +78,6 @@ type CheckoutPaymentProps = {
     onValidationRefresh: (nextCart: CheckoutCartItem[], issues: CartValidationIssue[]) => void;
 };
 
-type SavedAddress = CustomerAddress;
 const CheckoutPaymentPage = ({
     setIsPayment,
     cart,
@@ -88,6 +92,7 @@ const CheckoutPaymentPage = ({
     const uid = userData?.id || "";
     const { addToast } = useToast();
     const t = useT();
+    const { locale } = useLocale();
     const [formCheckout, setFormCheckout] = useState<CheckoutForm>({
         email: "",
         first_name: "",
@@ -100,11 +105,18 @@ const CheckoutPaymentPage = ({
     });
     const [errors, setErrors] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
-    const [recentOrderAddresses, setRecentOrderAddresses] = useState<RecentOrderAddress[]>([]);
     const [isValidatingCart, setIsValidatingCart] = useState(false);
     const [isEmailTouched, setIsEmailTouched] = useState(false);
     const [verificationRequired, setVerificationRequired] = useState(false);
+    const [deliveryAddress, setDeliveryAddress] = useState<DeliveryAddress | null>(null);
+    const [shippingQuote, setShippingQuote] = useState<ShippingQuote | null>(null);
+    const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([]);
+    const [recentAddresses, setRecentAddresses] = useState<RecentOrderAddress[]>([]);
+    const [savedAddressesError, setSavedAddressesError] = useState(false);
+    const [recentAddressesError, setRecentAddressesError] = useState(false);
+    const [savedAddressPrefill, setSavedAddressPrefill] = useState<DeliveryAddressPrefill | null>(null);
+    const [recentAddressPrefill, setRecentAddressPrefill] = useState<DeliveryAddressPrefill | null>(null);
+    const [quoteResetKey, setQuoteResetKey] = useState(0);
     const cartRef = useRef(cart);
 
     const applyValidationPayload = useCallback(
@@ -130,68 +142,33 @@ const CheckoutPaymentPage = ({
     ];
 
     const selectedPayment = paymentOptions.find((option) => option.value === formCheckout.payment_method) || paymentOptions[0];
-    const defaultAddress = useMemo(() => savedAddresses.find((address) => address.is_default) || savedAddresses[0], [savedAddresses]);
-
     useEffect(() => {
         cartRef.current = cart;
     }, [cart]);
 
     useEffect(() => {
-        let isActive = true;
+        let active = true;
+        setSavedAddressPrefill(null);
+        setRecentAddressPrefill(null);
+        setSavedAddresses([]);
+        setRecentAddresses([]);
+        setSavedAddressesError(false);
+        setRecentAddressesError(false);
+        if (!uid) return () => { active = false; };
 
-        if (!uid) {
-            setSavedAddresses([]);
-            setRecentOrderAddresses([]);
-            return () => {
-                isActive = false;
-            };
-        }
-
-        const loadAddressSources = async () => {
-            const [addressesResult, ordersResult] = await Promise.allSettled([
-                fetchCustomerAddresses(uid),
-                fetchCustomerOrders(uid),
-            ]);
-            if (!isActive) return;
-
-            if (addressesResult.status === "fulfilled") {
-                setSavedAddresses(addressesResult.value || []);
-            } else {
-                setSavedAddresses([]);
-                addToast(t("checkout.title"), getApiErrorMessage(addressesResult.reason, t("checkout.savedAddressesError")));
-            }
-
-            if (ordersResult.status === "fulfilled") {
-                setRecentOrderAddresses(getRecentOrderAddresses(ordersResult.value || []));
-            } else {
-                setRecentOrderAddresses([]);
-                addToast(t("checkout.title"), getApiErrorMessage(ordersResult.reason, t("checkout.recentAddressesError")));
-            }
-        };
-
-        void loadAddressSources();
-        return () => {
-            isActive = false;
-        };
-    }, [uid, addToast, t]);
+        void fetchCustomerAddresses(uid)
+            .then((addresses) => { if (active) setSavedAddresses(addresses); })
+            .catch(() => { if (active) setSavedAddressesError(true); });
+        void fetchCustomerOrders(uid)
+            .then((orders) => { if (active) setRecentAddresses(getRecentOrderAddresses(orders)); })
+            .catch(() => { if (active) setRecentAddressesError(true); });
+        return () => { active = false; };
+    }, [uid]);
 
     useEffect(() => {
         if (!userData?.email || formCheckout.email) return;
         setFormCheckout((current) => ({ ...current, email: userData.email }));
     }, [formCheckout.email, userData?.email]);
-
-    useEffect(() => {
-        if (!defaultAddress || formCheckout.address) return;
-        setFormCheckout((current) => ({
-            ...current,
-            address: defaultAddress.address_line || "",
-            city: defaultAddress.city || "",
-            country: defaultAddress.country || "",
-            phone_number: defaultAddress.phone_number || "",
-            first_name: defaultAddress.recipient_name?.split(" ")[0] || current.first_name,
-            last_name: defaultAddress.recipient_name?.split(" ").slice(1).join(" ") || current.last_name,
-        }));
-    }, [defaultAddress, formCheckout.address]);
 
     const emailError = validateCheckoutEmail(formCheckout.email);
     const showEmailError = isEmailTouched && Boolean(emailError);
@@ -199,28 +176,6 @@ const CheckoutPaymentPage = ({
     const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = event.target;
         setFormCheckout((current) => ({ ...current, [name]: value }));
-    };
-
-    const applySavedAddress = (address: SavedAddress) => {
-        const nameParts = (address.recipient_name || "").split(" ").filter(Boolean);
-        setFormCheckout((current) => ({
-            ...current,
-            first_name: nameParts[0] || current.first_name,
-            last_name: nameParts.slice(1).join(" ") || current.last_name,
-            address: address.address_line,
-            city: address.city || "",
-            country: address.country || "",
-            phone_number: address.phone_number || "",
-        }));
-    };
-
-    const applyRecentOrderAddress = (address: RecentOrderAddress) => {
-        setFormCheckout((current) => ({
-            ...current,
-            address: address.address,
-            city: address.city,
-            country: address.country,
-        }));
     };
 
     const validateCartStock = useCallback(async (): Promise<CheckoutCartItem[] | null> => {
@@ -259,10 +214,10 @@ const CheckoutPaymentPage = ({
 
         return {
             latestCart,
-            latestTotalPrice: latestCart.reduce(
+            latestTotalPrice: Math.round(latestCart.reduce(
                 (sum, item) => sum + (item.sale_price ?? item.price) * item.quantity,
                 0,
-            ),
+            )),
             normalizedEmail,
             normalizedName,
             guestCart: latestCart.map(({ productId, quantity }) => ({ productId, quantity })),
@@ -279,11 +234,40 @@ const CheckoutPaymentPage = ({
         };
     };
 
+    const handleShippingQuote = useCallback((address: DeliveryAddress | null, quote: ShippingQuote | null) => {
+        setDeliveryAddress(address);
+        setShippingQuote(quote);
+        if (address) {
+            const [firstName = "", ...lastName] = address.recipientName.split(" ");
+            setFormCheckout((current) => ({ ...current, first_name: firstName, last_name: lastName.join(" "), address: address.addressLine, city: address.wardName, country: "VN", phone_number: address.recipientPhone }));
+        }
+    }, []);
+
+    const chooseSavedAddress = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        const address = savedAddresses.find((item) => String(item.id) === event.target.value);
+        setRecentAddressPrefill(null);
+        setSavedAddressPrefill(address ? {
+            key: `saved:${address.id}`,
+            recipientName: address.recipient_name || undefined,
+            recipientPhone: address.phone_number || undefined,
+            addressLine: address.address_line,
+        } : null);
+    };
+
+    const chooseRecentAddress = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        const address = recentAddresses.find((item) => String(item.orderId) === event.target.value);
+        setSavedAddressPrefill(null);
+        setRecentAddressPrefill(address ? { key: `recent:${address.orderId}`, addressLine: address.address } : null);
+    };
+
+    const quoteIsValid = Boolean(shippingQuote && deliveryAddress && Date.parse(shippingQuote.expiresAt) > Date.now());
+
     const submitPayOSCheckout = async (submission: CheckoutSubmissionContext) => {
         const pendingCheckout = {
-            totalPrice: submission.latestTotalPrice,
+            totalPrice: shippingQuote!.pricing.itemsSubtotal + shippingQuote!.pricing.shippingFee,
             discount,
-            subtotal: submission.latestTotalPrice - discount,
+            subtotal: shippingQuote!.pricing.itemsSubtotal,
+            shippingFee: shippingQuote!.pricing.shippingFee,
             itemsCount: submission.latestCart.reduce((sum, item) => sum + item.quantity, 0),
             paymentMethod: formCheckout.payment_method,
             email: submission.normalizedEmail,
@@ -300,6 +284,9 @@ const CheckoutPaymentPage = ({
                 discount,
                 discountCode: discountCode || undefined,
                 shippingAddress: serializeShippingAddress(submission.guestShipping),
+                shippingQuoteId: shippingQuote!.id,
+                deliveryAddress: deliveryAddress!,
+                locale,
             })
             : await createGuestPayOSCheckoutSession({
                 cart: submission.guestCart,
@@ -307,6 +294,9 @@ const CheckoutPaymentPage = ({
                 shipping: submission.guestShipping,
                 discountCode: discountCode || undefined,
                 paymentMethod: PAYMENT_METHOD.PAYOS,
+                shippingQuoteId: shippingQuote!.id,
+                deliveryAddress: deliveryAddress!,
+                locale,
             });
 
         writePendingCheckout({
@@ -328,6 +318,9 @@ const CheckoutPaymentPage = ({
             shipping: submission.guestShipping,
             discountCode: discountCode || undefined,
             paymentMethod: formCheckout.payment_method,
+            shippingQuoteId: shippingQuote!.id,
+            deliveryAddress: deliveryAddress!,
+            locale,
         });
         const orderTotal = Number(response.order?.total_price);
         const orderDiscount = Number(response.order?.discount);
@@ -337,7 +330,8 @@ const CheckoutPaymentPage = ({
             orderId: String(response.orderId || response.order?.id),
             totalPrice: resolvedTotal,
             discount: resolvedDiscount,
-            subtotal: Math.max(0, resolvedTotal - resolvedDiscount),
+            subtotal: shippingQuote!.pricing.itemsSubtotal,
+            shippingFee: shippingQuote!.pricing.shippingFee,
             itemsCount: submission.latestCart.reduce((sum, item) => sum + item.quantity, 0),
             placedAt: response.order?.date_added || toUtcIsoString(),
             paymentMethod: formCheckout.payment_method,
@@ -364,6 +358,9 @@ const CheckoutPaymentPage = ({
             discountCode: discountCode || undefined,
             shippingAddress: serializeShippingAddress(submission.guestShipping),
             paymentMethod: formCheckout.payment_method,
+            shippingQuoteId: shippingQuote!.id,
+            deliveryAddress: deliveryAddress!,
+            locale,
         });
         if (response.status !== HTTP_STATUS.CREATED) return;
 
@@ -371,9 +368,10 @@ const CheckoutPaymentPage = ({
         const placedAt = response.data?.order?.date_added || response.data?.placedAt || toUtcIsoString();
         const payload = {
             orderId,
-            totalPrice: submission.latestTotalPrice,
+            totalPrice: shippingQuote!.pricing.itemsSubtotal + shippingQuote!.pricing.shippingFee,
             discount,
-            subtotal: submission.latestTotalPrice - discount,
+            subtotal: shippingQuote!.pricing.itemsSubtotal,
+            shippingFee: shippingQuote!.pricing.shippingFee,
             itemsCount: submission.latestCart.reduce((sum, item) => sum + item.quantity, 0),
             placedAt,
             paymentMethod: formCheckout.payment_method,
@@ -433,9 +431,22 @@ const CheckoutPaymentPage = ({
             addToast(t("checkout.title"), t("checkout.updateCartQuantities"));
             return;
         }
+        if (!quoteIsValid || !shippingQuote || !deliveryAddress) {
+            setErrors([t("shipping.quoteRequired")]);
+            return;
+        }
 
         const latestCart = await validateCartStock();
         if (!latestCart) return;
+
+        const latestSubtotal = Math.round(latestCart.reduce((sum, item) => sum + (item.sale_price ?? item.price) * item.quantity, 0));
+        if (latestSubtotal !== shippingQuote.pricing.itemsSubtotal || discount !== shippingQuote.pricing.merchandiseDiscount) {
+            setShippingQuote(null);
+            setDeliveryAddress(null);
+            setQuoteResetKey((current) => current + 1);
+            setErrors([t("checkout.priceChanged")]);
+            return;
+        }
 
         try {
             setIsSubmitting(true);
@@ -479,7 +490,7 @@ const CheckoutPaymentPage = ({
                 </div>
                 <div className="checkout__hero__meta">
                     <div><strong>{itemsCount}</strong><span>{t("checkout.items")}</span></div>
-                    <div><strong>{formatCurrency(totalPrice - discount)}</strong><span>{t("checkout.totalDue")}</span></div>
+                    <div><strong>{formatCurrency(shippingQuote?.pricing.payableTotal ?? Math.max(totalPrice - discount, 0))}</strong><span>{t("checkout.totalDue")}</span></div>
                 </div>
             </div>
 
@@ -487,7 +498,7 @@ const CheckoutPaymentPage = ({
                 <section className="checkout__form">
                     {loading ? <div className="checkout__note">{t("checkout.checkingSession")}</div> : null}
                     {isValidatingCart ? <div className="checkout__note">{t("checkout.checkingStock")}</div> : null}
-                    {errors.length > 0 ? <div className="checkout__alert">{errors.map((error, id) => <span key={id}>{error}</span>)}</div> : null}
+                    {errors.length > 0 ? <div className="checkout__alert" role="alert" aria-live="assertive">{errors.map((error, id) => <span key={id}>{error}</span>)}</div> : null}
                     {verificationRequired ? (
                         <div className="checkout__alert checkout__alert--warning" role="alert">
                             <span>{t("checkout.verifyAccount")}</span>
@@ -538,74 +549,11 @@ const CheckoutPaymentPage = ({
 
                     <div className="checkout__card">
                         <div className="checkout__card__header"><h2><span>02</span>{t("checkout.shipping")}</h2><p>{t("checkout.shippingDescription")}</p></div>
-                        {savedAddresses.length > 0 ? (
-                            <div className="checkout__saved-addresses">
-                                {savedAddresses.map((address) => (
-                                    <button key={address.id} type="button" onClick={() => applySavedAddress(address)}>
-                                        <strong>{address.label}</strong><span>{address.address_line}</span>{address.is_default ? <em>Default</em> : null}
-                                    </button>
-                                ))}
-                            </div>
-                        ) : null}
-                        {!formCheckout.address.trim() && recentOrderAddresses.length > 0 ? (
-                            <div className="checkout__address-recommendations" aria-live="polite">
-                                <div className="checkout__address-recommendations__header">
-                                    <strong>{t("checkout.recentAddressTitle")}</strong>
-                                    <span>{t("checkout.recentAddressDescription")}</span>
-                                </div>
-                                <div className="checkout__address-recommendations__list">
-                                    {recentOrderAddresses.map((address) => (
-                                        <button
-                                            key={`${address.orderId}-${address.address}-${address.city}`}
-                                            type="button"
-                                            aria-label={`Use address from order #${address.orderId}`}
-                                            onClick={() => applyRecentOrderAddress(address)}
-                                        >
-                                            <strong>Order #{address.orderId}</strong>
-                                            <span>{formatShippingAddress(address)}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        ) : null}
-                        <Form>
-                            <div className="checkout__field-grid">
-                                <div className="checkout__field">
-                                    <Form.Group className="mb-3" controlId="formFirstName">
-                                        <Form.Label htmlFor="checkout-first-name">{t("checkout.firstName")}</Form.Label>
-                                        <Form.Control id="checkout-first-name" type="text" name="first_name" placeholder={t("checkout.firstName")} autoComplete="given-name" required value={formCheckout.first_name} onChange={handleInputChange} />
-                                    </Form.Group>
-                                </div>
-                                <div className="checkout__field">
-                                    <Form.Group className="mb-3" controlId="formLastName">
-                                        <Form.Label htmlFor="checkout-last-name">{t("checkout.lastName")}</Form.Label>
-                                        <Form.Control id="checkout-last-name" type="text" name="last_name" placeholder={t("checkout.lastName")} autoComplete="family-name" required value={formCheckout.last_name} onChange={handleInputChange} />
-                                    </Form.Group>
-                                </div>
-                            </div>
-                            <Form.Group className="mb-3" controlId="formShippingAddress">
-                                <Form.Label htmlFor="checkout-address">{t("checkout.address")}</Form.Label>
-                                <Form.Control id="checkout-address" type="text" name="address" placeholder={t("checkout.address")} autoComplete="street-address" required value={formCheckout.address} onChange={handleInputChange} />
-                            </Form.Group>
-                            <div className="checkout__field-grid">
-                                <div className="checkout__field">
-                                    <Form.Group className="mb-3" controlId="formCity">
-                                        <Form.Label htmlFor="checkout-city">{t("checkout.city")}</Form.Label>
-                                        <Form.Control id="checkout-city" type="text" name="city" placeholder={t("checkout.city")} autoComplete="address-level2" required value={formCheckout.city} onChange={handleInputChange} />
-                                    </Form.Group>
-                                </div>
-                                <div className="checkout__field">
-                                    <Form.Group className="mb-3" controlId="formCountry">
-                                        <Form.Label htmlFor="checkout-country">{t("checkout.country")}</Form.Label>
-                                        <Form.Control id="checkout-country" type="text" name="country" placeholder={t("checkout.country")} autoComplete="country-name" value={formCheckout.country || ""} onChange={handleInputChange} />
-                                    </Form.Group>
-                                </div>
-                            </div>
-                            <Form.Group className="mb-3" controlId="formPhoneNumber">
-                                <Form.Label htmlFor="checkout-phone">{t("checkout.phone")}</Form.Label>
-                                <Form.Control id="checkout-phone" type="tel" name="phone_number" placeholder={t("checkout.phone")} autoComplete="tel" value={formCheckout.phone_number || ""} onChange={handleInputChange} />
-                            </Form.Group>
-                        </Form>
+                        {uid && (savedAddresses.length > 0 || savedAddressesError) ? <label className="checkout__address-reuse">{t("checkout.savedAddressLabel")}<select aria-label={t("checkout.savedAddressLabel")} value={savedAddressPrefill?.key.startsWith("saved:") ? savedAddressPrefill.key.slice("saved:".length) : ""} onChange={chooseSavedAddress}><option value="">{t("checkout.savedAddressPlaceholder")}</option>{savedAddresses.map((address) => <option key={address.id} value={address.id}>{address.label}: {address.address_line}</option>)}</select></label> : null}
+                        {uid && (recentAddresses.length > 0 || recentAddressesError) ? <label className="checkout__address-reuse">{t("checkout.recentAddressLabel")}<select aria-label={t("checkout.recentAddressLabel")} value={recentAddressPrefill?.key.startsWith("recent:") ? recentAddressPrefill.key.slice("recent:".length) : ""} onChange={chooseRecentAddress}><option value="">{t("checkout.recentAddressPlaceholder")}</option>{recentAddresses.map((address) => <option key={address.orderId} value={address.orderId}>#{address.orderId}: {address.address}</option>)}</select></label> : null}
+                        {savedAddressesError ? <p role="status" aria-live="polite">{t("checkout.savedAddressesError")}</p> : null}
+                        {recentAddressesError ? <p role="status" aria-live="polite">{t("checkout.recentAddressesError")}</p> : null}
+                        <DeliveryQuoteForm cart={cart.map(({ productId, quantity, price, sale_price }) => ({ productId, quantity, price, salePrice: sale_price }))} discountCode={discountCode} guest={!uid} addressPrefill={savedAddressPrefill || recentAddressPrefill} resetKey={quoteResetKey} onQuoteChange={handleShippingQuote} />
                     </div>
 
                     <div className="checkout__card">
@@ -655,11 +603,11 @@ const CheckoutPaymentPage = ({
                         </div>
                         <div className="checkout__summary__rows">
                             <div><span>{t("checkout.subtotal")}</span><strong>{formatCurrency(totalPrice)}</strong></div>
-                            <div><span>{t("checkout.shipping")}</span><strong className="free">{t("checkout.free")}</strong></div>
+                            <div><span>{t("checkout.shipping")}</span><strong>{shippingQuote ? formatCurrency(shippingQuote.pricing.shippingFee) : t("shipping.quoteRequired")}</strong></div>
                             <div><span>{t("checkout.discount")}</span><strong className="muted">−{formatCurrency(discount)}</strong></div>
                         </div>
-                        <div className="checkout__summary__total"><span>{t("checkout.total")}</span><strong>{formatCurrency(totalPrice - discount)}</strong></div>
-                        <button type="button" onClick={handlePurchase} disabled={isSubmitting || isValidatingCart || hasValidationIssues}>
+                        <div className="checkout__summary__total"><span>{t("checkout.total")}</span><strong>{formatCurrency(shippingQuote?.pricing.payableTotal ?? Math.max(totalPrice - discount, 0))}</strong></div>
+                        <button type="button" onClick={handlePurchase} disabled={isSubmitting || isValidatingCart || hasValidationIssues || !quoteIsValid}>
                             {isSubmitting ? t("checkout.placingOrder") : isValidatingCart ? t("checkout.checkingStockButton") : formCheckout.payment_method === PAYMENT_METHOD.PAYOS ? t("checkout.continueToPayOS") : t("checkout.placeOrder")}
                         </button>
                         <p className="checkout__summary__footnote">{t("checkout.policyFootnote")}</p>

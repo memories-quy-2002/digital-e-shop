@@ -27,13 +27,16 @@ import { PAYMENT_PROVIDER, PAYMENT_STATUS, type PaymentProviderName, type Paymen
 import { generateGuestOrderToken, hashGuestOrderToken, matchesGuestOrderToken } from "./guest-order-token";
 import { NestOrdersCancellationService } from "./orders-cancellation.service";
 import { createCheckoutError } from "./orders.errors";
+import { ShippingQuoteService, type QuoteCheckout } from "../shipping/shipping-quote.service";
+import { completeDeliveredOrder } from "./order-delivery";
+import { OrderEmailService } from "./order-email.service";
 
 export { createCheckoutError } from "./orders.errors";
 
 
 const normalizePaymentProvider = (paymentMethod: string): PaymentProviderName => paymentMethod as PaymentProviderName;
 
-const roundCurrency = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
+const roundCurrency = (value: number): number => Math.round(value + Number.EPSILON);
 
 const normalizeSalePrice = (value: unknown): number | null => {
     if (value === null || value === undefined || value === "") return null;
@@ -42,6 +45,7 @@ const normalizeSalePrice = (value: unknown): number | null => {
 };
 
 type CreateOrderFromCartInputBase = {
+    deliveryCheckout?: QuoteCheckout;
     authoritativeCart: CartItemRow[];
     authoritativeTotalPrice: number;
     discount: number;
@@ -73,6 +77,8 @@ export class NestOrdersService {
         private readonly productAttributesRepository: ProductAttributesRepository,
         private readonly ordersCancellationService: NestOrdersCancellationService,
         @Optional() private readonly paymentProviderService?: PaymentProviderService,
+        @Optional() private readonly shippingQuoteService?: ShippingQuoteService,
+        @Optional() private readonly orderEmails?: OrderEmailService,
     ) {}
 
     private async createPaymentLedgerInTransaction(
@@ -270,11 +276,8 @@ export class NestOrdersService {
         lockedProducts: LockedProductRow[] | null;
     }> {
         if (identity.kind !== "guest") {
-            return {
-                cart: authoritativeCart,
-                merchandiseTotal: authoritativeTotalPrice,
-                lockedProducts: null,
-            };
+            const current = await this.loadGuestTransactionalCart(tx, authoritativeCart, authoritativeTotalPrice);
+            return { cart: current.cart, merchandiseTotal: current.merchandiseTotal, lockedProducts: current.lockedProducts };
         }
         if (!guestQuote) {
             throw createCheckoutError("Guest checkout quote is missing. Refresh your cart and try again.", HTTP_STATUS.CONFLICT);
@@ -303,6 +306,7 @@ export class NestOrdersService {
             paymentMethod,
             discountCode,
             guestQuote,
+            deliveryCheckout,
         }: {
             identity: OrderIdentity;
             transactionCart: CartItemRow[];
@@ -312,6 +316,7 @@ export class NestOrdersService {
             paymentMethod: PaymentProviderName;
             discountCode?: string;
             guestQuote?: CreateOrderFromCartInputBase["guestQuote"];
+            deliveryCheckout?: QuoteCheckout;
         },
     ) {
         const orderResult = await this.ordersRepository.insertOrderInTransaction(tx, {
@@ -358,10 +363,14 @@ export class NestOrdersService {
             }
         }
 
+        if (!this.shippingQuoteService || !deliveryCheckout) throw createCheckoutError("A delivery quote is required", HTTP_STATUS.CONFLICT);
+        const delivery = await this.shippingQuoteService.validateQuote(tx, deliveryCheckout, transactionCart, transactionMerchandiseTotal, appliedDiscount);
+        await tx.query("UPDATE orders SET total_price = ?, discount = ?, pricing_snapshot = ?, delivery_snapshot = ?, shipping_address = ? WHERE id = ?",
+            [delivery.pricing.itemsSubtotal + delivery.pricing.shippingFee, delivery.pricing.merchandiseDiscount, JSON.stringify(delivery.pricing), JSON.stringify(delivery.delivery), JSON.stringify(delivery.delivery.address), orderId]);
         await this.createPaymentLedgerInTransaction(tx, {
             orderId,
             paymentMethod,
-            baseAmount: Math.max(transactionMerchandiseTotal - appliedDiscount, 0),
+            baseAmount: delivery.pricing.payableTotal,
         });
 
         return { orderId, appliedDiscount };
@@ -517,6 +526,7 @@ export class NestOrdersService {
         shippingAddress,
         paymentMethod,
         discountCode,
+        deliveryCheckout,
     }: CreateOrderFromCartInput): Promise<{ id: number; date_added: string }> {
         const identity: OrderIdentity = suppliedIdentity || { kind: "authenticated", userId: uid as string };
         const userId = identity.userId;
@@ -546,6 +556,7 @@ export class NestOrdersService {
                 paymentMethod,
                 discountCode,
                 guestQuote,
+                deliveryCheckout,
             });
             const orderItems = await this.buildOrderItemRows(tx, orderHeader.orderId, cart.cart);
             let inventoryMovements: InventoryMovementInput[] = [];
@@ -576,6 +587,10 @@ export class NestOrdersService {
                 note: "Order was placed by the customer.",
                 actorId: userId,
             });
+            if (this.orderEmails) {
+                await this.orderEmails.snapshotContact(tx, orderHeader.orderId, deliveryCheckout?.locale);
+                await this.orderEmails.emit(tx, orderHeader.orderId, "placed");
+            }
 
             const [order] = await this.ordersRepository.getOrderDateAddedInTransaction(tx, orderHeader.orderId);
             return {
@@ -600,7 +615,7 @@ export class NestOrdersService {
 
     async makePurchase(
         uid: string,
-        { totalPrice, cart, discount, discountCode, shippingAddress, paymentMethod }: PurchasePayload,
+        { totalPrice, cart, discount, discountCode, shippingAddress, paymentMethod, shippingQuoteId, deliveryAddress, locale }: PurchasePayload,
     ) {
         logger.info({ uid, items: cart?.length, totalPrice, paymentMethod }, "[makePurchase] start");
 
@@ -642,6 +657,7 @@ export class NestOrdersService {
 
         return this.createOrderFromValidatedCart({
             identity: { kind: "authenticated", userId: uid },
+            deliveryCheckout: { shippingQuoteId, deliveryAddress, locale, quoteIdentity: { kind: "authenticated", userId: uid } },
             authoritativeCart: checkoutValidation.cartItems,
             authoritativeTotalPrice: checkoutValidation.authoritativeTotalPrice,
             discount,
@@ -651,7 +667,7 @@ export class NestOrdersService {
         });
     }
 
-    async makeGuestPurchase(payload: GuestPurchasePayload): Promise<{
+    async makeGuestPurchase(payload: GuestPurchasePayload, guestCartId?: string): Promise<{
         order: { id: number; date_added: string };
         guestOrderToken: string;
     }> {
@@ -687,6 +703,7 @@ export class NestOrdersService {
         };
         const order = await this.createOrderFromValidatedCart({
             identity,
+            deliveryCheckout: { shippingQuoteId: payload.shippingQuoteId, deliveryAddress: payload.deliveryAddress, locale: payload.locale, quoteIdentity: { kind: "guest", guestCartId: guestCartId || "" } },
             authoritativeCart: preview.cartItems,
             authoritativeTotalPrice: preview.merchandiseTotal,
             discount: preview.promotion.discount,
@@ -887,6 +904,7 @@ export class NestOrdersService {
             }
 
             const payableAmount = Math.max(Number(pending.total_price) - Number(pending.discount), 0);
+            await tx.query("UPDATE orders SET pricing_snapshot = ?, delivery_snapshot = ? WHERE id = ?", [pending.pricing_snapshot ? JSON.stringify(typeof pending.pricing_snapshot === "string" ? JSON.parse(pending.pricing_snapshot) : pending.pricing_snapshot) : null, pending.delivery_snapshot ? JSON.stringify(typeof pending.delivery_snapshot === "string" ? JSON.parse(pending.delivery_snapshot) : pending.delivery_snapshot) : null, orderId]);
             await this.createPaymentLedgerInTransaction(tx, {
                 orderId,
                 paymentMethod: PAYMENT_PROVIDER.PAYOS,
@@ -958,6 +976,10 @@ export class NestOrdersService {
                 note: "Order was placed by the customer.",
                 actorId: pending.user_id,
             });
+            if (this.orderEmails) {
+                await tx.query("UPDATE orders SET contact_snapshot = ? WHERE id = ?", [pending.contact_snapshot ? JSON.stringify(typeof pending.contact_snapshot === "string" ? JSON.parse(pending.contact_snapshot) : pending.contact_snapshot) : null, orderId]);
+                await this.orderEmails.emit(tx, orderId, "placed");
+            }
             const [order] = await this.ordersRepository.getOrderDateAddedInTransaction(tx, orderId);
             return {
                 orderId,
@@ -1088,33 +1110,8 @@ export class NestOrdersService {
         return withTransaction(async (tx) => {
             const current = await this.ordersRepository.getOrderLifecycleForUpdate(tx, orderId);
             if (!current) throw createCheckoutError("Order not found", HTTP_STATUS.NOT_FOUND);
-            const payment = await this.ordersRepository.getLatestPaymentForUpdate(tx, orderId);
-            if (payment?.provider === PAYMENT_PROVIDER.PAYOS && Boolean(payment.simulated)) {
-                throw createCheckoutError("Simulated PayOS payments cannot be marked delivered", HTTP_STATUS.CONFLICT);
-            }
-            if (Number(current.status) === ORDER_STATUS.DONE) {
-                if (!current.delivered_at) {
-                    await this.ordersRepository.ensureDeliveredAtInTransaction(tx, orderId);
-                }
-                return { userId: current.user_id, changed: false };
-            }
-            if (Number(current.status) !== ORDER_STATUS.PENDING) {
-                throw createCheckoutError("Canceled orders cannot transition to Done", HTTP_STATUS.CONFLICT);
-            }
-            if (payment?.provider === PAYMENT_PROVIDER.PAYOS && payment.status !== PAYMENT_STATUS.PAID) {
-                throw createCheckoutError("PayOS payment must be paid before delivery", HTTP_STATUS.CONFLICT);
-            }
-            await this.ordersRepository.completeOrderInTransaction(tx, orderId);
-            if (payment?.provider === PAYMENT_PROVIDER.CASH && payment.status === PAYMENT_STATUS.PENDING) {
-                await this.ordersRepository.confirmCashPaymentInTransaction(tx, payment.id);
-            }
-            await this.orderTimelineService.createTimelineEventInTransaction(tx, {
-                orderId,
-                status: ORDER_STATUS.DONE,
-                note: "Order was completed by an admin.",
-                actorId,
-            });
-            return { userId: current.user_id, changed: true };
+            const changed = await completeDeliveredOrder(tx, orderId, new Date(), actorId == null ? null : String(actorId));
+            return { userId: current.user_id, changed };
         }).then(async (result) => {
             if (result.changed && result.userId) this.notificationsService.notifyOrderStatus(result.userId, orderId, ORDER_STATUS.DONE);
             return this.getOrderSummary(orderId);

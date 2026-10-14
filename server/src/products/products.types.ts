@@ -3,6 +3,10 @@ import type { AttributeFilter, ProductAttribute } from "./product-attributes.typ
 import type { ProductAttributeType } from "./product-attributes.types";
 
 export type ProductEditorRow = {
+    parcel_grams?: number | null;
+    parcel_length_cm?: number | null;
+    parcel_width_cm?: number | null;
+    parcel_height_cm?: number | null;
     id: number;
     name: string;
     description?: string | null;

@@ -117,3 +117,9 @@ pool.getConnection((err: Error | null, connection: DbConnection) => {
 
 export default pool;
 
+export function closeDatabasePool(): Promise<void> {
+    return new Promise((resolve, reject) => {
+        (pool as unknown as { end: (callback: (error?: Error) => void) => void }).end((error) => error ? reject(error) : resolve());
+    });
+}
+

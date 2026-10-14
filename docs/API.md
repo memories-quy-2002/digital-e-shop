@@ -33,7 +33,7 @@ Send JSON with Content-Type: application/json unless the endpoint accepts
 multipart form data. Include cookies on authenticated requests. The client HTTP
 layer already sends credentials automatically.
 
-For unsafe requests protected by CSRF, first call GET /api/users/csrf and send
+For unsafe requests protected by CSRF, first call GET /api/csrf and send
 the returned token in X-CSRF-Token. The middleware ignores GET, HEAD, and
 OPTIONS. Login, registration, and refresh retain their explicit
 authentication-flow exclusions.
@@ -309,7 +309,7 @@ ledger is marked simulated cannot transition to delivered status.
 | GET | /api/admin/after-sales/requests | List after-sales requests |
 | GET | /api/admin/after-sales/requests/:id | Read an after-sales request |
 | PATCH | /api/admin/after-sales/requests/:id/status | Transition an after-sales request |
-| POST | /api/admin/after-sales/requests/:id/refund | Confirm a provider-backed refund |
+| POST | /api/admin/after-sales/requests/:id/refund | Retired (410); use evidence-backed manual-refund route |
 | POST | /api/blob/upload | Upload a product image |
 
 Admin list endpoints accept bounded pagination where implemented. Admin access
@@ -364,8 +364,43 @@ MANUAL_CONFIRMED
 
 The reconciliation run clamps its limit to 100 candidates per request.
 Operators can retry PayOS reconciliation, confirm COD collection with an
-optional note, and inspect linked webhook events. Refunds currently remain
-manual operator actions recorded in the payment ledger.
+optional note, and inspect linked webhook events.
+
+### Delivery, settlement, refunds, and email operations
+
+| Method | Path | Access |
+| --- | --- | --- |
+| GET | /api/shipping/provinces | Public provider locations |
+| GET | /api/shipping/provinces/:code/wards | Public provider locations |
+| GET | /api/shipping/services | Public available services |
+| POST | /api/shipping/quotes | Authenticated customer; cart is server-owned |
+| POST | /api/shipping/guest/quotes | Guest cart cookie plus submitted cart |
+| GET | /api/shipping/orders/:id | Order owner or admin |
+| POST | /api/shipping/guest/shipment | Guest order capability in POST body |
+| POST | /api/shipping/webhooks/ghn | GHN shared-secret and ShopID validation |
+| GET | /api/admin/shipping | Admin |
+| POST | /api/admin/shipping/:id/transition | Admin |
+| POST | /api/admin/shipping/:id/create | Admin; idempotency key required |
+| POST | /api/admin/shipping/:id/label | Admin; temporary access |
+| POST | /api/admin/shipping/:id/receive-return | Admin; confirms physical receipt before stock restoration |
+| PUT | /api/shipping/admin/products/:id/parcel | Admin; validated parcel dimensions |
+| GET | /api/admin/payments/cod-settlements | Admin |
+| POST | /api/admin/payments/cod-settlements/:orderId/remittance | Admin; transfer reference and private evidence required |
+| POST | /api/admin/evidence | Admin; private image upload, max 2 MB |
+| GET | /api/admin/evidence/:evidenceId | Admin; private no-store attachment |
+| POST | /api/admin/after-sales/requests/:id/manual-refund | Admin; server computes refundable amount |
+| GET | /api/admin/email-operations | Admin; masked recipients |
+| POST | /api/admin/email-operations/:id/resend | Admin; unknown outcome acknowledgement may be required |
+| POST | /api/admin/operations/run | Admin session and CSRF |
+| POST | /api/operations/run | Scheduler bearer secret |
+| POST | /api/email/webhooks/resend | Resend signed raw-body webhook |
+
+New quotes bind the current cart, address, parcel and whole-VND pricing to a
+single-use expiring quote. COD collection at delivery is distinct from later
+bank remittance. Manual refund requests carry no amount; the server allocates
+net merchandise value and requires private evidence. Email acceptance is
+distinct from provider delivery. The runner is bounded and must be invoked by
+an external scheduler; this repository does not enable a hosted schedule.
 
 ### Support, returns, warranty, and refunds
 

@@ -371,6 +371,11 @@
                 "in": "cookie",
                 "name": "accessToken",
                 "description": "JWT access token stored in the accessToken HTTP-only cookie."
+            },
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "description": "Server-only operations runner secret."
             }
         },
         "parameters": {
@@ -2369,10 +2374,10 @@
             "parameters": [{ "$ref": "#/components/parameters/PathId" }],
             "post": {
                 "tags": ["After-sales"],
-                "summary": "Confirm a provider-backed refund",
+                "summary": "Retired refund route; use evidence-backed manual refund",
                 "security": [{ "cookieAuth": [] }],
                 "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["refundReference", "currency", "idempotencyKey"], "properties": { "refundReference": { "type": "string" }, "currency": { "type": "string", "example": "VND" }, "idempotencyKey": { "type": "string" }, "note": { "type": "string" } } } } } },
-                "responses": { "200": { "description": "Refund confirmed" }, "409": { "$ref": "#/components/responses/Error" }, "503": { "$ref": "#/components/responses/Error" } }
+                "responses": { "410": { "description": "Use the evidence-backed manual-refund route" } }
             }
         },
         "/api/admin/alerts": {
@@ -2854,6 +2859,49 @@
             }
         },
 
+        "/api/csrf": {
+            "get": {
+                "tags": ["Auth"],
+                "summary": "Issue a CSRF token",
+                "responses": { "200": { "description": "CSRF token and cookie" } }
+            }
+        },
+        "/api/shipping/provinces": {
+            "get": { "tags": ["Shipping"], "summary": "List carrier provinces", "responses": { "200": { "description": "Province list" } } }
+        },
+        "/api/shipping/provinces/{code}/wards": {
+            "get": { "tags": ["Shipping"], "summary": "List province wards", "parameters": [{ "name": "code", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Ward list" } } }
+        },
+        "/api/shipping/services": {
+            "get": { "tags": ["Shipping"], "summary": "List available delivery services", "responses": { "200": { "description": "Service list" } } }
+        },
+        "/api/shipping/quotes": {
+            "post": { "tags": ["Shipping"], "summary": "Create an owner-bound delivery quote", "security": [{ "cookieAuth": [] }], "responses": { "201": { "description": "Expiring delivery quote" } } }
+        },
+        "/api/shipping/guest/quotes": {
+            "post": { "tags": ["Shipping"], "summary": "Create a guest delivery quote", "responses": { "201": { "description": "Expiring guest delivery quote" } } }
+        },
+        "/api/admin/payments/cod-settlements": {
+            "get": { "tags": ["Payments"], "summary": "List COD settlements", "security": [{ "cookieAuth": [] }], "responses": { "200": { "description": "COD settlement queue" } } }
+        },
+        "/api/admin/payments/cod-settlements/{orderId}/remittance": {
+            "post": { "tags": ["Payments"], "summary": "Record COD remittance", "security": [{ "cookieAuth": [] }], "parameters": [{ "name": "orderId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Remittance recorded" } } }
+        },
+        "/api/admin/after-sales/requests/{id}/manual-refund": {
+            "post": { "tags": ["After-sales"], "summary": "Record evidence-backed manual refund", "security": [{ "cookieAuth": [] }], "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Refund recorded" } } }
+        },
+        "/api/admin/email-operations": {
+            "get": { "tags": ["Operations"], "summary": "List transactional email events", "security": [{ "cookieAuth": [] }], "responses": { "200": { "description": "Masked email operation records" } } }
+        },
+        "/api/admin/email-operations/{id}/resend": {
+            "post": { "tags": ["Operations"], "summary": "Retry an eligible transactional email", "security": [{ "cookieAuth": [] }], "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Retry operation result" } } }
+        },
+        "/api/operations/run": {
+            "post": { "tags": ["Operations"], "summary": "Run a bounded operations batch", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "Batch summary" } } }
+        },
+        "/api/email/webhooks/resend": {
+            "post": { "tags": ["Operations"], "summary": "Receive a verified Resend webhook", "responses": { "200": { "description": "Webhook accepted" } } }
+        },
         "/api/analytics/summary": {
             "get": {
                 "tags": ["Analytics"],

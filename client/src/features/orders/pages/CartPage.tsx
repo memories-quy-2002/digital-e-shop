@@ -243,7 +243,7 @@ const CartPage = () => {
                                 </div>
                                 <div>
                                     <strong>{formatCurrency(subtotal)}</strong>
-                                    <span>{t("cart.estimatedTotal")}</span>
+                                    <span>{t("shipping.merchandiseTotal")}</span>
                                 </div>
                             </div>
                         </header>
@@ -308,7 +308,7 @@ const CartPage = () => {
                                             ) : null}
                                         </div>
                                     ) : null}
-                                    <div className="cart__note">{t("cart.freeDeliveryNote")}</div>
+                                    <div className="cart__note">{t("shipping.quoteAtCheckout")}</div>
                                 </div>
                             </section>
 
@@ -367,7 +367,7 @@ const CartPage = () => {
                                     ) : null}
                                     <div className="cart__confirm__divider" />
                                     <div className="cart__confirm__row cart__confirm__row--total">
-                                        <span>{t("cart.amountDue")}</span>
+                                        <span>{t("shipping.merchandiseTotal")}</span>
                                         <strong>{formatCurrency(subtotal)}</strong>
                                     </div>
                                 </div>

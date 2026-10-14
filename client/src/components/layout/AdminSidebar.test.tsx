@@ -1,14 +1,17 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
+import { LocaleProvider } from "../../context/LocaleContext";
 import AdminSidebar from "./AdminSidebar";
 
 const renderSidebar = (isCollapsed = false) => {
     const onToggleCollapsed = vi.fn();
     const view = render(
-        <MemoryRouter initialEntries={["/admin/orders"]}>
-            <AdminSidebar isCollapsed={isCollapsed} onToggleCollapsed={onToggleCollapsed} />
-        </MemoryRouter>,
+        <LocaleProvider>
+            <MemoryRouter initialEntries={["/admin/orders"]}>
+                <AdminSidebar isCollapsed={isCollapsed} onToggleCollapsed={onToggleCollapsed} />
+            </MemoryRouter>
+        </LocaleProvider>,
     );
 
     return { ...view, onToggleCollapsed };
@@ -32,9 +35,11 @@ describe("AdminSidebar", () => {
 
     it("keeps the payment reconciliation link active for its nested route", () => {
         render(
-            <MemoryRouter initialEntries={["/admin/payments/reconciliation"]}>
-                <AdminSidebar />
-            </MemoryRouter>,
+            <LocaleProvider>
+                <MemoryRouter initialEntries={["/admin/payments/reconciliation"]}>
+                    <AdminSidebar />
+                </MemoryRouter>
+            </LocaleProvider>,
         );
 
         expect(screen.getByRole("link", { name: "Payment reconciliation" })).toHaveClass("active");

@@ -137,6 +137,7 @@ describe("orders API", () => {
     });
 
     it("sends guest purchase data without client prices or totals", async () => {
+        const deliveryAddress = { recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", provinceCode: "1", provinceName: "HCMC", wardCode: "2", wardName: "Ward 2", districtCode: "3", country: "VN" as const };
         vi.mocked(http.post).mockResolvedValueOnce({
             data: {
                 orderId: 42,
@@ -150,20 +151,27 @@ describe("orders API", () => {
             cart: [{ productId: 10, quantity: 2 }],
             contact: { email: "guest@example.com", name: "Guest Buyer" },
             shipping: { address: "1 Main Street", city: "HCMC", country: "VN" },
+            shippingQuoteId: "quote-1",
+            deliveryAddress,
             discountCode: "SAVE20",
             paymentMethod: "cash",
+            locale: "vi",
         })).resolves.toMatchObject({ orderId: 42, guestOrderToken: "raw-token" });
 
         expect(http.post).toHaveBeenCalledWith("/api/orders/guest/purchase", {
             cart: [{ productId: 10, quantity: 2 }],
             contact: { email: "guest@example.com", name: "Guest Buyer" },
             shipping: { address: "1 Main Street", city: "HCMC", country: "VN" },
+            shippingQuoteId: "quote-1",
+            deliveryAddress,
             discountCode: "SAVE20",
             paymentMethod: "cash",
+            locale: "vi",
         });
     });
 
     it("keeps PayOS checkout and guest lookup contracts token-protected", async () => {
+        const deliveryAddress = { recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", provinceCode: "1", provinceName: "HCMC", wardCode: "2", wardName: "Ward 2", districtCode: "3", country: "VN" as const };
         vi.mocked(http.post).mockResolvedValue({
             data: { url: "https://checkout.test/payos", guestOrderToken: "payos-token", orderCode: 123456, currency: "VND" },
         } as never);
@@ -173,6 +181,9 @@ describe("orders API", () => {
             contact: { email: "guest@example.com", name: "Guest Buyer" },
             shipping: { address: "1 Main Street", city: "HCMC", country: "VN" },
             paymentMethod: "payos",
+            shippingQuoteId: "quote-1",
+            deliveryAddress,
+            locale: "en",
         })).resolves.toMatchObject({ url: "https://checkout.test/payos", guestOrderToken: "payos-token" });
         await createPayOSCheckoutSession("user-1", {
             cart: [{
@@ -190,6 +201,9 @@ describe("orders API", () => {
             totalPrice: 80,
             discount: 0,
             shippingAddress: JSON.stringify({ address: "1 Main Street", city: "HCMC", country: "VN" }),
+            shippingQuoteId: "quote-1",
+            deliveryAddress,
+            locale: "en",
         });
         await lookupGuestOrder(42, "lookup-token");
         await fetchGuestOrderByPayOSOrderCode(123456, "payos-token");
@@ -199,11 +213,17 @@ describe("orders API", () => {
             contact: { email: "guest@example.com", name: "Guest Buyer" },
             shipping: { address: "1 Main Street", city: "HCMC", country: "VN" },
             paymentMethod: "payos",
+            shippingQuoteId: "quote-1",
+            deliveryAddress,
+            locale: "en",
         });
         expect(http.post).toHaveBeenNthCalledWith(2, "/api/orders/payos-checkout-session/user-1", expect.objectContaining({
             totalPrice: 80,
             discount: 0,
             shippingAddress: JSON.stringify({ address: "1 Main Street", city: "HCMC", country: "VN" }),
+            shippingQuoteId: "quote-1",
+            deliveryAddress,
+            locale: "en",
         }));
         expect(http.post).toHaveBeenNthCalledWith(3, "/api/orders/guest/lookup", {
             orderId: 42,
