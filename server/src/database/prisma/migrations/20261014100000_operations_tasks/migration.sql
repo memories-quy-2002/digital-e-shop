@@ -1,0 +1,22 @@
+CREATE TABLE operations_tasks (
+    id INT NOT NULL AUTO_INCREMENT,
+    kind VARCHAR(32) NOT NULL,
+    business_key VARCHAR(191) COLLATE utf8mb4_bin NOT NULL,
+    payload JSON NOT NULL,
+    payload_hash CHAR(64) NOT NULL,
+    state VARCHAR(24) NOT NULL DEFAULT 'READY',
+    due_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    attempt INT NOT NULL DEFAULT 0,
+    first_attempt_at DATETIME(3) NULL,
+    lease_token CHAR(36) NULL,
+    lease_expires_at DATETIME(3) NULL,
+    provider_reference VARCHAR(191) NULL,
+    last_reason VARCHAR(80) NULL,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_operations_tasks_key (kind, business_key),
+    KEY idx_operations_tasks_due (state, due_at, id),
+    KEY idx_operations_tasks_lease (state, lease_expires_at),
+    CONSTRAINT chk_operations_task_attempt CHECK (attempt >= 0 AND attempt <= 8)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

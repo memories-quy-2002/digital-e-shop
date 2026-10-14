@@ -9,6 +9,29 @@ datasource db {
   provider = "mysql"
 }
 
+model OperationsTask {
+  id                Int       @id @default(autoincrement())
+  kind              String    @db.VarChar(32)
+  businessKey       String    @map("business_key") @db.VarChar(191)
+  payload           Json
+  payloadHash       String    @map("payload_hash") @db.Char(64)
+  state             String    @default("READY") @db.VarChar(24)
+  dueAt             DateTime  @default(now()) @map("due_at") @db.DateTime(3)
+  attempt           Int       @default(0)
+  firstAttemptAt    DateTime? @map("first_attempt_at") @db.DateTime(3)
+  leaseToken        String?   @map("lease_token") @db.Char(36)
+  leaseExpiresAt    DateTime? @map("lease_expires_at") @db.DateTime(3)
+  providerReference String?   @map("provider_reference") @db.VarChar(191)
+  lastReason        String?   @map("last_reason") @db.VarChar(80)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt         DateTime  @default(now()) @map("updated_at") @db.DateTime(3)
+
+  @@unique([kind, businessKey], map: "uq_operations_tasks_key")
+  @@index([state, dueAt, id], map: "idx_operations_tasks_due")
+  @@index([state, leaseExpiresAt], map: "idx_operations_tasks_lease")
+  @@map("operations_tasks")
+}
+
 model User {
   id                         String    @id @db.VarChar(255)
   username                   String    @db.VarChar(16)

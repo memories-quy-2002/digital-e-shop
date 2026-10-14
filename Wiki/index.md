@@ -54,6 +54,8 @@ Domain objects and their relationships belong under `entities/`. Current pages c
 
 ### Concepts
 
+- [[durable-operations]]: transactional task persistence, bounded leases and fencing.
+
 Cross-cutting behavior belongs under `concepts/`, such as authentication, validation, inventory movement, [[api-response-contract]], guest checkout, and order lifecycle.
 
 - [[api-response-contract]]: canonical success/error metadata, compatibility aliases, request IDs, and pagination boundaries

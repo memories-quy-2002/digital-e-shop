@@ -23,10 +23,12 @@ import { AdminAlertsModule } from "./admin-alerts/admin-alerts.module";
 import { AfterSalesModule } from "./after-sales/after-sales.module";
 import { ProductAlertsModule } from "./product-alerts/product-alerts.module";
 import { TelemetryShutdownProvider } from "./observability/telemetry-shutdown.provider";
+import { TasksModule } from "./operations/tasks.module";
 
 @Module({
     imports: [
         NestConfigModule,
+        TasksModule,
         HealthModule,
         AuthModule,
         WishlistModule,
