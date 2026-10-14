@@ -32,6 +32,7 @@ The local demo seed creates a linked graph with 28 products across 8 categories 
 
 - [Root README](../README.md): setup and project overview
 - [Architecture guide](../docs/ARCHITECTURE.md): current implementation boundaries
+- [Codex orchestration](../docs/CODEX_ORCHESTRATION.md): on-demand specialist roles, task-specific reasoning, two-subagent limit, and delivery ownership
 - [API guide](../docs/API.md): route groups and API conventions
 - [Development guide](../docs/DEVELOPMENT.md): environment and local workflow
 - [Testing guide](../docs/TESTING.md): package, integration, smoke, and k6 checks

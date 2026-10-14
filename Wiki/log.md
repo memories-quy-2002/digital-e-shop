@@ -95,3 +95,5 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-10-04 — Codex — Finished backend query work: filtered catalog counts avoid aggregate joins, analytics coalesces only in-flight reads, and cancellation locks products once in sorted order while preserving per-item effects; see [[architecture]].
 
 - 2026-10-04 — Codex — Removed unused direct dependencies and the orphan Web Vitals helper, retired shared schema re-exports, and consolidated local Docker/build scripts while preserving feature schemas and API contracts.
+- 2026-10-14 - Codex - Added native Codex specialist configuration with two concurrent Luna subagents and synchronized on-demand delegation, ownership, verification, and Git delivery guidance in [[architecture]].
+- 2026-10-14 - Codex - Kept gpt-6-luna for all specialists and replaced fixed medium reasoning with explicit per-task effort selection by Main Codex; see [[architecture]].

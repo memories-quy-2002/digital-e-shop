@@ -139,10 +139,13 @@ limitations.
 
 ## Delegation policy
 
-Use [CODEX_ORCHESTRATION.md](../CODEX_ORCHESTRATION.md) when independent
-backend, frontend, or verification work justifies delegation. Use only the Luna
-model for delegated sub-agents. The primary agent owns scope, integration,
-security decisions, and final verification.
+Use [CODEX_ORCHESTRATION.md](../CODEX_ORCHESTRATION.md) when specialist work
+justifies delegation. Main Codex selects only the necessary Architect, Backend,
+Frontend, QA, Reviewer, or DevOps roles, with at most two concurrent subagents.
+Use only `gpt-6-luna` for delegated agents. Main Codex explicitly selects a
+supported reasoning effort for each task based on complexity; no role is fixed
+to `medium`. Main Codex owns scope, integration, security decisions, final
+verification, and Git operations.
 
 Each delegated packet must include a role, owned paths, exclusions, edit
 permission, verification expectations, and the shared output contract. Never
@@ -177,8 +180,10 @@ Next action:
 
 ## The `.codex` boundary
 
-This repository does not require a `.codex` folder. Keep repository rules in
+Native Codex configuration lives in [config.toml](../../.codex/config.toml)
+and specialist definitions in `.codex/agents/`. Keep repository rules in
 [AGENTS.md](../../AGENTS.md), orchestration in
-[CODEX_ORCHESTRATION.md](../CODEX_ORCHESTRATION.md), reusable prompts here, and
-durable understanding in [Wiki](../../Wiki/index.md). Environment-specific
-skills must stay outside tracked files and must not contain secrets.
+[CODEX_ORCHESTRATION.md](../CODEX_ORCHESTRATION.md), reusable task prompts here,
+and durable understanding in [Wiki](../../Wiki/index.md). Project configuration
+loads in trusted projects and applies to new sessions. Keep credentials and
+environment-specific skills outside tracked configuration.

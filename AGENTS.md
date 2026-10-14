@@ -568,6 +568,32 @@ When NOT to use BMAD: typo fixes, copy tweaks, single-function bug fixes, depend
 
 Templates live in `docs/bmad/`. Produce only the artifacts the task actually needs.
 
+## Codex orchestration
+
+The user is the Product Owner. Main Codex owns requirements analysis, planning,
+specialist selection, integration, validation, review, commits, and final delivery.
+
+- Work on demand in the active session. Use subagents only when delegation
+  provides a concrete benefit; small tasks can stay with Main Codex.
+- Native custom roles live in `.codex/agents/`: Architect, Backend, Frontend,
+  QA, Reviewer, and DevOps. Choose only the roles needed for the task.
+- `.codex/config.toml` limits concurrency to two subagents, excluding Main Codex.
+  Delegated agents use Luna; do not silently substitute another model.
+- Assign exact file ownership and bounded task packets. Reuse suitable agents
+  and avoid overlapping writes. Subagents must not spawn more agents.
+- Main Codex inspects the actual diff, resolves findings, and runs the relevant
+  checks before committing. Configuration/doc-only changes need no app build.
+- Subagents return reports and leave Git operations to Main Codex. Create PRs
+  only when requested. Merge/deploy require explicit authorization and existing
+  quality, review, and environment gates.
+- Keep implementation small and consistent with project conventions. Add an
+  abstraction only for a concrete need; avoid redundant code and unrelated work.
+- This configuration does not authorize background monitoring, cron, hosted
+  dispatchers, workers, queues, protected-path edits, or production operations.
+
+Read [docs/CODEX_ORCHESTRATION.md](docs/CODEX_ORCHESTRATION.md) before delegation
+for role selection, ownership, handoff, model, verification, and delivery rules.
+
 ## Codex working rules
 
 - Read this `AGENTS.md` before starting repo work and re-read it after resume/compaction.

@@ -268,6 +268,21 @@ application has not been converted to Prisma.
   when a trace is active. Logged URLs omit query strings.
 - The SDK is disabled by default and shuts down through Nest lifecycle hooks.
 
+## Codex task orchestration
+
+Main Codex coordinates on-demand repository tasks from the user's natural-language
+requirements. Native roles in `.codex/agents/` cover Architect, Backend, Frontend,
+QA, Reviewer, and DevOps; `.codex/config.toml` caps concurrent subagents at two
+and uses Luna for delegation. Main Codex explicitly selects reasoning effort
+for each task; role files and project config do not pin it to a fixed level.
+Small tasks can stay in Main Codex.
+
+Main Codex owns integration, relevant verification, review, and Git delivery.
+Specialists receive exact path ownership and return evidence. These role
+boundaries inherit the host's permissions and do not replace approval gates.
+No separate orchestration service is required. See
+[the orchestration guide](../docs/CODEX_ORCHESTRATION.md) and [[index]].
+
 ## Risks and unknowns
 
 - Route payloads are not globally uniform; changing a response key can break
