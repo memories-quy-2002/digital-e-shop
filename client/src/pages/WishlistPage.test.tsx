@@ -6,10 +6,13 @@ import WishlistPage from "./WishlistPage";
 import { LocaleProvider } from "../context/LocaleContext";
 
 const mocks = vi.hoisted(() => ({
-    axios: {
-        get: vi.fn(),
-        delete: vi.fn(),
-        post: vi.fn(),
+    productsApi: {
+        fetchWishlist: vi.fn(),
+        removeFromWishlist: vi.fn(),
+        removeWishlistItems: vi.fn(),
+    },
+    ordersApi: {
+        addItemsToCustomerCart: vi.fn(),
     },
     alerts: {
         fetchProductAlerts: vi.fn(),
@@ -23,8 +26,8 @@ const mocks = vi.hoisted(() => ({
     },
 }));
 
-vi.mock("../api/axios", () => ({ default: mocks.axios }));
-
+vi.mock("../features/products/api", () => mocks.productsApi);
+vi.mock("../features/orders/api", () => mocks.ordersApi);
 vi.mock("../features/productAlerts/api", () => mocks.alerts);
 
 vi.mock("../context/AuthContext", () => ({
@@ -95,42 +98,18 @@ vi.mock("react-helmet-async", () => ({
     Helmet: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-const wishlistResponse = {
-    status: 200,
-    data: {
-        wishlist: [
-            {
-                id: 101,
-                product_id: 1,
-                name: "GPU One",
-                brand: "Digital-E",
-                category: "Components",
-                price: 100,
-                sale_price: null,
-                stock: 3,
-                main_image: null,
-            },
-            {
-                id: 102,
-                product_id: 2,
-                name: "GPU Two",
-                brand: "Digital-E",
-                category: "Components",
-                price: 200,
-                sale_price: null,
-                stock: 0,
-                main_image: null,
-            },
-        ],
-    },
-};
+const wishlist = [
+    { id: 101, product: { id: 1, name: "GPU One", stock: 3 } },
+    { id: 102, product: { id: 2, name: "GPU Two", stock: 0 } },
+];
 
 describe("Wishlist alert controls", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        mocks.axios.get.mockResolvedValue(wishlistResponse);
-        mocks.axios.delete.mockResolvedValue({ status: 200, data: {} });
-        mocks.axios.post.mockResolvedValue({ status: 200, data: {} });
+        mocks.productsApi.fetchWishlist.mockResolvedValue(wishlist);
+        mocks.productsApi.removeFromWishlist.mockResolvedValue(undefined);
+        mocks.productsApi.removeWishlistItems.mockResolvedValue(undefined);
+        mocks.ordersApi.addItemsToCustomerCart.mockResolvedValue(undefined);
         mocks.alerts.fetchProductAlerts.mockResolvedValue([
             { productId: 1, priceDropEnabled: true, backInStockEnabled: false },
             { productId: 2, priceDropEnabled: false, backInStockEnabled: true },

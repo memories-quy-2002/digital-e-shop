@@ -503,7 +503,7 @@ const ProductPage = () => {
 
         try {
             if (exists) {
-                await removeFromWishlist(product_id);
+                await removeFromWishlist(user_id, product_id);
                 if (mutation) {
                     setWishlist((list) => applyWishlistMutation(list, mutation));
                 }

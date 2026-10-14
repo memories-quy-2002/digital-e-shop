@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Modal } from "../ui/legacy";
 import { BellIcon, BoxArrowRightIcon, HouseIcon, MenuIcon, SearchIcon } from "../common/Icons";
 import Cookies from "universal-cookie";
-import axios from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate } from "react-router-dom";
@@ -19,6 +18,7 @@ import {
     saveAdminAlertReadIds,
 } from "../../features/admin/utils/adminAlertState";
 import { getApiSuccessMessage } from "../../lib/api-contract";
+import { logoutCurrentCustomer } from "../../features/users/api";
 
 const cookies = new Cookies();
 const POLL_INTERVAL = 60000;
@@ -181,11 +181,11 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
 
     const handleLogout = async () => {
         try {
-            const response = await axios.post("/api/users/logout");
+            const response = await logoutCurrentCustomer();
             sessionStorage.removeItem("rememberMe");
             cookies.remove("rememberMe");
             await signOutFirebaseUser();
-            addToast("Logout successfully", getApiSuccessMessage(response.data, "Logged out"));
+            addToast("Logout successfully", getApiSuccessMessage(response, "Logged out"));
         } catch {
             addToast("Logout", "You have been logged out.");
         } finally {

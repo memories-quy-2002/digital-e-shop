@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { HTTP_STATUS } from "../constants/http-status";
-import axios from "../api/axios";
 import type { UserData } from "../types/user";
+import { fetchCurrentCustomer } from "../features/users/api";
 
 interface AuthContextProps {
     userData: UserData;
@@ -33,12 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             try {
                 // The server remains the source of truth for auth. Cached data is
                 // replaced or cleared after this request completes.
-                const response = await axios.get(`/api/users/me`, { withCredentials: true });
-                if (response.status === HTTP_STATUS.OK) {
-                    setUserData(response.data.userData);
-                } else {
-                    setUserData(null);
-                }
+                setUserData(await fetchCurrentCustomer() as UserData | null);
             } catch {
                 setUserData(null);
             } finally {

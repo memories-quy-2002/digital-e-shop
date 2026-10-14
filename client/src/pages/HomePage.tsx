@@ -6,7 +6,6 @@ import React, {
     useState,
 } from "react";
 import { preload } from "react-dom";
-import { HTTP_STATUS } from "../constants/http-status";
 import { Helmet } from "react-helmet-async";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import carousel1 from "../assets/images/carousel_1.jpg";
@@ -28,15 +27,23 @@ import RecentlyViewedStrip from "../components/common/RecentlyViewedStrip";
 import { ProductGridSkeleton } from "../components/common/StorefrontSkeleton";
 import LazyLoadingImage from "../utils/LazyLoadingImage";
 import Layout from "../components/layout/Layout";
-import axios from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useToast } from "../context/ToastContext";
-import { fetchProduct } from "../features/products/api";
+import {
+    addToWishlist,
+    fetchProduct,
+    fetchProductCatalog,
+    fetchProductRecommendations,
+    fetchWishlist as fetchUserWishlist,
+    removeFromWishlist,
+} from "../features/products/api";
+import { applyWishlistMutation, type WishlistMutation } from "../features/products/wishlistState";
 import { useRecentlyViewed } from "../hooks/useRecentlyViewed";
 import { useT } from "../hooks/useT";
 import "../styles/pages/_home.scss";
 import { Product } from "../utils/interface";
+import type { Wishlist } from "../types/product";
 import {
     PRODUCT_GALLERY_WIDTHS,
     getProductImageUrl,
@@ -44,7 +51,6 @@ import {
     normalizeProductImageName,
     setImageFallback,
 } from "../utils/images";
-import { normalizeProduct, normalizeProducts } from "../utils/product";
 import { formatCurrency } from "../utils/currency";
 
 preload(carousel1, { as: "image", fetchPriority: "high" });
@@ -163,31 +169,6 @@ const getProductImageSource = (
 
 const getIntentHref = (categories: readonly string[]) =>
     `/shops?categories=${encodeURIComponent(categories.join(","))}&brands=&minPrice=0&maxPrice=100000000&term=`;
-
-interface Wishlist {
-    id: number;
-    product: Product;
-}
-
-type WishlistMutation =
-    { type: "add"; item: Wishlist } | { type: "remove"; productId: number };
-
-const applyWishlistMutation = (
-    wishlist: Wishlist[],
-    mutation: WishlistMutation,
-): Wishlist[] => {
-    if (mutation.type === "remove") {
-        return wishlist.filter(
-            (item) => item.product.id !== mutation.productId,
-        );
-    }
-
-    if (wishlist.some((item) => item.product.id === mutation.item.product.id)) {
-        return wishlist;
-    }
-
-    return [...wishlist, mutation.item];
-};
 
 const HomePage = () => {
     const navigate = useNavigate();
@@ -331,21 +312,9 @@ const HomePage = () => {
 
             try {
                 if (exists) {
-                    const response = await axios.delete(
-                        `/api/wishlist/${product_id}/`,
-                        {
-                            data: { uid: user_id },
-                        },
-                    );
-                    if (response.status !== HTTP_STATUS.OK)
-                        throw new Error("Wishlist delete failed");
+                    await removeFromWishlist(user_id, product_id);
                 } else {
-                    const response = await axios.post("/api/wishlist/", {
-                        uid: user_id,
-                        pid: product_id,
-                    });
-                    if (response.status !== HTTP_STATUS.OK)
-                        throw new Error("Wishlist add failed");
+                    await addToWishlist(user_id, product_id);
                 }
                 if (mutation)
                     setWishlist((list) =>
@@ -438,14 +407,12 @@ const HomePage = () => {
 
         const fetchProducts = async () => {
             try {
-                const response = await axios.get(
-                    `/api/products?page=1&limit=${HOME_PRODUCT_LIMIT}`,
-                );
-                if (response.status !== HTTP_STATUS.OK) {
-                    throw new Error("Unable to load the home catalog.");
-                }
+                const catalog = await fetchProductCatalog({
+                    page: "1",
+                    limit: String(HOME_PRODUCT_LIMIT),
+                });
                 if (isActive) {
-                    setProducts(normalizeProducts(response.data.products));
+                    setProducts(catalog.products);
                     setHasProductsLoadError(false);
                 }
             } catch {
@@ -475,22 +442,8 @@ const HomePage = () => {
 
         const fetchWishlist = async () => {
             try {
-                const response = await axios.get(`/api/wishlist/${uid}`);
-                if (isActive && response.status === HTTP_STATUS.OK) {
-                    const nextWishlist: Wishlist[] = (
-                        response.data.wishlist || []
-                    ).map((item: Record<string, unknown>) => {
-                        const { id, product_id, ...productProps } = item;
-                        return {
-                            id: Number(id),
-                            product: normalizeProduct({
-                                id: product_id,
-                                ...productProps,
-                            }),
-                        };
-                    });
-                    setWishlist(nextWishlist);
-                }
+                const nextWishlist = await fetchUserWishlist(uid);
+                if (isActive) setWishlist(nextWishlist);
             } catch {
                 if (isActive) addToast("Wishlist", "Unable to load wishlist.");
             }
@@ -513,13 +466,11 @@ const HomePage = () => {
 
         const fetchRecommendations = async () => {
             try {
-                const response = await axios.get(
-                    `/api/products/recommendations/${userData.id}?limit=${DISPLAYED_NUMBER}`,
+                const recommendations = await fetchProductRecommendations(
+                    userData.id,
+                    DISPLAYED_NUMBER,
                 );
-                if (isActive && response.status === HTTP_STATUS.OK)
-                    setSmartRecommendations(
-                        normalizeProducts(response.data.products),
-                    );
+                if (isActive) setSmartRecommendations(recommendations);
             } catch {
                 if (isActive) setSmartRecommendations([]);
             }

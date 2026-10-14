@@ -52,6 +52,10 @@ install command. Each package owns its dependencies and lockfile.
 - Generic site pages live in `client/src/pages/`.
 - Authenticated requests go through `client/src/lib/http.ts`; components do
   not hard-code API origins.
+- Product catalog, recommendation, search/facet, and wishlist operations live
+  in `client/src/features/products/api.ts`; user logout lives in the users API.
+  Shared wishlist mutations are pure helpers in `wishlistState.ts`, keeping
+  optimistic updates consistent between Shop and Wishlist screens.
 - `client/src/app/` owns providers and bootstrap. Contexts own auth, cart, and
   toast state. Shared UI belongs in `components/common` or `components/layout`.
 - Responsive storefront, account, checkout, and admin behavior is implemented
@@ -62,6 +66,11 @@ install command. Each package owns its dependencies and lockfile.
   across the two entry routes.
 - Explicit loading, empty, error, and success states are part of each route's
   contract.
+- Account data entry uses semantic forms with associated labels and inline
+  validation state linked through `aria-describedby`; keyboard submission follows
+  the form submit event.
+- Storefront and admin shells expose keyboard skip links that move focus to the
+  current page content; admin pages retain their own semantic main landmarks.
 
 ## Client loading strategy
 
@@ -114,6 +123,14 @@ other multi-table operations. Repositories own SQL and persistence details.
 Shared concerns are kept in guards, pipes, filters, interceptors, middleware,
 config, database, payments, and shared utilities instead of being duplicated
 inside controllers.
+- `OrdersModule` separates public guest purchase/lookup endpoints into
+  `GuestOrdersController` while keeping authenticated order and checkout routes
+  in `OrdersController`. Both controllers retain the same shared rate-limit
+  middleware, `/api/orders` paths, validators, and response contracts.
+- Controllers that share the same fallback error policy use
+  `core/errors/http-exception-mapper.ts`; it preserves existing `HttpException`
+  responses and wraps unknown errors with route-specific fallback messages.
+  Routes with a distinct error policy keep their own mapping behavior.
 
 The global `/api` prefix means feature controllers use paths such as
 `@Controller("products")`, which become `/api/products`. Do not put `api/` in

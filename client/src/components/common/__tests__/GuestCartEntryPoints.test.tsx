@@ -27,6 +27,8 @@ const mocks = vi.hoisted(() => ({
     },
     productsApi: {
         fetchProduct: vi.fn(),
+        fetchProductCatalog: vi.fn(),
+        fetchProductRecommendations: vi.fn(),
         fetchRelevantProducts: vi.fn(),
         fetchWishlist: vi.fn(),
         fetchReviews: vi.fn(),
@@ -177,6 +179,8 @@ describe("guest cart entry points", () => {
         mocks.axios.post.mockResolvedValue({ status: 200, data: {} });
         mocks.axios.delete.mockResolvedValue({ status: 200, data: {} });
         mocks.productsApi.fetchProduct.mockResolvedValue(product);
+        mocks.productsApi.fetchProductCatalog.mockResolvedValue({ products: [product] });
+        mocks.productsApi.fetchProductRecommendations.mockResolvedValue([]);
         mocks.productsApi.fetchRelevantProducts.mockResolvedValue([]);
         mocks.productsApi.fetchWishlist.mockResolvedValue([]);
         mocks.productsApi.fetchReviews.mockResolvedValue({

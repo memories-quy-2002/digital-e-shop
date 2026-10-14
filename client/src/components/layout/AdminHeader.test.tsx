@@ -9,7 +9,7 @@ import { getAdminAlertReadIds } from "../../features/admin/utils/adminAlertState
 const mocks = vi.hoisted(() => ({
     addToast: vi.fn(),
     navigate: vi.fn(),
-    axios: { post: vi.fn() },
+    logoutCurrentCustomer: vi.fn(),
 }));
 
 vi.mock("../../features/admin/api", () => ({ fetchAdminAlerts: vi.fn() }));
@@ -17,7 +17,7 @@ vi.mock("../../context/AuthContext", () => ({
     useAuth: () => ({ userData: { username: "admin", role: "Admin" }, loading: false }),
 }));
 vi.mock("../../context/ToastContext", () => ({ useToast: () => ({ addToast: mocks.addToast }) }));
-vi.mock("../../api/axios", () => ({ default: mocks.axios }));
+vi.mock("../../features/users/api", () => ({ logoutCurrentCustomer: mocks.logoutCurrentCustomer }));
 vi.mock("../../services/firebase", () => ({ signOutFirebaseUser: vi.fn() }));
 vi.mock("react-router-dom", async () => ({
     ...(await vi.importActual<typeof import("react-router-dom")>("react-router-dom")),
@@ -45,7 +45,7 @@ const alert = {
 describe("AdminHeader activity feed request states", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        mocks.axios.post.mockResolvedValue({ data: {} });
+        mocks.logoutCurrentCustomer.mockResolvedValue({});
         window.localStorage.clear();
     });
 

@@ -18,6 +18,11 @@ export async function fetchCurrentCustomer(): Promise<CustomerIdentity | null> {
     return response.data.userData || null;
 }
 
+export async function logoutCurrentCustomer(): Promise<Record<string, unknown>> {
+    const response = await http.post("/api/users/logout");
+    return response.data;
+}
+
 export async function fetchCustomerAddresses(uid: string): Promise<CustomerAddress[]> {
     const response = await http.get(`/api/users/${uid}/addresses`);
     return response.data.addresses || [];

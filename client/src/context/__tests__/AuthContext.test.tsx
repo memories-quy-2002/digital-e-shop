@@ -4,14 +4,8 @@ import React from "react";
 import { AuthProvider, useAuth } from "../AuthContext";
 import { Role } from "../../utils/interface";
 
-vi.mock("../../api/axios", () => ({
-    default: {
-        get: vi.fn(),
-    },
-}));
-
-import axios from "../../api/axios";
-const mockedAxios = axios as unknown as { get: ReturnType<typeof vi.fn> };
+const mocks = vi.hoisted(() => ({ fetchCurrentCustomer: vi.fn() }));
+vi.mock("../../features/users/api", () => ({ fetchCurrentCustomer: mocks.fetchCurrentCustomer }));
 
 const Probe: React.FC = () => {
     const { userData, loading, setUserData } = useAuth();
@@ -40,7 +34,7 @@ const buildUser = (overrides: Partial<{ email: string; username: string; role: R
 describe("AuthContext", () => {
     beforeEach(() => {
         sessionStorage.clear();
-        mockedAxios.get.mockReset();
+        mocks.fetchCurrentCustomer.mockReset();
     });
 
     afterEach(() => {
@@ -54,7 +48,7 @@ describe("AuthContext", () => {
     });
 
     it("starts with loading=true and no user", () => {
-        mockedAxios.get.mockResolvedValue({ status: 200, data: { userData: null } });
+        mocks.fetchCurrentCustomer.mockResolvedValue(null);
         render(
             <AuthProvider>
                 <Probe />
@@ -65,10 +59,7 @@ describe("AuthContext", () => {
     });
 
     it("fetches user data and turns off loading on success", async () => {
-        mockedAxios.get.mockResolvedValue({
-            status: 200,
-            data: { userData: buildUser({ email: "fetched@example.com" }) },
-        });
+        mocks.fetchCurrentCustomer.mockResolvedValue(buildUser({ email: "fetched@example.com" }));
 
         render(
             <AuthProvider>
@@ -83,7 +74,7 @@ describe("AuthContext", () => {
     });
 
     it("clears user data when the request fails", async () => {
-        mockedAxios.get.mockRejectedValue(new Error("network down"));
+        mocks.fetchCurrentCustomer.mockRejectedValue(new Error("network down"));
         render(
             <AuthProvider>
                 <Probe />
@@ -98,7 +89,7 @@ describe("AuthContext", () => {
 
     it("clears user data when the server responds with non-200", async () => {
         sessionStorage.setItem("userData", JSON.stringify(buildUser({ email: "stale@example.com" })));
-        mockedAxios.get.mockResolvedValue({ status: 401, data: {} });
+        mocks.fetchCurrentCustomer.mockResolvedValue(null);
 
         render(
             <AuthProvider>
@@ -114,7 +105,7 @@ describe("AuthContext", () => {
 
     it("hydrates initial state from sessionStorage", () => {
         sessionStorage.setItem("userData", JSON.stringify(buildUser({ email: "cached@example.com" })));
-        mockedAxios.get.mockResolvedValue({ status: 200, data: { userData: buildUser({ email: "cached@example.com" }) } });
+        mocks.fetchCurrentCustomer.mockResolvedValue(buildUser({ email: "cached@example.com" }));
 
         render(
             <AuthProvider>
@@ -126,10 +117,7 @@ describe("AuthContext", () => {
     });
 
     it("writes user data to sessionStorage on update", async () => {
-        mockedAxios.get.mockResolvedValue({
-            status: 200,
-            data: { userData: buildUser({ email: "persisted@example.com" }) },
-        });
+        mocks.fetchCurrentCustomer.mockResolvedValue(buildUser({ email: "persisted@example.com" }));
 
         render(
             <AuthProvider>
@@ -145,10 +133,7 @@ describe("AuthContext", () => {
     });
 
     it("removes user data from sessionStorage when set to null", async () => {
-        mockedAxios.get.mockResolvedValue({
-            status: 200,
-            data: { userData: buildUser({ email: "temp@example.com" }) },
-        });
+        mocks.fetchCurrentCustomer.mockResolvedValue(buildUser({ email: "temp@example.com" }));
 
         render(
             <AuthProvider>
@@ -169,7 +154,7 @@ describe("AuthContext", () => {
 
     it("falls back to null when stored session data is invalid JSON", () => {
         sessionStorage.setItem("userData", "not-json");
-        mockedAxios.get.mockResolvedValue({ status: 200, data: { userData: null } });
+        mocks.fetchCurrentCustomer.mockResolvedValue(null);
 
         render(
             <AuthProvider>

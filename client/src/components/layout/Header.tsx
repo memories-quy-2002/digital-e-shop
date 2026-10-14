@@ -1,5 +1,4 @@
 import React, { JSX, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { HTTP_STATUS } from "../../constants/http-status";
 import { BoxSeamIcon, CartIcon, BellIcon, CheckCircleIcon, HeartIcon, PersonIcon, SearchIcon, SpeedometerIcon } from "../common/Icons";
 import ColorSchemeDropdown from "../common/ColorSchemeDropdown";
 import LanguageDropdown from "../common/LanguageDropdown";
@@ -9,8 +8,7 @@ import { useCart } from "../../context/CartContext";
 import { Role } from "../../types/user";
 import "../../styles/layout/_header.scss";
 import { useToast } from "../../context/ToastContext";
-import axios from "../../api/axios";
-import { fetchCustomerNotifications } from "../../features/users/api";
+import { fetchCustomerNotifications, logoutCurrentCustomer } from "../../features/users/api";
 import type { CustomerNotification } from "../../features/users/api";
 import { signOutFirebaseUser } from "../../services/firebase";
 import { Product } from "../../utils/interface";
@@ -24,6 +22,7 @@ import { formatUtcDateTime } from "../../utils/dateTime";
 import { formatCurrency } from "../../utils/currency";
 import { getApiSuccessMessage } from "../../lib/api-contract";
 import { CUSTOMER_ROUTES } from "../../routes/customerRoutes";
+import { searchProducts } from "../../features/products/api";
 
 const RECENT_SEARCH_KEY = "digital-e:recent-searches:v1";
 const MAX_RECENT_SEARCHES = 5;
@@ -118,13 +117,11 @@ export const Header = (): JSX.Element => {
 
     const handleLogout = async () => {
         try {
-            const response = await axios.post("/api/users/logout");
-            if (response.status === HTTP_STATUS.OK) {
-                await signOutFirebaseUser();
-                setUserData(null);
-                addToast(t("common.logout"), getApiSuccessMessage(response.data, "Logged out"));
-                navigate("/");
-            }
+            const response = await logoutCurrentCustomer();
+            await signOutFirebaseUser();
+            setUserData(null);
+            addToast(t("common.logout"), getApiSuccessMessage(response, "Logged out"));
+            navigate("/");
         } catch {
             addToast(t("common.logout"), t("header.tryAgain"));
             setUserData(null);
@@ -239,15 +236,8 @@ export const Header = (): JSX.Element => {
 
         setIsSearching(true);
         const timer = window.setTimeout(() => {
-            axios
-                .get(`/api/products/search?q=${encodeURIComponent(normalizedTerm)}&limit=6`)
-                .then((response) => {
-                    if (response.status === HTTP_STATUS.OK) {
-                        setSearchResults(response.data.products || []);
-                    } else {
-                        setSearchResults([]);
-                    }
-                })
+            searchProducts(normalizedTerm, 6)
+                .then(setSearchResults)
                 .catch(() => {
                     setSearchResults([]);
                 })

@@ -1,7 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { HTTP_STATUS } from "../constants/http-status";
 import { Helmet } from "react-helmet-async";
-import axios from "../api/axios";
 import EmptyState from "../components/common/EmptyState";
 import LoadingScreen from "../components/common/LoadingScreen";
 import WishlistItem from "../components/common/WishlistItem";
@@ -13,15 +11,11 @@ import { useT } from "../hooks/useT";
 import { HeartFillIcon } from "../components/common/Icons";
 import "../styles/pages/_wishlist.scss";
 import { Product } from "../utils/interface";
-import { normalizeProduct } from "../utils/product";
-import type { RawWishlistItem } from "../features/products/api";
+import type { Wishlist } from "../types/product";
+import { addItemsToCustomerCart } from "../features/orders/api";
+import { fetchWishlist as fetchUserWishlist, removeFromWishlist, removeWishlistItems } from "../features/products/api";
 import { fetchProductAlerts, updateProductAlert } from "../features/productAlerts/api";
 import type { ProductAlertKey, ProductAlertPreference } from "../features/productAlerts/types";
-
-interface Wishlist {
-    id: number;
-    product: Product;
-}
 
 const WishlistPage = () => {
     const [wishlist, setWishlist] = useState<Wishlist[]>([]);
@@ -76,22 +70,7 @@ const WishlistPage = () => {
 
             try {
                 setIsLoadingWishlist(true);
-                const response = await axios.get<{ wishlist: RawWishlistItem[] }>(`/api/wishlist/${uid}`);
-                if (response.status === HTTP_STATUS.OK) {
-                    const newWishlist: Wishlist[] = response.data.wishlist.map((item) => {
-                        const { id, product_id, ...productProps } = item;
-
-                        return {
-                            id,
-                            product: normalizeProduct({
-                                id: product_id,
-                                ...productProps,
-                            }),
-                        };
-                    });
-
-                    setWishlist(newWishlist);
-                }
+                setWishlist(await fetchUserWishlist(uid));
             } catch {
                 addToast("Wishlist", "Unable to load wishlist.");
             } finally {
@@ -123,15 +102,11 @@ const WishlistPage = () => {
     const handleConfirmRemoveWishlist = async (productId: number) => {
         try {
             setIsRemoving(true);
-            const response = await axios.delete(`/api/wishlist/${productId}`, {
-                data: { uid },
-            });
-            if (response.status === HTTP_STATUS.OK) {
-                setWishlist((currentWishlist) => currentWishlist.filter((item) => item.product.id !== productId));
-                setSelectedIds((currentIds) => currentIds.filter((id) => id !== productId));
-                addToast("Wishlist", "Item removed from wishlist.");
-                setPendingRemoveProductId(null);
-            }
+            await removeFromWishlist(uid, productId);
+            setWishlist((currentWishlist) => currentWishlist.filter((item) => item.product.id !== productId));
+            setSelectedIds((currentIds) => currentIds.filter((id) => id !== productId));
+            addToast("Wishlist", "Item removed from wishlist.");
+            setPendingRemoveProductId(null);
         } catch {
             addToast("Wishlist", "Unable to remove wishlist item.");
         } finally {
@@ -185,15 +160,11 @@ const WishlistPage = () => {
 
         try {
             setIsRemoving(true);
-            const response = await axios.delete("/api/wishlist/", {
-                data: { uid, productIds: selectedIds },
-            });
-            if (response.status === HTTP_STATUS.OK) {
-                setWishlist((currentWishlist) => currentWishlist.filter((item) => !selectedIds.includes(item.product.id)));
-                setSelectedIds([]);
-                addToast("Wishlist", "Selected wishlist items were removed.");
-                setShowBulkRemoveConfirm(false);
-            }
+            await removeWishlistItems(uid, selectedIds);
+            setWishlist((currentWishlist) => currentWishlist.filter((item) => !selectedIds.includes(item.product.id)));
+            setSelectedIds([]);
+            addToast("Wishlist", "Selected wishlist items were removed.");
+            setShowBulkRemoveConfirm(false);
         } catch {
             addToast("Wishlist", "Unable to remove selected items.");
         } finally {
@@ -208,15 +179,9 @@ const WishlistPage = () => {
         }
 
         try {
-            const response = await axios.post("/api/cart/", {
-                uid,
-                pid: product.id,
-                quantity: 1,
-            });
-            if (response.status === HTTP_STATUS.OK) {
-                setSelectedIds((currentIds) => currentIds.filter((id) => id !== product.id));
-                addToast("Wishlist", "Product added to cart.");
-            }
+            await addItemsToCustomerCart(uid, [{ productId: product.id, quantity: 1, stock: product.stock }]);
+            setSelectedIds((currentIds) => currentIds.filter((id) => id !== product.id));
+            addToast("Wishlist", "Product added to cart.");
         } catch {
             addToast("Wishlist", "Unable to move product to cart.");
         }
@@ -230,15 +195,11 @@ const WishlistPage = () => {
         }
 
         try {
-            await Promise.all(
-                availableSelected.map((item) =>
-                    axios.post("/api/cart/", {
-                        uid,
-                        pid: item.product.id,
-                        quantity: 1,
-                    }),
-                ),
-            );
+            await addItemsToCustomerCart(uid, availableSelected.map((item) => ({
+                productId: item.product.id,
+                quantity: 1,
+                stock: item.product.stock,
+            })));
             const movedIds = availableSelected.map((item) => item.product.id);
             setSelectedIds((currentIds) => currentIds.filter((id) => !movedIds.includes(id)));
             addToast("Wishlist", "Available selected products added to cart.");
