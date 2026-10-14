@@ -8,21 +8,15 @@ import { NestOrdersService } from "./orders.service";
 import { NestOrdersPayOSService } from "./orders.payos.service";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { createHttpException } from "#src/core/errors/http-exception";
+import { mapToHttpException } from "#src/core/errors/http-exception-mapper";
 import { calculatePromotionDiscount } from "./orders.pricing";
 import { PAYMENT_PROVIDER, type PaymentProviderName } from "../payments/payment.types";
-import type { GuestOrderLookupPayload, GuestPurchasePayload, GuestPayOSCheckoutPayload, GuestPayOSOrderLookupPayload, MockPayOSConfirmPayload } from "./orders.dto";
-import { orderStatusSchema, purchaseSchema, checkoutSessionSchema, applyDiscountSchema, cancelOrderSchema, guestOrderLookupSchema, guestPurchaseSchema, guestPayOSCheckoutSchema, guestPayOSOrderLookupSchema, mockPayOSConfirmSchema } from "./orders.validator";
+import type { MockPayOSConfirmPayload } from "./orders.dto";
+import { orderStatusSchema, purchaseSchema, checkoutSessionSchema, applyDiscountSchema, cancelOrderSchema, mockPayOSConfirmSchema } from "./orders.validator";
 
 type AuthenticatedRequest = Request & {
     user?: { id?: string | number; role?: string };
 };
-
-function toHttpException(err: { statusCode?: number; message?: string }, fallbackMessage: string): HttpException {
-    if (err instanceof HttpException) return err;
-    const statusCode = err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-    const msg = statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? fallbackMessage : err.message || fallbackMessage;
-    return createHttpException(err, { msg }, statusCode);
-}
 
 function canAccessOrder(req: AuthenticatedRequest, ownerId: string | number): boolean {
     return String(req.user?.role || "").toLowerCase() === "admin" || String(req.user?.id) === String(ownerId);
@@ -66,7 +60,7 @@ export class OrdersController {
             const orders = await this.ordersService.getOrders();
             return { orders, msg: "Orders retrieved successfully" };
         } catch (err) {
-            throw toHttpException(err as Error, "Unable to retrieve orders");
+            throw mapToHttpException(err, "Unable to retrieve orders");
         }
     }
 
@@ -104,7 +98,7 @@ export class OrdersController {
                 msg: "Products sales and revenue retrieved successfully",
             };
         } catch (err) {
-            throw toHttpException(err as Error, "Unable to retrieve order items");
+            throw mapToHttpException(err, "Unable to retrieve order items");
         }
     }
 
@@ -116,7 +110,7 @@ export class OrdersController {
             const orders = await this.ordersService.getOrdersByUserId(uid);
             return { orders, msg: "Customer orders retrieved successfully" };
         } catch (err) {
-            throw toHttpException(err as Error, "Unable to retrieve customer orders");
+            throw mapToHttpException(err, "Unable to retrieve customer orders");
         }
     }
 
@@ -131,7 +125,7 @@ export class OrdersController {
             return { order, msg: "Order detail retrieved successfully" };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            throw toHttpException(err as Error, "Unable to retrieve order detail");
+            throw mapToHttpException(err, "Unable to retrieve order detail");
         }
     }
 
@@ -155,7 +149,7 @@ export class OrdersController {
             };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            throw toHttpException(err as Error, "Unable to change order status");
+            throw mapToHttpException(err, "Unable to change order status");
         }
     }
 
@@ -174,88 +168,7 @@ export class OrdersController {
             return { order, msg: "Order has been canceled successfully" };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            throw toHttpException(err as Error, "Unable to cancel order");
-        }
-    }
-
-    @Post("/guest/purchase")
-    @HttpCode(HTTP_STATUS.CREATED)
-    async makeGuestPurchase(
-        @Body(new ZodValidationPipe(guestPurchaseSchema)) body: GuestPurchasePayload,
-    ) {
-        try {
-            const result = await this.ordersService.makeGuestPurchase(body);
-            return {
-                orderId: result.order.id,
-                order: result.order,
-                guestOrderToken: result.guestOrderToken,
-                paymentMethod: body.paymentMethod,
-                msg: `Order has been created successfully with id = ${result.order.id}`,
-            };
-        } catch (err) {
-            if (err instanceof HttpException) throw err;
-            const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
-            const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-            throw createHttpException(
-                err,
-                {
-                    msg: statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to place order right now" : error.message,
-                    ...(statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? {} : error.details || {}),
-                },
-                statusCode,
-            );
-        }
-    }
-
-    @Post("/guest/lookup")
-    @HttpCode(HTTP_STATUS.OK)
-    async lookupGuestOrder(
-        @Body(new ZodValidationPipe(guestOrderLookupSchema)) body: GuestOrderLookupPayload,
-    ) {
-        try {
-            const order = await this.ordersService.lookupGuestOrder(body.orderId, body.guestOrderToken);
-            return { order, msg: "Guest order retrieved successfully" };
-        } catch (err) {
-            if (err instanceof HttpException) throw err;
-            const error = err as Error & { statusCode?: number };
-            const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-            throw createHttpException(
-                err,
-                { msg: statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to retrieve guest order" : error.message },
-                statusCode,
-            );
-        }
-    }
-
-    @Post("/guest/payos-checkout-session")
-    @HttpCode(HTTP_STATUS.OK)
-    async createGuestPayOSCheckoutSession(
-        @Body(new ZodValidationPipe(guestPayOSCheckoutSchema)) body: GuestPayOSCheckoutPayload,
-    ) {
-        try {
-            if (!this.ordersPayOSService) throw new HttpException({ msg: "PayOS checkout is not configured" }, HTTP_STATUS.SERVICE_UNAVAILABLE);
-            const result = await this.ordersPayOSService.createGuestCheckoutSession(body);
-            return {
-                url: result.url,
-                orderCode: result.orderCode,
-                paymentLinkId: result.paymentLinkId,
-                amount: result.amount,
-                currency: result.currency,
-                guestOrderToken: result.guestOrderToken,
-                msg: "PayOS checkout session created",
-            };
-        } catch (err) {
-            if (err instanceof HttpException) throw err;
-            const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
-            const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-            throw createHttpException(
-                err,
-                {
-                    msg: statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to start guest PayOS checkout" : error.message,
-                    ...(statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? {} : error.details || {}),
-                },
-                statusCode,
-            );
+            throw mapToHttpException(err, "Unable to cancel order");
         }
     }
 
@@ -297,7 +210,7 @@ export class OrdersController {
             return { order, msg: "Order retrieved successfully" };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            throw toHttpException(err as Error, "Unable to retrieve order right now");
+            throw mapToHttpException(err, "Unable to retrieve order right now");
         }
     }
 
@@ -402,26 +315,6 @@ export class OrdersController {
         }
     }
 
-    @Post("/guest/by-payos-order-code")
-    @HttpCode(HTTP_STATUS.OK)
-    async getGuestOrderByPayOSOrderCode(
-        @Body(new ZodValidationPipe(guestPayOSOrderLookupSchema)) body: GuestPayOSOrderLookupPayload,
-    ) {
-        try {
-            const order = await this.ordersService.getGuestOrderByPayOSOrderCode(body.orderCode, body.guestOrderToken);
-            return { order, msg: "Guest order retrieved successfully" };
-        } catch (err) {
-            if (err instanceof HttpException) throw err;
-            const error = err as Error & { statusCode?: number };
-            const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-            throw createHttpException(
-                err,
-                { msg: statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to retrieve guest order" : error.message },
-                statusCode,
-            );
-        }
-    }
-
     @Post("/discount")
     @HttpCode(HTTP_STATUS.OK)
     @UseGuards(AuthGuard, RolesGuard)
@@ -440,7 +333,7 @@ export class OrdersController {
             };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            throw toHttpException(err, "Unable to apply discount code");
+            throw mapToHttpException(err, "Unable to apply discount code");
         }
     }
 }

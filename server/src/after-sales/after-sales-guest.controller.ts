@@ -1,18 +1,10 @@
-import { Body, Controller, HttpCode, HttpException, Param, Post } from "@nestjs/common";
+import { Body, Controller, HttpCode, Param, Post } from "@nestjs/common";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
-import { createHttpException } from "#src/core/errors/http-exception";
+import { mapToHttpException } from "#src/core/errors/http-exception-mapper";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { AfterSalesService } from "./after-sales.service";
 import { afterSalesGuestCreateSchema, afterSalesGuestLookupSchema } from "./after-sales.validator";
 import type { AfterSalesGuestCreateInput, AfterSalesListQuery } from "./after-sales.types";
-
-const toHttpException = (error: unknown, fallbackMessage: string) => {
-    if (error instanceof HttpException) return error;
-    const typed = error as { statusCode?: number; message?: string };
-    const statusCode = typed.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-    const msg = statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? fallbackMessage : typed.message || fallbackMessage;
-    return createHttpException(error, { msg }, statusCode);
-};
 
 @Controller("orders/guest/after-sales")
 export class AfterSalesGuestController {
@@ -25,7 +17,7 @@ export class AfterSalesGuestController {
             const request = await this.service.createGuestRequest(body);
             return { request, msg: "Guest after-sales request created successfully" };
         } catch (error) {
-            throw toHttpException(error, "Unable to create guest after-sales request");
+            throw mapToHttpException(error, "Unable to create guest after-sales request");
         }
     }
 
@@ -37,7 +29,7 @@ export class AfterSalesGuestController {
             const { orderId, guestOrderToken, ...query } = body;
             return await this.service.listGuestRequests(orderId, guestOrderToken, query);
         } catch (error) {
-            throw toHttpException(error, "Unable to retrieve guest after-sales requests");
+            throw mapToHttpException(error, "Unable to retrieve guest after-sales requests");
         }
     }
 
@@ -48,7 +40,7 @@ export class AfterSalesGuestController {
             const request = await this.service.getGuestRequest(body.orderId, body.guestOrderToken, Number(id));
             return { request, msg: "Guest after-sales request retrieved successfully" };
         } catch (error) {
-            throw toHttpException(error, "Unable to retrieve guest after-sales request");
+            throw mapToHttpException(error, "Unable to retrieve guest after-sales request");
         }
     }
 }

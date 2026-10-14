@@ -12,7 +12,7 @@ vi.mock("../../inventory/inventory.service", () => ({ NestInventoryService: clas
 vi.mock("../../notifications/notifications.service", () => ({ NestNotificationsService: class {} }));
 vi.mock("../checkout-reservation.repository", () => ({ CheckoutReservationRepository: class {} }));
 
-import { OrdersController } from "../orders.controller";
+import { GuestOrdersController } from "../guest-orders.controller";
 import { OrdersRepository } from "../orders.repository";
 import { NestOrdersService } from "../orders.service";
 import { NestOrdersCancellationService } from "../orders-cancellation.service";
@@ -39,7 +39,8 @@ function buildController() {
         makeGuestPurchase: vi.fn(),
         lookupGuestOrder: vi.fn(),
         getGuestOrderByPayOSOrderCode: vi.fn(),
-    } as unknown as NestOrdersService;    return { controller: new OrdersController(ordersService), ordersService };
+    } as unknown as NestOrdersService;
+    return { controller: new GuestOrdersController(ordersService), ordersService };
 }
 
 function buildService() {

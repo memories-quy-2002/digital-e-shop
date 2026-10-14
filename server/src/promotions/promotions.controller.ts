@@ -1,19 +1,12 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpException, Param, Post, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, UseGuards } from "@nestjs/common";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
+import { mapToHttpException } from "#src/core/errors/http-exception-mapper";
 import { AuthGuard } from "../guards/auth.guard";
 import { Roles, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestPromotionsService } from "./promotions.service";
 
 import { promotionSchema } from "./promotions.validator";
-import { createHttpException } from "#src/core/errors/http-exception";
-
-function toHttpException(err: { statusCode?: number; message?: string }, fallbackMessage: string): HttpException {
-    if (err instanceof HttpException) return err;
-    const statusCode = err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-    const msg = statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? fallbackMessage : err.message || fallbackMessage;
-    return createHttpException(err, { msg }, statusCode);
-}
 
 @Controller("promotions")
 @UseGuards(AuthGuard, RolesGuard)
@@ -27,7 +20,7 @@ export class PromotionsController {
             const promotions = await this.promotionsService.getPromotions();
             return { promotions, msg: "Promotions retrieved successfully" };
         } catch (err) {
-            throw toHttpException(err as Error, "Unable to retrieve promotions");
+            throw mapToHttpException(err, "Unable to retrieve promotions");
         }
     }
 
@@ -38,7 +31,7 @@ export class PromotionsController {
             const promotion = await this.promotionsService.createPromotion(body);
             return { promotion, msg: "Promotion created successfully" };
         } catch (err) {
-            throw toHttpException(err as Error, "Unable to create promotion");
+            throw mapToHttpException(err, "Unable to create promotion");
         }
     }
 
@@ -49,7 +42,7 @@ export class PromotionsController {
             const promotion = await this.promotionsService.updatePromotion(id, body);
             return { promotion, msg: "Promotion updated successfully" };
         } catch (err) {
-            throw toHttpException(err as Error, "Unable to update promotion");
+            throw mapToHttpException(err, "Unable to update promotion");
         }
     }
 
@@ -60,7 +53,7 @@ export class PromotionsController {
             const promotion = await this.promotionsService.deletePromotion(id);
             return { promotion, msg: "Promotion deactivated successfully" };
         } catch (err) {
-            throw toHttpException(err as Error, "Unable to deactivate promotion");
+            throw mapToHttpException(err, "Unable to deactivate promotion");
         }
     }
 }

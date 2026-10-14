@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import type { MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { OrdersController } from "./orders.controller";
+import { GuestOrdersController } from "./guest-orders.controller";
 import { AdminPaymentsController } from "../payments/admin-payments.controller";
 import { PaymentReconciliationRepository } from "../payments/payment-reconciliation.repository";
 import { PaymentReconciliationService } from "../payments/payment-reconciliation.service";
@@ -25,7 +26,7 @@ import { ProductAlertsModule } from "../product-alerts/product-alerts.module";
 
 @Module({
     imports: [NestConfigModule, CartModule, InventoryModule, NotificationsModule, PromotionsModule, ProductsModule, ProductAlertsModule, PaymentsModule, UsersModule],
-    controllers: [OrdersController, AdminPaymentsController],
+    controllers: [OrdersController, GuestOrdersController, AdminPaymentsController],
     providers: [
         NestOrdersService,
         NestOrdersCancellationService,
@@ -42,6 +43,6 @@ import { ProductAlertsModule } from "../product-alerts/product-alerts.module";
 })
 export class OrdersModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {
-        consumer.apply(createRateLimitMiddleware(100)).forRoutes(OrdersController);
+        consumer.apply(createRateLimitMiddleware(100)).forRoutes(OrdersController, GuestOrdersController);
     }
 }
