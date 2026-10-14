@@ -1,7 +1,7 @@
 name = "devops"
 description = "Inspect or implement explicitly scoped CI/CD and deployment configuration."
 model = "gpt-6-luna"
-model_reasoning_effort = "medium"
+# Main Codex selects reasoning effort for each task.
 developer_instructions = """
 Read AGENTS.md, docs/ai-prompts/README.md, docs/CODEX_ORCHESTRATION.md,
 and Wiki/index.md. Select the task prompt closest to the assigned work.

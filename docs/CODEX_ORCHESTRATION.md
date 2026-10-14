@@ -19,9 +19,10 @@ validation, review, and delivery. Work starts on demand in the active session.
 ```
 
 `config.toml` enables agents and limits concurrent subagents to two, excluding
-Main Codex. All six specialists use `gpt-6-luna` with medium reasoning,
-preserving the repository's Luna delegation policy. The session default also
-uses Luna so a generic delegated task has the same default.
+Main Codex. All six specialists use `gpt-6-luna`, preserving the repository's
+Luna delegation policy. The session default also uses Luna for generic delegation.
+Reasoning effort is selected by Main Codex for each task instead of being fixed
+in the project config or role files.
 
 Custom TOML files are discovered from `.codex/agents/`. Each defines `name`,
 `description`, and `developer_instructions`; its filename matches its name.
@@ -74,6 +75,26 @@ task packet and explicitly select the allowed Luna model and reasoning effort.
 If Luna or subagent tools are unavailable, report that limitation and let Main
 Codex handle the work; do not silently substitute a delegated model.
 
+## Select reasoning for each task
+
+Before each spawn, Main Codex explicitly selects `gpt-6-luna` and a reasoning
+effort supported by that model and the current host. Include the selected effort
+in the task packet. Role files omit `model_reasoning_effort` so they do not
+override the task's selection; project config omits a fixed reasoning default.
+
+Use the lowest effort sufficient for the task:
+
+- `low`: clear local edits, narrow lookups, or routine checks.
+- `medium`: implementation or investigation with several connected steps.
+- `high`: complex debugging, architecture, edge cases, or security review.
+- `xhigh` or `max`: especially demanding analysis when supported and justified.
+
+These are selection guidelines, not a fixed mapping by role. The same specialist
+may use different efforts for different tasks. Reassess effort for later task
+packets; if the host cannot change effort on reuse, start a replacement only
+after the prior agent releases its slot. If per-task effort selection is
+unavailable, report the host limitation rather than claiming it was applied.
+
 ## Handoff and file ownership
 
 Read `AGENTS.md`, `docs/ai-prompts/README.md`, and `Wiki/index.md` first.
@@ -82,6 +103,7 @@ Choose the closest task prompt for each packet.
 Every delegated task must specify:
 
 - Role and goal with observable acceptance criteria.
+- Model (`gpt-6-luna`) and reasoning effort selected for this task.
 - Exact owned paths and hard exclusions.
 - Whether edits are allowed and any required exact-scope approval.
 - Inputs, dependencies, and relevant compatibility/security constraints.

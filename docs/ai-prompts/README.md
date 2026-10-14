@@ -142,8 +142,10 @@ limitations.
 Use [CODEX_ORCHESTRATION.md](../CODEX_ORCHESTRATION.md) when specialist work
 justifies delegation. Main Codex selects only the necessary Architect, Backend,
 Frontend, QA, Reviewer, or DevOps roles, with at most two concurrent subagents.
-Use only the Luna model for delegated agents. Main Codex owns scope, integration,
-security decisions, final verification, and Git operations.
+Use only `gpt-6-luna` for delegated agents. Main Codex explicitly selects a
+supported reasoning effort for each task based on complexity; no role is fixed
+to `medium`. Main Codex owns scope, integration, security decisions, final
+verification, and Git operations.
 
 Each delegated packet must include a role, owned paths, exclusions, edit
 permission, verification expectations, and the shared output contract. Never

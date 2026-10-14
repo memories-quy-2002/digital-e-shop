@@ -273,7 +273,9 @@ application has not been converted to Prisma.
 Main Codex coordinates on-demand repository tasks from the user's natural-language
 requirements. Native roles in `.codex/agents/` cover Architect, Backend, Frontend,
 QA, Reviewer, and DevOps; `.codex/config.toml` caps concurrent subagents at two
-and uses Luna for delegation. Small tasks can stay in Main Codex.
+and uses Luna for delegation. Main Codex explicitly selects reasoning effort
+for each task; role files and project config do not pin it to a fixed level.
+Small tasks can stay in Main Codex.
 
 Main Codex owns integration, relevant verification, review, and Git delivery.
 Specialists receive exact path ownership and return evidence. These role
