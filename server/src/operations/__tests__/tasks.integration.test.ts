@@ -39,7 +39,11 @@ describe("operations task database integration", () => {
         const leases = batches.flat();
         expect(leases).toHaveLength(1);
         expect(leases[0].id).toBe(id);
-        expect(await repository.finish(leases[0], { kind: "success" }, new Date(now.getTime() + 60001))).toBe(false);
+        await integrationPool.execute(
+            "UPDATE operations_tasks SET lease_expires_at = UTC_TIMESTAMP(3) - INTERVAL 1 SECOND WHERE id = ?",
+            [id],
+        );
+        expect(await repository.finish(leases[0], { kind: "success" })).toBe(false);
         const [reclaimed] = await repository.claimDue(1, new Date(now.getTime() + 60001), prefix);
         expect(reclaimed.attempt).toBe(2);
         expect(reclaimed.token).not.toBe(leases[0].token);
