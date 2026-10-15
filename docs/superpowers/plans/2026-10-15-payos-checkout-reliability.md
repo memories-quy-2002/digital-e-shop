@@ -120,7 +120,7 @@ Expected: all targeted tests PASS; existing mock/live environment behavior remai
 - Test: `server/src/payments/__tests__/payment-reconciliation.service.test.ts`, `server/src/payments/__tests__/payment-reconciliation.pending-checkout.test.ts`, `server/src/payments/payos-webhook.controller.test.ts`
 
 **Interfaces:**
-- Add `PaymentReconciliationService.processAttemptObservation(input) -> Promise<PaymentAttemptStatus>` as the sole path from verified webhook/PayOS lookup to payment state and finalization request.
+- Add `PaymentReconciliationService.processAttemptObservation(input) -> Promise<PaymentAttemptProjection>` as the internal path from signed webhook/PayOS lookup to append-only payment evidence and finalization request. Owner-scoped full status remains in Task 5.
 - Extend candidate projection with attempt ID and lifecycle state; include expired, released, cancellation-pending and unresolved-paid attempts.
 - Existing signed webhook claim/fencing and response contract remain intact.
 
