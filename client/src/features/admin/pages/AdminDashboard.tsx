@@ -6,6 +6,7 @@ import { formatUtcDateTime } from "../../../utils/dateTime";
 import AdminLayout from "../../../components/layout/AdminLayout";
 import { Helmet } from "react-helmet-async";
 import { useToast } from "../../../context/ToastContext";
+import { useAuth } from "../../../context/AuthContext";
 import {
     fetchAnalyticsSummary,
     fetchAdminAlerts,
@@ -25,6 +26,7 @@ import AdminDashboardHeader from "../components/AdminDashboardHeader";
 import AdminDashboardKpiGrid, { type AdminDashboardKpi } from "../components/AdminDashboardKpiGrid";
 import AdminDashboardOperations from "../components/AdminDashboardOperations";
 import { groupAdminAlerts } from "../utils/dashboardAlerts";
+import { getAdminAlertReadIds, saveAdminAlertReadIds } from "../utils/adminAlertState";
 import { getDashboardRangeLabel, parseDashboardRange, type DashboardRange } from "../utils/dashboardRange";
 import { formatCurrency } from "../../../utils/currency";
 import { ORDER_STATUS } from "../../orders/orderStatus";
@@ -285,6 +287,7 @@ const AdminDashboard = () => {
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [availability, setAvailability] = useState<DashboardAvailability>(initialDashboardAvailability);
     const { addToast } = useToast();
+    const { userData } = useAuth();
 
     useEffect(() => {
         if (shouldLoadCharts) return;
@@ -450,6 +453,10 @@ const AdminDashboard = () => {
         () => (availability.alerts === "success" ? groupAdminAlerts(alerts) : []),
         [alerts, availability.alerts],
     );
+    const markAlertGroupRead = useCallback((group: (typeof alertGroups)[number]) => {
+        const currentReadIds = getAdminAlertReadIds(userData?.id);
+        saveAdminAlertReadIds(userData?.id, [...currentReadIds, ...group.alertIds]);
+    }, [userData?.id]);
 
     const selectedPeriodMetrics = useMemo(() => {
         const revenueComparison = analyticsSummary?.kpis?.revenue?.comparison;
@@ -679,6 +686,7 @@ const AdminDashboard = () => {
                     status={availability.alerts}
                     groups={alertGroups}
                     onRetry={() => fetchDashboardData(true)}
+                    onOpenAlerts={markAlertGroupRead}
                 />
                 <AdminDashboardKpiGrid kpis={primaryKpis} />
                 <AdminDashboardOperations

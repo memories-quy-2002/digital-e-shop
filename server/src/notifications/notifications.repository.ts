@@ -53,6 +53,19 @@ export class NotificationsRepository {
         });
     }
 
+    getUnreadNotificationCount(uid: string): Promise<number> {
+        return new Promise((resolve, reject) => {
+            this.query(
+                "SELECT COUNT(*) AS unread FROM customer_notifications WHERE user_id = ? AND read_at IS NULL",
+                [uid],
+                (queryErr: Error | null, rows: Array<{ unread: number | string }>) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve(Number(rows?.[0]?.unread) || 0);
+                },
+            );
+        });
+    }
+
     markNotificationRead(uid: string, notificationId: number): Promise<UpdateResult> {
         return new Promise((resolve, reject) => {
             this.query(

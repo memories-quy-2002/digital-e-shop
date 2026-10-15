@@ -3,6 +3,7 @@ import type { AdminAlert } from "../api";
 export type DashboardAlertGroup = {
     type: AdminAlert["type"];
     count: number;
+    alertIds: string[];
     priority: AdminAlert["priority"];
     title: string;
     description: string;
@@ -40,12 +41,14 @@ export function groupAdminAlerts(alerts: AdminAlert[], limit = 4): DashboardAler
         const existingGroup = groups.get(alert.type);
         if (existingGroup) {
             existingGroup.count += 1;
+            existingGroup.alertIds.push(alert.id);
             return;
         }
 
         groups.set(alert.type, {
             type: alert.type,
             count: 1,
+            alertIds: [alert.id],
             priority: alert.priority,
             title: alert.title,
             description: alert.description,

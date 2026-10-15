@@ -3,7 +3,6 @@ import { AuthGuard } from "../guards/auth.guard";
 import { OwnerParam, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestNotificationsService } from "./notifications.service";
-import type { CustomerNotificationRow } from "./notifications.types";
 import { notificationRouteParamsSchema, notificationsQuerySchema } from "./notifications.validator";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { createHttpException } from "#src/core/errors/http-exception";
@@ -24,10 +23,10 @@ export class NotificationsController {
         @Query(new ZodValidationPipe(notificationsQuerySchema)) query: { limit?: number },
     ) {
         try {
-            const notifications = await this.notificationsService.getNotifications(params.id, query.limit);
-            const unread = notifications.filter(
-                (notification: CustomerNotificationRow & { is_read?: boolean }) => !notification.is_read,
-            ).length;
+            const [notifications, unread] = await Promise.all([
+                this.notificationsService.getNotifications(params.id, query.limit),
+                this.notificationsService.getUnreadCount(params.id),
+            ]);
             return { notifications, unread, msg: "Notifications retrieved successfully" };
         } catch (err) {
             if (err instanceof HttpException) throw err;

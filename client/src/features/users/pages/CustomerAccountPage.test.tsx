@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "../../../context/LocaleContext";
@@ -30,6 +30,11 @@ const mocks = vi.hoisted(() => ({
         sendFirebaseEmailVerification: vi.fn(),
     },
 }));
+
+const LocationProbe = () => {
+    const location = useLocation();
+    return <output data-testid="location">{location.pathname}{location.search}</output>;
+};
 
 vi.mock("../../../context/AuthContext", () => ({
     useAuth: () => ({ userData: mocks.auth.userData, loading: false }),
@@ -135,7 +140,55 @@ describe("CustomerAccountPage", () => {
         expect(mocks.users.fetchCustomerNotifications).toHaveBeenCalledWith("customer-1", 10);
     });
 
-    it("marks an account notification as read and opens its details", async () => {
+    it("marks an account notification as read and opens its destination", async () => {
+        render(
+            <LocaleProvider>
+                <MemoryRouter initialEntries={["/account"]}>
+                    <CustomerAccountPage />
+                    <LocationProbe />
+                </MemoryRouter>
+            </LocaleProvider>,
+        );
+
+        fireEvent.click(await screen.findByRole("button", { name: "Order #7 was placed" }));
+        await waitFor(() => expect(mocks.users.markCustomerNotificationRead).toHaveBeenCalledWith("customer-1", 7));
+        await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/orders?order=7"));
+    });
+
+    it("stays on notifications when marking a notification read fails", async () => {
+        mocks.users.markCustomerNotificationRead.mockRejectedValueOnce(new Error("request failed"));
+        render(
+            <LocaleProvider>
+                <MemoryRouter initialEntries={["/account"]}>
+                    <CustomerAccountPage />
+                    <LocationProbe />
+                </MemoryRouter>
+            </LocaleProvider>,
+        );
+
+        fireEvent.click(await screen.findByRole("button", { name: "Order #7 was placed" }));
+
+        await waitFor(() => expect(mocks.users.markCustomerNotificationRead).toHaveBeenCalledWith("customer-1", 7));
+        expect(screen.getByTestId("location")).toHaveTextContent("/account");
+        await waitFor(() => expect(mocks.toast.addToast).toHaveBeenCalled());
+    });
+
+    it("uses the total unread count and updates it as notifications are read", async () => {
+        mocks.users.fetchCustomerNotifications.mockResolvedValue({
+            notifications: [{
+                id: 7,
+                type: "order",
+                title: "Order #7 was placed",
+                message: "Your order is being prepared.",
+                link: "/orders?order=7",
+                read_at: null,
+                created_at: "2026-09-10T08:00:00.000Z",
+                is_read: false,
+            }],
+            unread: 42,
+        });
+        mocks.users.markAllCustomerNotificationsRead.mockResolvedValue({ updated: 41 });
+
         render(
             <LocaleProvider>
                 <MemoryRouter initialEntries={["/account"]}>
@@ -144,13 +197,14 @@ describe("CustomerAccountPage", () => {
             </LocaleProvider>,
         );
 
-        fireEvent.click(await screen.findByRole("button", { name: "Order #7 was placed" }));
-        expect(await screen.findByText("Your order is being prepared.")).toBeInTheDocument();
-        expect(screen.getByRole("link", { name: "Open details" })).toHaveAttribute("href", "/orders?order=7");
-
-        fireEvent.click(screen.getByRole("button", { name: "Mark Order #7 was placed as read" }));
+        expect(await screen.findByText("42 unread updates from your account activity.")).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("button", { name: "Order #7 was placed" }));
         await waitFor(() => expect(mocks.users.markCustomerNotificationRead).toHaveBeenCalledWith("customer-1", 7));
-        expect(screen.getByRole("button", { name: "Order #7 was placed is read" })).toBeDisabled();
+        await waitFor(() => expect(screen.getByText("41 unread updates from your account activity.")).toBeInTheDocument());
+
+        fireEvent.click(screen.getByRole("button", { name: "Mark all read" }));
+        await waitFor(() => expect(mocks.users.markAllCustomerNotificationsRead).toHaveBeenCalledWith("customer-1"));
+        expect(await screen.findByText("Order, delivery, and account updates appear here.")).toBeInTheDocument();
     });
 
     it("localizes product alert notifications from typed metadata", async () => {
@@ -190,6 +244,7 @@ describe("CustomerAccountPage", () => {
             <LocaleProvider>
                 <MemoryRouter initialEntries={["/account/notifications"]}>
                     <CustomerAccountPage />
+                    <LocationProbe />
                 </MemoryRouter>
             </LocaleProvider>,
         );
@@ -198,11 +253,11 @@ describe("CustomerAccountPage", () => {
         expect(await screen.findByRole("button", { name: "Keyboard Two is back in stock" })).toBeInTheDocument();
 
         fireEvent.click(screen.getByRole("button", { name: "Camera One price dropped" }));
-        expect(await screen.findByText(/Camera One is now 1\.234\.567/)).toBeInTheDocument();
-        expect(screen.getByRole("link", { name: "Open details" })).toHaveAttribute("href", "/product?id=42");
+        await waitFor(() => expect(mocks.users.markCustomerNotificationRead).toHaveBeenCalledWith("customer-1", 21));
+        await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/product?id=42"));
     });
 
-    it("falls back to server copy when product alert metadata is incomplete", async () => {
+    it("opens an incomplete product alert at its product destination", async () => {
         mocks.users.fetchCustomerNotifications.mockResolvedValue({
             notifications: [{
                 id: 23,
@@ -222,12 +277,14 @@ describe("CustomerAccountPage", () => {
             <LocaleProvider>
                 <MemoryRouter initialEntries={["/account/notifications"]}>
                     <CustomerAccountPage />
+                    <LocationProbe />
                 </MemoryRouter>
             </LocaleProvider>,
         );
 
         fireEvent.click(await screen.findByRole("button", { name: "Saved product update" }));
-        expect(await screen.findByText("The product alert could not be expanded.")).toBeInTheDocument();
+        await waitFor(() => expect(mocks.users.markCustomerNotificationRead).toHaveBeenCalledWith("customer-1", 23));
+        await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/product?id=44"));
         expect(screen.queryByText(/undefined|0 ₫/i)).not.toBeInTheDocument();
     });
 
