@@ -1,8 +1,8 @@
 import type { EmailBusinessEvent, EmailMessage } from "./email.types";
 
 const copy = {
-    en: { placed: "Order received", shipment: "Shipment update", cancelled: "Order cancelled", afterSales: "After-sales update", refund: "Refund confirmed", hi: "Hello", order: "Order", total: "Total", items: "Items", status: "Status", tracking: "Tracking code", expected: "Expected delivery", decision: "Decision", approved: "Approved", rejected: "Declined", refundAmount: "Refund amount", lookup: "For protected order details, use the order lookup on our website." },
-    vi: { placed: "Đã nhận đơn hàng", shipment: "Cập nhật giao hàng", cancelled: "Đơn hàng đã hủy", afterSales: "Cập nhật yêu cầu hậu mãi", refund: "Đã xác nhận hoàn tiền", hi: "Xin chào", order: "Đơn hàng", total: "Tổng thanh toán", items: "Sản phẩm", status: "Trạng thái", tracking: "Mã vận đơn", expected: "Dự kiến giao", decision: "Kết quả", approved: "Đã chấp thuận", rejected: "Chưa chấp thuận", refundAmount: "Số tiền hoàn", lookup: "Để xem thông tin đơn hàng cần bảo vệ, hãy dùng trang tra cứu đơn trên website." },
+    en: { welcome: "Welcome to Digital-E", payment: "Payment confirmed", placed: "Order received", shipment: "Shipment update", cancelled: "Order cancelled", afterSales: "After-sales update", refund: "Refund confirmed", hi: "Hello", order: "Order", total: "Total", items: "Items", status: "Status", tracking: "Tracking code", expected: "Expected delivery", decision: "Decision", approved: "Approved", rejected: "Declined", refundAmount: "Refund amount", lookup: "For protected order details, use the order lookup on our website." },
+    vi: { welcome: "Ch\u00e0o m\u1eebng b\u1ea1n \u0111\u1ebfn v\u1edbi Digital-E", payment: "Thanh to\u00e1n th\u00e0nh c\u00f4ng", placed: "Đã nhận đơn hàng", shipment: "Cập nhật giao hàng", cancelled: "Đơn hàng đã hủy", afterSales: "Cập nhật yêu cầu hậu mãi", refund: "Đã xác nhận hoàn tiền", hi: "Xin chào", order: "Đơn hàng", total: "Tổng thanh toán", items: "Sản phẩm", status: "Trạng thái", tracking: "Mã vận đơn", expected: "Dự kiến giao", decision: "Kết quả", approved: "Đã chấp thuận", rejected: "Chưa chấp thuận", refundAmount: "Số tiền hoàn", lookup: "Để xem thông tin đơn hàng cần bảo vệ, hãy dùng trang tra cứu đơn trên website." },
 } as const;
 
 function escapeHtml(value: string): string {
@@ -24,14 +24,17 @@ function amountValue(value: unknown, label: string): number {
 }
 
 export function sanitizeEmailEvent(event: EmailBusinessEvent): EmailBusinessEvent {
-    if (!event || !["en", "vi"].includes(event.locale) || !["order_placed", "shipment_update", "order_cancelled", "after_sales_decision", "refund_confirmation"].includes(event.type)) {
+    if (!event || !["en", "vi"].includes(event.locale) || !["account_welcome", "order_placed", "payment_confirmed", "shipment_update", "order_cancelled", "after_sales_decision", "refund_confirmation"].includes(event.type)) {
         throw new Error("Invalid email event type or locale");
     }
     const eventKey = boundedText(event.eventKey, "event key", 191);
     if (!eventKey || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(event.recipient) || event.recipient.length > 254) throw new Error("Invalid email event identity or recipient");
+    const base = { eventKey, recipient: event.recipient, locale: event.locale };
+    if (event.type === "account_welcome") {
+        return { ...base, type: event.type, snapshot: { customerName: boundedText(event.snapshot?.customerName, "customer name", 160) } };
+    }
     const orderNumber = boundedText(event.snapshot?.orderNumber, "order number", 100);
     const customerName = boundedText(event.snapshot?.customerName, "customer name", 160);
-    const base = { eventKey, recipient: event.recipient, locale: event.locale };
     switch (event.type) {
         case "order_placed": {
             const snapshot = event.snapshot as Extract<EmailBusinessEvent, { type: "order_placed" }>['snapshot'];
@@ -41,6 +44,10 @@ export function sanitizeEmailEvent(event: EmailBusinessEvent): EmailBusinessEven
                 return item;
             });
             return { ...base, type: event.type, snapshot: { orderNumber, customerName, items, itemsSubtotal: amountValue(snapshot.itemsSubtotal, "subtotal"), merchandiseDiscount: amountValue(snapshot.merchandiseDiscount, "discount"), shippingFee: amountValue(snapshot.shippingFee, "shipping fee"), payableTotal: amountValue(snapshot.payableTotal, "total"), currency: "VND" } };
+        }
+        case "payment_confirmed": {
+            const snapshot = event.snapshot as Extract<EmailBusinessEvent, { type: "payment_confirmed" }>["snapshot"];
+            return { ...base, type: event.type, snapshot: { orderNumber, customerName, amount: amountValue(snapshot.amount, "payment amount"), currency: "VND" } };
         }
         case "shipment_update": {
             const snapshot = event.snapshot as Extract<EmailBusinessEvent, { type: "shipment_update" }>['snapshot'];
@@ -65,8 +72,12 @@ export function sanitizeEmailEvent(event: EmailBusinessEvent): EmailBusinessEven
 function eventContent(event: EmailBusinessEvent): { title: string; lines: string[] } {
     const t = copy[event.locale];
     switch (event.type) {
+        case "account_welcome":
+            return { title: t.welcome, lines: [event.snapshot.customerName] };
         case "order_placed":
             return { title: t.placed, lines: [`${t.order}: ${event.snapshot.orderNumber}`, `${t.items}: ${event.snapshot.items.map((item) => `${item.quantity} × ${item.name}`).join(", ")}`, `${t.total}: ${amount(event.snapshot.payableTotal, event.locale)}`, t.lookup] };
+        case "payment_confirmed":
+            return { title: t.payment, lines: [t.order + ": " + event.snapshot.orderNumber, t.total + ": " + amount(event.snapshot.amount, event.locale), t.lookup] };
         case "shipment_update":
             return { title: t.shipment, lines: [`${t.order}: ${event.snapshot.orderNumber}`, `${t.status}: ${event.snapshot.status}`, ...(event.snapshot.trackingCode ? [`${t.tracking}: ${event.snapshot.trackingCode}`] : []), ...(event.snapshot.expectedDelivery ? [`${t.expected}: ${event.snapshot.expectedDelivery}`] : []), t.lookup] };
         case "order_cancelled":

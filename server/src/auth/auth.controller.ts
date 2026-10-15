@@ -78,7 +78,9 @@ export class NestAuthController {
         @Req() req: Request,
         @Res() res: Response,
     ) {
-        const sessionPayload = await this.authService.registerUser(body.idToken, body.user);
+        const sessionPayload = body.locale
+            ? await this.authService.registerUser(body.idToken, body.user, body.locale)
+            : await this.authService.registerUser(body.idToken, body.user);
         const { user: createdUser, token } = sessionPayload;
         setAuthCookies(res, sessionPayload, false);
 

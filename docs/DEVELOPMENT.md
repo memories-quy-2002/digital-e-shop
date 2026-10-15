@@ -86,10 +86,12 @@ verification template in the Firebase console. Add
 digital-e.vercel.app under Authentication > Settings > Authorized domains; this
 is a free app-origin allowlist entry, not a paid email domain.
 
-Firebase also owns production password-reset and email-change links. Order and
-fulfillment messages use the separate transactional-email subsystem, which is
-disabled by default and supports Resend or a local sandbox. Delivery runs as a
-durable post-commit task; provider acceptance is distinct from inbox delivery.
+Firebase also owns production password-reset and email-change links. New accounts,
+confirmed payments, and order lifecycle updates use the separate transactional-email
+subsystem, which is disabled by default and supports Resend or a local sandbox.
+Set EMAIL_PROVIDER_MODE=resend with a verified sender to deliver these messages.
+Delivery runs as a durable post-commit task; provider acceptance is distinct from
+inbox delivery.
 Authenticated customers also receive database-backed order notifications in
 the app; guests use checkout success and protected lookup. Firebase action
 codes and guest-order access tokens are never logged or emailed.

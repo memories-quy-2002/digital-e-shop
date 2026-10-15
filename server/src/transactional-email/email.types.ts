@@ -2,11 +2,13 @@ import type { TransactionContext } from "../database/transaction";
 import type { TaskLease, TaskResult } from "../operations/tasks.types";
 
 export type EmailLocale = "en" | "vi";
-export type EmailEventType = "order_placed" | "shipment_update" | "order_cancelled" | "after_sales_decision" | "refund_confirmation";
+export type EmailEventType = "account_welcome" | "order_placed" | "payment_confirmed" | "shipment_update" | "order_cancelled" | "after_sales_decision" | "refund_confirmation";
 export type EmailItemSnapshot = { name: string; quantity: number };
 type EmailEventBase = { eventKey: string; recipient: string; locale: EmailLocale };
 export type EmailBusinessEvent =
+    | (EmailEventBase & { type: "account_welcome"; snapshot: { customerName: string } })
     | (EmailEventBase & { type: "order_placed"; snapshot: { orderNumber: string; customerName: string; items: EmailItemSnapshot[]; itemsSubtotal: number; merchandiseDiscount: number; shippingFee: number; payableTotal: number; currency: "VND" } })
+    | (EmailEventBase & { type: "payment_confirmed"; snapshot: { orderNumber: string; customerName: string; amount: number; currency: "VND" } })
     | (EmailEventBase & { type: "shipment_update"; snapshot: { orderNumber: string; customerName: string; status: string; trackingCode?: string; expectedDelivery?: string } })
     | (EmailEventBase & { type: "order_cancelled"; snapshot: { orderNumber: string; customerName: string; reason: string } })
     | (EmailEventBase & { type: "after_sales_decision"; snapshot: { orderNumber: string; customerName: string; decision: "approved" | "rejected"; publicMessage: string } })

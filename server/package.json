@@ -8,6 +8,7 @@
         "node": ">=24.20.0 <25"
     },
     "scripts": {
+        "prepare": "cd .. && husky server/.husky",
         "postinstall": "node scripts/prisma-generate.mjs",
         "prestart": "corepack pnpm@12.4.2 prisma:prepare && corepack pnpm@12.4.2 build:compile",
         "predev": "corepack pnpm@12.4.2 prisma:generate",
@@ -123,6 +124,7 @@
         "concurrently": "^10.0.6",
         "eslint": "^10.12.0",
         "globals": "^17.13.0",
+        "husky": "9.1.7",
         "pino-pretty": "^13.2.0",
         "prettier": "^3.9.9",
         "prisma": "^7.10.0",

@@ -14,6 +14,7 @@ import { registerUser } from "../api";
 import { getFirebaseAuthErrorMessage } from "../authErrors";
 import { getApiErrorMessage } from "../../../lib/api-contract";
 import { useT } from "../../../hooks/useT";
+import { useLocale } from "../../../context/LocaleContext";
 
 interface User {
     username: string;
@@ -24,6 +25,7 @@ interface User {
 
 const SignupPage = () => {
     const t = useT();
+    const { locale } = useLocale();
     const navigate = useNavigate();
     const { addToast } = useToast();
     const { setUserData } = useAuth();
@@ -144,7 +146,7 @@ const SignupPage = () => {
 
             const firebaseUser = userCredential.user;
             const idToken = await firebaseUser.getIdToken(true);
-            const registrationResponse = await registerUser({ idToken, user: { username: normalizedUsername } });
+            const registrationResponse = await registerUser({ idToken, user: { username: normalizedUsername }, locale });
 
             let verificationEmailSent = false;
             if (!firebaseUser.emailVerified) {

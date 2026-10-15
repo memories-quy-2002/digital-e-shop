@@ -11,7 +11,10 @@ import type { AuthSessionPayload, JwtPayload } from "./auth.types";
 import { AuthRepository } from "./auth.repository";
 import { AuthSessionService } from "./auth-session.service";
 import { FirebaseAdminAuthService, type FirebaseIdentity } from "./firebase-admin.service";
-import { USER_ACCOUNT_STATUS, USER_ROLE } from "#src/shared/constants/user";
+import { USER_ACCOUNT_STATUS } from "#src/shared/constants/user";
+import { withTransaction } from "../database/transaction";
+import { EmailService } from "../transactional-email/email.service";
+import type { EmailLocale } from "../transactional-email/email.types";
 
 @Injectable()
 export class NestAuthService {
@@ -20,6 +23,7 @@ export class NestAuthService {
         private readonly usersRepository: UsersRepository,
         private readonly firebaseAdminAuthService: FirebaseAdminAuthService,
         private readonly authSessionService: AuthSessionService,
+        private readonly emails: EmailService,
     ) {}
 
     async startSession(userId: string) {
@@ -157,7 +161,7 @@ export class NestAuthService {
         };
     }
 
-    async registerUser(idToken: string, input: RegisterUserInput): Promise<AuthSessionPayload> {
+    async registerUser(idToken: string, input: RegisterUserInput, locale: EmailLocale = "en"): Promise<AuthSessionPayload> {
         const identity = await this.firebaseAdminAuthService.verifyIdToken(idToken);
         const existing = await this.findFirebaseUser(identity);
         if (existing?.status === USER_ACCOUNT_STATUS.SUSPENDED) {
@@ -188,23 +192,24 @@ export class NestAuthService {
         }
 
         const firebasePasswordPlaceholder = crypto.randomBytes(32).toString("hex");
-        await this.usersRepository.createUser(
-            identity.uid,
-            input.username,
-            identity.email,
-            firebasePasswordPlaceholder,
-            USER_ROLE.CUSTOMER,
-        );
-
-        if (typeof this.usersRepository.updateAuthIdentity === "function") {
-            await this.usersRepository.updateAuthIdentity(identity.uid, "firebase", identity.uid);
-        }
-        if (identity.emailVerified && typeof this.usersRepository.markEmailVerified === "function") {
-            await this.usersRepository.markEmailVerified(identity.uid);
-        }
-
-        const created = await this.usersRepository.findById(identity.uid);
-        if (!created) throw new NotFoundException({ msg: "Unable to create user" });
+        const created = await withTransaction(async (tx) => {
+            const user = await this.usersRepository.createRegisteredFirebaseUserInTransaction(tx, {
+                uid: identity.uid,
+                username: input.username,
+                email: identity.email,
+                password: firebasePasswordPlaceholder,
+                emailVerified: identity.emailVerified,
+            });
+            if (!user) throw new NotFoundException({ msg: "Unable to create user" });
+            await this.emails.enqueue(tx, {
+                eventKey: "account:" + identity.uid + ":welcome",
+                type: "account_welcome",
+                recipient: identity.email,
+                locale,
+                snapshot: { customerName: input.username },
+            });
+            return user;
+        });
         return this.issueRegistrationSession(created);
     }
 

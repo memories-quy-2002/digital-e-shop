@@ -9,6 +9,9 @@ import { NestAuthService } from "./auth.service";
 import { AuthSessionService } from "./auth-session.service";
 import { FirebaseAdminAuthService } from "./firebase-admin.service";
 
+const { withTransaction } = vi.hoisted(() => ({ withTransaction: vi.fn() }));
+vi.mock("../database/transaction", () => ({ withTransaction: (work: (tx: unknown) => unknown) => withTransaction(work) }));
+
 function mockResponse() {
     const response = {
         status: vi.fn(),
@@ -32,6 +35,7 @@ function buildAuthService(options: { stubIssueLoginSession?: boolean } = {}) {
         findByUsername: vi.fn(),
         updateUserToken: vi.fn(),
         createUser: vi.fn(),
+        createRegisteredFirebaseUserInTransaction: vi.fn(),
         updateAuthIdentity: vi.fn(),
         linkFirebaseIdentity: vi.fn(),
         rebindFirebaseIdentity: vi.fn(),
@@ -45,11 +49,14 @@ function buildAuthService(options: { stubIssueLoginSession?: boolean } = {}) {
         issue: vi.fn(),
         rotate: vi.fn(),
     };
+    withTransaction.mockImplementation((work: (tx: unknown) => unknown) => work({ query: vi.fn() }));
+    const emails = { enqueue: vi.fn().mockResolvedValue(1) };
     const service = new NestAuthService(
         authRepository as never,
         usersRepository as never,
         firebaseAdminAuthService as never,
         authSessionService as never,
+        emails as never,
     );
     const issueLoginSession = vi.fn();
     if (options.stubIssueLoginSession !== false) {
@@ -591,17 +598,20 @@ describe("Firebase identity boundary", () => {
         const { service, usersRepository, firebaseAdminAuthService, issueLoginSession } = buildAuthService();
         const createdUser = { id: "firebase-uid", email: "customer@example.com", role: "Customer" };
         firebaseAdminAuthService.verifyIdToken.mockResolvedValue({ uid: "firebase-uid", email: "customer@example.com" });
-        usersRepository.findById.mockResolvedValueOnce(null).mockResolvedValueOnce(createdUser);
+        usersRepository.createRegisteredFirebaseUserInTransaction.mockResolvedValue(createdUser);
         issueLoginSession.mockResolvedValue({ user: createdUser, token: "access-token", sessionId: 42, refreshToken: null as string | null });
 
         await service.registerUser("firebase-id-token", { username: "new-user", role: "Admin" } as never);
 
-        expect(usersRepository.createUser).toHaveBeenCalledWith(
-            "firebase-uid",
-            "new-user",
-            "customer@example.com",
-            expect.any(String),
-            "Customer",
+        expect(usersRepository.createRegisteredFirebaseUserInTransaction).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({
+                uid: "firebase-uid",
+                username: "new-user",
+                email: "customer@example.com",
+                password: expect.any(String),
+                emailVerified: false,
+            }),
         );
         expect(issueLoginSession).toHaveBeenCalledWith(createdUser, false);
     });

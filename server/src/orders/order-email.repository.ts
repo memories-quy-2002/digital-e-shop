@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { TransactionContext } from "../database/transaction";
 import type { OrderIdentity } from "./orders.types";
 
-export type OrderEmailFacts = { id: number; guest_email: string | null; guest_name: string | null; email: string | null; name: string | null; pricing_snapshot: string | object | null; contact_snapshot: string | object | null; total_price: number; discount: number };
+export type OrderEmailFacts = { id: number; guest_email: string | null; guest_name: string | null; email: string | null; name: string | null; pricing_snapshot: string | object | null; contact_snapshot: string | object | null; total_price: number; discount: number; paid_amount: number | string | null };
 @Injectable()
 export class OrderEmailRepository {
     async snapshotPending(tx: TransactionContext, pendingId: number, identity: OrderIdentity, locale: "en" | "vi" = "en") {
@@ -12,7 +12,7 @@ export class OrderEmailRepository {
         await tx.query("UPDATE pending_checkouts SET contact_snapshot = ? WHERE id = ?", [JSON.stringify(contact), pendingId]);
     }
     async facts(tx: TransactionContext, orderId: number) {
-        const [order] = await tx.query<OrderEmailFacts[]>("SELECT o.id, o.guest_email, o.guest_name, o.pricing_snapshot, o.contact_snapshot, o.total_price, o.discount, u.email, u.username AS name FROM orders o LEFT JOIN users u ON u.id = o.user_id WHERE o.id = ?", [orderId]);
+        const [order] = await tx.query<OrderEmailFacts[]>("SELECT o.id, o.guest_email, o.guest_name, o.pricing_snapshot, o.contact_snapshot, o.total_price, o.discount, u.email, u.username AS name, (SELECT op.amount FROM order_payments op WHERE op.order_id = o.id ORDER BY op.id DESC LIMIT 1) AS paid_amount FROM orders o LEFT JOIN users u ON u.id = o.user_id WHERE o.id = ?", [orderId]);
         return order;
     }
     async snapshotContact(tx: TransactionContext, orderId: number, locale: "en" | "vi" = "en") {

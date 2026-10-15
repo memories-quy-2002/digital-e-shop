@@ -979,6 +979,7 @@ export class NestOrdersService {
             if (this.orderEmails) {
                 await tx.query("UPDATE orders SET contact_snapshot = ? WHERE id = ?", [pending.contact_snapshot ? JSON.stringify(typeof pending.contact_snapshot === "string" ? JSON.parse(pending.contact_snapshot) : pending.contact_snapshot) : null, orderId]);
                 await this.orderEmails.emit(tx, orderId, "placed");
+                await this.orderEmails.emitPaymentConfirmed(tx, orderId);
             }
             const [order] = await this.ordersRepository.getOrderDateAddedInTransaction(tx, orderId);
             return {
@@ -1111,6 +1112,7 @@ export class NestOrdersService {
             const current = await this.ordersRepository.getOrderLifecycleForUpdate(tx, orderId);
             if (!current) throw createCheckoutError("Order not found", HTTP_STATUS.NOT_FOUND);
             const changed = await completeDeliveredOrder(tx, orderId, new Date(), actorId == null ? null : String(actorId));
+            if (changed && this.orderEmails) await this.orderEmails.emitPaymentConfirmed(tx, orderId);
             return { userId: current.user_id, changed };
         }).then(async (result) => {
             if (result.changed && result.userId) this.notificationsService.notifyOrderStatus(result.userId, orderId, ORDER_STATUS.DONE);

@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import pool from "#src/config/database.config";
 import type { CountRow, DbError, QueryCallback, UpdateResult } from "#src/shared/interfaces/database";
 import type { CustomerProfileRow, CustomerRecentOrderRow, UserRow } from "./users.types";
+import type { TransactionContext } from "../database/transaction";
 import { ORDER_STATUS } from "#src/shared/constants/order-status";
 import { USER_RECENT_ORDERS_LIMIT } from "#src/shared/constants/operational-limits";
 
@@ -146,6 +147,18 @@ export class UsersRepository {
         });
     }
 
+    async createRegisteredFirebaseUserInTransaction(tx: TransactionContext, input: { uid: string; username: string; email: string; password: string; emailVerified: boolean }): Promise<UserRow | null> {
+        await tx.query(
+            "INSERT INTO users (id, username, email, password, role, token) VALUES (?, ?, ?, ?, 'Customer', '')",
+            [input.uid, input.username, input.email, input.password],
+        );
+        await tx.query("UPDATE users SET auth_provider = 'firebase', provider_user_id = ? WHERE id = ?", [input.uid, input.uid]);
+        if (input.emailVerified) {
+            await tx.query("UPDATE users SET email_verified_at = COALESCE(email_verified_at, UTC_TIMESTAMP()) WHERE id = ?", [input.uid]);
+        }
+        const [user] = await tx.query<UserRow[]>("SELECT * FROM users WHERE id = ?", [input.uid]);
+        return user || null;
+    }
     createUser(uid: string, username: string, email: string, password: string, role: string): Promise<void> {
         return new Promise((resolve, reject) => {
             pool.query(
