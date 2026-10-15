@@ -1,9 +1,10 @@
-import { Body, Controller, Headers, HttpCode, HttpException, Optional, Param, Post, Req, Res, ForbiddenException } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Headers, HttpCode, HttpException, Optional, Param, Post, Req, Res, ForbiddenException } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { GUEST_CART_COOKIE, isGuestCartId } from "../cart/guest-cart";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { createHttpException } from "#src/core/errors/http-exception";
+import { getValidationMessage } from "#src/shared/validation/request-validation";
 import { NestOrdersService } from "./orders.service";
 import { NestOrdersPayOSService } from "./orders.payos.service";
 import { PaymentReconciliationService } from "../payments/payment-reconciliation.service";
@@ -121,12 +122,14 @@ export class GuestOrdersController {
     async createGuestPayOSCheckoutSession(
         @Body(new ZodValidationPipe(guestPayOSCheckoutSchema)) body: GuestPayOSCheckoutPayload,
         @Req() req: Request,
-        @Headers("idempotency-key", new ZodValidationPipe(paymentAttemptIdempotencyKeySchema.optional())) idempotencyKey?: string,
+        @Headers("idempotency-key") idempotencyKey?: string,
     ) {
         try {
+            const parsedIdempotencyKey = paymentAttemptIdempotencyKeySchema.optional().safeParse(idempotencyKey);
+            if (!parsedIdempotencyKey.success) throw new BadRequestException({ msg: getValidationMessage(parsedIdempotencyKey.error) });
             if (!this.ordersPayOSService) throw new HttpException({ msg: "PayOS checkout is not configured" }, HTTP_STATUS.SERVICE_UNAVAILABLE);
             const guestCartId = this.requireGuestIdentity(req);
-            const result = await this.ordersPayOSService.createGuestCheckoutSession(body, guestCartId, idempotencyKey);
+            const result = await this.ordersPayOSService.createGuestCheckoutSession(body, guestCartId, parsedIdempotencyKey.data);
             return {
                 attemptId: result.attemptId,
                 sessionState: result.sessionState,

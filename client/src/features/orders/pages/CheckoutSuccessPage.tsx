@@ -101,6 +101,7 @@ const CheckoutSuccessPage = () => {
     const [copyStatus, setCopyStatus] = useState("Copy access token");
     const [showGuestToken, setShowGuestToken] = useState(false);
     const [shipment, setShipment] = useState<ShipmentSummary | null>(null);
+    const [polledOrder, setPolledOrder] = useState<CheckoutSuccessData | null>(null);
     const [paymentAttempt, setPaymentAttempt] = useState<PaymentAttemptStatus | null>(null);
     const [attemptError, setAttemptError] = useState<"auth" | "forbidden" | "notFound" | "offline" | "server" | null>(null);
     const [attemptChecking, setAttemptChecking] = useState(false);
@@ -281,7 +282,7 @@ const CheckoutSuccessPage = () => {
         void updatePurchasedCart().catch(() => { cartAppliedAttemptRef.current = null; });
     }, [fetchCart, loading, paymentAttempt, paymentAttemptId, userData?.id]);
 
-    const combinedData = payOSOrderCode && !paymentAttemptId ? null : routeData || orderData;
+    const combinedData = payOSOrderCode && !paymentAttemptId ? null : routeData || polledOrder || orderData;
     useEffect(() => {
         let active = true;
         const id = Number(combinedData?.orderId);
@@ -461,14 +462,6 @@ const CheckoutSuccessPage = () => {
                 />
             </Helmet>
             <main className="success app-page">
-                {payOSOrderCode && !combinedData && !pollingTimedOut ? (
-                    <div className="checkout__note" role="status">{t("attemptChecking")}</div>
-                ) : null}
-                {payOSOrderCode && !combinedData && pollingTimedOut ? (
-                    <div className="checkout__alert" role="status">
-                        {t("attemptUnknownBody")} {isGuestOrder ? <Link to="/guest-order">Guest order lookup</Link> : <Link to={CUSTOMER_ROUTES.orders}>My Orders</Link>}.
-                    </div>
-                ) : null}
                 <article className="success__hero">
                     <div className="success__hero__content">
                         <div className="success__hero__title-row">

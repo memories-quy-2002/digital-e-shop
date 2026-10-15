@@ -121,6 +121,12 @@ const safeErrorMessage = (error: unknown): string => {
     return message.slice(0, 500);
 };
 
+const isPayOSReviewRequired = (result: unknown): result is { reviewRequired: true; reason: string } => {
+    if (typeof result !== "object" || result === null) return false;
+    const candidate = result as { reviewRequired?: unknown; reason?: unknown };
+    return candidate.reviewRequired === true && typeof candidate.reason === "string";
+};
+
 const errorStatusCode = (error: unknown): number | undefined => {
     const value = (error as { statusCode?: unknown })?.statusCode;
     return typeof value === "number" ? value : undefined;
@@ -338,7 +344,7 @@ export class PaymentReconciliationService {
             const finalized = attempt
                 ? await this.ordersService.finalizePayOSCheckout(data.orderCode as number, data.paymentLinkId as string, data.amount as number, attempt.id)
                 : await this.ordersService.finalizePayOSCheckout(data.orderCode as number, data.paymentLinkId as string, data.amount as number);
-            if (finalized && "reviewRequired" in finalized) {
+            if (isPayOSReviewRequired(finalized)) {
                 const message = `Verified PayOS receipt requires order review: ${finalized.reason}`;
                 const completed = await withTransaction((tx) => completeTerminal(tx, PAYMENT_WEBHOOK_EVENT_STATUS.MISMATCH, message));
                 return completed
@@ -662,7 +668,7 @@ export class PaymentReconciliationService {
             const finalized = attempt
                 ? await this.ordersService.finalizePayOSCheckout(provider.orderCode, provider.paymentLinkId, provider.amount, attempt.id)
                 : await this.ordersService.finalizePayOSCheckout(provider.orderCode, provider.paymentLinkId, provider.amount);
-            if (finalized && "reviewRequired" in finalized) {
+            if (isPayOSReviewRequired(finalized)) {
                 return this.persistReconciliationOutcome(target, PAYMENT_RECONCILIATION_OUTCOME.MISMATCH, `Verified PayOS receipt requires order review: ${finalized.reason}`, provider);
             }
             if (!finalized) return this.persistReconciliationOutcome(target, PAYMENT_RECONCILIATION_OUTCOME.MISMATCH, "No matching local PayOS reservation or order was found.", provider);

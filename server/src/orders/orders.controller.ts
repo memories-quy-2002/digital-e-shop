@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, HttpCode, HttpException, Optional, Param, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Headers, HttpCode, HttpException, Optional, Param, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { AuthGuard } from "../guards/auth.guard";
 import { OwnerParam, Roles, RolesGuard } from "../guards/roles.guard";
@@ -9,6 +9,7 @@ import { NestOrdersPayOSService } from "./orders.payos.service";
 import { PaymentReconciliationService } from "../payments/payment-reconciliation.service";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { createHttpException } from "#src/core/errors/http-exception";
+import { getValidationMessage } from "#src/shared/validation/request-validation";
 import { mapToHttpException } from "#src/core/errors/http-exception-mapper";
 import { calculatePromotionDiscount } from "./orders.pricing";
 import { PAYMENT_PROVIDER, type PaymentProviderName } from "../payments/payment.types";
@@ -339,11 +340,13 @@ export class OrdersController {
             discountCode?: string;
             shippingAddress: string;
         },
-        @Headers("idempotency-key", new ZodValidationPipe(paymentAttemptIdempotencyKeySchema.optional())) idempotencyKey?: string,
+        @Headers("idempotency-key") idempotencyKey?: string,
     ) {
         try {
+            const parsedIdempotencyKey = paymentAttemptIdempotencyKeySchema.optional().safeParse(idempotencyKey);
+            if (!parsedIdempotencyKey.success) throw new BadRequestException({ msg: getValidationMessage(parsedIdempotencyKey.error) });
             if (!this.ordersPayOSService) throw new HttpException({ msg: "PayOS checkout is not configured" }, HTTP_STATUS.SERVICE_UNAVAILABLE);
-            const result = await this.ordersPayOSService.createCheckoutSession(uid, body, idempotencyKey);
+            const result = await this.ordersPayOSService.createCheckoutSession(uid, body, parsedIdempotencyKey.data);
             return {
                 attemptId: result.attemptId,
                 sessionState: result.sessionState,

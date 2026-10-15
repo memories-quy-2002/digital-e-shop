@@ -597,7 +597,11 @@ describe("Firebase identity boundary", () => {
     it("creates a public registration as Customer using verified identity fields", async () => {
         const { service, usersRepository, firebaseAdminAuthService, issueLoginSession } = buildAuthService();
         const createdUser = { id: "firebase-uid", email: "customer@example.com", role: "Customer" };
-        firebaseAdminAuthService.verifyIdToken.mockResolvedValue({ uid: "firebase-uid", email: "customer@example.com" });
+        firebaseAdminAuthService.verifyIdToken.mockResolvedValue({
+            uid: "firebase-uid",
+            email: "customer@example.com",
+            emailVerified: false,
+        });
         usersRepository.createRegisteredFirebaseUserInTransaction.mockResolvedValue(createdUser);
         issueLoginSession.mockResolvedValue({ user: createdUser, token: "access-token", sessionId: 42, refreshToken: null as string | null });
 

@@ -25,6 +25,7 @@ describe("order cancellation product alerts", () => {
             if (sql.includes("SELECT user_id, status") && sql.includes("inventory_restored_at")) {
                 return [{ user_id: "user-1", status: 0, inventory_restored_at: null }];
             }
+            if (sql.includes("FROM order_payments")) return [];
             if (sql.includes("FROM order_items")) return [{ product_id: 4, quantity: 2 }];
             if (sql.includes("FROM products")) return [{ id: 4, price: 100, sale_price: null, stock: 0 }];
             return { affectedRows: 1 };

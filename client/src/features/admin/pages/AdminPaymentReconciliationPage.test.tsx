@@ -193,7 +193,7 @@ describe("AdminPaymentReconciliationPage", () => {
         expect(screen.getByRole("button", { name: "Retry fulfillment" })).toBeDisabled();
         expect(screen.getByRole("button", { name: "Record transfer refund" })).toBeDisabled();
 
-        fireEvent.change(screen.getByLabelText("Operator reason", { selector: "textarea" }), { target: { value: "Verified no order exists" } });
+        fireEvent.change(screen.getByLabelText("Fulfillment retry reason"), { target: { value: "Verified no order exists" } });
         fireEvent.click(screen.getByRole("button", { name: "Retry fulfillment" }));
         await waitFor(() => expect(retryPaymentAttempt).toHaveBeenCalledWith(item.attemptId, "Verified no order exists"));
 
@@ -203,7 +203,7 @@ describe("AdminPaymentReconciliationPage", () => {
         const evidenceFile = new File(["proof"], "transfer.pdf", { type: "application/pdf" });
         fireEvent.change(screen.getByLabelText("Private transfer evidence"), { target: { files: [evidenceFile] } });
         await waitFor(() => expect(uploadFinancialEvidence).toHaveBeenCalledWith(evidenceFile));
-        fireEvent.change(screen.getAllByLabelText("Operator reason", { selector: "textarea" })[1], { target: { value: "Bank transfer verified" } });
+        fireEvent.change(screen.getByLabelText("Transfer refund reason"), { target: { value: "Bank transfer verified" } });
         await waitFor(() => expect(screen.getByRole("button", { name: "Record transfer refund" })).toBeEnabled());
         fireEvent.click(screen.getByRole("button", { name: "Record transfer refund" }));
         await waitFor(() => expect(recordPaymentAttemptRefund).toHaveBeenCalledWith(item.attemptId, expect.objectContaining({ amountVnd: 10000, evidenceId: 9, transferReference: "bank-ref-1", transferredAt: "2026-10-15" })));
@@ -217,6 +217,13 @@ describe("AdminPaymentReconciliationPage", () => {
             pendingCheckoutId: 5, createdAt: "2026-10-15T00:00:00.000Z", updatedAt: "2026-10-15T00:00:00.000Z",
         };
         vi.mocked(fetchPaymentAttemptExceptions).mockResolvedValueOnce({ items: [item], pagination: { page: 1, limit: 25, total: 1, totalPages: 1 }, msg: "ok", requestId: "req" });
+        vi.mocked(fetchPaymentAttemptException).mockResolvedValueOnce({
+            attemptId: item.attemptId, providerOrderCode: item.providerOrderCode, paymentState: item.paymentState, orderState: item.orderState,
+            resolutionState: item.resolutionState, expectedAmountVnd: item.expectedAmountVnd, receivedAmountVnd: item.receivedAmountVnd,
+            refundedAmountVnd: item.refundedAmountVnd, refundableAmountVnd: item.refundableAmountVnd, pendingCheckoutId: item.pendingCheckoutId,
+            createdAt: item.createdAt, updatedAt: item.updatedAt, currency: "VND", items: [], subtotalVnd: 0, discountVnd: 0,
+            shippingVnd: 0, payableVnd: 0, refunds: [],
+        });
         render(<AdminPaymentReconciliationPage />);
         fireEvent.click(await screen.findByRole("button", { name: "Review" }));
         expect(await screen.findByText("No refundable balance remains.")).toBeInTheDocument();

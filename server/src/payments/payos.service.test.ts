@@ -142,6 +142,9 @@ describe("PayOSService", () => {
         await service.cancelPaymentLink("link-123", "Checkout expired");
 
         expect(payosMocks.client.webhooks.verify).toHaveBeenCalledWith(payload);
-        expect(payosMocks.client.paymentRequests.cancel).toHaveBeenCalledWith("link-123", "Checkout expired");
+        expect(payosMocks.client.paymentRequests.cancel).toHaveBeenCalledWith("link-123", "Checkout expired", {
+            timeout: 10_000,
+            maxRetries: 0,
+        });
     });
 });

@@ -288,7 +288,8 @@ describe("CheckoutSuccessPage guest flow", () => {
             </MemoryRouter>,
         );
 
-        expect(screen.getByRole("heading", { name: "attemptChecking" })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "attemptUnknownTitle" })).toBeInTheDocument();
+        expect(screen.getByText("attemptMissingReferenceBody")).toBeInTheDocument();
         expect(screen.queryByRole("heading", { name: "Order confirmed" })).not.toBeInTheDocument();
         expect(mocks.fetchGuestOrderByPayOSOrderCode).not.toHaveBeenCalled();
         expect(mocks.clearCart).not.toHaveBeenCalled();

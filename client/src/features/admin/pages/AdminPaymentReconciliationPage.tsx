@@ -215,7 +215,7 @@ const PaymentAttemptExceptions = () => {
                 {detail.refunds.length ? <div className="admin__payments__refund-history"><h4>Refund records</h4><ul>{detail.refunds.map((refund) => <li key={refund.operationId}>{formatVnd(refund.amountVnd)} · {refund.transferReference} · {refund.transferredAt} · {refund.reason}</li>)}</ul></div> : null}
                 {detail.paymentState === "PAID" && detail.orderState !== "CREATED" ? <form className="admin__payments__retry-form" onSubmit={(event) => { event.preventDefault(); void runRetry(); }}>
                     <h4>Retry order creation</h4><p>Only use after confirming the order was not created. The server rechecks current eligibility and never changes the verified amount.</p>
-                    <label htmlFor="payment-retry-reason">Operator reason</label><textarea id="payment-retry-reason" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} required />
+                    <label htmlFor="payment-retry-reason">Fulfillment retry reason</label><textarea id="payment-retry-reason" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} required />
                     <button type="submit" className="admin__button admin__button--primary" disabled={busy || !reason.trim()}>{busy ? "Processing…" : "Retry fulfillment"}</button>
                 </form> : null}
                 {detail.refundableAmountVnd > 0 ? <form className="admin__payments__refund-form" onSubmit={(event) => void submitRefund(event)}>
@@ -224,7 +224,7 @@ const PaymentAttemptExceptions = () => {
                     <label htmlFor="refund-reference">Transfer reference</label><input id="refund-reference" value={transferReference} onChange={(event) => setTransferReference(event.target.value)} maxLength={191} required />
                     <label htmlFor="refund-date">Transfer date</label><input id="refund-date" type="date" value={transferDate} onChange={(event) => setTransferDate(event.target.value)} required />
                     <PrivateEvidenceUpload label="Private transfer evidence" evidence={evidence} onChange={setEvidence} />
-                    <label htmlFor="refund-reason">Operator reason</label><textarea id="refund-reason" value={refundReason} onChange={(event) => setRefundReason(event.target.value)} maxLength={500} required />
+                    <label htmlFor="refund-reason">Transfer refund reason</label><textarea id="refund-reason" value={refundReason} onChange={(event) => setRefundReason(event.target.value)} maxLength={500} required />
                     <button type="submit" className="admin__button admin__button--success" disabled={busy || !evidence || !Number.isSafeInteger(Number(refundAmount)) || Number(refundAmount) <= 0 || Number(refundAmount) > detail.refundableAmountVnd || !transferReference.trim() || !transferDate || !refundReason.trim()}>{busy ? "Recording…" : "Record transfer refund"}</button>
                 </form> : <p className="admin__payments__resolved-note">No refundable balance remains.</p>}
             </> : null}

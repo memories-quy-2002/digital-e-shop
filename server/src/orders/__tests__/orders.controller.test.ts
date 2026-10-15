@@ -66,4 +66,15 @@ describe("OrdersController", () => {
             cart: [{ productId: 1, quantity: 1, price: 100 }], discount: 0, shippingAddress: "address",
         })).resolves.toMatchObject({ attemptId: "11111111-1111-4111-8111-111111111111", sessionState: "CREATING" });
     });
+
+    it("rejects malformed authenticated PayOS idempotency keys before creating a session", async () => {
+        const payosService = { createCheckoutSession: vi.fn() };
+        const controller = new OrdersController({} as never, payosService as never);
+
+        await expect(controller.createPayOSCheckoutSession("user-1", {
+            shippingQuoteId: "quote-1", deliveryAddress: {} as never, totalPrice: 100,
+            cart: [{ productId: 1, quantity: 1, price: 100 }], discount: 0, shippingAddress: "address",
+        }, "not-a-uuid")).rejects.toMatchObject({ status: 400 });
+        expect(payosService.createCheckoutSession).not.toHaveBeenCalled();
+    });
 });

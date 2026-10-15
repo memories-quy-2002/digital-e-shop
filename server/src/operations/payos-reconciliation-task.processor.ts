@@ -17,7 +17,7 @@ export class PayOSReconciliationTaskProcessor implements PayOSTaskProcessor {
     constructor(private readonly reconciliation: PaymentReconciliationService) {}
 
     async process(lease: TaskLease): Promise<TaskResult> {
-        const payload = lease.payload as { attemptId?: unknown; pendingCheckoutId?: unknown; generation?: unknown; expiresAt?: unknown; operation?: unknown; cancelRequestedAt?: unknown; cancelSentAt?: unknown; flowId?: unknown; verifyOnly?: unknown };
+        const payload = lease.payload as { attemptId?: unknown; pendingCheckoutId?: unknown; generation?: unknown; expiresAt?: unknown; operation?: unknown; cancelRequestedAt?: unknown; cancelSentAt?: unknown; flowId?: unknown; verifyOnly?: unknown; paymentLinkId?: unknown };
         const pendingCheckoutId = Number(payload.pendingCheckoutId);
         const attemptId = typeof payload.attemptId === "string" ? payload.attemptId : "";
         const generation = Number(payload.generation);

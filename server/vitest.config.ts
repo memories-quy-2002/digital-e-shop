@@ -11,6 +11,16 @@ export default defineConfig({
         globals: true,
         env: {
             PAYOS_USD_TO_VND_RATE: "25000",
+            // Prisma validates the URL during module import. Unit tests never
+            // need a database, so keep their connection target local and closed.
+            NODE_ENV: "test",
+            DB_HOST: "127.0.0.1",
+            DB_PORT: "1",
+            DB_USER: "test",
+            DB_PASSWORD: "test-only",
+            DB_NAME: "digital_e_shop_test",
+            DATABASE_URL: "mysql://test:test-only@127.0.0.1:1/digital_e_shop_test",
+            ALLOW_REMOTE_DATABASE: "false",
         },
         include: ["src/**/*.{test,spec}.ts"],
         exclude: ["src/**/*.integration.test.ts", "src/**/*.integration.spec.ts"],

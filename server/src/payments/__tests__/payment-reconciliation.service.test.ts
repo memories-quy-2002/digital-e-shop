@@ -14,6 +14,7 @@ describe("PaymentReconciliationRepository", () => {
 
         await expect(repository.findPaymentAttemptByProviderOrderCode(tx as never, "123456")).resolves.toEqual({
             id: "attempt-1", pendingCheckoutId: 11, providerOrderCode: "123456", providerLinkId: null, expectedAmountVnd: 250000,
+            cancelRequestedAt: null,
         });
         expect(String(tx.query.mock.calls[0][0])).toContain("provider_order_code = ?");
         expect(tx.query.mock.calls[0][1]).toEqual(["payos", "123456"]);

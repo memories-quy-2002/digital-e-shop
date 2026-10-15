@@ -35,7 +35,7 @@ describe("AdminPaymentAttemptsService", () => {
         const service = new AdminPaymentAttemptsService(repository as never, {} as never, {} as never, orders as never);
 
         await expect(service.retryFulfillment("attempt-1", "admin-1", "operator retry"))
-            .rejects.toMatchObject({ statusCode: 409 });
+            .rejects.toMatchObject({ status: 409, response: { statusCode: 409 } });
         expect(orders.finalizePayOSCheckout).not.toHaveBeenCalled();
         expect(repository.recordAdminRetry).not.toHaveBeenCalled();
     });
@@ -143,7 +143,7 @@ describe("AdminPaymentAttemptsService", () => {
         await expect(service.recordRefund("attempt-1", "admin-1", {
             amountVnd: 50, transferReference: "bank-1", idempotencyKey: "00000000-0000-4000-8000-000000000001",
             transferredAt: new Date("2026-10-15T00:00:00Z"), evidenceId: 4, reason: "changed reason",
-        })).rejects.toMatchObject({ statusCode: 409 });
+        })).rejects.toMatchObject({ status: 409, response: { statusCode: 409 } });
         expect(attempts.recordRefund).not.toHaveBeenCalled();
     });
 });
