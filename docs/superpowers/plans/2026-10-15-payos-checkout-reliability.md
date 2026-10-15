@@ -19,6 +19,7 @@
 - No outbound call inside DB transaction; persist a verified receipt independently from order finalization.
 - Keep task runner bounded: 20-second budget, 60-second task lease, provider request at most 10 seconds, one active create/reconcile lease per attempt.
 - No automatic bank transfer/refund, production migration, live payment or deployment as part of local implementation.
+- Delegated agents do not commit. Main Codex performs each Conventional Commit after its task review, following repository role and Git ownership rules.
 
 ## Review Focus
 
@@ -41,21 +42,21 @@
 
 ## Agent allocation and dependencies
 
-Use the repository's named roles in `.codex/agents/`; each delegated packet follows `docs/CODEX_ORCHESTRATION.md`, chooses `gpt-6-luna` with effort per task, names exact owned paths, and prohibits commits or nested agents. Limit active subagents to two. Main Codex decides and freezes cross-layer contracts; Backend implements their server types and behavior. Main Codex remains responsible for composition-root wiring, integration, final verification, wiki/docs, and Git.
+Use the repository's named roles in `.codex/agents/`; each delegated packet follows `docs/CODEX_ORCHESTRATION.md`, chooses `gpt-6-luna` with effort per task, names exact owned paths, and prohibits commits or nested agents. Limit active subagents to two and run implementation tasks sequentially; the Subagent-Driven Development skill disallows parallel implementers. Main Codex decides and freezes cross-layer contracts; Backend implements their server types and behavior. Main Codex remains responsible for composition-root wiring, integration, final verification, wiki/docs, and Git.
 
 | Sequence | Role | Plan tasks | Ownership and boundary |
 | --- | --- | --- | --- |
 | Before implementation | Architect | Read-only review of this spec/plan | Trace current payment, reservation, refund, task-runner boundaries; report contract/schema risks and task overlap. No edits unless Main assigns a specific design-document correction. Main Codex resolves findings before implementation. |
 | Before implementation | Main Codex | Freeze `PaymentAttemptStatus`, status routes, and admin exception API contract | Own the shared contract decisions. Architect reviews them read-only; no agent independently changes cross-layer field names or states. |
-| 1 | Backend | Tasks 1–5, sequentially | Own only the server files listed in each task. Keep this cohesive backend stream sequential because attempts, webhook comparison, finalization, task kinds, and route contracts share files and DB invariants. Task 1 implements Main's frozen `PaymentAttemptStatus`; Task 5 completes its server route contract before Task 6. |
-| 2a, after Task 5 contract is frozen | Frontend | Task 6 | Own only the client paths listed in Task 6. May run concurrently with Backend Task 7 because client/server ownership does not overlap. Do not redefine status or route fields locally; raise a contract conflict to Main. |
-| 2b, after Task 1 and Task 3 | Backend | Task 7 | Continue with the same backend ownership after Task 5, or a fresh Backend agent after the earlier agent releases. Own server payment and financial-operation paths only. |
-| 3, after Task 7 API contract | Frontend | Task 8 | Own only the named admin UI/API client paths in Task 8. This UI slice depends on the backend exception contract from Task 7. |
+| 1â€“5 | Backend | Tasks 1â€“5, sequentially; fresh agent per task | Own only the server files listed in the current task. Attempts, webhook comparison, finalization, task kinds, and routes share invariants, so finish and review each task before dispatching the next. Task 1 implements Main's frozen `PaymentAttemptStatus`; Task 5 completes the server route contract before Task 6. |
+| 6, after Task 5 contract is frozen | Frontend | Task 6 | Own only the client paths listed in Task 6. Do not redefine status or route fields locally; raise a contract conflict to Main. |
+| 7, after Task 1 and Task 3 | Backend | Task 7 | Fresh Backend agent; own server payment and financial-operation paths only. |
+| 8, after Task 7 API contract | Frontend | Task 8 | Own only the named admin UI/API client paths in Task 8. |
 | After implementation slices merge | QA | Task 9 browser and acceptance verification only | Own test/fixture files explicitly assigned for browser evidence; do not edit product code. Run isolated DB and package suites only on approved test infrastructure; report unavailable gates distinctly. |
 | After Main integration | Reviewer | Integrated branch diff, read-only | Review server/client/migration diff for auth, CSRF, money, concurrency, idempotency, accessibility and regression risks. No edits. Main resolves findings and reruns affected checks. |
 | Throughout / final | Main Codex | Composition root, Task 9 docs, migration integration, all Git and final checks | Own `server/src/app.module.ts` and any file shared across agents, settle disagreements, inspect the complete diff, run final package/integration checks and commit. Never delegate Git operations. |
 
-The Architect review is a bounded preflight, not a second design project. If it finds a material product decision missing from the approved spec, stop at that decision and return it for owner review. Avoid assigning DevOps: this plan does not change CI/CD or provision the external scheduler. A separate DevOps task is warranted only if the owner later requests scheduler/deployment configuration. Do not spawn a separate Reviewer or QA until implementation dependencies are satisfied.
+The Architect review is a bounded preflight, not a second design project; the initial read-only review has been completed and its findings corrected in this plan. After every implementation task, a fresh Reviewer performs spec-compliance and quality review before Main commits or moves to the next task. A final Reviewer checks the integrated branch. Avoid assigning DevOps: this plan does not change CI/CD or provision the external scheduler. A separate DevOps task is warranted only if the owner later requests scheduler/deployment configuration.
 
 Existing interfaces to preserve/extend: `PayOSService.createPaymentLink/getPaymentLink/cancelPaymentLink`; `PaymentReconciliationService` signature verification/comparison and existing webhook claim fencing; `CheckoutReservationService`; `TasksService.enqueue/claimDue/finish`; `TaskRunnerService.run`; `OrdersService.finalizePayOSCheckout`; `client/src/lib/http.ts`. Inspect exact signatures before coding and adapt at owning feature boundary. Do not introduce a second provider client, task runner or generic payment framework.
 
@@ -85,7 +86,7 @@ Expected: FAIL because attempt service/contracts are absent.
 Run from `server/`: `node ./node_modules/vitest/vitest.mjs run src/payments/__tests__/payment-attempt.service.test.ts`; then `node ./node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts --testNamePattern=integration src/payments/__tests__/payment-attempt.integration.test.ts`.
 Expected: unit PASS; integration PASS against isolated test DB, or explicitly report unavailable isolated DB without substituting production/local developer DB.
 
-- [ ] **Step 6: Commit** `feat(payments): persist resumable PayOS attempts`.
+- [ ] **Step 6: Main Codex commit after task review** `feat(payments): persist resumable PayOS attempts`.
 
 ## Task 2: Idempotent PayOS link creation and callback-safe identity
 
@@ -110,7 +111,7 @@ Expected: new cases FAIL on current non-idempotent create behavior.
 Run from `server/`: `node ./node_modules/vitest/vitest.mjs run src/orders/__tests__/orders.payos.service.test.ts src/payments/payos.service.test.ts src/orders/__tests__/checkout-reservation.service.test.ts`.
 Expected: all targeted tests PASS; existing mock/live environment behavior remains covered.
 
-- [ ] **Step 6: Commit** `fix(orders): make PayOS link creation idempotent`.
+- [ ] **Step 6: Main Codex commit after task review** `fix(orders): make PayOS link creation idempotent`.
 
 ## Task 3: One durable processor for webhook and provider lookup
 
@@ -136,7 +137,7 @@ Expected: new attempt and early/expired recovery cases FAIL.
 Run from `server/`: same command as Step 2.
 Expected: all PASS including current signature, duplicate, fencing and payment-order contract tests.
 
-- [ ] **Step 6: Commit** `fix(payments): preserve and reconcile verified PayOS receipts`.
+- [ ] **Step 6: Main Codex commit after task review** `fix(payments): preserve and reconcile verified PayOS receipts`.
 
 ## Task 4: Durable PayOS retry and safe order finalization
 
@@ -167,7 +168,7 @@ Expected: targeted suites PASS; DB integration PASS or is reported as environmen
 
 Main Codex alone modifies `server/src/app.module.ts` to register the Task 4 `PAYOS_TASK_PROCESSOR` implementation through the existing `TaskRunnerModule` composition. Add or extend the focused app composition test for the provider binding. Run from `server/`: `node ./node_modules/vitest/vitest.mjs run src/operations/__tests__/task-runner.test.ts`; expected: the app resolves the PayOS processor and existing shipment/email processors remain registered.
 
-- [ ] **Step 8: Commit** `feat(operations): recover pending PayOS attempts durably`.
+- [ ] **Step 8: Main Codex commit after task review** `feat(operations): recover pending PayOS attempts durably`.
 
 ## Task 5: Owner-scoped status, reconcile and cancel API
 
@@ -193,7 +194,7 @@ Expected: additive endpoint tests FAIL before registration.
 Run from `server/`: Step 2 command plus `node ./node_modules/vitest/vitest.mjs run src/payments/payos-webhook.controller.test.ts`.
 Expected: all PASS; existing route response shapes and narrow webhook exception remain.
 
-- [ ] **Step 6: Commit** `feat(orders): add owner-scoped PayOS attempt recovery`.
+- [ ] **Step 6: Main Codex commit after task review** `feat(orders): add owner-scoped PayOS attempt recovery`.
 
 ## Task 6: Truthful checkout return and resumable customer UI
 
@@ -218,7 +219,7 @@ Expected: new status-bound tests FAIL against cache-driven current behavior.
 Run from `client/`: same command as Step 2.
 Expected: all PASS, including existing checkout submission and order-token behavior.
 
-- [ ] **Step 7: Commit** `fix(client): render PayOS checkout from backend status`.
+- [ ] **Step 7: Main Codex commit after task review** `fix(client): render PayOS checkout from backend status`.
 
 ## Task 7: Operator paid-exception and evidence-backed refund
 
@@ -242,7 +243,7 @@ Expected: new attempt-refund tests FAIL; existing order refund behavior remains 
 Run from `server/`: targeted command from Step 2; run new isolated MySQL payment-attempt integration suite from Task 1.
 Expected: all targeted tests PASS, concurrent refund cap is DB proven.
 
-- [ ] **Step 5: Commit** `feat(payments): resolve paid PayOS attempts with audit evidence`.
+- [ ] **Step 5: Main Codex commit after task review** `feat(payments): resolve paid PayOS attempts with audit evidence`.
 
 ## Task 8: Admin paid-exception interface
 
@@ -264,7 +265,7 @@ Expected: new exception-queue tests FAIL before the client contract is added.
 Run from `client/`: same command as Step 2.
 Expected: all PASS with existing payment-reconciliation behavior preserved.
 
-- [ ] **Step 5: Commit** `feat(admin): manage paid PayOS checkout exceptions`.
+- [ ] **Step 5: Main Codex commit after task review** `feat(admin): manage paid PayOS checkout exceptions`.
 
 ## Task 9: Browser acceptance, docs and rollout
 
@@ -289,16 +290,16 @@ Run from `client/`: `corepack pnpm@12.4.2 exec tsc -p tsconfig.json --noEmit`, `
 Run isolated DB suite for payment attempts, orders and task recovery. Expected: all available checks PASS; report DB/browser/provider infrastructure gaps separately.
 
 - [ ] **Step 6: Review migration and compatibility**: additive DDL; verified legacy lookups; no secrets; no broadened webhook CSRF exemption; no duplicated refunds; no auto confirmation from query/cache; rollback retains paid facts.
-- [ ] **Step 7: Commit** `docs(payments): document PayOS checkout recovery and operations`.
+- [ ] **Step 7: Main Codex commit after task review** `docs(payments): document PayOS checkout recovery and operations`.
 
 ## Coverage map and handoff
 
-Tasks 1–2 cover AC01 and the schema/provider portions of AC12. Task 3 covers AC02–04 and the evidence part of AC03. Task 4 covers AC04–06 and AC09, with Main-owned app composition wiring. Task 5 covers AC07 and API/CSRF/rate-limit parts of AC01. Task 6 covers AC08 and customer-facing AC11. Task 7 covers AC10 and the financial-exception portion of AC06. Task 8 covers admin access to AC10. Task 9 covers browser acceptance, remaining AC11–12, package verification and rollout evidence. Require actual configured PayOS test acceptance for the external gate in AC12; local simulator is not a substitute.
+Tasks 1â€“2 cover AC01 and the schema/provider portions of AC12. Task 3 covers AC02â€“04 and the evidence part of AC03. Task 4 covers AC04â€“06 and AC09, with Main-owned app composition wiring. Task 5 covers AC07 and API/CSRF/rate-limit parts of AC01. Task 6 covers AC08 and customer-facing AC11. Task 7 covers AC10 and the financial-exception portion of AC06. Task 8 covers admin access to AC10. Task 9 covers browser acceptance, remaining AC11â€“12, package verification and rollout evidence. Require actual configured PayOS test acceptance for the external gate in AC12; local simulator is not a substitute.
 
 ## Self-review
 
-- **Spec coverage:** every AC01–AC12 maps to at least one implementation task and explicit tests/evidence above.
-- **Review Focus:** all five cases are pinned to Tasks 2–7 and have named tests; no operational edge is silently left to the implementer.
+- **Spec coverage:** every AC01â€“AC12 maps to at least one implementation task and explicit tests/evidence above.
+- **Review Focus:** all five cases are pinned to Tasks 2â€“7 and have named tests; no operational edge is silently left to the implementer.
 - **Type consistency:** `PaymentAttemptStatus`, `PaymentAttemptService`, `processAttemptObservation`, `PAYOS_TASK_PROCESSOR`, `TaskKind.PAYOS_RECONCILE`, and `OrdersService.finalizePayOSCheckout` are defined once above. Before execution, reconcile optional return variants with actual checkout DTO types, keep exact field names identical across layers.
 - **Scope:** one payment-attempt workflow using existing MySQL, provider adapter, webhook inbox and task runner. Admin refund addresses paid/no-order exceptions only. No replacement of retail P0, no new queue, no general payment rewrite.
 - **Execution gate:** plan is for owner review. Recommended execution is Subagent-driven: backend persistence, provider recovery, frontend and verification have distinct ownership, while payment invariants still require Main Codex integration. Implementation begins only after owner review of spec/plan and confirmation of the execution method, as required by `superpowers:brainstorming` and `superpowers:writing-plans`.
