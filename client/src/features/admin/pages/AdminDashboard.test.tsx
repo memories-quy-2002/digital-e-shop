@@ -13,6 +13,7 @@ import {
     fetchAnalyticsSummary,
     fetchOrderItems,
 } from "../api";
+import { getAdminAlertReadIds } from "../utils/adminAlertState";
 
 const { addToast } = vi.hoisted(() => ({ addToast: vi.fn() }));
 
@@ -57,6 +58,7 @@ describe("AdminDashboard mixed request results", () => {
     beforeEach(() => {
         vi.stubGlobal("IntersectionObserver", undefined);
         vi.resetAllMocks();
+        window.localStorage.clear();
         vi.mocked(fetchAnalyticsSummary).mockRejectedValue({ response: { status: 401 } });
         vi.mocked(fetchAdminProducts).mockResolvedValue([
             { id: 1, name: "USB-C Hub", category: "Accessories", stock: 7 } as never,
@@ -241,6 +243,29 @@ describe("AdminDashboard mixed request results", () => {
         expect(screen.getByText("Net revenue")).toBeTruthy();
         expect(screen.getByRole("button", { name: "Retry alerts" })).toBeTruthy();
         expect(screen.getByText("Partially updated")).toBeTruthy();
+    });
+
+    it("marks grouped operational alerts as read when opening their destination", async () => {
+        vi.mocked(fetchAdminAlerts).mockResolvedValue({
+            alerts: [{
+                id: "order-42",
+                type: "order",
+                title: "Order #42 needs review",
+                description: "A pending order is waiting for action.",
+                createdAt: "2026-10-14T10:00:00.000Z",
+                priority: "High",
+                actionLabel: "Review alert group",
+                route: "/admin/orders",
+                unread: true,
+            }],
+            unread: 1,
+        });
+
+        renderDashboardWithLocation();
+
+        fireEvent.click(await screen.findByRole("link", { name: "Review alert group" }));
+        expect(screen.getByTestId("location")).toHaveTextContent("/admin/orders");
+        expect(getAdminAlertReadIds()).toContain("order-42");
     });
 
 });

@@ -97,3 +97,5 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-10-04 — Codex — Removed unused direct dependencies and the orphan Web Vitals helper, retired shared schema re-exports, and consolidated local Docker/build scripts while preserving feature schemas and API contracts.
 - 2026-10-14 - Codex - Added native Codex specialist configuration with two concurrent Luna subagents and synchronized on-demand delegation, ownership, verification, and Git delivery guidance in [[architecture]].
 - 2026-10-14 - Codex - Kept gpt-6-luna for all specialists and replaced fixed medium reasoning with explicit per-task effort selection by Main Codex; see [[architecture]].
+- 2026-10-15 - Codex - Corrected notification unread totals so they count all unread rows independently of the recent-list limit; see [[architecture]] and the API guide.
+- 2026-10-15 - Codex - Made storefront notification clicks mark read and open their order/product destination; wired admin dashboard alert groups to mark member alerts read and corrected the header badge to count alerts beyond its eight-item preview; see [[architecture]].
