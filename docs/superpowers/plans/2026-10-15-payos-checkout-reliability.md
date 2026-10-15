@@ -41,17 +41,19 @@
 
 ## Agent allocation and dependencies
 
-Use the repository's named roles in `.codex/agents/`; each delegated packet follows `docs/CODEX_ORCHESTRATION.md`, chooses `gpt-6-luna` with effort per task, names exact owned paths, and prohibits commits or nested agents. Limit active subagents to two. Main Codex remains responsible for shared contracts, integration, final verification, wiki/docs, and Git.
+Use the repository's named roles in `.codex/agents/`; each delegated packet follows `docs/CODEX_ORCHESTRATION.md`, chooses `gpt-6-luna` with effort per task, names exact owned paths, and prohibits commits or nested agents. Limit active subagents to two. Main Codex decides and freezes cross-layer contracts; Backend implements their server types and behavior. Main Codex remains responsible for composition-root wiring, integration, final verification, wiki/docs, and Git.
 
 | Sequence | Role | Plan tasks | Ownership and boundary |
 | --- | --- | --- | --- |
 | Before implementation | Architect | Read-only review of this spec/plan | Trace current payment, reservation, refund, task-runner boundaries; report contract/schema risks and task overlap. No edits unless Main assigns a specific design-document correction. Main Codex resolves findings before implementation. |
-| 1 | Backend | Tasks 1–5, sequentially | Own only the server files listed in each task. Keep this cohesive backend stream sequential because attempts, webhook comparison, finalization, task kinds, and route contracts share files and DB invariants. Task 1's `PaymentAttemptStatus` is the backend/client handoff contract; freeze it before Task 6 starts. |
+| Before implementation | Main Codex | Freeze `PaymentAttemptStatus`, status routes, and admin exception API contract | Own the shared contract decisions. Architect reviews them read-only; no agent independently changes cross-layer field names or states. |
+| 1 | Backend | Tasks 1–5, sequentially | Own only the server files listed in each task. Keep this cohesive backend stream sequential because attempts, webhook comparison, finalization, task kinds, and route contracts share files and DB invariants. Task 1 implements Main's frozen `PaymentAttemptStatus`; Task 5 completes its server route contract before Task 6. |
 | 2a, after Task 5 contract is frozen | Frontend | Task 6 | Own only the client paths listed in Task 6. May run concurrently with Backend Task 7 because client/server ownership does not overlap. Do not redefine status or route fields locally; raise a contract conflict to Main. |
-| 2b, after Task 1 and Task 3 | Backend | Task 7 | Continue with the same backend ownership after Task 5, or a fresh Backend agent after the earlier agent releases. Own admin payment and financial-operation paths only; no edits to Task 6 client files. |
-| After implementation slices merge | QA | Task 8 browser and acceptance verification only | Own test/fixture files explicitly assigned for browser evidence; do not edit product code. Run isolated DB and package suites only on approved test infrastructure; report unavailable gates distinctly. |
+| 2b, after Task 1 and Task 3 | Backend | Task 7 | Continue with the same backend ownership after Task 5, or a fresh Backend agent after the earlier agent releases. Own server payment and financial-operation paths only. |
+| 3, after Task 7 API contract | Frontend | Task 8 | Own only the named admin UI/API client paths in Task 8. This UI slice depends on the backend exception contract from Task 7. |
+| After implementation slices merge | QA | Task 9 browser and acceptance verification only | Own test/fixture files explicitly assigned for browser evidence; do not edit product code. Run isolated DB and package suites only on approved test infrastructure; report unavailable gates distinctly. |
 | After Main integration | Reviewer | Integrated branch diff, read-only | Review server/client/migration diff for auth, CSRF, money, concurrency, idempotency, accessibility and regression risks. No edits. Main resolves findings and reruns affected checks. |
-| Throughout / final | Main Codex | Contracts, Task 8 docs, migration integration, all Git and final checks | Own any file shared across agents, settle disagreements, inspect the complete diff, run final package/integration checks and commit. Never delegate Git operations. |
+| Throughout / final | Main Codex | Composition root, Task 9 docs, migration integration, all Git and final checks | Own `server/src/app.module.ts` and any file shared across agents, settle disagreements, inspect the complete diff, run final package/integration checks and commit. Never delegate Git operations. |
 
 The Architect review is a bounded preflight, not a second design project. If it finds a material product decision missing from the approved spec, stop at that decision and return it for owner review. Avoid assigning DevOps: this plan does not change CI/CD or provision the external scheduler. A separate DevOps task is warranted only if the owner later requests scheduler/deployment configuration. Do not spawn a separate Reviewer or QA until implementation dependencies are satisfied.
 
@@ -161,7 +163,11 @@ Expected: new PAYOS dispatch/recovery/finalization tests FAIL.
 Run from `server/`: `node ./node_modules/vitest/vitest.mjs run src/operations/__tests__/task-runner.test.ts src/operations/__tests__/tasks.service.test.ts src/orders/__tests__/orders.payos.finalization.test.ts`; then isolated integration for `orders.integration.test.ts`.
 Expected: targeted suites PASS; DB integration PASS or is reported as environment-blocked.
 
-- [ ] **Step 7: Commit** `feat(operations): recover pending PayOS attempts durably`.
+- [ ] **Step 7: Main wires the processor in the composition root**
+
+Main Codex alone modifies `server/src/app.module.ts` to register the Task 4 `PAYOS_TASK_PROCESSOR` implementation through the existing `TaskRunnerModule` composition. Add or extend the focused app composition test for the provider binding. Run from `server/`: `node ./node_modules/vitest/vitest.mjs run src/operations/__tests__/task-runner.test.ts`; expected: the app resolves the PayOS processor and existing shipment/email processors remain registered.
+
+- [ ] **Step 8: Commit** `feat(operations): recover pending PayOS attempts durably`.
 
 ## Task 5: Owner-scoped status, reconcile and cancel API
 
@@ -217,7 +223,7 @@ Expected: all PASS, including existing checkout submission and order-token behav
 ## Task 7: Operator paid-exception and evidence-backed refund
 
 **Files:**
-- Modify: `server/src/payments/admin-payments.controller.ts`, focused payment admin service/repository/validator/types, existing admin payment UI/API files found by route import, `server/src/operations/financial-operations.module.ts`, `server/src/operations/evidence.service.ts` only where existing access helpers support it.
+- Modify: `server/src/payments/admin-payments.controller.ts`, focused payment admin service/repository/validator/types, `server/src/operations/financial-operations.module.ts`, `server/src/operations/evidence.service.ts` only where existing access helpers support it.
 - Test: `server/src/payments/__tests__/admin-payments.controller.test.ts`, `server/src/payments/__tests__/admin-payment-reconciliation.service.test.ts`, existing financial evidence/refund tests; add targeted paid-attempt exception tests.
 
 **Interfaces:**
@@ -231,15 +237,36 @@ Run from `server/`: `node ./node_modules/vitest/vitest.mjs run src/payments/__te
 Expected: new attempt-refund tests FAIL; existing order refund behavior remains passing.
 
 - [ ] **Step 3: Implement admin-only exception service** reusing private evidence storage and existing guards; transact attempt lock + refund cap + operation insert; do not fabricate after-sales request/order rows.
-- [ ] **Step 4: Add minimal admin queue actions** for view/retry/refund recording with explicit confirmation and evidence; no automatic transfer button or provider payout integration.
-- [ ] **Step 5: Run green server/admin and isolated financial integration tests**
+- [ ] **Step 4: Run green server/admin and isolated financial integration tests**
 
 Run from `server/`: targeted command from Step 2; run new isolated MySQL payment-attempt integration suite from Task 1.
 Expected: all targeted tests PASS, concurrent refund cap is DB proven.
 
-- [ ] **Step 6: Commit** `feat(payments): resolve paid PayOS attempts with audit evidence`.
+- [ ] **Step 5: Commit** `feat(payments): resolve paid PayOS attempts with audit evidence`.
 
-## Task 8: Browser acceptance, docs and rollout
+## Task 8: Admin paid-exception interface
+
+**Files:**
+- Modify: `client/src/features/admin/api.ts`, `client/src/features/admin/operations.api.ts`, `client/src/features/admin/operations.types.ts`, `client/src/features/admin/pages/AdminPaymentReconciliationPage.tsx`, `client/src/features/admin/pages/AdminPaymentReconciliationPage.test.tsx`, `client/src/styles/features/admin/_payments.scss`.
+- Test: `client/src/features/admin/api.test.ts`, `client/src/features/admin/pages/AdminPaymentReconciliationPage.test.tsx`.
+
+**Interfaces:** Consume only Task 7's frozen admin queue/detail/retry/refund API contract. Backend owns the endpoints and validation; Frontend owns React/client wrappers and presentation. Reuse existing private evidence upload component and admin payment page patterns.
+
+- [ ] **Step 1: Write failing client tests** for paid-without-order queue rows, safe detail fields, retry action, evidence upload/refund form, explicit confirmation, partial-refund state, role-hidden controls and error/loading/empty states.
+- [ ] **Step 2: Run red tests**
+
+Run from `client/`: `node ./node_modules/vitest/vitest.mjs run src/features/admin/api.test.ts src/features/admin/pages/AdminPaymentReconciliationPage.test.tsx`.
+Expected: new exception-queue tests FAIL before the client contract is added.
+
+- [ ] **Step 3: Implement typed wrappers and minimal admin queue UI** against Task 7 contract. Do not call transfer providers, expose private evidence publicly, or put business logic in React.
+- [ ] **Step 4: Run green focused admin tests**
+
+Run from `client/`: same command as Step 2.
+Expected: all PASS with existing payment-reconciliation behavior preserved.
+
+- [ ] **Step 5: Commit** `feat(admin): manage paid PayOS checkout exceptions`.
+
+## Task 9: Browser acceptance, docs and rollout
 
 **Files:**
 - Create: `client/e2e/payos-checkout.spec.ts` and local fixture additions only if needed; modify `client/playwright.config.ts` only for an isolated PayOS project if required.
@@ -266,7 +293,7 @@ Run isolated DB suite for payment attempts, orders and task recovery. Expected: 
 
 ## Coverage map and handoff
 
-Tasks 1–2 cover AC01 and the schema/provider portions of AC12. Task 3 covers AC02–04 and the evidence part of AC03. Task 4 covers AC04–06 and AC09. Task 5 covers AC07 and API/CSRF/rate-limit parts of AC01. Task 6 covers AC08 and AC11. Task 7 covers AC10 and the financial-exception portion of AC06. Task 8 covers the remainder of AC11–12, complete package verification and rollout evidence. Require actual configured PayOS test acceptance for the external gate in AC12; local simulator is not a substitute.
+Tasks 1–2 cover AC01 and the schema/provider portions of AC12. Task 3 covers AC02–04 and the evidence part of AC03. Task 4 covers AC04–06 and AC09, with Main-owned app composition wiring. Task 5 covers AC07 and API/CSRF/rate-limit parts of AC01. Task 6 covers AC08 and customer-facing AC11. Task 7 covers AC10 and the financial-exception portion of AC06. Task 8 covers admin access to AC10. Task 9 covers browser acceptance, remaining AC11–12, package verification and rollout evidence. Require actual configured PayOS test acceptance for the external gate in AC12; local simulator is not a substitute.
 
 ## Self-review
 
