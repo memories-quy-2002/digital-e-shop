@@ -65,6 +65,8 @@ function createMockRepository() {
         insertInventoryReservations: vi.fn(async (_tx: unknown, pendingCheckoutId: number, items: Array<{ productId: number; quantity: number }>) => {
             state.reservations.push(...items.map((item) => ({ pendingCheckoutId, ...item })));
         }),
+        assignPayOSAttempt: vi.fn(async () => 1),
+        attachPaymentProviderByCheckoutId: vi.fn(async () => 1),
         releaseReservation: vi.fn(async (_tx: unknown, reservationToken: string, reason: string) => {
             void reason;
             const checkout = state.checkouts.find((candidate) => candidate.reservationToken === reservationToken);
@@ -159,6 +161,43 @@ describe("CheckoutReservationService", () => {
         expect(result.pricingSnapshot).toEqual({ totalPrice: 30, discount: 0 });
         expect(result.shippingAddress).toBe("1 Test Street");
         expect(result.reservationToken).toMatch(/^[0-9a-f-]{36}$/i);
+    });
+
+    it("persists the PayOS attempt and immutable order code in the reservation transaction", async () => {
+        const { repository } = createMockRepository();
+        const paymentAttempt = {
+            id: "attempt-123",
+            pendingCheckoutId: 1,
+            providerOrderCode: "123456789",
+            expectedAmountVnd: 10,
+            paymentState: "PENDING",
+            orderState: "NOT_CREATED",
+            resolutionState: "NONE",
+            providerLinkId: null,
+            providerLinkUrl: null,
+            expiresAt: new Date(Date.now() + 35 * 60_000).toISOString(),
+            replayed: false,
+        };
+        const attempts = {
+            findExistingClaim: vi.fn().mockResolvedValue(null),
+            claim: vi.fn().mockResolvedValue(paymentAttempt),
+        };
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never, undefined, attempts as never);
+
+        const result = await service.reservePayOSInventory(reservationInput("user-a"), {
+            owner: { kind: "authenticated", userId: "user-a" },
+            idempotencyKey: "3b4b0fd8-f820-4a70-a30e-cfc24c9f2bba",
+            request: { cart: [{ productId: 1, quantity: 1 }], totalPrice: 10 },
+        });
+
+        expect(attempts.findExistingClaim).toHaveBeenCalledWith(expect.objectContaining({ owner: { kind: "authenticated", userId: "user-a" } }), expect.anything());
+        expect(attempts.claim).toHaveBeenCalledWith(expect.objectContaining({
+            pendingCheckoutId: 1,
+            expectedAmountVnd: 10,
+            request: { cart: [{ productId: 1, quantity: 1 }], totalPrice: 10 },
+        }), expect.anything());
+        expect(repository.assignPayOSAttempt).toHaveBeenCalledWith(expect.anything(), 1, 123456789, 10);
+        expect(result.paymentAttempt).toEqual(paymentAttempt);
     });
 
     it("rejects a PayOS reservation when the locked catalog price changed after quote creation", async () => {

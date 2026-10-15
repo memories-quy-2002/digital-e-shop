@@ -8,6 +8,8 @@ import { CHECKOUT_RESERVATION_WINDOW_MS } from "#src/shared/constants/checkout-r
 import { withTransaction } from "../database/transaction";
 import { CheckoutReservationRepository } from "./checkout-reservation.repository";
 import { PromotionsRepository } from "../promotions/promotions.repository";
+import { PaymentAttemptService } from "../payments/payment-attempt.service";
+import type { PaymentAttemptClaim, PaymentAttemptDisplaySnapshot, PaymentAttemptOwner } from "../payments/payment-attempt.types";
 import type { CartItemRow } from "../cart/cart.types";
 import type {
     CheckoutReservation,
@@ -32,6 +34,21 @@ type ReservationCartItem = CartItemRow & {
     productId?: number;
 };
 
+export type PayOSAttemptReservationInput = {
+    owner: PaymentAttemptOwner;
+    idempotencyKey: string;
+    request: unknown;
+};
+
+export type PayOSCheckoutReservation = CheckoutReservation & { paymentAttempt: PaymentAttemptClaim };
+
+export class ExistingPayOSAttemptReplayError extends Error {
+    constructor(readonly paymentAttempt: PaymentAttemptClaim) {
+        super("PayOS checkout attempt already exists");
+        this.name = "ExistingPayOSAttemptReplayError";
+    }
+}
+
 const getProductId = (item: ReservationCartItem): number => Number(item.product_id ?? item.productId ?? 0);
 
 const getQuantity = (item: ReservationCartItem): number => Number(item.quantity ?? 0);
@@ -43,9 +60,23 @@ export class CheckoutReservationService {
         private readonly promotionsRepository: PromotionsRepository,
         private readonly shippingQuoteService: ShippingQuoteService,
         @Optional() private readonly orderEmails?: OrderEmailService,
+        @Optional() private readonly paymentAttemptService?: PaymentAttemptService,
     ) {}
 
     async reserveInventory(input: CheckoutReservationInput): Promise<CheckoutReservation> {
+        return (await this.reserveInventoryInternal(input)).reservation;
+    }
+
+    async reservePayOSInventory(input: CheckoutReservationInput, attemptInput: PayOSAttemptReservationInput): Promise<PayOSCheckoutReservation> {
+        const result = await this.reserveInventoryInternal(input, attemptInput);
+        if (!result.paymentAttempt) throw new Error("PayOS payment attempt was not created");
+        return { ...result.reservation, paymentAttempt: result.paymentAttempt };
+    }
+
+    private async reserveInventoryInternal(
+        input: CheckoutReservationInput,
+        attemptInput?: PayOSAttemptReservationInput,
+    ): Promise<{ reservation: CheckoutReservation; paymentAttempt?: PaymentAttemptClaim }> {
         const aggregatedItems = this.aggregateItems(input.authoritativeCart);
         if (aggregatedItems.length === 0) {
             throw createReservationError("Cart cannot be empty", HTTP_STATUS.BAD_REQUEST);
@@ -61,6 +92,15 @@ export class CheckoutReservationService {
         return withTransaction(async (tx) => {
             const productIds = aggregatedItems.map((item) => item.productId).sort((a, b) => a - b);
             const lockedProducts = await this.repository.lockProducts(tx, productIds);
+            if (attemptInput) {
+                if (!this.paymentAttemptService) throw new Error("Payment attempt persistence is not configured");
+                const existingAttempt = await this.paymentAttemptService.findExistingClaim({
+                    owner: attemptInput.owner,
+                    idempotencyKey: attemptInput.idempotencyKey,
+                    request: attemptInput.request,
+                }, tx);
+                if (existingAttempt) throw new ExistingPayOSAttemptReplayError(existingAttempt);
+            }
             const lockedProductsById = new Map(lockedProducts.map((product) => [Number(product.id), product]));
             let lockedSubtotal = 0;
             for (const item of input.authoritativeCart) {
@@ -140,7 +180,37 @@ export class CheckoutReservationService {
             const delivery = await this.shippingQuoteService.validateQuote(tx, input.deliveryCheckout, input.authoritativeCart, input.authoritativeTotalPrice, appliedDiscount);
             if (this.orderEmails) await this.orderEmails.snapshotPending(tx, pendingCheckout.insertId, identity, input.deliveryCheckout.locale);
             await tx.query("UPDATE pending_checkouts SET total_price = ?, discount = ?, pricing_snapshot = ?, delivery_snapshot = ?, shipping_address = ? WHERE id = ?", [delivery.pricing.itemsSubtotal + delivery.pricing.shippingFee, delivery.pricing.merchandiseDiscount, JSON.stringify(delivery.pricing), JSON.stringify(delivery.delivery), JSON.stringify(delivery.delivery.address), pendingCheckout.insertId]);
-            return {
+            let paymentAttempt: PaymentAttemptClaim | undefined;
+            if (attemptInput) {
+                if (!this.paymentAttemptService) throw new Error("Payment attempt persistence is not configured");
+                const snapshot: PaymentAttemptDisplaySnapshot = {
+                    items: input.authoritativeCart.map((item) => ({
+                        productId: getProductId(item as ReservationCartItem),
+                        name: String(item.product_name ?? `Product #${getProductId(item as ReservationCartItem)}`),
+                        quantity: getQuantity(item as ReservationCartItem),
+                        unitPriceVnd: Number(item.sale_price && Number(item.sale_price) > 0 ? item.sale_price : item.price),
+                    })),
+                    subtotalVnd: delivery.pricing.itemsSubtotal,
+                    discountVnd: delivery.pricing.merchandiseDiscount,
+                    shippingVnd: delivery.pricing.shippingFee,
+                    delivery: { method: `${delivery.delivery.provider}:${delivery.delivery.serviceTypeId}` },
+                };
+                paymentAttempt = await this.paymentAttemptService.claim({
+                    owner: attemptInput.owner,
+                    idempotencyKey: attemptInput.idempotencyKey,
+                    request: attemptInput.request,
+                    snapshot,
+                    pendingCheckoutId: pendingCheckout.insertId,
+                    expectedAmountVnd: delivery.pricing.payableTotal,
+                    expiresAt,
+                }, tx);
+                if (paymentAttempt.replayed) throw new ExistingPayOSAttemptReplayError(paymentAttempt);
+                const orderCode = Number(paymentAttempt.providerOrderCode);
+                if (!Number.isSafeInteger(orderCode) || orderCode <= 0) throw new Error("Invalid persisted PayOS order code");
+                const affectedRows = await this.repository.assignPayOSAttempt(tx, pendingCheckout.insertId, orderCode, paymentAttempt.expectedAmountVnd);
+                if (affectedRows !== 1) throw createReservationError("Checkout reservation is no longer available.", HTTP_STATUS.CONFLICT);
+            }
+            const reservation: CheckoutReservation = {
                 pendingCheckoutId: pendingCheckout.insertId,
                 reservationToken,
                 expiresAt,
@@ -152,6 +222,7 @@ export class CheckoutReservationService {
                 shippingAddress: input.shippingAddress,
                 items: aggregatedItems,
             };
+            return { reservation, paymentAttempt };
         });
     }
 
@@ -172,6 +243,13 @@ export class CheckoutReservationService {
             if (affectedRows !== 1) {
                 throw createReservationError("Checkout reservation is no longer available.", HTTP_STATUS.CONFLICT);
             }
+        });
+    }
+
+    async attachPayOSAttemptProvider(pendingCheckoutId: number, attachment: PaymentProviderAttachment): Promise<void> {
+        await withTransaction(async (tx) => {
+            const affectedRows = await this.repository.attachPaymentProviderByCheckoutId(tx, pendingCheckoutId, attachment);
+            if (affectedRows !== 1) throw createReservationError("Checkout reservation is no longer available.", HTTP_STATUS.CONFLICT);
         });
     }
 

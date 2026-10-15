@@ -104,7 +104,7 @@ Expected: unit PASS; integration PASS against isolated test DB, or explicitly re
 Run from `server/`: `node ./node_modules/vitest/vitest.mjs run src/orders/__tests__/orders.payos.service.test.ts src/payments/payos.service.test.ts`
 Expected: new cases FAIL on current non-idempotent create behavior.
 
-- [ ] **Step 3: Implement claim and create lease** by composing Task 1 service with checkout reservation transaction; persist order code and expected amount before outbound PayOS request; enqueue first reconciliation generation in the same DB transaction.
+- [ ] **Step 3: Implement claim and create lease** by composing Task 1 service with checkout reservation transaction; persist order code and expected amount before outbound PayOS request. Task 4 adds the first reconciliation task generation atomically in that same reservation transaction before outbound PayOS work because its durable task kind/processor is introduced there.
 - [ ] **Step 4: Implement create/recover decision**: look up existing provider code after ambiguous create; retry only on authoritative not-found plus payable state; bind/validate early callback link ID; validate provider URL origin; never release on uncertain outcome.
 - [ ] **Step 5: Run green targeted tests**
 

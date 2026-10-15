@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { InsertResult } from "#src/shared/interfaces/domain";
 import type { TransactionContext } from "../database/transaction";
 import { CHECKOUT_RESERVATION_STATUS } from "#src/shared/constants/checkout-reservation";
+import { PAYMENT_CURRENCY, PAYMENT_PROVIDER } from "../payments/payment.types";
 import { assertGuestOrderTokenHash } from "./guest-order-token";
 import type {
     CheckoutReservationItem,
@@ -157,6 +158,33 @@ export class CheckoutReservationRepository {
                 attachment.paymentFxRate ?? 1,
                 reservationToken,
             ],
+        );
+        return result.affectedRows;
+    }
+
+    async assignPayOSAttempt(tx: TransactionContext, pendingCheckoutId: number, providerOrderCode: number, amountVnd: number): Promise<number> {
+        const result = await tx.query<{ affectedRows: number }>(
+            `UPDATE pending_checkouts
+             SET payment_provider = ?, provider_order_code = ?, payment_amount = ?, payment_currency = ?, payment_fx_rate = 1
+             WHERE id = ? AND status = '${CHECKOUT_RESERVATION_STATUS.PENDING}' AND expires_at > UTC_TIMESTAMP()`,
+            [PAYMENT_PROVIDER.PAYOS, providerOrderCode, amountVnd, PAYMENT_CURRENCY.VND, pendingCheckoutId],
+        );
+        return result.affectedRows;
+    }
+
+    async attachPaymentProviderByCheckoutId(
+        tx: TransactionContext,
+        pendingCheckoutId: number,
+        attachment: PaymentProviderAttachment,
+    ): Promise<number> {
+        const result = await tx.query<{ affectedRows: number }>(
+            `UPDATE pending_checkouts
+             SET payment_provider = ?, provider_reference = ?, provider_order_code = ?,
+                 payment_amount = ?, payment_currency = ?, payment_fx_rate = ?
+             WHERE id = ? AND status = '${CHECKOUT_RESERVATION_STATUS.PENDING}'`,
+            [attachment.provider, attachment.providerReference, attachment.providerOrderCode ?? null,
+                attachment.paymentAmount ?? null, attachment.paymentCurrency ?? null,
+                attachment.paymentFxRate ?? 1, pendingCheckoutId],
         );
         return result.affectedRows;
     }

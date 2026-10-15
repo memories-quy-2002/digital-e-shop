@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { PayOS, type CreatePaymentLinkRequest, type Webhook, type WebhookData } from "@payos/node";
+import { NotFoundError, PayOS, type CreatePaymentLinkRequest, type Webhook, type WebhookData } from "@payos/node";
 import { NestConfigService } from "../config/nest-config.service";
 import { PAYMENT_CURRENCY, type PayOSPaymentLookup } from "./payment.types";
 
@@ -12,6 +12,10 @@ export type PayOSPaymentLinkResult = {
     status: string;
     expiredAt?: number;
 };
+
+export type PayOSRecoverablePaymentLink = PayOSPaymentLookup & { checkoutUrl: string };
+
+const PROVIDER_REQUEST_TIMEOUT_MS = 10_000;
 
 @Injectable()
 export class PayOSService {
@@ -44,7 +48,10 @@ export class PayOSService {
     }
 
     async createPaymentLink(input: CreatePaymentLinkRequest): Promise<PayOSPaymentLinkResult> {
-        const link = await this.getClient().paymentRequests.create(input);
+        const link = await this.getClient().paymentRequests.create(input, {
+            timeout: PROVIDER_REQUEST_TIMEOUT_MS,
+            maxRetries: 0,
+        });
         return {
             orderCode: link.orderCode,
             amount: link.amount,
@@ -56,13 +63,13 @@ export class PayOSService {
         };
     }
 
-    async getPaymentLink(identifier: { paymentLinkId?: string; orderCode?: number }): Promise<PayOSPaymentLookup> {
+    async getPaymentLink(identifier: { paymentLinkId?: string; orderCode?: number }): Promise<PayOSRecoverablePaymentLink> {
         if (identifier.orderCode === undefined && !identifier.paymentLinkId) {
             throw new Error("PayOS payment link identifier is required");
         }
         const link = identifier.orderCode !== undefined
-            ? await this.getClient().paymentRequests.get(identifier.orderCode)
-            : await this.getClient().paymentRequests.get(identifier.paymentLinkId as string);
+            ? await this.getClient().paymentRequests.get(identifier.orderCode, { timeout: PROVIDER_REQUEST_TIMEOUT_MS, maxRetries: 0 })
+            : await this.getClient().paymentRequests.get(identifier.paymentLinkId as string, { timeout: PROVIDER_REQUEST_TIMEOUT_MS, maxRetries: 0 });
         return {
             orderCode: link.orderCode,
             paymentLinkId: link.id,
@@ -70,7 +77,18 @@ export class PayOSService {
             amountPaid: link.amountPaid,
             status: link.status,
             currency: PAYMENT_CURRENCY.VND,
+            checkoutUrl: (link as typeof link & { checkoutUrl?: string }).checkoutUrl
+                || `https://pay.payos.vn/web/${encodeURIComponent(link.id)}`,
         };
+    }
+
+    async findPaymentLinkByOrderCode(orderCode: number): Promise<PayOSRecoverablePaymentLink | null> {
+        try {
+            return await this.getPaymentLink({ orderCode });
+        } catch (error) {
+            if (error instanceof NotFoundError) return null;
+            throw error;
+        }
     }
     cancelPaymentLink(paymentLinkId: string, reason: string) {
         return this.getClient().paymentRequests.cancel(paymentLinkId, reason);
