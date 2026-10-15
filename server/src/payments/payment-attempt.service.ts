@@ -99,7 +99,8 @@ export class PaymentAttemptService {
             const claim = { id, ownerScope: scope, idempotencyKeyHash, requestHash: canonicalRequestHash, snapshotHash, pendingCheckoutId: input.pendingCheckoutId,
                 expectedAmountVnd: input.expectedAmountVnd, expiresAt: input.expiresAt, snapshot };
             for (let attempt = 0; attempt < ORDER_CODE_ATTEMPTS; attempt += 1) {
-                const providerOrderCode = String(randomInt(1, Number.MAX_SAFE_INTEGER));
+                // Node crypto.randomInt limits the range width to less than 2^48.
+                const providerOrderCode = String(randomInt(1, 2 ** 48));
                 try {
                     const inserted = await this.repository.insertClaim(transaction, { ...claim, providerOrderCode });
                     return { ...inserted, requestHash: canonicalRequestHash, replayed: false };

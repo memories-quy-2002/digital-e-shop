@@ -74,7 +74,7 @@ describe("PaymentAttemptService", () => {
             owner: { kind: "authenticated", userId: "user-1" },
             idempotencyKey: "cbb6e8cf-2e9f-4dc1-8ca5-40c11b88ed69",
             request: { changed: true },
-        }, tx(vi.fn()) as never)).rejects.toMatchObject({ statusCode: 409 });
+        }, tx(vi.fn()) as never)).rejects.toMatchObject({ status: 409 });
     });
 
     it("replays the same owner, key and body without changing the immutable expected amount", async () => {
@@ -94,7 +94,7 @@ describe("PaymentAttemptService", () => {
     it("rejects a changed canonical body with HTTP 409", async () => {
         const repository = { findClaim: vi.fn().mockResolvedValue(storedAttempt()), insertClaim: vi.fn() };
         const service = new PaymentAttemptService(repository as unknown as PaymentAttemptRepository);
-        await expect(service.claim(baseClaim({ expectedAmountVnd: 250001 }), tx(vi.fn()) as never)).rejects.toMatchObject({ statusCode: 409 });
+        await expect(service.claim(baseClaim({ expectedAmountVnd: 250001 }), tx(vi.fn()) as never)).rejects.toMatchObject({ status: 409 });
     });
 
     it("isolates the same idempotency key across different owners", async () => {
@@ -147,7 +147,7 @@ describe("PaymentAttemptService", () => {
         const input = { attemptId: "attempt-1", transferReference: "bank-ref-1", idempotencyKey: "d0f58b2c-4d28-4c6d-935d-40af158cbbd2", amountVnd: 7000, transferredAt: new Date(), evidenceId: "evidence-1", actorId: "admin-1", reason: "Paid orphan" };
         await expect(service.recordRefund(input, tx(vi.fn()) as never)).resolves.toMatchObject({ amountVnd: 7000 });
         repository.lockRefundBalance.mockResolvedValue({ verifiedReceivedAmountVnd: 10000, refundedAmountVnd: 7000, orderId: null });
-        await expect(service.recordRefund({ ...input, transferReference: "bank-ref-2", idempotencyKey: "f4d88693-a076-43a5-a49e-688245a85e84", amountVnd: 4000 }, tx(vi.fn()) as never)).rejects.toMatchObject({ statusCode: 409 });
+        await expect(service.recordRefund({ ...input, transferReference: "bank-ref-2", idempotencyKey: "f4d88693-a076-43a5-a49e-688245a85e84", amountVnd: 4000 }, tx(vi.fn()) as never)).rejects.toMatchObject({ status: 409 });
         expect(repository.lockRefundBalance).toHaveBeenCalledTimes(2);
     });
 
