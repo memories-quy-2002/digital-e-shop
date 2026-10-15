@@ -9,6 +9,7 @@ import type {
     PaymentAttemptCreateLease,
     PaymentAttemptClaim,
     PaymentAttemptClaimInput,
+    PaymentAttemptFindClaimInput,
     PaymentAttemptObservationInput,
     PaymentAttemptObservationResult,
     PaymentAttemptProviderLink,
@@ -65,6 +66,18 @@ function sanitizeSnapshot(snapshot: PaymentAttemptClaimInput["snapshot"]): Payme
 export class PaymentAttemptService {
     constructor(private readonly repository: PaymentAttemptRepository) {}
 
+    async findExistingClaim(input: PaymentAttemptFindClaimInput, tx?: PaymentAttemptTransaction): Promise<PaymentAttemptClaim | null> {
+        if (!input.idempotencyKey || input.idempotencyKey.length > 191) throw new ConflictException("Invalid idempotency key");
+        const scope = ownerScope(input.owner);
+        const keyHash = hash(input.idempotencyKey);
+        const requestHash = hash(input.request);
+        const work = async (transaction: TransactionContext): Promise<PaymentAttemptClaim | null> => {
+            const existing = await this.repository.findClaimByOwnerAndKey(transaction, scope, keyHash);
+            return existing ? this.replay(existing, requestHash) : null;
+        };
+        return tx ? work(tx) : withTransaction(work);
+    }
+
     async claim(input: PaymentAttemptClaimInput, tx?: PaymentAttemptTransaction): Promise<PaymentAttemptClaim> {
         if (!input.idempotencyKey || input.idempotencyKey.length > 191) throw new ConflictException("Invalid idempotency key");
         assertSafeVnd(input.expectedAmountVnd, "Expected amount");
@@ -77,7 +90,7 @@ export class PaymentAttemptService {
         const scope = ownerScope(input.owner);
         const idempotencyKeyHash = hash(input.idempotencyKey);
         const snapshotHash = hash(snapshot);
-        const canonicalRequestHash = hash({ request: input.request, expectedAmountVnd: input.expectedAmountVnd, snapshotHash });
+        const canonicalRequestHash = hash(input.request);
         const work = async (transaction: TransactionContext): Promise<PaymentAttemptClaim> => {
             const existing = await this.repository.findClaim(transaction, scope, idempotencyKeyHash);
             if (existing) return this.replay(existing, canonicalRequestHash);

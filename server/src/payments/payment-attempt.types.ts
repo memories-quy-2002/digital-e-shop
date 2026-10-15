@@ -31,6 +31,12 @@ export type PaymentAttemptOwner =
     | { kind: "authenticated"; userId: string }
     | { kind: "guest"; guestCartId: string };
 
+export type PaymentAttemptFindClaimInput = {
+    owner: PaymentAttemptOwner;
+    idempotencyKey: string;
+    request: unknown;
+};
+
 export type PaymentAttemptDisplaySnapshot = {
     items: Array<{ productId: number; name: string; quantity: number; unitPriceVnd: number }>;
     subtotalVnd: number;
@@ -61,6 +67,9 @@ export type PaymentAttemptRecord = {
     paymentState: PaymentAttemptPaymentState;
     orderState: PaymentAttemptOrderState;
     resolutionState: PaymentAttemptResolutionState;
+    providerLinkId?: string | null;
+    providerLinkUrl?: string | null;
+    expiresAt?: string | null;
 };
 
 export type PaymentAttemptClaim = PaymentAttemptRecord & { replayed: boolean };

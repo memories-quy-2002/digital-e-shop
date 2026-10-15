@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
 import { PaymentAttemptRepository, PaymentAttemptOrderCodeCollisionError } from "../payment-attempt.repository";
 import { PaymentAttemptService } from "../payment-attempt.service";
 import { PAYMENT_ATTEMPT_PAYMENT_STATE } from "../payment-attempt.types";
@@ -50,6 +51,30 @@ describe("PaymentAttemptService", () => {
         const first = await service.claim(baseClaim(), tx(vi.fn()) as never);
         const second = await service.claim(baseClaim({ request: { promotionCode: null, quoteId: "quote-1", items: [{ quantity: 2, productId: 7 }] } }), tx(vi.fn()) as never);
         expect(first.requestHash).toBe(second.requestHash);
+    });
+
+    it("finds an owner-scoped idempotent replay before checkout quote validation", async () => {
+        const request = { quoteId: "expired-quote", items: [{ productId: 7, quantity: 2 }] };
+        const existing = storedAttempt({ requestHash: createHash("sha256").update(JSON.stringify({ items: [{ productId: 7, quantity: 2 }], quoteId: "expired-quote" })).digest("hex") });
+        const repository = { findClaimByOwnerAndKey: vi.fn().mockResolvedValue(existing) };
+        const service = new PaymentAttemptService(repository as unknown as PaymentAttemptRepository);
+        const replay = await service.findExistingClaim({
+            owner: { kind: "authenticated", userId: "user-1" },
+            idempotencyKey: "cbb6e8cf-2e9f-4dc1-8ca5-40c11b88ed69",
+            request,
+        }, tx(vi.fn()) as never);
+        expect(replay).toMatchObject({ id: existing.id, replayed: true });
+        expect(repository.findClaimByOwnerAndKey.mock.calls[0][1]).toBe("user:user-1");
+    });
+
+    it("rejects a changed request body in the pre-validation replay lookup", async () => {
+        const repository = { findClaimByOwnerAndKey: vi.fn().mockResolvedValue(storedAttempt()) };
+        const service = new PaymentAttemptService(repository as unknown as PaymentAttemptRepository);
+        await expect(service.findExistingClaim({
+            owner: { kind: "authenticated", userId: "user-1" },
+            idempotencyKey: "cbb6e8cf-2e9f-4dc1-8ca5-40c11b88ed69",
+            request: { changed: true },
+        }, tx(vi.fn()) as never)).rejects.toMatchObject({ statusCode: 409 });
     });
 
     it("replays the same owner, key and body without changing the immutable expected amount", async () => {

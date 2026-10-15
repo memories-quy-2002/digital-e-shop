@@ -37,6 +37,9 @@ type PaymentAttemptRow = {
     payment_state: string;
     order_state: string;
     resolution_state: string;
+    provider_link_id?: string | null;
+    provider_link_url?: string | null;
+    expires_at?: Date | string;
 };
 
 type RefundBalance = { verified_received_amount_vnd: string | number | bigint; refunded_amount_vnd: string | number | bigint; order_id: number | null };
@@ -63,6 +66,9 @@ function mapClaim(row: PaymentAttemptRow): PaymentAttemptClaim {
         paymentState: row.payment_state as PaymentAttemptClaim["paymentState"],
         orderState: row.order_state as PaymentAttemptClaim["orderState"],
         resolutionState: row.resolution_state as PaymentAttemptClaim["resolutionState"],
+        providerLinkId: row.provider_link_id == null ? null : String(row.provider_link_id),
+        providerLinkUrl: row.provider_link_url == null ? null : String(row.provider_link_url),
+        expiresAt: row.expires_at == null ? null : new Date(row.expires_at).toISOString(),
         replayed: false,
     };
 }
@@ -83,10 +89,22 @@ export class PaymentAttemptClaimCollisionError extends Error {
 
 @Injectable()
 export class PaymentAttemptRepository {
+    async findClaimByOwnerAndKey(tx: TransactionContext, ownerScope: string, idempotencyKeyHash: string): Promise<PaymentAttemptClaim | null> {
+        const rows = await tx.query<PaymentAttemptRow[]>(
+            `SELECT id, owner_scope, idempotency_key_hash, request_hash, snapshot_hash, pending_checkout_id,
+                    provider_order_code, expected_amount_vnd, payment_state, order_state, resolution_state,
+                    provider_link_id, provider_link_url, expires_at
+             FROM payment_attempts WHERE owner_scope = ? AND idempotency_key_hash = ? LIMIT 1`,
+            [ownerScope, idempotencyKeyHash],
+        );
+        return rows[0] ? mapClaim(rows[0]) : null;
+    }
+
     async findClaim(tx: TransactionContext, ownerScope: string, idempotencyKeyHash: string): Promise<PaymentAttemptClaim | null> {
         const rows = await tx.query<PaymentAttemptRow[]>(
             `SELECT id, owner_scope, idempotency_key_hash, request_hash, snapshot_hash, pending_checkout_id,
-                    provider_order_code, expected_amount_vnd, payment_state, order_state, resolution_state
+                    provider_order_code, expected_amount_vnd, payment_state, order_state, resolution_state,
+                    provider_link_id, provider_link_url, expires_at
              FROM payment_attempts WHERE owner_scope = ? AND idempotency_key_hash = ? LIMIT 1 FOR UPDATE`,
             [ownerScope, idempotencyKeyHash],
         );
@@ -115,7 +133,8 @@ export class PaymentAttemptRepository {
         }
         const rows = await tx.query<PaymentAttemptRow[]>(
             `SELECT id, owner_scope, idempotency_key_hash, request_hash, snapshot_hash, pending_checkout_id,
-                    provider_order_code, expected_amount_vnd, payment_state, order_state, resolution_state
+                    provider_order_code, expected_amount_vnd, payment_state, order_state, resolution_state,
+                    provider_link_id, provider_link_url, expires_at
              FROM payment_attempts WHERE id = ? LIMIT 1`, [input.id],
         );
         if (!rows[0]) throw new Error("Payment attempt insert did not persist");
