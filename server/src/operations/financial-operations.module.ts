@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { UsersModule } from "../users/users.module";
 import { EvidenceRepository } from "./evidence.repository";
 import { EvidenceService } from "./evidence.service";
@@ -6,6 +6,16 @@ import { AdminEvidenceController } from "./admin-evidence.controller";
 import { CodSettlementRepository } from "../payments/cod-settlement.repository";
 import { CodSettlementService } from "../payments/cod-settlement.service";
 import { AdminCodSettlementsController } from "../payments/admin-cod-settlements.controller";
+import { AdminPaymentAttemptsController } from "../payments/admin-payment-attempts.controller";
+import { AdminPaymentAttemptsRepository } from "../payments/admin-payment-attempts.repository";
+import { AdminPaymentAttemptsService } from "../payments/admin-payment-attempts.service";
+import { OrdersModule } from "../orders/orders.module";
+import { PaymentsModule } from "../payments/payments.module";
 
-@Module({ imports: [UsersModule], controllers: [AdminEvidenceController, AdminCodSettlementsController], providers: [EvidenceRepository, EvidenceService, CodSettlementRepository, CodSettlementService], exports: [EvidenceService, CodSettlementService] })
+@Module({
+    imports: [UsersModule, forwardRef(() => OrdersModule), PaymentsModule],
+    controllers: [AdminEvidenceController, AdminCodSettlementsController, AdminPaymentAttemptsController],
+    providers: [EvidenceRepository, EvidenceService, CodSettlementRepository, CodSettlementService, AdminPaymentAttemptsRepository, AdminPaymentAttemptsService],
+    exports: [EvidenceService, CodSettlementService],
+})
 export class FinancialOperationsModule {}

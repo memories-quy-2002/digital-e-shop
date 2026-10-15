@@ -39,7 +39,7 @@ function assertSafeVnd(amount: number, label: string, allowZero = false): void {
     }
 }
 
-function ownerScope(owner: PaymentAttemptClaimInput["owner"]): string {
+export function paymentAttemptOwnerScope(owner: PaymentAttemptClaimInput["owner"]): string {
     if (owner.kind === "authenticated") {
         if (!owner.userId || owner.userId.length > 255) throw new ConflictException("Invalid payment attempt owner");
         return `user:${owner.userId}`;
@@ -68,7 +68,7 @@ export class PaymentAttemptService {
 
     async findExistingClaim(input: PaymentAttemptFindClaimInput, tx?: PaymentAttemptTransaction): Promise<PaymentAttemptClaim | null> {
         if (!input.idempotencyKey || input.idempotencyKey.length > 191) throw new ConflictException("Invalid idempotency key");
-        const scope = ownerScope(input.owner);
+        const scope = paymentAttemptOwnerScope(input.owner);
         const keyHash = hash(input.idempotencyKey);
         const requestHash = hash(input.request);
         const work = async (transaction: TransactionContext): Promise<PaymentAttemptClaim | null> => {
@@ -76,6 +76,29 @@ export class PaymentAttemptService {
             return existing ? this.replay(existing, requestHash) : null;
         };
         return tx ? work(tx) : withTransaction(work);
+    }
+
+    async requestOwnedCancellation(input: PaymentAttemptOwnedStatusInput, tx?: PaymentAttemptTransaction) {
+        const scope = paymentAttemptOwnerScope(input.owner);
+        const work = (transaction: TransactionContext) => this.repository.requestOwnedCancellation(transaction, input.attemptId, scope);
+        return tx ? work(tx) : withTransaction(work);
+    }
+
+    async claimOwnedReconciliationRequest(input: PaymentAttemptOwnedStatusInput, now: Date, tx?: PaymentAttemptTransaction) {
+        const scope = paymentAttemptOwnerScope(input.owner);
+        const work = (transaction: TransactionContext) => this.repository.claimOwnedReconciliationRequest(transaction, input.attemptId, scope, now);
+        return tx ? work(tx) : withTransaction(work);
+    }
+
+    async getCancellationTaskAttempt(attemptId: string, tx?: PaymentAttemptTransaction) {
+        const work = (transaction: TransactionContext) => this.repository.getCancellationTaskAttempt(transaction, attemptId);
+        return tx ? work(tx) : withTransaction(work);
+    }
+
+    async releaseCancelledCheckout(pendingCheckoutId: number, tx?: PaymentAttemptTransaction): Promise<void> {
+        const work = (transaction: TransactionContext) => this.repository.releaseCancelledCheckout(transaction, pendingCheckoutId);
+        if (tx) return work(tx);
+        await withTransaction(work);
     }
 
     async claim(input: PaymentAttemptClaimInput, tx?: PaymentAttemptTransaction): Promise<PaymentAttemptClaim> {
@@ -87,7 +110,7 @@ export class PaymentAttemptService {
         if (expectedFromSnapshot !== input.expectedAmountVnd) throw new ConflictException("Payment attempt snapshot total does not match expected amount");
         if (!Number.isSafeInteger(input.pendingCheckoutId) || input.pendingCheckoutId <= 0) throw new ConflictException("Invalid pending checkout");
 
-        const scope = ownerScope(input.owner);
+        const scope = paymentAttemptOwnerScope(input.owner);
         const idempotencyKeyHash = hash(input.idempotencyKey);
         const snapshotHash = hash(snapshot);
         const canonicalRequestHash = hash(input.request);
@@ -152,7 +175,7 @@ export class PaymentAttemptService {
     }
 
     async getOwnedStatus(input: PaymentAttemptOwnedStatusInput, tx?: PaymentAttemptTransaction): Promise<PaymentAttemptStatus> {
-        const scope = ownerScope(input.owner);
+        const scope = paymentAttemptOwnerScope(input.owner);
         const work = async (transaction: TransactionContext): Promise<PaymentAttemptStatus> => {
             const row = await this.repository.getOwnedStatus(transaction, input.attemptId, scope);
             if (!row) throw new NotFoundException("Payment attempt not found");
@@ -188,20 +211,27 @@ export class PaymentAttemptService {
         if (!input.transferReference || input.transferReference.length > 191) throw new ConflictException("Invalid transfer reference");
         const work = async (transaction: TransactionContext): Promise<PaymentAttemptRefundResult> => {
             const prior = await this.repository.findRefundByIdempotency(transaction, input.idempotencyKey);
+            const matchesInput = (record: NonNullable<typeof prior>) => record.attemptId === input.attemptId
+                && record.amountVnd === input.amountVnd
+                && record.transferReference === input.transferReference
+                && record.transferredAt === input.transferredAt.toISOString().slice(0, 10)
+                && record.evidenceId === input.evidenceId
+                && record.actorId === input.actorId
+                && record.reason === input.reason;
             if (prior) {
-                if (prior.attemptId !== input.attemptId || prior.amountVnd !== input.amountVnd || prior.transferReference !== input.transferReference) {
+                if (!matchesInput(prior)) {
                     throw new ConflictException("Refund idempotency key was reused with different details");
                 }
-                return { operationId: prior.operationId, amountVnd: prior.amountVnd };
+                return { operationId: prior.operationId, amountVnd: prior.amountVnd, replayed: true };
             }
             const balance = await this.repository.lockRefundBalance(transaction, input.attemptId);
             if (!balance || balance.orderId != null) throw new ConflictException("Only paid attempts without an order can use this refund path");
-            const racedPrior = await this.repository.findRefundByIdempotency(transaction, input.idempotencyKey);
+            const racedPrior = await this.repository.findRefundByIdempotency(transaction, input.idempotencyKey, true);
             if (racedPrior) {
-                if (racedPrior.attemptId !== input.attemptId || racedPrior.amountVnd !== input.amountVnd || racedPrior.transferReference !== input.transferReference) {
+                if (!matchesInput(racedPrior)) {
                     throw new ConflictException("Refund idempotency key was reused with different details");
                 }
-                return { operationId: racedPrior.operationId, amountVnd: racedPrior.amountVnd };
+                return { operationId: racedPrior.operationId, amountVnd: racedPrior.amountVnd, replayed: true };
             }
             if (input.amountVnd > balance.verifiedReceivedAmountVnd - balance.refundedAmountVnd) throw new ConflictException("Refund exceeds verified received funds");
             return this.repository.insertRefund(transaction, input);

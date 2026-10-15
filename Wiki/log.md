@@ -103,3 +103,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-10-14 — Codex: document the transactional operations task foundation and fenced leases.
 - 2026-10-14 - Codex - Completed retail P0 fulfillment, COD/refund evidence, durable transactional email, sandbox checkout coverage, and operator recovery documentation; live provider and scheduler verification remain pending.
 - 2026-10-15 - Codex - Added transactional welcome and payment-confirmation email events; documented locale handling and delivery requirements in [[transactional-email-operations]].
+- 2026-10-15 - Codex - Implemented durable PayOS checkout attempts, verified status recovery, owner-scoped customer actions, and admin payment exception operations; local dependency and configured provider acceptance gates remain pending; see [[payos-checkout-reliability]].

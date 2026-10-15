@@ -129,6 +129,24 @@ request, retry PayOS records, confirm COD collection, and inspect webhook
 history. Run `pnpm --dir server seed:demo` after changing the demo seed so local
 products, discount thresholds, and demo orders are materialized in VND.
 
+PayOS checkout persists an owner-scoped attempt before requesting a payment
+link. In mock mode the local simulator can confirm that attempt without moving
+money; the browser return only resumes the backend status view. Configure the
+public `/api/orders/webhooks/payos` endpoint for signed provider events and keep
+the operations runner available so durable reconciliation tasks can run. The
+customer status routes are listed in `docs/API.md`; status polling is bounded
+and cancellation applies only while payment is not verified.
+
+Unresolved paid PayOS attempts appear in the admin payment reconciliation page.
+Retry creates an order only for an exact verified receipt with no order,
+cancellation request, refund, or closed resolution; the service rechecks
+inventory and reservation invariants. Offline refunds are records of transfers
+already completed by an operator. They require an uploaded private evidence
+file, a unique transfer reference, an idempotency UUID, and a reason; the API
+does not initiate a bank or PayOS refund. A retry/refund exception is not proof
+that real PayOS sandbox acceptance has passed: that acceptance still requires
+provider credentials and a configured test channel.
+
 Authentication is Firebase-only. The client signs users in with Firebase Email/Password and sends a Firebase ID token to the API; the server verifies that token with Firebase Admin before issuing its cookie-backed session. Firebase owns verification, password-reset, and email-change action links in every environment. After the user signs in again, the server reads Firebase's email_verified claim and updates email_verified_at, including synchronizing a verified email change by Firebase UID. Authenticated checkout, PayOS checkout-session creation, and review creation remain blocked until that claim is true. Legacy verification and password-reset columns remain nullable for schema compatibility but are no longer used by the runtime.
 
 ### Local Firebase Auth Emulator profile

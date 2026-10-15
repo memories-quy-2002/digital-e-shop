@@ -24,6 +24,7 @@ import {
 import { clearGuestCart } from "../guestCartStorage";
 import {
     clearPendingCheckout,
+    getOrCreatePayOSSubmission,
     maskPhoneNumber,
     writeCheckoutSuccess,
     writePendingCheckout,
@@ -263,20 +264,14 @@ const CheckoutPaymentPage = ({
     const quoteIsValid = Boolean(shippingQuote && deliveryAddress && Date.parse(shippingQuote.expiresAt) > Date.now());
 
     const submitPayOSCheckout = async (submission: CheckoutSubmissionContext) => {
-        const pendingCheckout = {
-            totalPrice: shippingQuote!.pricing.itemsSubtotal + shippingQuote!.pricing.shippingFee,
-            discount,
-            subtotal: shippingQuote!.pricing.itemsSubtotal,
-            shippingFee: shippingQuote!.pricing.shippingFee,
-            itemsCount: submission.latestCart.reduce((sum, item) => sum + item.quantity, 0),
-            paymentMethod: formCheckout.payment_method,
-            email: submission.normalizedEmail,
-            name: submission.normalizedName,
-            address: formCheckout.address,
-            city: formCheckout.city,
-            country: formCheckout.country || "",
-            phone: formCheckout.phone_number ? maskPhoneNumber(formCheckout.phone_number) : "",
-        };
+        const cartSnapshot = submission.latestCart.map(({ productId, quantity }) => ({ productId, quantity }));
+        const requestFingerprint = JSON.stringify({
+            cart: cartSnapshot,
+            shippingQuoteId: shippingQuote!.id,
+            discountCode: discountCode || "",
+            currency: "VND",
+        });
+        const pendingCheckout = getOrCreatePayOSSubmission(requestFingerprint, cartSnapshot);
         const sessionResponse = uid
             ? await createPayOSCheckoutSession(uid, {
                 cart: submission.latestCart,
@@ -287,7 +282,7 @@ const CheckoutPaymentPage = ({
                 shippingQuoteId: shippingQuote!.id,
                 deliveryAddress: deliveryAddress!,
                 locale,
-            })
+            }, pendingCheckout.idempotencyKey)
             : await createGuestPayOSCheckoutSession({
                 cart: submission.guestCart,
                 contact: submission.guestContact,
@@ -297,18 +292,18 @@ const CheckoutPaymentPage = ({
                 shippingQuoteId: shippingQuote!.id,
                 deliveryAddress: deliveryAddress!,
                 locale,
-            });
+            }, pendingCheckout.idempotencyKey);
 
         writePendingCheckout({
             ...pendingCheckout,
-            ...(sessionResponse.guestOrderToken ? { guestOrderToken: sessionResponse.guestOrderToken } : {}),
+            attemptId: sessionResponse.attemptId,
+            providerOrderCode: String(sessionResponse.orderCode),
         });
         if (sessionResponse.url) {
             window.location.href = sessionResponse.url;
             return;
         }
-
-        setErrors([t("checkout.paymentUrlError")]);
+        navigate(`/checkout-success?payment_attempt_id=${encodeURIComponent(sessionResponse.attemptId)}`);
     };
 
     const submitGuestOrder = async (submission: CheckoutSubmissionContext) => {
@@ -387,12 +382,15 @@ const CheckoutPaymentPage = ({
         };
 
         writeCheckoutSuccess(payload);
+        clearPendingCheckout();
         navigate("/checkout-success", { state: { checkoutSuccess: payloadSensitive } });
     };
 
     const handlePurchaseFailure = (err: unknown) => {
         if (err && typeof err === "object" && "response" in err) {
             const payload = getApiErrorPayload(err);
+            const status = (err as { response?: { status?: number } }).response?.status;
+            if (status === HTTP_STATUS.CONFLICT) clearPendingCheckout();
             const requiresVerification = payload?.code === "EMAIL_VERIFICATION_REQUIRED";
             const authoritativeCart = Array.isArray(payload?.authoritativeCart)
                 ? payload.authoritativeCart
@@ -404,7 +402,9 @@ const CheckoutPaymentPage = ({
                 issues: Array.isArray(payload?.issues) ? payload.issues as CartValidationIssue[] : undefined,
                 cartItems: authoritativeCart,
             });
-            const message = requiresVerification
+            const message = status === HTTP_STATUS.CONFLICT
+                ? t("checkout.checkoutDraftChanged")
+                : requiresVerification
                 ? t("checkout.verificationRequired")
                 : getApiErrorMessage(err, t("checkout.checkoutError"));
             setErrors([message]);

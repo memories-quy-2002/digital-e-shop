@@ -182,7 +182,10 @@ describe("CheckoutReservationService", () => {
             findExistingClaim: vi.fn().mockResolvedValue(null),
             claim: vi.fn().mockResolvedValue(paymentAttempt),
         };
-        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never, undefined, attempts as never);
+        const tasks = { enqueue: vi.fn().mockResolvedValue(44) };
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never, undefined, attempts as never, tasks as never);
+        const transaction = { query: vi.fn().mockResolvedValue({ affectedRows: 1 }) };
+        transactionRunner.mockImplementationOnce(async (work: (tx: unknown) => Promise<unknown>) => work(transaction));
 
         const result = await service.reservePayOSInventory(reservationInput("user-a"), {
             owner: { kind: "authenticated", userId: "user-a" },
@@ -197,6 +200,12 @@ describe("CheckoutReservationService", () => {
             request: { cart: [{ productId: 1, quantity: 1 }], totalPrice: 10 },
         }), expect.anything());
         expect(repository.assignPayOSAttempt).toHaveBeenCalledWith(expect.anything(), 1, 123456789, 10);
+        expect(tasks.enqueue).toHaveBeenCalledWith(transaction, expect.objectContaining({
+            kind: "PAYOS_RECONCILE",
+            key: "payos:attempt-123:0",
+            payload: expect.objectContaining({ attemptId: "attempt-123", pendingCheckoutId: 1, generation: 0 }),
+            dueAt: expect.any(Date),
+        }));
         expect(result.paymentAttempt).toEqual(paymentAttempt);
     });
 

@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, RequestMethod } from "@nestjs/common";
 import type { MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { OrdersController } from "./orders.controller";
 import { GuestOrdersController } from "./guest-orders.controller";
@@ -25,9 +25,10 @@ import { UsersModule } from "../users/users.module";
 import { ProductAlertsModule } from "../product-alerts/product-alerts.module";
 import { ShippingModule } from "../shipping/shipping.module";
 import { CustomerShippingController } from "../shipping/customer-shipping.controller";
+import { TasksModule } from "../operations/tasks.module";
 
 @Module({
-    imports: [ShippingModule, NestConfigModule, CartModule, InventoryModule, NotificationsModule, PromotionsModule, ProductsModule, ProductAlertsModule, PaymentsModule, UsersModule],
+    imports: [ShippingModule, NestConfigModule, CartModule, InventoryModule, NotificationsModule, PromotionsModule, ProductsModule, ProductAlertsModule, PaymentsModule, UsersModule, TasksModule],
     controllers: [OrdersController, GuestOrdersController, AdminPaymentsController, CustomerShippingController],
     providers: [
         NestOrdersService,
@@ -46,5 +47,17 @@ import { CustomerShippingController } from "../shipping/customer-shipping.contro
 export class OrdersModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {
         consumer.apply(createRateLimitMiddleware(100)).forRoutes(OrdersController, GuestOrdersController, CustomerShippingController);
+        consumer.apply(createRateLimitMiddleware(60, { name: "status", limit: 60, windowMs: 60_000 }))
+            .forRoutes(
+                { path: "orders/payment-attempts/:attemptId", method: RequestMethod.GET },
+                { path: "orders/guest/payment-attempts/:attemptId/status", method: RequestMethod.POST },
+            );
+        consumer.apply(createRateLimitMiddleware(6, { name: "mutation", limit: 6, windowMs: 60_000 }))
+            .forRoutes(
+                { path: "orders/payment-attempts/:attemptId/reconcile", method: RequestMethod.POST },
+                { path: "orders/payment-attempts/:attemptId/cancel", method: RequestMethod.POST },
+                { path: "orders/guest/payment-attempts/:attemptId/reconcile", method: RequestMethod.POST },
+                { path: "orders/guest/payment-attempts/:attemptId/cancel", method: RequestMethod.POST },
+            );
     }
 }

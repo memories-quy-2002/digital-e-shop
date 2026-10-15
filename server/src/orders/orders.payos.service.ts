@@ -247,7 +247,7 @@ export class NestOrdersPayOSService {
         if (!leaseAcquired) return this.resultFromAttempt(attempt);
         const result = this.resultFromAttempt(attempt);
         const paymentLinkId = `mock_payos_${attempt.id}`;
-        const url = `${env.clientUrl}/mock-payos-checkout?payos_order_code=${result.orderCode}&payment_link_id=${encodeURIComponent(paymentLinkId)}&amount=${result.amount}`;
+        const url = `${env.clientUrl}/mock-payos-checkout?payos_order_code=${result.orderCode}&payment_link_id=${encodeURIComponent(paymentLinkId)}&amount=${result.amount}&payment_attempt_id=${encodeURIComponent(attempt.id)}`;
         const saved = await this.paymentAttemptService.saveProviderLink({
             attemptId: attempt.id,
             leaseToken,
@@ -290,8 +290,8 @@ export class NestOrdersPayOSService {
             orderCode,
             amount: attempt.expectedAmountVnd,
             description: `DE${String(orderCode).slice(-7)}`,
-            returnUrl: `${env.clientUrl}/checkout-success?payment_provider=${PAYMENT_PROVIDER.PAYOS}&payos_order_code=${orderCode}`,
-            cancelUrl: `${env.clientUrl}/cart?payment=cancelled`,
+            returnUrl: `${env.clientUrl}/checkout-success?payment_provider=${PAYMENT_PROVIDER.PAYOS}&payos_order_code=${orderCode}&payment_attempt_id=${encodeURIComponent(attempt.id)}`,
+            cancelUrl: `${env.clientUrl}/checkout-success?payment_provider=${PAYMENT_PROVIDER.PAYOS}&payment_attempt_id=${encodeURIComponent(attempt.id)}`,
             expiredAt: Math.floor(expiresAt.getTime() / 1000),
         };
         let link: Awaited<ReturnType<PayOSService["createPaymentLink"]>> | null = null;

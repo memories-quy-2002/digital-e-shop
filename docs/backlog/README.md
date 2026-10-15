@@ -43,3 +43,17 @@ simulation evidence only. GHN/Resend staging, live payment and transfer
 reconciliation, and external scheduler provisioning remain pending until
 accounts, verified sender/domain, secrets and scheduler infrastructure are
 provisioned and tested.
+
+## PayOS checkout reliability (separate payment initiative)
+
+- [Approved design](../superpowers/specs/2026-10-15-payos-checkout-reliability-design.md)
+- [Implementation plan](../superpowers/plans/2026-10-15-payos-checkout-reliability.md)
+
+The implementation adds persistent owner-scoped checkout attempts, verified
+webhook and server lookup recovery, customer status/resume/cancel actions, and
+an admin exception queue with safe fulfillment retry or evidence-backed offline
+refund recording. Code and local simulator coverage are implemented in the
+current branch; focused runtime and database/browser suites remain unverified
+where local dependencies and infrastructure are unavailable. Configured PayOS
+sandbox acceptance is still an external gate and must not be inferred from the
+local simulator.

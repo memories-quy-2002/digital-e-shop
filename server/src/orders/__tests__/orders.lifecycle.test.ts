@@ -133,6 +133,32 @@ describe("order lifecycle", () => {
         expect(notifications.notifyOrderStatus).toHaveBeenCalledTimes(1);
     });
 
+    it.each(["paid", "partially_refunded", "refund_pending"])("blocks PayOS cancellation with unresolved funds (%s) before restoring inventory", async (paymentStatus) => {
+        const { service, tx, inventory, timeline, notifications } = buildService({ paymentProvider: "payos", paymentStatus });
+
+        await expect(service.cancelOrder(9, "user-1")).rejects.toMatchObject({ statusCode: 409 });
+
+        expect(tx.query.mock.calls.some(([sql]) => String(sql).startsWith("UPDATE products"))).toBe(false);
+        expect(tx.query.mock.calls.some(([sql]) => String(sql).startsWith("UPDATE orders"))).toBe(false);
+        expect(inventory.createMovementsInTransaction).not.toHaveBeenCalled();
+        expect(timeline.createTimelineEventInTransaction).not.toHaveBeenCalled();
+        expect(notifications.notifyOrderStatus).not.toHaveBeenCalled();
+    });
+
+    it("keeps the existing cancellation policy for a pending PayOS payment", async () => {
+        const { service, inventory } = buildService({ paymentProvider: "payos", paymentStatus: "pending" });
+
+        await expect(service.cancelOrder(9, "user-1")).resolves.toMatchObject({ status: 2 });
+        expect(inventory.createMovementsInTransaction).toHaveBeenCalledOnce();
+    });
+
+    it("allows cancellation after a PayOS refund is confirmed in full", async () => {
+        const { service, inventory } = buildService({ paymentProvider: "payos", paymentStatus: "refunded" });
+
+        await expect(service.cancelOrder(9, "user-1")).resolves.toMatchObject({ status: 2 });
+        expect(inventory.createMovementsInTransaction).toHaveBeenCalledOnce();
+    });
+
     it("blocks cancellation while an outbound shipment creation may have reached the carrier", async () => {
         for (const shipmentCreationState of ["READY", "RUNNING", "SUCCEEDED", "REVIEW_REQUIRED"]) {
             const { service, tx, notifications } = buildService({ shipmentCreationState });

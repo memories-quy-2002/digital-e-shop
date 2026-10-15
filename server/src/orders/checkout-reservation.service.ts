@@ -9,6 +9,7 @@ import { withTransaction } from "../database/transaction";
 import { CheckoutReservationRepository } from "./checkout-reservation.repository";
 import { PromotionsRepository } from "../promotions/promotions.repository";
 import { PaymentAttemptService } from "../payments/payment-attempt.service";
+import { TasksService } from "../operations/tasks.service";
 import type { PaymentAttemptClaim, PaymentAttemptDisplaySnapshot, PaymentAttemptOwner } from "../payments/payment-attempt.types";
 import type { CartItemRow } from "../cart/cart.types";
 import type {
@@ -61,6 +62,7 @@ export class CheckoutReservationService {
         private readonly shippingQuoteService: ShippingQuoteService,
         @Optional() private readonly orderEmails?: OrderEmailService,
         @Optional() private readonly paymentAttemptService?: PaymentAttemptService,
+        @Optional() private readonly tasks?: TasksService,
     ) {}
 
     async reserveInventory(input: CheckoutReservationInput): Promise<CheckoutReservation> {
@@ -209,6 +211,19 @@ export class CheckoutReservationService {
                 if (!Number.isSafeInteger(orderCode) || orderCode <= 0) throw new Error("Invalid persisted PayOS order code");
                 const affectedRows = await this.repository.assignPayOSAttempt(tx, pendingCheckout.insertId, orderCode, paymentAttempt.expectedAmountVnd);
                 if (affectedRows !== 1) throw createReservationError("Checkout reservation is no longer available.", HTTP_STATUS.CONFLICT);
+                if (!this.tasks) throw new Error("PayOS recovery task persistence is not configured");
+                await this.tasks.enqueue(tx, {
+                    kind: "PAYOS_RECONCILE",
+                    key: `payos:${paymentAttempt.id}:0`,
+                    payload: {
+                        attemptId: paymentAttempt.id,
+                        pendingCheckoutId: pendingCheckout.insertId,
+                        providerOrderCode: paymentAttempt.providerOrderCode,
+                        generation: 0,
+                        expiresAt: expiresAt.toISOString(),
+                    },
+                    dueAt: new Date(Date.now() + 15000),
+                });
             }
             const reservation: CheckoutReservation = {
                 pendingCheckoutId: pendingCheckout.insertId,

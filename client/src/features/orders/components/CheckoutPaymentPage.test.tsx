@@ -123,8 +123,9 @@ describe("CheckoutPaymentPage guest checkout", () => {
 
     it("redirects guest PayOS checkout through a server-created VND payment link", async () => {
         mocks.guestPayOSSession.mockResolvedValue({
-            url: "",
-            guestOrderToken: "payos-token",
+            attemptId: "123e4567-e89b-42d3-a456-426614174000",
+            sessionState: "CREATING",
+            url: null,
             orderCode: 123456,
             amount: 4_000_000,
             currency: "VND",
@@ -143,12 +144,15 @@ describe("CheckoutPaymentPage guest checkout", () => {
             shippingQuoteId: "quote-1",
             deliveryAddress: { recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", provinceCode: "1", provinceName: "HCMC", wardCode: "2", wardName: "HCMC", districtCode: "3", country: "VN" },
             locale: "en",
-        }));
+        }, expect.any(String)));
         expect(mocks.guestPurchase).not.toHaveBeenCalled();
         expect(JSON.parse(sessionStorage.getItem("checkoutPending") || "{}")).toMatchObject({
-            guestOrderToken: "payos-token",
-            paymentMethod: "payos",
+            version: 2,
+            attemptId: "123e4567-e89b-42d3-a456-426614174000",
+            providerOrderCode: "123456",
+            cartSnapshot: [{ productId: 10, quantity: 2 }],
         });
+        expect(mocks.navigate).toHaveBeenCalledWith("/checkout-success?payment_attempt_id=123e4567-e89b-42d3-a456-426614174000");
     });
 
     it("passes guest contact and shipping details through route state without persisting PII", async () => {
@@ -183,6 +187,13 @@ describe("CheckoutPaymentPage guest checkout", () => {
     });
 
     it("stores the complete authenticated shipping snapshot and preserves the order flow", async () => {
+        sessionStorage.setItem("checkoutPending", JSON.stringify({
+            version: 2,
+            idempotencyKey: "123e4567-e89b-42d3-a456-426614174001",
+            requestFingerprint: "old-payos-checkout",
+            attemptId: "123e4567-e89b-42d3-a456-426614174000",
+            cartSnapshot: [{ productId: 10, quantity: 1 }],
+        }));
         mocks.auth.userData = { id: "user-1" };
         mocks.httpGet.mockResolvedValue({
             status: 200,
@@ -217,6 +228,7 @@ describe("CheckoutPaymentPage guest checkout", () => {
             deliveryAddress: expect.objectContaining({ provinceCode: "1", wardCode: "2" }),
             locale: "en",
         })));
+        expect(sessionStorage.getItem("checkoutPending")).toBeNull();
     });
 
     it("prefills saved and recent addresses while requiring explicit province and ward confirmation", async () => {

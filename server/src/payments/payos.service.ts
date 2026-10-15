@@ -91,7 +91,10 @@ export class PayOSService {
         }
     }
     cancelPaymentLink(paymentLinkId: string, reason: string) {
-        return this.getClient().paymentRequests.cancel(paymentLinkId, reason);
+        return this.getClient().paymentRequests.cancel(paymentLinkId, reason, {
+            timeout: PROVIDER_REQUEST_TIMEOUT_MS,
+            maxRetries: 0,
+        });
     }
 
     verifyWebhook(payload: unknown): Promise<WebhookData> {

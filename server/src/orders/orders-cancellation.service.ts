@@ -1,6 +1,7 @@
 import { Injectable, Optional } from "@nestjs/common";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { ORDER_STATUS } from "#src/shared/constants/order-status";
+import { PAYMENT_PROVIDER, PAYMENT_STATUS } from "../payments/payment.types";
 import type { InventoryMovementInput } from "../inventory/inventory.dto";
 import { withTransaction } from "../database/transaction";
 import type { TransactionContext } from "../database/transaction";
@@ -31,6 +32,14 @@ export class NestOrdersCancellationService {
             if (!admin && String(order.user_id) !== String(actorId)) throw createCheckoutError("You cannot cancel this order", HTTP_STATUS.FORBIDDEN);
             if (Number(order.status) === ORDER_STATUS.CANCELED) return { userId: order.user_id, changed: false };
             if (Number(order.status) !== ORDER_STATUS.PENDING) throw createCheckoutError("Only pending orders can be canceled", HTTP_STATUS.CONFLICT);
+            const payment = await this.ordersRepository.getLatestPaymentForUpdate(tx, orderId);
+            const paymentStatus = String(payment?.status || "").toLowerCase();
+            if (String(payment?.provider || "").toLowerCase() === PAYMENT_PROVIDER.PAYOS
+                && (paymentStatus === PAYMENT_STATUS.PAID
+                    || paymentStatus === PAYMENT_STATUS.PARTIALLY_REFUNDED
+                    || paymentStatus === PAYMENT_STATUS.REFUND_PENDING)) {
+                throw createCheckoutError("PayOS funds must be fully refunded and confirmed before cancellation", HTTP_STATUS.CONFLICT);
+            }
             if (["READY", "RUNNING", "SUCCEEDED", "REVIEW_REQUIRED"].includes(order.shipment_creation_state || "")) {
                 throw createCheckoutError("Resolve the shipment creation outcome before canceling this order", HTTP_STATUS.CONFLICT);
             }

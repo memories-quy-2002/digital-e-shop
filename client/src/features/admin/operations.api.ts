@@ -3,6 +3,8 @@ import type {
     CodSettlementsPage,
     EmailOperationsPage,
     FinancialEvidence,
+    PaymentAttemptExceptionDetail,
+    PaymentAttemptExceptionPage,
     SettlementInput,
     TaskRunnerSummary,
 } from "./operations.types";
@@ -52,4 +54,35 @@ export async function runOperations(limit: number): Promise<TaskRunnerSummary> {
 export async function retryEmail(messageId: number, acknowledgeUnknownOutcome: boolean) {
     const response = await http.post(`/api/admin/email/${messageId}/resend`, { acknowledgeUnknownOutcome });
     return response.data;
+}
+
+export type PaymentAttemptRefundInput = {
+    amountVnd: number;
+    transferReference: string;
+    idempotencyKey: string;
+    transferredAt: string;
+    evidenceId: number;
+    reason: string;
+};
+
+export async function fetchPaymentAttemptExceptions(page = 1, limit = 25): Promise<PaymentAttemptExceptionPage> {
+    const response = await http.get("/api/admin/payments/attempt-exceptions", {
+        params: { page: Math.max(1, Math.trunc(page)), limit: Math.min(100, Math.max(1, Math.trunc(limit))) },
+    });
+    return response.data as PaymentAttemptExceptionPage;
+}
+
+export async function fetchPaymentAttemptException(attemptId: string): Promise<PaymentAttemptExceptionDetail> {
+    const response = await http.get(`/api/admin/payments/attempt-exceptions/${encodeURIComponent(attemptId)}`);
+    return response.data.attempt as PaymentAttemptExceptionDetail;
+}
+
+export async function retryPaymentAttempt(attemptId: string, reason: string) {
+    const response = await http.post(`/api/admin/payments/attempt-exceptions/${encodeURIComponent(attemptId)}/retry`, { reason });
+    return response.data.result;
+}
+
+export async function recordPaymentAttemptRefund(attemptId: string, input: PaymentAttemptRefundInput) {
+    const response = await http.post(`/api/admin/payments/attempt-exceptions/${encodeURIComponent(attemptId)}/refunds`, input);
+    return response.data.refund as { operationId: string; amountVnd: number; replayed: boolean; resolutionState: string };
 }

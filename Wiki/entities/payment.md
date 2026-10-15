@@ -29,6 +29,13 @@ and processing timestamps. `PaymentReconciliationAttempt` stores each operator
 or scheduled comparison, including expected values, provider values, outcome,
 requesting actor, and mismatch reason.
 
+`PaymentAttempt` is created before a PayOS link request. It owns an immutable
+checkout snapshot, an idempotent provider order code, independent payment/order/
+resolution states, and the owner scope. Verified webhook and server lookup facts
+are append-only observations. Customer status is exposed only to the signed-in
+owner or the matching guest cart cookie; the browser return URL is not proof.
+See [[payos-checkout-reliability]].
+
 ## Active providers and currency
 
 The active provider boundary accepts `payos` and `cash`. The current store
@@ -55,6 +62,14 @@ The finalizer checks the exact provider order code, payment-link reference,
 amount, currency, and payment status. Idempotency keys, unique provider
 references, webhook event keys, and reservation state prevent duplicate
 finalization.
+
+An order is considered confirmed only when payment is `PAID`, order state is
+`CREATED`, and an order ID is committed. Cancellation intent cannot erase a
+later verified receipt. An unmatched paid receipt remains available in the
+admin exception queue; fulfillment retry rechecks current inventory and
+reservation invariants. An offline refund record represents a transfer already
+made and requires private evidence; it never calls a refund provider. Refunds
+are capped against verified received funds under an attempt lock.
 
 ## Reconciliation states
 

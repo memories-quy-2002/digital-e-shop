@@ -20,6 +20,7 @@ The local demo seed creates a linked graph with 28 products across 8 categories 
 - [[order-lifecycle-and-support]]: order state transitions, review eligibility, and support-ticket ownership
 - [[architecture]]: product comparison API/state boundaries and other runtime architecture decisions
 - [[after-sales-request]]: customer and guest return/warranty requests, eligibility, status events, and refund boundaries
+- [[payos-checkout-reliability]]: persistent PayOS attempts, verified status recovery, cancellation, and admin exception handling
 - [[0001-mysql-primary-prisma-partial]]: MySQL and partial Prisma ownership
 - [[0002-nestjs-migration]]: accepted NestJS migration and current server structure
 - [[0003-payment-ledger-and-usd-canonical-currency]]: historical USD-canonical decision and its current VND status

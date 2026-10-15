@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { TaskResult, TaskState } from "./tasks.types";
+import type { TaskKind, TaskResult, TaskState } from "./tasks.types";
 
 function canonical(value: unknown): string {
     if (value === null || typeof value === "string" || typeof value === "boolean") return JSON.stringify(value);
@@ -22,12 +22,17 @@ export function boundBatch(limit = 20): number {
     return limit;
 }
 
-export function nextTaskOutcome(attempt: number, result: TaskResult, now: Date): {
+export function nextTaskOutcome(attempt: number, result: TaskResult, now: Date, taskKind?: TaskKind): {
     state: TaskState; dueAt: Date; reason: string | null; providerReference: string | null;
 } {
     if (result.kind === "success") return { state: "SUCCEEDED", dueAt: now, reason: null, providerReference: result.providerReference || null };
-    const state = result.kind === "ambiguous" ? "REVIEW_REQUIRED" : result.kind === "permanent" || attempt >= 8 ? "FAILED" : "READY";
+    const state = taskKind === "PAYOS_RECONCILE"
+        ? result.kind === "permanent" || result.kind === "ambiguous" || attempt >= 8 ? "REVIEW_REQUIRED" : "READY"
+        : result.kind === "ambiguous" ? "REVIEW_REQUIRED" : result.kind === "permanent" || attempt >= 8 ? "FAILED" : "READY";
     const delay = [30000, 120000, 300000, 900000, 3600000, 10800000, 21600000][Math.min(6, Math.max(0, attempt - 1))];
+    const payosDelay = [15000, 30000, 60000, 120000, 240000, 300000, 300000][Math.min(6, Math.max(0, attempt - 1))];
     const hint = Number.isFinite(result.retryAfterMs) ? Math.min(21600000, Math.max(0, result.retryAfterMs || 0)) : 0;
-    return { state, dueAt: new Date(now.getTime() + Math.max(delay, hint)), reason: result.reason.slice(0, 80), providerReference: null };
+    const baseDelay = taskKind === "PAYOS_RECONCILE" ? payosDelay : delay;
+    const jitter = taskKind === "PAYOS_RECONCILE" ? Math.floor(Math.random() * Math.min(3000, baseDelay * 0.1)) : 0;
+    return { state, dueAt: new Date(now.getTime() + Math.max(baseDelay + jitter, hint)), reason: result.reason.slice(0, 80), providerReference: null };
 }

@@ -233,6 +233,12 @@ totals:
 | --- | --- | --- |
 | POST | /api/orders/guest/purchase | Create a COD or PayOS guest order |
 | POST | /api/orders/guest/payos-checkout-session | Create a guest PayOS payment link |
+| GET | /api/orders/payment-attempts/:attemptId | Read authenticated payment-attempt status |
+| POST | /api/orders/payment-attempts/:attemptId/reconcile | Queue an owner-scoped PayOS status lookup |
+| POST | /api/orders/payment-attempts/:attemptId/cancel | Request cancellation of an unpaid authenticated attempt |
+| POST | /api/orders/guest/payment-attempts/:attemptId/status | Read guest payment-attempt status using the guest cart cookie |
+| POST | /api/orders/guest/payment-attempts/:attemptId/reconcile | Queue a guest-owned PayOS status lookup |
+| POST | /api/orders/guest/payment-attempts/:attemptId/cancel | Request cancellation of an unpaid guest attempt |
 | POST | /api/orders/guest/lookup | Read a guest order with its token |
 | POST | /api/orders/guest/by-payos-order-code | Read a guest PayOS order with its token |
 | POST | /api/orders/mock-payos/confirm | Confirm a local mock PayOS payment |
@@ -337,7 +343,12 @@ database compatibility.
 
 PayOS checkout returns a payment URL, provider order code, payment-link ID,
 amount, and currency. Return URLs only resume status polling. They never prove
-payment. The verified webhook is the payment finalization signal.
+payment. The verified webhook or a signed server-to-server PayOS lookup is the
+payment finalization signal. Checkout attempts are persisted before creating a
+provider link; clients send an `Idempotency-Key` UUID and resume by the returned
+`payment_attempt_id`. Authenticated reads require the signed-in owner. Guest
+reads and actions require the existing guest cart cookie; an attempt ID alone
+does not authorize access.
 
 PayOS webhook processing verifies the signature, stores the event, claims it
 idempotently, and checks the exact VND amount, order code, and payment-link
@@ -368,6 +379,14 @@ The reconciliation run clamps its limit to 100 candidates per request.
 Operators can retry PayOS reconciliation, confirm COD collection with an
 optional note, and inspect linked webhook events.
 
+The customer status projection separates `paymentState`, `orderState`, and
+`resolutionState`. Only `PAID` + `CREATED` + a persisted `orderId` is presented
+as confirmed. Status reads are no-store; the client polls with bounded intervals
+for up to two minutes and can request a reconciliation lookup. Cancellation is
+only for unpaid attempts and records intent before the provider call; a later
+verified payment remains an immutable receipt and enters exception review.
+Browser return parameters and cached checkout data never establish payment.
+
 ### Delivery, settlement, refunds, and email operations
 
 | Method | Path | Access |
@@ -388,6 +407,10 @@ optional note, and inspect linked webhook events.
 | PUT | /api/shipping/admin/products/:id/parcel | Admin; validated parcel dimensions |
 | GET | /api/admin/payments/cod-settlements | Admin |
 | POST | /api/admin/payments/cod-settlements/:orderId/remittance | Admin; transfer reference and private evidence required |
+| GET | /api/admin/payments/attempt-exceptions?page=1&limit=25 | Admin; bounded unresolved PayOS exception queue, max 100 |
+| GET | /api/admin/payments/attempt-exceptions/:attemptId | Admin; sanitized checkout snapshot and private refund evidence references |
+| POST | /api/admin/payments/attempt-exceptions/:attemptId/retry | Admin; reason required; eligible exact paid receipts without an order or refund |
+| POST | /api/admin/payments/attempt-exceptions/:attemptId/refunds | Admin; records a completed offline transfer with amount, unique reference, UUID idempotency key, date, private evidence ID, and reason |
 | POST | /api/admin/evidence | Admin; private image upload, max 2 MB |
 | GET | /api/admin/evidence/:evidenceId | Admin; private no-store attachment |
 | POST | /api/admin/after-sales/requests/:id/manual-refund | Admin; server computes refundable amount |

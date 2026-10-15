@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { HttpException } from "@nestjs/common";
-import type { RowDataPacket } from "mysql2/promise";
+import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 
 const prisma = require("#src/database/prisma/client");
 import { OrdersController } from "../orders.controller";
@@ -14,6 +14,7 @@ import {
     cleanupTestData,
     closeIntegrationPools,
     createTestOrder,
+    createTestProduct,
 
     createTestUser,
     integrationPool,
@@ -101,5 +102,33 @@ describe("orders database integration", () => {
             [productName],
         );
         expect(rows).toHaveLength(0);
+    });
+
+    it("integration excludes the paid checkout's expired hold but preserves other active inventory holds", async () => {
+        const productId = await createTestProduct("payos-recovery-stock", 5);
+        const addPendingCheckout = async (label: string, status: "PENDING" | "EXPIRED") => {
+            const [result] = await integrationPool.execute<ResultSetHeader>(
+                `INSERT INTO pending_checkouts
+                    (reservation_token, user_id, cart_json, total_price, discount, shipping_address, status, expires_at)
+                 VALUES (UUID(), ?, ?, 10, 0, 'Integration test address', ?, ?)` ,
+                [owner.id, "[]", status, status === "PENDING" ? new Date(Date.now() + 60000) : new Date(Date.now() - 60000)],
+            );
+            const pendingCheckoutId = Number(result.insertId);
+            await integrationPool.execute(
+                "INSERT INTO inventory_reservations (pending_checkout_id, product_id, quantity) VALUES (?, ?, ?)",
+                [pendingCheckoutId, productId, label === "paid" ? 2 : 3],
+            );
+            return pendingCheckoutId;
+        };
+        const ownExpiredCheckoutId = await addPendingCheckout("paid", "EXPIRED");
+        await addPendingCheckout("other", "PENDING");
+        const repository = new CheckoutReservationRepository();
+        const tx = { query: async (sql: string, values: unknown[] = []) => {
+            const [rows] = await integrationPool.execute(sql, values);
+            return rows;
+        } };
+
+        await expect(repository.getAvailableQuantitiesForPaidCheckout(tx as never, ownExpiredCheckoutId, [productId]))
+            .resolves.toEqual([{ productId, availableQuantity: 2 }]);
     });
 });

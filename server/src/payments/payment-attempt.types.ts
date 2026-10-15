@@ -99,6 +99,7 @@ export type PaymentAttemptObservationInput = {
     normalizedStatus: string;
     verifiedAt?: Date | null;
     verified: boolean;
+    providerReportsNoPaidFunds?: boolean;
     sanitizedReason?: string | null;
 };
 
@@ -126,6 +127,7 @@ export type PaymentAttemptStatus = {
 };
 
 export type PaymentAttemptOwnedStatusInput = { attemptId: string; owner: PaymentAttemptOwner };
+export type PaymentAttemptOwnerActionInput = PaymentAttemptOwnedStatusInput;
 
 export type PaymentAttemptRefundInput = {
     attemptId: string;
@@ -138,7 +140,7 @@ export type PaymentAttemptRefundInput = {
     reason: string;
 };
 
-export type PaymentAttemptRefundResult = { operationId: string; amountVnd: number };
+export type PaymentAttemptRefundResult = { operationId: string; amountVnd: number; replayed: boolean };
 export type PaymentAttemptTransaction = TransactionContext;
 export type PaymentAttemptCreateLease = { attemptId: string; leaseToken: string; leaseUntil: Date };
 export type PaymentAttemptProviderLink = { attemptId: string; leaseToken: string; providerOrderCode: string; providerLinkId: string; providerLinkUrl: string; amountVnd: number; currency: "VND" };

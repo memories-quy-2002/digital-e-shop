@@ -1,18 +1,19 @@
-import { Body, Controller, Get, HttpCode, HttpException, Optional, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
-import type { Request } from "express";
+import { Body, Controller, Get, Headers, HttpCode, HttpException, Optional, Param, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
+import type { Request, Response } from "express";
 import { AuthGuard } from "../guards/auth.guard";
 import { OwnerParam, Roles, RolesGuard } from "../guards/roles.guard";
 import { RequireVerifiedEmail, VerifiedEmailGuard } from "../guards/verified-email.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestOrdersService } from "./orders.service";
 import { NestOrdersPayOSService } from "./orders.payos.service";
+import { PaymentReconciliationService } from "../payments/payment-reconciliation.service";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { createHttpException } from "#src/core/errors/http-exception";
 import { mapToHttpException } from "#src/core/errors/http-exception-mapper";
 import { calculatePromotionDiscount } from "./orders.pricing";
 import { PAYMENT_PROVIDER, type PaymentProviderName } from "../payments/payment.types";
 import type { MockPayOSConfirmPayload } from "./orders.dto";
-import { orderStatusSchema, purchaseSchema, checkoutSessionSchema, applyDiscountSchema, cancelOrderSchema, mockPayOSConfirmSchema } from "./orders.validator";
+import { orderStatusSchema, purchaseSchema, checkoutSessionSchema, applyDiscountSchema, cancelOrderSchema, mockPayOSConfirmSchema, paymentAttemptIdSchema, paymentAttemptIdempotencyKeySchema } from "./orders.validator";
 
 type AuthenticatedRequest = Request & {
     user?: { id?: string | number; role?: string };
@@ -27,7 +28,49 @@ export class OrdersController {
     constructor(
         private readonly ordersService: NestOrdersService,
         @Optional() private readonly ordersPayOSService?: NestOrdersPayOSService,
+        @Optional() private readonly paymentReconciliationService?: PaymentReconciliationService,
     ) {}
+
+    @Get("/payment-attempts/:attemptId")
+    @UseGuards(AuthGuard)
+    async getPaymentAttemptStatus(
+        @Param("attemptId", new ZodValidationPipe(paymentAttemptIdSchema)) attemptId: string,
+        @Req() req: AuthenticatedRequest,
+        @Res({ passthrough: true }) response: Response,
+    ) {
+        if (!this.paymentReconciliationService) throw new HttpException({ msg: "Payment attempt status is unavailable" }, HTTP_STATUS.SERVICE_UNAVAILABLE);
+        response.setHeader("Cache-Control", "no-store");
+        const status = await this.paymentReconciliationService.getOwnedAttemptStatus(attemptId, { kind: "authenticated", userId: String(req.user?.id || "") });
+        return { paymentAttempt: status, msg: "Payment attempt status retrieved successfully" };
+    }
+
+    @Post("/payment-attempts/:attemptId/reconcile")
+    @HttpCode(202)
+    @UseGuards(AuthGuard)
+    async reconcilePaymentAttempt(
+        @Param("attemptId", new ZodValidationPipe(paymentAttemptIdSchema)) attemptId: string,
+        @Req() req: AuthenticatedRequest,
+    ) {
+        if (!this.paymentReconciliationService) throw new HttpException({ msg: "Payment attempt recovery is unavailable" }, HTTP_STATUS.SERVICE_UNAVAILABLE);
+        const result = await this.paymentReconciliationService.requestOwnedReconciliation(attemptId, { kind: "authenticated", userId: String(req.user?.id || "") });
+        return { ...result, msg: "Payment reconciliation was scheduled" };
+    }
+
+    @Post("/payment-attempts/:attemptId/cancel")
+    @HttpCode(202)
+    @UseGuards(AuthGuard)
+    async cancelPaymentAttempt(
+        @Param("attemptId", new ZodValidationPipe(paymentAttemptIdSchema)) attemptId: string,
+        @Req() req: AuthenticatedRequest,
+    ) {
+        if (!this.paymentReconciliationService) throw new HttpException({ msg: "Payment attempt cancellation is unavailable" }, HTTP_STATUS.SERVICE_UNAVAILABLE);
+        const actorId = String(req.user?.id || "");
+        const result = await this.paymentReconciliationService.requestOwnedCancellation(attemptId, { kind: "authenticated", userId: actorId });
+        if (!result.accepted) {
+            throw new HttpException({ msg: "This payment attempt already belongs to a committed order. Use the order cancellation and audited refund flow." }, HTTP_STATUS.CONFLICT);
+        }
+        return { ...result, msg: "Payment cancellation was scheduled" };
+    }
 
     @Get()
     @UseGuards(AuthGuard, RolesGuard)
@@ -296,11 +339,14 @@ export class OrdersController {
             discountCode?: string;
             shippingAddress: string;
         },
+        @Headers("idempotency-key", new ZodValidationPipe(paymentAttemptIdempotencyKeySchema.optional())) idempotencyKey?: string,
     ) {
         try {
             if (!this.ordersPayOSService) throw new HttpException({ msg: "PayOS checkout is not configured" }, HTTP_STATUS.SERVICE_UNAVAILABLE);
-            const result = await this.ordersPayOSService.createCheckoutSession(uid, body);
+            const result = await this.ordersPayOSService.createCheckoutSession(uid, body, idempotencyKey);
             return {
+                attemptId: result.attemptId,
+                sessionState: result.sessionState,
                 url: result.url,
                 orderCode: result.orderCode,
                 paymentLinkId: result.paymentLinkId,

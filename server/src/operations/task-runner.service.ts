@@ -4,7 +4,9 @@ import { TasksService } from "./tasks.service";
 import type { TaskLease, TaskResult } from "./tasks.types";
 
 export const SHIPMENT_TASK_PROCESSOR = Symbol("SHIPMENT_TASK_PROCESSOR");
+export const PAYOS_TASK_PROCESSOR = Symbol("PAYOS_TASK_PROCESSOR");
 export interface ShipmentTaskProcessor { process(lease: TaskLease): Promise<TaskResult> }
+export interface PayOSTaskProcessor { process(lease: TaskLease): Promise<TaskResult> }
 export type TaskRunnerInput = { limit?: number; budgetMs?: number };
 export type TaskRunnerSummary = { claimed: number; succeeded: number; retried: number; failed: number; reviewRequired: number; elapsedMs: number };
 
@@ -14,6 +16,7 @@ export class TaskRunnerService {
         private readonly tasks: TasksService,
         private readonly email: EmailService,
         @Optional() @Inject(SHIPMENT_TASK_PROCESSOR) private readonly shipping?: ShipmentTaskProcessor,
+        @Optional() @Inject(PAYOS_TASK_PROCESSOR) private readonly payos?: PayOSTaskProcessor,
     ) {}
 
     async run(input: TaskRunnerInput = {}): Promise<TaskRunnerSummary> {
@@ -34,7 +37,7 @@ export class TaskRunnerService {
             if (finished) {
                 if (result.kind === "success") summary.succeeded += 1;
                 else if (result.kind === "retryable") summary.retried += 1;
-                else if (result.kind === "permanent") summary.failed += 1;
+                else if (result.kind === "permanent" && lease.kind !== "PAYOS_RECONCILE") summary.failed += 1;
                 else summary.reviewRequired += 1;
             }
         }
@@ -45,6 +48,9 @@ export class TaskRunnerService {
     private process(lease: TaskLease): Promise<TaskResult> {
         try {
             if (lease.kind === "EMAIL_SEND") return this.email.processEmail(lease).catch(() => ({ kind: "ambiguous" as const, reason: "task_processor_error" }));
+            if (lease.kind === "PAYOS_RECONCILE") return this.payos
+                ? Promise.resolve().then(() => this.payos!.process(lease)).catch(() => ({ kind: "retryable" as const, reason: "task_processor_error" }))
+                : Promise.resolve({ kind: "retryable", reason: "payos_processor_unavailable" });
             if (this.shipping) return this.shipping.process(lease).catch(() => ({ kind: "ambiguous" as const, reason: "task_processor_error" }));
             return Promise.resolve({ kind: "permanent", reason: "shipment_processor_unavailable" });
         } catch {

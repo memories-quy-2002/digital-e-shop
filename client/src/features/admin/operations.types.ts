@@ -30,3 +30,43 @@ export type EmailOperation = {
 };
 export type EmailOperationsPage = { messages: EmailOperation[]; nextAfterId: number | null };
 export type TaskRunnerSummary = { claimed: number; succeeded: number; retried: number; failed: number; reviewRequired: number; elapsedMs: number };
+
+export type PaymentAttemptException = {
+    attemptId: string;
+    providerOrderCode: string;
+    paymentState: string;
+    orderState: string;
+    resolutionState: string;
+    expectedAmountVnd: number;
+    receivedAmountVnd: number;
+    refundedAmountVnd: number;
+    refundableAmountVnd: number;
+    pendingCheckoutId: number;
+    createdAt: string;
+    updatedAt: string;
+};
+export type PaymentAttemptRefund = {
+    operationId: string;
+    amountVnd: number;
+    transferReference: string;
+    transferredAt: string;
+    evidenceId: number;
+    evidenceUrl: string;
+    reason: string;
+    createdAt: string;
+};
+export type PaymentAttemptExceptionDetail = PaymentAttemptException & {
+    currency: "VND";
+    items: Array<{ productId: number; name: string; quantity: number; unitPriceVnd: number }>;
+    subtotalVnd: number;
+    discountVnd: number;
+    shippingVnd: number;
+    payableVnd: number;
+    refunds: PaymentAttemptRefund[];
+};
+export type PaymentAttemptExceptionPage = {
+    items: PaymentAttemptException[];
+    pagination: { page: number; limit: number; total: number; totalPages: number };
+    msg: string;
+    requestId: string;
+};

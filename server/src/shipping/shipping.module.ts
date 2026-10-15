@@ -1,4 +1,4 @@
-import { Module, type MiddlewareConsumer, type NestModule } from "@nestjs/common";
+import { forwardRef, Module, type MiddlewareConsumer, type NestModule } from "@nestjs/common";
 import { CartModule } from "../cart/cart.module";
 import { PromotionsModule } from "../promotions/promotions.module";
 import { UsersModule } from "../users/users.module";
@@ -23,7 +23,7 @@ import { createRateLimitMiddleware } from "../middleware/rate-limit.middleware";
 import { ProductsModule } from "../products/products.module";
 
 @Module({
-    imports: [CartModule, PromotionsModule, UsersModule, TasksModule, InventoryModule, ProductAlertsModule, FinancialOperationsModule, ProductsModule],
+    imports: [CartModule, PromotionsModule, UsersModule, TasksModule, InventoryModule, ProductAlertsModule, forwardRef(() => FinancialOperationsModule), ProductsModule],
     controllers: [ShippingController, ShippingWebhookController, AdminShippingController],
     providers: [ShippingQuoteRepository, ShippingQuoteService, ShippingProviderRegistry, ShippingRepository, FulfillmentService, ShippingWebhookService, OrdersRepository, NestOrdersCancellationService, NestOrderTimelineService, OrderTimelineRepository],
     exports: [ShippingQuoteService, ShippingProviderRegistry, FulfillmentService, ShippingWebhookService],

@@ -188,15 +188,34 @@ export class PaymentAttemptRepository {
             || String(attempt.provider_order_code) !== String(input.providerOrderCode)
             || Number(attempt.expected_amount_vnd) !== input.expectedAmountVnd
             || Boolean(attempt.provider_link_id && attempt.provider_link_id !== input.providerLinkId);
-        const currencyConflict = input.currency != null && input.currency !== "VND";
+        const currencyConflict = input.source === "LOOKUP"
+            ? input.currency !== null
+            : input.currency !== "VND";
+        const currencyVerified = input.source === "LOOKUP"
+            ? input.currency === null
+            : input.currency === "VND";
         const trustedPaidReceipt = input.verified && input.normalizedStatus.toUpperCase() === PAYMENT_ATTEMPT_PAYMENT_STATE.PAID
-            && !identityConflict && input.currency === "VND" && !currencyConflict && Boolean(input.providerLinkId)
+            && !identityConflict && currencyVerified && !currencyConflict && Boolean(input.providerLinkId)
             && isSafePositiveVnd(input.reportedAmountVnd) && isSafePositiveVnd(input.paidAmountVnd);
         const exactPaidReceipt = trustedPaidReceipt
             && input.reportedAmountVnd === input.expectedAmountVnd && input.paidAmountVnd === input.expectedAmountVnd;
         const sourceKeyConflict = matchingKeys.length > 0 && !same;
+        const normalizedStatus = input.normalizedStatus.toUpperCase();
+        const terminalCancellationStatus = [PAYMENT_ATTEMPT_PAYMENT_STATE.CANCELLED, PAYMENT_ATTEMPT_PAYMENT_STATE.EXPIRED, "CANCELED"].includes(normalizedStatus as never);
+        const cancellationEvidenceConflict = input.verified && terminalCancellationStatus
+            && (identityConflict || currencyConflict || sourceKeyConflict || !input.providerLinkId
+                || input.reportedAmountVnd !== input.expectedAmountVnd || input.providerReportsNoPaidFunds !== true
+                || (input.paidAmountVnd != null && input.paidAmountVnd !== 0)
+                || Number(attempt.verified_received_amount_vnd) > 0 || attempt.payment_state === PAYMENT_ATTEMPT_PAYMENT_STATE.PAID || attempt.order_id != null);
         const conflicting = sourceKeyConflict || identityConflict || currencyConflict
-            || (input.verified && input.normalizedStatus.toUpperCase() === PAYMENT_ATTEMPT_PAYMENT_STATE.PAID && !exactPaidReceipt);
+            || cancellationEvidenceConflict
+            || (input.verified && normalizedStatus === PAYMENT_ATTEMPT_PAYMENT_STATE.PAID && !exactPaidReceipt);
+        const verifiedCancellationIntent = input.verified && !identityConflict && !currencyConflict && !sourceKeyConflict
+            && input.providerLinkId != null && input.reportedAmountVnd === input.expectedAmountVnd
+            && input.providerReportsNoPaidFunds === true && (input.paidAmountVnd == null || input.paidAmountVnd === 0)
+            && attempt.payment_state !== PAYMENT_ATTEMPT_PAYMENT_STATE.PAID
+            && attempt.order_id == null
+            && terminalCancellationStatus && !cancellationEvidenceConflict;
         if (same) return this.observationProjection(attempt, false, false);
 
         await tx.query<InsertResult>(
@@ -212,7 +231,11 @@ export class PaymentAttemptRepository {
         const nextState = conflicting
             ? (attempt.payment_state === PAYMENT_ATTEMPT_PAYMENT_STATE.PAID ? PAYMENT_ATTEMPT_PAYMENT_STATE.PAID : PAYMENT_ATTEMPT_PAYMENT_STATE.MISMATCH)
             : this.normalizePaymentState(input.normalizedStatus, input.verified, exactPaidReceipt, attempt.payment_state);
-        if (exactPaidReceipt && !identityConflict && !sourceKeyConflict && input.providerLinkId && !attempt.provider_link_id) {
+        const verifiedProviderLink = input.verified && !identityConflict && !currencyConflict && !sourceKeyConflict
+            && input.providerLinkId && !attempt.provider_link_id
+            && input.reportedAmountVnd === input.expectedAmountVnd
+            && ["PAID", "PENDING", "CANCELLED", "CANCELED", "EXPIRED"].includes(input.normalizedStatus.toUpperCase());
+        if (verifiedProviderLink) {
             await tx.query(
                 `UPDATE payment_attempts SET provider_link_id = ?, updated_at = UTC_TIMESTAMP(3)
                  WHERE id = ? AND provider_link_id IS NULL`, [input.providerLinkId, input.attemptId],
@@ -223,10 +246,12 @@ export class PaymentAttemptRepository {
              SET payment_state = ?,
                  order_state = CASE WHEN ? = 1 AND order_state <> '${PAYMENT_ATTEMPT_ORDER_STATE.CREATED}' THEN '${PAYMENT_ATTEMPT_ORDER_STATE.REVIEW_REQUIRED}' ELSE order_state END,
                  resolution_state = CASE WHEN ? = 1 AND resolution_state = '${PAYMENT_ATTEMPT_RESOLUTION_STATE.NONE}' THEN '${PAYMENT_ATTEMPT_RESOLUTION_STATE.OPEN}' ELSE resolution_state END,
+                 cancel_requested_at = CASE WHEN ? = 1 THEN COALESCE(cancel_requested_at, ?) ELSE cancel_requested_at END,
                  verified_received_amount_vnd = LEAST(9007199254740991, GREATEST(verified_received_amount_vnd, ?)),
                  last_checked_at = COALESCE(?, UTC_TIMESTAMP()), updated_at = UTC_TIMESTAMP()
              WHERE id = ?`,
-            [nextState, conflicting ? 1 : 0, conflicting ? 1 : 0, trustedPaidReceipt && !sourceKeyConflict ? input.paidAmountVnd : 0, input.verifiedAt ?? null, input.attemptId],
+            [nextState, conflicting ? 1 : 0, conflicting ? 1 : 0, verifiedCancellationIntent ? 1 : 0, input.verifiedAt ?? new Date(),
+                trustedPaidReceipt && !sourceKeyConflict ? input.paidAmountVnd : 0, input.verifiedAt ?? null, input.attemptId],
         );
         const projected = await tx.query<Array<{ id: string; payment_state: string; order_state: string; resolution_state: string; order_id: number | null; verified_received_amount_vnd: string | number | bigint; provider_order_code: string | number | bigint; provider_link_id: string | null; expected_amount_vnd: string | number | bigint }>>(
             `SELECT id, payment_state, order_state, resolution_state, order_id, verified_received_amount_vnd
@@ -237,7 +262,7 @@ export class PaymentAttemptRepository {
 
     async getOwnedStatus(tx: TransactionContext, attemptId: string, ownerScope: string) {
         const rows = await tx.query<Array<Record<string, unknown>>>(
-            `SELECT id, provider_order_code, expected_amount_vnd, payment_state, order_state, resolution_state, order_id,
+            `SELECT id, pending_checkout_id, provider_order_code, expected_amount_vnd, payment_state, order_state, resolution_state, order_id,
                     display_snapshot, expires_at, last_checked_at, retry_after_seconds, provider_link_url
              FROM payment_attempts WHERE id = ? AND owner_scope = ? LIMIT 1`, [attemptId, ownerScope],
         );
@@ -247,6 +272,7 @@ export class PaymentAttemptRepository {
         if (typeof snapshot === "string") snapshot = JSON.parse(snapshot);
         return {
             id: String(row.id),
+            pendingCheckoutId: Number(row.pending_checkout_id),
             providerOrderCode: String(row.provider_order_code),
             expectedAmountVnd: Number(row.expected_amount_vnd),
             paymentState: row.payment_state as PaymentAttemptProjection["paymentState"],
@@ -261,11 +287,111 @@ export class PaymentAttemptRepository {
         };
     }
 
-    async findRefundByIdempotency(tx: TransactionContext, idempotencyKey: string) {
-        const rows = await tx.query<Array<{ id: string; attempt_id: string; amount_vnd: string | number | bigint; transfer_reference: string }>>(
-            `SELECT id, attempt_id, amount_vnd, transfer_reference FROM payment_attempt_refunds WHERE idempotency_key = ? LIMIT 1`, [idempotencyKey],
+    async requestOwnedCancellation(tx: TransactionContext, attemptId: string, ownerScope: string) {
+        const rows = await tx.query<Array<{
+            id: string; owner_scope: string; pending_checkout_id: number; provider_order_code: string | number;
+            expected_amount_vnd: string | number; expires_at: Date | string; order_state: string;
+            provider_link_id: string | null; cancel_requested_at: Date | string | null; order_id: number | null;
+        }>>(
+            `SELECT id, owner_scope, pending_checkout_id, provider_order_code, expected_amount_vnd, expires_at,
+                    order_state, provider_link_id, cancel_requested_at, order_id
+             FROM payment_attempts WHERE id = ? AND owner_scope = ? LIMIT 1 FOR UPDATE`, [attemptId, ownerScope],
         );
-        return rows[0] ? { operationId: String(rows[0].id), attemptId: rows[0].attempt_id, amountVnd: Number(rows[0].amount_vnd), transferReference: rows[0].transfer_reference } : null;
+        const attempt = rows[0];
+        if (!attempt) return null;
+        let cancelRequestedAt = attempt.cancel_requested_at;
+        if (attempt.order_state !== PAYMENT_ATTEMPT_ORDER_STATE.CREATED) {
+            await tx.query(
+                `UPDATE payment_attempts SET cancel_requested_at = COALESCE(cancel_requested_at, UTC_TIMESTAMP(3)), updated_at = UTC_TIMESTAMP(3)
+                 WHERE id = ? AND order_state <> ?`, [attemptId, PAYMENT_ATTEMPT_ORDER_STATE.CREATED],
+            );
+            const persisted = await tx.query<Array<{ cancel_requested_at: Date | string | null }>>(
+                "SELECT cancel_requested_at FROM payment_attempts WHERE id = ? LIMIT 1", [attemptId],
+            );
+            cancelRequestedAt = persisted[0]?.cancel_requested_at ?? null;
+        }
+        return {
+            attemptId: String(attempt.id),
+            pendingCheckoutId: Number(attempt.pending_checkout_id),
+            providerOrderCode: String(attempt.provider_order_code),
+            expectedAmountVnd: Number(attempt.expected_amount_vnd),
+            expiresAt: new Date(attempt.expires_at).toISOString(),
+            orderState: attempt.order_state,
+            orderId: attempt.order_id == null ? null : Number(attempt.order_id),
+            providerLinkId: attempt.provider_link_id,
+            cancelRequestedAt: cancelRequestedAt == null ? null : new Date(cancelRequestedAt).toISOString(),
+        };
+    }
+
+    async claimOwnedReconciliationRequest(tx: TransactionContext, attemptId: string, ownerScope: string, now: Date) {
+        const rows = await tx.query<Array<{
+            id: string; pending_checkout_id: number; provider_order_code: string | number;
+            expires_at: Date | string; reconcile_requested_at: Date | string | null;
+        }>>(
+            `SELECT id, pending_checkout_id, provider_order_code, expires_at, reconcile_requested_at
+             FROM payment_attempts WHERE id = ? AND owner_scope = ? LIMIT 1 FOR UPDATE`, [attemptId, ownerScope],
+        );
+        const attempt = rows[0];
+        if (!attempt) return null;
+        const lastRequestedAt = attempt.reconcile_requested_at == null ? null : new Date(attempt.reconcile_requested_at);
+        const remainingMs = lastRequestedAt ? 15_000 - (now.getTime() - lastRequestedAt.getTime()) : 0;
+        if (remainingMs > 0) {
+            return { coalesced: true, retryAfterSeconds: Math.max(1, Math.ceil(remainingMs / 1000)) };
+        }
+        await tx.query("UPDATE payment_attempts SET reconcile_requested_at = ?, updated_at = UTC_TIMESTAMP(3) WHERE id = ?", [now, attemptId]);
+        return {
+            coalesced: false,
+            retryAfterSeconds: 15,
+            pendingCheckoutId: Number(attempt.pending_checkout_id),
+            providerOrderCode: String(attempt.provider_order_code),
+            expiresAt: new Date(attempt.expires_at).toISOString(),
+        };
+    }
+
+    async getCancellationTaskAttempt(tx: TransactionContext, attemptId: string) {
+        const rows = await tx.query<Array<{
+            id: string; pending_checkout_id: number; provider_order_code: string | number;
+            expected_amount_vnd: string | number; provider_link_id: string | null;
+            cancel_requested_at: Date | string | null; order_state: string;
+        }>>(
+            `SELECT id, pending_checkout_id, provider_order_code, expected_amount_vnd, provider_link_id,
+                    cancel_requested_at, order_state
+             FROM payment_attempts WHERE id = ? AND cancel_requested_at IS NOT NULL LIMIT 1`, [attemptId],
+        );
+        const attempt = rows[0];
+        return attempt ? {
+            id: String(attempt.id), pendingCheckoutId: Number(attempt.pending_checkout_id),
+            providerOrderCode: String(attempt.provider_order_code), expectedAmountVnd: Number(attempt.expected_amount_vnd),
+            providerLinkId: attempt.provider_link_id, cancelRequestedAt: attempt.cancel_requested_at == null ? null : new Date(attempt.cancel_requested_at).toISOString(),
+            orderState: attempt.order_state,
+        } : null;
+    }
+
+    async releaseCancelledCheckout(tx: TransactionContext, pendingCheckoutId: number): Promise<void> {
+        await tx.query(
+            `UPDATE pending_checkouts SET status = 'RELEASED'
+             WHERE id = ? AND status IN ('PENDING', 'EXPIRED') AND consumed_at IS NULL`, [pendingCheckoutId],
+        );
+        await tx.query(
+            "UPDATE discount_redemptions SET status = 'RELEASED' WHERE pending_checkout_id = ? AND status = 'RESERVED'",
+            [pendingCheckoutId],
+        );
+    }
+
+    async findRefundByIdempotency(tx: TransactionContext, idempotencyKey: string, currentRead = false) {
+        const rows = await tx.query<Array<{
+            id: string; attempt_id: string; amount_vnd: string | number | bigint; transfer_reference: string;
+            transferred_at: string; evidence_id: number | string; actor_id: string; reason: string;
+        }>>(
+            `SELECT id, attempt_id, amount_vnd, transfer_reference,
+                    DATE_FORMAT(transferred_at, '%Y-%m-%d') AS transferred_at, evidence_id, actor_id, reason
+             FROM payment_attempt_refunds WHERE idempotency_key = ? LIMIT 1${currentRead ? " FOR UPDATE" : ""}`, [idempotencyKey],
+        );
+        return rows[0] ? {
+            operationId: String(rows[0].id), attemptId: rows[0].attempt_id, amountVnd: Number(rows[0].amount_vnd),
+            transferReference: rows[0].transfer_reference, transferredAt: rows[0].transferred_at,
+            evidenceId: Number(rows[0].evidence_id), actorId: rows[0].actor_id, reason: rows[0].reason,
+        } : null;
     }
 
     async lockRefundBalance(tx: TransactionContext, attemptId: string) {
@@ -273,10 +399,14 @@ export class PaymentAttemptRepository {
             `SELECT verified_received_amount_vnd, order_id FROM payment_attempts WHERE id = ? LIMIT 1 FOR UPDATE`, [attemptId],
         );
         if (!rows[0]) return null;
-        const totals = await tx.query<Array<{ refunded_amount_vnd: string | number | bigint }>>(
-            `SELECT COALESCE(SUM(amount_vnd), 0) AS refunded_amount_vnd FROM payment_attempt_refunds WHERE attempt_id = ?`, [attemptId],
+        const refunds = await tx.query<Array<{ id: string; amount_vnd: string | number | bigint }>>(
+            `SELECT id, amount_vnd FROM payment_attempt_refunds WHERE attempt_id = ? ORDER BY id FOR UPDATE`, [attemptId],
         );
-        return { verifiedReceivedAmountVnd: Number(rows[0].verified_received_amount_vnd), refundedAmountVnd: Number(totals[0]?.refunded_amount_vnd ?? 0), orderId: rows[0].order_id };
+        return {
+            verifiedReceivedAmountVnd: Number(rows[0].verified_received_amount_vnd),
+            refundedAmountVnd: refunds.reduce((total, refund) => total + Number(refund.amount_vnd), 0),
+            orderId: rows[0].order_id,
+        };
     }
 
     async insertRefund(tx: TransactionContext, input: PaymentAttemptRefundInput): Promise<PaymentAttemptRefundResult> {
@@ -292,7 +422,7 @@ export class PaymentAttemptRepository {
             if (isDuplicateKey(error)) throw new ConflictException("Refund reference or idempotency key already exists");
             throw error;
         }
-        return { operationId, amountVnd: input.amountVnd };
+        return { operationId, amountVnd: input.amountVnd, replayed: false };
     }
 
     private observationProjection(row: { id: string; payment_state: string; order_state: string; resolution_state: string; order_id: number | null; verified_received_amount_vnd: string | number | bigint }, inserted: boolean, conflicting: boolean): PaymentAttemptProjection {

@@ -696,6 +696,8 @@ model PaymentAttempt {
   createLeaseUntil         DateTime? @map("create_lease_until") @db.DateTime(3)
   lastCheckedAt            DateTime? @map("last_checked_at") @db.DateTime(3)
   retryAfterSeconds        Int?     @map("retry_after_seconds") @db.UnsignedInt
+  cancelRequestedAt        DateTime? @map("cancel_requested_at") @db.DateTime(3)
+  reconcileRequestedAt     DateTime? @map("reconcile_requested_at") @db.DateTime(3)
   createdAt                DateTime @default(now()) @map("created_at") @db.DateTime(3)
   updatedAt                DateTime @default(now()) @map("updated_at") @db.DateTime(3)
 

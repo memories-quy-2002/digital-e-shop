@@ -141,14 +141,46 @@ describe("PaymentAttemptService", () => {
         const repository = {
             findRefundByIdempotency: vi.fn().mockResolvedValue(null),
             lockRefundBalance: vi.fn().mockResolvedValue({ verifiedReceivedAmountVnd: 10000, refundedAmountVnd: 0, orderId: null }),
-            insertRefund: vi.fn().mockResolvedValue({ operationId: "refund-1", amountVnd: 7000 }),
+            insertRefund: vi.fn().mockResolvedValue({ operationId: "refund-1", amountVnd: 7000, replayed: false }),
         };
         const service = new PaymentAttemptService(repository as unknown as PaymentAttemptRepository);
         const input = { attemptId: "attempt-1", transferReference: "bank-ref-1", idempotencyKey: "d0f58b2c-4d28-4c6d-935d-40af158cbbd2", amountVnd: 7000, transferredAt: new Date(), evidenceId: "evidence-1", actorId: "admin-1", reason: "Paid orphan" };
-        await expect(service.recordRefund(input, tx(vi.fn()) as never)).resolves.toMatchObject({ amountVnd: 7000 });
+        await expect(service.recordRefund(input, tx(vi.fn()) as never)).resolves.toMatchObject({ amountVnd: 7000, replayed: false });
         repository.lockRefundBalance.mockResolvedValue({ verifiedReceivedAmountVnd: 10000, refundedAmountVnd: 7000, orderId: null });
         await expect(service.recordRefund({ ...input, transferReference: "bank-ref-2", idempotencyKey: "f4d88693-a076-43a5-a49e-688245a85e84", amountVnd: 4000 }, tx(vi.fn()) as never)).rejects.toMatchObject({ status: 409 });
         expect(repository.lockRefundBalance).toHaveBeenCalledTimes(2);
+        expect(repository.findRefundByIdempotency).toHaveBeenNthCalledWith(4, expect.anything(), "f4d88693-a076-43a5-a49e-688245a85e84", true);
+        expect(repository.insertRefund).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns replay status when a same-key refund commits before the locked idempotency recheck", async () => {
+        const input = { attemptId: "attempt-1", transferReference: "bank-ref-1", idempotencyKey: "d0f58b2c-4d28-4c6d-935d-40af158cbbd2", amountVnd: 5000, transferredAt: new Date("2026-10-15T00:00:00Z"), evidenceId: 4, actorId: "admin-1", reason: "Paid orphan" };
+        const prior = { operationId: "refund-1", attemptId: input.attemptId, amountVnd: input.amountVnd, transferReference: input.transferReference, transferredAt: "2026-10-15", evidenceId: input.evidenceId, actorId: input.actorId, reason: input.reason };
+        const repository = {
+            findRefundByIdempotency: vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(prior),
+            lockRefundBalance: vi.fn().mockResolvedValue({ verifiedReceivedAmountVnd: 10000, refundedAmountVnd: 5000, orderId: null }),
+            insertRefund: vi.fn(),
+        };
+        const service = new PaymentAttemptService(repository as unknown as PaymentAttemptRepository);
+
+        await expect(service.recordRefund(input, tx(vi.fn()) as never)).resolves.toEqual({ operationId: "refund-1", amountVnd: 5000, replayed: true });
+        expect(repository.findRefundByIdempotency).toHaveBeenNthCalledWith(2, expect.anything(), input.idempotencyKey, true);
+        expect(repository.insertRefund).not.toHaveBeenCalled();
+    });
+
+    it("rejects a raced refund replay whose audit metadata differs", async () => {
+        const input = { attemptId: "attempt-1", transferReference: "bank-ref-1", idempotencyKey: "d0f58b2c-4d28-4c6d-935d-40af158cbbd2", amountVnd: 5000, transferredAt: new Date("2026-10-15T00:00:00Z"), evidenceId: 4, actorId: "admin-1", reason: "Paid orphan" };
+        const raced = { operationId: "refund-1", attemptId: input.attemptId, amountVnd: input.amountVnd, transferReference: input.transferReference, transferredAt: "2026-10-15", evidenceId: input.evidenceId, actorId: input.actorId, reason: "different reason" };
+        const repository = {
+            findRefundByIdempotency: vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(raced),
+            lockRefundBalance: vi.fn().mockResolvedValue({ verifiedReceivedAmountVnd: 10000, refundedAmountVnd: 5000, orderId: null }),
+            insertRefund: vi.fn(),
+        };
+        const service = new PaymentAttemptService(repository as unknown as PaymentAttemptRepository);
+
+        await expect(service.recordRefund(input, tx(vi.fn()) as never)).rejects.toMatchObject({ status: 409 });
+        expect(repository.findRefundByIdempotency).toHaveBeenNthCalledWith(2, expect.anything(), input.idempotencyKey, true);
+        expect(repository.insertRefund).not.toHaveBeenCalled();
     });
 
     it("returns no personal or provider credential data in the owned status projection", async () => {
@@ -161,9 +193,9 @@ describe("PaymentAttemptService", () => {
 });
 
 describe("PaymentAttemptRepository.recordObservation received-funds projection", () => {
-    const buildObservationTx = (paymentState: string) => {
+    const buildObservationTx = (paymentState: string, currentPaymentState = "PENDING") => {
         let callIndex = 0;
-        const locked = [{ id: "attempt-1", payment_state: "PENDING", order_state: "NOT_CREATED", resolution_state: "NONE", order_id: null,
+        const locked = [{ id: "attempt-1", payment_state: currentPaymentState, order_state: "NOT_CREATED", resolution_state: "NONE", order_id: null,
             verified_received_amount_vnd: 0, provider_order_code: "123456", provider_link_id: "link-1", expected_amount_vnd: 250000 }];
         const projected = [{ ...locked[0], payment_state: paymentState, verified_received_amount_vnd: paymentState === "PAID" ? 250000 : 0 }];
         const results = [locked, [], { affectedRows: 1 }, { affectedRows: 1 }, projected];
@@ -179,7 +211,7 @@ describe("PaymentAttemptRepository.recordObservation received-funds projection",
         const query = buildObservationTx("PENDING").query;
         const repository = new PaymentAttemptRepository();
         await repository.recordObservation({ query } as never, observation({ paidAmountVnd: 250000 }) as never);
-        expect(query.mock.calls[3][1][3]).toBe(0);
+        expect(query.mock.calls[3][1][5]).toBe(0);
         expect(query.mock.calls[2][1][8]).toBe(250000);
     });
 
@@ -191,7 +223,7 @@ describe("PaymentAttemptRepository.recordObservation received-funds projection",
         }) as never);
         expect(result).toMatchObject({ paymentState: "MISMATCH", conflicting: true });
         expect(query.mock.calls[2][1][8]).toBe(250001);
-        expect(query.mock.calls[3][1][3]).toBe(250001);
+        expect(query.mock.calls[3][1][5]).toBe(250001);
         expect(String(query.mock.calls[3][0])).toContain("LEAST(9007199254740991, GREATEST(verified_received_amount_vnd, ?))");
     });
 
@@ -203,7 +235,7 @@ describe("PaymentAttemptRepository.recordObservation received-funds projection",
         }) as never);
         expect(result).toMatchObject({ paymentState: "MISMATCH", conflicting: true });
         expect(query.mock.calls[2][1][8]).toBe(200000);
-        expect(query.mock.calls[3][1][3]).toBe(200000);
+        expect(query.mock.calls[3][1][5]).toBe(200000);
     });
 
     it("counts only an exact PAID receipt matching attempt identity, code and expected VND", async () => {
@@ -213,7 +245,62 @@ describe("PaymentAttemptRepository.recordObservation received-funds projection",
             reportedAmountVnd: 250000, paidAmountVnd: 250000, normalizedStatus: "PAID",
         }) as never);
         expect(result).toMatchObject({ paymentState: "PAID", conflicting: false });
-        expect(query.mock.calls[3][1][3]).toBe(250000);
+        expect(query.mock.calls[3][1][5]).toBe(250000);
+    });
+
+    it.each([["CANCELLED", 0], ["EXPIRED", null]] as const)("establishes cancellation intent atomically for an exact verified %s lookup", async (status, paidAmountVnd) => {
+        const query = buildObservationTx(status).query;
+        const repository = new PaymentAttemptRepository();
+
+        await repository.recordObservation({ query } as never, observation({
+            source: "LOOKUP", sourceKey: `lookup-${status}`, providerOrderCode: "123456", providerLinkId: "link-1",
+            reportedAmountVnd: 250000, paidAmountVnd, currency: null, normalizedStatus: status,
+            providerReportsNoPaidFunds: true,
+        }) as never);
+
+        expect(query.mock.calls[3][0]).toContain("cancel_requested_at = CASE WHEN ? = 1");
+        expect(query.mock.calls[3][1][3]).toBe(1);
+    });
+
+    it("does not establish cancellation intent for mismatched amounts or an already-paid attempt", async () => {
+        const mismatchQuery = buildObservationTx("CANCELLED").query;
+        await new PaymentAttemptRepository().recordObservation({ query: mismatchQuery } as never, observation({
+            source: "LOOKUP", sourceKey: "lookup-cancel-mismatch", providerOrderCode: "123456", providerLinkId: "link-1",
+            reportedAmountVnd: 249999, paidAmountVnd: 0, currency: null, normalizedStatus: "CANCELLED",
+            providerReportsNoPaidFunds: true,
+        }) as never);
+        expect(mismatchQuery.mock.calls[3][1][3]).toBe(0);
+
+        const paidQuery = buildObservationTx("PAID", "PAID").query;
+        await new PaymentAttemptRepository().recordObservation({ query: paidQuery } as never, observation({
+            source: "LOOKUP", sourceKey: "lookup-cancel-after-paid", providerOrderCode: "123456", providerLinkId: "link-1",
+            reportedAmountVnd: 250000, paidAmountVnd: 0, currency: null, normalizedStatus: "CANCELLED",
+            providerReportsNoPaidFunds: true,
+        }) as never);
+        expect(paidQuery.mock.calls[3][1][3]).toBe(0);
+        expect(paidQuery.mock.calls[3][1][0]).toBe("PAID");
+    });
+
+    it("accepts exact provider GET receipt evidence with adapter-normalized currency explicitly null", async () => {
+        const query = buildObservationTx("PAID").query;
+        const repository = new PaymentAttemptRepository();
+        const result = await repository.recordObservation({ query } as never, observation({
+            source: "LOOKUP", sourceKey: "lookup-1", currency: null,
+            reportedAmountVnd: 250000, paidAmountVnd: 250000, normalizedStatus: "PAID",
+        }) as never);
+        expect(result).toMatchObject({ paymentState: "PAID", conflicting: false });
+        expect(query.mock.calls[3][1][5]).toBe(250000);
+    });
+
+    it("rejects exact provider GET receipt evidence when normalized currency is missing", async () => {
+        const query = buildObservationTx("MISMATCH").query;
+        const repository = new PaymentAttemptRepository();
+        const result = await repository.recordObservation({ query } as never, observation({
+            source: "LOOKUP", sourceKey: "lookup-missing-currency", currency: undefined,
+            reportedAmountVnd: 250000, paidAmountVnd: 250000, normalizedStatus: "PAID",
+        }) as never);
+        expect(result).toMatchObject({ paymentState: "MISMATCH", conflicting: true });
+        expect(query.mock.calls[3][1][5]).toBe(0);
     });
 
     it.each([
@@ -228,6 +315,6 @@ describe("PaymentAttemptRepository.recordObservation received-funds projection",
             reportedAmountVnd: 250000, paidAmountVnd: 250000, normalizedStatus: "PAID", ...invalidIdentity,
         }) as never);
         expect(result).toMatchObject({ paymentState: "MISMATCH", conflicting: true });
-        expect(query.mock.calls[3][1][3]).toBe(0);
+        expect(query.mock.calls[3][1][5]).toBe(0);
     });
 });

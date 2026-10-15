@@ -125,8 +125,13 @@ describe("NestOrdersPayOSService", () => {
         }));
         expect(payosService.createPaymentLink).toHaveBeenCalledWith(expect.objectContaining({
             amount: 90,
-            returnUrl: expect.stringContaining("payos_order_code="),
         }));
+        const returnUrl = String(payosService.createPaymentLink.mock.calls[0]?.[0]?.returnUrl || "");
+        const cancelUrl = String(payosService.createPaymentLink.mock.calls[0]?.[0]?.cancelUrl || "");
+        expect(returnUrl).toContain("payos_order_code=");
+        expect(returnUrl).toContain(`payment_attempt_id=${paymentAttempt.id}`);
+        expect(cancelUrl).toBe(`http://localhost:5173/checkout-success?payment_provider=payos&payment_attempt_id=${paymentAttempt.id}`);
+        expect(cancelUrl).not.toContain("payment=cancelled");
     });
 
     it("replays the existing attempt before quote validation, even when its quote has expired", async () => {
@@ -279,7 +284,10 @@ describe("NestOrdersPayOSService", () => {
         resolveCreate({ orderCode: 123456789, amount: 90, currency: "VND", paymentLinkId: "link-123", checkoutUrl: "https://pay.payos.vn/web/link-123", status: "PENDING" });
 
         const results = await Promise.all([first, second]);
-        expect(results.map((result) => result.sessionState)).toContain("CREATING");
+        expect(results).toEqual(expect.arrayContaining([
+            expect.objectContaining({ attemptId: paymentAttempt.id, sessionState: "CREATING" }),
+        ]));
+        expect(results.every((result) => result.attemptId === paymentAttempt.id && result.sessionState)).toBe(true);
         expect(payosService.createPaymentLink).toHaveBeenCalledTimes(1);
     });
 
@@ -399,6 +407,7 @@ describe("NestOrdersPayOSService", () => {
 
         expect(result.url).toContain("/mock-payos-checkout");
         expect(result.url).toContain("payment_link_id=");
+        expect(result.url).toContain(`payment_attempt_id=${paymentAttempt.id}`);
         expect(result.amount).toBe(90);
         expect(ordersService.finalizePayOSCheckout).not.toHaveBeenCalled();
         expect(payosService.createPaymentLink).not.toHaveBeenCalled();

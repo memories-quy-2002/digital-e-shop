@@ -16,12 +16,20 @@ import {
     type GuestCartPreview,
     type GuestPurchaseRequest,
     type GuestPurchaseResponse,
+    type PaymentAttemptStatus,
 } from "./types";
 
 export type { CustomerOrder, CustomerOrderDetail } from "./types";
 
 const normalizeCartItems = (items: unknown): CheckoutCartItem[] =>
     normalizeCheckoutCartItems(Array.isArray(items) ? items : []);
+
+const assertPaymentAttemptId = (attemptId: string) => {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(attemptId)) {
+        throw new TypeError("Invalid payment attempt ID");
+    }
+    return encodeURIComponent(attemptId);
+};
 
 export async function fetchCustomerCart(uid: string): Promise<CheckoutCartItem[]> {
     const response = await http.get(`/api/cart/${uid}`);
@@ -128,8 +136,9 @@ export async function createGuestPurchase(payload: GuestPurchaseRequest): Promis
 
 export async function createGuestPayOSCheckoutSession(
     payload: GuestPayOSCheckoutRequest,
+    idempotencyKey: string,
 ): Promise<GuestCheckoutSessionResponse> {
-    const response = await http.post("/api/orders/guest/payos-checkout-session", payload);
+    const response = await http.post("/api/orders/guest/payos-checkout-session", payload, { headers: { "Idempotency-Key": idempotencyKey } });
     return response.data as GuestCheckoutSessionResponse;
 }
 
@@ -144,9 +153,36 @@ export async function createPayOSCheckoutSession(
         deliveryAddress: import("../shipping/types").DeliveryAddress;
         locale: "en" | "vi";
     },
+    idempotencyKey: string,
 ): Promise<PayOSCheckoutResponse> {
-    const response = await http.post(`/api/orders/payos-checkout-session/${uid}`, payload);
+    const response = await http.post(`/api/orders/payos-checkout-session/${uid}`, payload, { headers: { "Idempotency-Key": idempotencyKey } });
     return response.data as PayOSCheckoutResponse;
+}
+
+export async function getPaymentAttempt(attemptId: string): Promise<PaymentAttemptStatus> {
+    const response = await http.get(`/api/orders/payment-attempts/${assertPaymentAttemptId(attemptId)}`);
+    return response.data.paymentAttempt as PaymentAttemptStatus;
+}
+
+export async function getGuestPaymentAttempt(attemptId: string): Promise<PaymentAttemptStatus> {
+    const response = await http.post(`/api/orders/guest/payment-attempts/${assertPaymentAttemptId(attemptId)}/status`, {});
+    return response.data.paymentAttempt as PaymentAttemptStatus;
+}
+
+export async function reconcilePaymentAttempt(attemptId: string): Promise<void> {
+    await http.post(`/api/orders/payment-attempts/${assertPaymentAttemptId(attemptId)}/reconcile`, {});
+}
+
+export async function cancelPaymentAttempt(attemptId: string): Promise<void> {
+    await http.post(`/api/orders/payment-attempts/${assertPaymentAttemptId(attemptId)}/cancel`, {});
+}
+
+export async function reconcileGuestPaymentAttempt(attemptId: string): Promise<void> {
+    await http.post(`/api/orders/guest/payment-attempts/${assertPaymentAttemptId(attemptId)}/reconcile`, {});
+}
+
+export async function cancelGuestPaymentAttempt(attemptId: string): Promise<void> {
+    await http.post(`/api/orders/guest/payment-attempts/${assertPaymentAttemptId(attemptId)}/cancel`, {});
 }
 
 export async function confirmMockPayOSPayment(payload: {

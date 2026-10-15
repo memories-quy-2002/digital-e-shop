@@ -15,6 +15,69 @@ import type {
 
 @Injectable()
 export class CheckoutReservationRepository {
+    async getPayOSAttemptForUpdate(tx: TransactionContext, attemptId: string): Promise<{
+        id: string; pending_checkout_id: number; provider_order_code: string; provider_link_id: string | null;
+        expected_amount_vnd: number | string; verified_received_amount_vnd: number | string;
+        payment_state: string; order_state: string; resolution_state: string; order_id: number | null; cancel_requested_at: Date | string | null;
+    } | null> {
+        const rows = await tx.query<Array<{
+            id: string; pending_checkout_id: number; provider_order_code: string; provider_link_id: string | null;
+            expected_amount_vnd: number | string; verified_received_amount_vnd: number | string;
+            payment_state: string; order_state: string; resolution_state: string; order_id: number | null; cancel_requested_at: Date | string | null;
+        }>>(
+            `SELECT id, pending_checkout_id, provider_order_code, provider_link_id, expected_amount_vnd,
+                    verified_received_amount_vnd, payment_state, order_state, resolution_state, order_id, cancel_requested_at
+             FROM payment_attempts WHERE id = ? FOR UPDATE`, [attemptId],
+        );
+        return rows[0] || null;
+    }
+
+    async hasPaymentAttemptRefund(tx: TransactionContext, attemptId: string): Promise<boolean> {
+        const rows = await tx.query<Array<{ id: string }>>(
+            "SELECT id FROM payment_attempt_refunds WHERE attempt_id = ? LIMIT 1 FOR UPDATE", [attemptId],
+        );
+        return rows.length > 0;
+    }
+
+    async getPromotionReservationStatus(tx: TransactionContext, pendingCheckoutId: number): Promise<string | null> {
+        const rows = await tx.query<Array<{ status: string }>>(
+            "SELECT status FROM discount_redemptions WHERE pending_checkout_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE",
+            [pendingCheckoutId],
+        );
+        return rows[0]?.status || null;
+    }
+
+    async bindPayOSProviderReference(
+        tx: TransactionContext,
+        pendingCheckoutId: number,
+        providerOrderCode: number,
+        paymentLinkId: string,
+        amountVnd: number,
+    ): Promise<number> {
+        const result = await tx.query<{ affectedRows: number }>(
+            `UPDATE pending_checkouts
+             SET provider_reference = ?
+             WHERE id = ? AND payment_provider = ? AND provider_order_code = ?
+               AND payment_amount = ? AND payment_currency = ?
+               AND status IN ('${CHECKOUT_RESERVATION_STATUS.PENDING}', '${CHECKOUT_RESERVATION_STATUS.EXPIRED}')
+               AND consumed_at IS NULL AND provider_reference IS NULL`,
+            [paymentLinkId, pendingCheckoutId, PAYMENT_PROVIDER.PAYOS, providerOrderCode, amountVnd, PAYMENT_CURRENCY.VND],
+        );
+        return result.affectedRows;
+    }
+
+    async setPaymentAttemptOrderState(
+        tx: TransactionContext,
+        attemptId: string,
+        orderState: "FINALIZING" | "CREATED" | "REVIEW_REQUIRED",
+        orderId?: number,
+    ): Promise<void> {
+        await tx.query(
+            "UPDATE payment_attempts SET order_state = ?, order_id = COALESCE(?, order_id), updated_at = UTC_TIMESTAMP(3) WHERE id = ?",
+            [orderState, orderId ?? null, attemptId],
+        );
+    }
+
     async lockProducts(tx: TransactionContext, productIds: number[]): Promise<LockedProductRow[]> {
         if (productIds.length === 0) return [];
 
@@ -198,6 +261,38 @@ export class CheckoutReservationRepository {
             [pendingCheckoutId],
         );
         return rows.map((row) => ({ productId: Number(row.product_id), quantity: Number(row.quantity) }));
+    }
+
+    async getAvailableQuantitiesForPaidCheckout(
+        tx: TransactionContext,
+        pendingCheckoutId: number,
+        productIds: number[],
+    ): Promise<Array<{ productId: number; availableQuantity: number }>> {
+        if (productIds.length === 0) return [];
+        const placeholders = productIds.map(() => "?").join(", ");
+        const rows = await tx.query<Array<{ id: number; available_quantity: number | string | null }>>(
+            `SELECT p.id, GREATEST(p.stock - COALESCE(SUM(
+                    CASE WHEN pc.id <> ? AND pc.status = '${CHECKOUT_RESERVATION_STATUS.PENDING}'
+                              AND pc.expires_at > UTC_TIMESTAMP(3) THEN ir.quantity ELSE 0 END
+                ), 0), 0) AS available_quantity
+             FROM products p
+             LEFT JOIN inventory_reservations ir ON ir.product_id = p.id
+             LEFT JOIN pending_checkouts pc ON pc.id = ir.pending_checkout_id
+             WHERE p.id IN (${placeholders})
+             GROUP BY p.id, p.stock`,
+            [pendingCheckoutId, ...productIds],
+        );
+        return rows.map((row) => ({ productId: Number(row.id), availableQuantity: Number(row.available_quantity) || 0 }));
+    }
+
+    async consumePaidReservation(tx: TransactionContext, pendingCheckoutId: number): Promise<number> {
+        const result = await tx.query<{ affectedRows: number }>(
+            `UPDATE pending_checkouts
+             SET status = '${CHECKOUT_RESERVATION_STATUS.CONSUMED}', consumed_at = UTC_TIMESTAMP(3)
+             WHERE id = ? AND status IN ('${CHECKOUT_RESERVATION_STATUS.PENDING}', '${CHECKOUT_RESERVATION_STATUS.EXPIRED}')`,
+            [pendingCheckoutId],
+        );
+        return result.affectedRows;
     }
 
     async consumeReservation(tx: TransactionContext, pendingCheckoutId: number): Promise<number> {

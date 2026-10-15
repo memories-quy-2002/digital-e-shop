@@ -1,6 +1,8 @@
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import type { IncrementResponse, Store } from "express-rate-limit";
 import type { Request, RequestHandler } from "express";
+import { createHash } from "node:crypto";
+import jwt from "jsonwebtoken";
 import { env, isProduction } from "#src/config/env.config";
 import { getRouteLimit } from "#src/shared/utils/rate-limit";
 import { RedisFixedWindowLimiter } from "#src/shared/rate-limit/redis-rate-limit";
@@ -9,11 +11,10 @@ const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const redisLimiters = new Map<string, RedisFixedWindowLimiter>();
 
 class RedisRateLimitStore implements Store {
-    readonly windowMs = RATE_LIMIT_WINDOW_MS;
-
     constructor(
         private readonly limiter: RedisFixedWindowLimiter,
         private readonly limit: number,
+        readonly windowMs: number,
     ) {}
 
     async increment(key: string): Promise<IncrementResponse> {
@@ -51,17 +52,47 @@ const getRedisKey = (request: Request) => {
     return `${getRouteGroup(request)}:${identity}`;
 };
 
-export function createRateLimitMiddleware(productionLimit: number): RequestHandler {
+export type ScopedRateLimitPolicy = { name: string; limit: number; windowMs: number };
+
+export function createAttemptRateLimitKey(request: Request, policyName: string): string {
+    const pathSegments = request.path.split("/").filter(Boolean);
+    const attemptIndex = pathSegments.indexOf("payment-attempts");
+    const attemptId = String(request.params?.attemptId || (attemptIndex >= 0 ? pathSegments[attemptIndex + 1] : "unknown"));
+    const guestCartId = request.cookies?.digitalEGuestCartId;
+    const accessToken = request.cookies?.accessToken;
+    let authenticatedOwnerId = "";
+    if (typeof accessToken === "string") {
+        try {
+            const payload = jwt.verify(accessToken, env.jwtSecret);
+            if (typeof payload !== "string") authenticatedOwnerId = String(payload.id || payload.sub || "");
+        } catch {
+            authenticatedOwnerId = "";
+        }
+    }
+    const isGuestRoute = request.path.split("/").includes("guest");
+    let identity: string;
+    if (authenticatedOwnerId) identity = `user:${authenticatedOwnerId}`;
+    else if (isGuestRoute && typeof guestCartId === "string" && guestCartId) identity = `guest:${guestCartId}`;
+    else if (typeof accessToken === "string" && accessToken) identity = `session:${accessToken}`;
+    else identity = `ip:${ipKeyGenerator(request.ip || request.socket.remoteAddress || "unknown")}`;
+    const ownerHash = createHash("sha256").update(identity).digest("hex");
+    return `orders:payos:${policyName}:${ownerHash}:${attemptId}`;
+}
+
+export function createRateLimitMiddleware(productionLimit: number, scopedPolicy?: ScopedRateLimitPolicy): RequestHandler {
     const redisLimiter = getRedisLimiter();
+    const windowMs = scopedPolicy?.windowMs || RATE_LIMIT_WINDOW_MS;
+    const limit = scopedPolicy?.limit || productionLimit;
     return rateLimit({
-        windowMs: RATE_LIMIT_WINDOW_MS,
-        max: getRouteLimit(productionLimit),
+        windowMs,
+        max: scopedPolicy ? limit : getRouteLimit(productionLimit),
         ...(redisLimiter
             ? {
-                store: new RedisRateLimitStore(redisLimiter, productionLimit),
-                keyGenerator: getRedisKey,
+                store: new RedisRateLimitStore(redisLimiter, limit, windowMs),
+                keyGenerator: scopedPolicy ? (request) => createAttemptRateLimitKey(request, scopedPolicy.name) : getRedisKey,
             }
             : {}),
+        ...(scopedPolicy && !redisLimiter ? { keyGenerator: (request) => createAttemptRateLimitKey(request, scopedPolicy.name) } : {}),
         standardHeaders: true,
         legacyHeaders: false,
         message: "Too many requests, please try again later.",

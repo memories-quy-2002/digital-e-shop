@@ -9,6 +9,12 @@ import {
     createPayOSCheckoutSession,
     fetchGuestCart,
     fetchGuestOrderByPayOSOrderCode,
+    getPaymentAttempt,
+    getGuestPaymentAttempt,
+    reconcilePaymentAttempt,
+    cancelPaymentAttempt,
+    reconcileGuestPaymentAttempt,
+    cancelGuestPaymentAttempt,
     fetchCustomerCart,
     lookupGuestOrder,
     previewGuestCart,
@@ -184,7 +190,7 @@ describe("orders API", () => {
             shippingQuoteId: "quote-1",
             deliveryAddress,
             locale: "en",
-        })).resolves.toMatchObject({ url: "https://checkout.test/payos", guestOrderToken: "payos-token" });
+        }, "123e4567-e89b-42d3-a456-426614174001")).resolves.toMatchObject({ url: "https://checkout.test/payos", guestOrderToken: "payos-token" });
         await createPayOSCheckoutSession("user-1", {
             cart: [{
                 cartItemId: 7,
@@ -204,7 +210,7 @@ describe("orders API", () => {
             shippingQuoteId: "quote-1",
             deliveryAddress,
             locale: "en",
-        });
+        }, "123e4567-e89b-42d3-a456-426614174001");
         await lookupGuestOrder(42, "lookup-token");
         await fetchGuestOrderByPayOSOrderCode(123456, "payos-token");
 
@@ -216,7 +222,7 @@ describe("orders API", () => {
             shippingQuoteId: "quote-1",
             deliveryAddress,
             locale: "en",
-        });
+        }, { headers: { "Idempotency-Key": "123e4567-e89b-42d3-a456-426614174001" } });
         expect(http.post).toHaveBeenNthCalledWith(2, "/api/orders/payos-checkout-session/user-1", expect.objectContaining({
             totalPrice: 80,
             discount: 0,
@@ -224,7 +230,7 @@ describe("orders API", () => {
             shippingQuoteId: "quote-1",
             deliveryAddress,
             locale: "en",
-        }));
+        }), { headers: { "Idempotency-Key": "123e4567-e89b-42d3-a456-426614174001" } });
         expect(http.post).toHaveBeenNthCalledWith(3, "/api/orders/guest/lookup", {
             orderId: 42,
             guestOrderToken: "lookup-token",
@@ -233,5 +239,33 @@ describe("orders API", () => {
             orderCode: 123456,
             guestOrderToken: "payos-token",
         });
+    });
+
+    it("uses owner-scoped status and CSRF-protected action routes", async () => {
+        const attemptId = "123e4567-e89b-42d3-a456-426614174000";
+        const status = { attemptId, paymentState: "PENDING" };
+        vi.mocked(http.get).mockResolvedValueOnce({ data: { paymentAttempt: status } } as never);
+        vi.mocked(http.post)
+            .mockResolvedValueOnce({ data: { paymentAttempt: status } } as never)
+            .mockResolvedValue({ data: { accepted: true } } as never);
+
+        await expect(getPaymentAttempt(attemptId)).resolves.toEqual(status);
+        await expect(getGuestPaymentAttempt(attemptId)).resolves.toEqual(status);
+        await reconcilePaymentAttempt(attemptId);
+        await cancelPaymentAttempt(attemptId);
+        await reconcileGuestPaymentAttempt(attemptId);
+        await cancelGuestPaymentAttempt(attemptId);
+
+        expect(http.get).toHaveBeenCalledWith(`/api/orders/payment-attempts/${attemptId}`);
+        expect(http.post).toHaveBeenNthCalledWith(1, `/api/orders/guest/payment-attempts/${attemptId}/status`, {});
+        expect(http.post).toHaveBeenNthCalledWith(2, `/api/orders/payment-attempts/${attemptId}/reconcile`, {});
+        expect(http.post).toHaveBeenNthCalledWith(3, `/api/orders/payment-attempts/${attemptId}/cancel`, {});
+        expect(http.post).toHaveBeenNthCalledWith(4, `/api/orders/guest/payment-attempts/${attemptId}/reconcile`, {});
+        expect(http.post).toHaveBeenNthCalledWith(5, `/api/orders/guest/payment-attempts/${attemptId}/cancel`, {});
+    });
+
+    it("rejects malformed payment attempt identifiers before requesting", async () => {
+        await expect(getPaymentAttempt("../orders/1")).rejects.toThrow("Invalid payment attempt ID");
+        expect(http.get).not.toHaveBeenCalled();
     });
 });

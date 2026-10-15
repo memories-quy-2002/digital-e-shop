@@ -71,6 +71,9 @@ export const cancelOrderSchema = z.object({
     reason: z.string().trim().max(500, "Cancellation reason is too long").optional(),
 });
 
+export const paymentAttemptIdSchema = z.string().uuid();
+export const paymentAttemptIdempotencyKeySchema = z.string().uuid();
+
 export const purchaseSchema = z.object({
     locale: z.enum(["en", "vi"]).default("en"),
     shippingQuoteId: z.string().uuid(),
