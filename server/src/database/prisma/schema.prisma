@@ -64,6 +64,7 @@ model User {
   financialEvidenceUploads FinancialEvidence[]
   codSettlementEvents CodSettlementEvent[]
   manualRefundOperations ManualRefundOperation[]
+  paymentAttemptRefunds PaymentAttemptRefund[] @relation("PaymentAttemptRefundActor")
   transactionalEmails TransactionalEmail[] @relation("TransactionalEmailAdmin")
   id                         String    @id @db.VarChar(255)
   username                   String    @db.VarChar(16)
@@ -477,6 +478,7 @@ model Order {
   items               OrderItem[]
   discountRedemptions DiscountRedemption[]
   payments            OrderPayment[]
+  paymentAttempt       PaymentAttempt?
   supportTickets      SupportTicket[]
   afterSalesRequests  AfterSalesRequest[]
 
@@ -517,6 +519,7 @@ model PendingCheckout {
   inventoryReservations  InventoryReservation[]
   discountRedemptions    DiscountRedemption[]
   reconciliationAttempts PaymentReconciliationAttempt[]
+  paymentAttempt         PaymentAttempt?
 
   @@unique([paymentProvider, providerReference], map: "uq_pending_checkouts_provider_reference")
   @@unique([paymentProvider, providerOrderCode], map: "uq_pending_checkouts_provider_order_code")
@@ -669,6 +672,93 @@ model PaymentReconciliationAttempt {
   @@map("payment_reconciliation_attempts")
 }
 
+model PaymentAttempt {
+  id                       String   @id @db.Char(36)
+  ownerScope               String   @map("owner_scope") @db.VarChar(320)
+  idempotencyKeyHash       String   @map("idempotency_key_hash") @db.Char(64)
+  requestHash              String   @map("request_hash") @db.Char(64)
+  snapshotHash             String   @map("snapshot_hash") @db.Char(64)
+  pendingCheckoutId        Int      @unique(map: "uq_payment_attempts_pending_checkout") @map("pending_checkout_id")
+  provider                 String   @db.VarChar(32)
+  providerOrderCode        BigInt   @map("provider_order_code") @db.UnsignedBigInt
+  providerLinkId           String?  @map("provider_link_id") @db.VarChar(255)
+  providerLinkUrl          String?  @map("provider_link_url") @db.Text
+  expectedAmountVnd        BigInt   @map("expected_amount_vnd") @db.UnsignedBigInt
+  verifiedReceivedAmountVnd BigInt  @default(0) @map("verified_received_amount_vnd") @db.UnsignedBigInt
+  currency                 String   @default("VND") @db.Char(3)
+  paymentState             String   @default("PENDING") @map("payment_state") @db.VarChar(24)
+  orderState               String   @default("NOT_CREATED") @map("order_state") @db.VarChar(24)
+  resolutionState          String   @default("NONE") @map("resolution_state") @db.VarChar(24)
+  orderId                  Int?     @unique(map: "uq_payment_attempts_order") @map("order_id")
+  displaySnapshot          Json     @map("display_snapshot")
+  expiresAt                DateTime @map("expires_at") @db.DateTime(3)
+  createLeaseToken         String?  @map("create_lease_token") @db.Char(36)
+  createLeaseUntil         DateTime? @map("create_lease_until") @db.DateTime(3)
+  lastCheckedAt            DateTime? @map("last_checked_at") @db.DateTime(3)
+  retryAfterSeconds        Int?     @map("retry_after_seconds") @db.UnsignedInt
+  createdAt                DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt                DateTime @default(now()) @map("updated_at") @db.DateTime(3)
+
+  pendingCheckout PendingCheckout          @relation(fields: [pendingCheckoutId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  order           Order?                   @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  observations    PaymentAttemptObservation[]
+  refunds         PaymentAttemptRefund[]
+
+  @@unique([ownerScope, idempotencyKeyHash], map: "uq_payment_attempts_owner_idempotency")
+  @@unique([provider, providerOrderCode], map: "uq_payment_attempts_provider_order_code")
+  @@unique([provider, providerLinkId], map: "uq_payment_attempts_provider_link")
+  @@index([paymentState, expiresAt], map: "idx_payment_attempts_payment_expiry")
+  @@index([orderState, resolutionState, updatedAt], map: "idx_payment_attempts_order_resolution")
+  @@map("payment_attempts")
+}
+
+model PaymentAttemptObservation {
+  id                BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  attemptId         String   @map("attempt_id") @db.Char(36)
+  source            String   @db.VarChar(16)
+  sourceKey         String   @map("source_key") @db.VarChar(255)
+  payloadHash       String   @map("payload_hash") @db.Char(64)
+  providerOrderCode BigInt?  @map("provider_order_code") @db.UnsignedBigInt
+  providerLinkId    String?  @map("provider_link_id") @db.VarChar(255)
+  expectedAmountVnd BigInt   @map("expected_amount_vnd") @db.UnsignedBigInt
+  reportedAmountVnd BigInt?  @map("reported_amount_vnd") @db.UnsignedBigInt
+  paidAmountVnd     BigInt?  @map("paid_amount_vnd") @db.UnsignedBigInt
+  currency          String?  @db.Char(3)
+  normalizedStatus  String   @map("normalized_status") @db.VarChar(32)
+  verified          Boolean  @default(false) @db.TinyInt
+  verifiedAt        DateTime? @map("verified_at") @db.DateTime(3)
+  sanitizedReason   String?  @map("sanitized_reason") @db.VarChar(500)
+  createdAt         DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  attempt PaymentAttempt @relation(fields: [attemptId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([attemptId, source, sourceKey, payloadHash], map: "uq_payment_attempt_observation_payload")
+  @@index([attemptId, source, sourceKey], map: "idx_payment_attempt_observations_source")
+  @@index([attemptId, createdAt], map: "idx_payment_attempt_observations_created")
+  @@map("payment_attempt_observations")
+}
+
+model PaymentAttemptRefund {
+  id                String   @id @db.Char(36)
+  attemptId         String   @map("attempt_id") @db.Char(36)
+  transferReference String   @unique(map: "uq_payment_attempt_refunds_transfer_reference") @map("transfer_reference") @db.VarChar(191)
+  idempotencyKey    String   @unique(map: "uq_payment_attempt_refunds_idempotency") @map("idempotency_key") @db.VarChar(191)
+  amountVnd         BigInt   @map("amount_vnd") @db.UnsignedBigInt
+  currency          String   @default("VND") @db.Char(3)
+  transferredAt     DateTime @map("transferred_at") @db.Date
+  evidenceId        Int      @map("evidence_id")
+  actorId           String   @map("actor_id") @db.VarChar(255)
+  reason            String   @db.VarChar(500)
+  createdAt         DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  attempt  PaymentAttempt  @relation(fields: [attemptId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  evidence FinancialEvidence @relation(fields: [evidenceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  actor    User             @relation("PaymentAttemptRefundActor", fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([attemptId, createdAt], map: "idx_payment_attempt_refunds_attempt_created")
+  @@map("payment_attempt_refunds")
+}
+
 model SupportTicket {
   id        Int      @id @default(autoincrement())
   userId    String   @map("user_id") @db.VarChar(255)
@@ -768,6 +858,7 @@ model FinancialEvidence {
   uploader               User                    @relation(fields: [uploadedBy], references: [id], onDelete: Restrict, onUpdate: Cascade)
   codSettlementEvents   CodSettlementEvent[]
   manualRefundOperations ManualRefundOperation[]
+  paymentAttemptRefunds PaymentAttemptRefund[]
 
   @@index([uploadedBy], map: "financial_evidence_uploaded_by_idx")
   @@map("financial_evidence")

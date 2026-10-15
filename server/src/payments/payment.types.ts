@@ -6,6 +6,8 @@ export const PAYMENT_PROVIDER = {
     PAYOS: "payos",
 } as const;
 
+export const PAYMENT_ATTEMPT_PROVIDER = PAYMENT_PROVIDER.PAYOS;
+
 export const PAYMENT_STATUS = {
     PENDING: "pending",
     PAID: "paid",
@@ -56,6 +58,7 @@ export const PAYMENT_CURRENCY = {
 export const PAYOS_SUCCESS_CODE = "00";
 
 export type PaymentProviderName = (typeof PAYMENT_PROVIDER)[keyof typeof PAYMENT_PROVIDER];
+export type PaymentAttemptProviderName = typeof PAYMENT_ATTEMPT_PROVIDER;
 export type PayOSPaymentProvider = typeof PAYMENT_PROVIDER.PAYOS;
 
 export type PayOSPaymentLookup = {
