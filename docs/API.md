@@ -191,6 +191,10 @@ user record.
 | GET | /api/after-sales/requests | Customer or admin |
 | GET | /api/after-sales/requests/:id | Customer or admin |
 
+`GET /api/users/:id/notifications?limit=N` returns at most `N` recent
+notifications. Its `unread` field is the user's total unread count, independent
+of the list limit.
+
 Authenticated checkout and review creation require a verified Firebase email.
 Customers can still browse, maintain a cart, view order history, and use
 support while unverified.

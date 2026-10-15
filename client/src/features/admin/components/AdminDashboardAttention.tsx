@@ -8,6 +8,7 @@ type AdminDashboardAttentionProps = {
     status: DashboardSectionStatus;
     groups: DashboardAlertGroup[];
     onRetry: () => void;
+    onOpenAlerts: (group: DashboardAlertGroup) => void;
 };
 
 const priorityVariant = (priority: DashboardAlertGroup["priority"]) => {
@@ -16,7 +17,7 @@ const priorityVariant = (priority: DashboardAlertGroup["priority"]) => {
     return "secondary" as const;
 };
 
-const AdminDashboardAttention = ({ status, groups, onRetry }: AdminDashboardAttentionProps) => {
+const AdminDashboardAttention = ({ status, groups, onRetry, onOpenAlerts }: AdminDashboardAttentionProps) => {
     let content;
 
     if (status === "loading") {
@@ -58,7 +59,7 @@ const AdminDashboardAttention = ({ status, groups, onRetry }: AdminDashboardAtte
                         </div>
                         <h3>{group.title}</h3>
                         <p>{group.description}</p>
-                        <Link className="admin__dashboard__attention-action" to={group.route}>
+                        <Link className="admin__dashboard__attention-action" to={group.route} onClick={() => onOpenAlerts(group)}>
                             {group.actionLabel}
                         </Link>
                     </article>

@@ -52,6 +52,10 @@ export class NestNotificationsService {
         return (rows || []).map(normalizeNotification);
     }
 
+    getUnreadCount(uid: string): Promise<number> {
+        return this.notificationsRepository.getUnreadNotificationCount(uid);
+    }
+
     async markRead(uid: string, notificationId: number | string) {
         const result = await this.notificationsRepository.markNotificationRead(uid, Number(notificationId));
         return { updated: result.affectedRows || 0 };

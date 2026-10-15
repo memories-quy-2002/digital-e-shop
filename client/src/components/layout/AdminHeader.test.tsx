@@ -129,6 +129,23 @@ describe("AdminHeader activity feed request states", () => {
         expect(getAdminAlertReadIds()).toContain("alert-1");
     });
 
+    it("counts unread alerts beyond the eight items shown in the popover", async () => {
+        vi.mocked(fetchAdminAlerts).mockResolvedValue({
+            alerts: Array.from({ length: 10 }, (_, index) => ({
+                ...alert,
+                id: `order-${index + 1}`,
+                title: `Order ${index + 1} requires review`,
+            })),
+            unread: 10,
+        });
+        renderHeader();
+
+        const trigger = await screen.findByRole("button", { name: "Notifications, 10 unread" });
+        fireEvent.click(trigger);
+
+        expect(screen.getAllByRole("link")).toHaveLength(8);
+    });
+
     it("communicates section navigation and clarifies unknown keywords", () => {
         renderHeader();
 

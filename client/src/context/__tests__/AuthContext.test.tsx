@@ -128,8 +128,10 @@ describe("AuthContext", () => {
         await waitFor(() => {
             expect(screen.getByTestId("user").textContent).toBe("persisted@example.com");
         });
-        const stored = JSON.parse(sessionStorage.getItem("userData") || "{}");
-        expect(stored.email).toBe("persisted@example.com");
+        await waitFor(() => {
+            const stored = JSON.parse(sessionStorage.getItem("userData") || "{}");
+            expect(stored.email).toBe("persisted@example.com");
+        });
     });
 
     it("removes user data from sessionStorage when set to null", async () => {

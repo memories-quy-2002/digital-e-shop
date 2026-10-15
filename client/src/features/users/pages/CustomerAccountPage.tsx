@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
 import { BellIcon, CartIcon, HouseIcon, PersonIcon } from "../../../components/common/Icons";
@@ -125,10 +125,12 @@ const CustomerAccountPage = () => {
     const { addToast } = useToast();
     const t = useT();
     const location = useLocation();
+    const navigate = useNavigate();
     const [customer, setCustomer] = useState<CustomerIdentity | null>(null);
     const [orders, setOrders] = useState<CustomerOrder[]>([]);
     const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
     const [notifications, setNotifications] = useState<CustomerNotification[]>([]);
+    const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [isNotificationsLoading, setIsNotificationsLoading] = useState(true);
     const [isMarkingAllNotificationsRead, setIsMarkingAllNotificationsRead] = useState(false);
@@ -212,6 +214,7 @@ const CustomerAccountPage = () => {
         const loadNotifications = async () => {
             if (!uid) {
                 setNotifications([]);
+                setUnreadNotificationCount(0);
                 setIsNotificationsLoading(false);
                 return;
             }
@@ -220,6 +223,7 @@ const CustomerAccountPage = () => {
                 setIsNotificationsLoading(true);
                 const response = await fetchCustomerNotifications(uid, 10);
                 setNotifications(response.notifications);
+                setUnreadNotificationCount(response.unread);
             } catch {
                 addToast(t("account.notifications.title"), t("account.notifications.updateError"));
             } finally {
@@ -240,8 +244,6 @@ const CustomerAccountPage = () => {
         }
     }, [loading, location.hash, location.pathname]);
 
-    const unreadNotificationCount = notifications.filter((notification) => !notification.is_read).length;
-
     const markAllNotificationsRead = async () => {
         if (!uid || isMarkingAllNotificationsRead || isMarkingNotificationId !== null || unreadNotificationCount === 0) {
             return;
@@ -255,6 +257,7 @@ const CustomerAccountPage = () => {
                 is_read: true,
                 read_at: notification.read_at || new Date().toISOString(),
             })));
+            setUnreadNotificationCount(0);
             addToast(
                 "Notifications",
                 t("account.notifications.markAllComplete", result.updated),
@@ -266,14 +269,14 @@ const CustomerAccountPage = () => {
         }
     };
 
-    const markNotificationRead = async (notification: CustomerNotification) => {
+    const markNotificationRead = async (notification: CustomerNotification): Promise<boolean> => {
         if (
             !uid
             || notification.is_read
             || isMarkingAllNotificationsRead
             || isMarkingNotificationId !== null
         ) {
-            return;
+            return notification.is_read;
         }
 
         try {
@@ -282,12 +285,24 @@ const CustomerAccountPage = () => {
             setNotifications((current) => current.map((item) => item.id === notification.id
                 ? { ...item, is_read: true, read_at: item.read_at || new Date().toISOString() }
                 : item));
-            addToast(t("account.notifications.title"), t("account.notifications.markedRead"));
+            setUnreadNotificationCount((current) => Math.max(0, current - 1));
+            return true;
         } catch {
             addToast(t("account.notifications.title"), t("account.notifications.updateError"));
+            return false;
         } finally {
             setIsMarkingNotificationId(null);
         }
+    };
+
+    const openNotification = async (notification: CustomerNotification) => {
+        if (!notification.link) {
+            setExpandedNotificationId((current) => current === notification.id ? null : notification.id);
+            return;
+        }
+
+        const markedRead = await markNotificationRead(notification);
+        if (markedRead) navigate(notification.link);
     };
 
     const recentOrders = useMemo(() => orders.slice(0, 3), [orders]);
@@ -530,6 +545,11 @@ const CustomerAccountPage = () => {
                                     <div className="customer-account-page__notification-list">
                                         {notifications.map((notification) => {
                                             const copy = getNotificationCopy(notification, t);
+                                            const notificationActionLabel = notification.link
+                                                ? t("account.notifications.openDetails")
+                                                : expandedNotificationId === notification.id
+                                                  ? t("account.notifications.hideDetails")
+                                                  : t("account.notifications.viewDetails");
                                             return (
                                             <article
                                                 key={notification.id}
@@ -540,13 +560,11 @@ const CustomerAccountPage = () => {
                                                         type="button"
                                                         className="customer-account-page__notification-trigger"
                                                         aria-label={copy.title}
-                                                        aria-expanded={expandedNotificationId === notification.id}
-                                                        aria-controls={expandedNotificationId === notification.id
-                                                            ? `account-notification-details-${notification.id}`
-                                                            : undefined}
-                                                        onClick={() => setExpandedNotificationId((current) =>
-                                                            current === notification.id ? null : notification.id,
-                                                        )}
+                                                        aria-expanded={notification.link ? undefined : expandedNotificationId === notification.id}
+                                                        aria-controls={!notification.link && expandedNotificationId === notification.id
+                                                            ? `account-notification-details-${notification.id}` : undefined}
+                                                        onClick={() => void openNotification(notification)}
+                                                        disabled={isMarkingAllNotificationsRead || isMarkingNotificationId !== null}
                                                     >
                                                         <span className="customer-account-page__notification-meta">
                                                             <span>{copy.typeLabel}</span>
@@ -554,12 +572,10 @@ const CustomerAccountPage = () => {
                                                         </span>
                                                         <strong>{copy.title}</strong>
                                                         <span className="customer-account-page__notification-toggle">
-                                                            {expandedNotificationId === notification.id
-                                                                ? t("account.notifications.hideDetails")
-                                                                : t("account.notifications.viewDetails")}
+                                                            {notificationActionLabel}
                                                         </span>
                                                     </button>
-                                                    <button
+                                                    {!notification.link ? <button
                                                         type="button"
                                                         className="customer-account-page__notification-mark-read"
                                                         onClick={() => markNotificationRead(notification)}
@@ -575,7 +591,7 @@ const CustomerAccountPage = () => {
                                                         {isMarkingNotificationId === notification.id
                                                             ? t("account.notifications.saving")
                                                             : notification.is_read ? t("account.notifications.read") : t("account.notifications.markRead")}
-                                                    </button>
+                                                    </button> : null}
                                                 </div>
                                                 {expandedNotificationId === notification.id ? (
                                                     <div
@@ -583,9 +599,6 @@ const CustomerAccountPage = () => {
                                                         className="customer-account-page__notification-detail"
                                                     >
                                                         <p>{copy.message}</p>
-                                                        {notification.link ? (
-                                                            <Link to={notification.link}>{t("account.notifications.openDetails")}</Link>
-                                                        ) : null}
                                                     </div>
                                                 ) : null}
                                             </article>

@@ -91,7 +91,7 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
             setActivityError(null);
             try {
                 const { alerts } = await fetchAdminAlerts();
-                setActivities(applyAdminAlertReadState(alerts.slice(0, 8), getAdminAlertReadIds(userData?.id)));
+                setActivities(applyAdminAlertReadState(alerts, getAdminAlertReadIds(userData?.id)));
                 setActivityStatus("success");
             } catch (error) {
                 setActivityError(getAdminRequestError(error));
@@ -308,7 +308,7 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
                                             />
                                         ) : null}
                                         {activities.length > 0 ? (
-                                            activities.map((activity) => (
+                                            activities.slice(0, 8).map((activity) => (
                                                 <Link
                                                     key={activity.id}
                                                     to={activity.route}

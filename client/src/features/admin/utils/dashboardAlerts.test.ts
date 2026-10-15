@@ -40,7 +40,7 @@ describe("dashboard alert grouping", () => {
         ]);
 
         expect(groups[0]).toMatchObject({ type: "payment", priority: "High" });
-        expect(groups[1]).toMatchObject({ type: "order", count: 2 });
+        expect(groups[1]).toMatchObject({ type: "order", count: 2, alertIds: ["order-older", "order-newer"] });
     });
 
     it("returns at most four groups and handles an empty response", () => {

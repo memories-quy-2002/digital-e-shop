@@ -38,13 +38,15 @@ describe("NotificationsController", () => {
             { id: 1, is_read: false },
             { id: 2, is_read: true },
         ] as never);
+        vi.spyOn(service, "getUnreadCount").mockResolvedValue(7);
 
         const result = await controller.getNotifications({ id: "42" }, {});
 
         expect(service.getNotifications).toHaveBeenCalledWith("42", undefined);
+        expect(service.getUnreadCount).toHaveBeenCalledWith("42");
         expect(result).toEqual({
             notifications: [{ id: 1, is_read: false }, { id: 2, is_read: true }],
-            unread: 1,
+            unread: 7,
             msg: "Notifications retrieved successfully",
         });
     });
