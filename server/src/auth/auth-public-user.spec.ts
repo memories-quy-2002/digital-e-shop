@@ -55,6 +55,7 @@ describe("auth public user boundary", () => {
             usersRepository as never,
             {} as never,
             {} as never,
+            { enqueue: vi.fn() } as never,
         );
         const originalJwtSecret = env.jwtSecret;
         env.jwtSecret = "test-access-secret";

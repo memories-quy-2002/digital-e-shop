@@ -106,7 +106,8 @@ export class FulfillmentService {
         await tx.query("UPDATE shipments SET state = ?, provider_updated_at = ?, actual_fee_vnd = ?, delivered_at = IF(? = 'DELIVERED', COALESCE(delivered_at, ?), delivered_at), updated_at = UTC_TIMESTAMP(3) WHERE id = ?", [next, timestamp, carrier.carrierFeeVnd, next, timestamp, shipment.id]);
         if (next === "DELIVERED") {
             await this.cod.recordCollection(tx, orderId, Number(shipment.expected_cod_vnd));
-            await completeDeliveredOrder(tx, orderId, timestamp, null);
+            const completed = await completeDeliveredOrder(tx, orderId, timestamp, null);
+            if (completed) await this.emails.emitPaymentConfirmed(tx, orderId);
         }
         const event = await this.repository.event(tx, shipment.id, next, null, "Carrier status verified") as { insertId: number };
         await this.emails.emit(tx, orderId, "shipment", { key: `shipment:${shipment.id}:event:${event.insertId}`, status: next, trackingCode: carrier.orderCode });

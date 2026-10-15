@@ -137,14 +137,16 @@ authentication issues the server cookie-backed access and refresh session. The
 server does not accept email/password credentials and does not expose
 password-reset or email-verification token routes.
 
-Registration accepts an ID token and optional profile input:
+Registration accepts an ID token, optional profile input, and an optional "en" or "vi"
+locale. A newly created account queues a localized welcome email transactionally:
 
 ~~~json
 {
   "idToken": "your_firebase_id_token",
   "user": {
     "username": "customer"
-  }
+  },
+  "locale": "vi"
 }
 ~~~
 
