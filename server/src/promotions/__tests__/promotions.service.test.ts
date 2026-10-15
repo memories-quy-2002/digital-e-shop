@@ -40,6 +40,8 @@ describe("transactional promotion redemptions", () => {
 
         expect(tx.query).toHaveBeenNthCalledWith(1, expect.stringContaining("FOR UPDATE"), ["SAVE10"]);
         expect(tx.query).toHaveBeenNthCalledWith(2, expect.stringContaining("status = 'CONSUMED'"), [9]);
+        expect(String(tx.query.mock.calls[1][0])).toContain("(status = 'RESERVED' AND expires_at > UTC_TIMESTAMP())");
+        expect(String(tx.query.mock.calls[1][0])).not.toContain("status = 'RELEASED'");
         expect(tx.query).toHaveBeenNthCalledWith(3, expect.stringContaining("SET discount_id = ?, discount = ?"), [9, 10, 7]);
         expect(tx.query).toHaveBeenNthCalledWith(4, expect.stringContaining("'RESERVED'"), [9, 7, "user-1", expect.any(Date)]);
     });
@@ -68,6 +70,27 @@ describe("transactional promotion redemptions", () => {
         await expect(repository.releasePromotionReservation(tx, 8)).resolves.toBe(1);
         expect(tx.query).toHaveBeenNthCalledWith(1, expect.stringContaining("SET status = 'CONSUMED'"), [44, 7]);
         expect(tx.query).toHaveBeenNthCalledWith(2, expect.stringContaining("SET status = 'RELEASED'"), [8]);
+    });
+
+    it.each(["RESERVED", "RELEASED"])("consumes the original paid reservation from %s without repricing", async (status) => {
+        const tx = { query: vi.fn() };
+        tx.query.mockResolvedValueOnce([{ status, order_id: null }]).mockResolvedValueOnce({ affectedRows: 1 });
+        const repository = new PromotionsRepository();
+
+        await expect(repository.consumePaidPromotionReservation(tx, 7, 44)).resolves.toBe(1);
+
+        expect(tx.query).toHaveBeenNthCalledWith(1, expect.stringContaining("FOR UPDATE"), [7]);
+        expect(tx.query).toHaveBeenNthCalledWith(2, expect.stringContaining("status IN ('RESERVED', 'RELEASED')"), [44, 7]);
+        expect(tx.query.mock.calls[1][0]).not.toMatch(/discounts|discount_percent|usage_limit/i);
+    });
+
+    it("treats an already consumed reservation as idempotent only for its original order", async () => {
+        const tx = { query: vi.fn().mockResolvedValue([{ status: "CONSUMED", order_id: 44 }]) };
+        const repository = new PromotionsRepository();
+
+        await expect(repository.consumePaidPromotionReservation(tx, 7, 44)).resolves.toBe(1);
+        await expect(repository.consumePaidPromotionReservation(tx, 7, 45)).resolves.toBe(0);
+        expect(tx.query).toHaveBeenCalledTimes(2);
     });
 });
 

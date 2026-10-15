@@ -37,7 +37,7 @@ export async function configureHttpApp<T extends INestApplication>(app: T): Prom
         },
         credentials: true,
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
+        allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token", "Idempotency-Key"],
         exposedHeaders: ["X-Request-Id"],
     }));
 
@@ -67,7 +67,7 @@ async function bootstrap() {
         return cachedApp;
     }
 
-    const app = await NestFactory.create(AppModule);
+    const app = await NestFactory.create(AppModule, { rawBody: true });
 
     await configureHttpApp(app);
 

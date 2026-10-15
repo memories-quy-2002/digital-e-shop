@@ -34,7 +34,7 @@ pass and separate findings by lens.
 1. Read [AGENTS.md](../../AGENTS.md), [Wiki/index.md](../../Wiki/index.md), and
    the maintained guide for the target surface.
 2. Inspect target files, callers, callees, routes, API helpers, tests, and
-   configuration. Use CodeGraph or Grep when available.
+   configuration. Use GitNexus or Grep when available.
 3. Confirm each finding against current source or rendered behavior.
 4. In `read_only` mode, do not edit source, tests, configuration, or docs.
 5. In `implement_after_approval` mode, report findings first. Edit only

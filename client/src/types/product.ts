@@ -15,6 +15,10 @@ export interface Product {
     available_stock?: number;
     description: string;
     specifications: string | null;
+    parcel_grams?: number | null;
+    parcel_length_cm?: number | null;
+    parcel_width_cm?: number | null;
+    parcel_height_cm?: number | null;
 }
 
 export type Review = {

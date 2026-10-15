@@ -18,6 +18,7 @@ import {
 } from "./after-sales.types";
 import { AfterSalesRepository } from "./after-sales.repository";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
+import { OrderEmailService } from "../orders/order-email.service";
 
 const domainError = (message: string, statusCode: number, code?: AfterSalesErrorCode) => Object.assign(new Error(message), { statusCode, code });
 
@@ -26,6 +27,7 @@ export class AfterSalesService {
     constructor(
         private readonly repository: AfterSalesRepository,
         @Optional() private readonly paymentProvider?: PaymentProviderService,
+        @Optional() private readonly orderEmails?: OrderEmailService,
     ) {}
 
     createCustomerRequest(userId: string, input: AfterSalesCreateInput): Promise<AfterSalesRequest> {
@@ -118,6 +120,7 @@ export class AfterSalesService {
             assertTransition(current.status as AfterSalesStatus, transition.status);
             const updated = await this.repository.transitionRequest(tx, id, transition, actorId);
             if (!updated) throw domainError("After-sales request not found.", HTTP_STATUS.NOT_FOUND, AFTER_SALES_ERROR_CODE.REQUEST_NOT_FOUND);
+            if (this.orderEmails && ["APPROVED", "REJECTED"].includes(transition.status)) await this.orderEmails.emit(tx, updated.orderId, "decision", { key: `after-sales:${id}:${transition.status}`, decision: transition.status === "APPROVED" ? "approved" : "rejected" });
             return updated;
         });
         return (await this.repository.getAdminRequest(id)) || updated;

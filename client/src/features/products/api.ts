@@ -1,7 +1,7 @@
 import http from "../../lib/http";
 import { HTTP_STATUS } from "../../constants/http-status";
 import type { Product, Review, ReviewSummary, Wishlist } from "../../types/product";
-import { normalizeProduct } from "../../utils/product";
+import { normalizeProduct, normalizeProducts } from "../../utils/product";
 import type { ProductComparison } from "./compare/types";
 
 export type ProductAttributeType = "text" | "number";
@@ -37,6 +37,51 @@ export type ProductAttributeRow = {
 export type ProductWithAttributes = Product & {
     attributes: ProductAttributeRow[];
 };
+
+export type ProductFacets = {
+    categories: string[];
+    brands: string[];
+    minPrice: number;
+    maxPrice: number;
+    totalProducts: number;
+};
+
+export type ProductCatalogPagination = {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+};
+
+export async function fetchProductCatalog(
+    params: Record<string, string>,
+    signal?: AbortSignal,
+): Promise<{ products: Product[]; pagination?: ProductCatalogPagination }> {
+    const response = await http.get("/api/products", { params, signal });
+    return {
+        products: normalizeProducts(response.data.products),
+        pagination: response.data.pagination,
+    };
+}
+
+export async function searchProducts(term: string, limit: number): Promise<Product[]> {
+    const response = await http.get("/api/products/search", {
+        params: { q: term, limit },
+    });
+    return normalizeProducts(response.data.products);
+}
+
+export async function fetchProductFacets(): Promise<ProductFacets> {
+    const response = await http.get("/api/products/facets");
+    return response.data.facets as ProductFacets;
+}
+
+export async function fetchProductRecommendations(uid: string, limit: number): Promise<Product[]> {
+    const response = await http.get(`/api/products/recommendations/${encodeURIComponent(uid)}`, {
+        params: { limit },
+    });
+    return normalizeProducts(response.data.products);
+}
 
 type RawProductAttribute = Record<string, unknown>;
 
@@ -314,6 +359,10 @@ export async function addToWishlist(uid: string, productId: number): Promise<voi
     await http.post("/api/wishlist/", { uid, pid: productId });
 }
 
-export async function removeFromWishlist(productId: number): Promise<void> {
-    await http.delete(`/api/wishlist/${productId}`);
+export async function removeFromWishlist(uid: string, productId: number): Promise<void> {
+    await http.delete(`/api/wishlist/${productId}`, { data: { uid } });
+}
+
+export async function removeWishlistItems(uid: string, productIds: number[]): Promise<void> {
+    await http.delete("/api/wishlist/", { data: { uid, productIds } });
 }

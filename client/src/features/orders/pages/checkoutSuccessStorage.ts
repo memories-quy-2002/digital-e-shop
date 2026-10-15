@@ -6,6 +6,7 @@ export type CheckoutSuccessData = {
     totalPrice: number;
     discount: number;
     subtotal: number;
+    shippingFee?: number;
     itemsCount: number;
     placedAt: string;
     currency?: CurrencyCode;
@@ -19,10 +20,33 @@ export type CheckoutSuccessData = {
     guestOrderToken?: string;
 };
 
-export type PendingCheckoutData = Omit<CheckoutSuccessData, "orderId" | "placedAt">;
-
 type StoredCheckoutSuccessData = Omit<CheckoutSuccessData, "email" | "name" | "address" | "city" | "country" | "phone">;
-type StoredPendingCheckoutData = Omit<PendingCheckoutData, "email" | "name" | "address" | "city" | "country" | "phone">;
+
+export type PurchasedCartSnapshotItem = { productId: number; quantity: number };
+export type PendingCheckoutData = {
+    version: 2;
+    idempotencyKey: string;
+    requestFingerprint: string;
+    attemptId?: string;
+    providerOrderCode?: string;
+    cartSnapshot: PurchasedCartSnapshotItem[];
+};
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const isPendingCheckout = (value: unknown): value is PendingCheckoutData => {
+    if (!value || typeof value !== "object") return false;
+    const record = value as Partial<PendingCheckoutData>;
+    return record.version === 2
+        && typeof record.idempotencyKey === "string" && UUID_PATTERN.test(record.idempotencyKey)
+        && typeof record.requestFingerprint === "string" && record.requestFingerprint.length > 0
+        && (record.attemptId === undefined || (typeof record.attemptId === "string" && UUID_PATTERN.test(record.attemptId)))
+        && (record.providerOrderCode === undefined || /^\d{1,20}$/.test(record.providerOrderCode))
+        && Array.isArray(record.cartSnapshot)
+        && record.cartSnapshot.every((item) => Boolean(item && typeof item === "object")
+            && Number.isSafeInteger(item.productId) && item.productId > 0
+            && Number.isSafeInteger(item.quantity) && item.quantity > 0);
+};
 
 export function maskPhoneNumber(phone: string): string {
     const digits = phone.replace(/\D/g, "");
@@ -72,12 +96,39 @@ export function writeCheckoutSuccess(data: CheckoutSuccessData) {
 }
 
 export function readPendingCheckout() {
-    return readStoredJson<PendingCheckoutData>("checkoutPending", { clearOnError: true });
+    const stored = readStoredJson<unknown>("checkoutPending", { clearOnError: true });
+    if (stored === null) return null;
+    if (!isPendingCheckout(stored)) {
+        sessionStorage.removeItem("checkoutPending");
+        return null;
+    }
+    return stored;
 }
 
 export function writePendingCheckout(data: PendingCheckoutData) {
-    const safeData: StoredPendingCheckoutData = stripSensitiveCheckoutFields(data);
+    if (!isPendingCheckout(data)) throw new TypeError("Invalid pending checkout data");
+    const safeData: PendingCheckoutData = {
+        version: 2,
+        idempotencyKey: data.idempotencyKey,
+        requestFingerprint: data.requestFingerprint,
+        ...(data.attemptId ? { attemptId: data.attemptId } : {}),
+        ...(data.providerOrderCode ? { providerOrderCode: data.providerOrderCode } : {}),
+        cartSnapshot: data.cartSnapshot.map(({ productId, quantity }) => ({ productId, quantity })),
+    };
     sessionStorage.setItem("checkoutPending", JSON.stringify(safeData));
+}
+
+export function getOrCreatePayOSSubmission(requestFingerprint: string, cartSnapshot: PurchasedCartSnapshotItem[]): PendingCheckoutData {
+    const current = readPendingCheckout();
+    if (current?.requestFingerprint === requestFingerprint) return current;
+    const next: PendingCheckoutData = {
+        version: 2,
+        idempotencyKey: crypto.randomUUID(),
+        requestFingerprint,
+        cartSnapshot: cartSnapshot.map(({ productId, quantity }) => ({ productId, quantity })),
+    };
+    writePendingCheckout(next);
+    return next;
 }
 
 export function clearPendingCheckout() {

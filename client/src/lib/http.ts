@@ -44,7 +44,7 @@ const http = axios.create({
 });
 
 const fetchCsrfToken = async () => {
-    const response = await csrfClient.get("/api/users/csrf");
+    const response = await csrfClient.get("/api/csrf");
     const token = response.data?.csrfToken || "";
     if (token) {
         csrfTokenCache = token;

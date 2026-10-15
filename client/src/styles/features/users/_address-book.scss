@@ -89,6 +89,13 @@
             font-weight: 900;
         }
 
+        .address-book__field-error {
+            color: var(--de-color-danger-strong);
+            font-size: 0.78rem;
+            font-weight: 700;
+            line-height: 1.4;
+        }
+
         input:not([type="checkbox"]) {
             width: 100%;
             min-width: 0;

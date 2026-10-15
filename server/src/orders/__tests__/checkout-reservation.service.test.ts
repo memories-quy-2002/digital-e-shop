@@ -8,6 +8,8 @@ vi.mock("../../database/transaction", () => ({
 
 import { CheckoutReservationService } from "../checkout-reservation.service";
 import { hashGuestOrderToken } from "../guest-order-token";
+import { deliveryCheckout } from "../../shipping/__tests__/checkout-fixture";
+const quoteService = { validateQuote: async (_tx: unknown, _checkout: unknown, _cart: unknown, subtotal: number, discount: number) => ({ pricing: { itemsSubtotal: subtotal, merchandiseDiscount: discount, shippingFee: 0, payableTotal: subtotal - discount }, delivery: {} }) };
 
 type CheckoutState = {
     id: number;
@@ -37,6 +39,8 @@ function createMockRepository() {
         lockProducts: vi.fn(async (_tx: unknown, productIds: number[]) => productIds.map((id) => ({
             id,
             name: `Product ${id}`,
+            price: 10,
+            sale_price: null,
             stock: state.stockByProductId.get(id) ?? 0,
         }))),
         getActiveReservationQuantities: vi.fn(async (_tx: unknown, productIds: number[]) => {
@@ -61,6 +65,8 @@ function createMockRepository() {
         insertInventoryReservations: vi.fn(async (_tx: unknown, pendingCheckoutId: number, items: Array<{ productId: number; quantity: number }>) => {
             state.reservations.push(...items.map((item) => ({ pendingCheckoutId, ...item })));
         }),
+        assignPayOSAttempt: vi.fn(async () => 1),
+        attachPaymentProviderByCheckoutId: vi.fn(async () => 1),
         releaseReservation: vi.fn(async (_tx: unknown, reservationToken: string, reason: string) => {
             void reason;
             const checkout = state.checkouts.find((candidate) => candidate.reservationToken === reservationToken);
@@ -99,7 +105,7 @@ function installSerializedTransactions() {
         });
         await previous;
         try {
-            return await work({});
+            return await work({ query: vi.fn().mockResolvedValue({ affectedRows: 1 }) });
         } finally {
             release();
         }
@@ -108,6 +114,7 @@ function installSerializedTransactions() {
 
 const reservationInput = (uid: string, quantity = 1, expiresAt = new Date(Date.now() + 35 * 60_000)) => ({
     uid,
+    deliveryCheckout: { ...deliveryCheckout, quoteIdentity: { kind: "authenticated" as const, userId: uid } },
     authoritativeCart: [{ product_id: 1, product_name: "Product 1", price: 10, sale_price: null, quantity }],
     authoritativeTotalPrice: quantity * 10,
     discount: 0,
@@ -125,7 +132,7 @@ describe("CheckoutReservationService", () => {
         const { repository, state } = createMockRepository();
         state.stockByProductId.set(1, 2);
         state.stockByProductId.set(2, 2);
-        const service = new CheckoutReservationService(repository as never, promotionsRepository as never);
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never);
 
         const result = await service.reserveInventory({
             ...reservationInput("user-a", 1),
@@ -156,11 +163,67 @@ describe("CheckoutReservationService", () => {
         expect(result.reservationToken).toMatch(/^[0-9a-f-]{36}$/i);
     });
 
+    it("persists the PayOS attempt and immutable order code in the reservation transaction", async () => {
+        const { repository } = createMockRepository();
+        const paymentAttempt = {
+            id: "attempt-123",
+            pendingCheckoutId: 1,
+            providerOrderCode: "123456789",
+            expectedAmountVnd: 10,
+            paymentState: "PENDING",
+            orderState: "NOT_CREATED",
+            resolutionState: "NONE",
+            providerLinkId: null,
+            providerLinkUrl: null,
+            expiresAt: new Date(Date.now() + 35 * 60_000).toISOString(),
+            replayed: false,
+        };
+        const attempts = {
+            findExistingClaim: vi.fn().mockResolvedValue(null),
+            claim: vi.fn().mockResolvedValue(paymentAttempt),
+        };
+        const tasks = { enqueue: vi.fn().mockResolvedValue(44) };
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never, undefined, attempts as never, tasks as never);
+        const transaction = { query: vi.fn().mockResolvedValue({ affectedRows: 1 }) };
+        transactionRunner.mockImplementationOnce(async (work: (tx: unknown) => Promise<unknown>) => work(transaction));
+
+        const result = await service.reservePayOSInventory(reservationInput("user-a"), {
+            owner: { kind: "authenticated", userId: "user-a" },
+            idempotencyKey: "3b4b0fd8-f820-4a70-a30e-cfc24c9f2bba",
+            request: { cart: [{ productId: 1, quantity: 1 }], totalPrice: 10 },
+        });
+
+        expect(attempts.findExistingClaim).toHaveBeenCalledWith(expect.objectContaining({ owner: { kind: "authenticated", userId: "user-a" } }), expect.anything());
+        expect(attempts.claim).toHaveBeenCalledWith(expect.objectContaining({
+            pendingCheckoutId: 1,
+            expectedAmountVnd: 10,
+            request: { cart: [{ productId: 1, quantity: 1 }], totalPrice: 10 },
+        }), expect.anything());
+        expect(repository.assignPayOSAttempt).toHaveBeenCalledWith(expect.anything(), 1, 123456789, 10);
+        expect(tasks.enqueue).toHaveBeenCalledWith(transaction, expect.objectContaining({
+            kind: "PAYOS_RECONCILE",
+            key: "payos:attempt-123:0",
+            payload: expect.objectContaining({ attemptId: "attempt-123", pendingCheckoutId: 1, generation: 0 }),
+            dueAt: expect.any(Date),
+        }));
+        expect(result.paymentAttempt).toEqual(paymentAttempt);
+    });
+
+    it("rejects a PayOS reservation when the locked catalog price changed after quote creation", async () => {
+        const { repository } = createMockRepository();
+        repository.lockProducts.mockResolvedValueOnce([{ id: 1, name: "Product 1", price: 11, sale_price: null, stock: 1 }]);
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never);
+
+        await expect(service.reserveInventory(reservationInput("user-a"))).rejects.toThrow(/price changed/i);
+        expect(repository.insertPendingCheckout).not.toHaveBeenCalled();
+    });
+
     it("persists a guest contact snapshot without assigning a user ID", async () => {
         const { repository } = createMockRepository();
-        const service = new CheckoutReservationService(repository as never, promotionsRepository as never);
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never);
 
         await service.reserveInventory({
+            deliveryCheckout: { ...deliveryCheckout, quoteIdentity: { kind: "guest", guestCartId: "11111111-1111-4111-8111-111111111111" } },
             authoritativeCart: [{ product_id: 1, product_name: "Product 1", price: 10, sale_price: null, quantity: 1 }],
             authoritativeTotalPrice: 10,
             discount: 0,
@@ -189,7 +252,7 @@ describe("CheckoutReservationService", () => {
 
     it("allows only one concurrent quantity-one reservation against stock one", async () => {
         const { repository } = createMockRepository();
-        const service = new CheckoutReservationService(repository as never, promotionsRepository as never);
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never);
 
         const results = await Promise.allSettled([
             service.reserveInventory(reservationInput("user-a")),
@@ -203,7 +266,7 @@ describe("CheckoutReservationService", () => {
 
     it("does not subtract expired, released, or consumed reservations", async () => {
         const { repository, state } = createMockRepository();
-        const service = new CheckoutReservationService(repository as never, promotionsRepository as never);
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never);
         const expiresAt = new Date(Date.now() + 35 * 60_000);
 
         state.checkouts.push({ id: 1, status: "PENDING", expiresAt, reservationToken: "pending-token" });
@@ -220,7 +283,7 @@ describe("CheckoutReservationService", () => {
 
     it("releases a reservation idempotently", async () => {
         const { repository } = createMockRepository();
-        const service = new CheckoutReservationService(repository as never, promotionsRepository as never);
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never);
         const reservation = await service.reserveInventory(reservationInput("user-a"));
 
         await expect(service.releaseReservation(reservation.reservationToken, "stripe_session_creation_failed")).resolves.toBeUndefined();
@@ -240,7 +303,7 @@ describe("CheckoutReservationService", () => {
             discount: 3,
             promotion: { id: 3, discount_code: "SAVE10", discount_percent: 10 },
         });
-        const service = new CheckoutReservationService(repository as never, promotionsRepository as never);
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never);
 
         const result = await service.reserveInventory({
             ...reservationInput("user-promo"),

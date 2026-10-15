@@ -42,21 +42,21 @@ describe("after-sales controllers", () => {
         expect(service.getGuestRequest).toHaveBeenCalledWith(9, "secret", 2);
     });
 
-    it("keeps admin transition and refund operations separate", async () => {
+    it("keeps admin transitions protected and retires the unsafe legacy refund route", async () => {
         const service = {
             listAdminRequests: vi.fn().mockResolvedValue({ requests: [], pagination: { page: 1, limit: 50, total: 0, totalPages: 0 } }),
             getAdminRequest: vi.fn().mockResolvedValue({ id: 3 }),
             transitionRequest: vi.fn().mockResolvedValue({ id: 3, status: "APPROVED" }),
             confirmRefund: vi.fn().mockResolvedValue({ id: 3, status: "REFUNDED" }),
         };
-        const controller = new AdminAfterSalesController(service as never);
+        const controller = new AdminAfterSalesController(service as never, { confirm: vi.fn() } as never);
 
         await expect(controller.list({ page: 1, limit: 50 })).resolves.toHaveProperty("requests");
         await expect(controller.detail("3")).resolves.toHaveProperty("request.id", 3);
         await expect(controller.transition("3", request("admin", "admin-1"), { status: "APPROVED" })).resolves.toHaveProperty("request.status", "APPROVED");
-        await expect(controller.refund("3", request("admin", "admin-1"), { refundReference: "ref-3", currency: "VND", idempotencyKey: "refund-3" })).resolves.toHaveProperty("request.status", "REFUNDED");
+        await expect(controller.refund()).rejects.toMatchObject({ status: 410 });
         expect(service.transitionRequest).toHaveBeenCalledWith(3, "admin-1", { status: "APPROVED" });
-        expect(service.confirmRefund).toHaveBeenCalledWith(3, "admin-1", expect.objectContaining({ refundReference: "ref-3" }));
+        expect(service.confirmRefund).not.toHaveBeenCalled();
     });
 
     it("preserves domain status codes in HTTP errors", async () => {

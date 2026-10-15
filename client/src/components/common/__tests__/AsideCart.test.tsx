@@ -26,7 +26,7 @@ describe("AsideCart", () => {
         expect(screen.getByRole("heading", { name: "Order summary" })).toBeInTheDocument();
         expect(screen.getByText("Items subtotal")).toBeInTheDocument();
         expect(screen.getByText("Shipping")).toBeInTheDocument();
-        expect(screen.getByText("Free", { selector: "strong" })).toBeInTheDocument();
+        expect(screen.getByText("Delivery fee is calculated at checkout", { selector: "strong" })).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Proceed to checkout" })).toBeInTheDocument();
         expect(screen.queryByText("UTC order time")).not.toBeInTheDocument();
     });

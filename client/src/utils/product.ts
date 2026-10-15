@@ -41,6 +41,10 @@ export const normalizeProduct = (value: unknown): Product => {
             source.specifications === null || source.specifications === undefined
                 ? null
                 : String(source.specifications),
+        parcel_grams: nullableNumber(source.parcel_grams),
+        parcel_length_cm: nullableNumber(source.parcel_length_cm),
+        parcel_width_cm: nullableNumber(source.parcel_width_cm),
+        parcel_height_cm: nullableNumber(source.parcel_height_cm),
     };
 };
 

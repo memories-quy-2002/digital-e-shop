@@ -51,6 +51,17 @@ describe("guest cart preview pricing", () => {
         expect(result.issues).toEqual([]);
     });
 
+    it("rounds fractional legacy catalog prices to whole VND before checkout", () => {
+        const result = buildGuestCartPreviewResult(
+            [{ productId: 10, quantity: 1 }],
+            [product({ price: 2217.25, sale_price: 1999.99 })],
+            null,
+        );
+
+        expect(result.merchandiseTotal).toBe(2000);
+        expect(result.totalPrice).toBe(2000);
+    });
+
     it("reports missing products and insufficient stock as actionable validation issues", () => {
         const result = buildGuestCartPreviewResult(
             [

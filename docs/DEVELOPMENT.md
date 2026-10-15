@@ -86,13 +86,33 @@ verification template in the Firebase console. Add
 digital-e.vercel.app under Authentication > Settings > Authorized domains; this
 is a free app-origin allowlist entry, not a paid email domain.
 
-Firebase also owns production password-reset and email-change links. The server
-does not configure a generic transactional email provider, so order confirmation
-emails are currently disabled. Authenticated customers receive database-backed
-order notifications in the app; guests use checkout success and protected
-lookup. If an external order-email channel is added later, keep credentials
-server-side and make delivery a non-blocking post-commit side effect. Firebase
-action codes and guest-order access tokens are never logged.
+Firebase also owns production password-reset and email-change links. New accounts,
+confirmed payments, and order lifecycle updates use the separate transactional-email
+subsystem, which is disabled by default and supports Resend or a local sandbox.
+Set EMAIL_PROVIDER_MODE=resend with a verified sender to deliver these messages.
+Delivery runs as a durable post-commit task; provider acceptance is distinct from
+inbox delivery.
+Authenticated customers also receive database-backed order notifications in
+the app; guests use checkout success and protected lookup. Firebase action
+codes and guest-order access tokens are never logged or emailed.
+
+### Local retail P0 sandbox
+
+The P0 browser flow and sandbox CLI must target a disposable local MySQL clone.
+Use `SHIPPING_PROVIDER_MODE=sandbox`, `EMAIL_PROVIDER_MODE=sandbox`,
+`PAYMENT_PROVIDER_MODE=mock`, and `EMAIL_SANDBOX_FIXTURE=accepted`; these modes
+do not call GHN, Resend, or PayOS. The sandbox command checks a loopback API,
+explicit local database allowlist, Firebase Auth Emulator, and provider modes
+before it runs. See [retail P0 acceptance](./backlog/README.md) and
+[testing](./TESTING.md#retail-p0-sandbox).
+
+Production GHN and Resend credentials are server-only. GHN configuration uses
+`GHN_TOKEN`, `GHN_SHOP_ID`, webhook secret, and the configured sender address;
+Resend uses `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, and
+`TRANSACTIONAL_EMAIL_FROM`. Configure these only after provider staging
+verification, webhook registration, and an external scheduler have been
+reviewed. The API runner endpoint is authenticated by the server-only
+`OPERATIONS_RUNNER_SECRET`; no hosted scheduler is activated by this change.
 Vietnam-first payments use PayOS payment links and whole-number VND catalog
 values, plus cash on delivery. Keep `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, and
 `PAYOS_CHECKSUM_KEY` server-side. New runtime records use VND without an FX
@@ -108,6 +128,24 @@ The guarded admin reconciliation workspace can run at most 100 candidates per
 request, retry PayOS records, confirm COD collection, and inspect webhook
 history. Run `pnpm --dir server seed:demo` after changing the demo seed so local
 products, discount thresholds, and demo orders are materialized in VND.
+
+PayOS checkout persists an owner-scoped attempt before requesting a payment
+link. In mock mode the local simulator can confirm that attempt without moving
+money; the browser return only resumes the backend status view. Configure the
+public `/api/orders/webhooks/payos` endpoint for signed provider events and keep
+the operations runner available so durable reconciliation tasks can run. The
+customer status routes are listed in `docs/API.md`; status polling is bounded
+and cancellation applies only while payment is not verified.
+
+Unresolved paid PayOS attempts appear in the admin payment reconciliation page.
+Retry creates an order only for an exact verified receipt with no order,
+cancellation request, refund, or closed resolution; the service rechecks
+inventory and reservation invariants. Offline refunds are records of transfers
+already completed by an operator. They require an uploaded private evidence
+file, a unique transfer reference, an idempotency UUID, and a reason; the API
+does not initiate a bank or PayOS refund. A retry/refund exception is not proof
+that real PayOS sandbox acceptance has passed: that acceptance still requires
+provider credentials and a configured test channel.
 
 Authentication is Firebase-only. The client signs users in with Firebase Email/Password and sends a Firebase ID token to the API; the server verifies that token with Firebase Admin before issuing its cookie-backed session. Firebase owns verification, password-reset, and email-change action links in every environment. After the user signs in again, the server reads Firebase's email_verified claim and updates email_verified_at, including synchronizing a verified email change by Firebase UID. Authenticated checkout, PayOS checkout-session creation, and review creation remain blocked until that claim is true. Legacy verification and password-reset columns remain nullable for schema compatibility but are no longer used by the runtime.
 

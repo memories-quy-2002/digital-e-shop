@@ -86,3 +86,12 @@ export type AfterSalesCreateInput = {
 };
 
 export type GuestAfterSalesCreateInput = AfterSalesCreateInput & { guestOrderToken: string };
+
+export type ManualRefundInput = {
+    idempotencyKey: string;
+    transferReference: string;
+    transferDate: string;
+    reviewedReason: string;
+    evidenceId: number;
+    currency: "VND";
+};

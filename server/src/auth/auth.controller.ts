@@ -78,7 +78,9 @@ export class NestAuthController {
         @Req() req: Request,
         @Res() res: Response,
     ) {
-        const sessionPayload = await this.authService.registerUser(body.idToken, body.user);
+        const sessionPayload = body.locale
+            ? await this.authService.registerUser(body.idToken, body.user, body.locale)
+            : await this.authService.registerUser(body.idToken, body.user);
         const { user: createdUser, token } = sessionPayload;
         setAuthCookies(res, sessionPayload, false);
 
@@ -190,6 +192,17 @@ export class NestAuthController {
     }
 
     @Get("csrf")
+    @HttpCode(HttpStatus.OK)
+    async getCsrfToken(@Req() req: Request, @Res() res: Response) {
+        const { generateCsrfToken } = await import("#src/middleware/csrf.middleware");
+        const token = generateCsrfToken(req as Request, res as Response);
+        return res.status(HTTP_STATUS.OK).json(buildSuccessResponse({ csrfToken: token }, requestIdFrom(req)));
+    }
+}
+
+@Controller("csrf")
+export class NestCsrfController {
+    @Get()
     @HttpCode(HttpStatus.OK)
     async getCsrfToken(@Req() req: Request, @Res() res: Response) {
         const { generateCsrfToken } = await import("#src/middleware/csrf.middleware");

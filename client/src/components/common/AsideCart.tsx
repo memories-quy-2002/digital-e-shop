@@ -129,10 +129,10 @@ const AsideCart = ({
                     </div>
                     <div className="cart-summary__pricing-row cart-summary__pricing-row--shipping">
                         <span>{t("cart.shipping")}</span>
-                        <strong>{t("cart.freeShipping")}</strong>
+                        <strong>{t("shipping.quoteAtCheckout")}</strong>
                     </div>
                     <div className="cart-summary__pricing-row cart-summary__pricing-row--total">
-                        <span>{t("cart.amountDue")}</span>
+                        <span>{t("shipping.merchandiseTotal")}</span>
                         <strong>{formatCurrency(subtotal)}</strong>
                     </div>
                 </div>

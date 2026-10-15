@@ -1,5 +1,5 @@
-import { Global, Module, MiddlewareConsumer, NestModule } from "@nestjs/common";
-import { NestAuthController } from "./auth.controller";
+import { Global, Module, MiddlewareConsumer, NestModule, RequestMethod } from "@nestjs/common";
+import { NestAuthController, NestCsrfController } from "./auth.controller";
 import { NestAuthService } from "./auth.service";
 import { AuthRepository } from "./auth.repository";
 import { AuthSessionService } from "./auth-session.service";
@@ -12,7 +12,7 @@ import { VerifiedEmailGuard } from "../guards/verified-email.guard";
 @Global()
 @Module({
     imports: [UsersModule],
-    controllers: [NestAuthController],
+    controllers: [NestAuthController, NestCsrfController],
     providers: [
         NestAuthService,
         AuthRepository,
@@ -36,6 +36,9 @@ export class AuthModule implements NestModule {
             "users/register",
             "users/refresh",
             "orders/webhooks/payos",
+            { path: "shipping/webhooks/ghn", method: RequestMethod.POST },
+            { path: "email/webhooks/resend", method: RequestMethod.POST },
+            { path: "operations/run", method: RequestMethod.POST },
         ).forRoutes("*");
     }
 }

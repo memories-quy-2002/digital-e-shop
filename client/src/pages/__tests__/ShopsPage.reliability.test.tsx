@@ -13,11 +13,17 @@ import ShopsPage from "../ShopsPage";
 import { LocaleProvider } from "../../context/LocaleContext";
 
 const mocks = vi.hoisted(() => ({
-  get: vi.fn(),
+  fetchProductCatalog: vi.fn(),
+  fetchProductFacets: vi.fn(),
+  fetchWishlist: vi.fn(),
   addToast: vi.fn(),
   addItem: vi.fn(),
 }));
-vi.mock("../../api/axios", () => ({ default: { get: mocks.get } }));
+vi.mock("../../features/products/api", () => ({
+  fetchProductCatalog: mocks.fetchProductCatalog,
+  fetchProductFacets: mocks.fetchProductFacets,
+  fetchWishlist: mocks.fetchWishlist,
+}));
 vi.mock("../../context/AuthContext", () => ({
   useAuth: () => ({ userData: null }),
 }));
@@ -95,23 +101,21 @@ describe("catalog request reliability", () => {
       url: string,
     ) => Promise<ProductResponse>,
   ) => {
-    mocks.get.mockImplementation(
-      (url: string, config?: { signal?: AbortSignal }) => {
-        if (url === "/api/products/facets")
-          return Promise.resolve({
-            status: 200,
-            data: {
-              facets: {
-                categories: [],
-                brands: [],
-                minPrice: 0,
-                maxPrice: 100000000,
-                totalProducts: 1,
-              },
-            },
-          });
-        if (url.startsWith("/api/products?")) return load(config, url);
-        throw new Error("Unexpected request: " + url);
+    mocks.fetchProductFacets.mockResolvedValue({
+      categories: [],
+      brands: [],
+      minPrice: 0,
+      maxPrice: 100000000,
+      totalProducts: 1,
+    });
+    mocks.fetchWishlist.mockResolvedValue([]);
+    mocks.fetchProductCatalog.mockImplementation(
+      (params: Record<string, string>, signal?: AbortSignal) => {
+        const url = `/api/products?${new URLSearchParams(params).toString()}`;
+        return load({ signal }, url).then(({ data }) => ({
+          products: data.products,
+          pagination: data.pagination,
+        }));
       },
     );
   };
@@ -210,7 +214,7 @@ describe("catalog request reliability", () => {
       return deferred().promise;
     });
     const view = renderCatalog();
-    await waitFor(() => expect(mocks.get).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.fetchProductCatalog).toHaveBeenCalled());
     view.unmount();
     expect(signal?.aborted).toBe(true);
   });

@@ -90,6 +90,9 @@ export type GuestPurchaseRequest = {
     shipping: GuestCheckoutShipping;
     discountCode?: string;
     paymentMethod: GuestPaymentMethod;
+    shippingQuoteId: string;
+    deliveryAddress: import("../shipping/types").DeliveryAddress;
+    locale: "en" | "vi";
 };
 
 export type GuestPayOSCheckoutRequest = {
@@ -98,6 +101,9 @@ export type GuestPayOSCheckoutRequest = {
     shipping: GuestCheckoutShipping;
     discountCode?: string;
     paymentMethod: PayOSPaymentMethod;
+    shippingQuoteId: string;
+    deliveryAddress: import("../shipping/types").DeliveryAddress;
+    locale: "en" | "vi";
 };
 
 export type GuestOrderItem = {
@@ -144,16 +150,39 @@ export type GuestPurchaseResponse = {
 };
 
 export type GuestCheckoutSessionResponse = {
-    url: string;
-    guestOrderToken: string;
-    orderCode?: number;
-    paymentLinkId?: string;
-    amount?: number;
-    currency?: string;
+    attemptId: string;
+    sessionState: "CREATING" | "READY" | "CLOSED";
+    url: string | null;
+    guestOrderToken?: string;
+    orderCode: number;
+    paymentLinkId: string | null;
+    amount: number;
+    currency: string;
 };
 
 export type PayOSCheckoutResponse = Omit<GuestCheckoutSessionResponse, "guestOrderToken"> & {
     guestOrderToken?: string;
+};
+
+export type PaymentAttemptStatus = {
+    attemptId: string;
+    providerOrderCode: string;
+    paymentState: "UNKNOWN" | "PENDING" | "PARTIAL" | "PAID" | "CANCELLED" | "EXPIRED" | "MISMATCH";
+    orderState: "NOT_CREATED" | "FINALIZING" | "CREATED" | "REVIEW_REQUIRED";
+    resolutionState: "NONE" | "OPEN" | "REFUND_RECORDED" | "RESOLVED";
+    orderId: number | null;
+    items: Array<{ productId: number; name: string; quantity: number; unitPriceVnd: number }>;
+    delivery: { method: string; eta?: string | null } | null;
+    subtotalVnd: number;
+    discountVnd: number;
+    shippingVnd: number;
+    payableVnd: number;
+    currency: "VND";
+    expiresAt: string;
+    lastCheckedAt: string | null;
+    retryAfterSeconds: number | null;
+    supportReference: string;
+    resumeUrl: string | null;
 };
 
 export type GuestCartPromotionPreview = {

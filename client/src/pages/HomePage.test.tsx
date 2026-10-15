@@ -5,26 +5,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import HomePage from "./HomePage";
 
 const mocks = vi.hoisted(() => ({
-    axiosGet: vi.fn(),
-    axiosPost: vi.fn(),
-    axiosDelete: vi.fn(),
     addItem: vi.fn(),
     addToast: vi.fn(),
     fetchProduct: vi.fn(),
+    fetchProductCatalog: vi.fn(),
+    fetchProductRecommendations: vi.fn(),
+    fetchWishlist: vi.fn(),
+    addToWishlist: vi.fn(),
+    removeFromWishlist: vi.fn(),
     trackRecentlyViewed: vi.fn(),
     pruneRecentlyViewed: vi.fn(),
 }));
 
 vi.mock("../components/layout/Layout", () => ({
     default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}));
-
-vi.mock("../api/axios", () => ({
-    default: {
-        get: mocks.axiosGet,
-        post: mocks.axiosPost,
-        delete: mocks.axiosDelete,
-    },
 }));
 
 vi.mock("../context/AuthContext", () => ({
@@ -41,6 +35,11 @@ vi.mock("../context/ToastContext", () => ({
 
 vi.mock("../features/products/api", () => ({
     fetchProduct: mocks.fetchProduct,
+    fetchProductCatalog: mocks.fetchProductCatalog,
+    fetchProductRecommendations: mocks.fetchProductRecommendations,
+    fetchWishlist: mocks.fetchWishlist,
+    addToWishlist: mocks.addToWishlist,
+    removeFromWishlist: mocks.removeFromWishlist,
 }));
 
 vi.mock("../hooks/useT", () => ({
@@ -251,13 +250,10 @@ const products = [
 describe("HomePage Open Bench landing", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        mocks.axiosGet.mockImplementation((url: string) => {
-            if (url.startsWith("/api/products")) {
-                return Promise.resolve({ status: 200, data: { products } });
-            }
-            return Promise.resolve({ status: 200, data: { wishlist: [] } });
-        });
         mocks.fetchProduct.mockResolvedValue(null);
+        mocks.fetchProductCatalog.mockResolvedValue({ products });
+        mocks.fetchProductRecommendations.mockResolvedValue([]);
+        mocks.fetchWishlist.mockResolvedValue([]);
         mocks.addItem.mockResolvedValue(true);
     });
 

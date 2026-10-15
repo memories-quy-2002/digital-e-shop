@@ -18,6 +18,9 @@ import { formatCurrency } from "../../../utils/currency";
 import { getOrderStatusKey, ORDER_STATUS } from "../orderStatus";
 import { HISTORICAL_PAYMENT_METHOD, PAYMENT_METHOD } from "../constants";
 import { CURRENCY_CODE, CURRENCY_FORMATTING } from "../../../constants/currency";
+import ShipmentTimeline from "../../shipping/components/ShipmentTimeline";
+import { fetchCustomerShipment } from "../../shipping/api";
+import type { ShipmentSummary } from "../../shipping/types";
 
 const getStatusLabel = (status: number, t: ReturnType<typeof useT>) => {
     const labels = { pending: t("orders.statusPending"), done: t("orders.statusDone"), canceled: t("orders.statusCanceled"), unknown: t("orders.statusUnknown") };
@@ -57,6 +60,8 @@ const OrderHistoryPage = () => {
     const [loadingDetail, setLoadingDetail] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [isCanceling, setIsCanceling] = useState(false);
+    const [shipment, setShipment] = useState<ShipmentSummary | null>(null);
+    const [shipmentLoading, setShipmentLoading] = useState(false);
 
     useEffect(() => {
         const fetchOrders = async () => {
@@ -97,6 +102,14 @@ const OrderHistoryPage = () => {
 
         fetchDetail();
     }, [addToast, selectedOrderId, t]);
+
+    useEffect(() => {
+        let active = true;
+        if (!selectedOrderId) { setShipment(null); return () => { active = false; }; }
+        setShipmentLoading(true);
+        void fetchCustomerShipment(selectedOrderId).then((result) => { if (active) setShipment(result); }).catch(() => { if (active) setShipment(null); }).finally(() => { if (active) setShipmentLoading(false); });
+        return () => { active = false; };
+    }, [selectedOrderId]);
 
     const selectedOrder = useMemo(
         () => orders.find((order) => order.id === selectedOrderId) || orders[0] || null,
@@ -369,6 +382,7 @@ const OrderHistoryPage = () => {
                                             </span>
                                         ))}
                                     </div>
+                                    {shipmentLoading ? <p role="status">{t("shipping.loadingTimeline")}</p> : <ShipmentTimeline shipment={shipment} />}
 
                                     <div className="order-history__items">
                                         {orderDetail.items.map((item: CustomerOrderDetail["items"][number]) => (

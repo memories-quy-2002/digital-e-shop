@@ -12,9 +12,10 @@ const payosMocks = vi.hoisted(() => ({
         },
     },
     PayOS: vi.fn(),
+    NotFoundError: class NotFoundError extends Error { status = 404; },
 }));
 
-vi.mock("@payos/node", () => ({ PayOS: payosMocks.PayOS }));
+vi.mock("@payos/node", () => ({ PayOS: payosMocks.PayOS, NotFoundError: payosMocks.NotFoundError }));
 
 import { PayOSService } from "./payos.service";
 
@@ -82,7 +83,7 @@ describe("PayOSService", () => {
         expect(payosMocks.client.paymentRequests.create).toHaveBeenCalledWith(expect.objectContaining({
             orderCode: 123456,
             amount: 250000,
-        }));
+        }), { maxRetries: 0, timeout: 10_000 });
     });
 
     it("retrieves a PayOS payment link by order code", async () => {
@@ -103,8 +104,19 @@ describe("PayOSService", () => {
             amountPaid: 250000,
             status: "PAID",
             currency: "VND",
+            checkoutUrl: "https://pay.payos.vn/web/link-123",
         });
-        expect(payosMocks.client.paymentRequests.get).toHaveBeenCalledWith(123456);
+        expect(payosMocks.client.paymentRequests.get).toHaveBeenCalledWith(123456, { maxRetries: 0, timeout: 10_000 });
+    });
+
+    it("reports only an authoritative PayOS 404 as a missing link", async () => {
+        const { service } = buildService();
+        const notFound = new payosMocks.NotFoundError("not found");
+        payosMocks.client.paymentRequests.get.mockRejectedValueOnce(notFound);
+
+        await expect(service.findPaymentLinkByOrderCode(123456)).resolves.toBeNull();
+        payosMocks.client.paymentRequests.get.mockRejectedValueOnce(new Error("provider unavailable"));
+        await expect(service.findPaymentLinkByOrderCode(123456)).rejects.toThrow("provider unavailable");
     });
     it("fails closed when PayOS credentials are incomplete", async () => {
         const { service } = buildService({ payosChecksumKey: "" });
@@ -130,6 +142,9 @@ describe("PayOSService", () => {
         await service.cancelPaymentLink("link-123", "Checkout expired");
 
         expect(payosMocks.client.webhooks.verify).toHaveBeenCalledWith(payload);
-        expect(payosMocks.client.paymentRequests.cancel).toHaveBeenCalledWith("link-123", "Checkout expired");
+        expect(payosMocks.client.paymentRequests.cancel).toHaveBeenCalledWith("link-123", "Checkout expired", {
+            timeout: 10_000,
+            maxRetries: 0,
+        });
     });
 });

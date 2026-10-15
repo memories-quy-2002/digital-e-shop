@@ -42,10 +42,22 @@ function buildService(status: string = "PENDING") {
             expires_at: "2099-09-06T01:30:00.000Z",
             created_at: "2026-09-06T01:00:00.000Z",
             consumed_at: status === "CONSUMED" ? "2026-09-06T01:10:00.000Z" : null,
+            discount_id: null,
         }),
         getReservationItems: vi.fn().mockResolvedValue([{ productId: 4, quantity: 2 }]),
         lockProducts: vi.fn().mockResolvedValue([{ id: 4, name: "Widget", stock: 5 }]),
         consumeReservation: vi.fn().mockResolvedValue(1),
+        getPayOSAttemptForUpdate: vi.fn().mockResolvedValue({
+            id: "attempt-1", pending_checkout_id: 7, provider_order_code: "1757450400007", provider_link_id: "link-123",
+            expected_amount_vnd: 450000, verified_received_amount_vnd: 450000, payment_state: "PAID",
+            order_state: "CREATED", resolution_state: "NONE", order_id: 42,
+        }),
+        hasPaymentAttemptRefund: vi.fn().mockResolvedValue(false),
+        setPaymentAttemptOrderState: vi.fn().mockResolvedValue(undefined),
+        getPromotionReservationStatus: vi.fn().mockResolvedValue("RESERVED"),
+        bindPayOSProviderReference: vi.fn().mockResolvedValue(1),
+        getAvailableQuantitiesForPaidCheckout: vi.fn().mockResolvedValue([{ productId: 4, availableQuantity: 5 }]),
+        consumePaidReservation: vi.fn().mockResolvedValue(1),
     };
     const inventoryService = { createMovementsInTransaction: vi.fn().mockResolvedValue(undefined) };
     const productAttributesRepository = { getForProducts: vi.fn().mockResolvedValue(new Map()) };
@@ -62,6 +74,7 @@ function buildService(status: string = "PENDING") {
     });
     withTransaction.mockImplementation(async (work: (transaction: typeof tx) => Promise<unknown>) => work(tx));
 
+    const promotionsRepository = { consumePromotionReservation: vi.fn().mockResolvedValue(1), consumePaidPromotionReservation: vi.fn().mockResolvedValue(1) };
     const service = new NestOrdersService(
         new OrdersRepository({} as never),
         timelineService as never,
@@ -69,13 +82,13 @@ function buildService(status: string = "PENDING") {
         inventoryService as never,
         notificationsService as never,
         reservationRepository as never,
-        {} as never,
+        promotionsRepository as never,
         productAttributesRepository as never,
         new NestOrdersCancellationService(new OrdersRepository({} as never), timelineService as never, inventoryService as never),
         paymentProviderService as never,
     );
 
-    return { service, tx, reservationRepository, inventoryService, notificationsService, paymentProviderService };
+    return { service, tx, reservationRepository, promotionsRepository, inventoryService, notificationsService, paymentProviderService };
 }
 
 describe("PayOS reserved checkout finalization", () => {
@@ -169,5 +182,137 @@ describe("PayOS reserved checkout finalization", () => {
         expect(lookupSql).toContain("op.provider_payment_id = ?");
         expect(lookupSql).toContain("op.amount = ?");
         expect(lookupSql).toContain("op.currency = 'VND'");
+    });
+
+    it("returns the attempt-aware finalization contract idempotently for an already-created order", async () => {
+        const { service, reservationRepository } = buildService();
+
+        await expect(service.finalizePayOSCheckout(1_757_450_400_007, "link-123", 450_000, "attempt-1"))
+            .resolves.toEqual({ orderId: 42, created: false });
+        expect(reservationRepository.getPayOSAttemptForUpdate).toHaveBeenCalledWith(expect.anything(), "attempt-1");
+        expect(reservationRepository.hasPaymentAttemptRefund).toHaveBeenCalledWith(expect.anything(), "attempt-1");
+    });
+
+    it("creates one paid order from the attempt snapshot and counts other active holds", async () => {
+        const { service, tx, reservationRepository, inventoryService } = buildService();
+        reservationRepository.getPayOSAttemptForUpdate.mockResolvedValue({
+            id: "attempt-1", pending_checkout_id: 7, provider_order_code: "1757450400007", provider_link_id: "link-123",
+            expected_amount_vnd: 450000, verified_received_amount_vnd: 450000, payment_state: "PAID",
+            order_state: "NOT_CREATED", resolution_state: "NONE", order_id: null,
+        });
+
+        await expect(service.finalizePayOSCheckout(1_757_450_400_007, "link-123", 450_000, "attempt-1"))
+            .resolves.toEqual({ orderId: 42, created: true });
+        expect(reservationRepository.getAvailableQuantitiesForPaidCheckout).toHaveBeenCalledWith(tx, 7, [4]);
+        expect(reservationRepository.consumePaidReservation).toHaveBeenCalledWith(tx, 7);
+        expect(reservationRepository.setPaymentAttemptOrderState).toHaveBeenLastCalledWith(tx, "attempt-1", "CREATED", 42);
+        expect(inventoryService.createMovementsInTransaction).toHaveBeenCalledTimes(1);
+        expect(tx.query.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO orders"))).toBe(true);
+    });
+
+    it("serializes cancellation intent against a late verified receipt without creating an order", async () => {
+        const { service, tx, reservationRepository } = buildService();
+        reservationRepository.getPayOSAttemptForUpdate.mockResolvedValue({
+            id: "attempt-1", pending_checkout_id: 7, provider_order_code: "1757450400007", provider_link_id: "link-123",
+            expected_amount_vnd: 450000, verified_received_amount_vnd: 450000, payment_state: "PAID",
+            order_state: "NOT_CREATED", resolution_state: "NONE", order_id: null,
+            cancel_requested_at: new Date().toISOString(),
+        });
+
+        await expect(service.finalizePayOSCheckout(1_757_450_400_007, "link-123", 450_000, "attempt-1"))
+            .resolves.toEqual({ reviewRequired: true, reason: "cancellation_requested" });
+        expect(tx.query.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO orders"))).toBe(false);
+        expect(reservationRepository.setPaymentAttemptOrderState).toHaveBeenCalledWith(tx, "attempt-1", "REVIEW_REQUIRED");
+    });
+
+    it("binds a verified saved PayOS link and recovers an expired checkout after early attachment failure", async () => {
+        const { service, reservationRepository, tx } = buildService("EXPIRED");
+        reservationRepository.getPayOSAttemptForUpdate.mockResolvedValue({
+            id: "attempt-1", pending_checkout_id: 7, provider_order_code: "1757450400007", provider_link_id: "link-123",
+            expected_amount_vnd: 450000, verified_received_amount_vnd: 450000, payment_state: "PAID",
+            order_state: "NOT_CREATED", resolution_state: "NONE", order_id: null,
+        });
+        reservationRepository.getPendingCheckoutByProviderOrderCodeForUpdate.mockResolvedValue({
+            id: 7, payment_provider: "payos", provider_reference: null, provider_order_code: "1757450400007",
+            payment_amount: "450000.00", payment_currency: "VND", payment_fx_rate: "1", reservation_token: "reservation-token",
+            user_id: "user-1", guest_email: null, guest_name: null, guest_phone: null, guest_order_token_hash: null,
+            cart_json: JSON.stringify([{ product_id: 4, quantity: 2, price: 10, product_name: "Widget" }]), total_price: "20.00",
+            discount: "2.00", shipping_address: "123 Main St", status: "EXPIRED", expires_at: "2026-09-06T01:30:00.000Z",
+            created_at: "2026-09-06T01:00:00.000Z", consumed_at: null, discount_id: null,
+        });
+
+        await expect(service.finalizePayOSCheckout(1_757_450_400_007, "link-123", 450_000, "attempt-1"))
+            .resolves.toEqual({ orderId: 42, created: true });
+        expect(reservationRepository.bindPayOSProviderReference).toHaveBeenCalledWith(tx, 7, 1_757_450_400_007, "link-123", 450000);
+    });
+
+    it("reviews a non-null conflicting pending provider reference", async () => {
+        const { service, reservationRepository, tx } = buildService();
+        reservationRepository.getPayOSAttemptForUpdate.mockResolvedValue({
+            id: "attempt-1", pending_checkout_id: 7, provider_order_code: "1757450400007", provider_link_id: "link-123",
+            expected_amount_vnd: 450000, verified_received_amount_vnd: 450000, payment_state: "PAID",
+            order_state: "NOT_CREATED", resolution_state: "NONE", order_id: null,
+        });
+        reservationRepository.getPendingCheckoutByProviderOrderCodeForUpdate.mockResolvedValue({
+            id: 7, payment_provider: "payos", provider_reference: "different-link", provider_order_code: "1757450400007",
+            payment_amount: "450000.00", payment_currency: "VND", status: "PENDING", consumed_at: null,
+        });
+
+        await expect(service.finalizePayOSCheckout(1_757_450_400_007, "link-123", 450_000, "attempt-1"))
+            .resolves.toEqual({ reviewRequired: true, reason: "checkout_payment_identity_mismatch" });
+        expect(reservationRepository.bindPayOSProviderReference).not.toHaveBeenCalled();
+        expect(tx.query).not.toHaveBeenCalledWith(expect.stringContaining("INSERT INTO orders"), expect.anything());
+    });
+
+    it("consumes a released promotion reservation against the paid checkout snapshot", async () => {
+        const { service, reservationRepository, promotionsRepository } = buildService();
+        reservationRepository.getPayOSAttemptForUpdate.mockResolvedValue({
+            id: "attempt-1", pending_checkout_id: 7, provider_order_code: "1757450400007", provider_link_id: "link-123",
+            expected_amount_vnd: 450000, verified_received_amount_vnd: 450000, payment_state: "PAID",
+            order_state: "NOT_CREATED", resolution_state: "NONE", order_id: null,
+        });
+        reservationRepository.getPendingCheckoutByProviderOrderCodeForUpdate.mockResolvedValue({
+            id: 7, payment_provider: "payos", provider_reference: "link-123", provider_order_code: "1757450400007",
+            payment_amount: "450000.00", payment_currency: "VND", payment_fx_rate: "1", reservation_token: "reservation-token",
+            user_id: "user-1", guest_email: null, guest_name: null, guest_phone: null, guest_order_token_hash: null,
+            cart_json: JSON.stringify([{ product_id: 4, quantity: 2, price: 10, product_name: "Widget" }]), total_price: "20.00",
+            discount: "2.00", shipping_address: "123 Main St", status: "EXPIRED", expires_at: "2026-09-06T01:30:00.000Z",
+            created_at: "2026-09-06T01:00:00.000Z", consumed_at: null, discount_id: 9,
+        });
+        reservationRepository.getPromotionReservationStatus.mockResolvedValue("RELEASED");
+
+        await expect(service.finalizePayOSCheckout(1_757_450_400_007, "link-123", 450_000, "attempt-1"))
+            .resolves.toEqual({ orderId: 42, created: true });
+        expect(promotionsRepository.consumePaidPromotionReservation).toHaveBeenCalledWith(expect.anything(), 7, 42);
+        expect(promotionsRepository.consumePromotionReservation).not.toHaveBeenCalled();
+    });
+
+    it("keeps refunded paid evidence in review and prevents order creation", async () => {
+        const { service, tx, reservationRepository, inventoryService } = buildService();
+        reservationRepository.getPayOSAttemptForUpdate.mockResolvedValue({
+            id: "attempt-1", pending_checkout_id: 7, provider_order_code: "1757450400007", provider_link_id: "link-123",
+            expected_amount_vnd: 450000, verified_received_amount_vnd: 450000, payment_state: "PAID",
+            order_state: "NOT_CREATED", resolution_state: "NONE", order_id: null,
+        });
+        reservationRepository.hasPaymentAttemptRefund.mockResolvedValue(true);
+
+        await expect(service.finalizePayOSCheckout(1_757_450_400_007, "link-123", 450_000, "attempt-1"))
+            .resolves.toEqual({ reviewRequired: true, reason: "attempt_refunded_or_resolved" });
+        expect(reservationRepository.setPaymentAttemptOrderState).toHaveBeenCalledWith(expect.anything(), "attempt-1", "REVIEW_REQUIRED");
+        expect(tx.query).not.toHaveBeenCalledWith(expect.stringContaining("INSERT INTO orders"), expect.anything());
+        expect(inventoryService.createMovementsInTransaction).not.toHaveBeenCalled();
+    });
+
+    it("does not recreate a cancelled checkout from a late paid observation", async () => {
+        const { service, reservationRepository, tx } = buildService("RELEASED");
+        reservationRepository.getPayOSAttemptForUpdate.mockResolvedValue({
+            id: "attempt-1", pending_checkout_id: 7, provider_order_code: "1757450400007", provider_link_id: "link-123",
+            expected_amount_vnd: 450000, verified_received_amount_vnd: 450000, payment_state: "PAID",
+            order_state: "NOT_CREATED", resolution_state: "NONE", order_id: null,
+        });
+
+        await expect(service.finalizePayOSCheckout(1_757_450_400_007, "link-123", 450_000, "attempt-1"))
+            .resolves.toEqual({ reviewRequired: true, reason: "checkout_cancelled_or_consumed" });
+        expect(tx.query).not.toHaveBeenCalledWith(expect.stringContaining("INSERT INTO orders"), expect.anything());
     });
 });

@@ -37,7 +37,7 @@ jobs:
         image: mysql:8.4
         env:
           MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: digital_e_shop_ci
+          MYSQL_DATABASE: retail_p0_test
           MYSQL_USER: ci_user
           MYSQL_PASSWORD: ci_password
         ports:
@@ -48,12 +48,18 @@ jobs:
           --health-timeout=5s
           --health-retries=10
     env:
-      DATABASE_URL: "mysql://ci_user:ci_password@127.0.0.1:3306/digital_e_shop_ci"
+      DATABASE_URL: "mysql://ci_user:ci_password@127.0.0.1:3306/retail_p0_test"
       DB_HOST: 127.0.0.1
       DB_PORT: 3306
       DB_USER: ci_user
       DB_PASSWORD: ci_password
-      DB_NAME: digital_e_shop_ci
+      DB_NAME: retail_p0_test
+      # This database lives only in the disposable MySQL Actions service.
+      # Retail P0 integration suites deliberately reject all other DB names.
+      SHIPPING_PROVIDER_MODE: sandbox
+      EMAIL_PROVIDER_MODE: sandbox
+      EMAIL_SANDBOX_FIXTURE: accepted
+      PAYMENT_PROVIDER_MODE: mock
       JWT_SECRET_KEY: ci-access-secret
       JWT_REFRESH_SECRET_KEY: ci-refresh-secret
       CSRF_SECRET: ci-csrf-secret

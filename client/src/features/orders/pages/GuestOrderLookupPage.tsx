@@ -16,6 +16,9 @@ import { getOrderStatusKey } from "../orderStatus";
 import GuestAfterSalesPanel from "../../after-sales/components/GuestAfterSalesPanel";
 import { getApiErrorMessage } from "../../../lib/api-contract";
 import { CURRENCY_CODE } from "../../../constants/currency";
+import ShipmentTimeline from "../../shipping/components/ShipmentTimeline";
+import { fetchGuestShipment } from "../../shipping/api";
+import type { ShipmentSummary } from "../../shipping/types";
 
 const getErrorMessage = (error: unknown, fallback: string) => {
     return getApiErrorMessage(error, fallback);
@@ -41,6 +44,7 @@ const GuestOrderLookupPage = () => {
     const [order, setOrder] = useState<GuestOrderDetail | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [shipment, setShipment] = useState<ShipmentSummary | null>(null);
 
     useEffect(() => {
         const queryOrderId = searchParams.get("orderId");
@@ -51,6 +55,7 @@ const GuestOrderLookupPage = () => {
         event.preventDefault();
         setError(null);
         setOrder(null);
+        setShipment(null);
 
         const numericOrderId = Number(orderId.trim());
         if (!Number.isSafeInteger(numericOrderId) || numericOrderId <= 0) {
@@ -65,7 +70,9 @@ const GuestOrderLookupPage = () => {
 
         setIsLoading(true);
         try {
-            setOrder(await lookupGuestOrder(numericOrderId, normalizedToken));
+            const result = await lookupGuestOrder(numericOrderId, normalizedToken);
+            setOrder(result);
+            try { setShipment(await fetchGuestShipment(numericOrderId, normalizedToken)); } catch { setShipment(null); }
         } catch (lookupError) {
             setError(getErrorMessage(lookupError, t("guestOrder.notFound")));
         } finally {
@@ -161,6 +168,7 @@ const GuestOrderLookupPage = () => {
                                 </ul>
                             </article>
                         </div>
+                        <ShipmentTimeline shipment={shipment} />
                         <GuestAfterSalesPanel orderId={order.id} guestOrderToken={guestOrderToken} currency={order.currency} items={order.items} />
                     </section>
                 ) : null}

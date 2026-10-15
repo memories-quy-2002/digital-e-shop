@@ -1,41 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useOptimistic, useState } from "react";
-import { HTTP_STATUS } from "../../constants/http-status";
 import ReactPaginate from "react-paginate";
-import axios from "../../api/axios";
 import { useCart } from "../../context/CartContext";
 import { useToast } from "../../context/ToastContext";
 import { Product } from "../../utils/interface";
+import type { Wishlist } from "../../types/product";
 import ShopsItem from "./ShopsItem";
 import WishlistItem from "./WishlistItem";
 import { useT } from "../../hooks/useT";
-
-interface Item {
-    id: number;
-    product: Product;
-}
-
-type WishlistMutation =
-    | { type: "add"; item: Item }
-    | { type: "remove"; productId: number };
-
-const applyWishlistMutation = (wishlist: Item[], mutation: WishlistMutation): Item[] => {
-    if (mutation.type === "remove") {
-        return wishlist.filter((item) => item.product.id !== mutation.productId);
-    }
-
-    if (wishlist.some((item) => item.product.id === mutation.item.product.id)) {
-        return wishlist;
-    }
-
-    return [...wishlist, mutation.item];
-};
+import { addToWishlist, removeFromWishlist } from "../../features/products/api";
+import { applyWishlistMutation, type WishlistMutation } from "../../features/products/wishlistState";
 
 type PaginatedProps = {
     itemsPerPage: number;
-    items: Product[] | Item[];
+    items: Product[] | Wishlist[];
     uid: string;
-    wishlist: Item[];
-    isWishlistPage: boolean; // Add this prop
+    wishlist: Wishlist[];
+    isWishlistPage: boolean;
     serverSide?: boolean;
     totalItems?: number;
     currentPage?: number;
@@ -56,12 +36,12 @@ const PaginatedItems = ({
     const { addToast } = useToast();
     const { addItem } = useCart();
     const t = useT();
-    const [baseWishlist, setBaseWishlist] = useState<Item[]>([]);
+    const [baseWishlist, setBaseWishlist] = useState<Wishlist[]>([]);
     const [pendingWishlistIds, setPendingWishlistIds] = useState<number[]>([]);
     const [itemOffset, setItemOffset] = useState(0);
     const [optimisticWishlist, applyOptimisticWishlist] = useOptimistic(
         baseWishlist,
-        (currentWishlist: Item[], mutation: WishlistMutation) => applyWishlistMutation(currentWishlist, mutation),
+        (currentWishlist: Wishlist[], mutation: WishlistMutation) => applyWishlistMutation(currentWishlist, mutation),
     );
 
     useEffect(() => {
@@ -124,32 +104,16 @@ const PaginatedItems = ({
         if (mutation) {
             applyOptimisticWishlist(mutation);
         }
-        addToast(
-            exists ? "Wishlist updated" : "Wishlist updated",
-            exists ? "Item removed from wishlist." : "Item added to wishlist.",
-        );
+        addToast("Wishlist updated", exists ? "Item removed from wishlist." : "Item added to wishlist.");
 
         try {
             if (exists) {
-                const response = await axios.delete(`/api/wishlist/${product_id}/`, {
-                    data: {
-                        uid: user_id,
-                    },
-                });
-                if (response.status !== HTTP_STATUS.OK) {
-                    throw new Error("Wishlist delete failed");
-                }
+                await removeFromWishlist(user_id, product_id);
                 if (mutation) {
                     setBaseWishlist((prevWishlist) => applyWishlistMutation(prevWishlist, mutation));
                 }
             } else {
-                const response = await axios.post("/api/wishlist/", {
-                    uid: user_id,
-                    pid: product_id,
-                });
-                if (response.status !== HTTP_STATUS.OK) {
-                    throw new Error("Wishlist add failed");
-                }
+                await addToWishlist(user_id, product_id);
                 if (mutation) {
                     setBaseWishlist((prevWishlist) => applyWishlistMutation(prevWishlist, mutation));
                 }
@@ -163,15 +127,9 @@ const PaginatedItems = ({
 
     const handleRemoveWishlist = useCallback(async (user_id: string, product_id: number) => {
         try {
-            const response = await axios.delete(`/api/wishlist/${product_id}`, {
-                data: {
-                    uid: user_id,
-                },
-            });
-            if (response.status === HTTP_STATUS.OK) {
-                addToast("Remove wishlist item", "Item removed from wishlist successfully.");
-                setBaseWishlist((prevWishlist) => prevWishlist.filter((item) => item.product.id !== product_id));
-            }
+            await removeFromWishlist(user_id, product_id);
+            addToast("Remove wishlist item", "Item removed from wishlist successfully.");
+            setBaseWishlist((prevWishlist) => prevWishlist.filter((item) => item.product.id !== product_id));
         } catch {
             addToast("Wishlist", "Unable to remove wishlist item.");
         }
@@ -250,7 +208,7 @@ const PaginatedItems = ({
                             return (
                                 <WishlistItem
                                     key={item.id}
-                                    item={item as Item}
+                                    item={item}
                                     selected={false}
                                     onSelect={() => {}}
                                     onRemoveWishlist={(productId) => handleRemoveWishlist(uid, productId)}

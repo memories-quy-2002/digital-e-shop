@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { OrdersController } from "./orders.controller";
 import type { NestOrdersService } from "./orders.service";
+import { deliveryCheckout } from "../shipping/__tests__/checkout-fixture";
 
 function buildController() {
     const ordersService = {
@@ -14,6 +15,7 @@ describe("customer checkout flow", () => {
         const { controller, ordersService } = buildController();
 
         const rejection = await controller.makePurchase("customer-1", {
+            ...deliveryCheckout,
             totalPrice: 0,
             cart: [],
             discount: 0,
@@ -39,6 +41,7 @@ describe("customer checkout flow", () => {
         } as never);
 
         await controller.makePurchase("customer-1", {
+            ...deliveryCheckout,
             totalPrice: 100,
             cart: [{ productId: 1, quantity: 1, price: 100 }],
             discount: 100,

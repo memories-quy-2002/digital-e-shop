@@ -15,6 +15,9 @@ export type OrderPaymentLedgerWrite = {
 };
 
 export type OrderLifecycleRow = {
+    fulfillment_state?: string | null;
+    returned_stock_received_at?: string | Date | null;
+    shipment_creation_state?: string | null;
     user_id: string | null;
     status: number;
     delivered_at?: string | Date | null;
@@ -145,6 +148,9 @@ export type OrderTimelineInput = {
 };
 
 export type PendingCheckoutRow = {
+    contact_snapshot?: string | object | null;
+    pricing_snapshot?: string | object | null;
+    delivery_snapshot?: string | object | null;
     id: number;
     payment_provider?: string | null;
     provider_reference?: string | null;
@@ -229,6 +235,7 @@ export type GuestOrderIdentity = {
 export type OrderIdentity = AuthenticatedOrderIdentity | GuestOrderIdentity;
 
 type CheckoutReservationInputBase = {
+    deliveryCheckout?: import("../shipping/shipping-quote.service").QuoteCheckout;
     authoritativeCart: CartItemRow[];
     authoritativeTotalPrice: number;
     discount: number;

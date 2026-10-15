@@ -49,6 +49,9 @@ const AdminAccountPage = lazy(() => import("../features/admin/pages/AdminAccount
 const AdminPromotionsPage = lazy(() => import("../features/admin/pages/AdminPromotionsPage"));
 const AdminAddProductPage = lazy(() => import("../features/admin/pages/AdminAddProductPage"));
 const AdminAfterSalesPage = lazy(() => import("../features/after-sales/pages/AdminAfterSalesPage"));
+const AdminFulfillmentPage = lazy(() => import("../features/shipping/pages/AdminFulfillmentPage"));
+const AdminCodSettlementsPage = lazy(() => import("../features/admin/pages/AdminCodSettlementsPage"));
+const AdminEmailOperationsPage = lazy(() => import("../features/admin/pages/AdminEmailOperationsPage"));
 
 const ProtectedCustomerAccountPage = withSessionCheck(CustomerAccountPage);
 const ProtectedOrderHistoryPage = withSessionCheck(OrderHistoryPage);
@@ -151,6 +154,9 @@ const AppRouter = () => {
                         </RequireAdmin>
                     }
                 />
+                <Route path="/admin/fulfillment" element={<RequireAdmin><AdminFulfillmentPage /></RequireAdmin>} />
+                <Route path="/admin/payments/cod-settlements" element={<RequireAdmin><AdminCodSettlementsPage /></RequireAdmin>} />
+                <Route path="/admin/email-operations" element={<RequireAdmin><AdminEmailOperationsPage /></RequireAdmin>} />
                 <Route
                     path="/admin/accounts"
                     element={

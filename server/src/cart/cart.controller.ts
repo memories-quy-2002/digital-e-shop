@@ -10,14 +10,7 @@ import type { GuestCartPreviewInput, GuestCartSyncInput } from "./cart.types";
 import { createGuestCartId, GUEST_CART_COOKIE, GUEST_CART_TTL_DAYS, isGuestCartId } from "./guest-cart";
 import { isProduction } from "#src/config/env.config";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
-import { createHttpException } from "#src/core/errors/http-exception";
-
-function toHttpException(err: { statusCode?: number; message?: string }, fallbackMessage: string): HttpException {
-    if (err instanceof HttpException) return err;
-    const statusCode = err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-    const msg = statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? fallbackMessage : err.message || fallbackMessage;
-    return createHttpException(err, { msg }, statusCode);
-}
+import { mapToHttpException } from "#src/core/errors/http-exception-mapper";
 
 @Controller("cart")
 export class CartController {
@@ -49,7 +42,7 @@ export class CartController {
             const items = isGuestCartId(guestCartId) ? await this.cartService.getGuestCart(guestCartId) : [];
             return { items, msg: "Guest cart retrieved successfully" };
         } catch (err) {
-            throw toHttpException(err as Error, "Error retrieving guest cart");
+            throw mapToHttpException(err, "Error retrieving guest cart");
         }
     }
 
@@ -66,7 +59,7 @@ export class CartController {
             const items = await this.cartService.syncGuestCart(guestCartId, body.items);
             return { items, msg: "Guest cart synchronized successfully" };
         } catch (err) {
-            throw toHttpException(err as Error, "Error synchronizing guest cart");
+            throw mapToHttpException(err, "Error synchronizing guest cart");
         }
     }
 
@@ -92,7 +85,7 @@ export class CartController {
             }
             return { msg: "Guest cart cleared successfully" };
         } catch (err) {
-            throw toHttpException(err as Error, "Error clearing guest cart");
+            throw mapToHttpException(err, "Error clearing guest cart");
         }
     }
 
@@ -107,7 +100,7 @@ export class CartController {
                 ...result,
             };
         } catch (err) {
-            throw toHttpException(err as Error, "Error previewing guest cart");
+            throw mapToHttpException(err, "Error previewing guest cart");
         }
     }
 
@@ -119,7 +112,7 @@ export class CartController {
             const cartItems = await this.cartService.getCartItems(uid);
             return { cartItems, msg: "Cart items retrieved successfully" };
         } catch (err) {
-            throw toHttpException(err as Error, "Error retrieving cart items");
+            throw mapToHttpException(err, "Error retrieving cart items");
         }
     }
 
@@ -136,7 +129,7 @@ export class CartController {
                 ...result,
             };
         } catch (err) {
-            throw toHttpException(err as Error, "Error validating cart items");
+            throw mapToHttpException(err, "Error validating cart items");
         }
     }
 
@@ -154,7 +147,7 @@ export class CartController {
             if (err instanceof Error && err.name === "ZodError") {
                 throw new HttpException({ msg: (err as Error).message }, HTTP_STATUS.BAD_REQUEST);
             }
-            throw toHttpException(err as Error, "Error adding item to cart");
+            throw mapToHttpException(err, "Error adding item to cart");
         }
     }
 
@@ -172,7 +165,7 @@ export class CartController {
             if (err instanceof Error && err.name === "ZodError") {
                 throw new HttpException({ msg: (err as Error).message }, HTTP_STATUS.BAD_REQUEST);
             }
-            throw toHttpException(err as Error, "Error updating cart item");
+            throw mapToHttpException(err, "Error updating cart item");
         }
     }
 
@@ -190,7 +183,7 @@ export class CartController {
             if (err instanceof Error && err.name === "ZodError") {
                 throw new HttpException({ msg: (err as Error).message }, HTTP_STATUS.BAD_REQUEST);
             }
-            throw toHttpException(err as Error, "Error deleting cart item");
+            throw mapToHttpException(err, "Error deleting cart item");
         }
     }
 }

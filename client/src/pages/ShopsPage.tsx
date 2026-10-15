@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
-import { HTTP_STATUS } from "../constants/http-status";
 import { Helmet } from "react-helmet-async";
 import { useLocation, useNavigate } from "react-router-dom";
-import axios from "../api/axios";
 import AsideShops, {
   getShopCategoryLabel,
 } from "../components/common/AsideShops";
@@ -22,19 +20,19 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import "../styles/pages/_shops.scss";
 import { Product } from "../utils/interface";
+import type { Wishlist } from "../types/product";
 import { formatCurrency } from "../utils/currency";
-import { normalizeProduct, normalizeProducts } from "../utils/product";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { useT } from "../hooks/useT";
-import type { RawWishlistItem } from "../features/products/api";
+import {
+  fetchProductCatalog,
+  fetchProductFacets,
+  fetchWishlist as fetchUserWishlist,
+  type ProductFacets,
+} from "../features/products/api";
 
 const MAX_PRICE_RANGE: number = 100_000_000;
 const ITEMS_PER_PAGE = 6;
-
-type Wishlist = {
-  id: number;
-  product: Product;
-};
 
 type Filters = {
   term: string;
@@ -42,14 +40,6 @@ type Filters = {
   brands: string[];
   priceRange: [number, number];
   sortBy: "relevance" | "price-asc" | "price-desc" | "rating-desc";
-};
-
-type ProductFacets = {
-  categories: string[];
-  brands: string[];
-  minPrice: number;
-  maxPrice: number;
-  totalProducts: number;
 };
 
 export const parseShopPriceRange = (
@@ -302,27 +292,24 @@ const ShopsPage = () => {
   useEffect(() => {
     const fetchFacets = async () => {
       try {
-        const response = await axios.get("/api/products/facets");
-        if (response.status === HTTP_STATUS.OK) {
-          const nextFacets = response.data.facets as ProductFacets;
-          setFacets(nextFacets);
-          setFilters((current) => {
-            if (
-              current.priceRange[0] !== 0 ||
-              current.priceRange[1] !== MAX_PRICE_RANGE
-            ) {
-              return current;
-            }
+        const nextFacets = await fetchProductFacets();
+        setFacets(nextFacets);
+        setFilters((current) => {
+          if (
+            current.priceRange[0] !== 0 ||
+            current.priceRange[1] !== MAX_PRICE_RANGE
+          ) {
+            return current;
+          }
 
-            return {
-              ...current,
-              priceRange: [
-                nextFacets.minPrice,
-                nextFacets.maxPrice || MAX_PRICE_RANGE,
-              ],
-            };
-          });
-        }
+          return {
+            ...current,
+            priceRange: [
+              nextFacets.minPrice,
+              nextFacets.maxPrice || MAX_PRICE_RANGE,
+            ],
+          };
+        });
       } catch {
         addToast("Products", "Unable to load filter options.");
       }
@@ -357,22 +344,20 @@ const ShopsPage = () => {
       setIsLoading(true);
       setProductLoadError(false);
       try {
-        const response = await axios.get(
-          `/api/products?${requestParams.toString()}`,
-          { signal: controller.signal },
+        const catalog = await fetchProductCatalog(
+          Object.fromEntries(requestParams.entries()),
+          controller.signal,
         );
         if (controller.signal.aborted) return;
-        if (response.status === HTTP_STATUS.OK) {
-          setProducts(normalizeProducts(response.data.products));
-          setPagination(
-            response.data.pagination || {
-              page: activePage,
-              limit: ITEMS_PER_PAGE,
-              total: response.data.products?.length || 0,
-              totalPages: 1,
-            },
-          );
-        }
+        setProducts(catalog.products);
+        setPagination(
+          catalog.pagination || {
+            page: activePage,
+            limit: ITEMS_PER_PAGE,
+            total: catalog.products.length,
+            totalPages: 1,
+          },
+        );
       } catch {
         if (controller.signal.aborted) return;
         setProductLoadError(true);
@@ -398,25 +383,7 @@ const ShopsPage = () => {
     const fetchWishlist = async () => {
       try {
         if (uid) {
-          const response = await axios.get<{ wishlist: RawWishlistItem[] }>(
-            `/api/wishlist/${uid}`,
-          );
-          if (response.status === HTTP_STATUS.OK) {
-            const newWishlist: Wishlist[] = response.data.wishlist.map(
-              (item) => {
-                const { id, product_id, ...productProps } = item;
-                return {
-                  id,
-                  product: normalizeProduct({
-                    id: product_id,
-                    ...productProps,
-                  }),
-                };
-              },
-            );
-
-            setWishlist(newWishlist);
-          }
+          setWishlist(await fetchUserWishlist(uid));
         }
       } catch {
         if (uid) {

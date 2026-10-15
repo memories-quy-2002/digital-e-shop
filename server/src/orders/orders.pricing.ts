@@ -16,5 +16,5 @@ export function calculatePromotionDiscount(promotion: PromotionRow | null, total
     }
 
     const discountPercent = Math.min(Math.max(Number(promotion.discount_percent) || 0, 0), 100);
-    return Math.min(totalPrice, (totalPrice * discountPercent) / 100);
+    return Math.round(Math.min(totalPrice, (totalPrice * discountPercent) / 100));
 }

@@ -1,14 +1,17 @@
 import { Injectable, Optional } from "@nestjs/common";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { ORDER_STATUS } from "#src/shared/constants/order-status";
+import { PAYMENT_PROVIDER, PAYMENT_STATUS } from "../payments/payment.types";
 import type { InventoryMovementInput } from "../inventory/inventory.dto";
 import { withTransaction } from "../database/transaction";
+import type { TransactionContext } from "../database/transaction";
 import { OrdersRepository } from "./orders.repository";
 import { NestOrderTimelineService } from "./orders.timeline.service";
 import { NestInventoryService } from "../inventory/inventory.service";
 import { ProductAlertsService } from "../product-alerts/product-alerts.service";
 import { getProductAlertTransitions } from "../product-alerts/product-alerts.policy";
 import { createCheckoutError } from "./orders.errors";
+import { OrderEmailService } from "./order-email.service";
 
 @Injectable()
 export class NestOrdersCancellationService {
@@ -17,15 +20,32 @@ export class NestOrdersCancellationService {
         private readonly orderTimelineService: NestOrderTimelineService,
         private readonly inventoryService: NestInventoryService,
         @Optional() private readonly productAlertsService?: ProductAlertsService,
+        @Optional() private readonly orderEmails?: OrderEmailService,
     ) {}
 
     async cancelOrder(orderId: number, actorId: string, admin = false, reason?: string): Promise<{ userId: string | null; changed: boolean }> {
-        return withTransaction(async (tx) => {
+        return withTransaction((tx) => this.cancelInTransaction(tx, orderId, actorId, admin, reason));
+    }
+    async cancelInTransaction(tx: TransactionContext, orderId: number, actorId: string, admin = false, reason?: string): Promise<{ userId: string | null; changed: boolean }> {
             const order = await this.ordersRepository.getOrderLifecycleForUpdate(tx, orderId);
             if (!order) throw createCheckoutError("Order not found", HTTP_STATUS.NOT_FOUND);
             if (!admin && String(order.user_id) !== String(actorId)) throw createCheckoutError("You cannot cancel this order", HTTP_STATUS.FORBIDDEN);
             if (Number(order.status) === ORDER_STATUS.CANCELED) return { userId: order.user_id, changed: false };
             if (Number(order.status) !== ORDER_STATUS.PENDING) throw createCheckoutError("Only pending orders can be canceled", HTTP_STATUS.CONFLICT);
+            const payment = await this.ordersRepository.getLatestPaymentForUpdate(tx, orderId);
+            const paymentStatus = String(payment?.status || "").toLowerCase();
+            if (String(payment?.provider || "").toLowerCase() === PAYMENT_PROVIDER.PAYOS
+                && (paymentStatus === PAYMENT_STATUS.PAID
+                    || paymentStatus === PAYMENT_STATUS.PARTIALLY_REFUNDED
+                    || paymentStatus === PAYMENT_STATUS.REFUND_PENDING)) {
+                throw createCheckoutError("PayOS funds must be fully refunded and confirmed before cancellation", HTTP_STATUS.CONFLICT);
+            }
+            if (["READY", "RUNNING", "SUCCEEDED", "REVIEW_REQUIRED"].includes(order.shipment_creation_state || "")) {
+                throw createCheckoutError("Resolve the shipment creation outcome before canceling this order", HTTP_STATUS.CONFLICT);
+            }
+            if (["SHIPPED", "DELIVERY_FAILED", "RETURNING"].includes(order.fulfillment_state || "") || (order.fulfillment_state === "RETURNED" && !order.returned_stock_received_at)) {
+                throw createCheckoutError("Confirm physical receipt of the returned parcel before restoring inventory", HTTP_STATUS.CONFLICT);
+            }
             if (!order.inventory_restored_at) {
                 const items = await this.ordersRepository.getOrderItemsForUpdate(tx, orderId);
                 const lockedProducts = await this.ordersRepository.getRestockProductsForUpdate(
@@ -72,10 +92,11 @@ export class NestOrdersCancellationService {
                 if (movements.length > 0) await this.inventoryService.createMovementsInTransaction(tx, movements);
             }
             await this.ordersRepository.cancelOrderInTransaction(tx, orderId, reason || null);
+            if (this.orderEmails) await this.orderEmails.emit(tx, orderId, "canceled");
+            await tx.query("UPDATE shipments SET state = IF(state = 'RETURNED', state, 'CANCELED'), updated_at = UTC_TIMESTAMP(3) WHERE order_id = ?", [orderId]);
             await this.orderTimelineService.createTimelineEventInTransaction(tx, {
                 orderId, status: ORDER_STATUS.CANCELED, note: reason ? `Order canceled: ${reason}` : "Order was canceled.", actorId,
             });
             return { userId: order.user_id, changed: true };
-        });
     }
 }

@@ -1,28 +1,24 @@
-import { Body, Controller, Get, HttpCode, HttpException, Optional, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
-import type { Request } from "express";
+import { BadRequestException, Body, Controller, Get, Headers, HttpCode, HttpException, Optional, Param, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
+import type { Request, Response } from "express";
 import { AuthGuard } from "../guards/auth.guard";
 import { OwnerParam, Roles, RolesGuard } from "../guards/roles.guard";
 import { RequireVerifiedEmail, VerifiedEmailGuard } from "../guards/verified-email.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestOrdersService } from "./orders.service";
 import { NestOrdersPayOSService } from "./orders.payos.service";
+import { PaymentReconciliationService } from "../payments/payment-reconciliation.service";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { createHttpException } from "#src/core/errors/http-exception";
+import { getValidationMessage } from "#src/shared/validation/request-validation";
+import { mapToHttpException } from "#src/core/errors/http-exception-mapper";
 import { calculatePromotionDiscount } from "./orders.pricing";
 import { PAYMENT_PROVIDER, type PaymentProviderName } from "../payments/payment.types";
-import type { GuestOrderLookupPayload, GuestPurchasePayload, GuestPayOSCheckoutPayload, GuestPayOSOrderLookupPayload, MockPayOSConfirmPayload } from "./orders.dto";
-import { orderStatusSchema, purchaseSchema, checkoutSessionSchema, applyDiscountSchema, cancelOrderSchema, guestOrderLookupSchema, guestPurchaseSchema, guestPayOSCheckoutSchema, guestPayOSOrderLookupSchema, mockPayOSConfirmSchema } from "./orders.validator";
+import type { MockPayOSConfirmPayload } from "./orders.dto";
+import { orderStatusSchema, purchaseSchema, checkoutSessionSchema, applyDiscountSchema, cancelOrderSchema, mockPayOSConfirmSchema, paymentAttemptIdSchema, paymentAttemptIdempotencyKeySchema } from "./orders.validator";
 
 type AuthenticatedRequest = Request & {
     user?: { id?: string | number; role?: string };
 };
-
-function toHttpException(err: { statusCode?: number; message?: string }, fallbackMessage: string): HttpException {
-    if (err instanceof HttpException) return err;
-    const statusCode = err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-    const msg = statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? fallbackMessage : err.message || fallbackMessage;
-    return createHttpException(err, { msg }, statusCode);
-}
 
 function canAccessOrder(req: AuthenticatedRequest, ownerId: string | number): boolean {
     return String(req.user?.role || "").toLowerCase() === "admin" || String(req.user?.id) === String(ownerId);
@@ -33,7 +29,49 @@ export class OrdersController {
     constructor(
         private readonly ordersService: NestOrdersService,
         @Optional() private readonly ordersPayOSService?: NestOrdersPayOSService,
+        @Optional() private readonly paymentReconciliationService?: PaymentReconciliationService,
     ) {}
+
+    @Get("/payment-attempts/:attemptId")
+    @UseGuards(AuthGuard)
+    async getPaymentAttemptStatus(
+        @Param("attemptId", new ZodValidationPipe(paymentAttemptIdSchema)) attemptId: string,
+        @Req() req: AuthenticatedRequest,
+        @Res({ passthrough: true }) response: Response,
+    ) {
+        if (!this.paymentReconciliationService) throw new HttpException({ msg: "Payment attempt status is unavailable" }, HTTP_STATUS.SERVICE_UNAVAILABLE);
+        response.setHeader("Cache-Control", "no-store");
+        const status = await this.paymentReconciliationService.getOwnedAttemptStatus(attemptId, { kind: "authenticated", userId: String(req.user?.id || "") });
+        return { paymentAttempt: status, msg: "Payment attempt status retrieved successfully" };
+    }
+
+    @Post("/payment-attempts/:attemptId/reconcile")
+    @HttpCode(202)
+    @UseGuards(AuthGuard)
+    async reconcilePaymentAttempt(
+        @Param("attemptId", new ZodValidationPipe(paymentAttemptIdSchema)) attemptId: string,
+        @Req() req: AuthenticatedRequest,
+    ) {
+        if (!this.paymentReconciliationService) throw new HttpException({ msg: "Payment attempt recovery is unavailable" }, HTTP_STATUS.SERVICE_UNAVAILABLE);
+        const result = await this.paymentReconciliationService.requestOwnedReconciliation(attemptId, { kind: "authenticated", userId: String(req.user?.id || "") });
+        return { ...result, msg: "Payment reconciliation was scheduled" };
+    }
+
+    @Post("/payment-attempts/:attemptId/cancel")
+    @HttpCode(202)
+    @UseGuards(AuthGuard)
+    async cancelPaymentAttempt(
+        @Param("attemptId", new ZodValidationPipe(paymentAttemptIdSchema)) attemptId: string,
+        @Req() req: AuthenticatedRequest,
+    ) {
+        if (!this.paymentReconciliationService) throw new HttpException({ msg: "Payment attempt cancellation is unavailable" }, HTTP_STATUS.SERVICE_UNAVAILABLE);
+        const actorId = String(req.user?.id || "");
+        const result = await this.paymentReconciliationService.requestOwnedCancellation(attemptId, { kind: "authenticated", userId: actorId });
+        if (!result.accepted) {
+            throw new HttpException({ msg: "This payment attempt already belongs to a committed order. Use the order cancellation and audited refund flow." }, HTTP_STATUS.CONFLICT);
+        }
+        return { ...result, msg: "Payment cancellation was scheduled" };
+    }
 
     @Get()
     @UseGuards(AuthGuard, RolesGuard)
@@ -66,7 +104,7 @@ export class OrdersController {
             const orders = await this.ordersService.getOrders();
             return { orders, msg: "Orders retrieved successfully" };
         } catch (err) {
-            throw toHttpException(err as Error, "Unable to retrieve orders");
+            throw mapToHttpException(err, "Unable to retrieve orders");
         }
     }
 
@@ -104,7 +142,7 @@ export class OrdersController {
                 msg: "Products sales and revenue retrieved successfully",
             };
         } catch (err) {
-            throw toHttpException(err as Error, "Unable to retrieve order items");
+            throw mapToHttpException(err, "Unable to retrieve order items");
         }
     }
 
@@ -116,7 +154,7 @@ export class OrdersController {
             const orders = await this.ordersService.getOrdersByUserId(uid);
             return { orders, msg: "Customer orders retrieved successfully" };
         } catch (err) {
-            throw toHttpException(err as Error, "Unable to retrieve customer orders");
+            throw mapToHttpException(err, "Unable to retrieve customer orders");
         }
     }
 
@@ -131,7 +169,7 @@ export class OrdersController {
             return { order, msg: "Order detail retrieved successfully" };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            throw toHttpException(err as Error, "Unable to retrieve order detail");
+            throw mapToHttpException(err, "Unable to retrieve order detail");
         }
     }
 
@@ -155,7 +193,7 @@ export class OrdersController {
             };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            throw toHttpException(err as Error, "Unable to change order status");
+            throw mapToHttpException(err, "Unable to change order status");
         }
     }
 
@@ -174,88 +212,7 @@ export class OrdersController {
             return { order, msg: "Order has been canceled successfully" };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            throw toHttpException(err as Error, "Unable to cancel order");
-        }
-    }
-
-    @Post("/guest/purchase")
-    @HttpCode(HTTP_STATUS.CREATED)
-    async makeGuestPurchase(
-        @Body(new ZodValidationPipe(guestPurchaseSchema)) body: GuestPurchasePayload,
-    ) {
-        try {
-            const result = await this.ordersService.makeGuestPurchase(body);
-            return {
-                orderId: result.order.id,
-                order: result.order,
-                guestOrderToken: result.guestOrderToken,
-                paymentMethod: body.paymentMethod,
-                msg: `Order has been created successfully with id = ${result.order.id}`,
-            };
-        } catch (err) {
-            if (err instanceof HttpException) throw err;
-            const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
-            const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-            throw createHttpException(
-                err,
-                {
-                    msg: statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to place order right now" : error.message,
-                    ...(statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? {} : error.details || {}),
-                },
-                statusCode,
-            );
-        }
-    }
-
-    @Post("/guest/lookup")
-    @HttpCode(HTTP_STATUS.OK)
-    async lookupGuestOrder(
-        @Body(new ZodValidationPipe(guestOrderLookupSchema)) body: GuestOrderLookupPayload,
-    ) {
-        try {
-            const order = await this.ordersService.lookupGuestOrder(body.orderId, body.guestOrderToken);
-            return { order, msg: "Guest order retrieved successfully" };
-        } catch (err) {
-            if (err instanceof HttpException) throw err;
-            const error = err as Error & { statusCode?: number };
-            const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-            throw createHttpException(
-                err,
-                { msg: statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to retrieve guest order" : error.message },
-                statusCode,
-            );
-        }
-    }
-
-    @Post("/guest/payos-checkout-session")
-    @HttpCode(HTTP_STATUS.OK)
-    async createGuestPayOSCheckoutSession(
-        @Body(new ZodValidationPipe(guestPayOSCheckoutSchema)) body: GuestPayOSCheckoutPayload,
-    ) {
-        try {
-            if (!this.ordersPayOSService) throw new HttpException({ msg: "PayOS checkout is not configured" }, HTTP_STATUS.SERVICE_UNAVAILABLE);
-            const result = await this.ordersPayOSService.createGuestCheckoutSession(body);
-            return {
-                url: result.url,
-                orderCode: result.orderCode,
-                paymentLinkId: result.paymentLinkId,
-                amount: result.amount,
-                currency: result.currency,
-                guestOrderToken: result.guestOrderToken,
-                msg: "PayOS checkout session created",
-            };
-        } catch (err) {
-            if (err instanceof HttpException) throw err;
-            const error = err as Error & { statusCode?: number; details?: Record<string, unknown> };
-            const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-            throw createHttpException(
-                err,
-                {
-                    msg: statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to start guest PayOS checkout" : error.message,
-                    ...(statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? {} : error.details || {}),
-                },
-                statusCode,
-            );
+            throw mapToHttpException(err, "Unable to cancel order");
         }
     }
 
@@ -297,7 +254,7 @@ export class OrdersController {
             return { order, msg: "Order retrieved successfully" };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            throw toHttpException(err as Error, "Unable to retrieve order right now");
+            throw mapToHttpException(err, "Unable to retrieve order right now");
         }
     }
 
@@ -315,6 +272,9 @@ export class OrdersController {
             discountCode?: string;
             shippingAddress: string;
             paymentMethod: PaymentProviderName;
+            locale?: "en" | "vi";
+            shippingQuoteId: string;
+            deliveryAddress: import("../shipping/shipping.types").DeliveryAddress;
         },
     ) {
         const { totalPrice, cart, discountCode, shippingAddress, paymentMethod } = body;
@@ -339,6 +299,9 @@ export class OrdersController {
                 discountCode,
                 shippingAddress,
                 paymentMethod,
+                shippingQuoteId: body.shippingQuoteId,
+                deliveryAddress: body.deliveryAddress,
+                locale: body.locale,
             });
             return {
                 orderId: order.id,
@@ -369,17 +332,24 @@ export class OrdersController {
     async createPayOSCheckoutSession(
         @Param("uid") uid: string,
         @Body(new ZodValidationPipe(checkoutSessionSchema)) body: {
+            shippingQuoteId: string;
+            deliveryAddress: import("../shipping/shipping.types").DeliveryAddress;
             totalPrice: number;
             cart: Array<{ productId: number; quantity: number; price: number; sale_price?: number | null }>;
             discount: number;
             discountCode?: string;
             shippingAddress: string;
         },
+        @Headers("idempotency-key") idempotencyKey?: string,
     ) {
         try {
+            const parsedIdempotencyKey = paymentAttemptIdempotencyKeySchema.optional().safeParse(idempotencyKey);
+            if (!parsedIdempotencyKey.success) throw new BadRequestException({ msg: getValidationMessage(parsedIdempotencyKey.error) });
             if (!this.ordersPayOSService) throw new HttpException({ msg: "PayOS checkout is not configured" }, HTTP_STATUS.SERVICE_UNAVAILABLE);
-            const result = await this.ordersPayOSService.createCheckoutSession(uid, body);
+            const result = await this.ordersPayOSService.createCheckoutSession(uid, body, parsedIdempotencyKey.data);
             return {
+                attemptId: result.attemptId,
+                sessionState: result.sessionState,
                 url: result.url,
                 orderCode: result.orderCode,
                 paymentLinkId: result.paymentLinkId,
@@ -397,26 +367,6 @@ export class OrdersController {
                     msg: statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to start authenticated PayOS checkout" : error.message,
                     ...(statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? {} : error.details || {}),
                 },
-                statusCode,
-            );
-        }
-    }
-
-    @Post("/guest/by-payos-order-code")
-    @HttpCode(HTTP_STATUS.OK)
-    async getGuestOrderByPayOSOrderCode(
-        @Body(new ZodValidationPipe(guestPayOSOrderLookupSchema)) body: GuestPayOSOrderLookupPayload,
-    ) {
-        try {
-            const order = await this.ordersService.getGuestOrderByPayOSOrderCode(body.orderCode, body.guestOrderToken);
-            return { order, msg: "Guest order retrieved successfully" };
-        } catch (err) {
-            if (err instanceof HttpException) throw err;
-            const error = err as Error & { statusCode?: number };
-            const statusCode = error.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-            throw createHttpException(
-                err,
-                { msg: statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? "Unable to retrieve guest order" : error.message },
                 statusCode,
             );
         }
@@ -440,7 +390,7 @@ export class OrdersController {
             };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            throw toHttpException(err, "Unable to apply discount code");
+            throw mapToHttpException(err, "Unable to apply discount code");
         }
     }
 }

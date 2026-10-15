@@ -97,5 +97,12 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-10-04 — Codex — Removed unused direct dependencies and the orphan Web Vitals helper, retired shared schema re-exports, and consolidated local Docker/build scripts while preserving feature schemas and API contracts.
 - 2026-10-14 - Codex - Added native Codex specialist configuration with two concurrent Luna subagents and synchronized on-demand delegation, ownership, verification, and Git delivery guidance in [[architecture]].
 - 2026-10-14 - Codex - Kept gpt-6-luna for all specialists and replaced fixed medium reasoning with explicit per-task effort selection by Main Codex; see [[architecture]].
+- 2026-10-14 - Codex - Consolidated repeated controller error mapping and moved catalog/wishlist requests plus optimistic wishlist updates behind feature-owned client modules; see [[architecture]].
+- 2026-10-14 - Codex - Split guest order routes into their own rate-limited controller and made the address book a keyboard-submittable form with linked inline validation; see [[architecture]].
+- 2026-10-14 - Codex - Added a keyboard skip link to the admin shell and regression coverage for its content target; see [[architecture]].
+- 2026-10-14 — Codex: document the transactional operations task foundation and fenced leases.
+- 2026-10-14 - Codex - Completed retail P0 fulfillment, COD/refund evidence, durable transactional email, sandbox checkout coverage, and operator recovery documentation; live provider and scheduler verification remain pending.
+- 2026-10-15 - Codex - Added transactional welcome and payment-confirmation email events; documented locale handling and delivery requirements in [[transactional-email-operations]].
+- 2026-10-15 - Codex - Implemented durable PayOS checkout attempts, verified status recovery, owner-scoped customer actions, and admin payment exception operations; local dependency and configured provider acceptance gates remain pending; see [[payos-checkout-reliability]].
 - 2026-10-15 - Codex - Corrected notification unread totals so they count all unread rows independently of the recent-list limit; see [[architecture]] and the API guide.
 - 2026-10-15 - Codex - Made storefront notification clicks mark read and open their order/product destination; wired admin dashboard alert groups to mark member alerts read and corrected the header badge to count alerts beyond its eight-item preview; see [[architecture]].

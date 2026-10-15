@@ -12,6 +12,7 @@ import {
 } from "./payment.types";
 import { CHECKOUT_RESERVATION_STATUS } from "#src/shared/constants/checkout-reservation";
 import { PAYMENT_RECONCILIATION_LIMIT } from "./payment-reconciliation.constants";
+import { PAYMENT_ATTEMPT_ORDER_STATE, PAYMENT_ATTEMPT_RESOLUTION_STATE } from "./payment-attempt.types";
 
 export type WebhookEventInput = {
     provider: string; eventKey: string; eventType: string; payloadHash: string;
@@ -42,6 +43,48 @@ export type ReconciliationProjection = {
 
 @Injectable()
 export class PaymentReconciliationRepository {
+    async getPaymentAttemptForUpdate(tx: TransactionContext, attemptId: string) {
+        const rows = await tx.query<Array<{
+            id: string; pending_checkout_id: number; order_id: number | null; cancel_requested_at: Date | string | null;
+            payment_state: string; verified_received_amount_vnd: string | number | bigint;
+        }>>(
+            `SELECT id, pending_checkout_id, order_id, cancel_requested_at, payment_state, verified_received_amount_vnd
+             FROM payment_attempts WHERE id = ? LIMIT 1 FOR UPDATE`, [attemptId],
+        );
+        return rows[0] ? {
+            id: String(rows[0].id), pendingCheckoutId: Number(rows[0].pending_checkout_id),
+            orderId: rows[0].order_id == null ? null : Number(rows[0].order_id), cancelRequestedAt: rows[0].cancel_requested_at,
+            paymentState: rows[0].payment_state, verifiedReceivedAmountVnd: Number(rows[0].verified_received_amount_vnd),
+        } : null;
+    }
+
+    markPaymentAttemptReviewRequired(tx: TransactionContext, attemptId: string) {
+        return tx.query(
+            `UPDATE payment_attempts
+             SET order_state = '${PAYMENT_ATTEMPT_ORDER_STATE.REVIEW_REQUIRED}',
+                 resolution_state = '${PAYMENT_ATTEMPT_RESOLUTION_STATE.OPEN}',
+                 updated_at = UTC_TIMESTAMP(3)
+             WHERE id = ? AND order_state <> '${PAYMENT_ATTEMPT_ORDER_STATE.CREATED}'`, [attemptId],
+        );
+    }
+
+    async findPaymentAttemptByProviderOrderCode(tx: TransactionContext, providerOrderCode: string) {
+        const rows = await tx.query<Array<{ id: string; pending_checkout_id: number; provider_order_code: string | number; provider_link_id: string | null; expected_amount_vnd: string | number; cancel_requested_at: Date | string | null }>>(
+            `SELECT id, pending_checkout_id, provider_order_code, provider_link_id, expected_amount_vnd, cancel_requested_at
+             FROM payment_attempts WHERE provider = ? AND provider_order_code = ? LIMIT 1`,
+            [PAYMENT_PROVIDER.PAYOS, providerOrderCode],
+        );
+        const attempt = rows[0];
+        return attempt ? {
+            id: String(attempt.id),
+            pendingCheckoutId: Number(attempt.pending_checkout_id),
+            providerOrderCode: String(attempt.provider_order_code),
+            providerLinkId: attempt.provider_link_id,
+            expectedAmountVnd: Number(attempt.expected_amount_vnd),
+            cancelRequestedAt: attempt.cancel_requested_at == null ? null : new Date(attempt.cancel_requested_at).toISOString(),
+        } : null;
+    }
+
     async insertWebhookEvent(tx: TransactionContext, input: WebhookEventInput): Promise<InsertResult> {
         return tx.query<InsertResult>(
             `INSERT INTO payment_webhook_events

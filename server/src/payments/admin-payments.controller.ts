@@ -9,7 +9,7 @@ import { PaymentReconciliationService } from "./payment-reconciliation.service";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { PAYMENT_PROVIDER, PAYMENT_RECONCILIATION_STATUS } from "./payment.types";
 import { PAYMENT_RECONCILIATION_LIMIT } from "./payment-reconciliation.constants";
-import { createHttpException } from "#src/core/errors/http-exception";
+import { mapToHttpException } from "#src/core/errors/http-exception-mapper";
 
 const positiveInteger = z.coerce.number().int().positive();
 export const paymentReconciliationQuerySchema = z.object({
@@ -35,14 +35,6 @@ const paymentIdFrom = (value: string): number => {
     return paymentId;
 };
 
-const toHttpException = (error: unknown, fallback: string): HttpException => {
-    if (error instanceof HttpException) return error;
-    const statusCode = Number((error as { statusCode?: number })?.statusCode) || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-    const errorMessage = (error as { message?: string })?.message;
-    const msg = statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? fallback : errorMessage || fallback;
-    return createHttpException(error, { msg }, statusCode);
-};
-
 @Controller("admin/payments")
 export class AdminPaymentsController {
     constructor(private readonly service: PaymentReconciliationService) {}
@@ -58,7 +50,7 @@ export class AdminPaymentsController {
             const result = await this.service.listCandidates(query as never);
             return buildSuccessResponse({ ...result, msg: "Payment reconciliation candidates retrieved successfully" }, requestIdFrom(req));
         } catch (error) {
-            throw toHttpException(error, "Unable to retrieve payment reconciliation candidates");
+            throw mapToHttpException(error, "Unable to retrieve payment reconciliation candidates");
         }
     }
 
@@ -75,7 +67,7 @@ export class AdminPaymentsController {
             const result = await this.service.runReconciliation({ limit, requestedBy: String(req.user?.id || "") });
             return buildSuccessResponse({ ...result, msg: "Payment reconciliation run completed successfully" }, requestIdFrom(req));
         } catch (error) {
-            throw toHttpException(error, "Unable to run payment reconciliation");
+            throw mapToHttpException(error, "Unable to run payment reconciliation");
         }
     }
 
@@ -88,7 +80,7 @@ export class AdminPaymentsController {
             const result = await this.service.reconcilePayment(paymentIdFrom(paymentId), String(req.user?.id || ""));
             return buildSuccessResponse({ result, msg: "Payment reconciliation completed successfully" }, requestIdFrom(req));
         } catch (error) {
-            throw toHttpException(error, "Unable to reconcile payment");
+            throw mapToHttpException(error, "Unable to reconcile payment");
         }
     }
 
@@ -105,7 +97,7 @@ export class AdminPaymentsController {
             const payment = await this.service.confirmCod(paymentIdFrom(paymentId), { note: body.note?.trim() }, String(req.user?.id || ""));
             return buildSuccessResponse({ payment, msg: "COD payment confirmed successfully" }, requestIdFrom(req));
         } catch (error) {
-            throw toHttpException(error, "Unable to confirm COD payment");
+            throw mapToHttpException(error, "Unable to confirm COD payment");
         }
     }
 
@@ -117,7 +109,7 @@ export class AdminPaymentsController {
             const events = await this.service.listWebhookEvents(paymentIdFrom(paymentId));
             return buildSuccessResponse({ events, msg: "Payment webhook events retrieved successfully" }, requestIdFrom(req));
         } catch (error) {
-            throw toHttpException(error, "Unable to retrieve payment webhook events");
+            throw mapToHttpException(error, "Unable to retrieve payment webhook events");
         }
     }
 }

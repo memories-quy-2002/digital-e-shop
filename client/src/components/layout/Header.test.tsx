@@ -13,8 +13,8 @@ const mocks = vi.hoisted(() => ({
     },
     cart: { items: [] as unknown[] },
     toast: { addToast: vi.fn() },
-    axios: { get: vi.fn(), post: vi.fn() },
-    notifications: { fetchCustomerNotifications: vi.fn() },
+    notifications: { fetchCustomerNotifications: vi.fn(), logoutCurrentCustomer: vi.fn() },
+    products: { searchProducts: vi.fn() },
 }));
 
 vi.mock("../../context/AuthContext", () => ({
@@ -29,11 +29,11 @@ vi.mock("../../context/ToastContext", () => ({
     useToast: () => mocks.toast,
 }));
 
-vi.mock("../../api/axios", () => ({ default: mocks.axios }));
-
 vi.mock("../../features/users/api", () => ({
     fetchCustomerNotifications: mocks.notifications.fetchCustomerNotifications,
+    logoutCurrentCustomer: mocks.notifications.logoutCurrentCustomer,
 }));
+vi.mock("../../features/products/api", () => ({ searchProducts: mocks.products.searchProducts }));
 
 vi.mock("../../services/firebase", () => ({
     signOutFirebaseUser: vi.fn(),
@@ -72,7 +72,7 @@ describe("Header navigation controls", () => {
         mocks.auth.userData = null;
         mocks.auth.loading = false;
         mocks.cart.items = [];
-        mocks.axios.get.mockResolvedValue({ status: 200, data: { products: [] } });
+        mocks.products.searchProducts.mockResolvedValue([]);
         mocks.notifications.fetchCustomerNotifications.mockResolvedValue({ notifications: [], unread: 0 });
     });
 

@@ -149,7 +149,7 @@ export function coalesceGuestCartItems(items: GuestCartItemInput[]): GuestCartIt
     return Array.from(quantities, ([productId, quantity]) => ({ productId, quantity }));
 }
 
-const roundCurrency = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+const roundCurrency = (value: number) => Math.round(value + Number.EPSILON);
 
 export function buildGuestCartPreviewResult(
     requestedItems: GuestCartItemInput[],
@@ -207,7 +207,7 @@ export function buildGuestCartPreviewResult(
                 message: `This promotion requires a minimum order of ${formatPaymentAmount(minimumOrderValue, env.storeCurrency)}.`,
             };
         } else {
-            const discount = roundCurrency(merchandiseTotal * ((Number(promotion.discount_percent) || 0) / 100));
+            const discount = Math.round(merchandiseTotal * (Math.min(100, Math.max(0, Number(promotion.discount_percent) || 0)) / 100));
             promotionPreview = {
                 code: promotion.discount_code,
                 valid: true,

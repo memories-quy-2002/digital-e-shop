@@ -98,4 +98,6 @@ The default service name is digital-e-server. Signal-specific endpoints and head
 
 ## Project guides
 
+[Codex MCP setup](./docs/CODEX_MCP.md)
+
 [Architecture](./docs/ARCHITECTURE.md) · [API](./docs/API.md) · [Testing](./docs/TESTING.md) · [Development](./docs/DEVELOPMENT.md) · [Project Wiki](./Wiki/index.md) · [Security](./SECURITY.md)

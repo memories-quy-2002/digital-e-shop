@@ -25,7 +25,13 @@ export class OrdersRepository {
 
     async getOrderLifecycleForUpdate(tx: TransactionContext, orderId: number): Promise<OrderLifecycleRow | null> {
         const [order] = await tx.query<OrderLifecycleRow[]>(
-            "SELECT user_id, status, delivered_at, inventory_restored_at FROM orders WHERE id = ? FOR UPDATE", [orderId],
+              `SELECT user_id, status, delivered_at, inventory_restored_at,
+                      (SELECT state FROM shipments WHERE order_id = orders.id) AS fulfillment_state,
+                      (SELECT stock_received_at FROM shipments WHERE order_id = orders.id) AS returned_stock_received_at,
+                      (SELECT task.state FROM shipments shipment
+                       JOIN operations_tasks task ON task.kind = 'SHIPMENT_CREATE' AND task.business_key = shipment.client_reference
+                       WHERE shipment.order_id = orders.id ORDER BY task.id DESC LIMIT 1) AS shipment_creation_state
+               FROM orders WHERE id = ? FOR UPDATE`, [orderId],
         );
         return order || null;
     }
@@ -430,7 +436,7 @@ export class OrdersRepository {
                     payment_amount, payment_currency, payment_fx_rate,
                     reservation_token, user_id, guest_email, guest_name, guest_phone,
                     guest_order_token_hash, cart_json, total_price, discount,
-                    shipping_address, status, expires_at, discount_id, created_at, consumed_at
+                    pricing_snapshot, delivery_snapshot, contact_snapshot, shipping_address, status, expires_at, discount_id, created_at, consumed_at
             FROM pending_checkouts
             WHERE payment_provider = '${PAYMENT_PROVIDER.PAYOS}' AND provider_order_code = ?
             LIMIT 1`,

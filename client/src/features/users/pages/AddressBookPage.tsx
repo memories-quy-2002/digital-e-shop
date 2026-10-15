@@ -45,6 +45,7 @@ const AddressBookPage = () => {
     const t = useT();
     const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
     const [form, setForm] = useState<AddressForm>(() => createEmptyForm(t("addresses.home")));
+    const [showAddressError, setShowAddressError] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [pendingDeleteAddress, setPendingDeleteAddress] = useState<CustomerAddress | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -63,6 +64,7 @@ const AddressBookPage = () => {
     }, [loadAddresses]);
 
     const handleEdit = (address: CustomerAddress) => {
+        setShowAddressError(false);
         setForm({
             id: address.id,
             label: address.label || t("addresses.shippingAddress"),
@@ -75,10 +77,12 @@ const AddressBookPage = () => {
         });
     };
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
         if (!uid) return;
-        if (!form.addressLine.trim()) {
-            addToast(t("addresses.toastTitle"), t("addresses.required"));
+        const hasAddressError = !form.addressLine.trim();
+        setShowAddressError(hasAddressError);
+        if (hasAddressError) {
             return;
         }
 
@@ -101,6 +105,7 @@ const AddressBookPage = () => {
                 addToast(t("addresses.toastTitle"), t("addresses.saved"));
             }
             setForm(createEmptyForm(t("addresses.home")));
+            setShowAddressError(false);
             loadAddresses();
         } catch (err: unknown) {
             const maybeMessage =
@@ -166,7 +171,7 @@ const AddressBookPage = () => {
                 </section>
 
                 <section className="address-book__layout">
-                    <div className="address-book__form">
+                    <form className="address-book__form" onSubmit={handleSubmit} noValidate>
                         <div className="address-book__form-header">
                             <div>
                                 <span>{form.id ? t("addresses.editingAddress") : t("addresses.newAddress")}</span>
@@ -174,7 +179,7 @@ const AddressBookPage = () => {
                                 <p>{t("addresses.formDescription")}</p>
                             </div>
                             {form.id ? (
-                                <button type="button" onClick={() => setForm(createEmptyForm(t("addresses.home")))}>
+                                <button type="button" onClick={() => { setShowAddressError(false); setForm(createEmptyForm(t("addresses.home"))); }}>
                                     {t("addresses.cancelEdit")}
                                 </button>
                             ) : null}
@@ -198,7 +203,22 @@ const AddressBookPage = () => {
                             <h3>{t("addresses.deliveryLocation")}</h3>
                         <label>
                             {t("addresses.address")}
-                            <input value={form.addressLine} onChange={(event) => setForm((current) => ({ ...current, addressLine: event.target.value }))} />
+                            <input
+                                id="address-line"
+                                value={form.addressLine}
+                                required
+                                aria-invalid={showAddressError}
+                                aria-describedby={showAddressError ? "address-line-error" : undefined}
+                                onChange={(event) => {
+                                    setForm((current) => ({ ...current, addressLine: event.target.value }));
+                                    setShowAddressError(false);
+                                }}
+                            />
+                            {showAddressError ? (
+                                <span className="address-book__field-error" id="address-line-error" role="alert">
+                                    {t("addresses.required")}
+                                </span>
+                            ) : null}
                         </label>
                         <div className="address-book__form__grid">
                             <label>
@@ -220,14 +240,14 @@ const AddressBookPage = () => {
                             {t("addresses.useDefault")}
                         </label>
                         <div className="address-book__actions">
-                            <button type="button" onClick={handleSubmit} disabled={isSaving}>
+                            <button type="submit" disabled={isSaving}>
                                 {isSaving ? t("addresses.saving") : form.id ? t("addresses.saveAddress") : t("addresses.addAddress")}
                             </button>
-                            <button type="button" className="secondary" onClick={() => setForm(createEmptyForm(t("addresses.home")))}>
+                            <button type="button" className="secondary" onClick={() => { setShowAddressError(false); setForm(createEmptyForm(t("addresses.home"))); }}>
                                 {t("addresses.reset")}
                             </button>
                         </div>
-                    </div>
+                    </form>
 
                     <div className="address-book__list">
                         {addresses.length > 0 ? (

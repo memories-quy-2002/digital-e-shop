@@ -19,19 +19,23 @@ const MockPayOSCheckoutPage = () => {
     const orderCode = parsePositiveInteger(searchParams.get("payos_order_code"));
     const amount = parsePositiveInteger(searchParams.get("amount"));
     const paymentLinkId = searchParams.get("payment_link_id")?.trim() || "";
+    const attemptId = searchParams.get("payment_attempt_id")?.trim() || "";
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState("");
 
-    const isValidCheckout = Boolean(orderCode && amount && paymentLinkId);
+    const isValidCheckout = Boolean(
+        orderCode && amount && paymentLinkId &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(attemptId),
+    );
 
     const handleConfirm = async () => {
-        if (!orderCode || !amount || !paymentLinkId) return;
+        if (!orderCode || !amount || !paymentLinkId || !isValidCheckout) return;
 
         try {
             setIsSubmitting(true);
             setError("");
             await confirmMockPayOSPayment({ orderCode, paymentLinkId, amount });
-            navigate(`/checkout-success?payment_provider=payos&payos_order_code=${orderCode}`, { replace: true });
+            navigate(`/checkout-success?payment_provider=payos&payment_attempt_id=${encodeURIComponent(attemptId)}`, { replace: true });
         } catch (requestError: unknown) {
             setError(getApiErrorMessage(requestError, "The simulated payment could not be confirmed. Please start checkout again."));
         } finally {

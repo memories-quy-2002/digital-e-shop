@@ -68,4 +68,7 @@ Order behavior lives in `server/src/orders/`, payment relations live in
 `server/src/payments/`, and the persistence model lives in
 `server/src/database/prisma/schema.prisma`. See
 [[order-lifecycle-and-support]] and [[commerce-journey]] for cross-domain
-behavior.
+behavior. Delivery quotes and fulfillment history are separate from the
+legacy numeric order status; see [[shipping-and-fulfillment]]. Transactional
+messages are durable post-commit operations; see
+[[transactional-email-operations]].

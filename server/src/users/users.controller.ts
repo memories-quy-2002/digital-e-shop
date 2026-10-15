@@ -8,14 +8,7 @@ import { NestAuthService } from "../auth/auth.service";
 import { adminUserUpdateSchema } from "./users.validator";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { USER_ROLE } from "#src/shared/constants/user";
-import { createHttpException } from "#src/core/errors/http-exception";
-
-function toHttpException(err: { statusCode?: number; message?: string }, fallbackMessage: string): HttpException {
-    if (err instanceof HttpException) return err;
-    const statusCode = err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-    const msg = statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR ? fallbackMessage : err.message || fallbackMessage;
-    return createHttpException(err, { msg }, statusCode);
-}
+import { mapToHttpException } from "#src/core/errors/http-exception-mapper";
 
 @Controller(["users", "user"])
 @UseGuards(AuthGuard, RolesGuard)
@@ -34,7 +27,7 @@ export class UsersController {
             return { userData };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            throw toHttpException(err as Error, "Unable to get current user");
+            throw mapToHttpException(err, "Unable to get current user");
         }
     }
 
@@ -49,7 +42,7 @@ export class UsersController {
             return { profile, msg: "Customer profile retrieved successfully" };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            throw toHttpException(err as Error, "Unable to get customer profile");
+            throw mapToHttpException(err, "Unable to get customer profile");
         }
     }
 
@@ -61,7 +54,7 @@ export class UsersController {
             return { userData: user, msg: "User logged in successfully" };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            throw toHttpException(err as Error, "Unable to get user");
+            throw mapToHttpException(err, "Unable to get user");
         }
     }
 
@@ -97,7 +90,7 @@ export class UsersController {
             return { accounts: users, msg: "Get users successfully" };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            throw toHttpException(err as Error, "Unable to get users");
+            throw mapToHttpException(err, "Unable to get users");
         }
     }
 
@@ -112,7 +105,7 @@ export class UsersController {
             return { account, msg: "Account updated successfully" };
         } catch (err) {
             if (err instanceof HttpException) throw err;
-            throw toHttpException(err as Error, "Unable to update account");
+            throw mapToHttpException(err, "Unable to update account");
         }
     }
 }

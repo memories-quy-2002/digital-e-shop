@@ -6,6 +6,34 @@
 @use "./notifications";
 @use "./accounts";
 
+.admin__skip-link {
+    position: fixed;
+    z-index: 10000;
+    top: 0.75rem;
+    left: 0.75rem;
+    max-width: calc(100vw - 1.5rem);
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--de-color-electric);
+    border-radius: var(--de-radius-sm);
+    background: var(--de-color-surface);
+    color: var(--de-color-text);
+    font-weight: 700;
+    transform: translateY(calc(-100% - 1rem));
+    transition: transform 160ms ease;
+
+    &:focus-visible {
+        outline: 3px solid var(--de-color-electric);
+        outline-offset: 3px;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .admin__skip-link {
+        transition: none;
+    }
+}
+
 .admin__shell { min-height: 100vh; background: var(--de-color-bg); color: var(--de-color-text); }
 .admin__layout { background: transparent; }
 .admin__layout__sidebar { background: var(--de-color-surface-inverse) !important; border-right: 1px solid var(--de-color-inverse-border) !important; box-shadow: var(--de-shadow-md) !important; }

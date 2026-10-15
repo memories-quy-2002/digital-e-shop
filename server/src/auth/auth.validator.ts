@@ -17,6 +17,7 @@ const registrationUserSchema = z.object({
 const firebaseRegisterSchema = z.object({
     idToken: requiredText("Firebase ID token"),
     user: registrationUserSchema,
+    locale: z.enum(["en", "vi"]).optional(),
 }).strict();
 
 export const registerUserSchema = firebaseRegisterSchema;

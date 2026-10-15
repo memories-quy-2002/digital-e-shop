@@ -1,4 +1,6 @@
 import type { CartCheckoutItem, GuestCartItemInput } from "../cart/cart.dto";
+import type { DeliveryAddress } from "../shipping/shipping.types";
+export type DeliveryCheckoutInput = { shippingQuoteId: string; deliveryAddress: DeliveryAddress; locale?: "en" | "vi" };
 
 export type GuestContactDto = {
     email: string;
@@ -15,7 +17,7 @@ export type GuestShippingDto = {
 import type { PaymentProviderName, PayOSPaymentProvider } from "../payments/payment.types";
 
 export type GuestPaymentMethod = PaymentProviderName;
-export type GuestPurchasePayload = {
+export type GuestPurchasePayload = DeliveryCheckoutInput & {
     cart: GuestCartItemInput[];
     contact: GuestContactDto;
     shipping: GuestShippingDto;
@@ -43,7 +45,7 @@ export type MockPayOSConfirmPayload = {
     amount: number;
 };
 
-export type PurchasePayload = {
+export type PurchasePayload = DeliveryCheckoutInput & {
     totalPrice: number;
     cart: CartCheckoutItem[];
     discount: number;

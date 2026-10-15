@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ORDER_STATUS } from "#src/shared/constants/order-status";
 import { PAYMENT_PROVIDER } from "../payments/payment.types";
+import { deliveryAddressSchema } from "../shipping/shipping.validator";
 
 const requiredText = (field: string) => z.string({ error: `${field} is required` }).trim().min(1, `${field} is required`);
 const positiveInt = (field: string) => z.coerce.number({ error: `${field} must be a number` }).int(`${field} must be a whole number`).positive(`${field} must be greater than zero`);
@@ -33,6 +34,9 @@ const guestShippingSchema = z.object({
 }).strict();
 
 const guestCheckoutBaseSchema = z.object({
+    locale: z.enum(["en", "vi"]).default("en"),
+    shippingQuoteId: z.string().uuid(),
+    deliveryAddress: deliveryAddressSchema,
     cart: z.array(guestCartItemSchema)
         .min(1, "Cart cannot be empty")
         .max(50, "Cart must not contain more than 50 items"),
@@ -67,7 +71,13 @@ export const cancelOrderSchema = z.object({
     reason: z.string().trim().max(500, "Cancellation reason is too long").optional(),
 });
 
+export const paymentAttemptIdSchema = z.string().uuid();
+export const paymentAttemptIdempotencyKeySchema = z.string().uuid();
+
 export const purchaseSchema = z.object({
+    locale: z.enum(["en", "vi"]).default("en"),
+    shippingQuoteId: z.string().uuid(),
+    deliveryAddress: deliveryAddressSchema,
     totalPrice: nonNegativeNumber("Total price"),
     cart: z.array(
         z.object({
@@ -86,6 +96,9 @@ export const purchaseSchema = z.object({
 });
 
 export const checkoutSessionSchema = z.object({
+    locale: z.enum(["en", "vi"]).default("en"),
+    shippingQuoteId: z.string().uuid(),
+    deliveryAddress: deliveryAddressSchema,
     totalPrice: nonNegativeNumber("Total price"),
     cart: z.array(
         z.object({

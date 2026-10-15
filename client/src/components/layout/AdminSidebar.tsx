@@ -1,6 +1,7 @@
 import React from "react";
 import { ArrowLeftIcon, ArrowRightIcon, BoxSeamIcon, CartIcon, CashStackIcon, PersonIcon, SpeedometerIcon, TelephoneIcon } from "../common/Icons";
 import { NavLink } from "react-router-dom";
+import { useLocale } from "../../context/LocaleContext";
 
 const adminNavItems = [
     { label: "Dashboard", path: "/admin", match: "dashboard", icon: <SpeedometerIcon size={20} /> },
@@ -20,6 +21,12 @@ type AdminSidebarProps = {
 };
 
 const AdminSidebar = ({ isOpen = false, isCollapsed = false, onClose, onToggleCollapsed }: AdminSidebarProps) => {
+    const { locale } = useLocale();
+    const navigation = [...adminNavItems,
+        { label: locale === "vi" ? "Xử lý giao hàng" : "Fulfillment", path: "/admin/fulfillment", match: "fulfillment", icon: <BoxSeamIcon size={20} /> },
+        { label: locale === "vi" ? "Đối soát COD" : "COD settlements", path: "/admin/payments/cod-settlements", match: "cod-settlements", icon: <CashStackIcon size={20} /> },
+        { label: locale === "vi" ? "Email giao dịch" : "Email operations", path: "/admin/email-operations", match: "email-operations", icon: <TelephoneIcon size={20} /> },
+    ];
     return (
         <aside
             id="admin-navigation"
@@ -58,7 +65,7 @@ const AdminSidebar = ({ isOpen = false, isCollapsed = false, onClose, onToggleCo
             {/* Navigation */}
             <nav className="admin__layout__sidebar__navigation" aria-label="Admin navigation">
                 <span className="admin__layout__sidebar__navigation__caption">Workspace</span>
-                {adminNavItems.map((item) => (
+                {navigation.map((item) => (
                     <NavLink
                         key={item.path}
                         to={item.path}

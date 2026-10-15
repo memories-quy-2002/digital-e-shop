@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { CashStackIcon, CheckCircleIcon, ShieldIcon } from "../../../components/common/Icons";
 import AdminLayout from "../../../components/layout/AdminLayout";
@@ -23,6 +23,9 @@ import {
     type PaymentReconciliationStatus,
     type PaymentWebhookEvent,
 } from "../api";
+import PrivateEvidenceUpload from "../components/PrivateEvidenceUpload";
+import { recordPaymentAttemptRefund, fetchPaymentAttemptException, fetchPaymentAttemptExceptions, retryPaymentAttempt } from "../operations.api";
+import type { PaymentAttemptException, PaymentAttemptExceptionDetail } from "../operations.types";
 
 const PAGE_LIMIT = PAYMENT_RECONCILIATION_LIMIT.DEFAULT;
 const reconciliationStatuses: Array<PaymentReconciliationStatus | ""> = [
@@ -57,6 +60,177 @@ const labelTarget = (candidate: PaymentReconciliationCandidate) => candidate.ord
     ? `Order #${candidate.orderId}`
     : candidate.targetType === PAYMENT_RECONCILIATION_TARGET_TYPE.PENDING_CHECKOUT ? `Pending checkout #${candidate.targetId}` : `Payment #${candidate.targetId}`;
 const statusClass = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+const formatAttemptDate = (value: string) => new Date(value).toLocaleString();
+
+const PaymentAttemptExceptions = () => {
+    const [items, setItems] = useState<PaymentAttemptException[]>([]);
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(0);
+    const [selectedId, setSelectedId] = useState("");
+    const [detail, setDetail] = useState<PaymentAttemptExceptionDetail | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [detailLoading, setDetailLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [reason, setReason] = useState("");
+    const [refundAmount, setRefundAmount] = useState("");
+    const [transferReference, setTransferReference] = useState("");
+    const [transferDate, setTransferDate] = useState("");
+    const [refundReason, setRefundReason] = useState("");
+    const [evidence, setEvidence] = useState<import("../operations.types").FinancialEvidence | null>(null);
+    const [notice, setNotice] = useState("");
+    const refundIdempotency = useRef<{ fingerprint: string; key: string } | null>(null);
+
+    const loadQueue = useCallback(async (nextPage = 1) => {
+        setLoading(true);
+        setError("");
+        try {
+            const result = await fetchPaymentAttemptExceptions(nextPage, 25);
+            setItems(result.items);
+            setTotalPages(result.pagination.totalPages);
+            setPage(result.pagination.page);
+            setSelectedId((currentId) => currentId && result.items.some((item) => item.attemptId === currentId) ? currentId : "");
+            setDetail((currentDetail) => currentDetail && result.items.some((item) => item.attemptId === currentDetail.attemptId) ? currentDetail : null);
+        } catch (requestError) {
+            setError(getAdminRequestError(requestError).message);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { void loadQueue(1); }, [loadQueue]);
+
+    useEffect(() => {
+        if (!selectedId) return;
+        let active = true;
+        setDetailLoading(true);
+        setDetail(null);
+        void fetchPaymentAttemptException(selectedId).then((value) => {
+            if (active) setDetail(value);
+        }).catch((requestError) => {
+            if (active) setError(getAdminRequestError(requestError).message);
+        }).finally(() => {
+            if (active) setDetailLoading(false);
+        });
+        return () => { active = false; };
+    }, [selectedId]);
+
+    const runRetry = async () => {
+        if (!detail || !reason.trim() || busy) return;
+        setBusy(true);
+        setError("");
+        setNotice("");
+        try {
+            await retryPaymentAttempt(detail.attemptId, reason.trim());
+            setNotice("Fulfillment retry completed. The order was created from the verified payment.");
+            setReason("");
+            await loadQueue(page);
+        } catch (requestError) {
+            setError(getAdminRequestError(requestError).message);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const submitRefund = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!detail || !evidence || busy) return;
+        const amountVnd = Number(refundAmount);
+        if (!Number.isSafeInteger(amountVnd) || amountVnd <= 0 || amountVnd > detail.refundableAmountVnd) return;
+        const fingerprint = [detail.attemptId, amountVnd, transferReference.trim(), transferDate, evidence.id, refundReason.trim()].join("|");
+        const idempotencyKey = refundIdempotency.current?.fingerprint === fingerprint
+            ? refundIdempotency.current.key
+            : crypto.randomUUID();
+        refundIdempotency.current = { fingerprint, key: idempotencyKey };
+        setBusy(true);
+        setError("");
+        setNotice("");
+        try {
+            const result = await recordPaymentAttemptRefund(detail.attemptId, {
+                amountVnd,
+                transferReference: transferReference.trim(),
+                idempotencyKey,
+                transferredAt: transferDate,
+                evidenceId: evidence.id,
+                reason: refundReason.trim(),
+            });
+            setNotice(`${result.replayed ? "Refund record already exists" : "Refund recorded"}. ${result.resolutionState === "RESOLVED" ? "Exception resolved." : "Partial refund; remaining balance stays open."}`);
+            setEvidence(null);
+            refundIdempotency.current = null;
+            setRefundAmount("");
+            setTransferReference("");
+            setTransferDate("");
+            setRefundReason("");
+            const updated = await fetchPaymentAttemptException(detail.attemptId);
+            setDetail(updated);
+            await loadQueue(page);
+        } catch (requestError) {
+            setError(getAdminRequestError(requestError).message);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return <section className="admin__card admin__payments__exceptions" aria-labelledby="payment-exceptions-title">
+        <div className="admin__card__header admin__card__header--stacked">
+            <div>
+                <h2 id="payment-exceptions-title">Paid payment exceptions</h2>
+                <p>Review verified PayOS payments without an order. Refunds require transfer evidence; fulfillment retry uses the verified payment amount.</p>
+            </div>
+            <button type="button" className="admin__button admin__button--ghost" onClick={() => void loadQueue()} disabled={loading || busy}>Refresh exceptions</button>
+        </div>
+        {error ? <div className="admin__alert" role="alert">{error}</div> : null}
+        {notice ? <div className="admin__alert admin__payments__notice" role="status">{notice}</div> : null}
+        {loading && items.length === 0 ? <AdminStatusPanel variant="loading" title="Loading payment exceptions" description="Fetching unresolved verified PayOS payments." /> : null}
+        {!loading && !error && items.length === 0 ? <AdminStatusPanel variant="empty" title="No paid payment exceptions" description="Unresolved PayOS payments without an order will appear here." /> : null}
+        {items.length ? <>
+            <div className="admin__table-wrap admin__payments__exception-wrap" aria-busy={loading}>
+                <table className="admin__table admin__payments__exception-table">
+                    <caption className="admin__sr-only">Unresolved PayOS payment exceptions</caption>
+                    <thead><tr><th scope="col">Attempt</th><th scope="col">Payment state</th><th scope="col">Expected</th><th scope="col">Received</th><th scope="col">Refundable</th><th scope="col">Updated</th><th scope="col">Details</th></tr></thead>
+                    <tbody>{items.map((item) => <tr key={item.attemptId}>
+                        <td><span className="admin__payments__attempt-id">{item.attemptId}</span><small>Order code {item.providerOrderCode}</small></td>
+                        <td><span className={`admin__pill admin__pill--${statusClass(item.paymentState)}`}>{item.paymentState}</span><small>{item.resolutionState}</small></td>
+                        <td>{formatVnd(item.expectedAmountVnd)}</td><td>{formatVnd(item.receivedAmountVnd)}</td><td>{formatVnd(item.refundableAmountVnd)}</td><td>{formatAttemptDate(item.updatedAt)}</td>
+                        <td><button type="button" className="admin__button admin__button--ghost admin__button--compact" aria-pressed={selectedId === item.attemptId} onClick={() => { setSelectedId(item.attemptId); setError(""); setNotice(""); }}>Review</button></td>
+                    </tr>)}</tbody>
+                </table>
+            </div>
+            <div className="admin__payments__pagination" aria-label="Exception queue pagination">
+                <span>Page {page} of {Math.max(1, totalPages)}</span><div>
+                    <button type="button" className="admin__button admin__button--ghost admin__button--compact" onClick={() => void loadQueue(page - 1)} disabled={page <= 1 || loading || busy}>Previous</button>
+                    <button type="button" className="admin__button admin__button--ghost admin__button--compact" onClick={() => void loadQueue(page + 1)} disabled={page >= totalPages || loading || busy}>Next</button>
+                </div>
+            </div>
+        </> : null}
+        {selectedId ? <section className="admin__payments__attempt-detail" aria-labelledby="payment-attempt-detail-title" aria-busy={detailLoading}>
+            <h3 id="payment-attempt-detail-title">Payment attempt details</h3>
+            {detailLoading ? <p role="status">Loading safe payment snapshot…</p> : null}
+            {detail ? <>
+                <dl className="admin__payments__attempt-summary">
+                    <div><dt>Verified received</dt><dd>{formatVnd(detail.receivedAmountVnd)}</dd></div><div><dt>Refunded</dt><dd>{formatVnd(detail.refundedAmountVnd)}</dd></div><div><dt>Refundable balance</dt><dd>{formatVnd(detail.refundableAmountVnd)}</dd></div><div><dt>Resolution</dt><dd>{detail.resolutionState}</dd></div>
+                </dl>
+                <div className="admin__payments__snapshot"><h4>Purchased items</h4>{detail.items.length ? <ul>{detail.items.map((item) => <li key={item.productId}><span>{item.name} × {item.quantity}</span><strong>{formatVnd(item.unitPriceVnd * item.quantity)}</strong></li>)}</ul> : <p>No item snapshot was recorded.</p>}<p>Subtotal {formatVnd(detail.subtotalVnd)} · Discount {formatVnd(detail.discountVnd)} · Shipping {formatVnd(detail.shippingVnd)}</p><strong>Expected payment {formatVnd(detail.payableVnd)}</strong></div>
+                {detail.refunds.length ? <div className="admin__payments__refund-history"><h4>Refund records</h4><ul>{detail.refunds.map((refund) => <li key={refund.operationId}>{formatVnd(refund.amountVnd)} · {refund.transferReference} · {refund.transferredAt} · {refund.reason}</li>)}</ul></div> : null}
+                {detail.paymentState === "PAID" && detail.orderState !== "CREATED" ? <form className="admin__payments__retry-form" onSubmit={(event) => { event.preventDefault(); void runRetry(); }}>
+                    <h4>Retry order creation</h4><p>Only use after confirming the order was not created. The server rechecks current eligibility and never changes the verified amount.</p>
+                    <label htmlFor="payment-retry-reason">Fulfillment retry reason</label><textarea id="payment-retry-reason" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} required />
+                    <button type="submit" className="admin__button admin__button--primary" disabled={busy || !reason.trim()}>{busy ? "Processing…" : "Retry fulfillment"}</button>
+                </form> : null}
+                {detail.refundableAmountVnd > 0 ? <form className="admin__payments__refund-form" onSubmit={(event) => void submitRefund(event)}>
+                    <h4>Record an offline refund</h4><p>Record a bank transfer already made. This action does not initiate a provider refund. Maximum remaining balance: <strong>{formatVnd(detail.refundableAmountVnd)}</strong>.</p>
+                    <label htmlFor="refund-amount">Refund amount (VND)</label><input id="refund-amount" type="number" min="1" max={detail.refundableAmountVnd} step="1" inputMode="numeric" required value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} />
+                    <label htmlFor="refund-reference">Transfer reference</label><input id="refund-reference" value={transferReference} onChange={(event) => setTransferReference(event.target.value)} maxLength={191} required />
+                    <label htmlFor="refund-date">Transfer date</label><input id="refund-date" type="date" value={transferDate} onChange={(event) => setTransferDate(event.target.value)} required />
+                    <PrivateEvidenceUpload label="Private transfer evidence" evidence={evidence} onChange={setEvidence} />
+                    <label htmlFor="refund-reason">Transfer refund reason</label><textarea id="refund-reason" value={refundReason} onChange={(event) => setRefundReason(event.target.value)} maxLength={500} required />
+                    <button type="submit" className="admin__button admin__button--success" disabled={busy || !evidence || !Number.isSafeInteger(Number(refundAmount)) || Number(refundAmount) <= 0 || Number(refundAmount) > detail.refundableAmountVnd || !transferReference.trim() || !transferDate || !refundReason.trim()}>{busy ? "Recording…" : "Record transfer refund"}</button>
+                </form> : <p className="admin__payments__resolved-note">No refundable balance remains.</p>}
+            </> : null}
+        </section> : null}
+    </section>;
+};
 
 const AdminPaymentReconciliationPage = () => {
     const { addToast } = useToast();
@@ -188,6 +362,7 @@ const AdminPaymentReconciliationPage = () => {
                 <meta name="description" content="Review and reconcile PayOS and COD payment ledger records." />
             </Helmet>
             <main className="admin__page admin__page--payments">
+                <PaymentAttemptExceptions />
                 <header className="admin__page__header">
                     <div>
                         <span className="admin__page__eyebrow">Finance operations</span>

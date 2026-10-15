@@ -35,7 +35,7 @@ decisions.
    the maintained guide for the affected surface.
 2. Reproduce the problem from the report. Inspect input, validation,
    authorization, business, persistence, and response paths.
-3. Trace callers and callees with CodeGraph or Grep. Compare behavior with
+3. Trace callers and callees with GitNexus or Grep. Compare behavior with
    tests and route contracts.
 4. If the target is UI, inspect the rendered route in `playwright` before
    deciding that a CSS or component change is the fix.

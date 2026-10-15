@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import AdminHeader from "./AdminHeader";
 import AdminSidebar from "./AdminSidebar";
+import { useT } from "../../hooks/useT";
 import "../../styles/features/admin/_shell.scss";
 
 interface LayoutProps {
@@ -8,6 +9,7 @@ interface LayoutProps {
 }
 
 function AdminLayout({ children }: LayoutProps) {
+    const t = useT();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);
@@ -27,6 +29,9 @@ function AdminLayout({ children }: LayoutProps) {
 
     return (
         <div className="admin admin__shell">
+            <a className="admin__skip-link" href="#admin-main-content">
+                {t("common.skipToMainContent")}
+            </a>
             <div className={`admin__layout${isSidebarCollapsed ? " is-sidebar-collapsed" : ""}`}>
                 <AdminSidebar
                     isOpen={isSidebarOpen}
@@ -44,7 +49,9 @@ function AdminLayout({ children }: LayoutProps) {
                 ) : null}
                 <div className="admin__layout__main">
                     <AdminHeader onOpenSidebar={openSidebar} isSidebarOpen={isSidebarOpen} />
-                    <div className="admin__layout__main__body">{children}</div>
+                    <div id="admin-main-content" className="admin__layout__main__body" tabIndex={-1}>
+                        {children}
+                    </div>
                 </div>
             </div>
         </div>

@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import jwt from "jsonwebtoken";
+import { createAttemptRateLimitKey } from "../rate-limit.middleware";
 import {
     RedisFixedWindowLimiter,
     type RedisRateLimitClient,
@@ -146,5 +148,51 @@ describe("createRateLimitMiddleware", () => {
             store: expect.objectContaining({ windowMs: 15 * 60 * 1000 }),
             keyGenerator: expect.any(Function),
         }));
+    });
+});
+
+describe("attempt-scoped rate limit keys", () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    it("separates owners, attempts, and operation classes without including raw credentials", () => {
+        vi.spyOn(jwt, "verify").mockImplementation((token) => ({ id: token === "secret-token" || token === "rotated-token" ? "owner-1" : "owner-2" }) as never);
+        const base = { path: "/orders/payment-attempts/attempt-1/status", params: {}, cookies: { accessToken: "secret-token" }, ip: "127.0.0.1", socket: {} } as never;
+        const ownerKey = createAttemptRateLimitKey(base, "status");
+        const sameOwnerRotatedToken = createAttemptRateLimitKey({ ...base, cookies: { accessToken: "rotated-token" } } as never, "status");
+        const differentOwner = createAttemptRateLimitKey({ ...base, cookies: { accessToken: "other-token" } } as never, "status");
+        const differentPolicy = createAttemptRateLimitKey(base, "mutation");
+        expect(ownerKey).not.toContain("secret-token");
+        expect(ownerKey).toBe(sameOwnerRotatedToken);
+        expect(ownerKey).not.toBe(differentOwner);
+        expect(ownerKey).not.toBe(differentPolicy);
+    });
+
+    it("uses the verified account before any guest cookie on an authenticated route", () => {
+        vi.spyOn(jwt, "verify").mockReturnValue({ id: "owner-1" } as never);
+        const request = { path: "/orders/payment-attempts/attempt-1/status", params: {}, cookies: { accessToken: "valid-token", digitalEGuestCartId: "guest-1" }, ip: "127.0.0.1", socket: {} } as never;
+        const key = createAttemptRateLimitKey(request, "status");
+        const rotatedGuestCookie = createAttemptRateLimitKey({ ...request, cookies: { accessToken: "valid-token", digitalEGuestCartId: "guest-2" } } as never, "status");
+
+        expect(key).toBe(rotatedGuestCookie);
+    });
+
+    it("does not trust forged JWT claims and hashes the rejected token fallback", () => {
+        vi.spyOn(jwt, "verify").mockImplementation((token) => {
+            if (token === "forged-token") throw new Error("invalid signature");
+            return { id: "victim-owner" } as never;
+        });
+        const validOwnerKey = createAttemptRateLimitKey({ path: "/orders/payment-attempts/attempt-1/status", params: {}, cookies: { accessToken: "valid-token" }, ip: "127.0.0.1", socket: {} } as never, "status");
+        const forgedKey = createAttemptRateLimitKey({ path: "/orders/payment-attempts/attempt-1/status", params: {}, cookies: { accessToken: "forged-token", digitalEGuestCartId: "ignored-guest" }, ip: "127.0.0.1", socket: {} } as never, "status");
+
+        expect(forgedKey).not.toBe(validOwnerKey);
+        expect(forgedKey).not.toContain("forged-token");
+        expect(forgedKey).not.toContain("victim-owner");
+    });
+
+    it("uses a guest cookie plus the attempt ID instead of allowing the attempt ID alone", () => {
+        const request = { path: "/orders/guest/payment-attempts/attempt-1/status", params: { attemptId: "attempt-1" }, cookies: { digitalEGuestCartId: "guest-1" }, ip: "127.0.0.1", socket: {} } as never;
+        const key = createAttemptRateLimitKey(request, "status");
+        const otherGuest = createAttemptRateLimitKey({ ...request, cookies: { digitalEGuestCartId: "guest-2" } } as never, "status");
+        expect(key).not.toBe(otherGuest);
     });
 });

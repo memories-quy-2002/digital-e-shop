@@ -164,6 +164,32 @@ export class PromotionsRepository {
         return result.affectedRows;
     }
 
+    async consumePaidPromotionReservation(tx: TransactionContext, pendingCheckoutId: number, orderId: number): Promise<number> {
+        const rows = await tx.query<Array<{ status: string; order_id: number | null }>>(
+            `SELECT status, order_id
+             FROM discount_redemptions
+             WHERE pending_checkout_id = ?
+             LIMIT 1
+             FOR UPDATE`,
+            [pendingCheckoutId],
+        );
+        const reservation = rows[0];
+        if (!reservation) return 0;
+        if (reservation.status === DISCOUNT_REDEMPTION_STATUS.CONSUMED) {
+            return Number(reservation.order_id) === orderId ? 1 : 0;
+        }
+        if (reservation.status !== DISCOUNT_REDEMPTION_STATUS.RESERVED
+            && reservation.status !== DISCOUNT_REDEMPTION_STATUS.RELEASED) return 0;
+
+        const result = await tx.query<{ affectedRows: number }>(
+            `UPDATE discount_redemptions
+             SET status = '${DISCOUNT_REDEMPTION_STATUS.CONSUMED}', order_id = ?, consumed_at = UTC_TIMESTAMP()
+             WHERE pending_checkout_id = ? AND status IN ('${DISCOUNT_REDEMPTION_STATUS.RESERVED}', '${DISCOUNT_REDEMPTION_STATUS.RELEASED}')`,
+            [orderId, pendingCheckoutId],
+        );
+        return result.affectedRows;
+    }
+
     async releasePromotionReservation(tx: TransactionContext, pendingCheckoutId: number): Promise<number> {
         const result = await tx.query<{ affectedRows: number }>(
             `UPDATE discount_redemptions
@@ -234,5 +260,5 @@ export class PromotionsRepository {
 
 const calculateDiscount = (promotion: PromotionRow, totalPrice: number): number => {
     const percent = Math.min(Math.max(Number(promotion.discount_percent) || 0, 0), 100);
-    return Math.min(Number(totalPrice), (Number(totalPrice) * percent) / 100);
+    return Math.round(Math.min(Number(totalPrice), (Number(totalPrice) * percent) / 100));
 };

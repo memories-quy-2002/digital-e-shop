@@ -6,7 +6,7 @@ This Wiki records durable Digital-E understanding for maintainers and AI agents.
 
 **Last updated:** 2026-10-15
 
-The current implementation includes authenticated and guest carts, server-authoritative checkout, PayOS and COD payment paths with exact VND amounts, production-only live PayOS configuration, signed webhook processing, simulated-payment delivery protection, bounded admin reconciliation, Firebase-owned production auth emails, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, guest-friendly product comparison, responsive WebP/AVIF product image delivery, customer support tickets, admin analytics, operational alerts, database-backed demo verification, read-only k6 smoke coverage, and opt-in OTLP observability. Legacy payment identifiers remain readable only for historical database compatibility.
+The current implementation includes authenticated and guest carts, server-authoritative checkout, PayOS and COD payment paths with exact VND amounts, production-only live PayOS configuration, signed webhook processing, simulated-payment delivery protection, bounded admin reconciliation, Firebase-owned auth action emails, durable transactional email for account welcome, confirmed payments, order delivery and after-sales updates, GHN/local-sandbox fulfillment and delivery quotes, COD settlement and evidence-backed manual refunds, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, guest-friendly product comparison, responsive WebP/AVIF product image delivery, customer support tickets, admin analytics, operational alerts, database-backed demo verification, read-only k6 smoke coverage, and opt-in OTLP observability. Legacy payment identifiers remain readable only for historical database compatibility.
 
 The local demo seed creates a linked graph with 28 products across 8 categories and 16 brands. It verifies image URLs, order totals, reviews, wishlists, addresses, notifications, the seeded session baseline, discounts, inventory movements, and orphan relationships. Runtime logins may add sessions after seeding without invalidating verification. Normal seeding is guarded and non-destructive for demo-owned rows; full reset is an explicit local or protected production workflow.
 
@@ -20,6 +20,7 @@ The local demo seed creates a linked graph with 28 products across 8 categories 
 - [[order-lifecycle-and-support]]: order state transitions, review eligibility, and support-ticket ownership
 - [[architecture]]: product comparison API/state boundaries and other runtime architecture decisions
 - [[after-sales-request]]: customer and guest return/warranty requests, eligibility, status events, and refund boundaries
+- [[payos-checkout-reliability]]: persistent PayOS attempts, verified status recovery, cancellation, and admin exception handling
 - [[0001-mysql-primary-prisma-partial]]: MySQL and partial Prisma ownership
 - [[0002-nestjs-migration]]: accepted NestJS migration and current server structure
 - [[0003-payment-ledger-and-usd-canonical-currency]]: historical USD-canonical decision and its current VND status
@@ -53,6 +54,10 @@ Domain objects and their relationships belong under `entities/`. Current pages c
 - [[product-alert]]: authenticated price-drop/back-in-stock subscriptions, durable transition events, and customer notifications
 
 ### Concepts
+
+- [[durable-operations]]: transactional task persistence, bounded leases and fencing.
+- [[shipping-and-fulfillment]]: owner-bound delivery quotes, GHN/sandbox shipment lifecycle and COD delivery snapshots.
+- [[transactional-email-operations]]: immutable business events, durable delivery attempts, provider webhooks and operator recovery.
 
 Cross-cutting behavior belongs under `concepts/`, such as authentication, validation, inventory movement, [[api-response-contract]], guest checkout, and order lifecycle.
 

@@ -201,6 +201,9 @@ const getProductListOrderParams = (filters: ProductListFilters = {}) => {
 
 @Injectable()
 export class NestProductsRepository {
+    setParcelInTransaction(tx: TransactionContext, id: number, parcel: { grams: number; lengthCm: number; widthCm: number; heightCm: number }) {
+        return tx.query<{ affectedRows: number }>("UPDATE products SET parcel_grams = ?, parcel_length_cm = ?, parcel_width_cm = ?, parcel_height_cm = ? WHERE id = ?", [parcel.grams, parcel.lengthCm, parcel.widthCm, parcel.heightCm, id]);
+    }
     async ensureNamedIdInTransaction(tx: TransactionContext, tableName: "categories" | "brands", name: string): Promise<number> {
         const [row] = await tx.query<IdNameRow[]>(`SELECT id FROM ${tableName} WHERE name = ?`, [name]);
         if (row) return Number(row.id);
@@ -330,7 +333,7 @@ export class NestProductsRepository {
         return new Promise((resolve, reject) => {
             pool.query(
                 `SELECT products.id, products.name, description, categories.name AS category,
-                    brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, price, sale_price, stock,
+                    brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, products.parcel_grams, products.parcel_length_cm, products.parcel_width_cm, products.parcel_height_cm, price, sale_price, stock,
                     GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
                     specifications, ${productAttributesSelect("products")}, ${productRatingSelect}
                 FROM products
@@ -395,7 +398,7 @@ export class NestProductsRepository {
         return new Promise((resolve, reject) => {
             pool.query(
                 `SELECT products.id, products.name, description, categories.name AS category,
-                    brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, price, sale_price, stock,
+                    brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, products.parcel_grams, products.parcel_length_cm, products.parcel_width_cm, products.parcel_height_cm, price, sale_price, stock,
                     GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
                     specifications, ${productAttributesSelect("products")}, ${productRatingSelect}
                 ${productBaseFrom}
@@ -413,7 +416,7 @@ export class NestProductsRepository {
         return new Promise((resolve, reject) => {
             pool.query(
                 `SELECT products.id, products.name, description, categories.name AS category,
-                    brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, price, sale_price, stock,
+                    brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, products.parcel_grams, products.parcel_length_cm, products.parcel_width_cm, products.parcel_height_cm, price, sale_price, stock,
                     GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
                     specifications, ${productAttributesSelect("products")}, ${productRatingSelect}
                 ${productBaseFrom}
@@ -437,7 +440,7 @@ export class NestProductsRepository {
         return new Promise((resolve, reject) => {
             pool.query(
                 `SELECT products.id, products.name, description, categories.name AS category,
-                    brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, price, sale_price, stock,
+                    brands.name AS brand, products.sku, products.manufacturer_part_number, products.warranty_months, products.parcel_grams, products.parcel_length_cm, products.parcel_width_cm, products.parcel_height_cm, price, sale_price, stock,
                     GREATEST(products.stock - COALESCE(active_reservations.reserved_quantity, 0), 0) AS available_stock, main_image,
                     specifications, ${productAttributesSelect("products")}, ${productRatingSelect}
                 ${productBaseFrom}

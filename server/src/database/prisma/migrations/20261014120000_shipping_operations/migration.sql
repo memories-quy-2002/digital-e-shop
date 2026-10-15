@@ -1,0 +1,35 @@
+CREATE TABLE shipments (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    state VARCHAR(24) NOT NULL DEFAULT 'UNFULFILLED',
+    provider VARCHAR(16) NOT NULL,
+    client_reference VARCHAR(50) NOT NULL,
+    provider_order_code VARCHAR(100) NULL,
+    expected_cod_vnd BIGINT UNSIGNED NOT NULL,
+    actual_fee_vnd BIGINT UNSIGNED NULL,
+    expected_delivery_at DATETIME(3) NULL,
+    delivered_at DATETIME(3) NULL,
+    provider_updated_at DATETIME(3) NULL,
+    stock_received_at DATETIME(3) NULL,
+    sandbox BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    UNIQUE KEY uq_shipment_order (order_id),
+    UNIQUE KEY uq_shipment_client (client_reference),
+    UNIQUE KEY uq_shipment_provider_order (provider, provider_order_code),
+    CONSTRAINT fk_shipment_order FOREIGN KEY (order_id) REFERENCES orders(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE shipment_events (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    shipment_id INT NOT NULL,
+    state VARCHAR(24) NOT NULL,
+    actor_id VARCHAR(255) NULL,
+    public_note VARCHAR(255) NOT NULL,
+    provider_event_key CHAR(64) NULL,
+    provider_payload JSON NULL,
+    processed_at DATETIME(3) NULL,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    UNIQUE KEY uq_shipment_provider_event (provider_event_key),
+    KEY idx_shipment_events (shipment_id, id),
+    CONSTRAINT fk_shipment_event FOREIGN KEY (shipment_id) REFERENCES shipments(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

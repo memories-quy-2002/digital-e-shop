@@ -29,6 +29,13 @@ and processing timestamps. `PaymentReconciliationAttempt` stores each operator
 or scheduled comparison, including expected values, provider values, outcome,
 requesting actor, and mismatch reason.
 
+`PaymentAttempt` is created before a PayOS link request. It owns an immutable
+checkout snapshot, an idempotent provider order code, independent payment/order/
+resolution states, and the owner scope. Verified webhook and server lookup facts
+are append-only observations. Customer status is exposed only to the signed-in
+owner or the matching guest cart cookie; the browser return URL is not proof.
+See [[payos-checkout-reliability]].
+
 ## Active providers and currency
 
 The active provider boundary accepts `payos` and `cash`. The current store
@@ -48,12 +55,21 @@ The payment lifecycle follows the order reservation:
 2. PayOS creates a provider link, or COD creates a pending payment
 3. PayOS finalizes only after a verified webhook or guarded reconciliation
 4. COD becomes collected only through the guarded admin confirmation
-5. Refunds remain manual ledger operations
+5. Evidence-backed manual refunds record net merchandise allocations; the
+   earlier gross-price refund route is retired
 
 The finalizer checks the exact provider order code, payment-link reference,
 amount, currency, and payment status. Idempotency keys, unique provider
 references, webhook event keys, and reservation state prevent duplicate
 finalization.
+
+An order is considered confirmed only when payment is `PAID`, order state is
+`CREATED`, and an order ID is committed. Cancellation intent cannot erase a
+later verified receipt. An unmatched paid receipt remains available in the
+admin exception queue; fulfillment retry rechecks current inventory and
+reservation invariants. An offline refund record represents a transfer already
+made and requires private evidence; it never calls a refund provider. Refunds
+are capped against verified received funds under an attempt lock.
 
 ## Reconciliation states
 
@@ -74,4 +90,6 @@ Payment record definitions live in
 `server/src/payments/payment-reconciliation.repository.ts`.
 
 See [[vnd-payment-operations]], [[0005-vietnam-first-vnd-catalog-and-mock-payos]],
-and the [API guide](../../docs/API.md).
+[[shipping-and-fulfillment]], and the [API guide](../../docs/API.md). COD
+remittance and evidence-backed manual refunds are recorded separately from
+delivery collection; see [[after-sales-request]].

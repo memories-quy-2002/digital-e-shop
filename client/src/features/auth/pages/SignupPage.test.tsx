@@ -75,10 +75,11 @@ describe("SignupPage Firebase verification", () => {
         fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "Password1!" } });
         fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
 
-        await waitFor(() => expect(mocks.registerUser).toHaveBeenCalledWith({
+        await waitFor(() => expect(mocks.registerUser).toHaveBeenCalledWith(expect.objectContaining({
             idToken: "firebase-id-token",
             user: { username: "customer" },
-        }));
+            locale: expect.any(String),
+        })));
         expect(mocks.sendFirebaseEmailVerification).toHaveBeenCalledTimes(1);
     });
 
