@@ -39,6 +39,22 @@
 - Customer flow: `client/src/features/orders/api.ts`, `types.ts`, `pages/checkoutSuccessStorage.ts`, `pages/CheckoutSuccessPage.tsx`, checkout page where idempotency key is created, existing colocated tests and one dedicated Playwright spec under `client/e2e/`.
 - Guides: `docs/API.md`, `docs/DEVELOPMENT.md`, `Wiki/entities/payment.md`, `Wiki/concepts/durable-operations.md`, `Wiki/index.md`, `Wiki/log.md`, and `docs/backlog/README.md` only as needed to mark this work separately from accepted retail P0.
 
+## Agent allocation and dependencies
+
+Use the repository's named roles in `.codex/agents/`; each delegated packet follows `docs/CODEX_ORCHESTRATION.md`, chooses `gpt-6-luna` with effort per task, names exact owned paths, and prohibits commits or nested agents. Limit active subagents to two. Main Codex remains responsible for shared contracts, integration, final verification, wiki/docs, and Git.
+
+| Sequence | Role | Plan tasks | Ownership and boundary |
+| --- | --- | --- | --- |
+| Before implementation | Architect | Read-only review of this spec/plan | Trace current payment, reservation, refund, task-runner boundaries; report contract/schema risks and task overlap. No edits unless Main assigns a specific design-document correction. Main Codex resolves findings before implementation. |
+| 1 | Backend | Tasks 1–5, sequentially | Own only the server files listed in each task. Keep this cohesive backend stream sequential because attempts, webhook comparison, finalization, task kinds, and route contracts share files and DB invariants. Task 1's `PaymentAttemptStatus` is the backend/client handoff contract; freeze it before Task 6 starts. |
+| 2a, after Task 5 contract is frozen | Frontend | Task 6 | Own only the client paths listed in Task 6. May run concurrently with Backend Task 7 because client/server ownership does not overlap. Do not redefine status or route fields locally; raise a contract conflict to Main. |
+| 2b, after Task 1 and Task 3 | Backend | Task 7 | Continue with the same backend ownership after Task 5, or a fresh Backend agent after the earlier agent releases. Own admin payment and financial-operation paths only; no edits to Task 6 client files. |
+| After implementation slices merge | QA | Task 8 browser and acceptance verification only | Own test/fixture files explicitly assigned for browser evidence; do not edit product code. Run isolated DB and package suites only on approved test infrastructure; report unavailable gates distinctly. |
+| After Main integration | Reviewer | Integrated branch diff, read-only | Review server/client/migration diff for auth, CSRF, money, concurrency, idempotency, accessibility and regression risks. No edits. Main resolves findings and reruns affected checks. |
+| Throughout / final | Main Codex | Contracts, Task 8 docs, migration integration, all Git and final checks | Own any file shared across agents, settle disagreements, inspect the complete diff, run final package/integration checks and commit. Never delegate Git operations. |
+
+The Architect review is a bounded preflight, not a second design project. If it finds a material product decision missing from the approved spec, stop at that decision and return it for owner review. Avoid assigning DevOps: this plan does not change CI/CD or provision the external scheduler. A separate DevOps task is warranted only if the owner later requests scheduler/deployment configuration. Do not spawn a separate Reviewer or QA until implementation dependencies are satisfied.
+
 Existing interfaces to preserve/extend: `PayOSService.createPaymentLink/getPaymentLink/cancelPaymentLink`; `PaymentReconciliationService` signature verification/comparison and existing webhook claim fencing; `CheckoutReservationService`; `TasksService.enqueue/claimDue/finish`; `TaskRunnerService.run`; `OrdersService.finalizePayOSCheckout`; `client/src/lib/http.ts`. Inspect exact signatures before coding and adapt at owning feature boundary. Do not introduce a second provider client, task runner or generic payment framework.
 
 ## Task 1: Persist payment attempt and orphan financial facts
@@ -258,4 +274,4 @@ Tasks 1–2 cover AC01 and the schema/provider portions of AC12. Task 3 covers A
 - **Review Focus:** all five cases are pinned to Tasks 2–7 and have named tests; no operational edge is silently left to the implementer.
 - **Type consistency:** `PaymentAttemptStatus`, `PaymentAttemptService`, `processAttemptObservation`, `PAYOS_TASK_PROCESSOR`, `TaskKind.PAYOS_RECONCILE`, and `OrdersService.finalizePayOSCheckout` are defined once above. Before execution, reconcile optional return variants with actual checkout DTO types, keep exact field names identical across layers.
 - **Scope:** one payment-attempt workflow using existing MySQL, provider adapter, webhook inbox and task runner. Admin refund addresses paid/no-order exceptions only. No replacement of retail P0, no new queue, no general payment rewrite.
-- **Execution gate:** plan is for owner review. Implementation begins only after spec and plan review plus selection of Native or Subagent-driven execution, as required by `superpowers:brainstorming` and `superpowers:writing-plans`.
+- **Execution gate:** plan is for owner review. Recommended execution is Subagent-driven: backend persistence, provider recovery, frontend and verification have distinct ownership, while payment invariants still require Main Codex integration. Implementation begins only after owner review of spec/plan and confirmation of the execution method, as required by `superpowers:brainstorming` and `superpowers:writing-plans`.
