@@ -16,6 +16,8 @@ const normalizeAddressInput = (data: CustomerAddressInput = {}) => {
     const provinceName = String(data.provinceName || "").trim() || null;
     const wardCode = String(data.wardCode || "").trim() || null;
     const wardName = String(data.wardName || "").trim() || null;
+    const latitude = data.latitude ?? null;
+    const longitude = data.longitude ?? null;
 
     if (!addressLine) {
         throw createHttpError("Address line is required", HTTP_STATUS.BAD_REQUEST);
@@ -32,6 +34,8 @@ const normalizeAddressInput = (data: CustomerAddressInput = {}) => {
         provinceName,
         wardCode,
         wardName,
+        latitude,
+        longitude,
         isDefault: Boolean(data.isDefault ?? data.is_default),
     };
 };
@@ -49,6 +53,8 @@ const normalizeAddress = (address: CustomerAddressRow) => ({
     province_name: address.province_name ?? null,
     ward_code: address.ward_code ?? null,
     ward_name: address.ward_name ?? null,
+    latitude: address.latitude == null ? null : Number(address.latitude),
+    longitude: address.longitude == null ? null : Number(address.longitude),
     is_default: Boolean(Number(address.is_default)),
     created_at: address.created_at,
     updated_at: address.updated_at,

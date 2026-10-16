@@ -33,22 +33,91 @@ model OperationsTask {
 }
 
 model DeliveryQuote {
-  id                 String @id @db.Char(36)
-  fingerprint        String @db.Char(64)
-  ownerHash          String @map("owner_hash") @db.Char(64)
-  provider           String @db.VarChar(16)
-  serviceTypeId      Int @map("service_type_id")
-  address            Json
-  parcel             Json
-  pricing            Json
-  expectedDeliveryAt DateTime? @map("expected_delivery_at") @db.DateTime(3)
-  expiresAt          DateTime @map("expires_at") @db.DateTime(3)
-  consumedAt         DateTime? @map("consumed_at") @db.DateTime(3)
-  createdAt          DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  id                   String @id @db.Char(36)
+  fingerprint          String @db.Char(64)
+  ownerHash            String @map("owner_hash") @db.Char(64)
+  provider             String @db.VarChar(16)
+  serviceTypeId        Int? @map("service_type_id")
+  address              Json
+  parcel               Json?
+  pricing              Json
+  originLatitude       Decimal? @map("origin_latitude") @db.Decimal(10, 7)
+  originLongitude      Decimal? @map("origin_longitude") @db.Decimal(10, 7)
+  destinationLatitude  Decimal? @map("destination_latitude") @db.Decimal(10, 7)
+  destinationLongitude Decimal? @map("destination_longitude") @db.Decimal(10, 7)
+  distanceMeters       BigInt? @map("distance_meters") @db.UnsignedBigInt
+  routeGeometry        Json? @map("route_geometry")
+  settingsVersion      Int? @map("settings_version") @db.UnsignedInt
+  expectedDeliveryAt   DateTime? @map("expected_delivery_at") @db.DateTime(3)
+  expiresAt            DateTime @map("expires_at") @db.DateTime(3)
+  consumedAt           DateTime? @map("consumed_at") @db.DateTime(3)
+  createdAt            DateTime @default(now()) @map("created_at") @db.DateTime(3)
 
   @@index([ownerHash, expiresAt], map: "idx_delivery_quotes_owner")
   @@index([expiresAt], map: "idx_delivery_quotes_expiry")
   @@map("delivery_quotes")
+}
+
+model DeliverySettings {
+  id              Int @id @db.UnsignedTinyInt
+  storeAddress    String? @map("store_address") @db.VarChar(255)
+  storeLatitude   Decimal? @map("store_latitude") @db.Decimal(10, 7)
+  storeLongitude  Decimal? @map("store_longitude") @db.Decimal(10, 7)
+  fee5To20Vnd     BigInt? @map("fee_5_to_20_vnd") @db.UnsignedBigInt
+  feeOver20Vnd    BigInt? @map("fee_over_20_vnd") @db.UnsignedBigInt
+  routingEndpoint String? @map("routing_endpoint") @db.VarChar(2048)
+  tileUrl         String? @map("tile_url") @db.VarChar(2048)
+  tileAttribution String? @map("tile_attribution") @db.VarChar(512)
+  version         Int @default(0) @db.UnsignedInt
+  updatedById     String? @map("updated_by_id") @db.VarChar(255)
+  updatedAt       DateTime @default(now()) @map("updated_at") @db.DateTime(3)
+
+  updatedBy User? @relation("DeliverySettingsAdmin", fields: [updatedById], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("delivery_settings")
+}
+
+model DeliveryAssignment {
+  id               Int @id @default(autoincrement())
+  orderId          Int @map("order_id")
+  employeeId       String @map("employee_id") @db.VarChar(255)
+  assignedById     String @map("assigned_by_id") @db.VarChar(255)
+  scheduledStartAt DateTime @map("scheduled_start_at") @db.DateTime(3)
+  scheduledEndAt   DateTime @map("scheduled_end_at") @db.DateTime(3)
+  status           String @default("ASSIGNED") @db.VarChar(24)
+  failureReason    String? @map("failure_reason") @db.VarChar(500)
+  attemptNumber    Int @default(1) @map("attempt_number") @db.UnsignedInt
+  createdAt        DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt        DateTime @default(now()) @map("updated_at") @db.DateTime(3)
+
+  order      Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  employee   User @relation("DeliveryAssignmentEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  assignedBy User @relation("DeliveryAssignmentAdmin", fields: [assignedById], references: [id], onDelete: Restrict)
+  events     DeliveryEvent[]
+
+  @@index([employeeId, status, scheduledStartAt, scheduledEndAt], map: "idx_delivery_assignments_employee_schedule")
+  @@index([orderId, status, id], map: "idx_delivery_assignments_order_status")
+  @@map("delivery_assignments")
+}
+
+model DeliveryEvent {
+  id           Int @id @default(autoincrement())
+  assignmentId Int @map("assignment_id")
+  orderId      Int @map("order_id")
+  eventType    String @map("event_type") @db.VarChar(32)
+  status       String? @db.VarChar(24)
+  actorId      String? @map("actor_id") @db.VarChar(255)
+  publicNote   String? @map("public_note") @db.VarChar(500)
+  details      Json?
+  createdAt    DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  assignment DeliveryAssignment @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  order      Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  actor      User? @relation("DeliveryEventActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([assignmentId, id], map: "idx_delivery_events_assignment")
+  @@index([orderId, id], map: "idx_delivery_events_order")
+  @@map("delivery_events")
 }
 
 model SandboxCarrierShipment {
@@ -102,6 +171,10 @@ model User {
   loyaltyAccount            LoyaltyAccount?
   loyaltyLedger             LoyaltyLedger[]
   loyaltyVouchers           LoyaltyVoucher[]
+  deliverySettingsUpdates    DeliverySettings[] @relation("DeliverySettingsAdmin")
+  deliveryAssignments        DeliveryAssignment[] @relation("DeliveryAssignmentEmployee")
+  deliveryAssignmentsCreated DeliveryAssignment[] @relation("DeliveryAssignmentAdmin")
+  deliveryEvents             DeliveryEvent[] @relation("DeliveryEventActor")
 
   @@map("users")
 }
@@ -150,6 +223,8 @@ model CustomerAddress {
   provinceName  String?  @map("province_name") @db.VarChar(120)
   wardCode      String?  @map("ward_code") @db.VarChar(32)
   wardName      String?  @map("ward_name") @db.VarChar(120)
+  latitude      Decimal? @db.Decimal(10, 7)
+  longitude     Decimal? @db.Decimal(10, 7)
   isDefault     Boolean  @default(false) @map("is_default") @db.TinyInt
   createdAt     DateTime @default(now()) @map("created_at") @db.DateTime(0)
   updatedAt     DateTime @default(now()) @map("updated_at") @db.DateTime(0)
@@ -494,6 +569,8 @@ model Order {
   afterSalesRequests  AfterSalesRequest[]
   loyaltyLedger       LoyaltyLedger[]
   loyaltyVoucher      LoyaltyVoucher?
+  deliveryAssignments DeliveryAssignment[]
+  deliveryEvents      DeliveryEvent[]
 
   @@index([guestEmail], map: "idx_orders_guest_email")
   @@index([status, dateAdded, id], map: "orders_admin_queue_idx")

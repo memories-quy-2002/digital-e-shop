@@ -13,6 +13,8 @@ export type CreateAddressInput = {
     provinceName?: string;
     wardCode?: string;
     wardName?: string;
+    latitude?: number | null;
+    longitude?: number | null;
     isDefault?: boolean | number;
     is_default?: boolean | number;
 };

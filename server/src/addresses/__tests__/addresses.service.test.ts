@@ -31,4 +31,21 @@ describe("NestAddressesService", () => {
             wardName: "Ben Nghe Ward",
         });
     });
+
+    it("preserves the optional delivery pin when saving and returning an address", async () => {
+        const repository = { createAddress: vi.fn().mockResolvedValue({ insertId: 9 }) };
+        const service = new NestAddressesService(repository as never);
+
+        const result = await service.createAddress("customer-1", {
+            addressLine: "12 Main Street",
+            latitude: 10.7769,
+            longitude: 106.7009,
+        });
+
+        expect(repository.createAddress).toHaveBeenCalledWith("customer-1", expect.objectContaining({
+            latitude: 10.7769,
+            longitude: 106.7009,
+        }));
+        expect(result).toMatchObject({ latitude: 10.7769, longitude: 106.7009 });
+    });
 });

@@ -167,6 +167,10 @@ export const env = {
         .split(",")
         .map((endpoint) => endpoint.trim())
         .filter(Boolean),
+    deliveryTileUrlAllowlist: (process.env.DELIVERY_TILE_URL_ALLOWLIST || "")
+        .split(",")
+        .map((url) => url.trim())
+        .filter(Boolean),
     storeCurrency: CURRENCY_CODE.VND,
     paymentProviderMode: configuredPaymentProviderMode === "live" ? "live" : "mock",
     redisUrl: process.env.REDIS_URL || "",

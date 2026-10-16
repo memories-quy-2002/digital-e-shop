@@ -15,10 +15,17 @@ export const addressSchema = z.object({
     provinceName: z.string().trim().max(120, "Province name is too long").optional(),
     wardCode: z.string().trim().max(32, "Ward code is too long").optional(),
     wardName: z.string().trim().max(120, "Ward name is too long").optional(),
+    latitude: z.number().finite().min(-90).max(90).nullable().optional(),
+    longitude: z.number().finite().min(-180).max(180).nullable().optional(),
     isDefault: z.boolean().optional(),
     is_default: z.union([z.boolean(), z.coerce.number()]).optional(),
 }).superRefine((data, context) => {
     if (!(data.addressLine || data.address_line || data.address)) {
         context.addIssue({ code: "custom", path: ["addressLine"], message: "Address line is required" });
+    }
+    const hasLatitude = data.latitude !== undefined && data.latitude !== null;
+    const hasLongitude = data.longitude !== undefined && data.longitude !== null;
+    if (hasLatitude !== hasLongitude) {
+        context.addIssue({ code: "custom", path: [hasLatitude ? "longitude" : "latitude"], message: "A map pin requires both coordinates" });
     }
 });

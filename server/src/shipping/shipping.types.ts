@@ -5,6 +5,17 @@ export type RoadRoute = {
     distanceMeters: number;
     geometry: Array<[longitude: number, latitude: number]>;
 };
+export type DeliverySettings = {
+    storeAddress: string;
+    storeLatitude: number;
+    storeLongitude: number;
+    fee5To20Vnd: number;
+    feeOver20Vnd: number;
+    routingEndpoint: string;
+    tileUrl: string;
+    tileAttribution: string;
+    version: number;
+};
 
 export type DeliveryAddress = {
     recipientName: string;

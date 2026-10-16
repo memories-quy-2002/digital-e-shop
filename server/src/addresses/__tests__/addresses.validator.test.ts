@@ -16,4 +16,15 @@ describe("addressSchema", () => {
             wardName: "Ben Nghe Ward",
         });
     });
+
+    it("accepts an optional manually selected map pin", () => {
+        expect(addressSchema.parse({ addressLine: "12 Main Street", latitude: 10.7769, longitude: 106.7009 }))
+            .toMatchObject({ latitude: 10.7769, longitude: 106.7009 });
+        expect(addressSchema.parse({ addressLine: "12 Main Street" })).toMatchObject({ addressLine: "12 Main Street" });
+    });
+
+    it("rejects partial or out-of-range map coordinates", () => {
+        expect(addressSchema.safeParse({ addressLine: "12 Main Street", latitude: 10.7 }).success).toBe(false);
+        expect(addressSchema.safeParse({ addressLine: "12 Main Street", latitude: 91, longitude: 106.7 }).success).toBe(false);
+    });
 });

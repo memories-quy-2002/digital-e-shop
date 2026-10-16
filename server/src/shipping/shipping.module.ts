@@ -4,6 +4,9 @@ import { PromotionsModule } from "../promotions/promotions.module";
 import { UsersModule } from "../users/users.module";
 import { ShippingQuoteRepository } from "./shipping-quote.repository";
 import { ShippingQuoteService } from "./shipping-quote.service";
+import { DeliverySettingsRepository } from "./delivery-settings.repository";
+import { DeliverySettingsService } from "./delivery-settings.service";
+import { RoadRouteService } from "./road-route.service";
 import { ShippingProviderRegistry } from "./shipping.registry";
 import { ShippingController } from "./shipping.controller";
 import { TasksModule } from "../operations/tasks.module";
@@ -33,6 +36,9 @@ import { LoyaltyModule } from "../loyalty/loyalty.module";
         RolesGuard,
         ShippingQuoteRepository,
         ShippingQuoteService,
+        DeliverySettingsRepository,
+        DeliverySettingsService,
+        RoadRouteService,
         ShippingProviderRegistry,
         ShippingRepository,
         FulfillmentService,
@@ -42,7 +48,7 @@ import { LoyaltyModule } from "../loyalty/loyalty.module";
         NestOrderTimelineService,
         OrderTimelineRepository,
     ],
-    exports: [ShippingQuoteService, ShippingProviderRegistry, FulfillmentService, ShippingWebhookService],
+    exports: [ShippingQuoteService, DeliverySettingsService, RoadRouteService, ShippingProviderRegistry, FulfillmentService, ShippingWebhookService],
 })
 export class ShippingModule implements NestModule {
     configure(consumer: MiddlewareConsumer) {

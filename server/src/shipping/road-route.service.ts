@@ -1,7 +1,7 @@
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import axios from "axios";
 import { env } from "../config/env.config";
-import { isRoutingEndpointAllowed, normalizeRoutingEndpoint } from "./shipping.config";
+import { isRoutingEndpointAllowed, normalizeRoutingEndpoint } from "./delivery-routing.config";
 import type { RoadPoint, RoadRoute } from "./shipping.types";
 
 const ROUTE_UNAVAILABLE_MESSAGE = "Delivery route is unavailable. Please retry later.";
