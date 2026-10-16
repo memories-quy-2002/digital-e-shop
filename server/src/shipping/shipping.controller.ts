@@ -27,7 +27,7 @@ export class ShippingController {
         const userId = String(req.user?.id || "");
         const validation = await this.cart.validateCartForCheckout(userId);
         if (validation.issues.length || !validation.cartItems.length) throw new ConflictException("Update cart before requesting delivery");
-        const preview = await this.cart.previewGuestCart(validation.cartItems.map((item) => ({ productId: Number(item.product_id), quantity: Number(item.quantity) })), body.discountCode);
+        const preview = await this.cart.previewGuestCart(validation.cartItems.map((item) => ({ productId: Number(item.product_id), quantity: Number(item.quantity) })), body.discountCode, userId);
         if (body.discountCode && !preview.promotion.valid) throw new ConflictException("Promotion is unavailable");
         return this.quotes.createQuote({ kind: "authenticated", userId }, { ...body, cart: preview.cartItems, subtotal: preview.merchandiseTotal, discount: preview.promotion.discount });
     }

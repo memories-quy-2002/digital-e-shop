@@ -8,7 +8,7 @@ vi.mock("#src/shared/utils/logger", () => ({ logger: { error: vi.fn(), info: vi.
 
 function buildController() {
     const ordersService = {
-        applyDiscount: vi.fn(), makePurchase: vi.fn(), changeOrderStatus: vi.fn(), getOrderDetail: vi.fn(),
+        applyDiscount: vi.fn(), makePurchase: vi.fn(), changeOrderStatus: vi.fn(), getOrderDetail: vi.fn(), getAdminPendingQueue: vi.fn(),
     } as unknown as NestOrdersService;
     return { controller: new OrdersController(ordersService), ordersService };
 }
@@ -23,7 +23,7 @@ describe("OrdersController", () => {
         vi.mocked(ordersService.applyDiscount).mockResolvedValue({ id: 1, discount_code: "SAVE10", discount_percent: 10, min_order_value: 0 });
         vi.mocked(ordersService.makePurchase).mockResolvedValue({ id: 7, date_added: "2026-08-24T00:00:00.000Z" });
         await controller.makePurchase("user-1", { totalPrice: 100, cart: [{ productId: 1, quantity: 1, price: 100 }], discount: 99, discountCode: "SAVE10", shippingAddress: "123 Main St", paymentMethod: "cash" });
-        expect(ordersService.applyDiscount).toHaveBeenCalledWith("SAVE10");
+        expect(ordersService.applyDiscount).toHaveBeenCalledWith("SAVE10", "user-1");
         expect(ordersService.makePurchase).toHaveBeenCalledWith("user-1", expect.objectContaining({ discount: 10 }));
     });
 
@@ -50,6 +50,16 @@ describe("OrdersController", () => {
         vi.mocked(ordersService.changeOrderStatus).mockResolvedValue({ id: 41, status: 1 } as never);
         await controller.changeOrderStatus("41", adminRequest(), { status: 1 });
         expect(ordersService.changeOrderStatus).toHaveBeenCalledWith(41, 1, "admin-1");
+    });
+
+    it("returns the bounded admin pending-order queue", async () => {
+        const { controller, ordersService } = buildController();
+        vi.mocked(ordersService.getAdminPendingQueue).mockResolvedValue([{ id: 42, status: 0 }] as never);
+
+        await expect(controller.getAdminPendingQueue()).resolves.toMatchObject({
+            orders: [{ id: 42, status: 0 }],
+        });
+        expect(ordersService.getAdminPendingQueue).toHaveBeenCalledOnce();
     });
 
     it("returns attempt identity and session state for authenticated PayOS checkout", async () => {

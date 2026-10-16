@@ -1,4 +1,4 @@
-import { Injectable, ConflictException } from "@nestjs/common";
+import { Injectable, ConflictException, Optional } from "@nestjs/common";
 import { withTransaction, type TransactionContext } from "../database/transaction";
 import { TasksService } from "../operations/tasks.service";
 import type { TaskLease, TaskResult } from "../operations/tasks.types";
@@ -10,10 +10,11 @@ import type { CarrierShipment } from "./shipping.types";
 import { NestOrdersCancellationService } from "../orders/orders-cancellation.service";
 import { CodSettlementService } from "../payments/cod-settlement.service";
 import { OrderEmailService } from "../orders/order-email.service";
+import { LoyaltyService } from "../loyalty/loyalty.service";
 
 @Injectable()
 export class FulfillmentService {
-    constructor(private readonly repository: ShippingRepository, private readonly tasks: TasksService, private readonly registry: ShippingProviderRegistry, private readonly cancellation: NestOrdersCancellationService, private readonly cod: CodSettlementService, private readonly emails: OrderEmailService) {}
+    constructor(private readonly repository: ShippingRepository, private readonly tasks: TasksService, private readonly registry: ShippingProviderRegistry, private readonly cancellation: NestOrdersCancellationService, private readonly cod: CodSettlementService, private readonly emails: OrderEmailService, @Optional() private readonly loyalty?: LoyaltyService) {}
     transition(orderId: number, next: FulfillmentState, actorId: string) {
         return withTransaction(async (tx) => {
             const order = await this.repository.lockOrder(tx, orderId);
@@ -107,6 +108,7 @@ export class FulfillmentService {
         if (next === "DELIVERED") {
             await this.cod.recordCollection(tx, orderId, Number(shipment.expected_cod_vnd));
             const completed = await completeDeliveredOrder(tx, orderId, timestamp, null);
+            if (completed && this.loyalty) await this.loyalty.awardPaidOrder(tx, orderId);
             if (completed) await this.emails.emitPaymentConfirmed(tx, orderId);
         }
         const event = await this.repository.event(tx, shipment.id, next, null, "Carrier status verified") as { insertId: number };

@@ -99,6 +99,9 @@ model User {
   marketingSubscriptions    MarketingSubscription[]
   wishlists                 Wishlist[]
   productAlertSubscriptions ProductAlertSubscription[]
+  loyaltyAccount            LoyaltyAccount?
+  loyaltyLedger             LoyaltyLedger[]
+  loyaltyVouchers           LoyaltyVoucher[]
 
   @@map("users")
 }
@@ -143,6 +146,10 @@ model CustomerAddress {
   addressLine   String   @map("address_line") @db.VarChar(255)
   city          String?  @db.VarChar(120)
   country       String?  @db.VarChar(120)
+  provinceCode  String?  @map("province_code") @db.VarChar(32)
+  provinceName  String?  @map("province_name") @db.VarChar(120)
+  wardCode      String?  @map("ward_code") @db.VarChar(32)
+  wardName      String?  @map("ward_name") @db.VarChar(120)
   isDefault     Boolean  @default(false) @map("is_default") @db.TinyInt
   createdAt     DateTime @default(now()) @map("created_at") @db.DateTime(0)
   updatedAt     DateTime @default(now()) @map("updated_at") @db.DateTime(0)
@@ -402,9 +409,11 @@ model Discount {
   startsAt        DateTime? @map("starts_at") @db.DateTime(0)
   expiresAt       DateTime? @map("expires_at") @db.DateTime(0)
   usageLimit      Int?      @map("usage_limit")
+  loyaltyPointsCost Int?    @map("loyalty_points_cost")
 
   redemptions      DiscountRedemption[]
   pendingCheckouts PendingCheckout[]
+  loyaltyVouchers  LoyaltyVoucher[]
 
   @@unique([discountCode], map: "uq_discounts_code")
   @@map("discounts")
@@ -463,6 +472,8 @@ model Order {
   guestOrderTokenHash     String?   @unique(map: "uq_orders_guest_order_token_hash") @map("guest_order_token_hash") @db.Char(64)
   totalPrice              Decimal   @map("total_price") @db.Decimal(11, 2)
   discount                Decimal   @default(0) @db.Decimal(11, 2)
+  loyaltyPointsRedeemed   Int       @default(0) @map("loyalty_points_redeemed")
+  loyaltyDiscount         Decimal   @default(0) @map("loyalty_discount") @db.Decimal(11, 2)
   shippingAddress         String    @map("shipping_address") @db.Text
   paymentMethod           String    @default("cash") @map("payment_method") @db.VarChar(32)
   stripeCheckoutSessionId String?   @unique(map: "uq_orders_stripe_checkout_session") @map("stripe_checkout_session_id") @db.VarChar(255)
@@ -481,8 +492,11 @@ model Order {
   paymentAttempt       PaymentAttempt?
   supportTickets      SupportTicket[]
   afterSalesRequests  AfterSalesRequest[]
+  loyaltyLedger       LoyaltyLedger[]
+  loyaltyVoucher      LoyaltyVoucher?
 
   @@index([guestEmail], map: "idx_orders_guest_email")
+  @@index([status, dateAdded, id], map: "orders_admin_queue_idx")
   @@map("orders")
 }
 
@@ -507,6 +521,8 @@ model PendingCheckout {
   cartJson            String    @map("cart_json") @db.Text
   totalPrice          Decimal   @map("total_price") @db.Decimal(11, 2)
   discount            Decimal   @default(0) @db.Decimal(11, 2)
+  loyaltyPointsRedeemed Int     @default(0) @map("loyalty_points_redeemed")
+  loyaltyDiscount     Decimal   @default(0) @map("loyalty_discount") @db.Decimal(11, 2)
   shippingAddress     String    @map("shipping_address") @db.Text
   status              String    @default("PENDING") @db.VarChar(20)
   expiresAt           DateTime  @map("expires_at") @db.DateTime(0)
@@ -520,12 +536,68 @@ model PendingCheckout {
   discountRedemptions    DiscountRedemption[]
   reconciliationAttempts PaymentReconciliationAttempt[]
   paymentAttempt         PaymentAttempt?
+  loyaltyVoucher         LoyaltyVoucher?
+  loyaltyLedger          LoyaltyLedger[]
 
   @@unique([paymentProvider, providerReference], map: "uq_pending_checkouts_provider_reference")
   @@unique([paymentProvider, providerOrderCode], map: "uq_pending_checkouts_provider_order_code")
   @@index([status, expiresAt], map: "pending_checkouts_status_expiry_idx")
   @@index([guestEmail], map: "idx_pending_checkouts_guest_email")
   @@map("pending_checkouts")
+}
+
+model LoyaltyAccount {
+  userId        String   @id @map("user_id") @db.VarChar(255)
+  balancePoints Int      @default(0) @map("balance_points")
+  createdAt     DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+  user          User     @relation(fields: [userId], references: [id])
+
+  @@map("loyalty_accounts")
+}
+
+model LoyaltyVoucher {
+  id                Int       @id @default(autoincrement())
+  userId            String    @map("user_id") @db.VarChar(255)
+  promotionId       Int       @map("promotion_id")
+  voucherCode       String    @unique(map: "uq_loyalty_voucher_code") @map("voucher_code") @db.VarChar(64)
+  pointsCost        Int       @map("points_cost")
+  status            String    @default("AVAILABLE") @db.VarChar(16)
+  pendingCheckoutId Int?      @unique(map: "uq_loyalty_voucher_checkout") @map("pending_checkout_id")
+  orderId           Int?      @unique(map: "uq_loyalty_voucher_order") @map("order_id")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  redeemedAt        DateTime? @map("redeemed_at") @db.DateTime(3)
+  user              User      @relation(fields: [userId], references: [id])
+  promotion         Discount  @relation(fields: [promotionId], references: [id])
+  pendingCheckout   PendingCheckout? @relation(fields: [pendingCheckoutId], references: [id])
+  order             Order?    @relation(fields: [orderId], references: [id])
+  ledgerEntries     LoyaltyLedger[]
+
+  @@index([userId, status, id], map: "loyalty_vouchers_user_status_idx")
+  @@index([promotionId, status], map: "loyalty_vouchers_promotion_status_idx")
+  @@map("loyalty_vouchers")
+}
+
+model LoyaltyLedger {
+  id                BigInt    @id @default(autoincrement())
+  userId            String    @map("user_id") @db.VarChar(255)
+  orderId           Int?      @map("order_id")
+  voucherId         Int?      @map("voucher_id")
+  pendingCheckoutId Int?      @map("pending_checkout_id")
+  entryType         String    @map("entry_type") @db.VarChar(32)
+  pointsDelta       Int       @map("points_delta")
+  amountVnd         BigInt?   @map("amount_vnd") @db.UnsignedBigInt
+  eventKey          String    @unique(map: "uq_loyalty_ledger_event_key") @map("event_key") @db.VarChar(191)
+  description       String    @db.VarChar(255)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  user              User      @relation(fields: [userId], references: [id])
+  order             Order?    @relation(fields: [orderId], references: [id])
+  voucher           LoyaltyVoucher? @relation(fields: [voucherId], references: [id])
+  pendingCheckout   PendingCheckout? @relation(fields: [pendingCheckoutId], references: [id])
+
+  @@index([userId, id], map: "loyalty_ledger_user_created_idx")
+  @@index([orderId, entryType], map: "loyalty_ledger_order_idx")
+  @@map("loyalty_ledger")
 }
 
 model InventoryReservation {
@@ -995,4 +1067,43 @@ model EmailDeliveryEvent {
   @@index([emailId, receivedAt], map: "idx_email_delivery_event_email")
   @@index([providerMessageId], map: "idx_email_delivery_event_message")
   @@map("email_delivery_events")
+}
+
+model AdminAuditEvent {
+  id         Int      @id @default(autoincrement())
+  actorId    String   @map("actor_id") @db.VarChar(255)
+  action     String   @db.VarChar(80)
+  entityType String   @map("entity_type") @db.VarChar(40)
+  entityId   String   @map("entity_id") @db.VarChar(191)
+  reason     String?  @db.VarChar(500)
+  changes    Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  @@index([actorId, createdAt], map: "admin_audit_actor_created_idx")
+  @@index([entityType, entityId, createdAt], map: "admin_audit_entity_idx")
+  @@map("admin_audit_events")
+}
+
+model AdminAlertState {
+  adminId   String   @map("admin_id") @db.VarChar(255)
+  alertId   String   @map("alert_id") @db.VarChar(191)
+  status    String   @default("ACKNOWLEDGED") @db.VarChar(16)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+
+  @@id([adminId, alertId])
+  @@index([adminId, updatedAt], map: "admin_alert_states_updated_idx")
+  @@map("admin_alert_states")
+}
+
+model AdminAlertTriage {
+  alertId         String    @id @map("alert_id") @db.VarChar(191)
+  assignedAdminId String?   @map("assigned_admin_id") @db.VarChar(255)
+  status          String    @default("OPEN") @db.VarChar(16)
+  updatedBy       String    @map("updated_by") @db.VarChar(255)
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+  resolvedAt      DateTime? @map("resolved_at") @db.DateTime(3)
+
+  @@index([assignedAdminId, status], map: "admin_alert_triage_owner_idx")
+  @@index([status, updatedAt], map: "admin_alert_triage_status_updated_idx")
+  @@map("admin_alert_triage")
 }

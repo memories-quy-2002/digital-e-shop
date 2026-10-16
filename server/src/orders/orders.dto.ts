@@ -50,6 +50,7 @@ export type PurchasePayload = DeliveryCheckoutInput & {
     cart: CartCheckoutItem[];
     discount: number;
     discountCode?: string;
+    loyaltyPoints?: number;
     shippingAddress: string;
     paymentMethod: PaymentProviderName;
 };

@@ -12,6 +12,7 @@ import { ProductAlertsService } from "../product-alerts/product-alerts.service";
 import { getProductAlertTransitions } from "../product-alerts/product-alerts.policy";
 import { createCheckoutError } from "./orders.errors";
 import { OrderEmailService } from "./order-email.service";
+import { LoyaltyService } from "../loyalty/loyalty.service";
 
 @Injectable()
 export class NestOrdersCancellationService {
@@ -21,6 +22,7 @@ export class NestOrdersCancellationService {
         private readonly inventoryService: NestInventoryService,
         @Optional() private readonly productAlertsService?: ProductAlertsService,
         @Optional() private readonly orderEmails?: OrderEmailService,
+        @Optional() private readonly loyaltyService?: LoyaltyService,
     ) {}
 
     async cancelOrder(orderId: number, actorId: string, admin = false, reason?: string): Promise<{ userId: string | null; changed: boolean }> {
@@ -92,6 +94,7 @@ export class NestOrdersCancellationService {
                 if (movements.length > 0) await this.inventoryService.createMovementsInTransaction(tx, movements);
             }
             await this.ordersRepository.cancelOrderInTransaction(tx, orderId, reason || null);
+            if (this.loyaltyService) await this.loyaltyService.restoreCanceledOrderPoints(tx, orderId);
             if (this.orderEmails) await this.orderEmails.emit(tx, orderId, "canceled");
             await tx.query("UPDATE shipments SET state = IF(state = 'RETURNED', state, 'CANCELED'), updated_at = UTC_TIMESTAMP(3) WHERE order_id = ?", [orderId]);
             await this.orderTimelineService.createTimelineEventInTransaction(tx, {

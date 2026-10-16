@@ -10,6 +10,7 @@ import { CheckoutReservationRepository } from "./checkout-reservation.repository
 import { PromotionsRepository } from "../promotions/promotions.repository";
 import { PaymentAttemptService } from "../payments/payment-attempt.service";
 import { TasksService } from "../operations/tasks.service";
+import { LoyaltyService } from "../loyalty/loyalty.service";
 import type { PaymentAttemptClaim, PaymentAttemptDisplaySnapshot, PaymentAttemptOwner } from "../payments/payment-attempt.types";
 import type { CartItemRow } from "../cart/cart.types";
 import type {
@@ -63,6 +64,7 @@ export class CheckoutReservationService {
         @Optional() private readonly orderEmails?: OrderEmailService,
         @Optional() private readonly paymentAttemptService?: PaymentAttemptService,
         @Optional() private readonly tasks?: TasksService,
+        @Optional() private readonly loyaltyService?: LoyaltyService,
     ) {}
 
     async reserveInventory(input: CheckoutReservationInput): Promise<CheckoutReservation> {
@@ -160,6 +162,7 @@ export class CheckoutReservationService {
                 cartJson: JSON.stringify(input.authoritativeCart),
                 totalPrice: input.authoritativeTotalPrice,
                 discount: input.discountCode ? input.discount : 0,
+                loyaltyPointsRedeemed: input.loyaltyPoints ?? 0,
                 shippingAddress: input.shippingAddress,
                 expiresAt,
             });
@@ -180,8 +183,29 @@ export class CheckoutReservationService {
 
             if (!input.deliveryCheckout || !this.shippingQuoteService) throw createReservationError("A delivery quote is required");
             const delivery = await this.shippingQuoteService.validateQuote(tx, input.deliveryCheckout, input.authoritativeCart, input.authoritativeTotalPrice, appliedDiscount);
+            const requestedPoints = input.loyaltyPoints ?? 0;
+            const loyaltyDiscount = requestedPoints > 0
+                ? await this.loyaltyService?.holdCheckoutPoints(
+                    tx,
+                    identity.userId,
+                    pendingCheckout.insertId,
+                    requestedPoints,
+                    delivery.pricing.itemsSubtotal,
+                    delivery.pricing.merchandiseDiscount,
+                )
+                : 0;
+            if (requestedPoints > 0 && loyaltyDiscount === undefined) throw new Error("Loyalty point checkout is not configured");
+            const pointsDiscount = Number(loyaltyDiscount) || 0;
+            const pricingSnapshot = {
+                ...delivery.pricing,
+                promotionDiscount: delivery.pricing.merchandiseDiscount,
+                loyaltyDiscount: pointsDiscount,
+                loyaltyPointsRedeemed: requestedPoints,
+                merchandiseDiscount: delivery.pricing.merchandiseDiscount + pointsDiscount,
+                payableTotal: delivery.pricing.payableTotal - pointsDiscount,
+            };
             if (this.orderEmails) await this.orderEmails.snapshotPending(tx, pendingCheckout.insertId, identity, input.deliveryCheckout.locale);
-            await tx.query("UPDATE pending_checkouts SET total_price = ?, discount = ?, pricing_snapshot = ?, delivery_snapshot = ?, shipping_address = ? WHERE id = ?", [delivery.pricing.itemsSubtotal + delivery.pricing.shippingFee, delivery.pricing.merchandiseDiscount, JSON.stringify(delivery.pricing), JSON.stringify(delivery.delivery), JSON.stringify(delivery.delivery.address), pendingCheckout.insertId]);
+            await tx.query("UPDATE pending_checkouts SET total_price = ?, discount = ?, loyalty_discount = ?, pricing_snapshot = ?, delivery_snapshot = ?, shipping_address = ? WHERE id = ?", [delivery.pricing.itemsSubtotal + delivery.pricing.shippingFee, delivery.pricing.merchandiseDiscount, pointsDiscount, JSON.stringify(pricingSnapshot), JSON.stringify(delivery.delivery), JSON.stringify(delivery.delivery.address), pendingCheckout.insertId]);
             let paymentAttempt: PaymentAttemptClaim | undefined;
             if (attemptInput) {
                 if (!this.paymentAttemptService) throw new Error("Payment attempt persistence is not configured");
@@ -193,7 +217,7 @@ export class CheckoutReservationService {
                         unitPriceVnd: Number(item.sale_price && Number(item.sale_price) > 0 ? item.sale_price : item.price),
                     })),
                     subtotalVnd: delivery.pricing.itemsSubtotal,
-                    discountVnd: delivery.pricing.merchandiseDiscount,
+                    discountVnd: pricingSnapshot.merchandiseDiscount,
                     shippingVnd: delivery.pricing.shippingFee,
                     delivery: { method: `${delivery.delivery.provider}:${delivery.delivery.serviceTypeId}` },
                 };
@@ -203,7 +227,7 @@ export class CheckoutReservationService {
                     request: attemptInput.request,
                     snapshot,
                     pendingCheckoutId: pendingCheckout.insertId,
-                    expectedAmountVnd: delivery.pricing.payableTotal,
+                    expectedAmountVnd: pricingSnapshot.payableTotal,
                     expiresAt,
                 }, tx);
                 if (paymentAttempt.replayed) throw new ExistingPayOSAttemptReplayError(paymentAttempt);
@@ -232,7 +256,7 @@ export class CheckoutReservationService {
                 cartSnapshot: input.authoritativeCart,
                 pricingSnapshot: {
                     totalPrice: delivery.pricing.itemsSubtotal + delivery.pricing.shippingFee,
-                    discount: delivery.pricing.merchandiseDiscount,
+                    discount: pricingSnapshot.merchandiseDiscount,
                 },
                 shippingAddress: input.shippingAddress,
                 items: aggregatedItems,
@@ -248,6 +272,7 @@ export class CheckoutReservationService {
             if (pendingCheckout?.discount_id) {
                 await this.promotionsRepository.releasePromotionReservation(tx, pendingCheckout.id);
             }
+            if (pendingCheckout && this.loyaltyService) await this.loyaltyService.releaseCheckoutPoints(tx, pendingCheckout.id);
         });
     }
 
@@ -274,9 +299,8 @@ export class CheckoutReservationService {
             if (!pendingCheckout) return 0;
 
             const affectedRows = await this.repository.expireReservationByProviderOrderCode(tx, PAYMENT_PROVIDER.PAYOS, providerOrderCode);
-            if (affectedRows === 1 && pendingCheckout.discount_id) {
-                await this.promotionsRepository.releasePromotionReservation(tx, pendingCheckout.id);
-            }
+            // A verified late PayOS payment may still finalize an expired checkout.
+            // Keep its points and voucher held until provider cancellation is confirmed.
             return affectedRows;
         });
     }

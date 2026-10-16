@@ -413,19 +413,14 @@ export class NestCartService {
         return buildCartValidationResult(cartItems);
     }
 
-    async previewGuestCart(items: GuestCartItemInput[], discountCode?: string): Promise<GuestCartPreviewResult> {
+    async previewGuestCart(items: GuestCartItemInput[], discountCode?: string, userId?: string): Promise<GuestCartPreviewResult> {
         const requestedItems = coalesceGuestCartItems(items);
         const products = await this.cartRepository.getGuestCartPreviewItems(
             requestedItems.map((item) => item.productId),
         );
         const normalizedDiscountCode = String(discountCode || "").trim().toUpperCase();
         const promotion = normalizedDiscountCode
-            ? await new Promise<PromotionRow | null>((resolve, reject) => {
-                this.promotionsRepository.getActivePromotionByCode(normalizedDiscountCode, (err: DbError | null, results: PromotionRow[]) => {
-                    if (err) return reject(err);
-                    resolve(results?.[0] || null);
-                });
-            })
+            ? await this.promotionsRepository.getActivePromotionByCodeForCheckout(normalizedDiscountCode, userId)
             : null;
 
         return buildGuestCartPreviewResult(requestedItems, products, promotion, normalizedDiscountCode);

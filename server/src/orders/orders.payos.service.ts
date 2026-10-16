@@ -24,6 +24,7 @@ type AuthenticatedPayOSCheckoutInput = DeliveryCheckoutInput & {
     cart: CartCheckoutItem[];
     discount?: number;
     discountCode?: string;
+    loyaltyPoints?: number;
     shippingAddress: string;
 };
 
@@ -33,6 +34,7 @@ type AuthoritativePayOSCheckoutInput = {
     authoritativeTotalPrice: number;
     discount: number;
     discountCode?: string;
+    loyaltyPoints?: number;
     shippingAddress: string;
 };
 
@@ -92,7 +94,7 @@ export class NestOrdersPayOSService {
             );
         }
 
-        const promotion = input.discountCode ? await this.ordersService.applyDiscount(input.discountCode) : null;
+        const promotion = input.discountCode ? await this.ordersService.applyDiscount(input.discountCode, uid) : null;
         if (input.discountCode && !promotion) {
             throw createCheckoutError("Discount code is no longer valid.", HTTP_STATUS.BAD_REQUEST);
         }
@@ -104,6 +106,7 @@ export class NestOrdersPayOSService {
                 authoritativeTotalPrice: checkoutValidation.authoritativeTotalPrice,
                 discount: calculatePromotionDiscount(promotion, checkoutValidation.authoritativeTotalPrice),
                 discountCode: input.discountCode,
+                loyaltyPoints: input.loyaltyPoints ?? 0,
                 shippingAddress: input.shippingAddress,
                 deliveryCheckout: { shippingQuoteId: input.shippingQuoteId, deliveryAddress: input.deliveryAddress, locale: input.locale, quoteIdentity: { kind: "authenticated", userId: uid } },
             },
@@ -170,6 +173,7 @@ export class NestOrdersPayOSService {
             authoritativeTotalPrice: input.authoritativeTotalPrice,
             discount: input.discount,
             discountCode: input.discountCode,
+            loyaltyPoints: input.loyaltyPoints ?? 0,
             shippingAddress: input.shippingAddress,
             databaseExpiresAt: new Date(Date.now() + CHECKOUT_RESERVATION_WINDOW_MS),
         };

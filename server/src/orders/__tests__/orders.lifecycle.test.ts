@@ -21,6 +21,7 @@ import { NestOrderTimelineService } from "../orders.timeline.service";
 import { NestInventoryService } from "../../inventory/inventory.service";
 import { NestNotificationsService } from "../../notifications/notifications.service";
 import { OrderEmailService } from "../order-email.service";
+import { LoyaltyService } from "../../loyalty/loyalty.service";
 
 type RepositoryCallback = (error: Error | null, rows: unknown) => void;
 
@@ -107,6 +108,7 @@ describe("order lifecycle", () => {
             { provide: NestOrderTimelineService, useValue: fixture.timeline },
             { provide: NestInventoryService, useValue: fixture.inventory },
             { provide: NestNotificationsService, useValue: fixture.notifications },
+            { provide: LoyaltyService, useValue: { restoreCanceledOrderPoints: vi.fn() } },
         ] }).useMocker((token) => token === OrderEmailService ? { emit: vi.fn() } : ({})).compile();
         try {
             await expect(moduleRef.get(NestOrdersService).cancelOrder(9, "user-1")).resolves.toMatchObject({ status: 2 });

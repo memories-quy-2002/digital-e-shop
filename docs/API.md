@@ -92,7 +92,6 @@ document at `/api/openapi.json` defines this shared error schema.
 | GET | /api/products/search | Search products |
 | GET | /api/products/facets | Read catalog facets |
 | GET | /api/products/relevant/:pid | Read related products |
-| GET | /api/products/recommendations/:uid | Read recommendations |
 | GET | /api/products/images/:filename | Read a product image |
 | GET | /api/reviews/:pid | Read product reviews |
 | GET | /api/cart/guest | Read the anonymous cart |
@@ -170,6 +169,7 @@ user record.
 | GET | /api/orders/by-payos-order-code/:orderCode | Order owner or admin |
 | POST | /api/orders/:oid/cancel | Order owner or admin |
 | POST | /api/orders/discount | Customer or admin |
+| GET | /api/products/recommendations/:uid | Authenticated owner or admin |
 | GET | /api/users/:id/addresses | Owner or admin |
 | POST | /api/users/:id/addresses | Owner or admin |
 | PUT | /api/users/:id/addresses/:addressId | Owner or admin |
@@ -198,6 +198,23 @@ of the list limit.
 Authenticated checkout and review creation require a verified Firebase email.
 Customers can still browse, maintain a cart, view order history, and use
 support while unverified.
+
+### Loyalty rewards
+
+| Method | Path | Access |
+| --- | --- | --- |
+| GET | /api/loyalty/me | Authenticated customer |
+| POST | /api/loyalty/rewards/:promotionId/claim | Authenticated customer |
+
+The account overview returns the current point balance, recent ledger entries,
+customer-owned vouchers, and active promotions configured with a point cost.
+New accounts start at zero without a backfill. Orders earn one point per
+1,000 VND of merchandise remaining after promotion and point discounts;
+shipping is excluded. PayOS orders earn only after verified payment, and COD
+orders earn after collection is confirmed. A point offsets one VND at checkout.
+Claiming a reward atomically debits its cost and creates a unique voucher code
+bound to that customer. Guest checkout cannot read, earn, claim, or spend loyalty
+points or vouchers.
 
 ### Product alerts
 
@@ -301,6 +318,9 @@ ledger is marked simulated cannot transition to delivered status.
 | --- | --- | --- |
 | GET | /api/analytics/summary | Read analytics |
 | GET | /api/admin/alerts | Read operational alerts |
+| PUT | /api/admin/alerts/acknowledge | Persist the current admin's alert read state |
+| PUT | /api/admin/alerts/triage | Claim, release, resolve, or reopen an active alert |
+| GET | /api/admin/audit | Search paginated inventory, account-access, and promotion audit events |
 | GET | /api/users | List users |
 | GET | /api/users/:id | Read a user |
 | GET | /api/users/:id/profile | Read a customer profile |
@@ -310,12 +330,14 @@ ledger is marked simulated cannot transition to delivered status.
 | PUT | /api/products/:id/inventory | Adjust stock |
 | DELETE | /api/products | Soft-delete products |
 | GET | /api/products/admin/inventory-movements | Read inventory movements |
+| GET | /api/products/admin/list | Read a filtered, paginated admin product list and stock summary |
 | GET | /api/promotions | List promotions |
 | POST | /api/promotions | Create a promotion |
 | PUT | /api/promotions/:id | Update a promotion |
 | DELETE | /api/promotions/:id | Delete a promotion |
 | GET | /api/orders | List orders |
 | GET | /api/orders/item | List order items and sales |
+| GET | /api/orders/admin/pending-queue | Read the five oldest pending orders for the dashboard |
 | POST | /api/orders/status/:oid | Update order status |
 | PATCH | /api/support/tickets/:id | Update a support ticket |
 | GET | /api/admin/after-sales/requests | List after-sales requests |
@@ -324,9 +346,21 @@ ledger is marked simulated cannot transition to delivered status.
 | POST | /api/admin/after-sales/requests/:id/refund | Retired (410); use evidence-backed manual-refund route |
 | POST | /api/blob/upload | Upload a product image |
 
-Admin list endpoints accept bounded pagination where implemented. Admin access
-requires the admin role. Product deletion preserves the existing soft-delete
-behavior, and stock changes record inventory movements.
+Admin order, product, account, and audit lists use bounded server-side
+pagination and filters. `/api/orders` accepts `page`, `limit`, `search`,
+`status`, `paymentMethod`, and `sort`; its response includes the current page,
+pagination metadata, and global order summary. `/api/products/admin/list`
+accepts `page`, `limit`, `search`, and `stock` (`all`, `low`, or `out`) and
+returns global inventory counts. `/api/users` accepts `page`, `limit`,
+`search`, `role`, and `status`. `/api/admin/audit` accepts `page`, `limit`,
+`search`, and `entityType` (`product`, `user`, or `promotion`). All list limits
+are capped at 100. Admin access requires the admin role. Inventory adjustments
+and account-access updates require a reason; stock, account-access, and
+promotion changes are recorded in the admin audit log. Alert acknowledgements
+are stored per administrator; ownership and resolution state are shared across
+admins. An admin can claim an unassigned alert, release their own claim, resolve
+a claimed alert, or reopen a resolved alert. Product deletion preserves the
+existing soft-delete behavior.
 
 ### Payment operations and webhook
 
@@ -460,6 +494,11 @@ Addresses preserve both /api/users/:id/addresses and
 profile and user management routes also
 preserve the /api/user controller alias. Use the plural /api/users routes for
 new clients.
+
+Saved address payloads may include `provinceCode`, `provinceName`, `wardCode`,
+and `wardName` for carrier quotes. These fields are optional for older and
+free-form addresses; checkout asks the customer to select carrier locations
+when saved codes are unavailable.
 
 ## Performance-safe routes
 

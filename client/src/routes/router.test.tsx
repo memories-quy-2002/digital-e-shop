@@ -41,6 +41,10 @@ vi.mock("../features/users/pages/AddressBookPage", () => ({
     default: () => <div data-testid="address-book-page">Address book page</div>,
 }));
 
+vi.mock("../features/loyalty/pages/CustomerLoyaltyPage", () => ({
+    default: () => <div data-testid="loyalty-page">Loyalty page</div>,
+}));
+
 vi.mock("../features/orders/pages/OrderHistoryPage", () => ({
     default: () => <div data-testid="order-history-page">Order history page</div>,
 }));
@@ -60,6 +64,8 @@ vi.mock("../features/admin/pages/AdminPaymentReconciliationPage", () => ({ defau
 vi.mock("../features/admin/pages/AdminAccountPage", () => ({ default: () => <div>Admin accounts</div> }));
 vi.mock("../features/admin/pages/AdminPromotionsPage", () => ({ default: () => <div>Admin promotions</div> }));
 vi.mock("../features/admin/pages/AdminAddProductPage", () => ({ default: () => <div>Admin add product</div> }));
+vi.mock("../features/admin/pages/AdminAuditPage", () => ({ default: () => <div>Admin audit log</div> }));
+vi.mock("../features/admin/pages/AdminNotificationsPage", () => ({ default: () => <div data-testid="admin-notifications-page">Admin notifications</div> }));
 
 vi.mock("../features/auth/pages/LoginPage", () => ({
     default: function MockLoginPage() {
@@ -82,6 +88,7 @@ const adminPaths = [
     "/admin/payments/reconciliation",
     "/admin/accounts",
     "/admin/promotions",
+    "/admin/audit",
     "/admin/add",
 ] as const;
 
@@ -142,6 +149,17 @@ describe("cart routing", () => {
         );
 
         expect(await screen.findByTestId("address-book-page")).toBeInTheDocument();
+    });
+
+    it("keeps the loyalty account route protected", async () => {
+        render(
+            <MemoryRouter initialEntries={["/account/loyalty"]}>
+                <AppRouter />
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByTestId("protected-route")).toBeInTheDocument();
+        expect(await screen.findByTestId("loyalty-page")).toBeInTheDocument();
     });
 
     it("redirects legacy customer routes to canonical account routes", async () => {
@@ -235,7 +253,7 @@ describe("admin routing", () => {
         expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
     });
 
-    it("redirects the retired admin notifications route to the dashboard", async () => {
+    it("opens the admin notifications center", async () => {
         authState.value = { loading: false, userData: buildUser(Role.Admin) };
         render(
             <MemoryRouter initialEntries={["/admin/notifications"]}>
@@ -243,7 +261,7 @@ describe("admin routing", () => {
             </MemoryRouter>,
         );
 
-        expect(await screen.findByTestId("admin-dashboard-page")).toBeInTheDocument();
+        expect(await screen.findByTestId("admin-notifications-page")).toBeInTheDocument();
     });
 
     it("keeps the forbidden route public", async () => {

@@ -21,11 +21,27 @@ import { AdminShippingController } from "./admin-shipping.controller";
 import { FinancialOperationsModule } from "../operations/financial-operations.module";
 import { createRateLimitMiddleware } from "../middleware/rate-limit.middleware";
 import { ProductsModule } from "../products/products.module";
+import { AuthGuard } from "../guards/auth.guard";
+import { RolesGuard } from "../guards/roles.guard";
+import { LoyaltyModule } from "../loyalty/loyalty.module";
 
 @Module({
-    imports: [CartModule, PromotionsModule, UsersModule, TasksModule, InventoryModule, ProductAlertsModule, forwardRef(() => FinancialOperationsModule), ProductsModule],
+    imports: [CartModule, PromotionsModule, UsersModule, TasksModule, InventoryModule, ProductAlertsModule, forwardRef(() => FinancialOperationsModule), ProductsModule, LoyaltyModule],
     controllers: [ShippingController, ShippingWebhookController, AdminShippingController],
-    providers: [ShippingQuoteRepository, ShippingQuoteService, ShippingProviderRegistry, ShippingRepository, FulfillmentService, ShippingWebhookService, OrdersRepository, NestOrdersCancellationService, NestOrderTimelineService, OrderTimelineRepository],
+    providers: [
+        AuthGuard,
+        RolesGuard,
+        ShippingQuoteRepository,
+        ShippingQuoteService,
+        ShippingProviderRegistry,
+        ShippingRepository,
+        FulfillmentService,
+        ShippingWebhookService,
+        OrdersRepository,
+        NestOrdersCancellationService,
+        NestOrderTimelineService,
+        OrderTimelineRepository,
+    ],
     exports: [ShippingQuoteService, ShippingProviderRegistry, FulfillmentService, ShippingWebhookService],
 })
 export class ShippingModule implements NestModule {

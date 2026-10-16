@@ -209,6 +209,61 @@ describe("CheckoutReservationService", () => {
         expect(result.paymentAttempt).toEqual(paymentAttempt);
     });
 
+    it("holds loyalty points and includes the discount in the PayOS amount snapshot", async () => {
+        const { repository } = createMockRepository();
+        const paymentAttempt = {
+            id: "attempt-loyalty",
+            pendingCheckoutId: 1,
+            providerOrderCode: "123456790",
+            expectedAmountVnd: 7,
+            paymentState: "PENDING",
+            orderState: "NOT_CREATED",
+            resolutionState: "NONE",
+            providerLinkId: null,
+            providerLinkUrl: null,
+            expiresAt: new Date(Date.now() + 35 * 60_000).toISOString(),
+            replayed: false,
+        };
+        const attempts = {
+            findExistingClaim: vi.fn().mockResolvedValue(null),
+            claim: vi.fn().mockResolvedValue(paymentAttempt),
+        };
+        const tasks = { enqueue: vi.fn().mockResolvedValue(44) };
+        const loyalty = { holdCheckoutPoints: vi.fn().mockResolvedValue(3) };
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never,
+            undefined, attempts as never, tasks as never, loyalty as never);
+
+        const result = await service.reservePayOSInventory({
+            ...reservationInput("user-a"),
+            loyaltyPoints: 3,
+        }, {
+            owner: { kind: "authenticated", userId: "user-a" },
+            idempotencyKey: "5df6e92a-a9b9-4f4b-a035-f948ea2028fb",
+            request: { cart: [{ productId: 1, quantity: 1 }], totalPrice: 10, loyaltyPoints: 3 },
+        });
+
+        expect(repository.insertPendingCheckout).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ loyaltyPointsRedeemed: 3 }));
+        expect(loyalty.holdCheckoutPoints).toHaveBeenCalledWith(expect.anything(), "user-a", 1, 3, 10, 0);
+        expect(attempts.claim).toHaveBeenCalledWith(expect.objectContaining({
+            expectedAmountVnd: 7,
+            snapshot: expect.objectContaining({ discountVnd: 3 }),
+        }), expect.anything());
+        expect(result.pricingSnapshot).toEqual({ totalPrice: 10, discount: 3 });
+    });
+
+    it("releases a loyalty point hold with the checkout reservation", async () => {
+        const { repository } = createMockRepository();
+        const loyalty = { releaseCheckoutPoints: vi.fn().mockResolvedValue(true) };
+        const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never,
+            undefined, undefined, undefined, loyalty as never);
+        const transaction = { query: vi.fn().mockResolvedValue({ affectedRows: 1 }) };
+        transactionRunner.mockImplementationOnce(async (work: (tx: unknown) => Promise<unknown>) => work(transaction));
+
+        await service.releaseReservation("reservation-token", "customer-canceled");
+
+        expect(loyalty.releaseCheckoutPoints).toHaveBeenCalledWith(transaction, 1);
+    });
+
     it("rejects a PayOS reservation when the locked catalog price changed after quote creation", async () => {
         const { repository } = createMockRepository();
         repository.lockProducts.mockResolvedValueOnce([{ id: 1, name: "Product 1", price: 11, sale_price: null, stock: 1 }]);

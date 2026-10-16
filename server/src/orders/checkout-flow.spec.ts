@@ -21,6 +21,7 @@ describe("customer checkout flow", () => {
             discount: 0,
             shippingAddress: "1 Demo Street",
             paymentMethod: "cash",
+            loyaltyPoints: 0,
         }).catch((error) => error);
 
         expect(rejection.getStatus()).toBe(400);
@@ -48,6 +49,7 @@ describe("customer checkout flow", () => {
             discountCode: "SAVE10",
             shippingAddress: "1 Demo Street",
             paymentMethod: "cash",
+            loyaltyPoints: 0,
         });
 
         expect(ordersService.makePurchase).toHaveBeenCalledWith(

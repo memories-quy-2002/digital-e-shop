@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import pool from "#src/config/database.config";
+import { withTransaction } from "../database/transaction";
 import type { CountRow, DbError, QueryCallback, UpdateResult } from "#src/shared/interfaces/database";
 import type { CustomerProfileRow, CustomerRecentOrderRow, UserRow } from "./users.types";
 import type { TransactionContext } from "../database/transaction";
@@ -67,16 +68,22 @@ export class UsersRepository {
         });
     }
 
-    getPaginated(limit: number, offset: number): Promise<UserRow[]> {
+    getAdminPaginated(
+        limit: number,
+        offset: number,
+        filters: { search?: string; role?: string; status?: string },
+    ): Promise<UserRow[]> {
+        const { where, params } = getAdminUserWhere(filters);
         return new Promise((resolve, reject) => {
             pool.query(
                 `SELECT users.*, COUNT(orders.id) AS order_count
                  FROM users
                  LEFT JOIN orders ON orders.user_id = users.id AND orders.status <> ${ORDER_STATUS.CANCELED}
+                 ${where}
                  GROUP BY users.id
                  ORDER BY users.created_at DESC
                  LIMIT ? OFFSET ?`,
-                [limit, offset],
+                [...params, limit, offset],
                 (queryErr: DbError | null, results?: UserRow[]) => {
                     if (queryErr) return reject(queryErr);
                     resolve(results || []);
@@ -85,12 +92,29 @@ export class UsersRepository {
         });
     }
 
-    getCount(): Promise<number> {
+    getAdminCount(filters: { search?: string; role?: string; status?: string }): Promise<number> {
+        const { where, params } = getAdminUserWhere(filters);
         return new Promise((resolve, reject) => {
-            pool.query("SELECT COUNT(*) AS total FROM users", (err: DbError | null, results?: CountRow[]) => {
+            pool.query(`SELECT COUNT(*) AS total FROM users ${where}`, params, (err: DbError | null, results?: CountRow[]) => {
                 if (err) return reject(err);
                 resolve(results?.[0]?.total || 0);
             });
+        });
+    }
+
+    getAdminSummary(): Promise<{ total: number; customers: number; suspended: number }> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                `SELECT COUNT(*) AS total,
+                    SUM(CASE WHEN role = 'Customer' THEN 1 ELSE 0 END) AS customers,
+                    SUM(CASE WHEN status = 'Suspended' THEN 1 ELSE 0 END) AS suspended
+                 FROM users`,
+                (err: DbError | null, rows?: Array<{ total: number; customers: number; suspended: number }>) => {
+                    if (err) return reject(err);
+                    const row = rows?.[0];
+                    resolve({ total: Number(row?.total) || 0, customers: Number(row?.customers) || 0, suspended: Number(row?.suspended) || 0 });
+                },
+            );
         });
     }
 
@@ -280,16 +304,61 @@ export class UsersRepository {
         });
     }
 
-    updateUserAdmin(uid: string, role: string, status: string): Promise<UpdateResult> {
-        return new Promise((resolve, reject) => {
-            pool.query(
+    updateUserAdmin(uid: string, role: string, status: string, currentAdminId: string, reason: string): Promise<UpdateResult> {
+        return withTransaction(async (tx) => {
+            const [target] = await tx.query<Array<{ id: string; role: string; status: string }>>(
+                "SELECT id, role, status FROM users WHERE id = ? FOR UPDATE",
+                [uid],
+            );
+            if (!target) return { affectedRows: 0 };
+
+            const demotesTarget = target.role === "Admin" && target.status === "Active"
+                && (role !== "Admin" || status !== "Active");
+            if (String(target.id) === currentAdminId && demotesTarget) {
+                throw Object.assign(new Error("You cannot remove your own active administrator access."), { statusCode: 409 });
+            }
+
+            if (demotesTarget) {
+                const activeAdmins = await tx.query<Array<{ id: string }>>(
+                    "SELECT id FROM users WHERE role = 'Admin' AND status = 'Active' ORDER BY id FOR UPDATE",
+                );
+                if (activeAdmins.length <= 1) {
+                    throw Object.assign(new Error("The last active administrator cannot be demoted or suspended."), { statusCode: 409 });
+                }
+            }
+
+            const result = await tx.query<UpdateResult>(
                 "UPDATE users SET role = ?, status = ? WHERE id = ?",
                 [role, status, uid],
-                (updateErr: DbError | null, result?: UpdateResult) => {
-                    if (updateErr) return reject(updateErr);
-                    resolve(result || { affectedRows: 0 });
-                },
             );
+            if (target.role !== role || target.status !== status) {
+                await tx.query(
+                    `INSERT INTO admin_audit_events (actor_id, action, entity_type, entity_id, reason, changes)
+                     VALUES (?, 'user.access.updated', 'user', ?, ?, ?)` ,
+                    [currentAdminId, uid, reason, JSON.stringify({ before: { role: target.role, status: target.status }, after: { role, status } })],
+                );
+            }
+            return { ...result, affectedRows: result.affectedRows || 1 };
         });
     }
 }
+
+const getAdminUserWhere = (filters: { search?: string; role?: string; status?: string }) => {
+    const conditions: string[] = [];
+    const params: string[] = [];
+    const search = filters.search?.trim().toLowerCase();
+    if (search) {
+        const term = `%${search.replace(/[!%_]/g, "!$&")}%`;
+        conditions.push(`(LOWER(users.id) LIKE ? ESCAPE '!' OR LOWER(users.username) LIKE ? ESCAPE '!' OR LOWER(users.email) LIKE ? ESCAPE '!' OR LOWER(users.role) LIKE ? ESCAPE '!' OR LOWER(users.status) LIKE ? ESCAPE '!')`);
+        params.push(term, term, term, term, term);
+    }
+    if (filters.role) {
+        conditions.push("users.role = ?");
+        params.push(filters.role);
+    }
+    if (filters.status) {
+        conditions.push("users.status = ?");
+        params.push(filters.status);
+    }
+    return { where: conditions.length ? `WHERE ${conditions.join(" AND ")}` : "", params };
+};

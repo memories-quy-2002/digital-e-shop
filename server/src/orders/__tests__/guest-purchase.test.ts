@@ -112,6 +112,7 @@ describe("guest checkout contracts", () => {
             userId: "should-not-be-accepted",
         });
         expect(parsed.success).toBe(false);
+        expect(guestPurchaseSchema.safeParse({ ...guestPayload(), loyaltyPoints: 25 }).success).toBe(false);
         expect(guestPurchaseSchema.safeParse({
             ...guestPayload(),
             cart: [{ productId: 7, quantity: 1, price: 0.01 }],

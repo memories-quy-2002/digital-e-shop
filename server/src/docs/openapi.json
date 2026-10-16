@@ -35,11 +35,13 @@
         { "name": "Reviews", "description": "Product reviews" },
         { "name": "Wishlist", "description": "Customer wishlist" },
         { "name": "Promotions", "description": "Discount codes and promotions" },
+        { "name": "Loyalty", "description": "Customer point balances, earned activity, and owned promotion vouchers" },
         { "name": "Blob", "description": "Vercel Blob file storage" },
         { "name": "Analytics", "description": "Admin analytics summary" },
         { "name": "Payments", "description": "PayOS, COD, reconciliation, and payment webhooks" },
         { "name": "Support", "description": "Authenticated customer and admin support tickets" },
-        { "name": "After-sales", "description": "Returns, warranty requests, status events, and refunds" }
+        { "name": "After-sales", "description": "Returns, warranty requests, status events, and refunds" },
+        { "name": "Admin operations", "description": "Admin alerts, audit history, and operational queues" }
     ],
     "components": {
         "schemas": {
@@ -173,6 +175,8 @@
                     "status": { "type": "integer", "description": "0=Placed, 1=Completed, 2=Canceled" },
                     "total_price": { "type": "number" },
                     "discount": { "type": "number" },
+                    "loyalty_points_redeemed": { "type": "integer", "minimum": 0 },
+                    "loyalty_discount": { "type": "number", "minimum": 0 },
                     "shipping_address": { "type": "string" },
                     "payment_method": { "type": "string", "enum": ["cash", "payos"] }
                 }
@@ -247,7 +251,8 @@
                     "min_order_value": { "type": "number" },
                     "starts_at": { "type": "string", "format": "date-time", "nullable": true },
                     "expires_at": { "type": "string", "format": "date-time", "nullable": true },
-                    "usage_limit": { "type": "integer", "nullable": true }
+                    "usage_limit": { "type": "integer", "nullable": true },
+                    "loyalty_points_cost": { "type": "integer", "minimum": 1, "nullable": true, "description": "When set, customers can claim this promotion by spending this many loyalty points" }
                 }
             },
             "InventoryMovement": {
@@ -685,8 +690,11 @@
                 "summary": "List all users (admin)",
                 "security": [{ "cookieAuth": [] }],
                 "parameters": [
-                    { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
-                    { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 20 } }
+                    { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 1000000, "default": 1 } },
+                    { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 25 } },
+                    { "name": "search", "in": "query", "schema": { "type": "string", "maxLength": 120 } },
+                    { "name": "role", "in": "query", "schema": { "type": "string", "enum": ["Customer", "Admin"] } },
+                    { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["Active", "Suspended"] } }
                 ],
                 "responses": {
                     "200": {
@@ -1023,6 +1031,7 @@
                 "tags": ["Products"],
                 "summary": "Get personalized product recommendations for a user",
                 "description": "Recommendation engine based on purchase history, wishlist, cart activity, and brand affinity.",
+                "security": [{ "cookieAuth": [] }],
                 "responses": {
                     "200": {
                         "description": "Recommended products",
@@ -1037,6 +1046,8 @@
                             }
                         }
                     },
+                    "401": { "$ref": "#/components/responses/Error" },
+                    "403": { "$ref": "#/components/responses/Error" },
                     "500": { "$ref": "#/components/responses/Error" }
                 }
             }
@@ -1264,6 +1275,24 @@
                             }
                         }
                     }
+                }
+            }
+        },
+        "/api/products/admin/list": {
+            "get": {
+                "tags": ["Products"],
+                "summary": "List products for admin inventory management",
+                "security": [{ "cookieAuth": [] }],
+                "parameters": [
+                    { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 1000000, "default": 1 } },
+                    { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 25 } },
+                    { "name": "search", "in": "query", "schema": { "type": "string", "maxLength": 120 } },
+                    { "name": "stock", "in": "query", "schema": { "type": "string", "enum": ["all", "low", "out"] } }
+                ],
+                "responses": {
+                    "200": { "description": "Filtered products, inventory summary, and pagination metadata" },
+                    "401": { "$ref": "#/components/responses/Error" },
+                    "403": { "$ref": "#/components/responses/Error" }
                 }
             }
         },
@@ -1521,12 +1550,40 @@
                 "summary": "List all orders (admin)",
                 "security": [{ "cookieAuth": [] }],
                 "parameters": [
-                    { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
-                    { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+                    { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 1000000, "default": 1 } },
+                    { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 25 } },
+                    { "name": "search", "in": "query", "schema": { "type": "string", "maxLength": 120 } },
+                    { "name": "status", "in": "query", "schema": { "type": "integer", "enum": [0, 1, 2] } },
+                    { "name": "paymentMethod", "in": "query", "schema": { "type": "string" } },
+                    { "name": "sort", "in": "query", "schema": { "type": "string", "enum": ["newest", "oldest"], "default": "newest" } }
                 ],
                 "responses": {
                     "200": {
                         "description": "Order list",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "orders": { "type": "array", "items": { "$ref": "#/components/schemas/Order" } },
+                                        "pagination": { "$ref": "#/components/schemas/Pagination" },
+                                        "summary": { "type": "object", "description": "Global order totals and revenue, independent of the current filters" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/orders/admin/pending-queue": {
+            "get": {
+                "tags": ["Orders"],
+                "summary": "Read the dashboard pending-order queue (admin)",
+                "security": [{ "cookieAuth": [] }],
+                "responses": {
+                    "200": {
+                        "description": "The five oldest pending orders with dashboard display fields",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1645,6 +1702,7 @@
                                     },
                                     "discount": { "type": "number", "minimum": 0, "default": 0 },
                                     "discountCode": { "type": "string", "maxLength": 50 },
+                                    "loyaltyPoints": { "type": "integer", "minimum": 0, "default": 0, "description": "Authenticated customer points to redeem; one point reduces merchandise by one VND" },
                                     "shippingAddress": { "type": "string" },
                                     "paymentMethod": { "type": "string", "enum": ["cash", "payos"] }
                                 }
@@ -2051,6 +2109,7 @@
                                     "cart": { "type": "array", "minItems": 1, "items": { "type": "object" } },
                                     "discount": { "type": "number", "minimum": 0 },
                                     "discountCode": { "type": "string", "maxLength": 50 },
+                                    "loyaltyPoints": { "type": "integer", "minimum": 0, "default": 0, "description": "Authenticated customer points to redeem; one point reduces merchandise by one VND" },
                                     "shippingAddress": { "type": "string", "minLength": 1 }
                                 }
                             }
@@ -2720,6 +2779,68 @@
             }
         },
 
+        "/api/loyalty/me": {
+            "get": {
+                "tags": ["Loyalty"],
+                "summary": "Read the current customer's loyalty account",
+                "description": "Returns a zero balance for accounts that have not earned or redeemed points, recent ledger activity, owned vouchers, and active reward promotions.",
+                "security": [{ "cookieAuth": [] }],
+                "responses": {
+                    "200": {
+                        "description": "Current loyalty balance and recent customer rewards",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "loyalty": {
+                                            "type": "object",
+                                            "properties": {
+                                                "balancePoints": { "type": "integer", "minimum": 0 },
+                                                "history": { "type": "array", "items": { "type": "object" } },
+                                                "vouchers": { "type": "array", "items": { "type": "object" } },
+                                                "rewards": { "type": "array", "items": { "type": "object" } }
+                                            }
+                                        },
+                                        "msg": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/loyalty/rewards/{promotionId}/claim": {
+            "parameters": [{ "name": "promotionId", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }],
+            "post": {
+                "tags": ["Loyalty"],
+                "summary": "Claim a promotion voucher using loyalty points",
+                "description": "Atomically debits points and issues a one-use voucher bound to the authenticated customer.",
+                "security": [{ "cookieAuth": [] }],
+                "responses": {
+                    "201": {
+                        "description": "Points debited and customer-owned voucher created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "balancePoints": { "type": "integer", "minimum": 0 },
+                                        "voucher": { "type": "object", "properties": { "id": { "type": "integer" }, "code": { "type": "string" }, "pointsCost": { "type": "integer" }, "discountPercent": { "type": "number" } } },
+                                        "msg": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": { "$ref": "#/components/responses/Error" },
+                    "404": { "$ref": "#/components/responses/Error" },
+                    "409": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
         "/api/promotions": {
             "get": {
                 "tags": ["Promotions"],
@@ -2760,6 +2881,7 @@
                                     "startsAt": { "type": "string", "format": "date-time" },
                                     "expiresAt": { "type": "string", "format": "date-time" },
                                     "usageLimit": { "type": "integer" },
+                                    "loyaltyPointsCost": { "type": "integer", "minimum": 1, "nullable": true },
                                     "active": { "type": "boolean" }
                                 }
                             }
@@ -2792,6 +2914,7 @@
                                     "startsAt": { "type": "string", "format": "date-time" },
                                     "expiresAt": { "type": "string", "format": "date-time" },
                                     "usageLimit": { "type": "integer" },
+                                    "loyaltyPointsCost": { "type": "integer", "minimum": 1, "nullable": true },
                                     "active": { "type": "boolean" }
                                 }
                             }
@@ -2921,6 +3044,70 @@
                             }
                         }
                     }
+                }
+            }
+        },
+        "/api/admin/audit": {
+            "get": {
+                "tags": ["Admin operations"],
+                "summary": "List administrator audit events",
+                "security": [{ "cookieAuth": [] }],
+                "parameters": [
+                    { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 1000000, "default": 1 } },
+                    { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 25 } },
+                    { "name": "search", "in": "query", "schema": { "type": "string", "maxLength": 120 } },
+                    { "name": "entityType", "in": "query", "schema": { "type": "string", "enum": ["product", "user", "promotion"] } }
+                ],
+                "responses": {
+                    "200": { "description": "Filtered audit events and pagination metadata" },
+                    "401": { "$ref": "#/components/responses/Error" },
+                    "403": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/admin/alerts": {
+            "get": {
+                "tags": ["Admin operations"],
+                "summary": "List operational alerts and unread count",
+                "security": [{ "cookieAuth": [] }],
+                "responses": {
+                    "200": { "description": "Operational alerts with per-admin read state" },
+                    "401": { "$ref": "#/components/responses/Error" },
+                    "403": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/admin/alerts/acknowledge": {
+            "put": {
+                "tags": ["Admin operations"],
+                "summary": "Acknowledge operational alerts for the current administrator",
+                "security": [{ "cookieAuth": [] }],
+                "requestBody": {
+                    "required": true,
+                    "content": { "application/json": { "schema": { "type": "object", "required": ["alertIds"], "properties": { "alertIds": { "type": "array", "minItems": 1, "maxItems": 100, "items": { "type": "string", "maxLength": 191 } } } } } }
+                },
+                "responses": {
+                    "200": { "$ref": "#/components/responses/Message" },
+                    "401": { "$ref": "#/components/responses/Error" },
+                    "403": { "$ref": "#/components/responses/Error" }
+                }
+            }
+        },
+        "/api/admin/alerts/triage": {
+            "put": {
+                "tags": ["Admin operations"],
+                "summary": "Update ownership or resolution state for an active alert",
+                "security": [{ "cookieAuth": [] }],
+                "requestBody": {
+                    "required": true,
+                    "content": { "application/json": { "schema": { "type": "object", "required": ["alertId", "action"], "properties": { "alertId": { "type": "string", "maxLength": 191 }, "action": { "type": "string", "enum": ["claim", "release", "resolve", "reopen"] } } } } }
+                },
+                "responses": {
+                    "200": { "description": "Updated alert triage state" },
+                    "401": { "$ref": "#/components/responses/Error" },
+                    "403": { "$ref": "#/components/responses/Error" },
+                    "404": { "$ref": "#/components/responses/Error" },
+                    "409": { "$ref": "#/components/responses/Error" }
                 }
             }
         }

@@ -14,7 +14,7 @@ import { mapToHttpException } from "#src/core/errors/http-exception-mapper";
 import { calculatePromotionDiscount } from "./orders.pricing";
 import { PAYMENT_PROVIDER, type PaymentProviderName } from "../payments/payment.types";
 import type { MockPayOSConfirmPayload } from "./orders.dto";
-import { orderStatusSchema, purchaseSchema, checkoutSessionSchema, applyDiscountSchema, cancelOrderSchema, mockPayOSConfirmSchema, paymentAttemptIdSchema, paymentAttemptIdempotencyKeySchema } from "./orders.validator";
+import { adminOrdersQuerySchema, orderStatusSchema, purchaseSchema, checkoutSessionSchema, applyDiscountSchema, cancelOrderSchema, mockPayOSConfirmSchema, paymentAttemptIdSchema, paymentAttemptIdempotencyKeySchema } from "./orders.validator";
 
 type AuthenticatedRequest = Request & {
     user?: { id?: string | number; role?: string };
@@ -76,33 +76,40 @@ export class OrdersController {
     @Get()
     @UseGuards(AuthGuard, RolesGuard)
     @Roles("admin")
-    async getOrders(@Query() query: Record<string, unknown>) {
+    async getOrders(@Query(new ZodValidationPipe(adminOrdersQuerySchema)) query: {
+        page: number;
+        limit: number;
+        search: string;
+        status?: number;
+        paymentMethod?: string;
+        sort: "newest" | "oldest";
+    }) {
         try {
-            const page = Number(query.page);
-            const limit = Number(query.limit);
-            const usePagination = Number.isInteger(page) && page > 0 && Number.isInteger(limit) && limit > 0;
-            const safeLimit = usePagination ? Math.min(limit, 100) : null;
-            const offset = usePagination ? (page - 1) * safeLimit : 0;
-
-            if (usePagination) {
-                const [orders, total] = await Promise.all([
-                    this.ordersService.getOrdersPaginated(safeLimit as number, offset),
-                    this.ordersService.getOrdersCount(),
-                ]);
-                return {
-                    orders,
-                    pagination: {
-                        page,
-                        limit: safeLimit,
-                        total,
-                        totalPages: Math.ceil(total / safeLimit),
-                    },
-                    msg: "Orders retrieved successfully",
-                };
-            }
-
-            const orders = await this.ordersService.getOrders();
-            return { orders, msg: "Orders retrieved successfully" };
+            const filters = {
+                search: query.search,
+                status: query.status,
+                paymentMethod: query.paymentMethod,
+                sort: query.sort,
+            };
+            const [total, summary] = await Promise.all([
+                this.ordersService.getOrdersCount(filters),
+                this.ordersService.getOrdersAdminSummary(),
+            ]);
+            const totalPages = Math.ceil(total / query.limit);
+            const page = Math.min(query.page, Math.max(totalPages, 1));
+            const offset = (page - 1) * query.limit;
+            const orders = await this.ordersService.getOrdersPaginated(query.limit, offset, filters);
+            return {
+                orders,
+                summary,
+                pagination: {
+                    page,
+                    limit: query.limit,
+                    total,
+                    totalPages,
+                },
+                msg: "Orders retrieved successfully",
+            };
         } catch (err) {
             throw mapToHttpException(err, "Unable to retrieve orders");
         }
@@ -143,6 +150,18 @@ export class OrdersController {
             };
         } catch (err) {
             throw mapToHttpException(err, "Unable to retrieve order items");
+        }
+    }
+
+    @Get("admin/pending-queue")
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles("admin")
+    async getAdminPendingQueue() {
+        try {
+            const orders = await this.ordersService.getAdminPendingQueue();
+            return { orders, msg: "Pending order queue retrieved successfully" };
+        } catch (err) {
+            throw mapToHttpException(err, "Unable to retrieve pending order queue");
         }
     }
 
@@ -272,6 +291,7 @@ export class OrdersController {
             discountCode?: string;
             shippingAddress: string;
             paymentMethod: PaymentProviderName;
+            loyaltyPoints: number;
             locale?: "en" | "vi";
             shippingQuoteId: string;
             deliveryAddress: import("../shipping/shipping.types").DeliveryAddress;
@@ -287,7 +307,7 @@ export class OrdersController {
         }
 
         try {
-            const promotion = discountCode ? await this.ordersService.applyDiscount(discountCode) : null;
+            const promotion = discountCode ? await this.ordersService.applyDiscount(discountCode, uid) : null;
             if (discountCode && !promotion) {
                 throw new HttpException({ msg: "Discount code is no longer valid." }, HTTP_STATUS.BAD_REQUEST);
             }
@@ -299,6 +319,7 @@ export class OrdersController {
                 discountCode,
                 shippingAddress,
                 paymentMethod,
+                loyaltyPoints: body.loyaltyPoints ?? 0,
                 shippingQuoteId: body.shippingQuoteId,
                 deliveryAddress: body.deliveryAddress,
                 locale: body.locale,
@@ -338,6 +359,7 @@ export class OrdersController {
             cart: Array<{ productId: number; quantity: number; price: number; sale_price?: number | null }>;
             discount: number;
             discountCode?: string;
+            loyaltyPoints: number;
             shippingAddress: string;
         },
         @Headers("idempotency-key") idempotencyKey?: string,
@@ -376,9 +398,9 @@ export class OrdersController {
     @HttpCode(HTTP_STATUS.OK)
     @UseGuards(AuthGuard, RolesGuard)
     @Roles("customer", "admin")
-    async applyDiscount(@Body(new ZodValidationPipe(applyDiscountSchema)) body: { discountCode: string; price: number }) {
+    async applyDiscount(@Req() req: Request, @Body(new ZodValidationPipe(applyDiscountSchema)) body: { discountCode: string; price: number }) {
         try {
-            const promotion = await this.ordersService.applyDiscount(body.discountCode);
+            const promotion = await this.ordersService.applyDiscount(body.discountCode, String(req.user?.id || ""));
             if (!promotion) {
                 throw new HttpException({ msg: "Discount code not found" }, HTTP_STATUS.NOT_FOUND);
             }

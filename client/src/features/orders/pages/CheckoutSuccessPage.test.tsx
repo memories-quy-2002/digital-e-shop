@@ -196,8 +196,8 @@ describe("CheckoutSuccessPage guest flow", () => {
         );
 
         expect(await screen.findByDisplayValue("guest-token")).toBeInTheDocument();
-        expect(screen.getByLabelText("Guest order access token")).toHaveAttribute("type", "password");
-        expect(screen.getByRole("link", { name: /look up guest order/i })).toHaveAttribute("href", "/guest-order");
+        expect(screen.getByLabelText("checkoutSuccess.accessToken")).toHaveAttribute("type", "password");
+        expect(screen.getByRole("link", { name: "checkoutSuccess.lookupGuestOrder" })).toHaveAttribute("href", "/guest-order");
         expect(screen.queryByText(/Order updates will be sent/)).not.toBeInTheDocument();
         await waitFor(() => expect(mocks.fetchCart).toHaveBeenCalled());
         expect(mocks.clearCart).toHaveBeenCalled();
@@ -223,16 +223,38 @@ describe("CheckoutSuccessPage guest flow", () => {
             </MemoryRouter>,
         );
 
-        const tokenInput = await screen.findByLabelText("Guest order access token");
+        const tokenInput = await screen.findByLabelText("checkoutSuccess.accessToken");
         expect(tokenInput).toHaveAttribute("type", "password");
 
-        fireEvent.click(screen.getByRole("button", { name: "Reveal token" }));
+        fireEvent.click(screen.getByRole("button", { name: "checkoutSuccess.revealToken" }));
         expect(tokenInput).toHaveAttribute("type", "text");
-        fireEvent.click(screen.getByRole("button", { name: "Hide token" }));
+        fireEvent.click(screen.getByRole("button", { name: "checkoutSuccess.hideToken" }));
         expect(tokenInput).toHaveAttribute("type", "password");
 
-        fireEvent.click(screen.getByRole("button", { name: "Copy access token" }));
+        fireEvent.click(screen.getByRole("button", { name: "checkoutSuccess.copyAccessToken" }));
         await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith("guest-token"));
+    });
+
+    it("shows the payable total after subtracting the stored discount", async () => {
+        sessionStorage.setItem("checkoutSuccess", JSON.stringify({
+            orderId: "42",
+            totalPrice: 200,
+            discount: 20,
+            subtotal: 160,
+            shippingFee: 40,
+            itemsCount: 2,
+            paymentMethod: "cash",
+        }));
+
+        render(
+            <MemoryRouter initialEntries={["/checkout-success"]}>
+                <CheckoutSuccessPage />
+            </MemoryRouter>,
+        );
+
+        const dueCard = await screen.findByText("checkoutSuccess.amountDue");
+        expect(dueCard.closest("article")).toHaveTextContent(/180/);
+        expect(screen.getByRole("region", { name: "checkoutSuccess.orderSummary" })).toBeInTheDocument();
     });
 
     it("hydrates guest contact and shipping details after a success-page refresh", async () => {

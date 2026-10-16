@@ -167,6 +167,8 @@ export type PendingCheckoutRow = {
     cart_json: string;
     total_price: string;
     discount: string;
+    loyalty_points_redeemed?: number | string;
+    loyalty_discount?: number | string;
     shipping_address: string;
     status: CheckoutReservationStatus | string;
     expires_at: string | Date;
@@ -239,6 +241,7 @@ type CheckoutReservationInputBase = {
     authoritativeCart: CartItemRow[];
     authoritativeTotalPrice: number;
     discount: number;
+    loyaltyPoints?: number;
     discountCode?: string;
     shippingAddress: string;
     databaseExpiresAt?: Date;
@@ -259,6 +262,8 @@ export type PendingCheckoutInsertInput = {
     cartJson: string;
     totalPrice: number;
     discount: number;
+    loyaltyPointsRedeemed?: number;
+    loyaltyDiscount?: number;
     shippingAddress: string;
     expiresAt: Date;
 };

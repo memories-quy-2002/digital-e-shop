@@ -34,6 +34,8 @@ import { ShippingModule } from "./shipping/shipping.module";
 import { FulfillmentService } from "./shipping/fulfillment.service";
 import { ShippingWebhookService } from "./shipping/shipping-webhook.service";
 import { OrderEmailModule } from "./orders/order-email.module";
+import { AdminAuditModule } from "./admin-audit/admin-audit.module";
+import { LoyaltyModule } from "./loyalty/loyalty.module";
 
 @Module({
     imports: [
@@ -62,6 +64,8 @@ import { OrderEmailModule } from "./orders/order-email.module";
         PayOSWebhookModule,
         SupportModule,
         AdminAlertsModule,
+        AdminAuditModule,
+        LoyaltyModule,
         AfterSalesModule,
         ProductAlertsModule,
     ],

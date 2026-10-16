@@ -1,6 +1,7 @@
 export const CUSTOMER_ROUTES = {
     account: "/account",
     orders: "/account/orders",
+    loyalty: "/account/loyalty",
     addresses: "/account/addresses",
     notifications: "/account/notifications",
 } as const;

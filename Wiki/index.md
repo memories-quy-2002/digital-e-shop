@@ -4,7 +4,7 @@ This Wiki records durable Digital-E understanding for maintainers and AI agents.
 
 **Project summary:** Digital-E is an electronics commerce platform built from two independent pnpm packages: a React 19 and Vite storefront/admin client in `client/`, and a NestJS 11 API on the Express 5 adapter in `server/`. MySQL remains the primary runtime database, while Prisma 7 owns a complete typed projection and partial forward-migration layer for the 30 application tables. Firebase is the only auth provider; the Firebase Auth Emulator is a local testing target.
 
-**Last updated:** 2026-10-15
+**Last updated:** 2026-10-16
 
 The current implementation includes authenticated and guest carts, server-authoritative checkout, PayOS and COD payment paths with exact VND amounts, production-only live PayOS configuration, signed webhook processing, simulated-payment delivery protection, bounded admin reconciliation, Firebase-owned auth action emails, durable transactional email for account welcome, confirmed payments, order delivery and after-sales updates, GHN/local-sandbox fulfillment and delivery quotes, COD settlement and evidence-backed manual refunds, in-app order notifications, order reservations and payment ledgers, catalog attributes and snapshots, guest-friendly product comparison, responsive WebP/AVIF product image delivery, customer support tickets, admin analytics, operational alerts, database-backed demo verification, read-only k6 smoke coverage, and opt-in OTLP observability. Legacy payment identifiers remain readable only for historical database compatibility.
 
@@ -55,6 +55,7 @@ Domain objects and their relationships belong under `entities/`. Current pages c
 
 ### Concepts
 
+- [[admin-operations]]: bounded admin lists, aggregate dashboard polling, transactional audit events, and persisted alert triage.
 - [[durable-operations]]: transactional task persistence, bounded leases and fencing.
 - [[shipping-and-fulfillment]]: owner-bound delivery quotes, GHN/sandbox shipment lifecycle and COD delivery snapshots.
 - [[transactional-email-operations]]: immutable business events, durable delivery attempts, provider webhooks and operator recovery.
@@ -62,6 +63,7 @@ Domain objects and their relationships belong under `entities/`. Current pages c
 Cross-cutting behavior belongs under `concepts/`, such as authentication, validation, inventory movement, [[api-response-contract]], guest checkout, and order lifecycle.
 
 - [[api-response-contract]]: canonical success/error metadata, compatibility aliases, request IDs, and pagination boundaries
+- [[loyalty-rewards]]: point earning/redemption rules, owner-bound vouchers, and checkout/payment integration
 
 ### Decisions
 
