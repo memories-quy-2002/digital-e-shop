@@ -60,6 +60,8 @@ jobs:
       EMAIL_PROVIDER_MODE: sandbox
       EMAIL_SANDBOX_FIXTURE: accepted
       PAYMENT_PROVIDER_MODE: mock
+      DELIVERY_ROUTING_ENDPOINT_ALLOWLIST: https://router.example.test
+      DELIVERY_TILE_URL_ALLOWLIST: https://tiles.example.test/{z}/{x}/{y}.png
       JWT_SECRET_KEY: ci-access-secret
       JWT_REFRESH_SECRET_KEY: ci-refresh-secret
       CSRF_SECRET: ci-csrf-secret

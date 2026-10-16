@@ -86,19 +86,21 @@ describe("internal delivery assignment database integration", () => {
 
     afterAll(async () => {
         if (orderIds.length) {
-            await integrationPool.execute("DELETE FROM delivery_events WHERE order_id IN (?)", [orderIds]);
-            await integrationPool.execute("DELETE FROM delivery_assignments WHERE order_id IN (?)", [orderIds]);
-            await integrationPool.execute("DELETE FROM cod_settlement_events WHERE settlement_id IN (SELECT id FROM cod_settlements WHERE order_id IN (?))", [orderIds]);
-            await integrationPool.execute("DELETE FROM loyalty_ledger WHERE order_id IN (?)", [orderIds]);
-            await integrationPool.execute("DELETE FROM cod_settlements WHERE order_id IN (?)", [orderIds]);
-            await integrationPool.execute("DELETE FROM shipments WHERE order_id IN (?)", [orderIds]);
-            await integrationPool.execute("DELETE FROM order_status_events WHERE order_id IN (?)", [orderIds]);
-            await integrationPool.execute("DELETE FROM order_payments WHERE order_id IN (?)", [orderIds]);
-            await integrationPool.execute("DELETE FROM orders WHERE id IN (?)", [orderIds]);
+            const orderIdPlaceholders = orderIds.map(() => "?").join(", ");
+            await integrationPool.execute(`DELETE FROM delivery_events WHERE order_id IN (${orderIdPlaceholders})`, orderIds);
+            await integrationPool.execute(`DELETE FROM delivery_assignments WHERE order_id IN (${orderIdPlaceholders})`, orderIds);
+            await integrationPool.execute(`DELETE FROM cod_settlement_events WHERE settlement_id IN (SELECT id FROM cod_settlements WHERE order_id IN (${orderIdPlaceholders}))`, orderIds);
+            await integrationPool.execute(`DELETE FROM loyalty_ledger WHERE order_id IN (${orderIdPlaceholders})`, orderIds);
+            await integrationPool.execute(`DELETE FROM cod_settlements WHERE order_id IN (${orderIdPlaceholders})`, orderIds);
+            await integrationPool.execute(`DELETE FROM shipments WHERE order_id IN (${orderIdPlaceholders})`, orderIds);
+            await integrationPool.execute(`DELETE FROM order_status_events WHERE order_id IN (${orderIdPlaceholders})`, orderIds);
+            await integrationPool.execute(`DELETE FROM order_payments WHERE order_id IN (${orderIdPlaceholders})`, orderIds);
+            await integrationPool.execute(`DELETE FROM orders WHERE id IN (${orderIdPlaceholders})`, orderIds);
         }
         if (userIds.length) {
-            await integrationPool.execute("DELETE FROM loyalty_accounts WHERE user_id IN (?)", [userIds]);
-            await integrationPool.execute("DELETE FROM users WHERE id IN (?)", [userIds]);
+            const userIdPlaceholders = userIds.map(() => "?").join(", ");
+            await integrationPool.execute(`DELETE FROM loyalty_accounts WHERE user_id IN (${userIdPlaceholders})`, userIds);
+            await integrationPool.execute(`DELETE FROM users WHERE id IN (${userIdPlaceholders})`, userIds);
         }
         await closeIntegrationPools();
     });

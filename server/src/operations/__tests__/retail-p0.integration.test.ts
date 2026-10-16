@@ -51,8 +51,10 @@ describe("retail P0 database integration", () => {
             await integrationPool.execute("DELETE FROM order_status_events WHERE order_id = ?", [journey.orderId]);
             await integrationPool.execute("DELETE FROM order_items WHERE id = ?", [journey.itemId]);
             await integrationPool.execute("DELETE FROM order_payments WHERE id = ?", [journey.paymentId]);
+            await integrationPool.execute("DELETE FROM loyalty_ledger WHERE order_id = ?", [journey.orderId]);
             await integrationPool.execute("DELETE FROM orders WHERE id = ?", [journey.orderId]);
             await integrationPool.execute("DELETE FROM products WHERE id = ?", [journey.productId]);
+            await integrationPool.execute("DELETE FROM loyalty_accounts WHERE user_id IN (?, ?, ?)", [journey.userId, journey.driverId, journey.adminId]);
             await integrationPool.execute("DELETE FROM users WHERE id IN (?, ?, ?)", [journey.userId, journey.driverId, journey.adminId]);
         }
         await app?.close();
