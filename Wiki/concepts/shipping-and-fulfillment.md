@@ -43,6 +43,16 @@ assignment from `ASSIGNED` to `OUT_FOR_DELIVERY`, then to `DELIVERED` or
 assignee name, schedule, status and public events, but omit employee IDs,
 internal failure reasons and event actor IDs.
 
+The admin fulfillment screen keeps packing actions and adds an internal
+assignment queue with order contents, recipient, COD amount, active staff,
+schedule changes and prior assignment attempts. Delivery settings are managed
+at `/admin/delivery/settings`; routing and tile choices come only from server
+allowlists, while an admin sets the store pin and the two non-free fee bands.
+Schedule inputs are Vietnam local time and are parsed to UTC by the server.
+Active `DeliveryStaff` accounts use `/delivery/assignments` for their own queue
+and status updates. Login routes them to that workspace; admin authorization
+continues to admit only `Admin`.
+
 On the first valid `DELIVERED` update, the service records COD collection,
 completes the order through the shared payment guards, awards eligible loyalty
 points and queues the payment-confirmation and delivery-status emails in the

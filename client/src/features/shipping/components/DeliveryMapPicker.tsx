@@ -13,6 +13,12 @@ type Props = {
     tileUrl: string;
     tileAttribution: string;
     onDestinationChange: (point: RoadPoint | null) => void;
+    initialZoom?: number;
+    showStoreMarker?: boolean;
+    pinKind?: "store" | "destination";
+    destinationLabel?: string;
+    mapTitle?: string;
+    instruction?: string;
 };
 
 const HTML_ESCAPES: Record<string, string> = {
@@ -24,7 +30,21 @@ const HTML_ESCAPES: Record<string, string> = {
 };
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => HTML_ESCAPES[character] || character);
 
-const DeliveryMapPicker = ({ store, storeAddress, destination, route, tileUrl, tileAttribution, onDestinationChange }: Props) => {
+const DeliveryMapPicker = ({
+    store,
+    storeAddress,
+    destination,
+    route,
+    tileUrl,
+    tileAttribution,
+    onDestinationChange,
+    initialZoom = 13,
+    showStoreMarker = true,
+    pinKind = "destination",
+    destinationLabel,
+    mapTitle,
+    instruction,
+}: Props) => {
     const t = useT();
     const mapContainerRef = useRef<HTMLDivElement | null>(null);
     const mapRef = useRef<Leaflet.Map | null>(null);
@@ -51,14 +71,16 @@ const DeliveryMapPicker = ({ store, storeAddress, destination, route, tileUrl, t
         void import("leaflet").then((L) => {
             if (disposed || !mapContainerRef.current) return;
             map = L.map(container, { keyboard: true, zoomControl: true, attributionControl: true })
-                .setView([store.latitude, store.longitude], 13);
+                .setView([store.latitude, store.longitude], initialZoom);
             L.tileLayer(tileUrl, { attribution: escapeHtml(tileAttribution), maxZoom: 19 }).addTo(map);
-            L.marker([store.latitude, store.longitude], {
-                keyboard: true,
-                title: storeAddress,
-                alt: t("shipping.storeMarker"),
-                icon: L.divIcon({ className: "delivery-map__marker delivery-map__marker--store", html: "", iconSize: [24, 24], iconAnchor: [12, 12] }),
-            }).addTo(map);
+            if (showStoreMarker) {
+                L.marker([store.latitude, store.longitude], {
+                    keyboard: true,
+                    title: storeAddress,
+                    alt: t("shipping.storeMarker"),
+                    icon: L.divIcon({ className: "delivery-map__marker delivery-map__marker--store", html: "", iconSize: [24, 24], iconAnchor: [12, 12] }),
+                }).addTo(map);
+            }
 
             map.on("click", (event: Leaflet.LeafletMouseEvent) => {
                 onDestinationChangeRef.current({ latitude: event.latlng.lat, longitude: event.latlng.lng });
@@ -82,7 +104,7 @@ const DeliveryMapPicker = ({ store, storeAddress, destination, route, tileUrl, t
             routeRef.current = null;
             setMapReady(false);
         };
-    }, [store.latitude, store.longitude, storeAddress, tileUrl, tileAttribution, t]);
+    }, [initialZoom, showStoreMarker, store.latitude, store.longitude, storeAddress, tileUrl, tileAttribution, t]);
 
     useEffect(() => {
         const map = mapRef.current;
@@ -94,9 +116,9 @@ const DeliveryMapPicker = ({ store, storeAddress, destination, route, tileUrl, t
                     const marker = L.marker([destination.latitude, destination.longitude], {
                         draggable: true,
                         keyboard: true,
-                        title: t("shipping.destinationMarker"),
-                        alt: t("shipping.destinationMarker"),
-                        icon: L.divIcon({ className: "delivery-map__marker delivery-map__marker--destination", html: "", iconSize: [24, 24], iconAnchor: [12, 12] }),
+                        title: destinationLabel || t("shipping.destinationMarker"),
+                        alt: destinationLabel || t("shipping.destinationMarker"),
+                        icon: L.divIcon({ className: `delivery-map__marker delivery-map__marker--${pinKind}`, html: "", iconSize: [24, 24], iconAnchor: [12, 12] }),
                     }).addTo(map);
                     marker.on("dragend", () => {
                         const point = marker.getLatLng();
@@ -125,7 +147,7 @@ const DeliveryMapPicker = ({ store, storeAddress, destination, route, tileUrl, t
                 routeRef.current = null;
             }
         });
-    }, [destination?.latitude, destination?.longitude, mapReady, route, t]);
+    }, [destination?.latitude, destination?.longitude, mapReady, pinKind, route, t]);
 
     const updateCoordinate = (axis: "latitude" | "longitude", value: string) => {
         if (axis === "latitude") setLatitudeInput(value);
@@ -147,13 +169,13 @@ const DeliveryMapPicker = ({ store, storeAddress, destination, route, tileUrl, t
         <div className="delivery-map" role="region" aria-labelledby="delivery-map-title">
             <div className="delivery-map__header">
                 <div>
-                    <h4 id="delivery-map-title">{t("shipping.mapTitle")}</h4>
-                    <p>{t("shipping.mapInstruction")}</p>
+                    <h4 id="delivery-map-title">{mapTitle || t("shipping.mapTitle")}</h4>
+                    <p>{instruction || t("shipping.mapInstruction")}</p>
                 </div>
-                <span className="delivery-map__legend">
+                {showStoreMarker ? <span className="delivery-map__legend">
                     <i className="delivery-map__legend-dot delivery-map__legend-dot--store" />
                     <span><strong>{t("shipping.storeMarker")}</strong><small>{storeAddress}</small></span>
-                </span>
+                </span> : null}
             </div>
             <div
                 ref={mapContainerRef}

@@ -16,6 +16,80 @@ export type DeliveryMapConfig = {
     tileAttribution: string;
 };
 
+export type DeliveryStatus = "ASSIGNED" | "OUT_FOR_DELIVERY" | "DELIVERED" | "DELIVERY_FAILED";
+export type DeliverySettings = {
+    storeAddress: string;
+    storeLatitude: number;
+    storeLongitude: number;
+    fee5To20Vnd: number;
+    feeOver20Vnd: number;
+    routingEndpoint: string;
+    tileUrl: string;
+    tileAttribution: string;
+    version: number;
+};
+export type DeliverySettingsConfig = {
+    settings: DeliverySettings | null;
+    allowedRoutingEndpoints: string[];
+    allowedTileUrls: string[];
+};
+export type DeliveryOrderItem = {
+    productName: string;
+    sku: string | null;
+    quantity: number;
+    unitPriceVnd: number;
+    totalPriceVnd: number;
+};
+export type DeliveryEvent = {
+    id: number;
+    status: DeliveryStatus | null;
+    actorId?: string | null;
+    publicNote: string | null;
+    createdAt: string;
+};
+export type InternalDeliveryAddress = DeliveryAddress & {
+    recipientName: string;
+    recipientPhone: string;
+};
+export type DeliveryAssignment = {
+    id: number;
+    orderId: number;
+    employeeId: string;
+    employeeName: string;
+    scheduledStartAt: string;
+    scheduledEndAt: string;
+    status: DeliveryStatus | "REASSIGNED";
+    failureReason: string | null;
+    events: DeliveryEvent[];
+    order?: {
+        destination: InternalDeliveryAddress | null;
+        paymentMethod: string | null;
+        codAmountVnd: number;
+        items: DeliveryOrderItem[];
+    };
+};
+export type CustomerDeliverySummary = Omit<DeliveryAssignment, "failureReason" | "employeeId" | "events" | "order"> & {
+    events: Array<Omit<DeliveryEvent, "actorId">>;
+};
+export type AssignableDeliveryOrder = {
+    orderId: number;
+    createdAt: string;
+    customerName: string;
+    destination: InternalDeliveryAddress | null;
+    paymentMethod: string;
+    paymentStatus: string;
+    codAmountVnd: number;
+    items: DeliveryOrderItem[];
+    currentAssignment: null | {
+        id: number;
+        employeeId: string;
+        employeeName: string;
+        scheduledStartAt: string;
+        scheduledEndAt: string;
+    };
+};
+export type DeliveryStaffMember = { id: string; name: string };
+
 export type ShippingParcel = { grams: number; lengthCm: number; widthCm: number; heightCm: number };
 export type ShippingPricing = {
     itemsSubtotal: number;
@@ -54,6 +128,7 @@ export type ShipmentSummary = {
     expectedDeliveryAt?: string | null;
     events?: ShipmentTimelineEvent[];
     timeline?: Array<ShipmentTimelineEvent & { id?: number; public_note?: string | null; created_at?: string | null }>;
+    delivery?: CustomerDeliverySummary | null;
 };
 
 export type FulfillmentOrder = { orderId: number; state: string; trackingCode: string | null; sandbox: boolean | number };

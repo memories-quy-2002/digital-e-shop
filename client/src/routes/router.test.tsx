@@ -66,6 +66,8 @@ vi.mock("../features/admin/pages/AdminPromotionsPage", () => ({ default: () => <
 vi.mock("../features/admin/pages/AdminAddProductPage", () => ({ default: () => <div>Admin add product</div> }));
 vi.mock("../features/admin/pages/AdminAuditPage", () => ({ default: () => <div>Admin audit log</div> }));
 vi.mock("../features/admin/pages/AdminNotificationsPage", () => ({ default: () => <div data-testid="admin-notifications-page">Admin notifications</div> }));
+vi.mock("../features/shipping/pages/AdminDeliverySettingsPage", () => ({ default: () => <div data-testid="delivery-settings-page">Delivery settings</div> }));
+vi.mock("../features/shipping/pages/DeliveryStaffAssignmentsPage", () => ({ default: () => <div data-testid="delivery-staff-page">My deliveries</div> }));
 
 vi.mock("../features/auth/pages/LoginPage", () => ({
     default: function MockLoginPage() {
@@ -90,6 +92,7 @@ const adminPaths = [
     "/admin/promotions",
     "/admin/audit",
     "/admin/add",
+    "/admin/delivery/settings",
 ] as const;
 
 const buildUser = (role: Role): NonNullable<UserData> => ({
@@ -226,6 +229,22 @@ describe("cart routing", () => {
 
         expect(await screen.findByTestId("public-guest-order-page")).toBeInTheDocument();
         expect(screen.queryByTestId("protected-route")).not.toBeInTheDocument();
+    });
+});
+
+describe("delivery staff routing", () => {
+    it("opens the staff workspace only for an active DeliveryStaff role", async () => {
+        authState.value = { loading: false, userData: buildUser(Role.DeliveryStaff) };
+        authState.value.userData!.status = "Active";
+        render(<MemoryRouter initialEntries={["/delivery/assignments"]}><AppRouter /></MemoryRouter>);
+        expect(await screen.findByTestId("delivery-staff-page")).toBeInTheDocument();
+    });
+
+    it("denies DeliveryStaff from admin settings", async () => {
+        authState.value = { loading: false, userData: buildUser(Role.DeliveryStaff) };
+        authState.value.userData!.status = "Active";
+        render(<MemoryRouter initialEntries={["/admin/delivery/settings"]}><AppRouter /><RouteLocationProbe /></MemoryRouter>);
+        expect(await screen.findByTestId("route-location")).toHaveTextContent("/403");
     });
 });
 

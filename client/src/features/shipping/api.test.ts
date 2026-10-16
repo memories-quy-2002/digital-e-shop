@@ -1,6 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import http from "../../lib/http";
-import { fetchCustomerShipment, fetchDeliveryMapConfig, fetchGuestShipment, requestInternalDeliveryQuote, saveProductParcel } from "./api";
+import {
+    assignDeliveryOrder,
+    fetchAdminDeliverySettings,
+    fetchAssignableDeliveryOrders,
+    fetchCustomerShipment,
+    fetchDeliveryAssignmentHistory,
+    fetchDeliveryMapConfig,
+    fetchDeliveryStaff,
+    fetchDeliveryStaffAssignments,
+    fetchGuestShipment,
+    requestInternalDeliveryQuote,
+    saveProductParcel,
+    updateAdminDeliverySettings,
+    updateDeliveryStaffAssignment,
+} from "./api";
 
 vi.mock("../../lib/http", () => ({ default: { get: vi.fn(), post: vi.fn(), put: vi.fn() } }));
 
@@ -31,5 +45,34 @@ describe("shipping API", () => {
         vi.mocked(http.put).mockResolvedValue({ data: { parcel: { grams: 400, lengthCm: 10, widthCm: 10, heightCm: 10 } } } as never);
         await expect(saveProductParcel(11, { grams: 400, lengthCm: 10, widthCm: 10, heightCm: 10 })).resolves.toMatchObject({ grams: 400 });
         expect(http.put).toHaveBeenCalledWith("/api/shipping/admin/products/11/parcel", { grams: 400, lengthCm: 10, widthCm: 10, heightCm: 10 });
+    });
+
+    it("uses the scoped admin and employee endpoints for internal delivery", async () => {
+        const settings = { storeAddress: "Store", storeLatitude: 10.78, storeLongitude: 106.7, fee5To20Vnd: 25000, feeOver20Vnd: 50000, routingEndpoint: "https://router.example.test/route/v1/driving", tileUrl: "https://tiles.example.test/{z}/{x}/{y}.png", tileAttribution: "Map contributors", version: 1 };
+        vi.mocked(http.get).mockResolvedValueOnce({ data: { settings, allowedRoutingEndpoints: [settings.routingEndpoint], allowedTileUrls: [settings.tileUrl] } } as never);
+        await expect(fetchAdminDeliverySettings()).resolves.toMatchObject({ settings, allowedRoutingEndpoints: [settings.routingEndpoint] });
+        expect(http.get).toHaveBeenCalledWith("/api/admin/delivery/settings");
+
+        vi.mocked(http.put).mockResolvedValueOnce({ data: { settings } } as never);
+        await updateAdminDeliverySettings(settings);
+        expect(http.put).toHaveBeenCalledWith("/api/admin/delivery/settings", settings);
+
+        vi.mocked(http.get).mockResolvedValueOnce({ data: { orders: [{ orderId: 44 }] } } as never);
+        await expect(fetchAssignableDeliveryOrders()).resolves.toEqual([{ orderId: 44 }]);
+        vi.mocked(http.get).mockResolvedValueOnce({ data: { staff: [{ id: "staff-1", name: "Staff" }] } } as never);
+        await expect(fetchDeliveryStaff()).resolves.toEqual([{ id: "staff-1", name: "Staff" }]);
+        vi.mocked(http.get).mockResolvedValueOnce({ data: { assignments: [] } } as never);
+        await expect(fetchDeliveryAssignmentHistory(44)).resolves.toEqual([]);
+        expect(http.get).toHaveBeenLastCalledWith("/api/admin/delivery/orders/44");
+
+        vi.mocked(http.post).mockResolvedValueOnce({ data: { id: 1 } } as never);
+        await assignDeliveryOrder(44, { employeeId: "staff-1", scheduledStartAt: "2026-10-20T10:00", scheduledEndAt: "2026-10-20T12:00" });
+        expect(http.post).toHaveBeenLastCalledWith("/api/admin/delivery/orders/44/assignments", expect.objectContaining({ employeeId: "staff-1" }));
+
+        vi.mocked(http.get).mockResolvedValueOnce({ data: { assignments: [{ id: 1 }] } } as never);
+        await expect(fetchDeliveryStaffAssignments()).resolves.toEqual([{ id: 1 }]);
+        vi.mocked(http.post).mockResolvedValueOnce({ data: { id: 1, status: "DELIVERED" } } as never);
+        await updateDeliveryStaffAssignment(1, { status: "DELIVERED" });
+        expect(http.post).toHaveBeenLastCalledWith("/api/delivery/staff/assignments/1/status", { status: "DELIVERED" });
     });
 });

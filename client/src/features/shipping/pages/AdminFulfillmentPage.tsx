@@ -6,6 +6,7 @@ import { formatUtcDateTime } from "../../../utils/dateTime";
 import AdminStatusPanel from "../../admin/components/AdminStatusPanel";
 import { confirmReturnedShipment, createFulfillmentShipment, fetchFulfillmentLabel, fetchFulfillmentOrder, fetchFulfillmentOrders, transitionFulfillment } from "../api";
 import type { FulfillmentOrder, ShipmentSummary } from "../types";
+import InternalDeliveryAssignmentsPanel from "../components/InternalDeliveryAssignmentsPanel";
 import "../../../styles/features/shipping/_shipping.scss";
 
 const NEXT: Record<string, Array<"CONFIRMED" | "PICKING" | "PACKED" | "READY_TO_SHIP">> = {
@@ -78,6 +79,7 @@ export default function AdminFulfillmentPage() {
     return <AdminLayout>
         <Helmet><title>{t("shipping.adminTitle")}</title></Helmet>
         <main className="admin__page shipping-admin">
+            <InternalDeliveryAssignmentsPanel />
             <header className="admin__page__header"><div><span className="admin__page__eyebrow">{t("shipping.fulfillment")}</span><h1 className="admin__page__title">{t("shipping.adminTitle")}</h1><p className="admin__page__subtitle">{t("shipping.adminDescription")}</p></div><button type="button" className="admin__button admin__button--ghost" onClick={() => void loadOrders()} disabled={busy}>{t("shipping.refresh")}</button></header>
             {notice ? <p className="shipping-admin__notice" role="status">{notice}</p> : null}
             {error ? <AdminStatusPanel variant="error" title={t("shipping.adminErrorTitle")} description={error} onRetry={() => void loadOrders()} /> : null}

@@ -74,12 +74,102 @@
 .shipping-admin__label { display: grid; gap: .5rem; padding: .9rem; border-radius: .7rem; background: var(--de-color-subtle, #f3f6fb); }
 .shipping-admin__label input { width: 100%; min-height: 2.5rem; padding: .5rem; }
 .shipping-admin__notice { padding: .75rem 1rem; border-radius: .6rem; background: var(--de-color-subtle, #f3f6fb); }
+.shipping-admin__notice--error { border: 1px solid var(--de-color-danger-soft); color: var(--de-color-danger-strong); background: var(--de-color-danger-soft); }
+.shipping-admin__help { color: var(--de-color-muted, #667085); }
+.delivery-settings { display: grid; gap: 1rem; }
+.delivery-settings fieldset,
+.delivery-assignments__detail,
+.delivery-staff__card,
+.delivery-staff__empty { display: grid; gap: .9rem; min-width: 0; padding: 1rem; border: 1px solid var(--de-color-border, #d9dee8); border-radius: 1rem; background: var(--de-color-surface, #fff); color: var(--de-color-text, #172033); }
+.delivery-settings fieldset { margin: 0; }
+.delivery-settings legend { padding: 0 .4rem; font-weight: 750; }
+.delivery-settings label,
+.delivery-assignments__form label,
+.delivery-staff__failure label { display: grid; gap: .4rem; font-weight: 650; }
+.delivery-settings input,
+.delivery-settings select,
+.delivery-assignments input,
+.delivery-assignments select,
+.delivery-staff textarea { width: 100%; min-height: 2.75rem; padding: .65rem .75rem; border: 1px solid var(--de-color-border, #aeb8c8); border-radius: .55rem; color: inherit; background: var(--de-color-surface, #fff); }
+.delivery-settings input:focus-visible,
+.delivery-settings select:focus-visible,
+.delivery-assignments input:focus-visible,
+.delivery-assignments select:focus-visible,
+.delivery-staff button:focus-visible,
+.delivery-staff textarea:focus-visible { outline: 3px solid var(--de-color-primary, #2563eb); outline-offset: 2px; }
+.delivery-settings__grid,
+.delivery-assignments__schedule { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem; }
+.delivery-assignments { display: grid; gap: 1rem; padding: 1rem; border: 1px solid var(--de-color-border, #d9dee8); border-radius: 1rem; background: var(--de-color-subtle, #f8fafc); }
+.delivery-assignments__header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: .9rem; }
+.delivery-assignments__header h2,
+.delivery-assignments__header p { margin: .2rem 0; }
+.delivery-assignments__header button,
+.delivery-assignments__form button,
+.delivery-staff__header button,
+.delivery-staff__actions > button,
+.delivery-staff__failure button { min-height: 2.75rem; padding: .6rem .9rem; border: 0; border-radius: .6rem; color: #fff; background: var(--de-color-primary, #1d4ed8); font-weight: 700; }
+.delivery-assignments__header button:disabled,
+.delivery-assignments__form button:disabled,
+.delivery-staff button:disabled { opacity: .6; }
+.delivery-assignments__layout { display: grid; grid-template-columns: minmax(14rem, .7fr) minmax(0, 1.4fr); gap: 1rem; align-items: start; }
+.delivery-assignments__orders { display: grid; gap: .65rem; }
+.delivery-assignments__orders button { display: grid; gap: .25rem; padding: .85rem; border: 1px solid var(--de-color-border, #d9dee8); border-radius: .7rem; text-align: left; color: inherit; background: var(--de-color-surface, #fff); }
+.delivery-assignments__orders button.is-active { border-color: var(--de-color-primary, #2563eb); box-shadow: 0 0 0 2px color-mix(in srgb, var(--de-color-primary, #2563eb) 20%, transparent); }
+.delivery-assignments__orders button:focus-visible { outline: 3px solid var(--de-color-primary, #2563eb); outline-offset: 2px; }
+.delivery-assignments__orders small,
+.delivery-assignments__current { color: var(--de-color-muted, #667085); }
+.delivery-assignments__detail p { margin: 0; overflow-wrap: anywhere; }
+.delivery-assignments__items,
+.delivery-assignments__history { display: grid; gap: .5rem; }
+.delivery-assignments__items h4,
+.delivery-assignments__history h4 { margin: 0; }
+.delivery-assignments__items ul,
+.delivery-assignments__history ol { display: grid; gap: .5rem; margin: 0; padding-left: 1.25rem; }
+.delivery-assignments__items li,
+.delivery-assignments__history li { padding-left: .2rem; }
+.delivery-assignments__items li { display: flex; justify-content: space-between; gap: .75rem; }
+.delivery-assignments__history li { display: grid; }
+.delivery-assignments__history li span,
+.delivery-assignments__history li small { color: var(--de-color-muted, #667085); }
+.delivery-assignments__form { display: grid; gap: .75rem; padding: .9rem; border-radius: .75rem; background: var(--de-color-subtle, #f3f6fb); }
+.delivery-assignments__form h4 { margin: 0; }
+.delivery-staff { display: grid; gap: 1rem; max-width: 70rem; margin: 0 auto; padding: 1.5rem 1rem; }
+.delivery-staff__header { display: grid; gap: .45rem; }
+.delivery-staff__header > span { color: var(--de-color-muted, #667085); }
+.delivery-staff__header h1,
+.delivery-staff__header p { margin: 0; }
+.delivery-staff__header button { justify-self: start; margin-top: .4rem; }
+.delivery-staff__list { display: grid; gap: .9rem; }
+.delivery-staff__card > header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: .75rem; }
+.delivery-staff__card h2 { margin: .25rem 0 0; font-size: 1.2rem; }
+.delivery-staff__card p { margin: .2rem 0; overflow-wrap: anywhere; }
+.delivery-staff__contact { display: grid; gap: .3rem; }
+.delivery-staff__items h3 { margin: 0 0 .5rem; font-size: 1rem; }
+.delivery-staff__items ul { display: grid; gap: .5rem; margin: 0; padding-left: 1.25rem; }
+.delivery-staff__items li { display: flex; justify-content: space-between; gap: .75rem; }
+.delivery-staff__events { display: grid; gap: .4rem; margin: 0; padding-left: 1.25rem; }
+.delivery-staff__events li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .6rem; }
+.delivery-staff__events time { color: var(--de-color-muted, #667085); }
+.delivery-staff__actions { display: flex; flex-wrap: wrap; gap: .65rem; }
+.delivery-staff__failure { display: grid; flex-basis: 100%; gap: .6rem; }
+.delivery-staff textarea { min-height: 5.5rem; resize: vertical; }
+.delivery-staff__empty { padding: 1.25rem; }
+.delivery-staff__empty h2,
+.delivery-staff__empty p { margin: 0; }
+.delivery-status { align-self: flex-start; padding: .35rem .6rem; border-radius: 999px; background: var(--de-color-subtle, #f3f6fb); }
+.delivery-status--delivered { color: var(--de-color-success-strong); background: var(--de-color-success-soft); }
+.delivery-status--delivery-failed { color: var(--de-color-danger-strong); background: var(--de-color-danger-soft); }
+.delivery-status--out-for-delivery { color: var(--de-color-info-strong); background: var(--de-color-info-soft); }
 
 @media (max-width: 640px) {
     .shipping-quote__grid, .shipping-parcel__grid { grid-template-columns: 1fr; }
     .shipping-quote__wide { grid-column: auto; }
     .shipping-admin__layout { grid-template-columns: 1fr; }
     .delivery-map__coordinates { grid-template-columns: 1fr; }
+    .delivery-settings__grid,
+    .delivery-assignments__schedule,
+    .delivery-assignments__layout { grid-template-columns: 1fr; }
+    .delivery-assignments__items li { align-items: flex-start; }
     .delivery-map__canvas,
     .delivery-map .leaflet-container { min-height: 16rem; height: 16rem; }
 }

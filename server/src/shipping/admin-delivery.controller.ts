@@ -25,7 +25,7 @@ export class AdminDeliveryController {
 
     @Get("settings")
     async getSettings() {
-        return { settings: await this.settings.get() };
+        return this.settings.getAdminConfig();
     }
 
     @Put("settings")

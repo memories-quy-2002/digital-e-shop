@@ -112,6 +112,13 @@ describe("LoginPage return navigation", () => {
 
         expect(await screen.findByTestId("location")).toHaveTextContent("/account?tab=orders");
     });
+
+    it("sends DeliveryStaff to their delivery workspace after sign in", async () => {
+        renderLogin("", Role.DeliveryStaff);
+        await submitLogin();
+
+        expect(await screen.findByTestId("location")).toHaveTextContent("/delivery/assignments");
+    });
 });
 
 describe("LoginPage Firebase errors", () => {

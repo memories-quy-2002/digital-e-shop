@@ -33,6 +33,7 @@ const AdminSidebar = ({ isOpen = false, isCollapsed = false, onClose, onToggleCo
             : item.label,
     })),
         { label: locale === "vi" ? "Xử lý giao hàng" : "Fulfillment", path: "/admin/fulfillment", match: "fulfillment", icon: <BoxSeamIcon size={20} /> },
+        { label: locale === "vi" ? "Cài đặt giao hàng" : "Delivery settings", path: "/admin/delivery/settings", match: "delivery-settings", icon: <BoxSeamIcon size={20} /> },
         { label: locale === "vi" ? "Đối soát COD" : "COD settlements", path: "/admin/payments/cod-settlements", match: "cod-settlements", icon: <CashStackIcon size={20} /> },
         { label: locale === "vi" ? "Email giao dịch" : "Email operations", path: "/admin/email-operations", match: "email-operations", icon: <TelephoneIcon size={20} /> },
     ];

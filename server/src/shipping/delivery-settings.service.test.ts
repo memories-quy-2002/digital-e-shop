@@ -64,6 +64,16 @@ describe("DeliverySettingsService", () => {
         await expect(service.getMapConfig()).resolves.toBeNull();
     });
 
+    it("returns only normalized allowlisted endpoints for admin settings choices", async () => {
+        await expect(service.getAdminConfig()).resolves.toEqual({
+            settings: null,
+            allowedRoutingEndpoints: ["http://10.20.0.5:5000", "https://router.example.test"],
+            allowedTileUrls: [
+                "https://tiles.example.test/{z}/{x}/{y}.png",
+            ],
+        });
+    });
+
     it("returns only the public map fields and enforces the tile allowlist", async () => {
         current = { ...validInput(), version: 2 };
         await expect(service.getMapConfig()).resolves.toEqual({

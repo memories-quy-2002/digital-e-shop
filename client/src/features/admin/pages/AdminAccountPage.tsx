@@ -13,6 +13,7 @@ import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequ
 import { formatCurrency } from "../../../utils/currency";
 import { getOrderStatusKey } from "../../orders/orderStatus";
 import { getApiErrorMessage } from "../../../lib/api-contract";
+import { useT } from "../../../hooks/useT";
 
 const ITEMS_PER_PAGE = 8;
 const emptyPagination: AdminListPagination = { page: 1, limit: ITEMS_PER_PAGE, total: 0, totalPages: 0 };
@@ -47,6 +48,7 @@ const AdminAccountPage = () => {
     const hasLoadedRef = useRef(false);
     const requestSequence = useRef(0);
     const { addToast } = useToast();
+    const t = useT();
     const deferredSearchTerm = useDeferredValue(searchTerm);
 
     const loadUsers = React.useCallback(async () => {
@@ -280,6 +282,7 @@ const AdminAccountPage = () => {
                                             >
                                                 <option value={Role.Customer}>Customer</option>
                                                 <option value={Role.Admin}>Admin</option>
+                                                <option value={Role.DeliveryStaff}>{t("shipping.deliveryStaffRole")}</option>
                                             </select>
                                         </td>
                                         <td className="admin__table__status" data-label="Status">

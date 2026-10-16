@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { withTransaction, type TransactionContext } from "../database/transaction";
 import { env } from "../config/env.config";
-import { isRoutingEndpointAllowed } from "./delivery-routing.config";
+import { isRoutingEndpointAllowed, normalizeRoutingEndpoint } from "./delivery-routing.config";
 import { DeliverySettingsRepository } from "./delivery-settings.repository";
-import { deliverySettingsSchema } from "./delivery-settings.validator";
+import { deliverySettingsSchema, isSafeTileUrl } from "./delivery-settings.validator";
 import type { DeliveryMapConfig, DeliverySettings, RoadPoint } from "./shipping.types";
 
 export type { DeliverySettings } from "./shipping.types";
@@ -14,6 +14,17 @@ export class DeliverySettingsService {
 
     get(): Promise<DeliverySettings | null> {
         return this.repository.get();
+    }
+
+    async getAdminConfig() {
+        const settings = await this.repository.get();
+        return {
+            settings,
+            allowedRoutingEndpoints: [...new Set(env.deliveryRoutingEndpointAllowlist
+                .map((endpoint) => normalizeRoutingEndpoint(endpoint))
+                .filter((endpoint): endpoint is string => endpoint !== null))],
+            allowedTileUrls: [...new Set(env.deliveryTileUrlAllowlist.filter(isSafeTileUrl))],
+        };
     }
 
     async getMapConfig(): Promise<DeliveryMapConfig | null> {

@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import withSessionCheck from "../features/auth/components/withSessionCheck";
 import RequireAdmin from "../features/auth/components/RequireAdmin";
+import RequireDeliveryStaff from "../features/auth/components/RequireDeliveryStaff";
 import LoadingScreen from "../components/common/LoadingScreen";
 import ForbiddenPage from "../pages/ForbiddenPage";
 import { CUSTOMER_ROUTES } from "./customerRoutes";
@@ -51,6 +52,8 @@ const AdminPromotionsPage = lazy(() => import("../features/admin/pages/AdminProm
 const AdminAddProductPage = lazy(() => import("../features/admin/pages/AdminAddProductPage"));
 const AdminAfterSalesPage = lazy(() => import("../features/after-sales/pages/AdminAfterSalesPage"));
 const AdminFulfillmentPage = lazy(() => import("../features/shipping/pages/AdminFulfillmentPage"));
+const AdminDeliverySettingsPage = lazy(() => import("../features/shipping/pages/AdminDeliverySettingsPage"));
+const DeliveryStaffAssignmentsPage = lazy(() => import("../features/shipping/pages/DeliveryStaffAssignmentsPage"));
 const AdminCodSettlementsPage = lazy(() => import("../features/admin/pages/AdminCodSettlementsPage"));
 const AdminEmailOperationsPage = lazy(() => import("../features/admin/pages/AdminEmailOperationsPage"));
 const AdminAuditPage = lazy(() => import("../features/admin/pages/AdminAuditPage"));
@@ -161,6 +164,8 @@ const AppRouter = () => {
                     }
                 />
                 <Route path="/admin/fulfillment" element={<RequireAdmin><AdminFulfillmentPage /></RequireAdmin>} />
+                <Route path="/admin/delivery/settings" element={<RequireAdmin><AdminDeliverySettingsPage /></RequireAdmin>} />
+                <Route path="/delivery/assignments" element={<RequireDeliveryStaff><DeliveryStaffAssignmentsPage /></RequireDeliveryStaff>} />
                 <Route path="/admin/payments/cod-settlements" element={<RequireAdmin><AdminCodSettlementsPage /></RequireAdmin>} />
                 <Route path="/admin/email-operations" element={<RequireAdmin><AdminEmailOperationsPage /></RequireAdmin>} />
                 <Route

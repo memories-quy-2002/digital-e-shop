@@ -175,7 +175,7 @@
 - [x] **Step 5: Update checkout and address-book types/API** to preserve existing `shippingQuoteId` request property and optionally save coordinates.
 - [x] **Step 6: Add English/Vietnamese labels, visible focus, map attribution and responsive/light/dark styling.** Keep the address and coordinate controls usable without map dragging.
 - [x] **Step 7: Run the focused client tests;** expected: quote, keyboard, empty/error/loading and no-geolocation assertions pass. Six focused files passed (34 tests); client typecheck passed. The broader Playwright scenario is consolidated in Task 6 after all customer, admin and staff routes exist.
-- [ ] **Step 8: Commit** with `feat(delivery): add distance quote map to checkout`.
+- [x] **Step 8: Commit** with `feat(delivery): add distance quote map to checkout`.
 
 **Implementation notes:** The store pin and allowlisted tile URL/attribution are exposed through a minimal public map-config route; fee settings and the routing endpoint remain server-side. Leaflet loads on demand and coordinate fields provide a keyboard-accessible pin alternative.
 
@@ -187,15 +187,19 @@
 - Create: `client/src/features/auth/components/RequireDeliveryStaff.tsx` and `RequireDeliveryStaff.test.tsx`
 - Create: `client/src/features/shipping/pages/AdminDeliverySettingsPage.tsx` and `AdminDeliverySettingsPage.test.tsx`
 - Create: `client/src/features/shipping/pages/DeliveryStaffAssignmentsPage.tsx` and `DeliveryStaffAssignmentsPage.test.tsx`
+- Create: `client/src/features/shipping/components/InternalDeliveryAssignmentsPanel.tsx` and `client/e2e/internal-delivery.spec.ts`
+- Modify: `server/src/shipping/admin-delivery.controller.ts`, `delivery-settings.service.ts`, and `delivery-settings.service.test.ts` to provide operator-allowlisted settings choices.
 - Test: `client/src/features/shipping/pages/AdminFulfillmentPage.test.tsx`, `client/src/features/admin/pages/AdminAccountPage.test.tsx`, `client/src/routes/router.test.tsx`, and existing `client/src/features/auth/components/RequireAdmin.test.tsx`
 
-- [ ] **Step 1: Write UI tests** for admin settings/assignment, role editing, employee own-assignment view, customer public timeline, empty/loading/error states and a DeliveryStaff account being denied admin access.
-- [ ] **Step 2: Run `pnpm --dir client exec vitest run src/features/shipping/pages/AdminFulfillmentPage.test.tsx src/features/shipping/pages/AdminDeliverySettingsPage.test.tsx src/features/shipping/pages/DeliveryStaffAssignmentsPage.test.tsx src/features/admin/pages/AdminAccountPage.test.tsx src/routes/router.test.tsx src/features/auth/components/RequireDeliveryStaff.test.tsx src/features/auth/components/RequireAdmin.test.tsx`;** expected: fail until the new role and pages are implemented.
-- [ ] **Step 3: Update the admin board** to retain packing controls and add schedule assignment, employee, order contents, destination, COD and event history. Add settings page for store pin, fees, and allowlisted map/routing settings.
-- [ ] **Step 4: Add the DeliveryStaff route guard/page** and customer status UI; show assignee, schedule and assigned/out/delivered/failed states. Keep legacy customer shipment events readable. Never render a driver position or live map.
-- [ ] **Step 5: Add DeliveryStaff to the admin role editor and client role type.** Verify `RequireAdmin` still admits only Admin and the employee guard admits only active DeliveryStaff.
-- [ ] **Step 6: Run `pnpm --dir client exec vitest run src/features/shipping/pages/AdminFulfillmentPage.test.tsx src/features/shipping/pages/AdminDeliverySettingsPage.test.tsx src/features/shipping/pages/DeliveryStaffAssignmentsPage.test.tsx src/features/admin/pages/AdminAccountPage.test.tsx src/routes/router.test.tsx src/features/auth/components/RequireDeliveryStaff.test.tsx src/features/auth/components/RequireAdmin.test.tsx`;** expected: admin settings/assignment, employee view, customer timeline and role access states pass in both locales.
-- [ ] **Step 7: Commit** with `feat(delivery): add delivery management screens`.
+- [x] **Step 1: Write UI tests** for admin settings/assignment, role editing, employee own-assignment view, customer public timeline, empty/loading/error states and a DeliveryStaff account being denied admin access.
+- [x] **Step 2: Run focused client tests** for admin settings, assignment, employee workspace, customer timeline, and role guards; all focused suites pass.
+- [x] **Step 3: Update the admin board** to retain packing controls and add schedule assignment, employee, order contents, destination, COD and event history. Add settings page for store pin, fees, and allowlisted map/routing settings.
+- [x] **Step 4: Add the DeliveryStaff route guard/page** and customer status UI; show assignee, schedule and assigned/out/delivered/failed states. Keep legacy customer shipment events readable. Never render a driver position or live map.
+- [x] **Step 5: Add DeliveryStaff to the admin role editor and client role type.** Verify `RequireAdmin` still admits only Admin and the employee guard admits only active DeliveryStaff.
+- [x] **Step 6: Run focused client tests and `pnpm --dir client exec playwright test --list e2e/internal-delivery.spec.ts`;** 58 Vitest tests pass and 24 browser cases are discovered across desktop/mobile, English/Vietnamese, and light/dark. Browser execution is deferred because this repository's Playwright configuration starts Vite.
+- [x] **Step 7: Commit** with `feat(delivery): add delivery management screens`.
+
+**Implementation notes:** The admin settings endpoint exposes only valid, normalized server-allowlisted routing and HTTPS tile choices. Admin assignment history ignores stale responses when the selected order changes. Playwright coverage is authored for the configured browser matrix; only discovery and TypeScript checks were run because the Playwright config starts Vite.
 
 ### Task 7: Retire GHN runtime and preserve historical records
 
