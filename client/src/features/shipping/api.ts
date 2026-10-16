@@ -1,32 +1,27 @@
 import http from "../../lib/http";
 import type {
-    CarrierProvince,
-    CarrierService,
-    CarrierWard,
+    DeliveryMapConfig,
     DeliveryAddress,
     FulfillmentOrder,
     ShipmentSummary,
     ShippingParcel,
-    ShippingQuote,
+    InternalDeliveryQuote,
 } from "./types";
 
-export const fetchShippingProvinces = async (): Promise<CarrierProvince[]> => (await http.get("/api/shipping/provinces")).data;
-export const fetchShippingWards = async (provinceCode: string): Promise<CarrierWard[]> =>
-    (await http.get(`/api/shipping/provinces/${encodeURIComponent(provinceCode)}/wards`)).data;
-export const fetchShippingServices = async (): Promise<CarrierService[]> =>
-    (await http.get("/api/shipping/services")).data;
+export async function fetchDeliveryMapConfig(): Promise<DeliveryMapConfig | null> {
+    const response = await http.get("/api/shipping/delivery/map-config");
+    return response.data.map ?? null;
+}
 
-export async function requestShippingQuote(input: {
+export async function requestInternalDeliveryQuote(input: {
     address: DeliveryAddress;
     locale?: "en" | "vi";
     discountCode?: string;
-    serviceTypeId?: number;
     cart?: Array<{ productId: number; quantity: number }>;
-}, guest = false): Promise<ShippingQuote> {
-    const { cart, ...body } = input;
-    const payload = guest ? { ...body, cart: cart || [] } : body;
-    const response = await http.post(guest ? "/api/shipping/guest/quotes" : "/api/shipping/quotes", payload);
-    return response.data as ShippingQuote;
+}, guest = false): Promise<InternalDeliveryQuote> {
+    const url = guest ? "/api/shipping/guest/quotes" : "/api/shipping/quotes";
+    const response = await http.post(url, input);
+    return response.data as InternalDeliveryQuote;
 }
 
 export async function fetchCustomerShipment(orderId: number): Promise<ShipmentSummary | null> {

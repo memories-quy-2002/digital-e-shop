@@ -11,13 +11,15 @@ import { withTransaction } from "../database/transaction";
 import { deliveryAddressSchema, shippingParcelSchema } from "./shipping.validator";
 import { ShippingQuoteService } from "./shipping-quote.service";
 import { ShippingProviderRegistry } from "./shipping.registry";
+import { DeliverySettingsService } from "./delivery-settings.service";
 
 const quoteInput = z.object({ address: deliveryAddressSchema, discountCode: z.string().max(50).optional(), locale: z.enum(["en", "vi"]).optional() });
 const guestQuoteInput = quoteInput.extend({ cart: z.array(z.object({ productId: z.number().int().positive(), quantity: z.number().int().min(1).max(99) })).min(1).max(50) });
 
 @Controller("shipping")
 export class ShippingController {
-    constructor(private readonly registry: ShippingProviderRegistry, private readonly quotes: ShippingQuoteService, private readonly cart: NestCartService, private readonly products: NestProductsRepository) {}
+    constructor(private readonly registry: ShippingProviderRegistry, private readonly quotes: ShippingQuoteService, private readonly cart: NestCartService, private readonly products: NestProductsRepository, private readonly deliverySettings: DeliverySettingsService) {}
+    @Get("delivery/map-config") async deliveryMapConfig() { return { map: await this.deliverySettings.getMapConfig() }; }
     @Get("provinces") provinces() { return this.registry.get().getProvinces(); }
     @Get("services") candidates() { return this.registry.get().getAvailableServices(process.env.GHN_SENDER_DISTRICT_CODE || "1", ""); }
     @Get("provinces/:code/wards") wards(@Param("code") code: string) { return this.registry.get().getWards(code); }

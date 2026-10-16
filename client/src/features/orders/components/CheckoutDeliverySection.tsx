@@ -1,7 +1,7 @@
 import type { ChangeEvent } from "react";
 import { useT } from "../../../hooks/useT";
 import DeliveryQuoteForm from "../../shipping/components/DeliveryQuoteForm";
-import type { DeliveryAddress, ShippingQuote } from "../../shipping/types";
+import type { DeliveryAddress, InternalDeliveryQuote } from "../../shipping/types";
 import type { CustomerAddress } from "../../users/types";
 import type { RecentOrderAddress } from "../shippingAddress";
 import type { CheckoutCartItem } from "../types";
@@ -11,10 +11,9 @@ export type DeliveryAddressPrefill = {
     recipientName?: string;
     recipientPhone?: string;
     addressLine: string;
-    provinceCode?: string;
-    provinceName?: string;
-    wardCode?: string;
-    wardName?: string;
+    city?: string;
+    latitude?: number | null;
+    longitude?: number | null;
 };
 
 type Props = {
@@ -30,7 +29,7 @@ type Props = {
     resetKey: number;
     onSavedAddressChange: (event: ChangeEvent<HTMLSelectElement>) => void;
     onRecentAddressChange: (event: ChangeEvent<HTMLSelectElement>) => void;
-    onQuoteChange: (address: DeliveryAddress | null, quote: ShippingQuote | null) => void;
+    onQuoteChange: (address: DeliveryAddress | null, quote: InternalDeliveryQuote | null) => void;
 };
 
 const CheckoutDeliverySection = ({

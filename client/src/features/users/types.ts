@@ -22,6 +22,8 @@ export type CustomerAddress = {
     province_name?: string | null;
     ward_code?: string | null;
     ward_name?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
     is_default: boolean;
 };
 
@@ -36,6 +38,8 @@ export type CustomerAddressPayload = {
     provinceName: string;
     wardCode: string;
     wardName: string;
+    latitude?: number | null;
+    longitude?: number | null;
     isDefault: boolean;
 };
 

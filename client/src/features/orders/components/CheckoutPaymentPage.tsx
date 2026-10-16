@@ -35,7 +35,7 @@ import { getRecentOrderAddresses, serializeShippingAddress, type RecentOrderAddr
 import { formatCurrency } from "../../../utils/currency";
 import { useT } from "../../../hooks/useT";
 import { useLocale } from "../../../context/LocaleContext";
-import type { DeliveryAddress, ShippingQuote } from "../../shipping/types";
+import type { DeliveryAddress, InternalDeliveryQuote } from "../../shipping/types";
 import CheckoutDeliverySection, { type DeliveryAddressPrefill } from "./CheckoutDeliverySection";
 import { fetchCustomerAddresses } from "../../users/api";
 import type { CustomerAddress } from "../../users/types";
@@ -105,7 +105,7 @@ const CheckoutPaymentPage = ({
     const [isEmailTouched, setIsEmailTouched] = useState(false);
     const [verificationRequired, setVerificationRequired] = useState(false);
     const [deliveryAddress, setDeliveryAddress] = useState<DeliveryAddress | null>(null);
-    const [shippingQuote, setShippingQuote] = useState<ShippingQuote | null>(null);
+    const [shippingQuote, setShippingQuote] = useState<InternalDeliveryQuote | null>(null);
     const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([]);
     const [recentAddresses, setRecentAddresses] = useState<RecentOrderAddress[]>([]);
     const [savedAddressesError, setSavedAddressesError] = useState(false);
@@ -246,12 +246,12 @@ const CheckoutPaymentPage = ({
         };
     };
 
-    const handleShippingQuote = useCallback((address: DeliveryAddress | null, quote: ShippingQuote | null) => {
+    const handleShippingQuote = useCallback((address: DeliveryAddress | null, quote: InternalDeliveryQuote | null) => {
         setDeliveryAddress(address);
         setShippingQuote(quote);
         if (address) {
             const [firstName = "", ...lastName] = address.recipientName.split(" ");
-            setFormCheckout((current) => ({ ...current, first_name: firstName, last_name: lastName.join(" "), address: address.addressLine, city: address.wardName, country: "VN", phone_number: address.recipientPhone }));
+            setFormCheckout((current) => ({ ...current, first_name: firstName, last_name: lastName.join(" "), address: address.addressLine, city: address.city, country: "VN", phone_number: address.recipientPhone }));
         }
     }, []);
 
@@ -263,17 +263,16 @@ const CheckoutPaymentPage = ({
             recipientName: address.recipient_name || undefined,
             recipientPhone: address.phone_number || undefined,
             addressLine: address.address_line,
-            provinceCode: address.province_code || undefined,
-            provinceName: address.province_name || undefined,
-            wardCode: address.ward_code || undefined,
-            wardName: address.ward_name || undefined,
+            city: address.city || address.province_name || undefined,
+            latitude: address.latitude,
+            longitude: address.longitude,
         } : null);
     };
 
     const chooseRecentAddress = (event: React.ChangeEvent<HTMLSelectElement>) => {
         const address = recentAddresses.find((item) => String(item.orderId) === event.target.value);
         setSavedAddressPrefill(null);
-        setRecentAddressPrefill(address ? { key: `recent:${address.orderId}`, addressLine: address.address } : null);
+        setRecentAddressPrefill(address ? { key: `recent:${address.orderId}`, addressLine: address.address, city: address.city } : null);
     };
 
     const quoteIsValid = Boolean(shippingQuote && deliveryAddress && Date.parse(shippingQuote.expiresAt) > Date.now());

@@ -4,7 +4,7 @@ import { env } from "../config/env.config";
 import { isRoutingEndpointAllowed } from "./delivery-routing.config";
 import { DeliverySettingsRepository } from "./delivery-settings.repository";
 import { deliverySettingsSchema } from "./delivery-settings.validator";
-import type { DeliverySettings } from "./shipping.types";
+import type { DeliveryMapConfig, DeliverySettings, RoadPoint } from "./shipping.types";
 
 export type { DeliverySettings } from "./shipping.types";
 
@@ -16,13 +16,18 @@ export class DeliverySettingsService {
         return this.repository.get();
     }
 
+    async getMapConfig(): Promise<DeliveryMapConfig | null> {
+        const settings = await this.repository.get();
+        if (!settings) return null;
+        this.assertMapConfigurationAllowed(settings);
+        const origin: RoadPoint = { latitude: settings.storeLatitude, longitude: settings.storeLongitude };
+        return { storeAddress: settings.storeAddress, origin, tileUrl: settings.tileUrl, tileAttribution: settings.tileAttribution };
+    }
+
     async getForQuote(tx: TransactionContext): Promise<DeliverySettings | null> {
         const settings = (await this.repository.lockCurrent(tx)).settings;
         if (!settings) return null;
-        if (!isRoutingEndpointAllowed(settings.routingEndpoint, env.deliveryRoutingEndpointAllowlist)
-            || !env.deliveryTileUrlAllowlist.includes(settings.tileUrl)) {
-            throw new ServiceUnavailableException("Internal delivery routing or map configuration is unavailable.");
-        }
+        this.assertMapConfigurationAllowed(settings);
         return settings;
     }
 
@@ -47,5 +52,12 @@ export class DeliverySettingsService {
             await this.repository.recordAudit(tx, actorId, current.settings, next);
             return next;
         });
+    }
+
+    private assertMapConfigurationAllowed(settings: DeliverySettings): void {
+        if (!isRoutingEndpointAllowed(settings.routingEndpoint, env.deliveryRoutingEndpointAllowlist)
+            || !env.deliveryTileUrlAllowlist.includes(settings.tileUrl)) {
+            throw new ServiceUnavailableException("Internal delivery routing or map configuration is unavailable.");
+        }
     }
 }

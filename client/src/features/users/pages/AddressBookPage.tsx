@@ -9,8 +9,9 @@ import Layout from "../../../components/layout/Layout";
 import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
 import "../../../styles/features/users/_address-book.scss";
 import CustomerAccountShell from "../components/CustomerAccountShell";
-import { fetchShippingProvinces, fetchShippingWards } from "../../shipping/api";
-import type { CarrierProvince, CarrierWard } from "../../shipping/types";
+import { fetchDeliveryMapConfig } from "../../shipping/api";
+import type { RoadPoint } from "../../shipping/types";
+import DeliveryMapPicker from "../../shipping/components/DeliveryMapPicker";
 import {
     CustomerAddress,
     CustomerAddressPayload,
@@ -32,8 +33,12 @@ type AddressForm = {
     provinceName: string;
     wardCode: string;
     wardName: string;
+    latitude: number | null;
+    longitude: number | null;
     isDefault: boolean;
 };
+
+const EMPTY_ROUTE: Array<[longitude: number, latitude: number]> = [];
 
 const createEmptyForm = (homeLabel: string): AddressForm => ({
     label: homeLabel,
@@ -41,11 +46,13 @@ const createEmptyForm = (homeLabel: string): AddressForm => ({
     phoneNumber: "",
     addressLine: "",
     city: "",
-    country: "",
+    country: "VN",
     provinceCode: "",
     provinceName: "",
     wardCode: "",
     wardName: "",
+    latitude: null,
+    longitude: null,
     isDefault: false,
 });
 const AddressBookPage = () => {
@@ -54,9 +61,9 @@ const AddressBookPage = () => {
     const { addToast } = useToast();
     const t = useT();
     const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
-    const [provinces, setProvinces] = useState<CarrierProvince[]>([]);
-    const [wards, setWards] = useState<CarrierWard[]>([]);
-    const [locationLoadError, setLocationLoadError] = useState(false);
+    const [mapConfig, setMapConfig] = useState<Awaited<ReturnType<typeof fetchDeliveryMapConfig>>>(null);
+    const [mapConfigLoading, setMapConfigLoading] = useState(true);
+    const [mapConfigError, setMapConfigError] = useState(false);
     const [form, setForm] = useState<AddressForm>(() => createEmptyForm(t("addresses.home")));
     const [showAddressError, setShowAddressError] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -76,24 +83,21 @@ const AddressBookPage = () => {
         void loadAddresses();
     }, [loadAddresses]);
 
-    useEffect(() => {
-        let active = true;
-        void fetchShippingProvinces()
-            .then((items) => { if (active) setProvinces(items); })
-            .catch(() => { if (active) setLocationLoadError(true); });
-        return () => { active = false; };
+    const loadMapConfig = useCallback(async () => {
+        setMapConfigLoading(true);
+        try {
+            const config = await fetchDeliveryMapConfig();
+            setMapConfig(config);
+            setMapConfigError(!config);
+        } catch {
+            setMapConfig(null);
+            setMapConfigError(true);
+        } finally {
+            setMapConfigLoading(false);
+        }
     }, []);
 
-    useEffect(() => {
-        let active = true;
-        setWards([]);
-        if (form.provinceCode) {
-            void fetchShippingWards(form.provinceCode)
-                .then((items) => { if (active) setWards(items); })
-                .catch(() => { if (active) setLocationLoadError(true); });
-        }
-        return () => { active = false; };
-    }, [form.provinceCode]);
+    useEffect(() => { void loadMapConfig(); }, [loadMapConfig]);
 
     const handleEdit = (address: CustomerAddress) => {
         setShowAddressError(false);
@@ -109,6 +113,8 @@ const AddressBookPage = () => {
             provinceName: address.province_name || "",
             wardCode: address.ward_code || "",
             wardName: address.ward_name || "",
+            latitude: address.latitude ?? null,
+            longitude: address.longitude ?? null,
             isDefault: address.is_default,
         });
     };
@@ -135,6 +141,8 @@ const AddressBookPage = () => {
                 provinceName: form.provinceName,
                 wardCode: form.wardCode,
                 wardName: form.wardName,
+                latitude: form.latitude,
+                longitude: form.longitude,
                 isDefault: form.isDefault,
             };
             if (form.id) {
@@ -180,6 +188,10 @@ const AddressBookPage = () => {
     const handleRequestDelete = (addressId: number) => {
         const address = addresses.find((item) => item.id === addressId) || null;
         setPendingDeleteAddress(address);
+    };
+
+    const handleDestinationChange = (point: RoadPoint | null) => {
+        setForm((current) => ({ ...current, latitude: point?.latitude ?? null, longitude: point?.longitude ?? null }));
     };
 
     return (
@@ -246,6 +258,7 @@ const AddressBookPage = () => {
                             <input
                                 id="address-line"
                                 value={form.addressLine}
+                                autoComplete="street-address"
                                 required
                                 aria-invalid={showAddressError}
                                 aria-describedby={showAddressError ? "address-line-error" : undefined}
@@ -262,43 +275,31 @@ const AddressBookPage = () => {
                         </label>
                         <div className="address-book__form__grid">
                             <label>
-                                {t("shipping.province")}
-                                <select value={form.provinceCode} onChange={(event) => {
-                                    const province = provinces.find((item) => item.code === event.target.value);
-                                    setForm((current) => ({
-                                        ...current,
-                                        provinceCode: province?.code || "",
-                                        provinceName: province?.name || "",
-                                        wardCode: "",
-                                        wardName: "",
-                                        city: province?.name || current.city,
-                                        country: province ? "VN" : current.country,
-                                    }));
-                                }}>
-                                    <option value="">{t("shipping.selectProvince")}</option>
-                                    {provinces.map((province) => <option key={province.code} value={province.code}>{province.name}</option>)}
-                                </select>
-                            </label>
-                            <label>
-                                {t("shipping.ward")}
-                                <select value={form.wardCode} disabled={!form.provinceCode} onChange={(event) => {
-                                    const ward = wards.find((item) => item.code === event.target.value);
-                                    setForm((current) => ({ ...current, wardCode: ward?.code || "", wardName: ward?.name || "" }));
-                                }}>
-                                    <option value="">{t("shipping.selectWard")}</option>
-                                    {wards.map((ward) => <option key={ward.code} value={ward.code}>{ward.name}</option>)}
-                                </select>
-                            </label>
-                            <label>
                                 {t("addresses.city")}
-                                <input value={form.city} onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))} />
+                                <input autoComplete="address-level2" value={form.city} onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))} />
                             </label>
                             <label>
                                 {t("addresses.country")}
                                 <input value={form.country} onChange={(event) => setForm((current) => ({ ...current, country: event.target.value }))} />
                             </label>
                         </div>
-                        {locationLoadError ? <p className="address-book__field-error" role="status">{t("shipping.locationLoadError")}</p> : null}
+                        {mapConfig ? (
+                            <DeliveryMapPicker
+                                store={mapConfig.origin}
+                                storeAddress={mapConfig.storeAddress}
+                                destination={form.latitude !== null && form.longitude !== null ? { latitude: form.latitude, longitude: form.longitude } : null}
+                                route={EMPTY_ROUTE}
+                                tileUrl={mapConfig.tileUrl}
+                                tileAttribution={mapConfig.tileAttribution}
+                                onDestinationChange={handleDestinationChange}
+                            />
+                        ) : (
+                            <div className="address-book__map-fallback">
+                                <p role={mapConfigError ? "alert" : "status"}>{t(mapConfigLoading ? "shipping.mapLoading" : "shipping.mapUnavailable")}</p>
+                                {mapConfigError ? <button type="button" onClick={() => void loadMapConfig()}>{t("shipping.retryMap")}</button> : null}
+                            </div>
+                        )}
+                        <p className="address-book__map-hint">{t("addresses.pinOptional")}</p>
                         </div>
                         <label className="address-book__check">
                             <input

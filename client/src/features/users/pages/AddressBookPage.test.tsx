@@ -14,10 +14,7 @@ const mocks = vi.hoisted(() => ({
         updateCustomerAddress: vi.fn(),
         deleteCustomerAddress: vi.fn(),
     },
-    shipping: {
-        fetchShippingProvinces: vi.fn(),
-        fetchShippingWards: vi.fn(),
-    },
+    shipping: { fetchDeliveryMapConfig: vi.fn() },
 }));
 
 vi.mock("../../../context/AuthContext", () => ({
@@ -44,8 +41,13 @@ vi.mock("../api", () => ({
 }));
 
 vi.mock("../../shipping/api", () => ({
-    fetchShippingProvinces: mocks.shipping.fetchShippingProvinces,
-    fetchShippingWards: mocks.shipping.fetchShippingWards,
+    fetchDeliveryMapConfig: mocks.shipping.fetchDeliveryMapConfig,
+}));
+
+vi.mock("../../shipping/components/DeliveryMapPicker", () => ({
+    default: ({ onDestinationChange }: { onDestinationChange: (point: { latitude: number; longitude: number }) => void }) => (
+        <button type="button" onClick={() => onDestinationChange({ latitude: 10.7769, longitude: 106.7009 })}>Select pin</button>
+    ),
 }));
 
 vi.mock("../../../components/common/Icons", () => ({
@@ -81,8 +83,12 @@ describe("AddressBookPage", () => {
         mocks.addresses.createCustomerAddress.mockResolvedValue({ id: 1 });
         mocks.addresses.updateCustomerAddress.mockResolvedValue({ id: 1 });
         mocks.addresses.deleteCustomerAddress.mockResolvedValue(undefined);
-        mocks.shipping.fetchShippingProvinces.mockResolvedValue([{ code: "202", name: "Ho Chi Minh City" }]);
-        mocks.shipping.fetchShippingWards.mockResolvedValue([{ code: "26734", provinceCode: "202", name: "Ben Nghe Ward" }]);
+        mocks.shipping.fetchDeliveryMapConfig.mockResolvedValue({
+            origin: { latitude: 10.78, longitude: 106.7 },
+            storeAddress: "Digital-E Store",
+            tileUrl: "https://tiles.example.test/{z}/{x}/{y}.png",
+            tileAttribution: "Map contributors",
+        });
     });
 
     it("announces the required address field error and links it to the input", async () => {
@@ -109,18 +115,17 @@ describe("AddressBookPage", () => {
         ));
     });
 
-    it("saves the structured province and ward used by carrier quotes", async () => {
+    it("saves manually selected map coordinates with an address", async () => {
         renderPage();
         fireEvent.change(await screen.findByLabelText("Address"), { target: { value: "12 Main Street" } });
-        fireEvent.change(await screen.findByLabelText("Province or city"), { target: { value: "202" } });
-        fireEvent.change(await screen.findByLabelText("Ward"), { target: { value: "26734" } });
+        fireEvent.change(await screen.findByLabelText("City"), { target: { value: "Ho Chi Minh City" } });
+        fireEvent.click(await screen.findByRole("button", { name: "Select pin" }));
         fireEvent.submit(screen.getByLabelText("Address").closest("form")!);
 
         await waitFor(() => expect(mocks.addresses.createCustomerAddress).toHaveBeenCalledWith("customer-1", expect.objectContaining({
-            provinceCode: "202",
-            provinceName: "Ho Chi Minh City",
-            wardCode: "26734",
-            wardName: "Ben Nghe Ward",
+            city: "Ho Chi Minh City",
+            latitude: 10.7769,
+            longitude: 106.7009,
         })));
     });
 });

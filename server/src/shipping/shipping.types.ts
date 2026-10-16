@@ -17,6 +17,13 @@ export type DeliverySettings = {
     version: number;
 };
 
+export type DeliveryMapConfig = {
+    storeAddress: string;
+    origin: RoadPoint;
+    tileUrl: string;
+    tileAttribution: string;
+};
+
 export type DeliveryAddress = {
     recipientName: string;
     recipientPhone: string;

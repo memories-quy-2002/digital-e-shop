@@ -2,18 +2,21 @@ export type DeliveryAddress = {
     recipientName: string;
     recipientPhone: string;
     addressLine: string;
-    provinceCode: string;
-    provinceName: string;
-    wardCode: string;
-    wardName: string;
-    districtCode?: string;
+    city: string;
     country: "VN";
+    latitude: number;
+    longitude: number;
+};
+
+export type RoadPoint = { latitude: number; longitude: number };
+export type DeliveryMapConfig = {
+    storeAddress: string;
+    origin: RoadPoint;
+    tileUrl: string;
+    tileAttribution: string;
 };
 
 export type ShippingParcel = { grams: number; lengthCm: number; widthCm: number; heightCm: number };
-export type CarrierProvince = { code: string; name: string };
-export type CarrierWard = { code: string; provinceCode: string; name: string };
-export type CarrierService = { serviceId: number; serviceTypeId: number; name: string };
 export type ShippingPricing = {
     itemsSubtotal: number;
     merchandiseDiscount: number;
@@ -22,16 +25,18 @@ export type ShippingPricing = {
     currency: "VND";
 };
 
-export type ShippingQuote = {
+export type InternalDeliveryQuote = {
     id: string;
     pricing: ShippingPricing;
     address: DeliveryAddress;
-    parcel: ShippingParcel;
-    serviceTypeId: number;
-    expectedDeliveryAt: string | null;
+    origin: RoadPoint;
+    destination: RoadPoint;
+    distanceMeters: number;
+    routeGeometry: Array<[longitude: number, latitude: number]>;
+    settingsVersion: number;
+    tileUrl: string;
+    tileAttribution: string;
     expiresAt: string;
-    sandbox: boolean;
-    parcelEstimated: boolean;
 };
 
 export type ShipmentTimelineEvent = {

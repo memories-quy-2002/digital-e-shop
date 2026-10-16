@@ -19,6 +19,10 @@ request, record, or display customer or employee GPS. The quote response
 includes the fixed store pin and configured tile attribution so the customer
 map can show both endpoints without a privileged settings read.
 
+Checkout and saved-address maps fetch the same minimal configuration from a
+public endpoint. It exposes the store pin and operator-allowlisted tile URL and
+attribution only; fee bands and the routing endpoint remain server-side.
+
 ## Internal assignments
 
 Only pending VND orders with an `INTERNAL` delivery snapshot, an `INTERNAL`

@@ -61,6 +61,20 @@ describe("DeliverySettingsService", () => {
 
     it("returns null when delivery has not been configured", async () => {
         await expect(service.get()).resolves.toBeNull();
+        await expect(service.getMapConfig()).resolves.toBeNull();
+    });
+
+    it("returns only the public map fields and enforces the tile allowlist", async () => {
+        current = { ...validInput(), version: 2 };
+        await expect(service.getMapConfig()).resolves.toEqual({
+            storeAddress: current.storeAddress,
+            origin: { latitude: current.storeLatitude, longitude: current.storeLongitude },
+            tileUrl: current.tileUrl,
+            tileAttribution: current.tileAttribution,
+        });
+
+        current = { ...current, tileUrl: "https://retired.example.test/{z}/{x}/{y}.png" };
+        await expect(service.getMapConfig()).rejects.toThrow(/routing or map configuration/i);
     });
 
     it.each([

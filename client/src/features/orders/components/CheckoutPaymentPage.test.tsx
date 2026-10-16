@@ -37,7 +37,7 @@ vi.mock("../api", () => ({
 vi.mock("../../users/api", () => ({ fetchCustomerAddresses: mocks.fetchCustomerAddresses }));
 vi.mock("../../loyalty/api", () => ({ fetchLoyaltyOverview: mocks.fetchLoyaltyOverview }));
 vi.mock("../../../lib/http", () => ({ default: { get: mocks.httpGet, post: mocks.httpPost } }));
-vi.mock("../../shipping/components/DeliveryQuoteForm", () => ({ default: ({ onQuoteChange, addressPrefill }: { onQuoteChange: (address: unknown, quote: unknown) => void; addressPrefill?: unknown }) => <><button type="button" onClick={() => onQuoteChange({ recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", provinceCode: "1", provinceName: "HCMC", wardCode: "2", wardName: "HCMC", districtCode: "3", country: "VN" }, { id: "quote-1", expiresAt: new Date(Date.now() + 60000).toISOString(), pricing: { itemsSubtotal: 160, merchandiseDiscount: 0, shippingFee: 20000, payableTotal: 20160, currency: "VND" }, parcel: { grams: 500, lengthCm: 10, widthCm: 10, heightCm: 10 }, serviceTypeId: 2, address: {}, expectedDeliveryAt: null, sandbox: true, parcelEstimated: true })}>Request test quote</button><output data-testid="address-prefill">{addressPrefill ? JSON.stringify(addressPrefill) : ""}</output></> }));
+vi.mock("../../shipping/components/DeliveryQuoteForm", () => ({ default: ({ onQuoteChange, addressPrefill }: { onQuoteChange: (address: unknown, quote: unknown) => void; addressPrefill?: unknown }) => <><button type="button" onClick={() => onQuoteChange({ recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", city: "HCMC", latitude: 10.78, longitude: 106.7, country: "VN" }, { id: "quote-1", expiresAt: new Date(Date.now() + 60000).toISOString(), pricing: { itemsSubtotal: 160, merchandiseDiscount: 0, shippingFee: 20000, payableTotal: 20160, currency: "VND" }, address: { latitude: 10.78, longitude: 106.7 }, distanceMeters: 5000, origin: { latitude: 10.77, longitude: 106.7 }, destination: { latitude: 10.78, longitude: 106.7 }, routeGeometry: [[106.7, 10.77], [106.7, 10.78]], settingsVersion: 1, tileUrl: "https://tiles.example.test/{z}/{x}/{y}.png", tileAttribution: "Map contributors" })}>Request test quote</button><output data-testid="address-prefill">{addressPrefill ? JSON.stringify(addressPrefill) : ""}</output></> }));
 vi.mock("react-helmet-async", () => ({ Helmet: () => null }));
 
 const cart = [{
@@ -127,7 +127,7 @@ describe("CheckoutPaymentPage guest checkout", () => {
             discountCode: undefined,
             paymentMethod,
             shippingQuoteId: "quote-1",
-            deliveryAddress: { recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", provinceCode: "1", provinceName: "HCMC", wardCode: "2", wardName: "HCMC", districtCode: "3", country: "VN" },
+            deliveryAddress: { recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", city: "HCMC", latitude: 10.78, longitude: 106.7, country: "VN" },
             locale: "en",
         }));
         expect(mocks.guestPurchase.mock.calls[0][0]).not.toHaveProperty("totalPrice");
@@ -155,7 +155,7 @@ describe("CheckoutPaymentPage guest checkout", () => {
             discountCode: undefined,
             paymentMethod: "payos",
             shippingQuoteId: "quote-1",
-            deliveryAddress: { recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", provinceCode: "1", provinceName: "HCMC", wardCode: "2", wardName: "HCMC", districtCode: "3", country: "VN" },
+            deliveryAddress: { recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", city: "HCMC", latitude: 10.78, longitude: 106.7, country: "VN" },
             locale: "en",
         }, expect.any(String)));
         expect(mocks.guestPurchase).not.toHaveBeenCalled();
@@ -238,7 +238,7 @@ describe("CheckoutPaymentPage guest checkout", () => {
         await waitFor(() => expect(mocks.httpPost).toHaveBeenCalledWith("/api/orders/purchase/user-1", expect.objectContaining({
             shippingAddress: JSON.stringify({ address: "1 Main Street", city: "HCMC", country: "VN" }),
             shippingQuoteId: "quote-1",
-            deliveryAddress: expect.objectContaining({ provinceCode: "1", wardCode: "2" }),
+            deliveryAddress: expect.objectContaining({ city: "HCMC", latitude: 10.78, longitude: 106.7 }),
             locale: "en",
         })));
         expect(sessionStorage.getItem("checkoutPending")).toBeNull();
@@ -304,7 +304,7 @@ describe("CheckoutPaymentPage guest checkout", () => {
         await waitFor(() => expect(mocks.payosAuthSession).toHaveBeenCalledWith("user-1", expect.objectContaining({ loyaltyPoints: 80 }), expect.any(String)));
     });
 
-    it("prefills saved and recent addresses while requiring explicit province and ward confirmation", async () => {
+    it("prefills saved address coordinates and still requires a manual pin for older addresses", async () => {
         mocks.auth.userData = { id: "user-1", email: "buyer@example.com" };
         mocks.fetchCustomerAddresses.mockResolvedValue([{
             id: 3,
@@ -318,6 +318,8 @@ describe("CheckoutPaymentPage guest checkout", () => {
             province_name: "Ho Chi Minh City",
             ward_code: "26734",
             ward_name: "Ben Nghe Ward",
+            latitude: 10.7769,
+            longitude: 106.7009,
             is_default: true,
         }]);
         mocks.fetchCustomerOrders.mockResolvedValue([{
@@ -333,12 +335,14 @@ describe("CheckoutPaymentPage guest checkout", () => {
         fireEvent.change(await screen.findByLabelText("Saved address"), { target: { value: "3" } });
         await waitFor(() => expect(screen.getByTestId("address-prefill")).toHaveTextContent('"recipientName":"Saved Buyer"'));
         expect(screen.getByTestId("address-prefill")).toHaveTextContent('"addressLine":"9 Saved Road"');
-        expect(screen.getByTestId("address-prefill")).toHaveTextContent('"provinceCode":"202"');
-        expect(screen.getByTestId("address-prefill")).toHaveTextContent('"wardCode":"26734"');
+        expect(screen.getByTestId("address-prefill")).toHaveTextContent('"city":"Old City"');
+        expect(screen.getByTestId("address-prefill")).toHaveTextContent('"latitude":10.7769');
+        expect(screen.getByTestId("address-prefill")).toHaveTextContent('"longitude":106.7009');
 
         fireEvent.change(screen.getByLabelText("Recent order address"), { target: { value: "22" } });
         await waitFor(() => expect(screen.getByTestId("address-prefill")).toHaveTextContent('"addressLine":"4 Previous Street"'));
-        expect(screen.getByTestId("address-prefill")).not.toHaveTextContent("provinceCode");
+        expect(screen.getByTestId("address-prefill")).toHaveTextContent('"city":"Old District"');
+        expect(screen.getByTestId("address-prefill")).not.toHaveTextContent("latitude");
     });
 
     it("rejects checkout when the authoritative cart refresh changes quote pricing facts", async () => {

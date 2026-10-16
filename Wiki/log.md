@@ -112,3 +112,4 @@ Format: `YYYY-MM-DD — <author> — <what changed>`
 - 2026-10-16 - Codex - Added customer loyalty points, owner-bound promotion vouchers, verified-payment earning, checkout redemption, and API/schema guidance; see [[loyalty-rewards]].
 - 2026-10-16 - Codex - Added allowlisted road-distance checkout quotes, settings-version binding, one-time quote consumption and immutable internal-delivery snapshots; documented the temporary GHN transition boundary in [[shipping-and-fulfillment]].
 - 2026-10-16 - Codex - Added audited DeliveryStaff role access, schedule conflict protection, assignment history, employee status updates and transactional order/COD/loyalty/email completion; documented customer-safe delivery projections in [[shipping-and-fulfillment]].
+- 2026-10-16 - Codex - Added an accessible Leaflet pin picker, public map configuration and internal road-distance quote UX for checkout and saved addresses; no browser geolocation is requested.

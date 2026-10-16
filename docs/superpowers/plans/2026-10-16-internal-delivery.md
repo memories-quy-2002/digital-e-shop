@@ -162,21 +162,22 @@
 - Modify: `client/src/features/orders/components/CheckoutDeliverySection.tsx` and tests
 - Modify: `client/src/features/users/pages/AddressBookPage.tsx` and tests
 - Modify: `server/src/addresses/addresses.validator.ts`, `addresses.repository.ts`, `addresses.service.ts`, `addresses.controller.ts`
-- Create: `client/e2e/internal-delivery.spec.ts`
 - Modify: `client/package.json`, `client/pnpm-lock.yaml`, `client/src/lib/env.ts`, `client/.env.example`, shipping/user SCSS and `client/src/i18n/en.ts`/`vi.ts`
 
 **Interfaces:**
 - `DeliveryMapPicker` receives `store: RoadPoint`, `destination: RoadPoint`, `route: RoadRoute["geometry"]`, `tileUrl`, `tileAttribution`, `onDestinationChange(point: RoadPoint)` and an accessible coordinate/address fallback.
 - Shipping API quote types match `InternalDeliveryQuote`; no province/service/parcel/sandbox response field remains in new checkout UI.
 
-- [ ] **Step 1: Write component/API tests** for manual pin change, quote boundaries, loading/retry/no-route errors, saved-address coordinates and keyboard coordinate controls; assert no geolocation API is called.
-- [ ] **Step 2: Run `pnpm --dir client exec vitest run src/features/shipping/components/DeliveryMapPicker.test.tsx src/features/shipping/components/DeliveryQuoteForm.test.tsx src/features/users/pages/AddressBookPage.test.tsx`;** expected: fail until internal quote/pin UI is implemented.
-- [ ] **Step 3: Add `leaflet` and `@types/leaflet` only;** use Leaflet core within `useEffect`, configure tile URL/attribution, render two pins and quote polyline, and clean up map/listeners on unmount.
-- [ ] **Step 4: Replace province/ward/service form controls** with structured address input, a manually positioned destination pin, route distance, fee and retryable errors. A saved address without a pin requires manual pin selection; never request browser location.
-- [ ] **Step 5: Update checkout and address-book types/API** to preserve existing `shippingQuoteId` request property and optionally save coordinates.
-- [ ] **Step 6: Add English/Vietnamese labels, visible focus, map attribution and responsive/light/dark styling.** Keep the address and coordinate controls usable without map dragging.
-- [ ] **Step 7: Run the focused client tests;** expected: quote, keyboard, empty/error/loading and no-geolocation assertions pass.
+- [x] **Step 1: Write component/API tests** for manual pin change, quote boundaries, loading/retry/no-route errors, saved-address coordinates and keyboard coordinate controls; assert no geolocation API is called.
+- [x] **Step 2: Run `pnpm --dir client exec vitest run src/features/shipping/components/DeliveryMapPicker.test.tsx src/features/shipping/components/DeliveryQuoteForm.test.tsx src/features/users/pages/AddressBookPage.test.tsx`;** expected: fail until internal quote/pin UI is implemented.
+- [x] **Step 3: Add `leaflet` and `@types/leaflet` only;** use Leaflet core within `useEffect`, configure tile URL/attribution, render two pins and quote polyline, and clean up map/listeners on unmount.
+- [x] **Step 4: Replace province/ward/service form controls** with structured address input, a manually positioned destination pin, route distance, fee and retryable errors. A saved address without a pin requires manual pin selection; never request browser location.
+- [x] **Step 5: Update checkout and address-book types/API** to preserve existing `shippingQuoteId` request property and optionally save coordinates.
+- [x] **Step 6: Add English/Vietnamese labels, visible focus, map attribution and responsive/light/dark styling.** Keep the address and coordinate controls usable without map dragging.
+- [x] **Step 7: Run the focused client tests;** expected: quote, keyboard, empty/error/loading and no-geolocation assertions pass. Six focused files passed (34 tests); client typecheck passed. The broader Playwright scenario is consolidated in Task 6 after all customer, admin and staff routes exist.
 - [ ] **Step 8: Commit** with `feat(delivery): add distance quote map to checkout`.
+
+**Implementation notes:** The store pin and allowlisted tile URL/attribution are exposed through a minimal public map-config route; fee settings and the routing endpoint remain server-side. Leaflet loads on demand and coordinate fields provide a keyboard-accessible pin alternative.
 
 ### Task 6: Admin, employee and customer workflows
 
