@@ -285,7 +285,7 @@ export class NestProductsService {
         return this.productsRepository.ensureNamedIdInTransaction(tx, tableName, safeName);
     }
 
-    async updateInventoryService(pid: number, stock: number): Promise<ProductEditorRow> {
+    async updateInventoryService(pid: number, stock: number, reason: string, actorId: string): Promise<ProductEditorRow> {
         await withTransaction(async (tx) => {
             const before = await this.productsRepository.getProductMutationStateForUpdate(tx, pid);
             if (!before) {
@@ -309,9 +309,14 @@ export class NestProductsService {
                     quantityChange: stock - stockBefore,
                     stockBefore,
                     stockAfter: stock,
-                    note: "Inventory updated from admin quick restock",
-                    actorId: "admin",
+                    note: reason,
+                    actorId,
                 }]);
+                await tx.query(
+                    `INSERT INTO admin_audit_events (actor_id, action, entity_type, entity_id, reason, changes)
+                     VALUES (?, 'inventory.stock.adjusted', 'product', ?, ?, ?)`,
+                    [actorId, String(pid), reason, JSON.stringify({ before: stockBefore, after: stock })],
+                );
             }
             if (this.productAlertsService && stockBefore !== stock) {
                 const transitions = getProductAlertTransitions(beforeSnapshot, {

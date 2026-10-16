@@ -33,4 +33,9 @@ export type AdminAlert = {
     actionLabel: string;
     route: string;
     unread: boolean;
+    triageStatus: "OPEN" | "RESOLVED";
+    assignedAdminId: string | null;
+    assignedToMe: boolean;
 };
+
+export type AdminAlertTriageAction = "claim" | "release" | "resolve" | "reopen";

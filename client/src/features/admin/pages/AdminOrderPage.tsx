@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { HTTP_STATUS } from "../../../constants/http-status";
 import { Button, Modal, Table } from "../../../components/ui/legacy";
 import ReactPaginate from "react-paginate";
@@ -17,7 +17,7 @@ import {
 } from "../../../components/ui/dropdown-menu";
 import { Helmet } from "react-helmet-async";
 import { formatUtcDate, formatUtcDateTime, toUtcIsoString } from "../../../utils/dateTime";
-import { fetchAllOrders, fetchOrderDetail, updateOrderStatus, bulkUpdateOrderStatus } from "../api";
+import { fetchAdminOrdersPage, fetchOrderDetail, updateOrderStatus, bulkUpdateOrderStatus, type AdminOrderSummary } from "../api";
 import AdminStatusPanel from "../components/AdminStatusPanel";
 import AdminTableScrollHint from "../components/AdminTableScrollHint";
 import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
@@ -25,8 +25,10 @@ import { formatShippingAddress } from "../../orders/shippingAddress";
 import { formatCurrency } from "../../../utils/currency";
 import { getOrderStatusKey, ORDER_STATUS } from "../../orders/orderStatus";
 import { HISTORICAL_PAYMENT_METHOD, PAYMENT_METHOD, type PaymentMethod } from "../../orders/constants";
+import { getApiErrorMessage } from "../../../lib/api-contract";
 
 const ITEMS_PER_PAGE = 8;
+const emptyOrderSummary: AdminOrderSummary = { total: 0, pending: 0, completed: 0, canceled: 0, historicalPaymentMethods: 0, revenue: 0 };
 
 type StatusFilter = "all" | "pending" | "done" | "canceled";
 type PaymentFilter = "all" | PaymentMethod | "none";
@@ -78,6 +80,8 @@ const AdminOrderPage = () => {
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
     const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all");
     const [currentPage, setCurrentPage] = useState(1);
+    const [summary, setSummary] = useState<AdminOrderSummary>(emptyOrderSummary);
+    const [totalPages, setTotalPages] = useState(0);
     const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null);
     const [showDetail, setShowDetail] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -88,84 +92,43 @@ const AdminOrderPage = () => {
     const [hasLoaded, setHasLoaded] = useState(false);
     const [loadError, setLoadError] = useState<AdminRequestError | null>(null);
     const hasLoadedRef = useRef(false);
+    const requestSequence = useRef(0);
     const { addToast } = useToast();
+    const deferredSearchTerm = useDeferredValue(searchTerm);
 
     const loadOrders = React.useCallback(async () => {
+        const requestId = ++requestSequence.current;
         try {
             setIsLoading(true);
             setLoadError(null);
-            const orders = await fetchAllOrders();
-                setOrders((orders || []).map(normalizeOrder));
+            const data = await fetchAdminOrdersPage({
+                page: currentPage,
+                limit: ITEMS_PER_PAGE,
+                search: deferredSearchTerm,
+                ...(statusFilter !== "all" ? { status: statusFilter === "pending" ? ORDER_STATUS.PENDING : statusFilter === "done" ? ORDER_STATUS.DONE : ORDER_STATUS.CANCELED } : {}),
+                ...(paymentFilter !== "all" ? { paymentMethod: paymentFilter } : {}),
+            });
+            if (requestId !== requestSequence.current) return;
+            setOrders(data.items.map(normalizeOrder));
+            setSummary(data.summary);
+            setTotalPages(data.pagination.totalPages);
             setHasLoaded(true);
             hasLoadedRef.current = true;
         } catch (error) {
+            if (requestId !== requestSequence.current) return;
             setLoadError(getAdminRequestError(error));
             if (hasLoadedRef.current) addToast("Orders", "Refresh failed. Showing the latest saved orders.");
         } finally {
-            setIsLoading(false);
+            if (requestId === requestSequence.current) setIsLoading(false);
         }
-    }, [addToast]);
+    }, [addToast, currentPage, deferredSearchTerm, paymentFilter, statusFilter]);
 
     useEffect(() => { loadOrders(); }, [loadOrders]);
 
-    const filteredOrders = useMemo(() => {
-        const lowerSearchTerm = searchTerm.trim().toLowerCase();
-
-        return orders.filter((order) => {
-            if (statusFilter !== "all") {
-                const expected = statusFilter === "pending" ? ORDER_STATUS.PENDING : statusFilter === "done" ? ORDER_STATUS.DONE : ORDER_STATUS.CANCELED;
-                if (order.status !== expected) {
-                    return false;
-                }
-            }
-            if (paymentFilter !== "all") {
-                if (paymentFilter === "none" && order.payment_method) {
-                    return false;
-                }
-                if (paymentFilter !== "none" && order.payment_method !== paymentFilter) {
-                    return false;
-                }
-            }
-            if (!lowerSearchTerm) {
-                return true;
-            }
-            return (
-                order.id.toString().includes(lowerSearchTerm) ||
-                (order.shipping_address || "").toLowerCase().includes(lowerSearchTerm) ||
-                String(order.user_id || "").toLowerCase().includes(lowerSearchTerm) ||
-                (order.guest_phone || "").toLowerCase().includes(lowerSearchTerm) ||
-                (order.customer_name || "").toLowerCase().includes(lowerSearchTerm) ||
-                (order.customer_email || "").toLowerCase().includes(lowerSearchTerm) ||
-                getPaymentMethodLabel(order.payment_method).toLowerCase().includes(lowerSearchTerm) ||
-                getStatusLabel(order.status).toLowerCase().includes(lowerSearchTerm)
-            );
-        });
-    }, [orders, searchTerm, statusFilter, paymentFilter]);
-
-    const pageCount = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
-    const currentOrders = useMemo(() => {
-        const start = (currentPage - 1) * ITEMS_PER_PAGE;
-        return filteredOrders.slice(start, start + ITEMS_PER_PAGE);
-    }, [currentPage, filteredOrders]);
-
-    const orderStats = useMemo(() => {
-        const pending = orders.filter((order) => order.status === ORDER_STATUS.PENDING).length;
-        const completed = orders.filter((order) => order.status === ORDER_STATUS.DONE).length;
-        const canceled = orders.filter((order) => order.status === ORDER_STATUS.CANCELED).length;
-        const historicalPaymentMethods = orders.filter(
-            (order) => Boolean(order.payment_method) && order.payment_method !== PAYMENT_METHOD.CASH && order.payment_method !== PAYMENT_METHOD.PAYOS,
-        ).length;
-        const revenue = orders.reduce((sum, order) => sum + getNetRevenue(order), 0);
-
-        return {
-            total: orders.length,
-            pending,
-            completed,
-            canceled,
-            historicalPaymentMethods,
-            revenue,
-        };
-    }, [orders]);
+    const filteredOrders = orders;
+    const currentOrders = orders;
+    const pageCount = totalPages;
+    const orderStats = summary;
 
     useEffect(() => {
         const safePageCount = Math.max(pageCount, 1);
@@ -198,9 +161,13 @@ const AdminOrderPage = () => {
                     addToast("Update Order Status", "Status is required");
                 } else if (errorResponse.status === HTTP_STATUS.NOT_FOUND) {
                     addToast("Update Order Status", "Order not found");
+                } else if (errorResponse.status === HTTP_STATUS.CONFLICT) {
+                    addToast("Update Order Status", getApiErrorMessage(err, "Confirm payment and delivery before completing this order."));
                 } else if (errorResponse.status === HTTP_STATUS.INTERNAL_SERVER_ERROR) {
                     addToast("Update Order Status", "Internal server error, please try again later");
                 }
+            } else {
+                addToast("Update Order Status", getApiErrorMessage(err, "Unable to update order status."));
             }
         }
     };
@@ -359,7 +326,7 @@ const AdminOrderPage = () => {
                     <div className="admin__page__actions">
                         <button type="button" className="admin__button admin__button--ghost" onClick={loadOrders}>Refresh</button>
                         <button type="button" className="admin__button admin__button--primary" onClick={exportOrdersCsv}>
-                            Export orders CSV
+                            Export current page CSV
                         </button>
                     </div>
                 </header>
@@ -401,7 +368,7 @@ const AdminOrderPage = () => {
                     <div className="admin__card__header admin__card__header--stacked">
                         <div>
                             <h3>Order list</h3>
-                            <span>{filteredOrders.length} matching orders</span>
+                            <span>{summary.total} matching orders</span>
                         </div>
                         <div className="admin__list-toolbar">
                             <div className="admin__order-toolbar">

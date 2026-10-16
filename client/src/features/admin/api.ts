@@ -14,6 +14,16 @@ import {
 
 const ADMIN_PAGE_LIMIT = 100;
 
+export type AdminListPagination = { page: number; limit: number; total: number; totalPages: number };
+export type AdminListPage<T> = { items: T[]; pagination: AdminListPagination };
+
+const normalizeAdminPagination = (value: Record<string, unknown> | undefined, page: number, limit: number): AdminListPagination => ({
+    page: Number(value?.page) || page,
+    limit: Number(value?.limit) || limit,
+    total: Number(value?.total) || 0,
+    totalPages: Number(value?.totalPages) || 0,
+});
+
 const fetchAllPages = async <T>(
     path: string,
     collectionKey: string,
@@ -45,6 +55,20 @@ export async function fetchAdminProducts(page = 1, limit = 60): Promise<ProductW
     return (response.data.products || []).map(normalizeProductWithAttributes);
 }
 
+export async function fetchAdminProductsPage(filters: {
+    page: number;
+    limit: number;
+    search?: string;
+    stock?: "all" | "low" | "out";
+}): Promise<AdminListPage<ProductWithAttributes> & { summary: { total: number; lowStock: number; outOfStock: number } }> {
+    const response = await http.get("/api/products/admin/list", { params: filters });
+    return {
+        items: (response.data.products || []).map(normalizeProductWithAttributes),
+        pagination: normalizeAdminPagination(response.data.pagination, filters.page, filters.limit),
+        summary: response.data.summary || { total: 0, lowStock: 0, outOfStock: 0 },
+    };
+}
+
 export async function fetchAllProducts(): Promise<ProductWithAttributes[]> {
     const products = await fetchAllPages<unknown>("/api/products", "products");
     return products.map(normalizeProductWithAttributes);
@@ -55,6 +79,45 @@ export async function fetchAdminOrders(page = 1, limit = 80): Promise<AdminOrder
     return response.data.orders || [];
 }
 
+export async function fetchAdminOrdersPage(filters: {
+    page: number;
+    limit: number;
+    search?: string;
+    status?: number;
+    paymentMethod?: string;
+    sort?: "newest" | "oldest";
+}): Promise<AdminListPage<AdminOrder> & { summary: AdminOrderSummary }> {
+    const response = await http.get("/api/orders", { params: filters });
+    return {
+        items: response.data.orders || [],
+        pagination: normalizeAdminPagination(response.data.pagination, filters.page, filters.limit),
+        summary: response.data.summary || emptyAdminOrderSummary,
+    };
+}
+
+export async function fetchAdminPendingOrderQueue(): Promise<AdminOrder[]> {
+    const response = await http.get("/api/orders/admin/pending-queue");
+    return response.data.orders || [];
+}
+
+export type AdminOrderSummary = {
+    total: number;
+    pending: number;
+    completed: number;
+    canceled: number;
+    historicalPaymentMethods: number;
+    revenue: number;
+};
+
+const emptyAdminOrderSummary: AdminOrderSummary = {
+    total: 0,
+    pending: 0,
+    completed: 0,
+    canceled: 0,
+    historicalPaymentMethods: 0,
+    revenue: 0,
+};
+
 export async function fetchAllOrders(): Promise<AdminOrder[]> {
     return fetchAllPages<AdminOrder>("/api/orders", "orders");
 }
@@ -62,6 +125,21 @@ export async function fetchAllOrders(): Promise<AdminOrder[]> {
 export async function fetchAdminUsers(page = 1, limit = 80): Promise<AdminAccount[]> {
     const response = await http.get<{ accounts?: AdminAccount[] }>(`/api/users?page=${page}&limit=${limit}`);
     return response.data.accounts || [];
+}
+
+export async function fetchAdminUsersPage(filters: {
+    page: number;
+    limit: number;
+    search?: string;
+    role?: string;
+    status?: string;
+}): Promise<AdminListPage<AdminAccount> & { summary: { total: number; customers: number; suspended: number } }> {
+    const response = await http.get("/api/users", { params: filters });
+    return {
+        items: response.data.accounts || [],
+        pagination: normalizeAdminPagination(response.data.pagination, filters.page, filters.limit),
+        summary: response.data.summary || { total: 0, customers: 0, suspended: 0 },
+    };
 }
 
 export async function fetchAllUsers(): Promise<AdminAccount[]> {
@@ -97,8 +175,8 @@ export async function deleteProduct(productId: number): Promise<void> {
     await http.delete("/api/products/", { data: { pid: productId } });
 }
 
-export async function updateProductInventory(productId: number, stock: number): Promise<ProductWithAttributes> {
-    const response = await http.put(`/api/products/${productId}/inventory`, { stock });
+export async function updateProductInventory(productId: number, stock: number, reason: string): Promise<ProductWithAttributes> {
+    const response = await http.put(`/api/products/${productId}/inventory`, { stock, reason });
     return normalizeProductWithAttributes(response.data.product);
 }
 
@@ -159,7 +237,7 @@ export async function bulkUpdateOrderStatus(
 
 export async function updateAccount(
     userId: string,
-    data: { role?: string; status?: string },
+    data: { role?: string; status?: string; reason: string },
 ): Promise<{ account?: Partial<AdminAccount> }> {
     const response = await http.put<{ account?: Partial<AdminAccount> }>(`/api/users/${userId}`, data);
     return response.data;
@@ -173,6 +251,47 @@ export async function fetchCustomerProfile(userId: string): Promise<AdminCustome
 export async function fetchPromotions(): Promise<AdminPromotion[]> {
     const response = await http.get<{ promotions?: AdminPromotion[] }>("/api/promotions");
     return response.data.promotions || [];
+}
+
+export async function acknowledgeAdminAlerts(alertIds: string[]): Promise<void> {
+    if (alertIds.length === 0) return;
+    await http.put("/api/admin/alerts/acknowledge", { alertIds });
+}
+
+export type AdminAlertTriageAction = "claim" | "release" | "resolve" | "reopen";
+export type AdminAlertTriage = {
+    triageStatus: "OPEN" | "RESOLVED";
+    assignedAdminId: string | null;
+    assignedToMe: boolean;
+};
+
+export async function updateAdminAlertTriage(alertId: string, action: AdminAlertTriageAction): Promise<AdminAlertTriage> {
+    const response = await http.put<{ triage: AdminAlertTriage }>("/api/admin/alerts/triage", { alertId, action });
+    return response.data.triage;
+}
+
+export type AdminAuditEvent = {
+    id: number;
+    actor_id: string;
+    action: string;
+    entity_type: "product" | "user" | "promotion";
+    entity_id: string;
+    reason: string | null;
+    changes: unknown;
+    created_at: string;
+};
+
+export async function fetchAdminAuditPage(filters: {
+    page: number;
+    limit: number;
+    search?: string;
+    entityType?: AdminAuditEvent["entity_type"];
+}): Promise<AdminListPage<AdminAuditEvent>> {
+    const response = await http.get("/api/admin/audit", { params: filters });
+    return {
+        items: response.data.events || [],
+        pagination: normalizeAdminPagination(response.data.pagination, filters.page, filters.limit),
+    };
 }
 
 export async function createPromotion(data: Record<string, unknown>): Promise<void> {
@@ -197,6 +316,9 @@ export type AdminAlert = {
     actionLabel: string;
     route: string;
     unread: boolean;
+    triageStatus?: "OPEN" | "RESOLVED";
+    assignedAdminId?: string | null;
+    assignedToMe?: boolean;
 };
 
 export async function fetchAdminAlerts(): Promise<{ alerts: AdminAlert[]; unread: number }> {

@@ -1,10 +1,10 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminProductPage from "./AdminProductPage";
-import { fetchAllProducts, fetchInventoryMovements } from "../api";
+import { fetchAdminProductsPage, fetchInventoryMovements } from "../api";
 
 vi.mock("../api", () => ({
-    fetchAllProducts: vi.fn(),
+    fetchAdminProductsPage: vi.fn(),
     fetchInventoryMovements: vi.fn(),
     updateProduct: vi.fn(),
     deleteProduct: vi.fn(),
@@ -18,10 +18,16 @@ vi.mock("react-router-dom", async () => ({
 }));
 
 describe("AdminProductPage inventory movement request state", () => {
-    beforeEach(() => vi.clearAllMocks());
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(fetchAdminProductsPage).mockResolvedValue({
+            items: [],
+            pagination: { page: 1, limit: 8, total: 0, totalPages: 0 },
+            summary: { total: 0, lowStock: 0, outOfStock: 0 },
+        });
+    });
 
     it("shows an inventory error instead of an empty movement log when the movement request fails", async () => {
-        vi.mocked(fetchAllProducts).mockResolvedValue([]);
         vi.mocked(fetchInventoryMovements).mockRejectedValue({ request: {} });
         render(<AdminProductPage />);
 

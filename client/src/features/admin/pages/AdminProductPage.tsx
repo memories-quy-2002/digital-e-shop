@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { LOW_STOCK_THRESHOLD } from "../../products/constants";
+import React, { useDeferredValue, useEffect, useRef, useState } from "react";
 import { Button, Modal, Table } from "../../../components/ui/legacy";
 import ReactPaginate from "react-paginate";
 import { useNavigate } from "react-router-dom";
@@ -10,7 +9,7 @@ import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
 import { Helmet } from "react-helmet-async";
 import { useToast } from "../../../context/ToastContext";
 import {
-    fetchAllProducts,
+    fetchAdminProductsPage,
     updateProduct,
     deleteProduct,
     updateProductInventory,
@@ -46,6 +45,8 @@ import type { ShippingParcel } from "../../shipping/types";
 import { validateParcel } from "../../shipping/components/ParcelFields";
 
 const ITEMS_PER_PAGE = 8;
+const STOCK_FILTERS = ["all", "low", "out"] as const;
+type StockFilter = (typeof STOCK_FILTERS)[number];
 
 type ProductEditForm = Omit<ProductFormValues, "inventory" | "stock" | "price" | "salePrice"> & {
     price: string;
@@ -81,6 +82,7 @@ const AdminProductPage = () => {
     const navigate = useNavigate();
     const [products, setProducts] = useState<ProductWithAttributes[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
+    const [stockFilter, setStockFilter] = useState<StockFilter>("all");
     const [show, setShow] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<ProductWithAttributes | null>(null);
     const [editForm, setEditForm] = useState<ProductEditForm>({
@@ -109,27 +111,44 @@ const AdminProductPage = () => {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [restockValues, setRestockValues] = useState<Record<number, string>>({});
+    const [restockReasons, setRestockReasons] = useState<Record<number, string>>({});
+    const [inventoryWatch, setInventoryWatch] = useState<ProductWithAttributes[]>([]);
+    const [productSummary, setProductSummary] = useState({ total: 0, lowStock: 0, outOfStock: 0 });
+    const [matchingProductTotal, setMatchingProductTotal] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
     const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>([]);
     const [productsLoaded, setProductsLoaded] = useState(false);
     const [productsError, setProductsError] = useState<AdminRequestError | null>(null);
     const [movementsLoaded, setMovementsLoaded] = useState(false);
     const [inventoryMovementsError, setInventoryMovementsError] = useState<AdminRequestError | null>(null);
     const productsLoadedRef = useRef(false);
+    const requestSequence = useRef(0);
     const movementsLoadedRef = useRef(false);
     const { addToast } = useToast();
+    const deferredSearchTerm = useDeferredValue(searchTerm);
 
     const loadProducts = React.useCallback(async () => {
+        const requestId = ++requestSequence.current;
         try {
             setProductsError(null);
-            const products = await fetchAllProducts();
-                setProducts(products.map(normalizeProduct).sort((a, b) => a.id - b.id));
+            const [page, inventoryPage] = await Promise.all([
+                fetchAdminProductsPage({ page: currentPage, limit: ITEMS_PER_PAGE, search: deferredSearchTerm, stock: stockFilter }),
+                fetchAdminProductsPage({ page: 1, limit: 8, stock: "low" }),
+            ]);
+            if (requestId !== requestSequence.current) return;
+            setProducts(page.items.map(normalizeProduct));
+            setProductSummary(page.summary);
+            setMatchingProductTotal(page.pagination.total);
+            setTotalPages(page.pagination.totalPages);
+            setInventoryWatch(inventoryPage.items.map(normalizeProduct));
             setProductsLoaded(true);
             productsLoadedRef.current = true;
         } catch (error) {
+            if (requestId !== requestSequence.current) return;
             setProductsError(getAdminRequestError(error));
             if (productsLoadedRef.current) addToast("Products", "Refresh failed. Showing the latest saved products.");
         }
-    }, [addToast]);
+    }, [addToast, currentPage, deferredSearchTerm, stockFilter]);
 
     const loadMovements = React.useCallback(async () => {
         try {
@@ -149,33 +168,9 @@ const AdminProductPage = () => {
         loadMovements();
     }, [loadMovements, loadProducts]);
 
-    const filteredProducts = useMemo(() => {
-        const lowerSearchTerm = searchTerm.trim().toLowerCase();
-
-        if (!lowerSearchTerm) {
-            return products;
-        }
-
-        return products.filter((product) => {
-            return (
-                product.name.toLowerCase().includes(lowerSearchTerm) ||
-                product.category.toLowerCase().includes(lowerSearchTerm) ||
-                product.brand.toLowerCase().includes(lowerSearchTerm) ||
-                product.id.toString().includes(lowerSearchTerm)
-            );
-        });
-    }, [products, searchTerm]);
-
-    const pageCount = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
-    const currentProducts = useMemo(() => {
-        const start = (currentPage - 1) * ITEMS_PER_PAGE;
-        return filteredProducts.slice(start, start + ITEMS_PER_PAGE);
-    }, [currentPage, filteredProducts]);
-
-    const inventoryWatch = useMemo(
-        () => [...products].filter((product) => product.stock <= LOW_STOCK_THRESHOLD).sort((a, b) => a.stock - b.stock).slice(0, 8),
-        [products],
-    );
+    const filteredProducts = products;
+    const pageCount = totalPages;
+    const currentProducts = products;
 
     useEffect(() => {
         const safePageCount = Math.max(pageCount, 1);
@@ -367,19 +362,25 @@ const AdminProductPage = () => {
 
     const handleQuickRestock = async (product: Product) => {
         const stock = Number(restockValues[product.id] ?? product.stock);
+        const reason = restockReasons[product.id]?.trim() || "";
         if (!Number.isInteger(stock) || stock < 0) {
             addToast("Inventory", "Stock must be a valid whole number.");
             return;
         }
+        if (reason.length < 8) {
+            addToast("Inventory", "Add a reason with at least 8 characters before updating stock.");
+            return;
+        }
 
         try {
-            const updated = await updateProductInventory(product.id, stock);
+            const updated = await updateProductInventory(product.id, stock, reason);
             const updatedProduct = normalizeProduct(updated);
             setProducts((currentProducts) =>
                 currentProducts.map((item) => (item.id === updatedProduct.id ? updatedProduct : item)),
             );
             setRestockValues((current) => ({ ...current, [product.id]: "" }));
-            await loadMovements();
+            setRestockReasons((current) => ({ ...current, [product.id]: "" }));
+            await Promise.all([loadMovements(), loadProducts()]);
             addToast("Inventory", `${updatedProduct.name} stock updated.`);
         } catch (error: unknown) {
             addToast("Inventory", getApiErrorMessage(error, "Unable to update stock."));
@@ -425,7 +426,7 @@ const AdminProductPage = () => {
                     </div>
                     <div className="admin__page__actions">
                         <button type="button" className="admin__button admin__button--ghost" onClick={exportProductsCsv}>
-                            Export products CSV
+                            Export loaded page CSV
                         </button>
                         <button type="button" className="admin__button admin__button--primary" onClick={() => navigate("/admin/add")}>
                             + Add product
@@ -436,17 +437,17 @@ const AdminProductPage = () => {
                 <section className="admin__summary">
                     <div className="admin__summary-card">
                         <span>Total products</span>
-                        <strong>{products.length}</strong>
+                        <strong>{productSummary.total}</strong>
                         <p>All listings</p>
                     </div>
                     <div className="admin__summary-card">
                         <span>Visible</span>
-                        <strong>{filteredProducts.length}</strong>
-                        <p>Filtered from all products</p>
+                        <strong>{matchingProductTotal}</strong>
+                        <p>Matching current filters</p>
                     </div>
                     <div className="admin__summary-card">
-                        <span>Low stock</span>
-                        <strong>{products.filter((product) => product.stock <= LOW_STOCK_THRESHOLD).length}</strong>
+                        <span>Needs replenishment</span>
+                        <strong>{productSummary.lowStock + productSummary.outOfStock}</strong>
                         <p>Need attention</p>
                     </div>
                 </section>
@@ -527,6 +528,7 @@ const AdminProductPage = () => {
                                     <th>Category</th>
                                     <th>Current stock</th>
                                     <th>New stock</th>
+                                    <th>Reason</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
@@ -567,6 +569,18 @@ const AdminProductPage = () => {
                                                     placeholder={String(Math.max(product.stock, 0))}
                                                 />
                                             </td>
+                                            <td width="220px">
+                                                <label className="admin__sr-only" htmlFor={`restock-reason-${product.id}`}>Reason for stock change</label>
+                                                <input
+                                                    id={`restock-reason-${product.id}`}
+                                                    className="admin__table__input"
+                                                    type="text"
+                                                    maxLength={255}
+                                                    value={restockReasons[product.id] ?? ""}
+                                                    onChange={(event) => setRestockReasons((current) => ({ ...current, [product.id]: event.target.value }))}
+                                                    placeholder="Count, delivery, correction…"
+                                                />
+                                            </td>
                                             <td width="160px">
                                                 <button
                                                     type="button"
@@ -588,7 +602,7 @@ const AdminProductPage = () => {
                     <div className="admin__card__header admin__card__header--stacked">
                         <div>
                             <h3>Product list</h3>
-                            <span>{filteredProducts.length} results</span>
+                            <span>{matchingProductTotal} results</span>
                         </div>
                         <div className="admin__list-toolbar">
                             <div className="admin__filters">
@@ -599,13 +613,22 @@ const AdminProductPage = () => {
                                     type="search"
                                     name="product"
                                     id="product"
-                                    placeholder="Search all products by name, category, brand, or ID…"
+                                    placeholder="Search name, SKU, model, brand, category, or ID…"
                                     value={searchTerm}
                                     onChange={(event) => {
                                         setSearchTerm(event.target.value);
                                         setCurrentPage(1);
                                     }}
                                 />
+                                <label className="admin__sr-only" htmlFor="product-stock-filter">Filter by stock</label>
+                                <select
+                                    id="product-stock-filter"
+                                    aria-label="Filter by stock"
+                                    value={stockFilter}
+                                    onChange={(event) => { setStockFilter(event.target.value as StockFilter); setCurrentPage(1); }}
+                                >
+                                    {STOCK_FILTERS.map((filter) => <option key={filter} value={filter}>{filter === "all" ? "All stock" : filter === "low" ? "Low stock" : "Out of stock"}</option>)}
+                                </select>
                                 <button
                                     type="button"
                                     className="admin__button admin__button--ghost"

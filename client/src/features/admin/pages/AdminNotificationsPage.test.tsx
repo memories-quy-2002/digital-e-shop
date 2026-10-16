@@ -1,9 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminNotificationsPage from "./AdminNotificationsPage";
-import { fetchAdminAlerts } from "../api";
+import { acknowledgeAdminAlerts, fetchAdminAlerts, updateAdminAlertTriage } from "../api";
+import { LocaleProvider } from "../../../context/LocaleContext";
 
-vi.mock("../api", () => ({ fetchAdminAlerts: vi.fn() }));
+vi.mock("../api", () => ({ fetchAdminAlerts: vi.fn(), acknowledgeAdminAlerts: vi.fn(), updateAdminAlertTriage: vi.fn() }));
 vi.mock("../../../components/layout/AdminLayout", () => ({ default: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
 const { addToast } = vi.hoisted(() => ({ addToast: vi.fn() }));
 
@@ -16,12 +17,14 @@ vi.mock("react-router-dom", async () => ({
 describe("AdminNotificationsPage request states", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(acknowledgeAdminAlerts).mockResolvedValue(undefined);
+        vi.mocked(updateAdminAlertTriage).mockResolvedValue({ triageStatus: "OPEN", assignedAdminId: "admin-1", assignedToMe: true });
         window.localStorage.clear();
     });
 
     it("shows a retryable error instead of the empty state when loading fails", async () => {
         vi.mocked(fetchAdminAlerts).mockRejectedValue({ response: { status: 500 } });
-        render(<AdminNotificationsPage />);
+        render(<LocaleProvider><AdminNotificationsPage /></LocaleProvider>);
 
         expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load admin data");
         expect(screen.queryByText("No matching notifications")).not.toBeInTheDocument();
@@ -29,7 +32,7 @@ describe("AdminNotificationsPage request states", () => {
 
     it("keeps the fulfilled empty state", async () => {
         vi.mocked(fetchAdminAlerts).mockResolvedValue({ alerts: [], unread: 0 });
-        render(<AdminNotificationsPage />);
+        render(<LocaleProvider><AdminNotificationsPage /></LocaleProvider>);
 
         await waitFor(() => expect(screen.getByText("No matching notifications")).toBeInTheDocument());
     });
@@ -62,15 +65,32 @@ describe("AdminNotificationsPage request states", () => {
             ],
             unread: 2,
         });
-        render(<AdminNotificationsPage />);
+        render(<LocaleProvider><AdminNotificationsPage /></LocaleProvider>);
 
         await waitFor(() => expect(screen.getByText("2 visible alerts · 2 unread")).toBeInTheDocument());
         fireEvent.click(screen.getByRole("button", { name: "Mark Pending order as read" }));
-        expect(screen.getByText("2 visible alerts · 1 unread")).toBeInTheDocument();
+        await waitFor(() => expect(screen.getByText("2 visible alerts · 1 unread")).toBeInTheDocument());
 
         fireEvent.click(screen.getByRole("button", { name: "Mark all read" }));
-        expect(screen.getByText("2 visible alerts · 0 unread")).toBeInTheDocument();
+        await waitFor(() => expect(screen.getByText("2 visible alerts · 0 unread")).toBeInTheDocument());
         expect(screen.getByRole("button", { name: "Pending order is read" })).toBeDisabled();
         expect(screen.getByRole("button", { name: "Low stock is read" })).toBeDisabled();
+        expect(acknowledgeAdminAlerts).toHaveBeenNthCalledWith(1, ["order-1"]);
+        expect(acknowledgeAdminAlerts).toHaveBeenNthCalledWith(2, ["inventory-1"]);
+    });
+
+    it("claims an alert and offers resolution after the server confirms ownership", async () => {
+        vi.mocked(fetchAdminAlerts).mockResolvedValue({ alerts: [{
+            id: "order-1", type: "order", title: "Pending order", description: "Review the pending order",
+            createdAt: "2026-09-09T00:00:00.000Z", priority: "High", actionLabel: "Open orders", route: "/admin/orders", unread: true,
+            triageStatus: "OPEN", assignedAdminId: null, assignedToMe: false,
+        }], unread: 1 });
+        render(<LocaleProvider><AdminNotificationsPage /></LocaleProvider>);
+
+        fireEvent.click(await screen.findByRole("button", { name: "Claim" }));
+
+        await waitFor(() => expect(screen.getByRole("button", { name: "Resolve" })).toBeInTheDocument());
+        expect(screen.getByText("Assigned to you")).toBeInTheDocument();
+        expect(updateAdminAlertTriage).toHaveBeenCalledWith("order-1", "claim");
     });
 });

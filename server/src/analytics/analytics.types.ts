@@ -36,6 +36,12 @@ export type CategoryPerformanceRow = {
     orders?: number;
 };
 
+export type TopProductRow = {
+    name?: string;
+    sales?: number;
+    revenue?: number;
+};
+
 export type CustomerSegmentRow = {
     name?: string;
     value?: number;
@@ -90,6 +96,7 @@ export type AnalyticsSummaryRows = {
     overviewRows: OverviewRow[];
     revenueTrendRows: RevenueTrendRow[];
     categoryPerformanceRows: CategoryPerformanceRow[];
+    topProductRows: TopProductRow[];
     customerSegmentRows: CustomerSegmentRow[];
     inventoryRiskRows: InventoryRiskRow[];
     paymentMethodRows: PaymentMethodRow[];

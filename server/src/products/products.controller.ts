@@ -21,13 +21,13 @@ import { createReadStream } from "node:fs";
 import { basename, isAbsolute, relative, resolve } from "node:path";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { AuthGuard } from "../guards/auth.guard";
-import { Roles, RolesGuard } from "../guards/roles.guard";
+import { OwnerParam, Roles, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestProductsService } from "./products.service";
 import { NestProductsRepository } from "./products.repository";
 import { getValidationMessage } from "#src/shared/validation/request-validation";
 import type { ProductCreateInput } from "./products.dto";
-import { attributeFilterSchema, productCreateSchema, productUpdateSchema, inventoryUpdateSchema } from "./products.validator";
+import { adminProductsQuerySchema, attributeFilterSchema, productCreateSchema, productUpdateSchema, inventoryUpdateSchema } from "./products.validator";
 import type { AttributeFilter } from "./product-attributes.types";
 import { ComparisonValidationError, parseComparisonIds } from "./products.compare";
 import { createHttpException } from "#src/core/errors/http-exception";
@@ -92,6 +92,8 @@ export class ProductsController {
     }
 
     @Get("recommendations/:uid")
+    @UseGuards(AuthGuard, RolesGuard)
+    @OwnerParam("uid")
     async getRecommendations(@Param("uid") uid: string, @Query("limit") limit: string) {
         const safeLimit = Math.min(Number(limit) || 12, 24);
         const results = await this.productsRepository.getRecommendedProductsByUserId(uid, safeLimit);
@@ -146,6 +148,32 @@ export class ProductsController {
             }
             throw error;
         }
+    }
+
+    @Get("admin/list")
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles("admin")
+    async getAdminProductList(@Query(new ZodValidationPipe(adminProductsQuerySchema)) query: {
+        page: number;
+        limit: number;
+        search: string;
+        stock: "all" | "low" | "out";
+    }) {
+        const filters = { search: query.search, stock: query.stock };
+        const [total, summary] = await Promise.all([
+            this.productsRepository.getAdminProductsCount(filters),
+            this.productsRepository.getAdminProductSummary(),
+        ]);
+        const totalPages = Math.ceil(total / query.limit);
+        const page = Math.min(query.page, Math.max(totalPages, 1));
+        const offset = (page - 1) * query.limit;
+        const products = await this.productsRepository.getAdminProductsPaginated(query.limit, offset, filters);
+        return {
+            products,
+            summary,
+            pagination: { page, limit: query.limit, total, totalPages },
+            msg: "Admin products retrieved successfully",
+        };
     }
 
     @Get(":id")
@@ -295,7 +323,8 @@ export class ProductsController {
     @Roles("admin")
     async updateInventory(
         @Param("id") id: string,
-        @Body(new ZodValidationPipe(inventoryUpdateSchema)) body: { stock: number },
+        @Req() req: Request & { user?: { id?: string | number } },
+        @Body(new ZodValidationPipe(inventoryUpdateSchema)) body: { stock: number; reason: string },
     ) {
         const pid = Number(id);
 
@@ -304,7 +333,7 @@ export class ProductsController {
         }
 
         try {
-            const product = await this.productsService.updateInventoryService(pid, body.stock);
+            const product = await this.productsService.updateInventoryService(pid, body.stock, body.reason, String(req.user?.id || ""));
             return { product, msg: "Inventory updated successfully" };
         } catch (err) {
             const error = err as Error & { statusCode?: number };

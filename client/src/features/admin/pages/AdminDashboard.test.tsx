@@ -1,19 +1,19 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AdminDashboard from "./AdminDashboard";
 import { formatCurrency } from "../../../utils/currency";
 import {
     fetchAdminOrders,
+    fetchAdminPendingOrderQueue,
     fetchAdminProducts,
     fetchAdminUsers,
     fetchAdminAlerts,
     fetchAnalyticsSummary,
-    fetchOrderItems,
+    acknowledgeAdminAlerts,
 } from "../api";
-import { getAdminAlertReadIds } from "../utils/adminAlertState";
 
 const { addToast } = vi.hoisted(() => ({ addToast: vi.fn() }));
 
@@ -21,9 +21,10 @@ vi.mock("../api", () => ({
     fetchAnalyticsSummary: vi.fn(),
     fetchAdminProducts: vi.fn(),
     fetchAdminOrders: vi.fn(),
+    fetchAdminPendingOrderQueue: vi.fn(),
     fetchAdminUsers: vi.fn(),
     fetchAdminAlerts: vi.fn(),
-    fetchOrderItems: vi.fn(),
+    acknowledgeAdminAlerts: vi.fn(),
 }));
 vi.mock("../../../components/layout/AdminLayout", () => ({
     default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -51,6 +52,7 @@ const renderDashboardWithLocation = (initialEntries = ["/admin" as string]) => r
 describe("AdminDashboard mixed request results", () => {
     afterEach(() => {
         cleanup();
+        vi.useRealTimers();
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
     });
@@ -58,14 +60,15 @@ describe("AdminDashboard mixed request results", () => {
     beforeEach(() => {
         vi.stubGlobal("IntersectionObserver", undefined);
         vi.resetAllMocks();
+        vi.mocked(acknowledgeAdminAlerts).mockResolvedValue(undefined);
         window.localStorage.clear();
         vi.mocked(fetchAnalyticsSummary).mockRejectedValue({ response: { status: 401 } });
         vi.mocked(fetchAdminProducts).mockResolvedValue([
             { id: 1, name: "USB-C Hub", category: "Accessories", stock: 7 } as never,
         ]);
         vi.mocked(fetchAdminOrders).mockRejectedValue({ response: { status: 401 } });
+        vi.mocked(fetchAdminPendingOrderQueue).mockResolvedValue([]);
         vi.mocked(fetchAdminUsers).mockRejectedValue({ response: { status: 401 } });
-        vi.mocked(fetchOrderItems).mockRejectedValue({ response: { status: 401 } });
         vi.mocked(fetchAdminAlerts).mockResolvedValue({ alerts: [], unread: 0 });
     });
 
@@ -107,7 +110,6 @@ describe("AdminDashboard mixed request results", () => {
             .mockResolvedValueOnce([{ id: 1, name: "USB-C Hub", category: "Accessories", stock: 7 }] as never);
         vi.mocked(fetchAdminOrders).mockResolvedValue([].concat([]) as never);
         vi.mocked(fetchAdminUsers).mockResolvedValue([].concat([]) as never);
-        vi.mocked(fetchOrderItems).mockResolvedValue([].concat([]) as never);
 
         renderDashboard();
         await waitFor(() => expect(screen.getByText(/Updated/)).toBeTruthy());
@@ -146,7 +148,6 @@ describe("AdminDashboard mixed request results", () => {
         vi.mocked(fetchAdminProducts).mockRejectedValue({ response: { status: 401 } });
         vi.mocked(fetchAdminUsers).mockRejectedValue({ response: { status: 401 } });
         vi.mocked(fetchAdminOrders).mockRejectedValue({ response: { status: 401 } });
-        vi.mocked(fetchOrderItems).mockRejectedValue({ response: { status: 401 } });
 
         renderDashboard();
 
@@ -195,9 +196,13 @@ describe("AdminDashboard mixed request results", () => {
         vi.mocked(fetchAdminUsers).mockResolvedValue([
             { id: "u1", email: "buyer@example.com", username: "buyer", first_name: "Ada", last_name: "Lovelace", role: "customer", created_at: today },
         ] as never);
-        vi.mocked(fetchOrderItems).mockResolvedValue([
-            { id: 1, order_id: 42, name: "USB-C Hub", sales: 1, revenue: 19.99, price: 19.99 },
-        ] as never);
+        vi.mocked(fetchAnalyticsSummary).mockResolvedValue({
+            summary: {
+                kpis: { inventory: { totalProducts: 1 }, customers: { total: 1 }, orders: { total: 1, pending: 1 } },
+                operations: { inventoryRisk: [] },
+                charts: { topProducts: [{ name: "USB-C Hub", sales: 1, revenue: 19.99 }] },
+            },
+        });
 
         renderDashboard();
         await waitFor(() => expect(screen.getByText(/Updated/)).toBeTruthy());
@@ -223,6 +228,27 @@ describe("AdminDashboard mixed request results", () => {
 
         await waitFor(() => expect(fetchAnalyticsSummary).toHaveBeenCalledWith("90d"));
         expect(screen.getByTestId("location")).toHaveTextContent("/admin?range=90d");
+    });
+
+    it("refreshes operational signals periodically without reloading analytics aggregates", async () => {
+        vi.useFakeTimers();
+        renderDashboard();
+
+        await act(async () => {
+            await Promise.resolve();
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+        expect(fetchAnalyticsSummary).toHaveBeenCalledTimes(1);
+        expect(fetchAdminAlerts).toHaveBeenCalledTimes(1);
+
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(30_000);
+        });
+
+        expect(fetchAnalyticsSummary).toHaveBeenCalledTimes(1);
+        expect(fetchAdminAlerts).toHaveBeenCalledTimes(2);
+        expect(fetchAdminPendingOrderQueue).toHaveBeenCalledTimes(2);
     });
 
     it("keeps analytics visible and makes the alert feed retryable when alerts fail", async () => {
@@ -265,7 +291,7 @@ describe("AdminDashboard mixed request results", () => {
 
         fireEvent.click(await screen.findByRole("link", { name: "Review alert group" }));
         expect(screen.getByTestId("location")).toHaveTextContent("/admin/orders");
-        expect(getAdminAlertReadIds()).toContain("order-42");
+        await waitFor(() => expect(acknowledgeAdminAlerts).toHaveBeenCalledWith(["order-42"]));
     });
 
 });

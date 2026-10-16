@@ -78,7 +78,7 @@ describe("product alert transitions in admin product writes", () => {
     it("emits back-in-stock from the locked 0 -> 8 inventory transition", async () => {
         const { service, alerts } = buildService({ lockedProduct: product({ stock: 0 }) });
 
-        await service.updateInventoryService(7, 8);
+        await service.updateInventoryService(7, 8, "Cycle count verified", "admin-1");
 
         expect(alerts.recordTransitionsInTransaction).toHaveBeenCalledWith(
             expect.anything(),
@@ -112,7 +112,7 @@ describe("product alert transitions in admin product writes", () => {
         expect(equalPrice.alerts.recordTransitionsInTransaction).not.toHaveBeenCalled();
 
         const unchangedStock = buildService({ lockedProduct: product({ stock: 8 }) });
-        await unchangedStock.service.updateInventoryService(7, 8);
+        await unchangedStock.service.updateInventoryService(7, 8, "Cycle count verified", "admin-1");
         expect(unchangedStock.alerts.recordTransitionsInTransaction).not.toHaveBeenCalled();
     });
 });

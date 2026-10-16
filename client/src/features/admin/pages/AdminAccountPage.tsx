@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import React, { useDeferredValue, useEffect, useRef, useState } from "react";
 import { Button, Modal, Table } from "../../../components/ui/legacy";
 import ReactPaginate from "react-paginate";
 import { Role } from "../../../types/user";
@@ -6,14 +6,17 @@ import type { AdminAccount as Account, AdminCustomerProfile as CustomerProfile }
 import AdminLayout from "../../../components/layout/AdminLayout";
 import { Helmet } from "react-helmet-async";
 import { useToast } from "../../../context/ToastContext";
-import { fetchAllUsers, updateAccount, fetchCustomerProfile } from "../api";
+import { fetchAdminUsersPage, updateAccount, fetchCustomerProfile, type AdminListPagination } from "../api";
 import AdminStatusPanel from "../components/AdminStatusPanel";
 import AdminTableScrollHint from "../components/AdminTableScrollHint";
 import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
 import { formatCurrency } from "../../../utils/currency";
 import { getOrderStatusKey } from "../../orders/orderStatus";
+import { getApiErrorMessage } from "../../../lib/api-contract";
 
 const ITEMS_PER_PAGE = 8;
+const emptyPagination: AdminListPagination = { page: 1, limit: ITEMS_PER_PAGE, total: 0, totalPages: 0 };
+type AccountChange = { account: Account; role: string; status: "Active" | "Suspended" };
 
 const getStatusLabel = (status: number) => {
     const labels = { pending: "Pending", done: "Done", canceled: "Canceled", unknown: "Unknown" };
@@ -31,63 +34,53 @@ const AdminAccountPage = () => {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
+    const [pagination, setPagination] = useState(emptyPagination);
+    const [accountSummary, setAccountSummary] = useState({ total: 0, customers: 0, suspended: 0 });
+    const [pendingChange, setPendingChange] = useState<AccountChange | null>(null);
+    const [changeReason, setChangeReason] = useState("");
+    const [isSavingChange, setIsSavingChange] = useState(false);
     const [selectedProfile, setSelectedProfile] = useState<CustomerProfile | null>(null);
     const [showProfile, setShowProfile] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [hasLoaded, setHasLoaded] = useState(false);
     const [loadError, setLoadError] = useState<AdminRequestError | null>(null);
     const hasLoadedRef = useRef(false);
+    const requestSequence = useRef(0);
     const { addToast } = useToast();
     const deferredSearchTerm = useDeferredValue(searchTerm);
 
     const loadUsers = React.useCallback(async () => {
+        const requestId = ++requestSequence.current;
         try {
             setIsLoading(true);
             setLoadError(null);
-            const users = await fetchAllUsers();
-            const newAccounts: Account[] = users.map((account) => ({
+            const data = await fetchAdminUsersPage({ page: currentPage, limit: ITEMS_PER_PAGE, search: deferredSearchTerm });
+            if (requestId !== requestSequence.current) return;
+            const newAccounts: Account[] = data.items.map((account) => ({
                     ...account,
                     status: account.status || "Active",
                     order_count: Number(account.order_count) || 0,
                     created_at: new Date(account.created_at),
             }));
-            setAccounts(
-                newAccounts.sort(
-                    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-                ),
-            );
+            setAccounts(newAccounts);
+            setPagination(data.pagination);
+            setAccountSummary(data.summary);
             setHasLoaded(true);
             hasLoadedRef.current = true;
         } catch (error) {
+            if (requestId !== requestSequence.current) return;
             setLoadError(getAdminRequestError(error));
             if (hasLoadedRef.current) addToast("Accounts", "Refresh failed. Showing the latest saved accounts.");
         } finally {
-            setIsLoading(false);
+            if (requestId === requestSequence.current) setIsLoading(false);
         }
-    }, [addToast]);
+    }, [addToast, currentPage, deferredSearchTerm]);
 
     useEffect(() => { loadUsers(); }, [loadUsers]);
 
-    const filteredAccounts = useMemo(() => {
-        const lowerSearchTerm = deferredSearchTerm.trim().toLowerCase();
-        if (!lowerSearchTerm) return accounts;
-
-        return accounts.filter((account) => {
-            return (
-                account.id.toLowerCase().includes(lowerSearchTerm) ||
-                account.username.toLowerCase().includes(lowerSearchTerm) ||
-                account.role.toLowerCase().includes(lowerSearchTerm) ||
-                (account.status || "Active").toLowerCase().includes(lowerSearchTerm) ||
-                account.email.toLowerCase().includes(lowerSearchTerm)
-            );
-        });
-    }, [accounts, deferredSearchTerm]);
-
-    const pageCount = Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE);
-    const currentAccounts = useMemo(() => {
-        const start = (currentPage - 1) * ITEMS_PER_PAGE;
-        return filteredAccounts.slice(start, start + ITEMS_PER_PAGE);
-    }, [currentPage, filteredAccounts]);
+    const filteredAccounts = accounts;
+    const pageCount = pagination.totalPages;
+    const currentAccounts = accounts;
 
     useEffect(() => {
         if (currentPage > Math.max(pageCount, 1)) {
@@ -95,9 +88,18 @@ const AdminAccountPage = () => {
         }
     }, [currentPage, pageCount]);
 
-    const handleUpdateAccount = async (account: Account, role: string, status: "Active" | "Suspended") => {
+    const requestAccountChange = (account: Account, role: string, status: "Active" | "Suspended") => {
+        if (role === account.role && status === (account.status || "Active")) return;
+        setChangeReason("");
+        setPendingChange({ account, role, status });
+    };
+
+    const handleUpdateAccount = async () => {
+        if (!pendingChange || changeReason.trim().length < 8) return;
+        const { account, role, status } = pendingChange;
         try {
-            const result = await updateAccount(account.id, { role, status });
+            setIsSavingChange(true);
+            const result = await updateAccount(account.id, { role, status, reason: changeReason.trim() });
             const updatedAccount = {
                 ...account,
                 ...result.account,
@@ -107,9 +109,14 @@ const AdminAccountPage = () => {
             setAccounts((currentAccounts) =>
                 currentAccounts.map((item) => (item.id === account.id ? updatedAccount : item)),
             );
+            setPendingChange(null);
+            setChangeReason("");
+            void loadUsers();
             addToast("Accounts", "Account updated successfully.");
-        } catch {
-            addToast("Accounts", "Unable to update account.");
+        } catch (error) {
+            addToast("Accounts", getApiErrorMessage(error, "Unable to update account."));
+        } finally {
+            setIsSavingChange(false);
         }
     };
 
@@ -172,7 +179,7 @@ const AdminAccountPage = () => {
                     <div className="admin__page__actions">
                         <button type="button" className="admin__button admin__button--ghost" onClick={loadUsers}>Refresh</button>
                         <button type="button" className="admin__button admin__button--primary" onClick={exportAccountsCsv}>
-                            Export customers CSV
+                            Export loaded page CSV
                         </button>
                     </div>
                 </header>
@@ -180,17 +187,17 @@ const AdminAccountPage = () => {
                 <section className="admin__summary">
                     <div className="admin__summary-card">
                         <span>Total accounts</span>
-                        <strong>{accounts.length}</strong>
+                        <strong>{accountSummary.total}</strong>
                         <p>All users</p>
                     </div>
                     <div className="admin__summary-card">
                         <span>Customers</span>
-                        <strong>{accounts.filter((account) => account.role === Role.Customer).length}</strong>
+                        <strong>{accountSummary.customers}</strong>
                         <p>Buyer accounts</p>
                     </div>
                     <div className="admin__summary-card">
                         <span>Suspended</span>
-                        <strong>{accounts.filter((account) => account.status === "Suspended").length}</strong>
+                        <strong>{accountSummary.suspended}</strong>
                         <p>Limited access</p>
                     </div>
                 </section>
@@ -199,7 +206,7 @@ const AdminAccountPage = () => {
                     <div className="admin__card__header admin__card__header--stacked">
                         <div>
                             <h3>Account list</h3>
-                            <span>{filteredAccounts.length} results</span>
+                            <span>{pagination.total} results</span>
                         </div>
                         <div className="admin__list-toolbar">
                             <div className="admin__filters">
@@ -268,7 +275,7 @@ const AdminAccountPage = () => {
                                                 className="admin__table__select"
                                                 value={account.role}
                                                 onChange={(event) =>
-                                                    handleUpdateAccount(account, event.target.value as Role, account.status || "Active")
+                                                    requestAccountChange(account, event.target.value as Role, account.status || "Active")
                                                 }
                                             >
                                                 <option value={Role.Customer}>Customer</option>
@@ -280,7 +287,7 @@ const AdminAccountPage = () => {
                                                 className="admin__table__select"
                                                 value={account.status || "Active"}
                                                 onChange={(event) =>
-                                                    handleUpdateAccount(
+                                                    requestAccountChange(
                                                         account,
                                                         account.role,
                                                         event.target.value as "Active" | "Suspended",
@@ -333,6 +340,37 @@ const AdminAccountPage = () => {
                         </> : null}
                     </div>
                 </section>
+
+                <Modal
+                    show={Boolean(pendingChange)}
+                    onHide={() => { if (!isSavingChange) setPendingChange(null); }}
+                    centered
+                    dialogClassName="admin__dialog"
+                    contentClassName="admin__dialog__content"
+                >
+                    <Modal.Header closeButton={!isSavingChange}>
+                        <Modal.Title>Confirm account access change</Modal.Title>
+                    </Modal.Header>
+                    <Modal.Body>
+                        <p>This changes access to customer or admin tools. Add a reason to the audit history.</p>
+                        <label htmlFor="account-change-reason">Reason (at least 8 characters)</label>
+                        <textarea
+                            id="account-change-reason"
+                            className="admin__table__input"
+                            rows={3}
+                            maxLength={500}
+                            value={changeReason}
+                            onChange={(event) => setChangeReason(event.target.value)}
+                            required
+                        />
+                    </Modal.Body>
+                    <Modal.Footer>
+                        <Button variant="secondary" disabled={isSavingChange} onClick={() => setPendingChange(null)}>Cancel</Button>
+                        <Button variant="primary" disabled={isSavingChange || changeReason.trim().length < 8} onClick={handleUpdateAccount}>
+                            {isSavingChange ? "Saving…" : "Confirm change"}
+                        </Button>
+                    </Modal.Footer>
+                </Modal>
 
                 <Modal
                     show={showProfile}
