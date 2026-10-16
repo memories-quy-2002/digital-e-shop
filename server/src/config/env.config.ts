@@ -163,6 +163,10 @@ export const env = {
     payosChecksumKey: process.env.PAYOS_CHECKSUM_KEY || "",
     payosPartnerCode: process.env.PAYOS_PARTNER_CODE || "",
     payosBaseUrl: process.env.PAYOS_BASE_URL || "https://api-merchant.payos.vn",
+    deliveryRoutingEndpointAllowlist: (process.env.DELIVERY_ROUTING_ENDPOINT_ALLOWLIST || "")
+        .split(",")
+        .map((endpoint) => endpoint.trim())
+        .filter(Boolean),
     storeCurrency: CURRENCY_CODE.VND,
     paymentProviderMode: configuredPaymentProviderMode === "live" ? "live" : "mock",
     redisUrl: process.env.REDIS_URL || "",

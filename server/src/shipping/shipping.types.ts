@@ -1,5 +1,11 @@
 export type ShippingProviderMode = "staging" | "production";
 
+export type RoadPoint = { latitude: number; longitude: number };
+export type RoadRoute = {
+    distanceMeters: number;
+    geometry: Array<[longitude: number, latitude: number]>;
+};
+
 export type DeliveryAddress = {
     recipientName: string;
     recipientPhone: string;
