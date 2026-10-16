@@ -172,7 +172,7 @@ describe("transactional payment persistence", () => {
 
 describe("transactional order lifecycle persistence", () => {
     const operations = [
-        ["getOrderLifecycleForUpdate", [9], "shipment_creation_state", [9]],
+        ["getOrderLifecycleForUpdate", [9], "active_delivery_assignment", [9]],
         ["getLatestPaymentForUpdate", [9], "SELECT id, provider, status, simulated FROM order_payments WHERE order_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE", [9]],
         ["getOrderItemsForUpdate", [9], "SELECT product_id, quantity FROM order_items WHERE order_id = ? ORDER BY product_id FOR UPDATE", [9]],
         ["getRestockProductForUpdate", [4], "SELECT id, price, sale_price, stock FROM products WHERE id = ? FOR UPDATE", [4]],

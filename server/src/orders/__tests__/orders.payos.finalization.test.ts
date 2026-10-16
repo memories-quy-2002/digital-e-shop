@@ -64,6 +64,7 @@ function buildService(status: string = "PENDING") {
     const timelineService = { createTimelineEventInTransaction: vi.fn().mockResolvedValue(undefined) };
     const notificationsService = { notifyOrderPlaced: vi.fn() };
     const paymentProviderService = { createPayment: vi.fn().mockResolvedValue({ providerReference: "1757450400007", status: "pending", simulated: false }) };
+    const shippingRepository = { initializeOrderShipment: vi.fn().mockResolvedValue({ provider: "INTERNAL" }) };
 
     tx.query.mockImplementation(async (sql: string) => {
         if (sql.includes("JOIN order_payments")) return [];
@@ -85,10 +86,14 @@ function buildService(status: string = "PENDING") {
         promotionsRepository as never,
         productAttributesRepository as never,
         new NestOrdersCancellationService(new OrdersRepository({} as never), timelineService as never, inventoryService as never),
+        shippingRepository as never,
         paymentProviderService as never,
+        undefined,
+        undefined,
+        undefined,
     );
 
-    return { service, tx, reservationRepository, promotionsRepository, inventoryService, notificationsService, paymentProviderService };
+    return { service, tx, reservationRepository, promotionsRepository, inventoryService, notificationsService, paymentProviderService, shippingRepository };
 }
 
 describe("PayOS reserved checkout finalization", () => {
@@ -194,7 +199,7 @@ describe("PayOS reserved checkout finalization", () => {
     });
 
     it("creates one paid order from the attempt snapshot and counts other active holds", async () => {
-        const { service, tx, reservationRepository, inventoryService } = buildService();
+        const { service, tx, reservationRepository, inventoryService, shippingRepository } = buildService();
         reservationRepository.getPayOSAttemptForUpdate.mockResolvedValue({
             id: "attempt-1", pending_checkout_id: 7, provider_order_code: "1757450400007", provider_link_id: "link-123",
             expected_amount_vnd: 450000, verified_received_amount_vnd: 450000, payment_state: "PAID",
@@ -208,6 +213,7 @@ describe("PayOS reserved checkout finalization", () => {
         expect(reservationRepository.setPaymentAttemptOrderState).toHaveBeenLastCalledWith(tx, "attempt-1", "CREATED", 42);
         expect(inventoryService.createMovementsInTransaction).toHaveBeenCalledTimes(1);
         expect(tx.query.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO orders"))).toBe(true);
+        expect(shippingRepository.initializeOrderShipment).toHaveBeenCalledWith(tx, 42);
     });
 
     it("serializes cancellation intent against a late verified receipt without creating an order", async () => {

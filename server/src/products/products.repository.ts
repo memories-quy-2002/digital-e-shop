@@ -222,9 +222,6 @@ const getAdminProductWhere = (filters: { search?: string; stock?: "all" | "low" 
 
 @Injectable()
 export class NestProductsRepository {
-    setParcelInTransaction(tx: TransactionContext, id: number, parcel: { grams: number; lengthCm: number; widthCm: number; heightCm: number }) {
-        return tx.query<{ affectedRows: number }>("UPDATE products SET parcel_grams = ?, parcel_length_cm = ?, parcel_width_cm = ?, parcel_height_cm = ? WHERE id = ?", [parcel.grams, parcel.lengthCm, parcel.widthCm, parcel.heightCm, id]);
-    }
     async ensureNamedIdInTransaction(tx: TransactionContext, tableName: "categories" | "brands", name: string): Promise<number> {
         const [row] = await tx.query<IdNameRow[]>(`SELECT id FROM ${tableName} WHERE name = ?`, [name]);
         if (row) return Number(row.id);

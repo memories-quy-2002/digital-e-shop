@@ -21,10 +21,10 @@ describe("AdminCodSettlementsPage", () => {
         });
     });
 
-    it("distinguishes carrier collection from remittance and surfaces the mismatch and sandbox marker", async () => {
+    it("distinguishes staff collection from store remittance and surfaces the mismatch and sandbox marker", async () => {
         render(<AdminCodSettlementsPage />);
-        expect(await screen.findByText("Collected by carrier")).toBeInTheDocument();
-        expect(screen.getByText("Remitted by carrier")).toBeInTheDocument();
+        expect(await screen.findByText("Collected by delivery staff")).toBeInTheDocument();
+        expect(screen.getByText("Remitted to store")).toBeInTheDocument();
         expect(screen.getByText("Mismatch")).toBeInTheDocument();
         expect(screen.getByText("Sandbox record")).toBeInTheDocument();
         expect(screen.getByRole("status")).toHaveTextContent("5.000");
@@ -32,17 +32,17 @@ describe("AdminCodSettlementsPage", () => {
 
     it("requires a transfer reference, date, and evidence before remittance can submit", async () => {
         render(<AdminCodSettlementsPage />);
-        await screen.findByText("Collected by carrier");
+        await screen.findByText("Collected by delivery staff");
         expect(screen.getByRole("button", { name: "Record remittance" })).toBeDisabled();
     });
 
-    it("blocks remittance until the carrier fee has been verified", async () => {
+    it("blocks remittance until the delivery fee is available", async () => {
         vi.mocked(fetchCodSettlements).mockResolvedValue({
             settlements: [{ id: 1, orderId: 17, expectedCodVnd: 100_000, collectedVnd: 100_000, carrierFeeVnd: 0, remittedVnd: 0, currency: "VND", status: "PENDING", actualCarrierFeeVnd: null }],
             nextAfterId: null,
         });
         render(<AdminCodSettlementsPage />);
-        expect(await screen.findByText(/Carrier fee is not verified/)).toBeInTheDocument();
+        expect(await screen.findByText(/The delivery fee is not available yet/)).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Record remittance" })).toBeDisabled();
     });
 
@@ -50,7 +50,7 @@ describe("AdminCodSettlementsPage", () => {
         let resolveRequest!: (value: unknown) => void;
         vi.mocked(confirmCodRemittance).mockReturnValue(new Promise((resolve) => { resolveRequest = resolve; }) as never);
         render(<AdminCodSettlementsPage />);
-        await screen.findByText("Collected by carrier");
+        await screen.findByText("Collected by delivery staff");
         fireEvent.change(screen.getByLabelText("Transfer reference"), { target: { value: "BANK-17" } });
         fireEvent.change(screen.getByLabelText("Transfer date"), { target: { value: "2026-10-14" } });
         fireEvent.change(screen.getByLabelText("Remitted amount (VND)"), { target: { value: "85000" } });

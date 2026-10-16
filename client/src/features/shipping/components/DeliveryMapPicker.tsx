@@ -60,7 +60,7 @@ const DeliveryMapPicker = ({
     useEffect(() => {
         setLatitudeInput(destination ? String(destination.latitude) : "");
         setLongitudeInput(destination ? String(destination.longitude) : "");
-    }, [destination?.latitude, destination?.longitude]);
+    }, [destination]);
 
     useEffect(() => {
         const container = mapContainerRef.current;
@@ -147,7 +147,7 @@ const DeliveryMapPicker = ({
                 routeRef.current = null;
             }
         });
-    }, [destination?.latitude, destination?.longitude, mapReady, pinKind, route, t]);
+    }, [destination, destinationLabel, mapReady, pinKind, route, t]);
 
     const updateCoordinate = (axis: "latitude" | "longitude", value: string) => {
         if (axis === "latitude") setLatitudeInput(value);

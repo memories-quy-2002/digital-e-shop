@@ -27,12 +27,8 @@ import { TasksModule } from "./operations/tasks.module";
 import { EmailModule } from "./transactional-email/email.module";
 import type { EmailConfig } from "./transactional-email/email.types";
 import { TaskRunnerModule } from "./operations/task-runner.module";
-import { PAYOS_TASK_PROCESSOR, SHIPMENT_TASK_PROCESSOR } from "./operations/task-runner.service";
+import { PAYOS_TASK_PROCESSOR } from "./operations/task-runner.service";
 import { PayOSReconciliationTaskProcessor } from "./operations/payos-reconciliation-task.processor";
-import type { TaskLease } from "./operations/tasks.types";
-import { ShippingModule } from "./shipping/shipping.module";
-import { FulfillmentService } from "./shipping/fulfillment.service";
-import { ShippingWebhookService } from "./shipping/shipping-webhook.service";
 import { OrderEmailModule } from "./orders/order-email.module";
 import { AdminAuditModule } from "./admin-audit/admin-audit.module";
 import { LoyaltyModule } from "./loyalty/loyalty.module";
@@ -41,8 +37,7 @@ import { LoyaltyModule } from "./loyalty/loyalty.module";
     imports: [
         NestConfigModule,
         EmailModule.register({ mode: (process.env.EMAIL_PROVIDER_MODE || "disabled") as EmailConfig["mode"], production: process.env.NODE_ENV === "production", apiKey: process.env.RESEND_API_KEY, fromAddress: process.env.TRANSACTIONAL_EMAIL_FROM, webhookSecret: process.env.RESEND_WEBHOOK_SECRET, sandboxFixture: process.env.EMAIL_SANDBOX_FIXTURE as EmailConfig["sandboxFixture"] }),
-        TaskRunnerModule.register({ imports: [ShippingModule, OrdersModule], providers: [
-            { provide: SHIPMENT_TASK_PROCESSOR, inject: [FulfillmentService, ShippingWebhookService], useFactory: (fulfillment: FulfillmentService, callbacks: ShippingWebhookService) => ({ process: (lease: TaskLease) => lease.kind === "SHIPMENT_CREATE" ? fulfillment.processShipment(lease) : callbacks.processEvent(lease) }) },
+        TaskRunnerModule.register({ imports: [OrdersModule], providers: [
             { provide: PAYOS_TASK_PROCESSOR, useExisting: PayOSReconciliationTaskProcessor },
         ] }),
         TasksModule,

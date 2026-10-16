@@ -13,8 +13,8 @@ const urlDatabase = decodeURIComponent(databaseUrl.pathname.replace(/^\//, ""));
 if (dbName !== "retail_p0_test" || urlDatabase !== dbName || !allowedHosts.has(host) || !allowedHosts.has(databaseUrl.hostname.toLowerCase())) {
     throw new Error("Browser fixture preparation requires the isolated local retail_p0_test database");
 }
-if (process.env.SHIPPING_PROVIDER_MODE !== "sandbox" || process.env.EMAIL_PROVIDER_MODE !== "sandbox" || process.env.PAYMENT_PROVIDER_MODE !== "mock") {
-    throw new Error("Browser fixtures require shipping/email sandbox and mock payments");
+if (process.env.EMAIL_PROVIDER_MODE !== "sandbox" || process.env.PAYMENT_PROVIDER_MODE !== "mock") {
+    throw new Error("Browser fixtures require sandbox email and mock payments");
 }
 
 let connection;
@@ -30,11 +30,11 @@ try {
     const [rows] = await connection.query("SELECT DATABASE() AS name");
     if (rows[0]?.name !== "retail_p0_test") throw new Error("Connected database is outside the browser fixture allowlist");
     await connection.execute(
-        "UPDATE products SET stock = GREATEST(stock, 100), parcel_grams = 500, parcel_length_cm = 20, parcel_width_cm = 10, parcel_height_cm = 5 WHERE id = 1",
+        "UPDATE products SET stock = GREATEST(stock, 100) WHERE id = 1",
     );
-    const [products] = await connection.query("SELECT id FROM products WHERE id = 1 AND parcel_grams = 500");
-    if (!products.length) throw new Error("Parcel-ready browser product fixture is missing from the cloned baseline");
-    process.stdout.write("Prepared isolated parcel-ready retail P0 browser fixture (product 1).\n");
+    const [products] = await connection.query("SELECT id FROM products WHERE id = 1");
+    if (!products.length) throw new Error("Browser product fixture is missing from the cloned baseline");
+    process.stdout.write("Prepared isolated internal-delivery retail P0 browser fixture (product 1).\n");
 } catch {
     process.stderr.write("Could not prepare the isolated retail P0 browser fixture; database details were suppressed.\n");
     process.exitCode = 1;

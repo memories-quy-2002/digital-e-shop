@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { NestAddressesService } from "../addresses.service";
 
 describe("NestAddressesService", () => {
-    it("preserves structured carrier locations when saving an address", async () => {
+    it("does not write retired carrier location codes from address input", async () => {
         const repository = {
             createAddress: vi.fn().mockResolvedValue({ insertId: 7 }),
         };
@@ -16,20 +16,11 @@ describe("NestAddressesService", () => {
             wardName: "Ben Nghe Ward",
         } as never);
 
-        expect(repository.createAddress).toHaveBeenCalledWith("customer-1", expect.objectContaining({
-            addressLine: "12 Main Street",
-            provinceCode: "202",
-            provinceName: "Ho Chi Minh City",
-            wardCode: "26734",
-            wardName: "Ben Nghe Ward",
-        }));
-        expect(result).toMatchObject({
-            id: 7,
-            provinceCode: "202",
-            provinceName: "Ho Chi Minh City",
-            wardCode: "26734",
-            wardName: "Ben Nghe Ward",
-        });
+        const savedAddress = vi.mocked(repository.createAddress).mock.calls[0][1];
+        expect(savedAddress).toMatchObject({ addressLine: "12 Main Street" });
+        expect(savedAddress).not.toHaveProperty("provinceCode");
+        expect(result).toMatchObject({ id: 7, addressLine: "12 Main Street" });
+        expect(result).not.toHaveProperty("provinceCode");
     });
 
     it("preserves the optional delivery pin when saving and returning an address", async () => {

@@ -12,10 +12,6 @@ const normalizeAddressInput = (data: CustomerAddressInput = {}) => {
     const addressLine = String(data.addressLine || data.address_line || data.address || "").trim();
     const city = String(data.city || "").trim() || null;
     const country = String(data.country || "").trim() || null;
-    const provinceCode = String(data.provinceCode || "").trim() || null;
-    const provinceName = String(data.provinceName || "").trim() || null;
-    const wardCode = String(data.wardCode || "").trim() || null;
-    const wardName = String(data.wardName || "").trim() || null;
     const latitude = data.latitude ?? null;
     const longitude = data.longitude ?? null;
 
@@ -30,10 +26,6 @@ const normalizeAddressInput = (data: CustomerAddressInput = {}) => {
         addressLine,
         city,
         country,
-        provinceCode,
-        provinceName,
-        wardCode,
-        wardName,
         latitude,
         longitude,
         isDefault: Boolean(data.isDefault ?? data.is_default),

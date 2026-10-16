@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { calculatePricing, estimateParcel, quoteFingerprint, assertQuoteMatches } from "../shipping-quote.policy";
+import { calculatePricing, quoteFingerprint, assertQuoteMatches } from "../shipping-quote.policy";
 import { ShippingQuoteService } from "../shipping-quote.service";
 import { deliveryAddressSchema } from "../shipping.validator";
 
@@ -206,9 +206,10 @@ describe("owner-bound delivery quotes", () => {
         expect(() => calculatePricing(10.5, 0, 1)).toThrow();
         expect(() => calculatePricing(Number.MAX_SAFE_INTEGER, 0, 1)).toThrow();
     });
-    it("rejects missing parcel metadata and estimates a stacked parcel from all quantities", () => {
-        expect(() => estimateParcel([{ quantity: 1, grams: null, lengthCm: 2, widthCm: 3, heightCm: 4 }])).toThrow();
-        expect(estimateParcel([{ quantity: 2, grams: 500, lengthCm: 20, widthCm: 10, heightCm: 5 }, { quantity: 1, grams: 200, lengthCm: 10, widthCm: 15, heightCm: 2 }])).toEqual({ grams: 1200, lengthCm: 20, widthCm: 15, heightCm: 12 });
+    it("prices delivery separately from merchandise discounts", () => {
+        expect(calculatePricing(200000, 10000, 25000)).toEqual({
+            itemsSubtotal: 200000, merchandiseDiscount: 10000, shippingFee: 25000, payableTotal: 215000, currency: "VND",
+        });
     });
     it("separates guest capability, signed-in identity, changed cart and address", () => {
         const base = { owner: { kind: "guest", guestCartId: "guest-a" }, cart: [{ id: 1, quantity: 1, price: 100 }], address: { ward: "1" } };

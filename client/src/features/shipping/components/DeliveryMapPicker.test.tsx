@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import DeliveryMapPicker from "./DeliveryMapPicker";
 
 const mocks = vi.hoisted(() => {
-    const map: Record<string, any> = {
+    const map = {
         setView: vi.fn(),
         on: vi.fn(),
         off: vi.fn(),

@@ -63,9 +63,8 @@ export class OrdersRepository {
               `SELECT user_id, status, delivered_at, inventory_restored_at,
                       (SELECT state FROM shipments WHERE order_id = orders.id) AS fulfillment_state,
                       (SELECT stock_received_at FROM shipments WHERE order_id = orders.id) AS returned_stock_received_at,
-                      (SELECT task.state FROM shipments shipment
-                       JOIN operations_tasks task ON task.kind = 'SHIPMENT_CREATE' AND task.business_key = shipment.client_reference
-                       WHERE shipment.order_id = orders.id ORDER BY task.id DESC LIMIT 1) AS shipment_creation_state
+                      EXISTS(SELECT 1 FROM delivery_assignments assignment WHERE assignment.order_id = orders.id
+                             AND assignment.status IN ('ASSIGNED', 'OUT_FOR_DELIVERY')) AS active_delivery_assignment
                FROM orders WHERE id = ? FOR UPDATE`, [orderId],
         );
         return order || null;

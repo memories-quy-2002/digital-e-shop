@@ -429,20 +429,22 @@ Browser return parameters and cached checkout data never establish payment.
 
 | Method | Path | Access |
 | --- | --- | --- |
-| GET | /api/shipping/provinces | Public provider locations |
-| GET | /api/shipping/provinces/:code/wards | Public provider locations |
-| GET | /api/shipping/services | Public available services |
+| GET | /api/shipping/delivery/map-config | Public minimal map configuration |
 | POST | /api/shipping/quotes | Authenticated customer; cart is server-owned |
 | POST | /api/shipping/guest/quotes | Guest cart cookie plus submitted cart |
 | GET | /api/shipping/orders/:id | Order owner or admin |
 | POST | /api/shipping/guest/shipment | Guest order capability in POST body |
-| POST | /api/shipping/webhooks/ghn | GHN shared-secret and ShopID validation |
 | GET | /api/admin/shipping | Admin |
+| GET | /api/admin/shipping/:id | Admin; shipment and read-only legacy history |
 | POST | /api/admin/shipping/:id/transition | Admin |
-| POST | /api/admin/shipping/:id/create | Admin; idempotency key required |
-| POST | /api/admin/shipping/:id/label | Admin; temporary access |
-| POST | /api/admin/shipping/:id/receive-return | Admin; confirms physical receipt before stock restoration |
-| PUT | /api/shipping/admin/products/:id/parcel | Admin; validated parcel dimensions |
+| GET/PUT | /api/admin/delivery/settings | Admin; internal delivery settings |
+| GET | /api/admin/delivery/assignable-orders | Admin; packed internal orders |
+| GET | /api/admin/delivery/staff | Admin; active delivery staff |
+| GET | /api/admin/delivery/orders/:orderId | Admin; assignment history |
+| POST | /api/admin/delivery/orders/:orderId/assignments | Admin; assign or reschedule staff |
+| GET | /api/delivery/staff/assignments | Assigned employee |
+| GET | /api/delivery/staff/assignments/:id | Owning employee |
+| POST | /api/delivery/staff/assignments/:id/status | Owning employee; status and failure reason |
 | GET | /api/admin/payments/cod-settlements | Admin |
 | POST | /api/admin/payments/cod-settlements/:orderId/remittance | Admin; transfer reference and private evidence required |
 | GET | /api/admin/payments/attempt-exceptions?page=1&limit=25 | Admin; bounded unresolved PayOS exception queue, max 100 |
@@ -458,8 +460,9 @@ Browser return parameters and cached checkout data never establish payment.
 | POST | /api/operations/run | Scheduler bearer secret |
 | POST | /api/email/webhooks/resend | Resend signed raw-body webhook |
 
-New quotes bind the current cart, address, parcel and whole-VND pricing to a
-single-use expiring quote. COD collection at delivery is distinct from later
+New quotes bind the current cart, address coordinates, road route and whole-VND
+pricing to a single-use expiring quote; parcel metadata and carrier services are
+not used. COD collection at delivery is distinct from later
 bank remittance. Manual refund requests carry no amount; the server allocates
 net merchandise value and requires private evidence. Email acceptance is
 distinct from provider delivery. The runner is bounded and must be invoked by
@@ -495,10 +498,9 @@ profile and user management routes also
 preserve the /api/user controller alias. Use the plural /api/users routes for
 new clients.
 
-Saved address payloads may include `provinceCode`, `provinceName`, `wardCode`,
-and `wardName` for carrier quotes. These fields are optional for older and
-free-form addresses; checkout asks the customer to select carrier locations
-when saved codes are unavailable.
+Historical saved addresses may still contain province and ward codes. These
+values remain readable for old records, are not accepted as active delivery
+inputs, and are preserved when customers update other address details.
 
 ## Performance-safe routes
 

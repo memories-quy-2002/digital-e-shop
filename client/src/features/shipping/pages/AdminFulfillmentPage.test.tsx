@@ -11,7 +11,7 @@ vi.mock("../api", () => ({
     fetchFulfillmentOrders: mocks.fetchOrders, fetchFulfillmentOrder: mocks.fetchDetail,
     fetchAssignableDeliveryOrders: mocks.fetchAssignable, fetchDeliveryStaff: mocks.fetchStaff,
     fetchDeliveryAssignmentHistory: mocks.fetchHistory, assignDeliveryOrder: mocks.assign,
-    transitionFulfillment: vi.fn(), createFulfillmentShipment: vi.fn(), fetchFulfillmentLabel: vi.fn(), confirmReturnedShipment: vi.fn(),
+    transitionFulfillment: vi.fn(),
 }));
 vi.mock("../../../components/layout/AdminLayout", () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
 vi.mock("../../../hooks/useT", () => ({ useT: () => mocks.translate }));
@@ -51,5 +51,15 @@ describe("AdminFulfillmentPage internal assignments", () => {
         await waitFor(() => expect(mocks.assign).toHaveBeenCalledWith(501, {
             employeeId: "staff-1", scheduledStartAt: "2026-10-20T10:00", scheduledEndAt: "2026-10-20T12:00",
         }));
+    });
+
+    it("shows legacy tracking as history and keeps GHN shipment states read-only", async () => {
+        mocks.fetchOrders.mockResolvedValue([{ orderId: 42, state: "SHIPPED", provider: "GHN", trackingCode: "GHN-42", sandbox: false }]);
+        mocks.fetchDetail.mockResolvedValue({ orderId: 42, state: "SHIPPED", provider: "GHN", trackingCode: "GHN-42", sandbox: false, timeline: [] });
+
+        render(<AdminFulfillmentPage />);
+
+        expect(await screen.findByText("GHN-42")).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "shipping.state.PICKING" })).not.toBeInTheDocument();
     });
 });

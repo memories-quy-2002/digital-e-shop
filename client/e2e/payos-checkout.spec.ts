@@ -5,7 +5,7 @@ const productId = Number(process.env.RETAIL_P0_PRODUCT_ID);
 
 test("guest PayOS mock checkout confirms only after simulator success", async ({ page }, testInfo) => {
     test.setTimeout(60000);
-    expect(Number.isSafeInteger(productId) && productId > 0, "RETAIL_P0_PRODUCT_ID must name the parcel-ready fixture product").toBe(true);
+    expect(Number.isSafeInteger(productId) && productId > 0, "RETAIL_P0_PRODUCT_ID must name the internal-delivery fixture product").toBe(true);
     const locale = testInfo.project.metadata.locale as "en" | "vi";
     const pageErrors: string[] = [];
     const serverErrors: string[] = [];

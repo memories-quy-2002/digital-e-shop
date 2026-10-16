@@ -9,10 +9,6 @@ export type CreateAddressInput = {
     address?: string;
     city?: string;
     country?: string;
-    provinceCode?: string;
-    provinceName?: string;
-    wardCode?: string;
-    wardName?: string;
     latitude?: number | null;
     longitude?: number | null;
     isDefault?: boolean | number;

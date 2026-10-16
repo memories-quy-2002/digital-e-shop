@@ -2989,20 +2989,36 @@
                 "responses": { "200": { "description": "CSRF token and cookie" } }
             }
         },
-        "/api/shipping/provinces": {
-            "get": { "tags": ["Shipping"], "summary": "List carrier provinces", "responses": { "200": { "description": "Province list" } } }
-        },
-        "/api/shipping/provinces/{code}/wards": {
-            "get": { "tags": ["Shipping"], "summary": "List province wards", "parameters": [{ "name": "code", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Ward list" } } }
-        },
-        "/api/shipping/services": {
-            "get": { "tags": ["Shipping"], "summary": "List available delivery services", "responses": { "200": { "description": "Service list" } } }
+        "/api/shipping/delivery/map-config": {
+            "get": { "tags": ["Shipping"], "summary": "Get public map configuration", "responses": { "200": { "description": "Minimal delivery map configuration" } } }
         },
         "/api/shipping/quotes": {
             "post": { "tags": ["Shipping"], "summary": "Create an owner-bound delivery quote", "security": [{ "cookieAuth": [] }], "responses": { "201": { "description": "Expiring delivery quote" } } }
         },
         "/api/shipping/guest/quotes": {
             "post": { "tags": ["Shipping"], "summary": "Create a guest delivery quote", "responses": { "201": { "description": "Expiring guest delivery quote" } } }
+        },
+        "/api/admin/shipping": {
+            "get": { "tags": ["Shipping"], "summary": "List fulfillment orders", "security": [{ "cookieAuth": [] }], "responses": { "200": { "description": "Packing queue including read-only shipment history" } } }
+        },
+        "/api/admin/shipping/{id}": {
+            "get": { "tags": ["Shipping"], "summary": "Get shipment summary and history", "security": [{ "cookieAuth": [] }], "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Shipment and historical events" } } }
+        },
+        "/api/admin/shipping/{id}/transition": {
+            "post": { "tags": ["Shipping"], "summary": "Advance an internal packing state", "security": [{ "cookieAuth": [] }], "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "Updated internal packing state" } } }
+        },
+        "/api/admin/delivery/settings": {
+            "get": { "tags": ["Shipping"], "summary": "Get internal delivery settings", "security": [{ "cookieAuth": [] }], "responses": { "200": { "description": "Delivery settings" } } },
+            "put": { "tags": ["Shipping"], "summary": "Update internal delivery settings", "security": [{ "cookieAuth": [] }], "responses": { "200": { "description": "Updated delivery settings" } } }
+        },
+        "/api/admin/delivery/assignable-orders": {
+            "get": { "tags": ["Shipping"], "summary": "List packed orders eligible for assignment", "security": [{ "cookieAuth": [] }], "responses": { "200": { "description": "Assignable order queue" } } }
+        },
+        "/api/admin/delivery/orders/{orderId}/assignments": {
+            "post": { "tags": ["Shipping"], "summary": "Assign or reschedule delivery staff", "security": [{ "cookieAuth": [] }], "parameters": [{ "name": "orderId", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "201": { "description": "Delivery assignment" } } }
+        },
+        "/api/delivery/staff/assignments": {
+            "get": { "tags": ["Shipping"], "summary": "List the authenticated employee's delivery assignments", "security": [{ "cookieAuth": [] }], "responses": { "200": { "description": "Employee-scoped assignment list" } } }
         },
         "/api/admin/payments/cod-settlements": {
             "get": { "tags": ["Payments"], "summary": "List COD settlements", "security": [{ "cookieAuth": [] }], "responses": { "200": { "description": "COD settlement queue" } } }

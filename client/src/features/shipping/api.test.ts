@@ -11,7 +11,6 @@ import {
     fetchDeliveryStaffAssignments,
     fetchGuestShipment,
     requestInternalDeliveryQuote,
-    saveProductParcel,
     updateAdminDeliverySettings,
     updateDeliveryStaffAssignment,
 } from "./api";
@@ -41,13 +40,7 @@ describe("shipping API", () => {
         expect(http.post).toHaveBeenCalledWith("/api/shipping/guest/quotes", expect.objectContaining({ locale: "vi", cart: [{ productId: 2, quantity: 1 }] }));
     });
 
-    it("persists validated product parcel metadata through shipping admin API", async () => {
-        vi.mocked(http.put).mockResolvedValue({ data: { parcel: { grams: 400, lengthCm: 10, widthCm: 10, heightCm: 10 } } } as never);
-        await expect(saveProductParcel(11, { grams: 400, lengthCm: 10, widthCm: 10, heightCm: 10 })).resolves.toMatchObject({ grams: 400 });
-        expect(http.put).toHaveBeenCalledWith("/api/shipping/admin/products/11/parcel", { grams: 400, lengthCm: 10, widthCm: 10, heightCm: 10 });
-    });
-
-    it("uses the scoped admin and employee endpoints for internal delivery", async () => {
+    it("uses only the scoped routes for internal delivery", async () => {
         const settings = { storeAddress: "Store", storeLatitude: 10.78, storeLongitude: 106.7, fee5To20Vnd: 25000, feeOver20Vnd: 50000, routingEndpoint: "https://router.example.test/route/v1/driving", tileUrl: "https://tiles.example.test/{z}/{x}/{y}.png", tileAttribution: "Map contributors", version: 1 };
         vi.mocked(http.get).mockResolvedValueOnce({ data: { settings, allowedRoutingEndpoints: [settings.routingEndpoint], allowedTileUrls: [settings.tileUrl] } } as never);
         await expect(fetchAdminDeliverySettings()).resolves.toMatchObject({ settings, allowedRoutingEndpoints: [settings.routingEndpoint] });

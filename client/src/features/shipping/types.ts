@@ -90,7 +90,6 @@ export type AssignableDeliveryOrder = {
 };
 export type DeliveryStaffMember = { id: string; name: string };
 
-export type ShippingParcel = { grams: number; lengthCm: number; widthCm: number; heightCm: number };
 export type ShippingPricing = {
     itemsSubtotal: number;
     merchandiseDiscount: number;
@@ -131,4 +130,4 @@ export type ShipmentSummary = {
     delivery?: CustomerDeliverySummary | null;
 };
 
-export type FulfillmentOrder = { orderId: number; state: string; trackingCode: string | null; sandbox: boolean | number };
+export type FulfillmentOrder = { orderId: number; state: string; provider?: string | null; trackingCode: string | null; sandbox: boolean | number };

@@ -29,10 +29,6 @@ type AddressForm = {
     addressLine: string;
     city: string;
     country: string;
-    provinceCode: string;
-    provinceName: string;
-    wardCode: string;
-    wardName: string;
     latitude: number | null;
     longitude: number | null;
     isDefault: boolean;
@@ -47,10 +43,6 @@ const createEmptyForm = (homeLabel: string): AddressForm => ({
     addressLine: "",
     city: "",
     country: "VN",
-    provinceCode: "",
-    provinceName: "",
-    wardCode: "",
-    wardName: "",
     latitude: null,
     longitude: null,
     isDefault: false,
@@ -109,10 +101,6 @@ const AddressBookPage = () => {
             addressLine: address.address_line || "",
             city: address.city || "",
             country: address.country || "",
-            provinceCode: address.province_code || "",
-            provinceName: address.province_name || "",
-            wardCode: address.ward_code || "",
-            wardName: address.ward_name || "",
             latitude: address.latitude ?? null,
             longitude: address.longitude ?? null,
             isDefault: address.is_default,
@@ -137,10 +125,6 @@ const AddressBookPage = () => {
                 addressLine: form.addressLine,
                 city: form.city,
                 country: form.country,
-                provinceCode: form.provinceCode,
-                provinceName: form.provinceName,
-                wardCode: form.wardCode,
-                wardName: form.wardName,
                 latitude: form.latitude,
                 longitude: form.longitude,
                 isDefault: form.isDefault,

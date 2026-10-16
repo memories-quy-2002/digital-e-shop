@@ -4,12 +4,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import ProductForm, { type ProductFormValues } from "./ProductForm";
 
-vi.mock("../../shipping/components/ParcelFields", () => ({
-    default: ({ value, onChange }: { value: { grams: number }; onChange: (next: { grams: number }) => void }) => (
-        <button type="button" onClick={() => onChange({ grams: value.grams + 100 })}>Parcel weight: {value.grams}</button>
-    ),
-}));
-
 const values: ProductFormValues = {
     name: "RTX 4070 SUPER",
     sku: "GPU-EX-001",
@@ -60,11 +54,4 @@ describe("ProductForm", () => {
         expect(formCallbacks.onChange).toHaveBeenNthCalledWith(2, "inventory", "12");
     });
 
-    it("shows editable parcel metadata on the product edit form", () => {
-        const onParcelChange = vi.fn();
-        render(<ProductForm mode="edit" values={values} parcel={{ grams: 500, lengthCm: 20, widthCm: 10, heightCm: 5 }} onParcelChange={onParcelChange} {...callbacks()} />);
-
-        fireEvent.click(screen.getByRole("button", { name: "Parcel weight: 500" }));
-        expect(onParcelChange).toHaveBeenCalledWith({ grams: 600 });
-    });
 });

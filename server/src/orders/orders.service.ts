@@ -31,6 +31,7 @@ import { ShippingQuoteService, type QuoteCheckout } from "../shipping/shipping-q
 import { completeDeliveredOrder } from "./order-delivery";
 import { OrderEmailService } from "./order-email.service";
 import { LoyaltyService } from "../loyalty/loyalty.service";
+import { ShippingRepository } from "../shipping/shipping.repository";
 
 export { createCheckoutError } from "./orders.errors";
 
@@ -82,6 +83,7 @@ export class NestOrdersService {
         private readonly promotionsRepository: PromotionsRepository,
         private readonly productAttributesRepository: ProductAttributesRepository,
         private readonly ordersCancellationService: NestOrdersCancellationService,
+        private readonly shippingRepository: ShippingRepository,
         @Optional() private readonly paymentProviderService?: PaymentProviderService,
         @Optional() private readonly shippingQuoteService?: ShippingQuoteService,
         @Optional() private readonly orderEmails?: OrderEmailService,
@@ -403,6 +405,7 @@ export class NestOrdersService {
             paymentMethod,
             baseAmount: pricingSnapshot.payableTotal,
         });
+        await this.shippingRepository.initializeOrderShipment(tx, orderId);
 
         return { orderId, appliedDiscount };
     }
@@ -968,6 +971,7 @@ export class NestOrdersService {
                 },
                 status: PAYMENT_STATUS.PAID,
             });
+            await this.shippingRepository.initializeOrderShipment(tx, orderId);
             if (this.loyaltyService) await this.loyaltyService.awardPaidOrder(tx, orderId);
 
             const productAttributes = await this.productAttributesRepository.getForProducts(tx, productIds);
@@ -1148,6 +1152,7 @@ export class NestOrdersService {
                 paymentQuote: { baseAmount: Number(payableAmount.toFixed(2)), baseCurrency: CURRENCY_CODE.VND, amount: expected, currency: CURRENCY_CODE.VND, fxRate: Number(pending.payment_fx_rate) || 1 },
                 status: PAYMENT_STATUS.PAID,
             });
+            await this.shippingRepository.initializeOrderShipment(tx, orderId);
             if (this.loyaltyService) await this.loyaltyService.awardPaidOrder(tx, orderId);
             const attributes = await this.productAttributesRepository.getForProducts(tx, productIds);
             const itemSnapshots = authoritativeCart.map((item) => buildOrderItemSnapshot(item, attributes.get(Number(item.product_id || 0))));

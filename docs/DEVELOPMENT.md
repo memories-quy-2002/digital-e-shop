@@ -99,19 +99,21 @@ codes and guest-order access tokens are never logged or emailed.
 ### Local retail P0 sandbox
 
 The P0 browser flow and sandbox CLI must target a disposable local MySQL clone.
-Use `SHIPPING_PROVIDER_MODE=sandbox`, `EMAIL_PROVIDER_MODE=sandbox`,
-`PAYMENT_PROVIDER_MODE=mock`, and `EMAIL_SANDBOX_FIXTURE=accepted`; these modes
-do not call GHN, Resend, or PayOS. The sandbox command checks a loopback API,
+Internal delivery does not use a carrier sandbox. Use
+`EMAIL_PROVIDER_MODE=sandbox`, `PAYMENT_PROVIDER_MODE=mock`, and
+`EMAIL_SANDBOX_FIXTURE=accepted`; these modes do not call Resend or PayOS. The
+sandbox command checks a loopback API,
 explicit local database allowlist, Firebase Auth Emulator, and provider modes
 before it runs. See [retail P0 acceptance](./backlog/README.md) and
 [testing](./TESTING.md#retail-p0-sandbox).
 
-Production GHN and Resend credentials are server-only. GHN configuration uses
-`GHN_TOKEN`, `GHN_SHOP_ID`, webhook secret, and the configured sender address;
-Resend uses `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, and
+Resend credentials are server-only and use `RESEND_API_KEY`,
+`RESEND_WEBHOOK_SECRET`, and
 `TRANSACTIONAL_EMAIL_FROM`. Configure these only after provider staging
 verification, webhook registration, and an external scheduler have been
-reviewed. The API runner endpoint is authenticated by the server-only
+reviewed. Internal delivery uses the allowlisted routing and tile settings
+managed by an admin; historical GHN shipment and address records are read-only.
+The API runner endpoint is authenticated by the server-only
 `OPERATIONS_RUNNER_SECRET`; no hosted scheduler is activated by this change.
 Vietnam-first payments use PayOS payment links and whole-number VND catalog
 values, plus cash on delivery. Keep `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, and

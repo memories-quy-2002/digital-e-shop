@@ -53,6 +53,11 @@ Active `DeliveryStaff` accounts use `/delivery/assignments` for their own queue
 and status updates. Login routes them to that workspace; admin authorization
 continues to admit only `Admin`.
 
+Internal shipment rows are created with the order in the checkout transaction,
+so newly placed orders immediately enter the packing workflow without a
+background carrier task. Manual fulfillment transitions are restricted to
+packing states and reject existing non-`INTERNAL` shipment rows.
+
 On the first valid `DELIVERED` update, the service records COD collection,
 completes the order through the shared payment guards, awards eligible loyalty
 points and queues the payment-confirmation and delivery-status emails in the
@@ -70,11 +75,11 @@ Admin routes are `GET/PUT /api/admin/delivery/settings`,
 `POST /api/delivery/staff/assignments/:id/status`. Customer delivery data is
 added to the existing owner-guarded and hashed guest-token shipment routes.
 
-The GHN provider and historical fulfillment paths are still present while the
-approved internal-delivery rollout is in progress. New checkout quotes no
-longer use GHN service or parcel data. The retirement task will remove active
-carrier operations while preserving existing GHN shipment rows and events as
-read-only history. See the [approved delivery design](../../docs/superpowers/specs/2026-10-16-internal-delivery-design.md)
+GHN provider selection, HTTP calls, webhooks, labels and new shipment jobs have
+been retired. Historical GHN shipment rows, events, parcel metadata and saved
+address location codes remain readable and unchanged; they cannot be updated
+through the active fulfillment workflow. New quotes do not use carrier service
+or parcel data. See the [approved delivery design](../../docs/superpowers/specs/2026-10-16-internal-delivery-design.md)
 for the full workflow and acceptance criteria.
 
 Related: [[order]], [[payment]], [[durable-operations]],

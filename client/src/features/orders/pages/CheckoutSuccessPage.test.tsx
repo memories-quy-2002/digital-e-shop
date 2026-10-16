@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("../../../context/AuthContext", () => ({ useAuth: () => mocks.auth }));
 vi.mock("../../../context/CartContext", () => ({ useCart: () => ({ clearCart: mocks.clearCart, fetchCart: mocks.fetchCart }) }));
+vi.mock("../../../context/LocaleContext", () => ({ useLocale: () => ({ locale: "en" }) }));
 vi.mock("../api", () => ({
     fetchGuestOrderByPayOSOrderCode: mocks.fetchGuestOrderByPayOSOrderCode,
     lookupGuestOrder: mocks.lookupGuestOrder,

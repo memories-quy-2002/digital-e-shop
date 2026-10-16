@@ -1,9 +1,17 @@
-# Shipping implementation boundary
+# Shipping and internal delivery
 
-Delivery quotes snapshot whole VND pricing and a conservative stacked-parcel
-estimate. Missing parcel metadata blocks a quote. Existing orders keep null
-snapshots and their stored amounts. Product dimensions are operator-owned.
+Checkout quotes use an operator-configured store pin and an OSRM-compatible
+road route. Fees are free below 5 km, use the configured middle band from 5 to
+20 km, and use the higher band above 20 km. Parcel dimensions do not participate
+in quote creation.
 
-GHN fee/service endpoints still require legacy district identifiers; a province
-and ward alone must not silently produce zero delivery fees. Sandbox results are
-local simulations. Real account/staging validation remains a separate gate.
+New orders create an `INTERNAL` shipment in the same transaction as checkout.
+Admins advance packing states, schedule an active delivery staff member, and
+review assignment history. Staff updates their own assignment through the
+employee-scoped routes; customers see the assignee, schedule and public status
+events. The system never requests or records GPS.
+
+Historical GHN shipment rows, event payloads, location codes and schema remain
+available for read-only history. They do not trigger provider requests, new
+shipment jobs, labels, callbacks or state changes. Retired shipment tasks fail
+with `shipping_provider_retired`; new legacy shipment tasks are rejected.

@@ -1,7 +1,7 @@
 import type { TransactionContext } from "../database/transaction";
 import { createCheckoutError } from "./orders.errors";
 
-/** Shared by carrier verification and the legacy admin completion path. */
+/** Shared by internal delivery completion and the legacy admin completion path. */
 export async function completeDeliveredOrder(tx: TransactionContext, orderId: number, deliveryAt: Date, actor: string | null): Promise<boolean> {
     const [order] = await tx.query<Array<{ status: number; delivery_snapshot?: object | string | null }>>("SELECT status, delivery_snapshot FROM orders WHERE id = ? FOR UPDATE", [orderId]);
     if (!order) throw createCheckoutError("Order not found", 404);
@@ -28,7 +28,7 @@ export async function completeDeliveredOrder(tx: TransactionContext, orderId: nu
         );
         if (!deliveredAssignment) throw createCheckoutError("Internal delivery must be verified before completion");
     } else if ((order.delivery_snapshot && !shipment) || (shipment && shipment.state !== "DELIVERED")) {
-        throw createCheckoutError("Carrier delivery must be verified before completion");
+        throw createCheckoutError("Historical delivery cannot be verified by the internal delivery workflow");
     }
     await tx.query("UPDATE orders SET status = 1, delivered_at = COALESCE(delivered_at, ?) WHERE id = ? AND status = 0", [deliveryAt, orderId]);
     if (payment.provider === "cash" && payment.status === "pending") await tx.query("UPDATE order_payments SET status = 'paid', paid_at = COALESCE(paid_at, ?), reconciliation_status = 'MANUAL_CONFIRMED', last_reconciled_at = UTC_TIMESTAMP(), provider_status = 'COLLECTED', updated_at = UTC_TIMESTAMP() WHERE id = ?", [deliveryAt, payment.id]);

@@ -51,10 +51,10 @@ export class AddressesRepository {
                         address.addressLine,
                         address.city,
                         address.country,
-                        address.provinceCode,
-                        address.provinceName,
-                        address.wardCode,
-                        address.wardName,
+                        null,
+                        null,
+                        null,
+                        null,
                         address.latitude,
                         address.longitude,
                         address.isDefault ? 1 : 0,
@@ -84,7 +84,7 @@ export class AddressesRepository {
                 this.query(
                     `UPDATE customer_addresses
                     SET label = ?, recipient_name = ?, phone_number = ?, address_line = ?, city = ?, country = ?,
-                        province_code = ?, province_name = ?, ward_code = ?, ward_name = ?, latitude = ?, longitude = ?, is_default = ?
+                        latitude = ?, longitude = ?, is_default = ?
                     WHERE id = ? AND user_id = ?`,
                     [
                         address.label,
@@ -93,10 +93,6 @@ export class AddressesRepository {
                         address.addressLine,
                         address.city,
                         address.country,
-                        address.provinceCode,
-                        address.provinceName,
-                        address.wardCode,
-                        address.wardName,
                         address.latitude,
                         address.longitude,
                         address.isDefault ? 1 : 0,

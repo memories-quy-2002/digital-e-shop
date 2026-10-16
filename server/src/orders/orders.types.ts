@@ -17,7 +17,7 @@ export type OrderPaymentLedgerWrite = {
 export type OrderLifecycleRow = {
     fulfillment_state?: string | null;
     returned_stock_received_at?: string | Date | null;
-    shipment_creation_state?: string | null;
+    active_delivery_assignment?: number | boolean | null;
     user_id: string | null;
     status: number;
     delivered_at?: string | Date | null;

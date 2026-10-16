@@ -4,7 +4,6 @@ import type {
     DeliveryAddress,
     FulfillmentOrder,
     ShipmentSummary,
-    ShippingParcel,
     InternalDeliveryQuote,
     DeliveryAssignment,
     DeliverySettings,
@@ -99,21 +98,4 @@ export async function fetchFulfillmentOrder(orderId: number): Promise<ShipmentSu
 
 export async function transitionFulfillment(orderId: number, state: "CONFIRMED" | "PICKING" | "PACKED" | "READY_TO_SHIP") {
     return (await http.post(`/api/admin/shipping/${orderId}/transition`, { state })).data;
-}
-
-export async function createFulfillmentShipment(orderId: number, key: string) {
-    return (await http.post(`/api/admin/shipping/${orderId}/create`, { key })).data;
-}
-
-export async function fetchFulfillmentLabel(orderId: number): Promise<{ token: string; expiresAt: string }> {
-    return (await http.post(`/api/admin/shipping/${orderId}/label`, {})).data;
-}
-
-export async function confirmReturnedShipment(orderId: number) {
-    return (await http.post(`/api/admin/shipping/${orderId}/receive-return`, {})).data;
-}
-
-export async function saveProductParcel(productId: number, parcel: ShippingParcel): Promise<ShippingParcel> {
-    const response = await http.put(`/api/shipping/admin/products/${productId}/parcel`, parcel);
-    return response.data.parcel as ShippingParcel;
 }

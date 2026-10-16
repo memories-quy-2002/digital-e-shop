@@ -32,7 +32,7 @@ digital-e-shop/
       config/              Typed environment, CORS, and database configuration
       database/            Prisma schema/client, migrations, and seeders
       payments/            Provider boundary and payment ledger types
-      shipping/            Delivery quotes, carrier adapters, and fulfillment lifecycle
+      shipping/            Internal road quotes, packing, and scheduled delivery assignments
       transactional-email/ Provider boundary, templates, and verified webhooks
       operations/          Durable tasks, bounded runner, and private evidence
       shared/              Shared constants, interfaces, and utilities
@@ -206,9 +206,9 @@ application has not been converted to Prisma.
   [server/README.prisma.md](../server/README.prisma.md).
 - New schema changes must update raw SQL/repositories and any touched Prisma
   schema, services, validators, types, and migration in one reviewable change.
-- Saved customer addresses may retain optional GHN province/ward codes and
-  names. Existing address rows remain valid; delivery quotes can ask the
-  customer to choose locations when those snapshots are absent.
+- Saved customer addresses may retain legacy carrier province/ward codes and
+  names for history. Updates preserve them without accepting them as inputs;
+  internal delivery uses manually selected coordinates and never requests GPS.
 - Order items snapshot product identity, price, warranty, image, brand,
   category, and typed attributes so historical orders remain stable.
 - New order and payment-ledger defaults are VND. Historical USD rows remain
