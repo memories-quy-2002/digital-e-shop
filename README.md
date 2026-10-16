@@ -33,12 +33,25 @@ Digital-E is a full-stack e-commerce project for electronic devices and componen
 
 ## The experience
 
+### Live website: technology guides
+
+<div align="center">
+  <a href="https://digital-e.vercel.app/news">
+    <img src="./docs/assets/showcase/production-news.png" alt="Digital-E technology news and buying guide page, captured from production" width="900" />
+  </a>
+  <sub>News and buying guides, captured from the live website on October 16, 2026.</sub>
+</div>
+
+### Guest checkout demo
+
 <div align="center">
   <a href="./docs/DEMO.md">
     <img src="./docs/assets/demo/guest-order-confirmed.png" alt="Sanitized screenshot of the Digital-E guest cash-on-delivery order confirmation" width="880" />
   </a>
-  <sub>Guest COD confirmation captured in a disposable local demo; order and customer details are obscured.</sub>
+  <sub>Guest COD confirmation in a disposable local environment; private order and customer details are obscured.</sub>
 </div>
+
+> **Production capture status:** During screenshot collection the production catalog displayed “Unable to load products.” Catalog and admin screenshots are excluded rather than presenting broken states or local-only data as production.
 
 ### Storefront
 
