@@ -11,11 +11,13 @@ import { AfterSalesService } from "./after-sales.service";
 import { FinancialOperationsModule } from "../operations/financial-operations.module";
 import { ManualRefundService } from "./manual-refund.service";
 import { ManualRefundRepository } from "./manual-refund.repository";
+import { AuthGuard } from "../guards/auth.guard";
+import { RolesGuard } from "../guards/roles.guard";
 
 @Module({
     imports: [NestConfigModule, PaymentsModule, FinancialOperationsModule],
     controllers: [AfterSalesController, AfterSalesGuestController, AdminAfterSalesController],
-    providers: [AfterSalesRepository, AfterSalesService, ManualRefundService, ManualRefundRepository],
+    providers: [AuthGuard, RolesGuard, AfterSalesRepository, AfterSalesService, ManualRefundService, ManualRefundRepository],
     exports: [AfterSalesService],
 })
 export class AfterSalesModule implements NestModule {

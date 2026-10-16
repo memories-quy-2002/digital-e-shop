@@ -4,11 +4,13 @@ import { BlobController } from "./blob.controller";
 import { NestBlobService } from "./blob.service";
 import { createRateLimitMiddleware } from "../middleware/rate-limit.middleware";
 import { NestConfigModule } from "../config/nest-config.module";
+import { AuthGuard } from "../guards/auth.guard";
+import { RolesGuard } from "../guards/roles.guard";
 
 @Module({
     imports: [NestConfigModule],
     controllers: [BlobController],
-    providers: [NestBlobService],
+    providers: [AuthGuard, RolesGuard, NestBlobService],
     exports: [NestBlobService],
 })
 export class BlobModule implements NestModule {
