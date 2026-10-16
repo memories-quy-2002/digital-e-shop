@@ -68,6 +68,23 @@ export class UsersRepository {
         });
     }
 
+    getActiveDeliveryStaff(): Promise<Array<{ id: string; name: string }>> {
+        return new Promise((resolve, reject) => {
+            pool.query(
+                `SELECT id, first_name, last_name, username FROM users
+                 WHERE role = 'DeliveryStaff' AND status = 'Active'
+                 ORDER BY first_name, last_name, username`,
+                (queryErr: DbError | null, results?: Array<{ id: string; first_name?: string | null; last_name?: string | null; username?: string }>) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve((results || []).map((user) => ({
+                        id: user.id,
+                        name: [user.first_name, user.last_name].filter(Boolean).join(" ") || user.username || "Delivery staff",
+                    })));
+                },
+            );
+        });
+    }
+
     getAdminPaginated(
         limit: number,
         offset: number,

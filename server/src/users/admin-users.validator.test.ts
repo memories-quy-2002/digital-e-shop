@@ -13,6 +13,7 @@ describe("admin user validation", () => {
         expect(adminUsersQuerySchema.safeParse({ page: 1_000_001 }).success).toBe(false);
         expect(adminUsersQuerySchema.safeParse({ limit: "500" }).success).toBe(false);
         expect(adminUsersQuerySchema.safeParse({ role: "owner" }).success).toBe(false);
+        expect(adminUsersQuerySchema.safeParse({ role: "DeliveryStaff" }).success).toBe(true);
     });
 
     it("requires a reason for privilege or account-status changes", () => {
@@ -21,5 +22,6 @@ describe("admin user validation", () => {
             success: true,
             data: { reason: "Promotion approved" },
         });
+        expect(adminUserUpdateSchema.safeParse({ role: "DeliveryStaff", status: "Active", reason: "Delivery team assignment" }).success).toBe(true);
     });
 });

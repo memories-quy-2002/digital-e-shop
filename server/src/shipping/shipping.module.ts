@@ -27,10 +27,14 @@ import { ProductsModule } from "../products/products.module";
 import { AuthGuard } from "../guards/auth.guard";
 import { RolesGuard } from "../guards/roles.guard";
 import { LoyaltyModule } from "../loyalty/loyalty.module";
+import { AdminDeliveryController } from "./admin-delivery.controller";
+import { DeliveryStaffController } from "./delivery-staff.controller";
+import { DeliveryAssignmentRepository } from "./delivery-assignment.repository";
+import { DeliveryAssignmentService } from "./delivery-assignment.service";
 
 @Module({
     imports: [CartModule, PromotionsModule, UsersModule, TasksModule, InventoryModule, ProductAlertsModule, forwardRef(() => FinancialOperationsModule), ProductsModule, LoyaltyModule],
-    controllers: [ShippingController, ShippingWebhookController, AdminShippingController],
+    controllers: [ShippingController, ShippingWebhookController, AdminShippingController, AdminDeliveryController, DeliveryStaffController],
     providers: [
         AuthGuard,
         RolesGuard,
@@ -38,6 +42,8 @@ import { LoyaltyModule } from "../loyalty/loyalty.module";
         ShippingQuoteService,
         DeliverySettingsRepository,
         DeliverySettingsService,
+        DeliveryAssignmentRepository,
+        DeliveryAssignmentService,
         RoadRouteService,
         ShippingProviderRegistry,
         ShippingRepository,
@@ -48,10 +54,10 @@ import { LoyaltyModule } from "../loyalty/loyalty.module";
         NestOrderTimelineService,
         OrderTimelineRepository,
     ],
-    exports: [ShippingQuoteService, DeliverySettingsService, RoadRouteService, ShippingProviderRegistry, FulfillmentService, ShippingWebhookService],
+    exports: [ShippingQuoteService, DeliverySettingsService, DeliveryAssignmentService, RoadRouteService, ShippingProviderRegistry, FulfillmentService, ShippingWebhookService],
 })
 export class ShippingModule implements NestModule {
     configure(consumer: MiddlewareConsumer) {
-        consumer.apply(createRateLimitMiddleware(100)).forRoutes(ShippingController, ShippingWebhookController, AdminShippingController);
+        consumer.apply(createRateLimitMiddleware(100)).forRoutes(ShippingController, ShippingWebhookController, AdminShippingController, AdminDeliveryController, DeliveryStaffController);
     }
 }

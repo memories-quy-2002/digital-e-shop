@@ -19,6 +19,43 @@ request, record, or display customer or employee GPS. The quote response
 includes the fixed store pin and configured tile attribution so the customer
 map can show both endpoints without a privileged settings read.
 
+## Internal assignments
+
+Only pending VND orders with an `INTERNAL` delivery snapshot, an `INTERNAL`
+shipment in `READY_TO_SHIP`, and eligible payment can be assigned. COD may be
+pending; PayOS must be genuinely paid and not simulated. Admin schedule input is
+Vietnam local time and is stored as UTC. The server locks the order and staff
+row in a stable order, rejects overlapping active schedules and duplicate
+active order assignments, and records reassignment as a new attempt so prior
+events remain auditable.
+
+`DeliveryStaff` accounts are granted through the audited admin user-access
+flow. Authentication rechecks that the account is active, role guards restrict
+the employee routes, and repository queries include the authenticated employee
+ID. Employees see only their assignments plus recipient, destination, item
+snapshot, payment method and COD amount needed to deliver. They can move an
+assignment from `ASSIGNED` to `OUT_FOR_DELIVERY`, then to `DELIVERED` or
+`DELIVERY_FAILED`; failure requires a reason. Customer projections include the
+assignee name, schedule, status and public events, but omit employee IDs,
+internal failure reasons and event actor IDs.
+
+On the first valid `DELIVERED` update, the service records COD collection,
+completes the order through the shared payment guards, awards eligible loyalty
+points and queues the payment-confirmation and delivery-status emails in the
+same transaction. Assignment row locks and stable event keys make repeated
+status requests no-ops. Internal completion requires the shipment to remain
+`READY_TO_SHIP` and a matching delivered assignment; legacy carrier completion
+still requires its shipment state to be verified as `DELIVERED`.
+
+Admin routes are `GET/PUT /api/admin/delivery/settings`,
+`GET /api/admin/delivery/assignable-orders`, `GET /api/admin/delivery/staff`,
+`GET /api/admin/delivery/orders/:orderId`, and
+`POST /api/admin/delivery/orders/:orderId/assignments`. Employee routes are
+`GET /api/delivery/staff/assignments`,
+`GET /api/delivery/staff/assignments/:id`, and
+`POST /api/delivery/staff/assignments/:id/status`. Customer delivery data is
+added to the existing owner-guarded and hashed guest-token shipment routes.
+
 The GHN provider and historical fulfillment paths are still present while the
 approved internal-delivery rollout is in progress. New checkout quotes no
 longer use GHN service or parcel data. The retirement task will remove active

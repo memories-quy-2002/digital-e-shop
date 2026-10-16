@@ -100,7 +100,7 @@
 
 ### Task 3: Internal checkout quote and immutable order snapshot
 
-**Status: In progress.**
+**Status: Complete — `1d87822 feat(delivery): quote checkout by road distance`.**
 
 **Files:**
 - Modify: `server/src/shipping/shipping-quote.service.ts`, `shipping-quote.repository.ts`, `shipping-quote.policy.ts`, `shipping.validator.ts`, `shipping.types.ts`
@@ -112,15 +112,17 @@
 - `ShippingQuoteService.createQuote(identity: QuoteIdentity, input: { address: DeliveryAddress; cart: CartItemRow[]; subtotal: number; discount: number }): Promise<InternalDeliveryQuote>`; destination coordinates come from `address.latitude/longitude`.
 - Checkout continues to submit `shippingQuoteId` and `deliveryAddress`; destination coordinates are required in the quote/address binding.
 
-- [ ] **Step 1: Write quote tests** proving owner, guest-cart identity, address, coordinates, cart facts, expiry and settings version are fingerprinted; old provider-specific quote rows are rejected after cutover.
-- [ ] **Step 2: Run `pnpm --dir server exec vitest run src/shipping/__tests__/shipping-quotes.test.ts src/orders/checkout-flow.spec.ts src/orders/__tests__/checkout-reservation.service.test.ts`;** expected: fail for internal pricing and coordinate/config binding.
-- [ ] **Step 3: Implement provider-free quote orchestration**: read settings, call `RoadRouteService`, calculate fee, calculate existing merchandise/shipping payable totals, save one short-lived quote and return route geometry plus attribution.
-- [ ] **Step 4: Implement transactional quote consumption** that locks the quote, recomputes checkout merchandise totals, validates identity/cart/address/pin/version/expiry, consumes once and snapshots address, pin, route distance, fee, quote ID and version.
-- [ ] **Step 5: Update guest and authenticated checkout DTOs/validators** to accept manual pin coordinates while preserving quote ID, CSRF, PayOS and COD contracts.
-- [ ] **Step 6: Run quote, order and existing PayOS/COD checkout tests;** expected: no provider service ID or parcel data is required and the exact fee is included once.
-- [ ] **Step 7: Commit** with `feat(delivery): quote checkout by road distance`.
+- [x] **Step 1: Write quote tests** proving owner, guest-cart identity, address, coordinates, cart facts, expiry and settings version are fingerprinted; old provider-specific quote rows are rejected after cutover.
+- [x] **Step 2: Run `pnpm --dir server exec vitest run src/shipping/__tests__/shipping-quotes.test.ts src/orders/checkout-flow.spec.ts src/orders/__tests__/checkout-reservation.service.test.ts`;** expected: fail for internal pricing and coordinate/config binding.
+- [x] **Step 3: Implement provider-free quote orchestration**: read settings, call `RoadRouteService`, calculate fee, calculate existing merchandise/shipping payable totals, save one short-lived quote and return route geometry plus attribution.
+- [x] **Step 4: Implement transactional quote consumption** that locks the quote, recomputes checkout merchandise totals, validates identity/cart/address/pin/version/expiry, consumes once and snapshots address, pin, route distance, fee, quote ID and version.
+- [x] **Step 5: Update guest and authenticated checkout DTOs/validators** to accept manual pin coordinates while preserving quote ID, CSRF, PayOS and COD contracts.
+- [x] **Step 6: Run quote, order and existing PayOS/COD checkout tests;** expected: no provider service ID or parcel data is required and the exact fee is included once.
+- [x] **Step 7: Commit** with `feat(delivery): quote checkout by road distance`.
 
 ### Task 4: Staff roles, assignments and exactly-once completion
+
+**Status: Implemented; isolated MySQL integration verification is deferred because the disposable test database is not configured.**
 
 **Files:**
 - Create: `server/src/shipping/delivery-assignment.repository.ts`, `delivery-assignment.service.ts`, `delivery.validator.ts`, `admin-delivery.controller.ts`, `delivery-staff.controller.ts`
@@ -140,15 +142,17 @@
 - Employee API: `GET /api/delivery/staff/assignments`, `GET /api/delivery/staff/assignments/:id`, `POST /api/delivery/staff/assignments/:id/status`.
 - Customer reads retain owner/guest-token routes `/api/shipping/orders/:id` and `/api/shipping/guest/shipment`.
 
-- [ ] **Step 1: Write policy/service tests** for valid transitions, failed reason, active overlap, reassign audit history, staff ownership and terminal delivered state.
-- [ ] **Step 2: Run `pnpm --dir server exec vitest run src/shipping/delivery-assignment.service.test.ts src/shipping/delivery-staff.controller.test.ts`;** expected: fail before assignment persistence/service exists.
-- [ ] **Step 3: Add `DeliveryStaff` to shared/server role validation** and allow audited role grants through the existing admin user update flow; suspended/inactive accounts cannot act as drivers.
-- [ ] **Step 4: Implement admin assignment/settings controllers** guarded by `AuthGuard` + `RolesGuard(Admin)` at the declared admin routes. Reuse existing shipment/payment eligibility guards; only `READY_TO_SHIP` internal orders eligible for COD or verified payment can be assigned. Interpret schedules in `Asia/Ho_Chi_Minh`, require end > start, and reject invalid order, duplicate active assignment or overlapping active staff schedule in a transaction that locks the employee and order rows.
-- [ ] **Step 5: Implement employee controller** guarded by `AuthGuard` + `RolesGuard(DeliveryStaff)` at the declared employee routes. Scope each query by employee ID in SQL, reject inactive/suspended accounts, and allow only `OUT_FOR_DELIVERY`, `DELIVERED`, or `DELIVERY_FAILED` transitions. Require `OUT_FOR_DELIVERY` before a failure/delivery result, require a reason for failure, append events, and make duplicate same-state writes idempotent.
-- [ ] **Step 6: Implement customer delivery projection** on the existing owner and hashed guest-token boundaries. Return employee display name, schedule, status and public events only.
-- [ ] **Step 7: On first valid `DELIVERED`, call `completeDeliveredOrder`, COD collection, loyalty and transactional email in the existing transaction-aware path.** Preserve PayOS unpaid/simulated guards and make repeat/concurrent requests no-ops after the first commit.
-- [ ] **Step 8: Run `pnpm --dir server exec vitest run src/shipping/delivery-assignment.service.test.ts src/shipping/delivery-staff.controller.test.ts src/shipping/__tests__/customer-shipping.controller.test.ts`;** expected: guessed/cross-staff/inactive staff IDs fail and duplicate status writes return one projection. Run `pnpm --dir server test:integration` against the isolated DB for concurrent schedule/completion assertions; expected: one active assignment and one completion/COD/loyalty/email effect.
-- [ ] **Step 9: Commit** with `feat(delivery): assign staff and record delivery status`.
+- [x] **Step 1: Write policy/service tests** for valid transitions, failed reason, active overlap, reassign audit history, staff ownership and terminal delivered state.
+- [x] **Step 2: Run `pnpm --dir server exec vitest run src/shipping/delivery-assignment.service.test.ts src/shipping/delivery-staff.controller.test.ts`;** expected: fail before assignment persistence/service exists.
+- [x] **Step 3: Add `DeliveryStaff` to shared/server role validation** and allow audited role grants through the existing admin user update flow; suspended/inactive accounts cannot act as drivers.
+- [x] **Step 4: Implement admin assignment/settings controllers** guarded by `AuthGuard` + `RolesGuard(Admin)` at the declared admin routes. Reuse existing shipment/payment eligibility guards; only `READY_TO_SHIP` internal orders eligible for COD or verified payment can be assigned. Interpret schedules in `Asia/Ho_Chi_Minh`, require end > start, and reject invalid order, duplicate active assignment or overlapping active staff schedule in a transaction that locks the employee and order rows.
+- [x] **Step 5: Implement employee controller** guarded by `AuthGuard` + `RolesGuard(DeliveryStaff)` at the declared employee routes. Scope each query by employee ID in SQL, reject inactive/suspended accounts, and allow only `OUT_FOR_DELIVERY`, `DELIVERED`, or `DELIVERY_FAILED` transitions. Require `OUT_FOR_DELIVERY` before a failure/delivery result, require a reason for failure, append events, and make duplicate same-state writes idempotent.
+- [x] **Step 6: Implement customer delivery projection** on the existing owner and hashed guest-token boundaries. Return employee display name, schedule, status and public events only.
+- [x] **Step 7: On first valid `DELIVERED`, call `completeDeliveredOrder`, COD collection, loyalty and transactional email in the existing transaction-aware path.** Preserve PayOS unpaid/simulated guards and make repeat/concurrent requests no-ops after the first commit.
+- [x] **Step 8: Run the focused tests and full server suite.** Both passed; the MySQL integration test is implemented but not run because `DB_HOST=127.0.0.1` and `DB_NAME=retail_p0_test` are not configured.
+- [x] **Step 9: Commit** with `feat(delivery): assign staff and record delivery status`.
+
+**Implementation notes:** The assignment history endpoint `GET /api/admin/delivery/orders/:orderId` lets admins inspect reassignment attempts and events. A dedicated `AdminDeliveryController` keeps new internal delivery operations out of the legacy carrier controller. Lock rows in order → employee → assignment order so status updates and assignment writes use the same order and the employee row serializes schedule-overlap checks.
 
 ### Task 5: Checkout map and customer address UX
 

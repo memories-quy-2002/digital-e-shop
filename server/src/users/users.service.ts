@@ -29,6 +29,10 @@ export class NestUsersService {
         return this.usersRepository.getAdminSummary();
     }
 
+    getActiveDeliveryStaff() {
+        return this.usersRepository.getActiveDeliveryStaff();
+    }
+
     async updateUserAdmin(uid: string, { role, status, reason }: UpdateUserAdminInput, currentAdminId: string) {
         const result = await this.usersRepository.updateUserAdmin(uid, role, status, currentAdminId, reason);
         if (result.affectedRows === 0) {

@@ -51,7 +51,7 @@ function buildService({ orderId = 9, paymentProvider: ledgerProvider, paymentSta
     tx.query.mockImplementation(async (sql: string) => {
         const normalizedSql = sql.trimStart();
         if (sql.startsWith("SELECT status, delivery_snapshot FROM orders")) return [{ status: orderStatus }];
-        if (sql.startsWith("SELECT state FROM shipments")) return [];
+        if (sql.startsWith("SELECT state FROM shipments") || sql.startsWith("SELECT state, provider FROM shipments")) return [];
         if (sql.includes("SELECT user_id, status") && sql.includes("FROM orders")) {
             return [{ user_id: userId, status: orderStatus, delivered_at: deliveredAt, inventory_restored_at: restoredAt, shipment_creation_state: shipmentCreationState }];
         }

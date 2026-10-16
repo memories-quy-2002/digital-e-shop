@@ -1,7 +1,7 @@
 import { Injectable, ConflictException, NotFoundException } from "@nestjs/common";
 import type { TransactionContext } from "../database/transaction";
 import type { FulfillmentState } from "./fulfillment.policy";
-import { parseJson } from "./shipping-quote.service";
+import { parseJson } from "./shipping-json";
 import type { DeliveryAddress, ShippingParcel } from "./shipping.types";
 
 export type ShipmentRow = { id: number; order_id: number; state: FulfillmentState; provider: string; client_reference: string; provider_order_code: string | null; expected_cod_vnd: number; actual_fee_vnd: number | null; expected_delivery_at: Date | null; delivered_at: Date | null; provider_updated_at: Date | null; stock_received_at: Date | null; sandbox: number };

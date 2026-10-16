@@ -9,6 +9,7 @@ import { ShippingQuoteRepository } from "./shipping-quote.repository";
 import { assertQuoteMatches, calculatePricing, quoteFingerprint, type QuoteIdentity } from "./shipping-quote.policy";
 import { deliveryAddressSchema } from "./shipping.validator";
 import type { DeliverySettings, InternalDeliveryAddress, InternalDeliveryQuote, RoadPoint, RoadRoute } from "./shipping.types";
+import { parseJson } from "./shipping-json";
 
 export type QuoteCheckout = {
     shippingQuoteId: string;
@@ -45,8 +46,6 @@ const cartFacts = (cart: CartItemRow[]) => {
     }
     return facts;
 };
-
-export const parseJson = <T>(value: string | object): T => typeof value === "string" ? JSON.parse(value) : value as T;
 
 const settingsOrigin = (settings: DeliverySettings): RoadPoint => ({
     latitude: settings.storeLatitude,
