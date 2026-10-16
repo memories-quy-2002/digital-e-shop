@@ -18,6 +18,43 @@ describe("DeliveryQuoteForm", () => {
         vi.mocked(shippingApi.requestShippingQuote).mockResolvedValue({ id: "q1", expiresAt: new Date(Date.now() + 60000).toISOString(), pricing: { itemsSubtotal: 1000, merchandiseDiscount: 0, shippingFee: 200, payableTotal: 1200, currency: "VND" }, address: {} as never, parcel: { grams: 100, lengthCm: 1, widthCm: 1, heightCm: 1 }, serviceTypeId: 3, expectedDeliveryAt: null, sandbox: true, parcelEstimated: true });
     });
 
+    it("restores saved province and ward codes before requesting a new quote", async () => {
+        render(<DeliveryQuoteForm
+            guest
+            cart={[{ productId: 5, quantity: 1 }]}
+            addressPrefill={{ key: "saved:7", addressLine: "12 Main Street", provinceCode: "1", wardCode: "2" }}
+            onQuoteChange={vi.fn()}
+        />);
+
+        expect(await screen.findByLabelText("shipping.province")).toHaveValue("1");
+        await waitFor(() => expect(screen.getByLabelText("shipping.ward")).toHaveValue("2"));
+    });
+
+    it("restores a different saved ward when the selected address shares the province", async () => {
+        vi.mocked(shippingApi.fetchShippingWards).mockResolvedValue([
+            { code: "2", provinceCode: "1", name: "Ward A" },
+            { code: "3", provinceCode: "1", name: "Ward B" },
+        ]);
+        const onQuoteChange = vi.fn();
+        const view = render(<DeliveryQuoteForm
+            guest
+            cart={[{ productId: 5, quantity: 1 }]}
+            addressPrefill={{ key: "saved:7", addressLine: "12 Main Street", provinceCode: "1", wardCode: "2" }}
+            onQuoteChange={onQuoteChange}
+        />);
+
+        await waitFor(() => expect(screen.getByLabelText("shipping.ward")).toHaveValue("2"));
+        view.rerender(<DeliveryQuoteForm
+            guest
+            cart={[{ productId: 5, quantity: 1 }]}
+            addressPrefill={{ key: "saved:8", addressLine: "13 Main Street", provinceCode: "1", wardCode: "3" }}
+            resetKey={1}
+            onQuoteChange={onQuoteChange}
+        />);
+
+        await waitFor(() => expect(screen.getByLabelText("shipping.ward")).toHaveValue("3"));
+    });
+
     it("quotes a complete structured address and emits the owner-bound quote", async () => {
         const onQuoteChange = vi.fn();
         render(<DeliveryQuoteForm guest cart={[{ productId: 5, quantity: 1 }]} discountCode="SAVE" onQuoteChange={onQuoteChange} />);

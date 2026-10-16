@@ -9,6 +9,8 @@ import Layout from "../../../components/layout/Layout";
 import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
 import "../../../styles/features/users/_address-book.scss";
 import CustomerAccountShell from "../components/CustomerAccountShell";
+import { fetchShippingProvinces, fetchShippingWards } from "../../shipping/api";
+import type { CarrierProvince, CarrierWard } from "../../shipping/types";
 import {
     CustomerAddress,
     CustomerAddressPayload,
@@ -26,6 +28,10 @@ type AddressForm = {
     addressLine: string;
     city: string;
     country: string;
+    provinceCode: string;
+    provinceName: string;
+    wardCode: string;
+    wardName: string;
     isDefault: boolean;
 };
 
@@ -36,6 +42,10 @@ const createEmptyForm = (homeLabel: string): AddressForm => ({
     addressLine: "",
     city: "",
     country: "",
+    provinceCode: "",
+    provinceName: "",
+    wardCode: "",
+    wardName: "",
     isDefault: false,
 });
 const AddressBookPage = () => {
@@ -44,6 +54,9 @@ const AddressBookPage = () => {
     const { addToast } = useToast();
     const t = useT();
     const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
+    const [provinces, setProvinces] = useState<CarrierProvince[]>([]);
+    const [wards, setWards] = useState<CarrierWard[]>([]);
+    const [locationLoadError, setLocationLoadError] = useState(false);
     const [form, setForm] = useState<AddressForm>(() => createEmptyForm(t("addresses.home")));
     const [showAddressError, setShowAddressError] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -63,6 +76,25 @@ const AddressBookPage = () => {
         void loadAddresses();
     }, [loadAddresses]);
 
+    useEffect(() => {
+        let active = true;
+        void fetchShippingProvinces()
+            .then((items) => { if (active) setProvinces(items); })
+            .catch(() => { if (active) setLocationLoadError(true); });
+        return () => { active = false; };
+    }, []);
+
+    useEffect(() => {
+        let active = true;
+        setWards([]);
+        if (form.provinceCode) {
+            void fetchShippingWards(form.provinceCode)
+                .then((items) => { if (active) setWards(items); })
+                .catch(() => { if (active) setLocationLoadError(true); });
+        }
+        return () => { active = false; };
+    }, [form.provinceCode]);
+
     const handleEdit = (address: CustomerAddress) => {
         setShowAddressError(false);
         setForm({
@@ -73,6 +105,10 @@ const AddressBookPage = () => {
             addressLine: address.address_line || "",
             city: address.city || "",
             country: address.country || "",
+            provinceCode: address.province_code || "",
+            provinceName: address.province_name || "",
+            wardCode: address.ward_code || "",
+            wardName: address.ward_name || "",
             isDefault: address.is_default,
         });
     };
@@ -95,6 +131,10 @@ const AddressBookPage = () => {
                 addressLine: form.addressLine,
                 city: form.city,
                 country: form.country,
+                provinceCode: form.provinceCode,
+                provinceName: form.provinceName,
+                wardCode: form.wardCode,
+                wardName: form.wardName,
                 isDefault: form.isDefault,
             };
             if (form.id) {
@@ -222,6 +262,34 @@ const AddressBookPage = () => {
                         </label>
                         <div className="address-book__form__grid">
                             <label>
+                                {t("shipping.province")}
+                                <select value={form.provinceCode} onChange={(event) => {
+                                    const province = provinces.find((item) => item.code === event.target.value);
+                                    setForm((current) => ({
+                                        ...current,
+                                        provinceCode: province?.code || "",
+                                        provinceName: province?.name || "",
+                                        wardCode: "",
+                                        wardName: "",
+                                        city: province?.name || current.city,
+                                        country: province ? "VN" : current.country,
+                                    }));
+                                }}>
+                                    <option value="">{t("shipping.selectProvince")}</option>
+                                    {provinces.map((province) => <option key={province.code} value={province.code}>{province.name}</option>)}
+                                </select>
+                            </label>
+                            <label>
+                                {t("shipping.ward")}
+                                <select value={form.wardCode} disabled={!form.provinceCode} onChange={(event) => {
+                                    const ward = wards.find((item) => item.code === event.target.value);
+                                    setForm((current) => ({ ...current, wardCode: ward?.code || "", wardName: ward?.name || "" }));
+                                }}>
+                                    <option value="">{t("shipping.selectWard")}</option>
+                                    {wards.map((ward) => <option key={ward.code} value={ward.code}>{ward.name}</option>)}
+                                </select>
+                            </label>
+                            <label>
                                 {t("addresses.city")}
                                 <input value={form.city} onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))} />
                             </label>
@@ -230,6 +298,7 @@ const AddressBookPage = () => {
                                 <input value={form.country} onChange={(event) => setForm((current) => ({ ...current, country: event.target.value }))} />
                             </label>
                         </div>
+                        {locationLoadError ? <p className="address-book__field-error" role="status">{t("shipping.locationLoadError")}</p> : null}
                         </div>
                         <label className="address-book__check">
                             <input
@@ -258,7 +327,7 @@ const AddressBookPage = () => {
                                         {address.is_default ? <span>{t("addresses.default")}</span> : null}
                                     </div>
                                     <p>{address.address_line}</p>
-                                    <small>{[address.city, address.country].filter(Boolean).join(", ") || t("addresses.locationNotSpecified")}</small>
+                                    <small>{[address.ward_name, address.province_name || address.city, address.country].filter(Boolean).join(", ") || t("addresses.locationNotSpecified")}</small>
                                     <small>
                                         {[address.recipient_name, address.phone_number].filter(Boolean).join(" | ") ||
                                             t("addresses.noRecipientDetails")}

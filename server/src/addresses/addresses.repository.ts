@@ -20,6 +20,7 @@ export class AddressesRepository {
         return new Promise((resolve, reject) => {
             this.query(
                 `SELECT id, user_id, label, recipient_name, phone_number, address_line, city, country,
+                    province_code, province_name, ward_code, ward_name,
                     is_default, DATE_FORMAT(created_at, '%Y-%m-%dT%H:%i:%s.000Z') AS created_at,
                     DATE_FORMAT(updated_at, '%Y-%m-%dT%H:%i:%s.000Z') AS updated_at
                 FROM customer_addresses
@@ -39,8 +40,9 @@ export class AddressesRepository {
             const insertAddress = () => {
                 this.query(
                     `INSERT INTO customer_addresses
-                        (user_id, label, recipient_name, phone_number, address_line, city, country, is_default)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                        (user_id, label, recipient_name, phone_number, address_line, city, country,
+                         province_code, province_name, ward_code, ward_name, is_default)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         uid,
                         address.label,
@@ -49,6 +51,10 @@ export class AddressesRepository {
                         address.addressLine,
                         address.city,
                         address.country,
+                        address.provinceCode,
+                        address.provinceName,
+                        address.wardCode,
+                        address.wardName,
                         address.isDefault ? 1 : 0,
                     ],
                     (queryErr: Error | null, result: InsertResult) => {
@@ -75,7 +81,8 @@ export class AddressesRepository {
             const updateCurrentAddress = () => {
                 this.query(
                     `UPDATE customer_addresses
-                    SET label = ?, recipient_name = ?, phone_number = ?, address_line = ?, city = ?, country = ?, is_default = ?
+                    SET label = ?, recipient_name = ?, phone_number = ?, address_line = ?, city = ?, country = ?,
+                        province_code = ?, province_name = ?, ward_code = ?, ward_name = ?, is_default = ?
                     WHERE id = ? AND user_id = ?`,
                     [
                         address.label,
@@ -84,6 +91,10 @@ export class AddressesRepository {
                         address.addressLine,
                         address.city,
                         address.country,
+                        address.provinceCode,
+                        address.provinceName,
+                        address.wardCode,
+                        address.wardName,
                         address.isDefault ? 1 : 0,
                         addressId,
                         uid,

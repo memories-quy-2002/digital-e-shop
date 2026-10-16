@@ -14,6 +14,10 @@ const mocks = vi.hoisted(() => ({
         updateCustomerAddress: vi.fn(),
         deleteCustomerAddress: vi.fn(),
     },
+    shipping: {
+        fetchShippingProvinces: vi.fn(),
+        fetchShippingWards: vi.fn(),
+    },
 }));
 
 vi.mock("../../../context/AuthContext", () => ({
@@ -37,6 +41,11 @@ vi.mock("../api", () => ({
     createCustomerAddress: mocks.addresses.createCustomerAddress,
     updateCustomerAddress: mocks.addresses.updateCustomerAddress,
     deleteCustomerAddress: mocks.addresses.deleteCustomerAddress,
+}));
+
+vi.mock("../../shipping/api", () => ({
+    fetchShippingProvinces: mocks.shipping.fetchShippingProvinces,
+    fetchShippingWards: mocks.shipping.fetchShippingWards,
 }));
 
 vi.mock("../../../components/common/Icons", () => ({
@@ -72,6 +81,8 @@ describe("AddressBookPage", () => {
         mocks.addresses.createCustomerAddress.mockResolvedValue({ id: 1 });
         mocks.addresses.updateCustomerAddress.mockResolvedValue({ id: 1 });
         mocks.addresses.deleteCustomerAddress.mockResolvedValue(undefined);
+        mocks.shipping.fetchShippingProvinces.mockResolvedValue([{ code: "202", name: "Ho Chi Minh City" }]);
+        mocks.shipping.fetchShippingWards.mockResolvedValue([{ code: "26734", provinceCode: "202", name: "Ben Nghe Ward" }]);
     });
 
     it("announces the required address field error and links it to the input", async () => {
@@ -96,5 +107,20 @@ describe("AddressBookPage", () => {
             "customer-1",
             expect.objectContaining({ addressLine: "123 Main Street" }),
         ));
+    });
+
+    it("saves the structured province and ward used by carrier quotes", async () => {
+        renderPage();
+        fireEvent.change(await screen.findByLabelText("Address"), { target: { value: "12 Main Street" } });
+        fireEvent.change(await screen.findByLabelText("Province or city"), { target: { value: "202" } });
+        fireEvent.change(await screen.findByLabelText("Ward"), { target: { value: "26734" } });
+        fireEvent.submit(screen.getByLabelText("Address").closest("form")!);
+
+        await waitFor(() => expect(mocks.addresses.createCustomerAddress).toHaveBeenCalledWith("customer-1", expect.objectContaining({
+            provinceCode: "202",
+            provinceName: "Ho Chi Minh City",
+            wardCode: "26734",
+            wardName: "Ben Nghe Ward",
+        })));
     });
 });

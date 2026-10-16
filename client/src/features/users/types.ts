@@ -18,6 +18,10 @@ export type CustomerAddress = {
     address_line: string;
     city: string | null;
     country: string | null;
+    province_code?: string | null;
+    province_name?: string | null;
+    ward_code?: string | null;
+    ward_name?: string | null;
     is_default: boolean;
 };
 
@@ -28,6 +32,10 @@ export type CustomerAddressPayload = {
     addressLine: string;
     city: string;
     country: string;
+    provinceCode: string;
+    provinceName: string;
+    wardCode: string;
+    wardName: string;
     isDefault: boolean;
 };
 

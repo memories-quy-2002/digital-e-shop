@@ -6,6 +6,11 @@ address, selected carrier service, parcel estimate, and whole-VND price
 snapshot. Checkout consumes it once and rejects identity, cart, price, address,
 or expiry changes.
 
+Customer address-book entries can retain nullable GHN province and ward codes
+and display names. Checkout preselects those locations for a quote; older or
+free-form addresses continue to work after the customer selects valid carrier
+locations.
+
 GHN integration and the local sandbox share a provider boundary. Shipment
 creation is a durable post-commit task with a stable order reference; ambiguous
 creation outcomes are looked up before another create request. Carrier

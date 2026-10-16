@@ -21,6 +21,9 @@ Customer ownership uses `user_id`. Guest ownership uses
 `request_idempotency_key` makes retries safe, and a different identity cannot
 replay an existing key.
 
+The client reuses one idempotency key while retrying an unchanged request and
+rotates it when the request payload changes. It clears the key after success.
+
 ## Eligibility and quantity
 
 The order must be Done (`status = 1`) and have `delivered_at`. Returns are

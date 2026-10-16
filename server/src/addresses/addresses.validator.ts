@@ -11,6 +11,10 @@ export const addressSchema = z.object({
     address: z.string().trim().optional(),
     city: z.string().trim().max(120, "City is too long").optional(),
     country: z.string().trim().max(120, "Country is too long").optional(),
+    provinceCode: z.string().trim().max(32, "Province code is too long").optional(),
+    provinceName: z.string().trim().max(120, "Province name is too long").optional(),
+    wardCode: z.string().trim().max(32, "Ward code is too long").optional(),
+    wardName: z.string().trim().max(120, "Ward name is too long").optional(),
     isDefault: z.boolean().optional(),
     is_default: z.union([z.boolean(), z.coerce.number()]).optional(),
 }).superRefine((data, context) => {

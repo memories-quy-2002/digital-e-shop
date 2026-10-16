@@ -10,7 +10,16 @@ type Props = {
     cart: Array<{ productId: number; quantity: number; price?: number; salePrice?: number | null }>;
     discountCode?: string | null;
     guest: boolean;
-    addressPrefill?: { key: string; recipientName?: string; recipientPhone?: string; addressLine: string } | null;
+    addressPrefill?: {
+        key: string;
+        recipientName?: string;
+        recipientPhone?: string;
+        addressLine: string;
+        provinceCode?: string;
+        provinceName?: string;
+        wardCode?: string;
+        wardName?: string;
+    } | null;
     resetKey?: number;
     onQuoteChange: (address: DeliveryAddress | null, quote: ShippingQuote | null) => void;
 };
@@ -30,6 +39,7 @@ const DeliveryQuoteForm = ({ cart, discountCode, guest, addressPrefill, resetKey
     const [quote, setQuote] = useState<ShippingQuote | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const pendingWardCodeRef = useRef("");
 
     const province = provinces.find((item) => item.code === provinceCode);
     const ward = wards.find((item) => item.code === wardCode);
@@ -43,10 +53,20 @@ const DeliveryQuoteForm = ({ cart, discountCode, guest, addressPrefill, resetKey
         setRecipientName(addressPrefill.recipientName || "");
         setRecipientPhone(addressPrefill.recipientPhone || "");
         setAddressLine(addressPrefill.addressLine);
-        setProvinceCode("");
+        pendingWardCodeRef.current = addressPrefill.wardCode || "";
+        setProvinceCode(addressPrefill.provinceCode || "");
         setWardCode("");
         setServiceTypeId("");
     }, [addressPrefill, resetKey]);
+
+    useEffect(() => {
+        const requestedWardCode = addressPrefill?.wardCode;
+        if (!requestedWardCode || addressPrefill?.provinceCode !== provinceCode) return;
+        if (!wards.some((item) => item.code === requestedWardCode)) return;
+
+        pendingWardCodeRef.current = "";
+        setWardCode((current) => current === requestedWardCode ? current : requestedWardCode);
+    }, [addressPrefill, provinceCode, wards]);
 
     useEffect(() => {
         if (resetKey === 0) return;
@@ -64,7 +84,17 @@ const DeliveryQuoteForm = ({ cart, discountCode, guest, addressPrefill, resetKey
         let active = true;
         setWards([]);
         setWardCode("");
-        if (provinceCode) void fetchShippingWards(provinceCode).then((items) => { if (active) setWards(items); }).catch(() => { if (active) setError(t("shipping.locationLoadError")); });
+        if (provinceCode) {
+            void fetchShippingWards(provinceCode).then((items) => {
+                if (!active) return;
+                setWards(items);
+                const pendingWardCode = pendingWardCodeRef.current;
+                if (pendingWardCode && items.some((item) => item.code === pendingWardCode)) {
+                    setWardCode(pendingWardCode);
+                }
+                pendingWardCodeRef.current = "";
+            }).catch(() => { if (active) setError(t("shipping.locationLoadError")); });
+        }
         return () => { active = false; };
     }, [provinceCode, t]);
 
@@ -131,7 +161,7 @@ const DeliveryQuoteForm = ({ cart, discountCode, guest, addressPrefill, resetKey
                 <label>{t("shipping.recipientName")}<input autoComplete="name" value={recipientName} onChange={(event) => setRecipientName(event.target.value)} /></label>
                 <label>{t("shipping.recipientPhone")}<input type="tel" autoComplete="tel" value={recipientPhone} onChange={(event) => setRecipientPhone(event.target.value)} /></label>
                 <label className="shipping-quote__wide">{t("shipping.addressLine")}<input autoComplete="street-address" value={addressLine} onChange={(event) => setAddressLine(event.target.value)} /></label>
-                <label>{t("shipping.province")}<select value={provinceCode} onChange={(event) => setProvinceCode(event.target.value)}><option value="">{t("shipping.selectProvince")}</option>{provinces.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</select></label>
+                <label>{t("shipping.province")}<select value={provinceCode} onChange={(event) => { pendingWardCodeRef.current = ""; setProvinceCode(event.target.value); }}><option value="">{t("shipping.selectProvince")}</option>{provinces.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</select></label>
                 <label>{t("shipping.ward")}<select value={wardCode} onChange={(event) => setWardCode(event.target.value)} disabled={!provinceCode}><option value="">{t("shipping.selectWard")}</option>{wards.map((item) => <option key={item.code} value={item.code}>{item.name}</option>)}</select></label>
                 <label>{t("shipping.service")}<select value={serviceTypeId} onChange={(event) => setServiceTypeId(event.target.value)}><option value="">{t("shipping.selectService")}</option>{services.map((item) => <option key={item.serviceTypeId} value={item.serviceTypeId}>{item.name}</option>)}</select></label>
             </div>

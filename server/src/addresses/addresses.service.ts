@@ -12,6 +12,10 @@ const normalizeAddressInput = (data: CustomerAddressInput = {}) => {
     const addressLine = String(data.addressLine || data.address_line || data.address || "").trim();
     const city = String(data.city || "").trim() || null;
     const country = String(data.country || "").trim() || null;
+    const provinceCode = String(data.provinceCode || "").trim() || null;
+    const provinceName = String(data.provinceName || "").trim() || null;
+    const wardCode = String(data.wardCode || "").trim() || null;
+    const wardName = String(data.wardName || "").trim() || null;
 
     if (!addressLine) {
         throw createHttpError("Address line is required", HTTP_STATUS.BAD_REQUEST);
@@ -24,6 +28,10 @@ const normalizeAddressInput = (data: CustomerAddressInput = {}) => {
         addressLine,
         city,
         country,
+        provinceCode,
+        provinceName,
+        wardCode,
+        wardName,
         isDefault: Boolean(data.isDefault ?? data.is_default),
     };
 };
@@ -37,6 +45,10 @@ const normalizeAddress = (address: CustomerAddressRow) => ({
     address_line: address.address_line,
     city: address.city,
     country: address.country,
+    province_code: address.province_code ?? null,
+    province_name: address.province_name ?? null,
+    ward_code: address.ward_code ?? null,
+    ward_name: address.ward_name ?? null,
     is_default: Boolean(Number(address.is_default)),
     created_at: address.created_at,
     updated_at: address.updated_at,
