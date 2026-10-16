@@ -1,10 +1,11 @@
 import { ConflictException } from "@nestjs/common";
 import { hashTaskPayload } from "../operations/tasks.policy";
 import { validateShippingParcel } from "./shipping.policy";
+import type { ShippingPricing } from "./shipping.types";
 
 export type QuoteIdentity = { kind: "authenticated"; userId: string } | { kind: "guest"; guestCartId: string };
-export type PricingSnapshot = { itemsSubtotal: number; merchandiseDiscount: number; shippingFee: number; payableTotal: number; currency: "VND" };
-export function calculatePricing(itemsSubtotal: number, merchandiseDiscount: number, shippingFee: number): PricingSnapshot {
+export type PricingSnapshot = ShippingPricing;
+export function calculatePricing(itemsSubtotal: number, merchandiseDiscount: number, shippingFee: number): ShippingPricing {
     for (const value of [itemsSubtotal, merchandiseDiscount, shippingFee]) {
         if (!Number.isSafeInteger(value) || value < 0) throw new ConflictException("Money must be non-negative whole VND");
     }

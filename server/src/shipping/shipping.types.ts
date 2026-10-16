@@ -29,6 +29,38 @@ export type DeliveryAddress = {
     districtCode?: string;
 };
 
+export type InternalDeliveryAddress = {
+    recipientName: string;
+    recipientPhone: string;
+    addressLine: string;
+    city: string;
+    country: "VN";
+    latitude: number;
+    longitude: number;
+};
+
+export type ShippingPricing = {
+    itemsSubtotal: number;
+    merchandiseDiscount: number;
+    shippingFee: number;
+    payableTotal: number;
+    currency: "VND";
+};
+
+export type InternalDeliveryQuote = {
+    id: string;
+    address: InternalDeliveryAddress;
+    origin: RoadPoint;
+    destination: RoadPoint;
+    distanceMeters: number;
+    routeGeometry: RoadRoute["geometry"];
+    pricing: ShippingPricing;
+    settingsVersion: number;
+    tileUrl: string;
+    tileAttribution: string;
+    expiresAt: string;
+};
+
 export type ShippingParcel = {
     grams: number;
     lengthCm: number;

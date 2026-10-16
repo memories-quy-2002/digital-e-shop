@@ -1,6 +1,6 @@
 import {
     createCarrierShipmentSchema,
-    deliveryAddressSchema,
+    carrierDeliveryAddressSchema,
     ghnDistrictCodeSchema,
     shippingParcelSchema,
     shippingServiceSchema,
@@ -46,7 +46,7 @@ const providerMessages: Record<ShippingProviderErrorCode, string> = {
 };
 
 export const validateDeliveryAddress = (address: DeliveryAddress) => {
-    if (!deliveryAddressSchema.safeParse(address).success) throw new ShippingProviderError("INVALID_ADDRESS");
+    if (!carrierDeliveryAddressSchema.safeParse(address).success) throw new ShippingProviderError("INVALID_ADDRESS");
     return address;
 };
 

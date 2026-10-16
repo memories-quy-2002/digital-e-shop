@@ -219,7 +219,7 @@ export class CheckoutReservationService {
                     subtotalVnd: delivery.pricing.itemsSubtotal,
                     discountVnd: pricingSnapshot.merchandiseDiscount,
                     shippingVnd: delivery.pricing.shippingFee,
-                    delivery: { method: `${delivery.delivery.provider}:${delivery.delivery.serviceTypeId}` },
+                    delivery: { method: delivery.delivery.provider },
                 };
                 paymentAttempt = await this.paymentAttemptService.claim({
                     owner: attemptInput.owner,

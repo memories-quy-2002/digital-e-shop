@@ -1,27 +1,30 @@
 # Shipping and fulfillment
 
-New checkouts require a server-calculated, short-lived delivery quote. The
-quote binds the authenticated or guest identity, cart, structured Vietnamese
-address, selected carrier service, parcel estimate, and whole-VND price
-snapshot. Checkout consumes it once and rejects identity, cart, price, address,
-or expiry changes.
+New checkout quotes use internal delivery pricing. The server routes between
+the configured store pin and the customer's manually selected address pin via
+an operator-allowlisted OSRM-compatible endpoint. `< 5 km` is free, `5–20 km`
+uses the configured middle band, and `> 20 km` uses the higher band.
 
-Customer address-book entries can retain nullable GHN province and ward codes
-and display names. Checkout preselects those locations for a quote; older or
-free-form addresses continue to work after the customer selects valid carrier
-locations.
+A short-lived quote binds customer or guest-cart identity, cart facts, the
+structured address and coordinates, route, fee, and delivery-settings version.
+Checkout locks and consumes that quote once, rechecks its identity, address,
+cart, expiry, and settings version, then copies the fee and route into the
+order's immutable delivery snapshot. A missing route or unavailable
+configuration fails checkout quote creation; the server does not estimate a
+straight-line distance or guess a price.
 
-GHN integration and the local sandbox share a provider boundary. Shipment
-creation is a durable post-commit task with a stable order reference; ambiguous
-creation outcomes are looked up before another create request. Carrier
-callbacks update fulfillment events only after their configured authentication
-is verified. Sandbox outcomes are local simulation, never provider proof.
+Saved customer addresses may retain optional coordinates. A pin must include
+both latitude and longitude and pass coordinate bounds. The feature does not
+request, record, or display customer or employee GPS. The quote response
+includes the fixed store pin and configured tile attribution so the customer
+map can show both endpoints without a privileged settings read.
 
-Fulfillment is stored separately from the legacy numeric order status. Delivery
-snapshots preserve carrier/tracking details and timeline history. COD expected
-collection is recorded at delivery; remittance and fee differences are
-reconciled separately. Physical returns and stock restoration require the
-explicit return lifecycle rather than a legacy terminal order status.
+The GHN provider and historical fulfillment paths are still present while the
+approved internal-delivery rollout is in progress. New checkout quotes no
+longer use GHN service or parcel data. The retirement task will remove active
+carrier operations while preserving existing GHN shipment rows and events as
+read-only history. See the [approved delivery design](../../docs/superpowers/specs/2026-10-16-internal-delivery-design.md)
+for the full workflow and acceptance criteria.
 
 Related: [[order]], [[payment]], [[durable-operations]],
 [[transactional-email-operations]].

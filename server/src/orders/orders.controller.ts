@@ -294,7 +294,7 @@ export class OrdersController {
             loyaltyPoints: number;
             locale?: "en" | "vi";
             shippingQuoteId: string;
-            deliveryAddress: import("../shipping/shipping.types").DeliveryAddress;
+            deliveryAddress: import("../shipping/shipping.types").InternalDeliveryAddress;
         },
     ) {
         const { totalPrice, cart, discountCode, shippingAddress, paymentMethod } = body;
@@ -354,7 +354,7 @@ export class OrdersController {
         @Param("uid") uid: string,
         @Body(new ZodValidationPipe(checkoutSessionSchema)) body: {
             shippingQuoteId: string;
-            deliveryAddress: import("../shipping/shipping.types").DeliveryAddress;
+            deliveryAddress: import("../shipping/shipping.types").InternalDeliveryAddress;
             totalPrice: number;
             cart: Array<{ productId: number; quantity: number; price: number; sale_price?: number | null }>;
             discount: number;

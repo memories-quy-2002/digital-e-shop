@@ -3,7 +3,7 @@ import { z } from "zod";
 const positiveInteger = z.number().int().safe().positive();
 const nonNegativeInteger = z.number().int().safe().nonnegative();
 
-export const deliveryAddressSchema = z.object({
+export const carrierDeliveryAddressSchema = z.object({
     recipientName: z.string().trim().min(1).max(120),
     recipientPhone: z.string().trim().min(7).max(40),
     addressLine: z.string().trim().min(1).max(1024),
@@ -16,6 +16,16 @@ export const deliveryAddressSchema = z.object({
     districtName: z.string().trim().min(1).max(120).optional(),
 });
 
+export const deliveryAddressSchema = z.object({
+    recipientName: z.string().trim().min(1).max(160),
+    recipientPhone: z.string().trim().min(7).max(40),
+    addressLine: z.string().trim().min(1).max(255),
+    city: z.string().trim().min(1).max(120),
+    country: z.literal("VN"),
+    latitude: z.number().finite().min(-90).max(90),
+    longitude: z.number().finite().min(-180).max(180),
+}).strict();
+
 export const shippingParcelSchema = z.object({
     grams: positiveInteger,
     lengthCm: positiveInteger,
@@ -27,7 +37,7 @@ export const shippingServiceSchema = z.object({ serviceTypeId: positiveInteger }
 
 export const createCarrierShipmentSchema = z.object({
     clientReference: z.string().trim().min(1).max(50),
-    address: deliveryAddressSchema,
+    address: carrierDeliveryAddressSchema,
     parcel: shippingParcelSchema,
     service: shippingServiceSchema,
     codAmountVnd: nonNegativeInteger,

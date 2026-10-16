@@ -12,7 +12,7 @@ import { deliveryAddressSchema, shippingParcelSchema } from "./shipping.validato
 import { ShippingQuoteService } from "./shipping-quote.service";
 import { ShippingProviderRegistry } from "./shipping.registry";
 
-const quoteInput = z.object({ address: deliveryAddressSchema, serviceTypeId: z.number().int().positive().optional(), discountCode: z.string().max(50).optional(), locale: z.enum(["en", "vi"]).optional() });
+const quoteInput = z.object({ address: deliveryAddressSchema, discountCode: z.string().max(50).optional(), locale: z.enum(["en", "vi"]).optional() });
 const guestQuoteInput = quoteInput.extend({ cart: z.array(z.object({ productId: z.number().int().positive(), quantity: z.number().int().min(1).max(99) })).min(1).max(50) });
 
 @Controller("shipping")

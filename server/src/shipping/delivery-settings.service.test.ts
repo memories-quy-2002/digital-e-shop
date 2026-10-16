@@ -83,6 +83,14 @@ describe("DeliverySettingsService", () => {
             .resolves.toMatchObject({ routingEndpoint: "http://10.20.0.5:5000", version: 1 });
     });
 
+    it("locks only fully configured and currently allowlisted settings for quote use", async () => {
+        current = { ...validInput(), version: 1 };
+        await expect(service.getForQuote({} as never)).resolves.toEqual(current);
+
+        current = { ...current, tileUrl: "https://retired.example.test/{z}/{x}/{y}.png" };
+        await expect(service.getForQuote({} as never)).rejects.toThrow(/routing or map configuration/i);
+    });
+
     it("increments the settings version and audits the previous and new values", async () => {
         const first = await service.update(validInput(), "admin-1");
         const second = await service.update({ ...validInput(), fee5To20Vnd: 30000, feeOver20Vnd: 60000 }, "admin-2");
