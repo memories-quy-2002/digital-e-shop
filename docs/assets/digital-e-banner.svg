@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="350" viewBox="0 0 1200 350" role="img" aria-labelledby="title desc">
+  <title id="title">Digital-E Shop</title>
+  <desc id="desc">Dark navy and electric-blue Digital-E banner with an illustrated commerce dashboard and product cards.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#081326"/>
+      <stop offset="55%" stop-color="#101c3b"/>
+      <stop offset="100%" stop-color="#132c4a"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#70e1ff"/>
+      <stop offset="100%" stop-color="#6f8cff"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#172a48"/>
+      <stop offset="100%" stop-color="#0e1b34"/>
+    </linearGradient>
+    <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+      <path d="M30 0H0V30" fill="none" stroke="#95c7ff" stroke-opacity=".065" stroke-width="1"/>
+    </pattern>
+    <clipPath id="canvas"><rect width="1200" height="350" rx="24"/></clipPath>
+  </defs>
+  <g clip-path="url(#canvas)">
+    <rect width="1200" height="350" fill="url(#bg)"/>
+    <rect width="1200" height="350" fill="url(#grid)"/>
+    <circle cx="1040" cy="-65" r="290" fill="#498dff" fill-opacity=".075"/>
+    <circle cx="620" cy="400" r="270" fill="#21cfef" fill-opacity=".055"/>
+    <path d="M0 313Q310 214 610 322T1200 275" fill="none" stroke="#62d9ff" stroke-opacity=".14" stroke-width="1.5"/>
+    <g transform="translate(66 59)">
+      <rect width="49" height="49" rx="13" fill="url(#accent)"/>
+      <path d="M15 14h22M15 24.5h16M15 35h22" fill="none" stroke="#0b1a30" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="37" cy="24.5" r="3.5" fill="#0b1a30"/>
+    </g>
+    <text x="128" y="90" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" letter-spacing="3.1" fill="#9dbadd">BUILT FOR EVERYDAY TECH</text>
+    <text x="65" y="178" font-family="Arial, Helvetica, sans-serif" font-size="66" font-weight="800" letter-spacing="-1.5" fill="#f5fbff">DIGITAL<tspan fill="#78dbff">-E</tspan></text>
+    <text x="68" y="218" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#c0d2eb">Discover. Compare. Shop with confidence.</text>
+    <g font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" letter-spacing="1.3">
+      <rect x="67" y="260" width="135" height="37" rx="18.5" fill="#1d3952" stroke="#4a6b89" stroke-width="1"/>
+      <text x="134.5" y="284" text-anchor="middle" fill="#b8ecff">STOREFRONT</text>
+      <rect x="215" y="260" width="115" height="37" rx="18.5" fill="#1d3952" stroke="#4a6b89" stroke-width="1"/>
+      <text x="272.5" y="284" text-anchor="middle" fill="#b8ecff">CHECKOUT</text>
+      <rect x="343" y="260" width="128" height="37" rx="18.5" fill="#1d3952" stroke="#4a6b89" stroke-width="1"/>
+      <text x="407" y="284" text-anchor="middle" fill="#b8ecff">OPERATIONS</text>
+    </g>
+    <g transform="translate(714 47)">
+      <rect x="7" y="13" width="423" height="265" rx="20" fill="#020914" fill-opacity=".4"/>
+      <rect width="423" height="265" rx="19" fill="url(#screen)" stroke="#557ba7" stroke-opacity=".7" stroke-width="1.5"/>
+      <path d="M0 48h423" stroke="#54708c" stroke-opacity=".65"/>
+      <circle cx="24" cy="24" r="5" fill="#ff817f"/>
+      <circle cx="43" cy="24" r="5" fill="#ffce79"/>
+      <circle cx="62" cy="24" r="5" fill="#66dcbd"/>
+      <rect x="101" y="15" width="192" height="19" rx="9.5" fill="#263e5b"/>
+      <text x="197" y="28.5" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10" fill="#9eb9d7">digital-e / storefront</text>
+      <rect x="19" y="64" width="252" height="181" rx="13" fill="#203655" stroke="#436386" stroke-opacity=".7"/>
+      <text x="36" y="87" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#e5f5ff">Featured tech</text>
+      <g transform="translate(36 103)">
+        <rect width="101" height="122" rx="9" fill="#142840"/>
+        <rect x="13" y="11" width="75" height="66" rx="9" fill="#243f61"/>
+        <rect x="44" y="20" width="29" height="47" rx="6" fill="#101c34" stroke="#6bd7ff" stroke-width="2"/>
+        <path d="M50 29h17M50 35h12" stroke="#8fe4ff" stroke-width="2" stroke-linecap="round"/>
+        <rect x="13" y="87" width="58" height="7" rx="3.5" fill="#b3ccdf"/>
+        <rect x="13" y="101" width="35" height="7" rx="3.5" fill="#4d98c9"/>
+        <rect x="110" width="101" height="122" rx="9" fill="#142840"/>
+        <rect x="123" y="11" width="75" height="66" rx="9" fill="#243f61"/>
+        <path d="M145 25h30v35h-30z" rx="4" fill="#142438" stroke="#83b1ff" stroke-width="3"/>
+        <circle cx="160" cy="42" r="8" fill="none" stroke="#83b1ff" stroke-width="2"/>
+        <rect x="123" y="87" width="58" height="7" rx="3.5" fill="#b3ccdf"/>
+        <rect x="123" y="101" width="35" height="7" rx="3.5" fill="#4d98c9"/>
+      </g>
+      <rect x="284" y="64" width="119" height="83" rx="12" fill="#254466" stroke="#5c9dc1" stroke-opacity=".5"/>
+      <text x="298" y="85" font-family="Arial, Helvetica, sans-serif" font-size="10" fill="#b9d7f2">ORDER STATUS</text>
+      <circle cx="301" cy="105" r="5" fill="#6ff0c8"/>
+      <text x="313" y="109" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#eeffff">Confirmed</text>
+      <path d="M298 131h91" stroke="#5a8bad" stroke-width="5" stroke-linecap="round"/>
+      <rect x="284" y="158" width="119" height="87" rx="12" fill="#1a3555" stroke="#5c9dc1" stroke-opacity=".5"/>
+      <text x="298" y="180" font-family="Arial, Helvetica, sans-serif" font-size="10" fill="#b9d7f2">OPERATIONS</text>
+      <path d="M298 218l17-13 15 7 15-24 17 12 24-22" fill="none" stroke="#77deff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M298 230h90" stroke="#577b9c" stroke-opacity=".55"/>
+    </g>
+    <rect x=".75" y=".75" width="1198.5" height="348.5" rx="23" fill="none" stroke="#6b9ccd" stroke-opacity=".23" stroke-width="1.5"/>
+  </g>
+</svg>
