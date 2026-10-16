@@ -1,6 +1,6 @@
 # Internal delivery design
 
-Date: 2026-10-16  
+Date: 2026-10-16
 Status: implementation complete on `feature/internal-delivery`; isolated MySQL integration and browser runtime checks remain deferred as recorded in the implementation plan.
 Related: [[shipping-and-fulfillment]], [[order]], and the current fulfillment
 routes and quote flow.
