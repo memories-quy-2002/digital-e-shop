@@ -1,54 +1,65 @@
-// @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminFulfillmentPage from "./AdminFulfillmentPage";
-import * as api from "../api";
 
-vi.mock("../api", () => ({ fetchFulfillmentOrders: vi.fn(), fetchFulfillmentOrder: vi.fn(), transitionFulfillment: vi.fn(), createFulfillmentShipment: vi.fn(), fetchFulfillmentLabel: vi.fn(), confirmReturnedShipment: vi.fn() }));
-const mocks = vi.hoisted(() => ({ translate: (key: string) => key }));
+const mocks = vi.hoisted(() => ({
+    fetchOrders: vi.fn(), fetchDetail: vi.fn(), fetchAssignable: vi.fn(), fetchStaff: vi.fn(),
+    fetchHistory: vi.fn(), assign: vi.fn(), translate: (key: string) => key,
+}));
+vi.mock("../api", () => ({
+    fetchFulfillmentOrders: mocks.fetchOrders, fetchFulfillmentOrder: mocks.fetchDetail,
+    fetchAssignableDeliveryOrders: mocks.fetchAssignable, fetchDeliveryStaff: mocks.fetchStaff,
+    fetchDeliveryAssignmentHistory: mocks.fetchHistory, assignDeliveryOrder: mocks.assign,
+    transitionFulfillment: vi.fn(),
+}));
+vi.mock("../../../components/layout/AdminLayout", () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
 vi.mock("../../../hooks/useT", () => ({ useT: () => mocks.translate }));
-vi.mock("../../../components/layout/AdminLayout", () => ({ default: ({ children }: { children: ReactNode }) => <>{children}</> }));
-vi.mock("../../admin/components/AdminStatusPanel", () => ({ default: ({ title, description }: { title: string; description?: string }) => <div><p>{title}</p>{description ? <p>{description}</p> : null}</div> }));
+vi.mock("../../../context/LocaleContext", () => ({ useLocale: () => ({ locale: "en" }) }));
+vi.mock("../../admin/components/AdminStatusPanel", () => ({ default: ({ title }: { title: string }) => <p>{title}</p> }));
 
-describe("AdminFulfillmentPage", () => {
+const deliveryOrder = {
+    orderId: 501, createdAt: "2026-10-16T01:00:00.000Z", customerName: "Test Customer",
+    destination: { recipientName: "Test Customer", recipientPhone: "0901234567", addressLine: "12 Main Street", city: "HCMC", country: "VN", latitude: 10.78, longitude: 106.7 },
+    paymentMethod: "cash", paymentStatus: "pending", codAmountVnd: 125000,
+    items: [{ productName: "Laptop", sku: "LT-1", quantity: 1, unitPriceVnd: 125000, totalPriceVnd: 125000 }],
+    currentAssignment: null,
+};
+
+describe("AdminFulfillmentPage internal assignments", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        vi.mocked(api.fetchFulfillmentOrders).mockResolvedValue([{ orderId: 8, state: "CONFIRMED", trackingCode: null, sandbox: true }]);
-        vi.mocked(api.fetchFulfillmentOrder).mockResolvedValue({ orderId: 8, state: "CONFIRMED", events: [] });
+        mocks.fetchOrders.mockResolvedValue([]);
+        mocks.fetchAssignable.mockResolvedValue([deliveryOrder]);
+        mocks.fetchStaff.mockResolvedValue([{ id: "staff-1", name: "Delivery Staff" }]);
+        mocks.fetchHistory.mockResolvedValue([]);
+        mocks.assign.mockResolvedValue({ id: 7 });
     });
 
-    it("shows only the allowed next state and submits the transition", async () => {
+    it("shows order contents, COD and destination before assigning a staff schedule", async () => {
         render(<AdminFulfillmentPage />);
-        fireEvent.click(await screen.findByRole("button", { name: "shipping.state.PICKING" }));
-        await waitFor(() => expect(api.transitionFulfillment).toHaveBeenCalledWith(8, "PICKING"));
-        expect(screen.queryByRole("button", { name: "shipping.confirmReturnReceived" })).not.toBeInTheDocument();
+        expect(await screen.findByRole("heading", { name: "shipping.deliveryQueue" })).toBeInTheDocument();
+        expect(screen.getByText("12 Main Street, HCMC")).toBeInTheDocument();
+        expect(screen.getByText("Laptop × 1")).toBeInTheDocument();
+        expect(document.body.textContent?.replace(/\s/g, "")).toContain("125.000");
+
+        fireEvent.change(screen.getByLabelText("shipping.deliveryStaff"), { target: { value: "staff-1" } });
+        fireEvent.change(screen.getByLabelText(/shipping.scheduleStart/), { target: { value: "2026-10-20T10:00" } });
+        fireEvent.change(screen.getByLabelText(/shipping.scheduleEnd/), { target: { value: "2026-10-20T12:00" } });
+        fireEvent.click(screen.getByRole("button", { name: "shipping.assignDelivery" }));
+
+        await waitFor(() => expect(mocks.assign).toHaveBeenCalledWith(501, {
+            employeeId: "staff-1", scheduledStartAt: "2026-10-20T10:00", scheduledEndAt: "2026-10-20T12:00",
+        }));
     });
 
-    it("keeps a shipment request pending and shows the sandbox status", async () => {
-        vi.mocked(api.fetchFulfillmentOrders).mockResolvedValue([{ orderId: 8, state: "READY_TO_SHIP", trackingCode: null, sandbox: true }]);
-        vi.mocked(api.fetchFulfillmentOrder).mockResolvedValue({ orderId: 8, state: "READY_TO_SHIP", trackingCode: null, sandbox: true, events: [] });
-        let finishRequest!: () => void;
-        vi.mocked(api.createFulfillmentShipment).mockReturnValue(new Promise((resolve) => { finishRequest = () => resolve({ sandbox: true }); }));
+    it("shows legacy tracking as history and keeps GHN shipment states read-only", async () => {
+        mocks.fetchOrders.mockResolvedValue([{ orderId: 42, state: "SHIPPED", provider: "GHN", trackingCode: "GHN-42", sandbox: false }]);
+        mocks.fetchDetail.mockResolvedValue({ orderId: 42, state: "SHIPPED", provider: "GHN", trackingCode: "GHN-42", sandbox: false, timeline: [] });
+
         render(<AdminFulfillmentPage />);
 
-        expect(await screen.findByText("shipping.sandboxShipment")).toBeInTheDocument();
-        fireEvent.click(screen.getByRole("button", { name: "shipping.createShipment" }));
-
-        expect(await screen.findByRole("button", { name: "shipping.actionPending" })).toBeDisabled();
-        finishRequest();
-        await waitFor(() => expect(api.createFulfillmentShipment).toHaveBeenCalledWith(8, expect.any(String)));
-    });
-
-    it("shows a safe failure state when shipment creation fails", async () => {
-        vi.mocked(api.fetchFulfillmentOrders).mockResolvedValue([{ orderId: 8, state: "READY_TO_SHIP", trackingCode: null, sandbox: false }]);
-        vi.mocked(api.fetchFulfillmentOrder).mockResolvedValue({ orderId: 8, state: "READY_TO_SHIP", trackingCode: null, sandbox: false, events: [] });
-        vi.mocked(api.createFulfillmentShipment).mockRejectedValue(new Error("private provider response"));
-        render(<AdminFulfillmentPage />);
-
-        fireEvent.click(await screen.findByRole("button", { name: "shipping.createShipment" }));
-
-        expect(await screen.findByText("shipping.adminActionError")).toBeInTheDocument();
-        expect(screen.queryByText("private provider response")).not.toBeInTheDocument();
+        expect(await screen.findByText("GHN-42")).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "shipping.state.PICKING" })).not.toBeInTheDocument();
     });
 });

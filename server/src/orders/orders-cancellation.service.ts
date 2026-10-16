@@ -12,6 +12,7 @@ import { ProductAlertsService } from "../product-alerts/product-alerts.service";
 import { getProductAlertTransitions } from "../product-alerts/product-alerts.policy";
 import { createCheckoutError } from "./orders.errors";
 import { OrderEmailService } from "./order-email.service";
+import { LoyaltyService } from "../loyalty/loyalty.service";
 
 @Injectable()
 export class NestOrdersCancellationService {
@@ -21,6 +22,7 @@ export class NestOrdersCancellationService {
         private readonly inventoryService: NestInventoryService,
         @Optional() private readonly productAlertsService?: ProductAlertsService,
         @Optional() private readonly orderEmails?: OrderEmailService,
+        @Optional() private readonly loyaltyService?: LoyaltyService,
     ) {}
 
     async cancelOrder(orderId: number, actorId: string, admin = false, reason?: string): Promise<{ userId: string | null; changed: boolean }> {
@@ -40,8 +42,8 @@ export class NestOrdersCancellationService {
                     || paymentStatus === PAYMENT_STATUS.REFUND_PENDING)) {
                 throw createCheckoutError("PayOS funds must be fully refunded and confirmed before cancellation", HTTP_STATUS.CONFLICT);
             }
-            if (["READY", "RUNNING", "SUCCEEDED", "REVIEW_REQUIRED"].includes(order.shipment_creation_state || "")) {
-                throw createCheckoutError("Resolve the shipment creation outcome before canceling this order", HTTP_STATUS.CONFLICT);
+            if (order.active_delivery_assignment) {
+                throw createCheckoutError("An active delivery assignment must be resolved before canceling this order", HTTP_STATUS.CONFLICT);
             }
             if (["SHIPPED", "DELIVERY_FAILED", "RETURNING"].includes(order.fulfillment_state || "") || (order.fulfillment_state === "RETURNED" && !order.returned_stock_received_at)) {
                 throw createCheckoutError("Confirm physical receipt of the returned parcel before restoring inventory", HTTP_STATUS.CONFLICT);
@@ -92,8 +94,9 @@ export class NestOrdersCancellationService {
                 if (movements.length > 0) await this.inventoryService.createMovementsInTransaction(tx, movements);
             }
             await this.ordersRepository.cancelOrderInTransaction(tx, orderId, reason || null);
+            if (this.loyaltyService) await this.loyaltyService.restoreCanceledOrderPoints(tx, orderId);
             if (this.orderEmails) await this.orderEmails.emit(tx, orderId, "canceled");
-            await tx.query("UPDATE shipments SET state = IF(state = 'RETURNED', state, 'CANCELED'), updated_at = UTC_TIMESTAMP(3) WHERE order_id = ?", [orderId]);
+            await tx.query("UPDATE shipments SET state = IF(state = 'RETURNED', state, 'CANCELED'), updated_at = UTC_TIMESTAMP(3) WHERE order_id = ? AND provider = 'INTERNAL'", [orderId]);
             await this.orderTimelineService.createTimelineEventInTransaction(tx, {
                 orderId, status: ORDER_STATUS.CANCELED, note: reason ? `Order canceled: ${reason}` : "Order was canceled.", actorId,
             });

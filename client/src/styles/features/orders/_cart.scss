@@ -3688,6 +3688,48 @@
     border-top: 3px solid var(--de-color-signal);
 }
 
+.checkout__loyalty {
+    display: grid;
+    gap: 0.5rem;
+    padding: 1.25rem;
+    border: 1px solid var(--de-color-border);
+    border-radius: var(--de-radius-lg);
+    background: var(--de-color-surface-strong);
+
+    h2,
+    p {
+        margin: 0;
+    }
+
+    h2 {
+        font-size: 1.1rem;
+    }
+
+    label {
+        font-weight: 600;
+    }
+
+    input {
+        width: min(100%, 18rem);
+        min-height: 44px;
+        padding: 0.65rem 0.75rem;
+        border: 1px solid var(--de-color-border);
+        border-radius: var(--de-radius-md);
+        color: var(--de-color-text);
+        background: var(--de-color-surface);
+    }
+
+    input:focus-visible {
+        outline: 3px solid var(--de-color-signal);
+        outline-offset: 2px;
+    }
+
+    small,
+    &__message {
+        color: var(--de-color-text-muted);
+    }
+}
+
 @media (min-width: 1120px) {
     .cart__layout {
         align-items: start;

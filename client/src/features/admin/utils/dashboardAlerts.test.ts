@@ -54,4 +54,8 @@ describe("dashboard alert grouping", () => {
         expect(groupAdminAlerts(alerts)).toHaveLength(4);
         expect(groupAdminAlerts([])).toEqual([]);
     });
+
+    it("keeps resolved signals out of the live action queue", () => {
+        expect(groupAdminAlerts([createAlert({ triageStatus: "RESOLVED" })])).toEqual([]);
+    });
 });

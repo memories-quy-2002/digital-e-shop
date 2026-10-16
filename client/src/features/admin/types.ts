@@ -45,6 +45,7 @@ export type AdminAnalyticsSummarySection = {
     charts?: {
         revenueTrend?: AnalyticsTrendPoint[];
         categoryPerformance?: AnalyticsCategoryPoint[];
+        topProducts?: Array<{ name: string; sales: number; revenue: number }>;
         paymentMethods?: Array<{
             name?: string;
             value?: number;
@@ -129,4 +130,7 @@ export type AdminPromotion = {
     starts_at: string | null;
     expires_at: string | null;
     usage_limit: number | null;
+    usage_count?: number;
+    remaining_uses?: number | null;
+    loyalty_points_cost?: number | null;
 };

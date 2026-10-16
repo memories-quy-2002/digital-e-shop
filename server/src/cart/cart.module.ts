@@ -8,11 +8,13 @@ import { createRateLimitMiddleware } from "../middleware/rate-limit.middleware";
 import { NestConfigModule } from "../config/nest-config.module";
 import { ProductsModule } from "../products/products.module";
 import { PromotionsModule } from "../promotions/promotions.module";
+import { AuthGuard } from "../guards/auth.guard";
+import { RolesGuard } from "../guards/roles.guard";
 
 @Module({
     imports: [NestConfigModule, ProductsModule, PromotionsModule],
     controllers: [CartController],
-    providers: [NestCartService, CartRepository, GuestCartRepository],
+    providers: [AuthGuard, RolesGuard, NestCartService, CartRepository, GuestCartRepository],
     exports: [NestCartService],
 })
 export class CartModule implements NestModule {

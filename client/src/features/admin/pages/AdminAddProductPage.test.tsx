@@ -22,14 +22,6 @@ vi.mock("../../../components/layout/AdminLayout", () => ({
     default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 vi.mock("../../../context/ToastContext", () => ({ useToast: () => ({ addToast: mocks.addToast }) }));
-vi.mock("../../../hooks/useT", () => ({ useT: () => (key: string) => ({
-    "shipping.parcelDimensions": "Parcel dimensions",
-    "shipping.parcelWeight": "Parcel weight (g)",
-    "shipping.parcelLength": "Length (cm)",
-    "shipping.parcelWidth": "Width (cm)",
-    "shipping.parcelHeight": "Height (cm)",
-    "shipping.parcelRangeError": "Enter a valid whole number within the allowed range.",
-}[key] || key) }));
 vi.mock("react-router-dom", async () => ({
     ...(await vi.importActual<typeof import("react-router-dom")>("react-router-dom")),
     useNavigate: () => mocks.navigate,
@@ -39,13 +31,6 @@ const fillRequiredFields = () => {
     fireEvent.change(screen.getByLabelText(/Product Name/), { target: { value: "USB-C Hub" } });
     fireEvent.change(screen.getByLabelText(/Category/), { target: { value: "Accessories" } });
     fireEvent.change(screen.getByLabelText(/Brand/), { target: { value: "Example" } });
-};
-
-const fillParcelFields = () => {
-    fireEvent.change(screen.getByRole("spinbutton", { name: /Parcel weight \(g\)/ }), { target: { value: "1000" } });
-    fireEvent.change(screen.getByRole("spinbutton", { name: /Length \(cm\)/ }), { target: { value: "20" } });
-    fireEvent.change(screen.getByRole("spinbutton", { name: /Width \(cm\)/ }), { target: { value: "15" } });
-    fireEvent.change(screen.getByRole("spinbutton", { name: /Height \(cm\)/ }), { target: { value: "10" } });
 };
 
 describe("AdminAddProductPage validation", () => {
@@ -79,35 +64,27 @@ describe("AdminAddProductPage validation", () => {
     it("accepts zero price and inventory without optional copy or image", async () => {
         render(<AdminAddProductPage />);
         fillRequiredFields();
-        fillParcelFields();
 
         fireEvent.submit(screen.getByRole("button", { name: "Save Product" }).closest("form")!);
 
         await waitFor(() => expect(addProduct).toHaveBeenCalledOnce());
         const payload = vi.mocked(addProduct).mock.calls[0][0];
-        expect(payload.get("parcelWeightGrams")).toBe("1000");
-        expect(payload.get("parcelLengthCm")).toBe("20");
-        expect(payload.get("parcelWidthCm")).toBe("15");
-        expect(payload.get("parcelHeightCm")).toBe("10");
+        expect(payload.has("parcelWeightGrams")).toBe(false);
+        expect(payload.has("parcelLengthCm")).toBe(false);
         expect(mocks.navigate).toHaveBeenCalledWith("/admin/products");
     });
 
-    it("requires complete parcel dimensions before creating a shippable product", async () => {
+    it("does not render GHN parcel metadata fields", () => {
         render(<AdminAddProductPage />);
-        fillRequiredFields();
 
-        fireEvent.submit(screen.getByRole("button", { name: "Save Product" }).closest("form")!);
-
-        expect(addProduct).not.toHaveBeenCalled();
-        expect(await screen.findByText("Enter valid positive whole-number parcel dimensions before saving this shippable product.", { exact: true })).toBeInTheDocument();
-        expect(screen.getByRole("spinbutton", { name: /Parcel weight \(g\)/ })).toHaveFocus();
+        expect(screen.queryByLabelText(/Parcel weight/)).not.toBeInTheDocument();
+        expect(screen.queryByLabelText(/Length \(cm\)/)).not.toBeInTheDocument();
     });
 
     it("keeps the server mutation error path", async () => {
         vi.mocked(addProduct).mockRejectedValue(new Error("Duplicate SKU"));
         render(<AdminAddProductPage />);
         fillRequiredFields();
-        fillParcelFields();
 
         fireEvent.submit(screen.getByRole("button", { name: "Save Product" }).closest("form")!);
 

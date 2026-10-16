@@ -1,21 +1,29 @@
-// @vitest-environment jsdom
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import ShipmentTimeline from "./ShipmentTimeline";
+import type { ShipmentSummary } from "../types";
 
-const mocks = vi.hoisted(() => ({ translate: (key: string) => key }));
-vi.mock("../../../hooks/useT", () => ({ useT: () => mocks.translate }));
+vi.mock("../../../hooks/useT", () => ({ useT: () => (key: string) => key.startsWith("shipping.state.") ? key.slice("shipping.state.".length) : key }));
+vi.mock("../../../context/LocaleContext", () => ({ useLocale: () => ({ locale: "en" }) }));
 
-describe("ShipmentTimeline", () => {
-    it("renders a safe guest shipment summary and sandbox state", () => {
-        render(<ShipmentTimeline shipment={{ orderId: 4, state: "IN_TRANSIT", trackingCode: "TRACK-4", sandbox: true, events: [{ state: "PICKED_UP", occurredAt: "2026-10-14T10:00:00Z", note: null }] }} />);
-        expect(screen.getByText("TRACK-4")).toBeInTheDocument();
-        expect(screen.getByText("shipping.sandboxShipment")).toBeInTheDocument();
-        expect(screen.getByText("PICKED UP")).toBeInTheDocument();
-    });
+describe("ShipmentTimeline internal delivery projection", () => {
+    it("shows assigned staff and customer-safe events while retaining legacy shipment history", () => {
+        const shipment: ShipmentSummary = {
+            orderId: 501,
+            state: "READY_TO_SHIP",
+            events: [{ state: "READY_TO_SHIP", occurredAt: "2026-10-16T01:00:00.000Z", note: "Parcel packed" }],
+            delivery: {
+                id: 7, orderId: 501, employeeName: "Delivery Staff", scheduledStartAt: "2026-10-16T02:00:00.000Z",
+                scheduledEndAt: "2026-10-16T04:00:00.000Z", status: "OUT_FOR_DELIVERY",
+                events: [{ id: 9, status: "OUT_FOR_DELIVERY", publicNote: "Delivery is on the way", createdAt: "2026-10-16T02:05:00.000Z" }],
+            },
+        };
+        render(<ShipmentTimeline shipment={shipment} />);
 
-    it("shows a pending empty state without claiming shipment exists", () => {
-        render(<ShipmentTimeline shipment={null} />);
-        expect(screen.getByText("shipping.noShipment")).toBeInTheDocument();
+        expect(screen.getAllByText("OUT_FOR_DELIVERY")).toHaveLength(2);
+        expect(screen.getByText("Delivery Staff")).toBeInTheDocument();
+        expect(screen.getByText("Parcel packed")).toBeInTheDocument();
+        expect(screen.getByText("Delivery is on the way")).toBeInTheDocument();
+        expect(screen.queryByRole("application")).not.toBeInTheDocument();
     });
 });

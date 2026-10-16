@@ -19,6 +19,7 @@ import type {
     PromotionCatalogRow,
     PromotionPerformanceRow,
     RevenueTrendRow,
+    TopProductRow,
 } from './analytics.types';
 
 const query = util.promisify(pool.query).bind(pool);
@@ -92,6 +93,23 @@ export class AnalyticsRepository {
             GROUP BY c.id, c.name
             ORDER BY revenue DESC
             LIMIT ${ANALYTICS_LIMITS.CATEGORY_PERFORMANCE}`,
+            [rangeDays],
+        );
+    }
+
+    private getTopProductRows(rangeDays: number): Promise<TopProductRow[]> {
+        return this.queryRows<TopProductRow>(
+            `SELECT COALESCE(oi.product_name_snapshot, p.name, CONCAT('Product #', oi.product_id)) AS name,
+                COALESCE(SUM(oi.quantity), 0) AS sales,
+                COALESCE(SUM(oi.total_price), 0) AS revenue
+             FROM order_items oi
+             JOIN orders o ON o.id = oi.order_id
+             LEFT JOIN products p ON p.id = oi.product_id
+             WHERE o.status <> ${ORDER_STATUS.CANCELED}
+                AND o.date_added >= UTC_DATE() - INTERVAL ? DAY
+             GROUP BY oi.product_id, COALESCE(oi.product_name_snapshot, p.name, CONCAT('Product #', oi.product_id))
+             ORDER BY revenue DESC, sales DESC
+             LIMIT 10`,
             [rangeDays],
         );
     }
@@ -232,6 +250,7 @@ export class AnalyticsRepository {
             overviewRows,
             revenueTrendRows,
             categoryPerformanceRows,
+            topProductRows,
             customerSegmentRows,
             inventoryRiskRows,
             paymentMethodRows,
@@ -243,6 +262,7 @@ export class AnalyticsRepository {
             this.getOverviewRows(rangeDays),
             this.getRevenueTrendRows(rangeDays),
             this.getCategoryPerformanceRows(rangeDays),
+            this.getTopProductRows(rangeDays),
             this.getCustomerSegmentRows(),
             this.getInventoryRiskRows(),
             this.getPaymentMethodRows(rangeDays),
@@ -256,6 +276,7 @@ export class AnalyticsRepository {
             overviewRows,
             revenueTrendRows,
             categoryPerformanceRows,
+            topProductRows,
             customerSegmentRows,
             inventoryRiskRows,
             paymentMethodRows,

@@ -106,9 +106,9 @@ const LoginPage = () => {
             const isAdminPath = Boolean(requestedPath && /^\/admin(?:\/|$)/.test(requestedPath));
             const destination = userDataResult?.role === Role.Admin
                 ? requestedPath || "/admin"
-                : requestedPath && !isAdminPath
-                    ? requestedPath
-                    : "/";
+                : userDataResult?.role === Role.DeliveryStaff
+                    ? requestedPath && !isAdminPath ? requestedPath : "/delivery/assignments"
+                    : requestedPath && !isAdminPath ? requestedPath : "/";
             navigate(destination, { replace: true });
         } catch (err: unknown) {
             if (err && typeof err === "object" && "response" in err) {

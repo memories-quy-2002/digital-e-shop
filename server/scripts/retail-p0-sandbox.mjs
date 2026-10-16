@@ -53,7 +53,6 @@ function readSafeTarget() {
     const password = configuredPassword ?? urlPassword;
     if (!user || !password) throw new Error("Local MySQL credentials are required");
 
-    if (process.env.SHIPPING_PROVIDER_MODE !== "sandbox") throw new Error("SHIPPING_PROVIDER_MODE must explicitly be sandbox");
     if (process.env.EMAIL_PROVIDER_MODE !== "sandbox") throw new Error("EMAIL_PROVIDER_MODE must explicitly be sandbox");
     if (process.env.PAYMENT_PROVIDER_MODE !== "mock") throw new Error("PAYMENT_PROVIDER_MODE must explicitly be mock");
     const emailFixture = process.env.EMAIL_SANDBOX_FIXTURE || "accepted";
@@ -91,7 +90,6 @@ async function main() {
     const childEnv = {
         ...process.env,
         NODE_ENV: "test",
-        SHIPPING_PROVIDER_MODE: "sandbox",
         EMAIL_PROVIDER_MODE: "sandbox",
         PAYMENT_PROVIDER_MODE: "mock",
         EMAIL_SANDBOX_FIXTURE: target.emailFixture,
@@ -104,7 +102,7 @@ async function main() {
     const vitest = path.join(serverRoot, "node_modules", "vitest", "vitest.mjs");
     if (!fs.existsSync(vitest)) throw new Error("Server dependencies are missing; install the server package with pnpm first");
 
-    process.stdout.write("Retail P0 sandbox preflight passed for the isolated local database and sandbox adapters.\n");
+    process.stdout.write("Retail P0 preflight passed for internal delivery, isolated local database, and sandbox email/payment adapters.\n");
     const result = spawnSync(process.execPath, [
         vitest,
         "run",

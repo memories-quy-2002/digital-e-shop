@@ -18,6 +18,12 @@ export type CustomerAddress = {
     address_line: string;
     city: string | null;
     country: string | null;
+    province_code?: string | null;
+    province_name?: string | null;
+    ward_code?: string | null;
+    ward_name?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
     is_default: boolean;
 };
 
@@ -28,6 +34,8 @@ export type CustomerAddressPayload = {
     addressLine: string;
     city: string;
     country: string;
+    latitude?: number | null;
+    longitude?: number | null;
     isDefault: boolean;
 };
 

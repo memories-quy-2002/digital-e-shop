@@ -148,6 +148,7 @@ export async function createPayOSCheckoutSession(
         cart: CheckoutCartItem[];
         totalPrice: number;
         discount: number;
+        loyaltyPoints?: number;
         shippingAddress: string;
         shippingQuoteId: string;
         deliveryAddress: import("../shipping/types").DeliveryAddress;

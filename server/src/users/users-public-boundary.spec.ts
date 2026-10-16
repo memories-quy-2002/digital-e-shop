@@ -24,12 +24,12 @@ describe("users public response boundary", () => {
         const repository = {
             findById: vi.fn().mockResolvedValue(sensitiveUser),
             getAll: vi.fn().mockResolvedValue([sensitiveUser]),
-            getPaginated: vi.fn().mockResolvedValue([sensitiveUser]),
+            getAdminPaginated: vi.fn().mockResolvedValue([sensitiveUser]),
         };
         const service = new NestUsersService(repository as never);
 
         expectPublicUser(await service.getUserById("user-1"));
         expectPublicUser((await service.getAllUsers())[0]);
-        expectPublicUser((await service.getAllUsersPaginated(10, 0))[0]);
+        expectPublicUser((await service.getAllUsersPaginated(10, 0, {}))[0]);
     });
 });

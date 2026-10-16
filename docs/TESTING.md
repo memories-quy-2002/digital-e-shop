@@ -40,8 +40,8 @@ pnpm --dir server test:integration
 Use the isolated Docker database or a CI database. Do not point integration tests at a shared or production target. The CI server job loads the legacy SQL baseline, records the metadata-only `0_init` migration, deploys forward migrations, runs the integration suite, and exercises the demo reset on disposable data.
 
 The retail P0 acceptance command verifies a loopback host, the exact
-`retail_p0_test` database, and sandbox shipping/email with mock payments before
-running its database journey:
+`retail_p0_test` database, internal delivery, sandbox email and mock payments
+before running its database journey:
 
 ```powershell
 pnpm --dir server retail:p0:sandbox
@@ -50,13 +50,14 @@ pnpm --dir client test:e2e
 ```
 
 For the browser run, start the compiled API against `retail_p0_test` on
-localhost with Firebase Auth Emulator credentials and sandbox provider modes;
-set `RETAIL_P0_PRODUCT_ID` to the parcel-ready fixture product. The fixture
-helper only modifies product 1 in the disposable database. Playwright covers
+localhost with Firebase Auth Emulator credentials and sandbox email/mock
+payment modes; configure delivery settings and a reachable allowlisted routing
+endpoint, then set `RETAIL_P0_PRODUCT_ID` to the fixture product. The fixture
+helper only updates product 1 stock in the disposable database. Playwright covers
 Chromium 1440x900/390x844, EN/VI, and light/dark, with traces, screenshots, and
 videos disabled. The success-page capability field is redacted before any
-subsequent assertion can produce an error artifact. This proves local sandbox
-behavior, not live GHN, PayOS, or Resend delivery.
+subsequent assertion can produce an error artifact. This proves local internal
+delivery and sandbox behavior, not live PayOS or Resend delivery.
 
 ## Database and migration checks
 

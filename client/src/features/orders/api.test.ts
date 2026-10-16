@@ -143,7 +143,7 @@ describe("orders API", () => {
     });
 
     it("sends guest purchase data without client prices or totals", async () => {
-        const deliveryAddress = { recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", provinceCode: "1", provinceName: "HCMC", wardCode: "2", wardName: "Ward 2", districtCode: "3", country: "VN" as const };
+        const deliveryAddress = { recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", city: "HCMC", latitude: 10.78, longitude: 106.7, country: "VN" as const };
         vi.mocked(http.post).mockResolvedValueOnce({
             data: {
                 orderId: 42,
@@ -177,7 +177,7 @@ describe("orders API", () => {
     });
 
     it("keeps PayOS checkout and guest lookup contracts token-protected", async () => {
-        const deliveryAddress = { recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", provinceCode: "1", provinceName: "HCMC", wardCode: "2", wardName: "Ward 2", districtCode: "3", country: "VN" as const };
+        const deliveryAddress = { recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", city: "HCMC", latitude: 10.78, longitude: 106.7, country: "VN" as const };
         vi.mocked(http.post).mockResolvedValue({
             data: { url: "https://checkout.test/payos", guestOrderToken: "payos-token", orderCode: 123456, currency: "VND" },
         } as never);

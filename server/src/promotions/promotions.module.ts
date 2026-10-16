@@ -5,11 +5,13 @@ import { NestPromotionsService } from "./promotions.service";
 import { PromotionsRepository } from "./promotions.repository";
 import { createRateLimitMiddleware } from "../middleware/rate-limit.middleware";
 import { NestConfigModule } from "../config/nest-config.module";
+import { AuthGuard } from "../guards/auth.guard";
+import { RolesGuard } from "../guards/roles.guard";
 
 @Module({
     imports: [NestConfigModule],
     controllers: [PromotionsController],
-    providers: [NestPromotionsService, PromotionsRepository],
+    providers: [AuthGuard, RolesGuard, NestPromotionsService, PromotionsRepository],
     exports: [PromotionsRepository],
 })
 export class PromotionsModule implements NestModule {

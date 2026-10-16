@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import withSessionCheck from "../features/auth/components/withSessionCheck";
 import RequireAdmin from "../features/auth/components/RequireAdmin";
+import RequireDeliveryStaff from "../features/auth/components/RequireDeliveryStaff";
 import LoadingScreen from "../components/common/LoadingScreen";
 import ForbiddenPage from "../pages/ForbiddenPage";
 import { CUSTOMER_ROUTES } from "./customerRoutes";
@@ -41,6 +42,7 @@ const OrderHistoryPage = lazy(() => import("../features/orders/pages/OrderHistor
 const AfterSalesPage = lazy(() => import("../features/after-sales/pages/AfterSalesPage"));
 const CustomerAccountPage = lazy(() => import("../features/users/pages/CustomerAccountPage"));
 const AddressBookPage = lazy(() => import("../features/users/pages/AddressBookPage"));
+const CustomerLoyaltyPage = lazy(() => import("../features/loyalty/pages/CustomerLoyaltyPage"));
 const AdminDashboard = lazy(() => import("../features/admin/pages/AdminDashboard"));
 const AdminProductPage = lazy(() => import("../features/admin/pages/AdminProductPage"));
 const AdminOrderPage = lazy(() => import("../features/admin/pages/AdminOrderPage"));
@@ -50,13 +52,18 @@ const AdminPromotionsPage = lazy(() => import("../features/admin/pages/AdminProm
 const AdminAddProductPage = lazy(() => import("../features/admin/pages/AdminAddProductPage"));
 const AdminAfterSalesPage = lazy(() => import("../features/after-sales/pages/AdminAfterSalesPage"));
 const AdminFulfillmentPage = lazy(() => import("../features/shipping/pages/AdminFulfillmentPage"));
+const AdminDeliverySettingsPage = lazy(() => import("../features/shipping/pages/AdminDeliverySettingsPage"));
+const DeliveryStaffAssignmentsPage = lazy(() => import("../features/shipping/pages/DeliveryStaffAssignmentsPage"));
 const AdminCodSettlementsPage = lazy(() => import("../features/admin/pages/AdminCodSettlementsPage"));
 const AdminEmailOperationsPage = lazy(() => import("../features/admin/pages/AdminEmailOperationsPage"));
+const AdminAuditPage = lazy(() => import("../features/admin/pages/AdminAuditPage"));
+const AdminNotificationsPage = lazy(() => import("../features/admin/pages/AdminNotificationsPage"));
 
 const ProtectedCustomerAccountPage = withSessionCheck(CustomerAccountPage);
 const ProtectedOrderHistoryPage = withSessionCheck(OrderHistoryPage);
 const ProtectedAfterSalesPage = withSessionCheck(AfterSalesPage);
 const ProtectedAddressBookPage = withSessionCheck(AddressBookPage);
+const ProtectedCustomerLoyaltyPage = withSessionCheck(CustomerLoyaltyPage);
 
 type LegacyCustomerRedirectProps = { to: string };
 
@@ -92,6 +99,7 @@ const AppRouter = () => {
                 <Route path="/403" element={<ForbiddenPage />} />
                 <Route path={CUSTOMER_ROUTES.account} element={<ProtectedCustomerAccountPage />} />
                 <Route path={CUSTOMER_ROUTES.orders} element={<ProtectedOrderHistoryPage />} />
+                <Route path={CUSTOMER_ROUTES.loyalty} element={<ProtectedCustomerLoyaltyPage />} />
                 <Route path="/after-sales" element={<ProtectedAfterSalesPage />} />
                 <Route path={CUSTOMER_ROUTES.addresses} element={<ProtectedAddressBookPage />} />
                 <Route path={CUSTOMER_ROUTES.notifications} element={<ProtectedCustomerAccountPage />} />
@@ -110,7 +118,7 @@ const AppRouter = () => {
                     path="/admin/notifications"
                     element={
                         <RequireAdmin>
-                            <Navigate to="/admin" replace />
+                            <AdminNotificationsPage />
                         </RequireAdmin>
                     }
                 />
@@ -122,6 +130,7 @@ const AppRouter = () => {
                         </RequireAdmin>
                     }
                 />
+                <Route path="/admin/audit" element={<RequireAdmin><AdminAuditPage /></RequireAdmin>} />
                 <Route
                     path="/admin/after-sales"
                     element={
@@ -155,6 +164,8 @@ const AppRouter = () => {
                     }
                 />
                 <Route path="/admin/fulfillment" element={<RequireAdmin><AdminFulfillmentPage /></RequireAdmin>} />
+                <Route path="/admin/delivery/settings" element={<RequireAdmin><AdminDeliverySettingsPage /></RequireAdmin>} />
+                <Route path="/delivery/assignments" element={<RequireDeliveryStaff><DeliveryStaffAssignmentsPage /></RequireDeliveryStaff>} />
                 <Route path="/admin/payments/cod-settlements" element={<RequireAdmin><AdminCodSettlementsPage /></RequireAdmin>} />
                 <Route path="/admin/email-operations" element={<RequireAdmin><AdminEmailOperationsPage /></RequireAdmin>} />
                 <Route

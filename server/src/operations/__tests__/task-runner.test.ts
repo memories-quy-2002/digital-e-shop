@@ -47,25 +47,39 @@ describe("bounded task runner", () => {
         const leases = [makeLease("EMAIL_SEND", 1), makeLease("SHIPMENT_SYNC", 2)];
         const tasks = { claimDue: vi.fn().mockResolvedValueOnce([leases[0]]).mockResolvedValueOnce([leases[1]]).mockResolvedValueOnce([]), finish: vi.fn().mockResolvedValue(true) };
         const email = { processEmail: vi.fn().mockResolvedValue({ kind: "success", providerReference: "re_1" }) };
-        const shipping = { process: vi.fn().mockResolvedValue({ kind: "retryable", reason: "provider_busy", retryAfterMs: 5000 }) };
-        const runner = new TaskRunnerService(tasks as never, email as never, shipping);
+        const runner = new TaskRunnerService(tasks as never, email as never);
         await expect(runner.run({ limit: 10, budgetMs: 20000 })).resolves.toMatchObject({
-            claimed: 2, succeeded: 1, retried: 1, failed: 0, reviewRequired: 0,
+            claimed: 2, succeeded: 1, retried: 0, failed: 1, reviewRequired: 0,
         });
         expect(tasks.claimDue).toHaveBeenNthCalledWith(1, 1, expect.any(Date));
         expect(tasks.claimDue).toHaveBeenNthCalledWith(2, 1, expect.any(Date));
         expect(tasks.finish).toHaveBeenCalledWith(leases[0], { kind: "success", providerReference: "re_1" }, expect.any(Date));
         expect(email.processEmail).toHaveBeenCalledWith(leases[0]);
-        expect(shipping.process).toHaveBeenCalledWith(leases[1]);
+        expect(tasks.finish).toHaveBeenCalledWith(leases[1], { kind: "permanent", reason: "shipping_provider_retired" }, expect.any(Date));
+    });
+
+    it("permanently terminates queued carrier tasks without dispatching network work", async () => {
+        const leases = [makeLease("SHIPMENT_CREATE", 31), makeLease("SHIPMENT_SYNC", 32)];
+        const tasks = {
+            claimDue: vi.fn().mockResolvedValueOnce([leases[0]]).mockResolvedValueOnce([leases[1]]).mockResolvedValueOnce([]),
+            finish: vi.fn().mockResolvedValue(true),
+        };
+        const email = { processEmail: vi.fn() };
+        const runner = new TaskRunnerService(tasks as never, email as never);
+
+        await expect(runner.run({ limit: 2, budgetMs: 20000 })).resolves.toMatchObject({ claimed: 2, failed: 2, retried: 0 });
+        expect(tasks.finish).toHaveBeenNthCalledWith(1, leases[0], { kind: "permanent", reason: "shipping_provider_retired" }, expect.any(Date));
+        expect(tasks.finish).toHaveBeenNthCalledWith(2, leases[1], { kind: "permanent", reason: "shipping_provider_retired" }, expect.any(Date));
+        expect(email.processEmail).not.toHaveBeenCalled();
     });
 
     it("stops claiming when the time budget is reached and validates bounds", async () => {
         vi.useFakeTimers();
-        const leases = [makeLease("SHIPMENT_CREATE", 1), makeLease("SHIPMENT_CREATE", 2), makeLease("SHIPMENT_CREATE", 3)];
+        const leases = [makeLease("EMAIL_SEND", 1), makeLease("EMAIL_SEND", 2), makeLease("EMAIL_SEND", 3)];
         const tasks = { claimDue: vi.fn().mockImplementation(() => Promise.resolve([leases[tasks.claimDue.mock.calls.length - 1]])), finish: vi.fn().mockResolvedValue(true) };
-        const shipping = { process: vi.fn().mockImplementation(async () => { await vi.advanceTimersByTimeAsync(8000); return { kind: "success" }; }) };
-        const runner = new TaskRunnerService(tasks as never, {} as never, shipping);
-        await expect(runner.run({ limit: 100, budgetMs: 20000 })).resolves.toMatchObject({ claimed: 1, succeeded: 1 });
+        const email = { processEmail: vi.fn().mockImplementation(async () => { await vi.advanceTimersByTimeAsync(8000); return { kind: "success" }; }) };
+        const runner = new TaskRunnerService(tasks as never, email as never);
+        await expect(runner.run({ limit: 100, budgetMs: 20000 })).resolves.toMatchObject({ claimed: 2, succeeded: 2, failed: 0 });
         await expect(runner.run({ limit: 101, budgetMs: 20000 })).rejects.toThrow();
         await expect(runner.run({ limit: 1, budgetMs: 20001 })).rejects.toThrow();
         vi.useRealTimers();
@@ -75,7 +89,7 @@ describe("bounded task runner", () => {
         const lease = makeLease("EMAIL_SEND", 1);
         const tasks = { claimDue: vi.fn().mockResolvedValueOnce([lease]).mockResolvedValueOnce([]), finish: vi.fn().mockResolvedValue(false) };
         const email = { processEmail: vi.fn().mockResolvedValue({ kind: "success" }) };
-        const runner = new TaskRunnerService(tasks as never, email as never, { process: vi.fn() });
+        const runner = new TaskRunnerService(tasks as never, email as never);
         await expect(runner.run({ limit: 1, budgetMs: 20000 })).resolves.toMatchObject({ claimed: 1, succeeded: 0, reviewRequired: 0 });
     });
 
@@ -83,31 +97,28 @@ describe("bounded task runner", () => {
         const lease = makeLease("PAYOS_RECONCILE", 7);
         const tasks = { claimDue: vi.fn().mockResolvedValueOnce([lease]).mockResolvedValueOnce([]), finish: vi.fn().mockResolvedValue(true) };
         const email = { processEmail: vi.fn() };
-        const shipping = { process: vi.fn() };
         const payos = { process: vi.fn().mockResolvedValue({ kind: "retryable", reason: "provider_unavailable" }) };
-        const runner = new TaskRunnerService(tasks as never, email as never, shipping, payos);
+        const runner = new TaskRunnerService(tasks as never, email as never, payos);
 
         await expect(runner.run({ limit: 1, budgetMs: 20000 })).resolves.toMatchObject({ claimed: 1, retried: 1, failed: 0 });
         expect(payos.process).toHaveBeenCalledWith(lease);
-        expect(shipping.process).not.toHaveBeenCalled();
         expect(email.processEmail).not.toHaveBeenCalled();
     });
 
     it("marks durable PayOS mismatches for review rather than as ordinary failed operations", async () => {
         const lease = makeLease("PAYOS_RECONCILE", 8);
         const tasks = { claimDue: vi.fn().mockResolvedValueOnce([lease]).mockResolvedValueOnce([]), finish: vi.fn().mockResolvedValue(true) };
-        const runner = new TaskRunnerService(tasks as never, {} as never, undefined, {
+        const runner = new TaskRunnerService(tasks as never, {} as never, {
             process: vi.fn().mockResolvedValue({ kind: "permanent", reason: "verified_payment_mismatch" }),
         });
 
         await expect(runner.run({ limit: 1, budgetMs: 20000 })).resolves.toMatchObject({ reviewRequired: 1, failed: 0 });
     });
 
-    it("finishes unexpected processor exceptions as ambiguous for review", async () => {
-        const lease = makeLease("SHIPMENT_CREATE", 1);
+    it("finishes unexpected email processor exceptions as ambiguous for review", async () => {
+        const lease = makeLease("EMAIL_SEND", 1);
         const tasks = { claimDue: vi.fn().mockResolvedValueOnce([lease]).mockResolvedValueOnce([]), finish: vi.fn().mockResolvedValue(true) };
-        const shipping = { process: vi.fn().mockRejectedValue(new Error("provider detail must not leak")) };
-        const runner = new TaskRunnerService(tasks as never, {} as never, shipping);
+        const runner = new TaskRunnerService(tasks as never, { processEmail: vi.fn().mockRejectedValue(new Error("failed")) } as never);
         await expect(runner.run({ limit: 1, budgetMs: 20000 })).resolves.toMatchObject({ claimed: 1, reviewRequired: 1 });
         expect(tasks.finish).toHaveBeenCalledWith(lease, { kind: "ambiguous", reason: "task_processor_error" }, expect.any(Date));
     });

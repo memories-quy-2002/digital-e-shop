@@ -5,11 +5,13 @@ import { createRateLimitMiddleware } from "../middleware/rate-limit.middleware";
 import { ProductAlertsController } from "./product-alerts.controller";
 import { ProductAlertsRepository } from "./product-alerts.repository";
 import { ProductAlertsService } from "./product-alerts.service";
+import { AuthGuard } from "../guards/auth.guard";
+import { RolesGuard } from "../guards/roles.guard";
 
 @Module({
     imports: [NestConfigModule],
     controllers: [ProductAlertsController],
-    providers: [ProductAlertsService, ProductAlertsRepository],
+    providers: [AuthGuard, RolesGuard, ProductAlertsService, ProductAlertsRepository],
     exports: [ProductAlertsService],
 })
 export class ProductAlertsModule implements NestModule {

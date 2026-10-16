@@ -1,19 +1,19 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Product } from "../../../types/product";
-import type { AdminAccount, AdminOrder as Order, AdminOrderItem as OrderItem } from "../../../types/order";
+import type { AdminAccount, AdminOrder as Order } from "../../../types/order";
 import { formatUtcDateTime } from "../../../utils/dateTime";
 import AdminLayout from "../../../components/layout/AdminLayout";
 import { Helmet } from "react-helmet-async";
 import { useToast } from "../../../context/ToastContext";
-import { useAuth } from "../../../context/AuthContext";
 import {
     fetchAnalyticsSummary,
     fetchAdminAlerts,
     fetchAdminProducts,
     fetchAdminOrders,
+    fetchAdminPendingOrderQueue,
     fetchAdminUsers,
-    fetchOrderItems,
+    acknowledgeAdminAlerts,
     type AdminAlert,
 } from "../api";
 import AdminDashboardAttention from "../components/AdminDashboardAttention";
@@ -26,9 +26,9 @@ import AdminDashboardHeader from "../components/AdminDashboardHeader";
 import AdminDashboardKpiGrid, { type AdminDashboardKpi } from "../components/AdminDashboardKpiGrid";
 import AdminDashboardOperations from "../components/AdminDashboardOperations";
 import { groupAdminAlerts } from "../utils/dashboardAlerts";
-import { getAdminAlertReadIds, saveAdminAlertReadIds } from "../utils/adminAlertState";
 import { getDashboardRangeLabel, parseDashboardRange, type DashboardRange } from "../utils/dashboardRange";
 import { formatCurrency } from "../../../utils/currency";
+import { getApiErrorMessage } from "../../../lib/api-contract";
 import { ORDER_STATUS } from "../../orders/orderStatus";
 import { PAYMENT_METHOD } from "../../orders/constants";
 import { LOW_STOCK_THRESHOLD } from "../../products/constants";
@@ -52,13 +52,6 @@ const AdminDashboardCharts = React.lazy(() => import("../components/AdminDashboa
 
 const formatReportDate = (date = new Date()) => formatUtcDateTime(date);
 
-const formatUtcMonth = (date: Date) =>
-    new Intl.DateTimeFormat("en-US", {
-        timeZone: "UTC",
-        month: "short",
-        year: "numeric",
-    }).format(date);
-
 const formatUtcDay = (date: Date) =>
     new Intl.DateTimeFormat("en-US", {
         timeZone: "UTC",
@@ -77,15 +70,6 @@ const normalizeOrder = (order: RawDashboardOrder): Order => ({
     date_added: order.date_added instanceof Date ? order.date_added : new Date(order.date_added),
 });
 
-const normalizeOrderItem = (orderItem: OrderItem): OrderItem => ({
-    ...orderItem,
-    id: Number(orderItem.id),
-    order_id: Number(orderItem.order_id),
-    sales: Number(orderItem.sales) || 0,
-    revenue: Number(orderItem.revenue) || 0,
-    price: Number(orderItem.price) || 0,
-});
-
 const normalizeUser = (user: AdminAccount): AdminAccount => ({
     ...user,
     created_at: user.created_at instanceof Date ? user.created_at : new Date(user.created_at),
@@ -94,79 +78,6 @@ const normalizeUser = (user: AdminAccount): AdminAccount => ({
 const getNetRevenue = (order: Order) => order.status === ORDER_STATUS.CANCELED
     ? 0
     : Math.max(order.total_price - order.discount, 0);
-
-const buildMonthlyTrends = (orders: Order[], orderItems: OrderItem[]): TrendPoint[] => {
-    const monthlyMap = new Map<string, TrendPoint>();
-    const currentDate = new Date();
-    const salesByOrderId = new Map<number, number>();
-
-    orderItems.forEach((item) => {
-        salesByOrderId.set(item.order_id, (salesByOrderId.get(item.order_id) || 0) + item.sales);
-    });
-
-    for (let i = 5; i >= 0; i--) {
-        const date = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth() - i, 1));
-        const label = formatUtcMonth(date);
-        monthlyMap.set(label, { name: label, sales: 0, revenue: 0 });
-    }
-
-    orders.forEach((order) => {
-        if (order.status === ORDER_STATUS.CANCELED) {
-            return;
-        }
-        const label = formatUtcMonth(new Date(order.date_added));
-        const entry = monthlyMap.get(label);
-
-        if (!entry) {
-            return;
-        }
-
-        entry.sales += salesByOrderId.get(order.id) || 0;
-        entry.revenue += getNetRevenue(order);
-    });
-
-    return Array.from(monthlyMap.values()).map((entry) => ({
-        ...entry,
-        revenue: Number(entry.revenue.toFixed(2)),
-    }));
-};
-
-const getTopRevenueProducts = (orderItems: OrderItem[]) => {
-    const revenueMap: Record<string, { name: string; sales: number; revenue: number }> = {};
-
-    orderItems.forEach((item) => {
-        if (revenueMap[item.name]) {
-            revenueMap[item.name].sales += item.sales;
-            revenueMap[item.name].revenue += item.revenue;
-            return;
-        }
-
-        revenueMap[item.name] = {
-            name: item.name,
-            sales: item.sales,
-            revenue: item.revenue,
-        };
-    });
-
-    return Object.values(revenueMap).sort((a, b) => b.revenue - a.revenue);
-};
-
-const buildPaymentMix = (orders: Order[]): ChartDatum[] => {
-    const activeOrders = orders.filter((order) => order.status !== ORDER_STATUS.CANCELED);
-    const cashOrders = activeOrders.filter((order) => order.payment_method === PAYMENT_METHOD.CASH).length;
-    const payosOrders = activeOrders.filter((order) => order.payment_method === PAYMENT_METHOD.PAYOS).length;
-    const historicalPaymentOrders = activeOrders.filter(
-        (order) => Boolean(order.payment_method) && order.payment_method !== PAYMENT_METHOD.CASH && order.payment_method !== PAYMENT_METHOD.PAYOS,
-    ).length;
-    const notRecordedOrders = activeOrders.filter((order) => !order.payment_method).length;
-
-    return [
-        { name: "Cash", value: cashOrders },
-        { name: "PayOS", value: payosOrders },
-        { name: "Historical methods", value: historicalPaymentOrders },
-        { name: "Not recorded", value: notRecordedOrders },
-    ].filter((item) => item.value > 0);
-};
 
 const normalizePaymentMix = (points: Array<{ name?: unknown; value?: unknown }>): ChartDatum[] => {
     const totals = new Map<string, number>();
@@ -184,27 +95,6 @@ const normalizePaymentMix = (points: Array<{ name?: unknown; value?: unknown }>)
     });
 
     return Array.from(totals, ([name, value]) => ({ name, value })).filter((item) => item.value > 0);
-};
-
-const buildStatusMix = (orders: Order[]): ChartDatum[] => [
-    { name: "Pending", value: orders.filter((order) => order.status === ORDER_STATUS.PENDING).length },
-    { name: "Done", value: orders.filter((order) => order.status === ORDER_STATUS.DONE).length },
-    { name: "Cancelled", value: orders.filter((order) => order.status === ORDER_STATUS.CANCELED).length },
-].filter((item) => item.value > 0);
-
-const buildCategoryRevenue = (products: Product[], orderItems: OrderItem[]): ChartDatum[] => {
-    const productCategoryById = new Map(products.map((product) => [product.id, product.category || "Uncategorized"]));
-    const categoryRevenue = new Map<string, number>();
-
-    orderItems.forEach((item) => {
-        const category = productCategoryById.get(item.id) || "Uncategorized";
-        categoryRevenue.set(category, (categoryRevenue.get(category) || 0) + item.revenue);
-    });
-
-    return Array.from(categoryRevenue.entries())
-        .map(([name, value]) => ({ name, value: Number(value.toFixed(2)) }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 7);
 };
 
 const getOrderStatusLabel = (status: number) => {
@@ -279,15 +169,14 @@ const AdminDashboard = () => {
     const range = parseDashboardRange(searchParams.get("range"));
     const [products, setProducts] = useState<Product[]>([]);
     const [orders, setOrders] = useState<Order[]>([]);
+    const [pendingQueue, setPendingQueue] = useState<Order[]>([]);
     const [users, setUsers] = useState<AdminAccount[]>([]);
-    const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
     const [analyticsSummary, setAnalyticsSummary] = useState<AdminAnalyticsSummary | null>(null);
     const [alerts, setAlerts] = useState<AdminAlert[]>([]);
     const [loading, setLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [availability, setAvailability] = useState<DashboardAvailability>(initialDashboardAvailability);
     const { addToast } = useToast();
-    const { userData } = useAuth();
 
     useEffect(() => {
         if (shouldLoadCharts) return;
@@ -317,40 +206,42 @@ const AdminDashboard = () => {
         try {
             setLoading(true);
 
-            const [analyticsResult, productResult, orderResult, userResult, orderItemResult, alertsResult] = await Promise.allSettled([
+            const [analyticsResult, productResult, orderResult, userResult, pendingResult, alertsResult] = await Promise.allSettled([
                 fetchAnalyticsSummary(range),
-                fetchAdminProducts(1, 60),
-                fetchAdminOrders(1, 80),
-                fetchAdminUsers(1, 80),
-                fetchOrderItems(1, 100),
+                fetchAdminProducts(1, 12),
+                fetchAdminOrders(1, 20),
+                fetchAdminUsers(1, 20),
+                fetchAdminPendingOrderQueue(),
                 fetchAdminAlerts(),
             ]);
+            const analyticsData = (analyticsResult.status === "fulfilled"
+                ? analyticsResult.value?.summary && typeof analyticsResult.value.summary === "object"
+                    ? analyticsResult.value.summary
+                    : analyticsResult.value
+                : undefined) as AdminAnalyticsSummary | undefined;
 
             const results = {
                 analytics: analyticsResult,
                 products: productResult,
                 orders: orderResult,
                 users: userResult,
-                orderItems: orderItemResult,
+                pendingOrders: pendingResult,
                 alerts: alertsResult,
             };
             const loadedSections = Object.values(results).filter((result) => result.status === "fulfilled").length;
             const nextAvailability: DashboardAvailability = {
                 analytics: analyticsResult.status === "fulfilled" ? "success" : "error",
                 products: productResult.status === "fulfilled" ? "success" : "error",
-                orders: orderResult.status === "fulfilled" ? "success" : "error",
+                orders: orderResult.status === "fulfilled" && pendingResult.status === "fulfilled" ? "success" : "error",
                 users: userResult.status === "fulfilled" ? "success" : "error",
-                orderItems: orderItemResult.status === "fulfilled" ? "success" : "error",
+                orderItems: Array.isArray(analyticsData?.charts?.topProducts) ? "success" : "error",
                 alerts: alertsResult.status === "fulfilled" ? "success" : "error",
             };
 
             setAvailability(nextAvailability);
 
             if (analyticsResult.status === "fulfilled") {
-                const raw = analyticsResult.value?.summary && typeof analyticsResult.value.summary === "object"
-                    ? analyticsResult.value.summary
-                    : analyticsResult.value;
-                setAnalyticsSummary(raw);
+                setAnalyticsSummary(analyticsData ?? null);
             }
 
             if (productResult.status === "fulfilled") {
@@ -361,12 +252,12 @@ const AdminDashboard = () => {
                 setOrders((orderResult.value || []).map(normalizeOrder));
             }
 
-            if (userResult.status === "fulfilled") {
-                setUsers((userResult.value || []).map(normalizeUser));
+            if (pendingResult.status === "fulfilled") {
+                setPendingQueue(pendingResult.value.map(normalizeOrder));
             }
 
-            if (orderItemResult.status === "fulfilled") {
-                setOrderItems((orderItemResult.value || []).map(normalizeOrderItem));
+            if (userResult.status === "fulfilled") {
+                setUsers((userResult.value || []).map(normalizeUser));
             }
 
             if (alertsResult.status === "fulfilled") {
@@ -396,6 +287,20 @@ const AdminDashboard = () => {
         }
     }, [addToast, range]);
 
+    const refreshDashboardSignals = useCallback(async () => {
+        const [pendingResult, alertsResult] = await Promise.allSettled([
+            fetchAdminPendingOrderQueue(),
+            fetchAdminAlerts(),
+        ]);
+        setAvailability((current) => ({
+            ...current,
+            alerts: alertsResult.status === "fulfilled" ? "success" : "error",
+            orders: pendingResult.status === "fulfilled" ? "success" : "error",
+        }));
+        if (pendingResult.status === "fulfilled") setPendingQueue(pendingResult.value.map(normalizeOrder));
+        if (alertsResult.status === "fulfilled") setAlerts(alertsResult.value.alerts || []);
+    }, []);
+
     const handleRangeChange = useCallback((nextRange: DashboardRange) => {
         setSearchParams({ range: nextRange }, { replace: true });
     }, [setSearchParams]);
@@ -404,17 +309,12 @@ const AdminDashboard = () => {
         fetchDashboardData();
 
         const refreshTimer = window.setInterval(() => {
-            fetchDashboardData();
+            refreshDashboardSignals();
         }, 30000);
 
         return () => window.clearInterval(refreshTimer);
-    }, [fetchDashboardData]);
+    }, [fetchDashboardData, refreshDashboardSignals]);
 
-    const monthlyTrends = useMemo(() => (availability.orders === "success" && availability.orderItems === "success" ? buildMonthlyTrends(orders, orderItems) : []), [availability.orders, availability.orderItems, orders, orderItems]);
-    const topRevenueProducts = useMemo(() => (availability.orderItems === "success" ? getTopRevenueProducts(orderItems) : []), [availability.orderItems, orderItems]);
-    const paymentMix = useMemo(() => (availability.orders === "success" ? buildPaymentMix(orders) : []), [availability.orders, orders]);
-    const statusMix = useMemo(() => (availability.orders === "success" ? buildStatusMix(orders) : []), [availability.orders, orders]);
-    const categoryRevenue = useMemo(() => (availability.products === "success" && availability.orderItems === "success" ? buildCategoryRevenue(products, orderItems) : []), [availability.products, availability.orderItems, products, orderItems]);
     const analyticsTrend = useMemo(
         () =>
             (availability.analytics === "success" ? analyticsSummary?.charts?.revenueTrend || analyticsSummary?.revenueTrend || [] : []).map((point) => ({
@@ -422,6 +322,19 @@ const AdminDashboard = () => {
                 revenue: Number(point.netRevenue ?? point.revenue) || 0,
                 orders: Number(point.orders) || 0,
             })),
+        [analyticsSummary, availability.analytics],
+    );
+    const monthlyTrends = useMemo<TrendPoint[]>(() => analyticsTrend.map((point) => ({
+        name: point.name,
+        sales: point.orders,
+        revenue: point.revenue,
+    })), [analyticsTrend]);
+    const topRevenueProducts = useMemo(
+        () => (availability.analytics === "success" ? analyticsSummary?.charts?.topProducts || [] : []).map((product) => ({
+            name: product.name,
+            sales: Number(product.sales) || 0,
+            revenue: Number(product.revenue) || 0,
+        })),
         [analyticsSummary, availability.analytics],
     );
     const analyticsCategoryRevenue = useMemo(
@@ -433,6 +346,12 @@ const AdminDashboard = () => {
             })),
         [analyticsSummary, availability.analytics],
     );
+    const categoryRevenue = useMemo<ChartDatum[]>(() => analyticsCategoryRevenue.map((point) => ({
+        name: point.name,
+        value: point.value,
+        revenue: point.value,
+        stock: undefined,
+    })), [analyticsCategoryRevenue]);
     const analyticsPaymentMix = useMemo(
         () => normalizePaymentMix(
             availability.analytics === "success" ? analyticsSummary?.charts?.paymentMethods || [] : [],
@@ -447,6 +366,8 @@ const AdminDashboard = () => {
             })),
         [analyticsSummary, availability.analytics],
     );
+    const paymentMix = analyticsPaymentMix;
+    const statusMix = analyticsStatusMix;
     const hasAnalyticsKpis = availability.analytics === "success" && Boolean(analyticsSummary?.kpis);
     const rangeLabel = getDashboardRangeLabel(range);
     const alertGroups = useMemo(
@@ -454,9 +375,13 @@ const AdminDashboard = () => {
         [alerts, availability.alerts],
     );
     const markAlertGroupRead = useCallback((group: (typeof alertGroups)[number]) => {
-        const currentReadIds = getAdminAlertReadIds(userData?.id);
-        saveAdminAlertReadIds(userData?.id, [...currentReadIds, ...group.alertIds]);
-    }, [userData?.id]);
+        void acknowledgeAdminAlerts(group.alertIds)
+            .then(() => {
+                const alertIds = new Set(group.alertIds);
+                setAlerts((current) => current.map((alert) => alertIds.has(alert.id) ? { ...alert, unread: false } : alert));
+            })
+            .catch((error) => addToast("Admin alerts", getApiErrorMessage(error, "Unable to mark alerts as read.")));
+    }, [addToast]);
 
     const selectedPeriodMetrics = useMemo(() => {
         const revenueComparison = analyticsSummary?.kpis?.revenue?.comparison;
@@ -620,9 +545,11 @@ const AdminDashboard = () => {
             "",
             "TOP REVENUE PRODUCTS",
             ...(reportTopProductsAvailable
-                ? topRevenueProducts.slice(0, 5).map((product, index) => {
+                ? topRevenueProducts.length > 0
+                    ? topRevenueProducts.slice(0, 5).map((product, index) => {
                       return `${index + 1}. ${product.name} | Sales: ${product.sales} | Revenue: ${formatCurrency(product.revenue)}`;
-                  })
+                    })
+                    : ["- No top revenue products found."]
                 : ["- Unavailable"]),
             "",
             "LOW STOCK WATCHLIST",
@@ -690,7 +617,7 @@ const AdminDashboard = () => {
                 />
                 <AdminDashboardKpiGrid kpis={primaryKpis} />
                 <AdminDashboardOperations
-                    pendingOrders={orders.filter((order) => order.status === ORDER_STATUS.PENDING).slice(0, 5)}
+                    pendingOrders={pendingQueue}
                     lowStockProducts={dashboardStats.lowStockProducts}
                     ordersStatus={availability.orders}
                     productsStatus={availability.products}

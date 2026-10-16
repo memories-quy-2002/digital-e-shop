@@ -5,11 +5,13 @@ import { createRateLimitMiddleware } from "../middleware/rate-limit.middleware";
 import { SupportController } from "./support.controller";
 import { SupportTicketRepository } from "./support.repository";
 import { SupportTicketService } from "./support.service";
+import { AuthGuard } from "../guards/auth.guard";
+import { RolesGuard } from "../guards/roles.guard";
 
 @Module({
     imports: [NestConfigModule],
     controllers: [SupportController],
-    providers: [SupportTicketRepository, SupportTicketService],
+    providers: [AuthGuard, RolesGuard, SupportTicketRepository, SupportTicketService],
     exports: [SupportTicketService],
 })
 export class SupportModule implements NestModule {

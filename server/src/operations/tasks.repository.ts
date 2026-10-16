@@ -70,7 +70,10 @@ export class TasksRepository {
     }
 
     async enqueue(tx: TransactionContext, input: EnqueueTask): Promise<number> {
-        if (!["SHIPMENT_CREATE", "SHIPMENT_SYNC", "EMAIL_SEND", "PAYOS_RECONCILE"].includes(input.kind)
+        if (input.kind === "SHIPMENT_CREATE" || input.kind === "SHIPMENT_SYNC") {
+            throw new Error("Shipping tasks are retired");
+        }
+        if (!["EMAIL_SEND", "PAYOS_RECONCILE"].includes(input.kind)
             || !input.key || input.key.length > 191) throw new Error("Invalid task identity");
         const hash = hashTaskPayload(input.payload);
         await tx.query(
@@ -101,6 +104,10 @@ export class TasksRepository {
             );
             const leases: TaskLease[] = [];
             for (const row of rows) {
+                if (row.kind === "SHIPMENT_CREATE" || row.kind === "SHIPMENT_SYNC") {
+                    await tx.query("UPDATE operations_tasks SET state = 'FAILED', last_reason = 'shipping_provider_retired', lease_token = NULL, lease_expires_at = NULL, updated_at = ? WHERE id = ?", [now, row.id]);
+                    continue;
+                }
                 if (row.attempt >= 8) {
                     await tx.query("UPDATE operations_tasks SET state = 'REVIEW_REQUIRED', last_reason = 'lease_attempts_exhausted', lease_token = NULL, lease_expires_at = NULL WHERE id = ?", [row.id]);
                     continue;

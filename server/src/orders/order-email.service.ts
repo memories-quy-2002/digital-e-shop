@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { TransactionContext } from "../database/transaction";
 import { EmailService } from "../transactional-email/email.service";
 import { OrderEmailRepository } from "./order-email.repository";
-import { parseJson } from "../shipping/shipping-quote.service";
+import { parseJson } from "../shipping/shipping-json";
 import type { PricingSnapshot } from "../shipping/shipping-quote.policy";
 import type { OrderIdentity } from "./orders.types";
 

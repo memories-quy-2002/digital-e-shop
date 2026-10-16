@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, Req, UseGuards } from "@nestjs/common";
+import type { Request } from "express";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { mapToHttpException } from "#src/core/errors/http-exception-mapper";
 import { AuthGuard } from "../guards/auth.guard";
@@ -26,9 +27,9 @@ export class PromotionsController {
 
     @Post()
     @HttpCode(HTTP_STATUS.CREATED)
-    async createPromotion(@Body(new ZodValidationPipe(promotionSchema)) body: Record<string, unknown>) {
+    async createPromotion(@Req() req: Request & { user?: { id?: string | number } }, @Body(new ZodValidationPipe(promotionSchema)) body: Record<string, unknown>) {
         try {
-            const promotion = await this.promotionsService.createPromotion(body);
+            const promotion = await this.promotionsService.createPromotion(body, String(req.user?.id || ""));
             return { promotion, msg: "Promotion created successfully" };
         } catch (err) {
             throw mapToHttpException(err, "Unable to create promotion");
@@ -37,9 +38,9 @@ export class PromotionsController {
 
     @Put(":id")
     @HttpCode(HTTP_STATUS.OK)
-    async updatePromotion(@Param("id") id: string, @Body(new ZodValidationPipe(promotionSchema)) body: Record<string, unknown>) {
+    async updatePromotion(@Param("id") id: string, @Req() req: Request & { user?: { id?: string | number } }, @Body(new ZodValidationPipe(promotionSchema)) body: Record<string, unknown>) {
         try {
-            const promotion = await this.promotionsService.updatePromotion(id, body);
+            const promotion = await this.promotionsService.updatePromotion(id, body, String(req.user?.id || ""));
             return { promotion, msg: "Promotion updated successfully" };
         } catch (err) {
             throw mapToHttpException(err, "Unable to update promotion");
@@ -48,9 +49,9 @@ export class PromotionsController {
 
     @Delete(":id")
     @HttpCode(HTTP_STATUS.OK)
-    async deletePromotion(@Param("id") id: string) {
+    async deletePromotion(@Param("id") id: string, @Req() req: Request & { user?: { id?: string | number } }) {
         try {
-            const promotion = await this.promotionsService.deletePromotion(id);
+            const promotion = await this.promotionsService.deletePromotion(id, String(req.user?.id || ""));
             return { promotion, msg: "Promotion deactivated successfully" };
         } catch (err) {
             throw mapToHttpException(err, "Unable to deactivate promotion");

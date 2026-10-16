@@ -27,6 +27,9 @@ describe("AdminSidebar", () => {
         expect(within(sidebar).queryByText("Anonymous")).not.toBeInTheDocument();
         expect(screen.getByRole("link", { name: "Orders" })).toHaveClass("active");
         expect(screen.getByRole("link", { name: "Payment reconciliation" })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "Audit log" })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "Notifications" })).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "Delivery settings" })).toHaveAttribute("href", "/admin/delivery/settings");
 
         const collapseButton = screen.getByRole("button", { name: "Collapse admin navigation" });
         expect(collapseButton).toHaveAttribute("aria-expanded", "true");

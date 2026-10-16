@@ -9,6 +9,8 @@ export type CreateAddressInput = {
     address?: string;
     city?: string;
     country?: string;
+    latitude?: number | null;
+    longitude?: number | null;
     isDefault?: boolean | number;
     is_default?: boolean | number;
 };

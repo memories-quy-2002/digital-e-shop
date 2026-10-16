@@ -8,15 +8,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { signOutFirebaseUser } from "../../services/firebase";
 import { useAuth } from "../../context/AuthContext";
 import { formatUtcDateTime } from "../../utils/dateTime";
-import { fetchAdminAlerts, type AdminAlert } from "../../features/admin/api";
+import { acknowledgeAdminAlerts, fetchAdminAlerts, type AdminAlert } from "../../features/admin/api";
 import AdminStatusPanel from "../../features/admin/components/AdminStatusPanel";
 import { getAdminRequestError, type AdminRequestError } from "../../features/admin/utils/adminRequestError";
-import {
-    ADMIN_ALERT_READ_STATE_EVENT,
-    applyAdminAlertReadState,
-    getAdminAlertReadIds,
-    saveAdminAlertReadIds,
-} from "../../features/admin/utils/adminAlertState";
 import { getApiSuccessMessage } from "../../lib/api-contract";
 import { logoutCurrentCustomer } from "../../features/users/api";
 
@@ -91,7 +85,7 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
             setActivityError(null);
             try {
                 const { alerts } = await fetchAdminAlerts();
-                setActivities(applyAdminAlertReadState(alerts, getAdminAlertReadIds(userData?.id)));
+                setActivities(alerts.filter((alert) => alert.triageStatus !== "RESOLVED"));
                 setActivityStatus("success");
             } catch (error) {
                 setActivityError(getAdminRequestError(error));
@@ -101,7 +95,7 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
                 }
             }
         },
-        [addToast, userData?.id],
+        [addToast],
     );
 
     useEffect(() => {
@@ -114,15 +108,6 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
             window.clearInterval(intervalId);
         };
     }, [syncActivityFeed]);
-
-    useEffect(() => {
-        const handleReadStateChange = () => {
-            setActivities((currentActivities) => applyAdminAlertReadState(currentActivities, getAdminAlertReadIds(userData?.id)));
-        };
-
-        window.addEventListener(ADMIN_ALERT_READ_STATE_EVENT, handleReadStateChange);
-        return () => window.removeEventListener(ADMIN_ALERT_READ_STATE_EVENT, handleReadStateChange);
-    }, [userData?.id]);
 
     const unreadCount = activities.filter((activity) => activity.unread).length;
 
@@ -160,23 +145,22 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
 
     const markActivityRead = (activity: AdminAlert) => {
         if (!activity.unread) return;
-
-        const nextReadAlertIds = [...new Set([...getAdminAlertReadIds(userData?.id), activity.id])];
-        saveAdminAlertReadIds(userData?.id, nextReadAlertIds);
-        setActivities((currentActivities) => applyAdminAlertReadState(currentActivities, nextReadAlertIds));
+        void acknowledgeAdminAlerts([activity.id])
+            .then(() => setActivities((current) => current.map((item) => item.id === activity.id ? { ...item, unread: false } : item)))
+            .catch(() => addToast("Admin activity", "Unable to mark alert as read."));
     };
 
-    const handleMarkAllRead = () => {
+    const handleMarkAllRead = async () => {
         const unreadIds = activities.filter((activity) => activity.unread).map((activity) => activity.id);
         if (unreadIds.length === 0) return;
-
-        const nextReadAlertIds = [...new Set([...getAdminAlertReadIds(userData?.id), ...unreadIds])];
-        saveAdminAlertReadIds(userData?.id, nextReadAlertIds);
-        setActivities((currentActivities) => applyAdminAlertReadState(currentActivities, nextReadAlertIds));
-        addToast(
-            "Admin activity",
-            `${unreadIds.length} alert${unreadIds.length === 1 ? "" : "s"} marked as read.`,
-        );
+        try {
+            await acknowledgeAdminAlerts(unreadIds);
+            const readIds = new Set(unreadIds);
+            setActivities((current) => current.map((activity) => readIds.has(activity.id) ? { ...activity, unread: false } : activity));
+            addToast("Admin activity", `${unreadIds.length} alert${unreadIds.length === 1 ? "" : "s"} marked as read.`);
+        } catch {
+            addToast("Admin activity", "Unable to mark alerts as read.");
+        }
     };
 
     const handleLogout = async () => {

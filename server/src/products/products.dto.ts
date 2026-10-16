@@ -1,10 +1,6 @@
 import type { ProductAttributeInput } from "./product-attributes.types";
 
 export type ProductCreateInput = {
-    parcelWeightGrams?: number;
-    parcelLengthCm?: number;
-    parcelWidthCm?: number;
-    parcelHeightCm?: number;
     name: string;
     description: string;
     category: string;

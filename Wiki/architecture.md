@@ -32,7 +32,7 @@ digital-e-shop/
       config/              Typed environment, CORS, and database configuration
       database/            Prisma schema/client, migrations, and seeders
       payments/            Provider boundary and payment ledger types
-      shipping/            Delivery quotes, carrier adapters, and fulfillment lifecycle
+      shipping/            Internal road quotes, packing, and scheduled delivery assignments
       transactional-email/ Provider boundary, templates, and verified webhooks
       operations/          Durable tasks, bounded runner, and private evidence
       shared/              Shared constants, interfaces, and utilities
@@ -69,6 +69,9 @@ install command. Each package owns its dependencies and lockfile.
   across the two entry routes.
 - Explicit loading, empty, error, and success states are part of each route's
   contract.
+- Checkout delivery selection is isolated in `CheckoutDeliverySection`, guest
+  cart merging in `useGuestCartMerge`, and guest order capability access in
+  `GuestOrderAccessCard` so route pages and context focus on orchestration.
 - Account data entry uses semantic forms with associated labels and inline
   validation state linked through `aria-describedby`; keyboard submission follows
   the form submit event.
@@ -150,7 +153,10 @@ documented singular/plural aliases where the client contract requires them.
   [[api-response-contract]]. Exceptions include a correlation request ID.
 - `AuthGuard` validates the access-token cookie, active database session, and
   current user state. `RolesGuard` enforces role metadata and `OwnerParam`
-  enforces resource ownership.
+  enforces resource ownership. Guard providers belong to each Nest feature
+  module that declares them so controller metadata resolves through DI.
+- Personalized `GET /api/products/recommendations/:uid` requires an active
+  session and limits customer-history recommendations to the owner or an admin.
 - CSRF uses a double-submit cookie for unsafe requests. Login, registration,
   and refresh are explicit exclusions because they bootstrap authentication;
   this exception must not be broadened.
@@ -171,7 +177,7 @@ documented singular/plural aliases where the client contract requires them.
   the guarded seeder never targets the production project.
 - Account security is Firebase-owned in every environment: Firebase sends verification, password-reset, and email-change action links. The server has no MySQL password-authentication or server-owned reset/email-change token flow.
 - Customer order state changes create database-backed in-app notifications. The notifications API reports the total unread count independently of its limited recent-notification list. No external order-email provider is configured, so order success is independent of email delivery.
-- Storefront notifications with a destination mark as read before navigating to the associated order or product; order links select the full order detail. Admin operational alerts appear in the dashboard attention groups and header feed; opening a dashboard group marks its member alerts read in admin-local browser state. The header badge counts all returned unread alerts while showing only the latest eight in its popover.
+- Storefront notifications with a destination mark as read before navigating to the associated order or product; order links select the full order detail. Admin operational alerts appear in the dashboard, notification center, and header feed; read state is per admin, while claim/resolution state is shared and stored in MySQL. The header shows only open alerts and the latest eight in its popover.
 - Product alerts use an authenticated `product-alerts` feature boundary. Product and order services pass authoritative snapshots/transitions into the feature's transaction-aware repository; the repository records durable `price_drop`/`back_in_stock` events and inserts localized-ready customer notifications with product metadata. Preferences remain owner-scoped and do not support target prices, email, SMS, or push delivery. See [[product-alert]].
 - Product comparison is a guest-friendly read-only catalog flow. The bounded `GET /api/products/compare?ids=...` contract validates two to four same-category products, returns current VND/stock/review/warranty/attribute snapshots, and maps fixed validation codes to the bilingual client state. See [[api-response-contract]] and [the API guide](../docs/API.md).
 - Marketing subscription and unsubscribe runtime routes were removed. The historical table and migration remain only for database compatibility.
@@ -200,6 +206,9 @@ application has not been converted to Prisma.
   [server/README.prisma.md](../server/README.prisma.md).
 - New schema changes must update raw SQL/repositories and any touched Prisma
   schema, services, validators, types, and migration in one reviewable change.
+- Saved customer addresses may retain legacy carrier province/ward codes and
+  names for history. Updates preserve them without accepting them as inputs;
+  internal delivery uses manually selected coordinates and never requests GPS.
 - Order items snapshot product identity, price, warranty, image, brand,
   category, and typed attributes so historical orders remain stable.
 - New order and payment-ledger defaults are VND. Historical USD rows remain
@@ -251,7 +260,13 @@ application has not been converted to Prisma.
 - Customer reviews require a completed order containing the reviewed product.
   Support tickets are database-backed and ownership-scoped. Admin analytics
   and operational alerts query bounded operational data rather than rebuilding
-  alerts from broad datasets.
+  alerts from broad datasets. Admin order, product, account, and audit lists use
+  server-side bounded filters; dashboard polling refreshes aggregate analytics
+  and bounded queues instead of scanning order items. Inventory, account access,
+  and promotion changes write audit events in the same transaction as the
+  business change. The additive admin operations migration also owns per-admin
+  alert acknowledgements and shared alert claim/resolution state; see
+  [[admin-operations]].
 - Customer order confirmation email is currently disabled. Authenticated order
   state changes create in-app notifications after the checkout transaction or
   payment reservation finalization commits; guests use checkout success and

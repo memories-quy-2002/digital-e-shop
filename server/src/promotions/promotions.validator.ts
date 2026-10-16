@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_LOYALTY_POINTS } from "../loyalty/loyalty.policy";
 
 const requiredText = (field: string) => z.string({ error: `${field} is required` }).trim().min(1, `${field} is required`);
 const optionalDateTime = z
@@ -17,6 +18,8 @@ export const promotionSchema = z
         min_order_value: z.coerce.number().optional(),
         usageLimit: z.union([z.coerce.number().int().positive(), z.literal(""), z.null(), z.undefined()]).optional(),
         usage_limit: z.union([z.coerce.number().int().positive(), z.literal(""), z.null(), z.undefined()]).optional(),
+        loyaltyPointsCost: z.union([z.coerce.number().int().positive().max(MAX_LOYALTY_POINTS), z.literal(""), z.null(), z.undefined()]).optional(),
+        loyalty_points_cost: z.union([z.coerce.number().int().positive().max(MAX_LOYALTY_POINTS), z.literal(""), z.null(), z.undefined()]).optional(),
         startsAt: optionalDateTime.optional(),
         starts_at: optionalDateTime.optional(),
         expiresAt: optionalDateTime.optional(),

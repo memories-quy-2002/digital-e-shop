@@ -3,7 +3,8 @@ import { AppModule } from "../../app.module";
 import { OrdersModule } from "../../orders/orders.module";
 import { PayOSReconciliationTaskProcessor } from "../payos-reconciliation-task.processor";
 import { TaskRunnerModule } from "../task-runner.module";
-import { PAYOS_TASK_PROCESSOR, SHIPMENT_TASK_PROCESSOR } from "../task-runner.service";
+import { PAYOS_TASK_PROCESSOR } from "../task-runner.service";
+import { ShippingModule } from "../../shipping/shipping.module";
 
 describe("AppModule task runner composition", () => {
     it("registers the PayOS processor with OrdersModule dependencies", () => {
@@ -17,6 +18,7 @@ describe("AppModule task runner composition", () => {
             provide: PAYOS_TASK_PROCESSOR,
             useExisting: PayOSReconciliationTaskProcessor,
         });
-        expect(taskRunner?.providers?.some((provider) => provider.provide === SHIPMENT_TASK_PROCESSOR)).toBe(true);
+        expect(taskRunner?.imports).not.toContain(ShippingModule);
+        expect(taskRunner?.providers).toHaveLength(1);
     });
 });

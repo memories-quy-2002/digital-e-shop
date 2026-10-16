@@ -24,6 +24,7 @@ import {
 } from "./payment.types";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { PAYMENT_RECONCILIATION_LIMIT } from "./payment-reconciliation.constants";
+import { LoyaltyService } from "../loyalty/loyalty.service";
 
 export type VerifiedPayOSWebhookData = {
     orderCode?: number | string | null;
@@ -177,6 +178,7 @@ export class PaymentReconciliationService {
         @Optional() private readonly payosService?: PayOSService,
         @Optional() private readonly paymentAttemptService?: PaymentAttemptService,
         @Optional() private readonly tasksService?: TasksService,
+        @Optional() private readonly loyaltyService?: LoyaltyService,
     ) {}
 
     buildPayOSEventKey(data: VerifiedPayOSWebhookData): string {
@@ -518,6 +520,7 @@ export class PaymentReconciliationService {
                 return false;
             }
             await this.paymentAttemptService!.releaseCancelledCheckout(pendingCheckoutId, tx);
+            if (this.loyaltyService) await this.loyaltyService.releaseCheckoutPoints(tx, pendingCheckoutId);
             if (reviewRequired) await this.repository.markPaymentAttemptReviewRequired(tx, attemptId);
             return true;
         });
@@ -569,6 +572,7 @@ export class PaymentReconciliationService {
             if (![PAYMENT_STATUS.PENDING, PAYMENT_STATUS.PAID].some((status) => status === currentStatus)) throw adminPaymentError("COD payment is not pending or paid", HTTP_STATUS.CONFLICT);
             const confirmed = await this.repository.confirmCashPayment(tx, paymentId);
             if (!confirmed) throw adminPaymentError("Payment not found", HTTP_STATUS.NOT_FOUND);
+            if (this.loyaltyService && confirmed.order_id != null) await this.loyaltyService.awardPaidOrder(tx, Number(confirmed.order_id));
             await this.repository.recordAttempt(tx, { provider: PAYMENT_PROVIDER.CASH, orderPaymentId: paymentId, requestedBy: requestedBy || null, outcome: PAYMENT_RECONCILIATION_STATUS.MANUAL_CONFIRMED, localStatus: String(payment.status), providerStatus: PAYMENT_PROVIDER_STATUS.CASH_COLLECTED, expectedAmount: toIntegerOrNull(payment.amount), expectedCurrency: String(payment.currency || "").toUpperCase() || null, mismatchReason: normalizeNote(input.note) });
             return confirmed;
         });

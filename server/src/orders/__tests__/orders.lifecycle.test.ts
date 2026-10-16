@@ -21,10 +21,11 @@ import { NestOrderTimelineService } from "../orders.timeline.service";
 import { NestInventoryService } from "../../inventory/inventory.service";
 import { NestNotificationsService } from "../../notifications/notifications.service";
 import { OrderEmailService } from "../order-email.service";
+import { LoyaltyService } from "../../loyalty/loyalty.service";
 
 type RepositoryCallback = (error: Error | null, rows: unknown) => void;
 
-function buildService({ orderId = 9, paymentProvider: ledgerProvider, paymentStatus = "pending", initialOrderStatus = 0, deliveredAt = null, restoredAt = null, shipmentCreationState = null, simulated = false, userId = "user-1", items = [{ product_id: 4, quantity: 2 }], productRows = [{ id: 4, price: 100, sale_price: null, stock: 5 }], productStockAffectedRows = 1, alerts = undefined } = {}) {
+function buildService({ orderId = 9, paymentProvider: ledgerProvider, paymentStatus = "pending", initialOrderStatus = 0, deliveredAt = null, restoredAt = null, activeDeliveryAssignment = false, simulated = false, userId = "user-1", items = [{ product_id: 4, quantity: 2 }], productRows = [{ id: 4, price: 100, sale_price: null, stock: 5 }], productStockAffectedRows = 1, alerts = undefined } = {}) {
     const tx = { query: vi.fn() };
     let orderStatus = initialOrderStatus;
     const orderRepository = Object.assign(new OrdersRepository({} as never), {
@@ -50,9 +51,9 @@ function buildService({ orderId = 9, paymentProvider: ledgerProvider, paymentSta
     tx.query.mockImplementation(async (sql: string) => {
         const normalizedSql = sql.trimStart();
         if (sql.startsWith("SELECT status, delivery_snapshot FROM orders")) return [{ status: orderStatus }];
-        if (sql.startsWith("SELECT state FROM shipments")) return [];
+        if (sql.startsWith("SELECT state FROM shipments") || sql.startsWith("SELECT state, provider FROM shipments")) return [];
         if (sql.includes("SELECT user_id, status") && sql.includes("FROM orders")) {
-            return [{ user_id: userId, status: orderStatus, delivered_at: deliveredAt, inventory_restored_at: restoredAt, shipment_creation_state: shipmentCreationState }];
+            return [{ user_id: userId, status: orderStatus, delivered_at: deliveredAt, inventory_restored_at: restoredAt, active_delivery_assignment: activeDeliveryAssignment }];
         }
         if (sql.includes("SELECT id, user_id, status, total_price")) {
             return [{ id: 9, user_id: "user-1", status: orderStatus, total_price: 50, discount: 0 }];
@@ -86,6 +87,7 @@ function buildService({ orderId = 9, paymentProvider: ledgerProvider, paymentSta
         {} as never,
         {} as never,
         new NestOrdersCancellationService(orderRepository, timeline as never, inventory as never, alerts as never),
+        { initializeOrderShipment: vi.fn() } as never,
         paymentProvider as never,
     );
 
@@ -107,6 +109,7 @@ describe("order lifecycle", () => {
             { provide: NestOrderTimelineService, useValue: fixture.timeline },
             { provide: NestInventoryService, useValue: fixture.inventory },
             { provide: NestNotificationsService, useValue: fixture.notifications },
+            { provide: LoyaltyService, useValue: { restoreCanceledOrderPoints: vi.fn() } },
         ] }).useMocker((token) => token === OrderEmailService ? { emit: vi.fn() } : ({})).compile();
         try {
             await expect(moduleRef.get(NestOrdersService).cancelOrder(9, "user-1")).resolves.toMatchObject({ status: 2 });
@@ -159,14 +162,12 @@ describe("order lifecycle", () => {
         expect(inventory.createMovementsInTransaction).toHaveBeenCalledOnce();
     });
 
-    it("blocks cancellation while an outbound shipment creation may have reached the carrier", async () => {
-        for (const shipmentCreationState of ["READY", "RUNNING", "SUCCEEDED", "REVIEW_REQUIRED"]) {
-            const { service, tx, notifications } = buildService({ shipmentCreationState });
+    it.each([true])("blocks cancellation while an internal delivery is actively assigned", async (activeDeliveryAssignment) => {
+        const { service, tx, notifications } = buildService({ activeDeliveryAssignment });
 
-            await expect(service.cancelOrder(9, "user-1")).rejects.toMatchObject({ statusCode: 409 });
-            expect(tx.query.mock.calls.some(([sql]) => String(sql).startsWith("UPDATE products"))).toBe(false);
-            expect(notifications.notifyOrderStatus).not.toHaveBeenCalled();
-        }
+        await expect(service.cancelOrder(9, "user-1")).rejects.toMatchObject({ statusCode: 409 });
+        expect(tx.query.mock.calls.some(([sql]) => String(sql).startsWith("UPDATE products"))).toBe(false);
+        expect(notifications.notifyOrderStatus).not.toHaveBeenCalled();
     });
 
     it("locks unique products once in ID order and keeps duplicate item stock and alert transitions sequential", async () => {

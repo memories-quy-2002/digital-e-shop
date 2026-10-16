@@ -5,7 +5,7 @@ import { OwnerParam, Roles, RolesGuard } from "../guards/roles.guard";
 import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { NestUsersService } from "./users.service";
 import { NestAuthService } from "../auth/auth.service";
-import { adminUserUpdateSchema } from "./users.validator";
+import { adminUserUpdateSchema, adminUsersQuerySchema } from "./users.validator";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { USER_ROLE } from "#src/shared/constants/user";
 import { mapToHttpException } from "#src/core/errors/http-exception-mapper";
@@ -60,34 +60,29 @@ export class UsersController {
 
     @Get()
     @Roles(USER_ROLE.ADMIN)
-    async getAllUsers(@Query() query: Record<string, unknown>) {
+    async getAllUsers(@Query(new ZodValidationPipe(adminUsersQuerySchema)) query: {
+        page: number;
+        limit: number;
+        search: string;
+        role?: string;
+        status?: string;
+    }) {
         try {
-            const page = Number(query.page);
-            const limit = Number(query.limit);
-            const usePagination = Number.isInteger(page) && page > 0 && Number.isInteger(limit) && limit > 0;
-            const safeLimit = usePagination ? Math.min(limit, 100) : null;
-            const offset = usePagination ? (page - 1) * safeLimit : 0;
-
-            if (usePagination) {
-                const [users, total] = await Promise.all([
-                    this.usersService.getAllUsersPaginated(safeLimit as number, offset),
-                    this.usersService.getUsersCount(),
-                ]);
-
-                return {
-                    accounts: users,
-                    pagination: {
-                        page,
-                        limit: safeLimit,
-                        total,
-                        totalPages: Math.ceil(total / safeLimit),
-                    },
-                    msg: "Get users successfully",
-                };
-            }
-
-            const users = await this.usersService.getAllUsers();
-            return { accounts: users, msg: "Get users successfully" };
+            const filters = { search: query.search, role: query.role, status: query.status };
+            const [total, summary] = await Promise.all([
+                this.usersService.getUsersCount(filters),
+                this.usersService.getAdminSummary(),
+            ]);
+            const totalPages = Math.ceil(total / query.limit);
+            const page = Math.min(query.page, Math.max(totalPages, 1));
+            const offset = (page - 1) * query.limit;
+            const users = await this.usersService.getAllUsersPaginated(query.limit, offset, filters);
+            return {
+                accounts: users,
+                summary,
+                pagination: { page, limit: query.limit, total, totalPages },
+                msg: "Get users successfully",
+            };
         } catch (err) {
             if (err instanceof HttpException) throw err;
             throw mapToHttpException(err, "Unable to get users");
@@ -98,10 +93,11 @@ export class UsersController {
     @Roles(USER_ROLE.ADMIN)
     async updateUserAdmin(
         @Param("id") id: string,
-        @Body(new ZodValidationPipe(adminUserUpdateSchema)) body: { role: string; status: string },
+        @Req() req: Request & { user?: { id?: string | number } },
+        @Body(new ZodValidationPipe(adminUserUpdateSchema)) body: { role: string; status: string; reason: string },
     ) {
         try {
-            const account = await this.usersService.updateUserAdmin(id, body);
+            const account = await this.usersService.updateUserAdmin(id, body, String(req.user?.id || ""));
             return { account, msg: "Account updated successfully" };
         } catch (err) {
             if (err instanceof HttpException) throw err;

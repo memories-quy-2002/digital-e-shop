@@ -16,14 +16,11 @@ import ProductForm, {
     type ProductFormField,
     type ProductFormValues,
 } from "../components/ProductForm";
-import { validateParcel } from "../../shipping/components/ParcelFields";
-import type { ShippingParcel } from "../../shipping/types";
 
 type ProductData = Omit<ProductFormValues, "inventory"> & {
     image: File | null;
     imageUrl: string;
     inventory: string;
-    parcel: ShippingParcel;
 };
 
 const AdminAddProductPage = () => {
@@ -45,7 +42,6 @@ const AdminAddProductPage = () => {
         highlights: "",
         price: "0",
         inventory: "0",
-        parcel: { grams: 0, lengthCm: 0, widthCm: 0, heightCm: 0 },
         attributes: [],
     });
     const [error, setError] = useState<string | null>(null);
@@ -125,13 +121,6 @@ const AdminAddProductPage = () => {
             return;
         }
 
-        const invalidParcelField = Object.keys(validateParcel(productData.parcel))[0] as keyof ShippingParcel | undefined;
-        if (invalidParcelField) {
-            setError("Enter valid positive whole-number parcel dimensions before saving this shippable product.");
-            document.getElementById(`form-parcel-${invalidParcelField}`)?.focus();
-            return;
-        }
-
         setValidationErrors({});
         setAttributeError(undefined);
         let attributes: ReturnType<typeof productAttributeRowsToInputs>;
@@ -154,10 +143,6 @@ const AdminAddProductPage = () => {
             formData.append("brand", productData.brand.trim());
             formData.append("price", String(productData.price));
             formData.append("inventory", String(productData.inventory));
-            formData.append("parcelWeightGrams", String(productData.parcel.grams));
-            formData.append("parcelLengthCm", String(productData.parcel.lengthCm));
-            formData.append("parcelWidthCm", String(productData.parcel.widthCm));
-            formData.append("parcelHeightCm", String(productData.parcel.heightCm));
 
             if (productData.sku.trim()) formData.append("sku", productData.sku.trim());
             if (productData.manufacturerPartNumber.trim()) {
@@ -245,8 +230,6 @@ const AdminAddProductPage = () => {
                                 onImageChange={(file) => setProductData((current) => ({ ...current, image: file, imageUrl: "" }))}
                                 onUploadImage={handleUploadToBlob}
                                 isUploading={uploading}
-                                parcel={productData.parcel}
-                                onParcelChange={(parcel) => setProductData((current) => ({ ...current, parcel }))}
                             />
                             <div className="admin__form-actions">
                                 <button type="submit" className="admin__button admin__button--success">

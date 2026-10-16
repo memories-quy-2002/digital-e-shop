@@ -5,11 +5,13 @@ import { NestAnalyticsService } from "./analytics.service";
 import { AnalyticsRepository } from "./analytics.repository";
 import { createRateLimitMiddleware } from "../middleware/rate-limit.middleware";
 import { NestConfigModule } from "../config/nest-config.module";
+import { AuthGuard } from "../guards/auth.guard";
+import { RolesGuard } from "../guards/roles.guard";
 
 @Module({
     imports: [NestConfigModule],
     controllers: [AnalyticsController],
-    providers: [NestAnalyticsService, AnalyticsRepository],
+    providers: [AuthGuard, RolesGuard, NestAnalyticsService, AnalyticsRepository],
 })
 export class AnalyticsModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {

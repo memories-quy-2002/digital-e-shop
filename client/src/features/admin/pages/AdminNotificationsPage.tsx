@@ -2,19 +2,14 @@ import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useSt
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../../../context/ToastContext";
-import { useAuth } from "../../../context/AuthContext";
 import { formatUtcDateTime } from "../../../utils/dateTime";
 import { BellFillIcon, BoxSeamIcon, CartIcon, CashStackIcon, PersonIcon } from "../../../components/common/Icons";
 import AdminLayout from "../../../components/layout/AdminLayout";
 import AdminStatusPanel from "../components/AdminStatusPanel";
 import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
-import {
-    ADMIN_ALERT_READ_STATE_EVENT,
-    applyAdminAlertReadState,
-    getAdminAlertReadIds,
-    saveAdminAlertReadIds,
-} from "../utils/adminAlertState";
-import { fetchAdminAlerts, type AdminAlert } from "../api";
+import { acknowledgeAdminAlerts, fetchAdminAlerts, updateAdminAlertTriage, type AdminAlert, type AdminAlertTriageAction } from "../api";
+import { getApiErrorMessage } from "../../../lib/api-contract";
+import { useT } from "../../../hooks/useT";
 
 type NotificationType = "order" | "inventory" | "payment" | "customer" | "support";
 
@@ -34,27 +29,16 @@ const typeMeta = {
 const AdminNotificationsPage = () => {
     const navigate = useNavigate();
     const { addToast } = useToast();
-    const { userData } = useAuth();
     const [serverAlerts, setServerAlerts] = useState<AdminAlert[]>([]);
-    const [readAlertIds, setReadAlertIds] = useState<string[]>([]);
     const [activeType, setActiveType] = useState<"all" | NotificationType>("all");
     const [searchTerm, setSearchTerm] = useState("");
     const [isLoading, setIsLoading] = useState(true);
     const [hasLoaded, setHasLoaded] = useState(false);
     const [loadError, setLoadError] = useState<AdminRequestError | null>(null);
+    const [triageBusyId, setTriageBusyId] = useState<string | null>(null);
     const hasLoadedRef = useRef(false);
     const deferredSearchTerm = useDeferredValue(searchTerm);
-    const adminId = userData?.id;
-
-    useEffect(() => {
-        setReadAlertIds(getAdminAlertReadIds(adminId));
-    }, [adminId]);
-
-    useEffect(() => {
-        const handleReadStateChange = () => setReadAlertIds(getAdminAlertReadIds(adminId));
-        window.addEventListener(ADMIN_ALERT_READ_STATE_EVENT, handleReadStateChange);
-        return () => window.removeEventListener(ADMIN_ALERT_READ_STATE_EVENT, handleReadStateChange);
-    }, [adminId]);
+    const t = useT();
 
     const loadNotifications = useCallback(async () => {
         try {
@@ -76,7 +60,7 @@ const AdminNotificationsPage = () => {
         void loadNotifications();
     }, [loadNotifications]);
 
-    const notifications = applyAdminAlertReadState(serverAlerts, readAlertIds);
+    const notifications = serverAlerts;
 
     const filteredNotifications = useMemo(() => {
         const keyword = deferredSearchTerm.trim().toLowerCase();
@@ -104,23 +88,41 @@ const AdminNotificationsPage = () => {
 
     const unreadCount = notifications.filter((notification) => notification.unread).length;
 
-    const handleMarkRead = (notification: AdminAlert) => {
+    const handleMarkRead = async (notification: AdminAlert) => {
         if (!notification.unread) return;
-
-        const nextReadAlertIds = [...new Set([...readAlertIds, notification.id])];
-        setReadAlertIds(nextReadAlertIds);
-        saveAdminAlertReadIds(adminId, nextReadAlertIds);
-        addToast("Notifications", "Notification marked as read.");
+        try {
+            await acknowledgeAdminAlerts([notification.id]);
+            setServerAlerts((current) => current.map((alert) => alert.id === notification.id ? { ...alert, unread: false } : alert));
+            addToast("Notifications", "Notification marked as read.");
+        } catch {
+            addToast("Notifications", "Unable to mark notification as read.");
+        }
     };
 
-    const handleMarkAllRead = () => {
+    const handleMarkAllRead = async () => {
         const unreadIds = notifications.filter((notification) => notification.unread).map((notification) => notification.id);
         if (unreadIds.length === 0) return;
+        try {
+            await acknowledgeAdminAlerts(unreadIds);
+            const readIds = new Set(unreadIds);
+            setServerAlerts((current) => current.map((alert) => readIds.has(alert.id) ? { ...alert, unread: false } : alert));
+            addToast("Notifications", `${unreadIds.length} notification${unreadIds.length === 1 ? "" : "s"} marked as read.`);
+        } catch {
+            addToast("Notifications", "Unable to mark notifications as read.");
+        }
+    };
 
-        const nextReadAlertIds = [...new Set([...readAlertIds, ...unreadIds])];
-        setReadAlertIds(nextReadAlertIds);
-        saveAdminAlertReadIds(adminId, nextReadAlertIds);
-        addToast("Notifications", `${unreadIds.length} notification${unreadIds.length === 1 ? "" : "s"} marked as read.`);
+    const handleTriage = async (notification: AdminAlert, action: AdminAlertTriageAction) => {
+        try {
+            setTriageBusyId(notification.id);
+            const triage = await updateAdminAlertTriage(notification.id, action);
+            setServerAlerts((current) => current.map((alert) => alert.id === notification.id ? { ...alert, ...triage } : alert));
+            addToast(t("adminAlertTriage.title"), t("adminAlertTriage.updated"));
+        } catch (error) {
+            addToast(t("adminAlertTriage.title"), getApiErrorMessage(error, t("adminAlertTriage.updateFailed")));
+        } finally {
+            setTriageBusyId(null);
+        }
     };
 
     return (
@@ -267,6 +269,15 @@ const AdminNotificationsPage = () => {
                                         </div>
                                         <p>{notification.description}</p>
                                         <span>{formatDate(notification.createdAt)}</span>
+                                        <span className="admin__notification__triage-status">
+                                            {notification.triageStatus === "RESOLVED"
+                                                ? t("adminAlertTriage.resolved")
+                                                : notification.assignedToMe
+                                                  ? t("adminAlertTriage.assignedToYou")
+                                                  : notification.assignedAdminId
+                                                    ? t("adminAlertTriage.assignedToOther").replace("{adminId}", notification.assignedAdminId)
+                                                    : t("adminAlertTriage.open")}
+                                        </span>
                                     </div>
                                     <div className="admin__notification__actions">
                                         <button
@@ -289,6 +300,28 @@ const AdminNotificationsPage = () => {
                                         >
                                             {notification.unread ? "Mark read" : "Read"}
                                         </button>
+                                        {notification.triageStatus === "RESOLVED" ? (
+                                            <button type="button" className="admin__button admin__button--ghost admin__button--compact" disabled={triageBusyId === notification.id} onClick={() => void handleTriage(notification, "reopen")}>
+                                                {t("adminAlertTriage.reopen")}
+                                            </button>
+                                        ) : notification.assignedToMe ? (
+                                            <>
+                                                <button type="button" className="admin__button admin__button--primary admin__button--compact" disabled={triageBusyId === notification.id} onClick={() => void handleTriage(notification, "resolve")}>
+                                                    {t("adminAlertTriage.resolve")}
+                                                </button>
+                                                <button type="button" className="admin__button admin__button--ghost admin__button--compact" disabled={triageBusyId === notification.id} onClick={() => void handleTriage(notification, "release")}>
+                                                    {t("adminAlertTriage.release")}
+                                                </button>
+                                            </>
+                                        ) : notification.assignedAdminId ? (
+                                            <button type="button" className="admin__button admin__button--ghost admin__button--compact" disabled>
+                                                {t("adminAlertTriage.assignedToOther").replace("{adminId}", notification.assignedAdminId)}
+                                            </button>
+                                        ) : (
+                                            <button type="button" className="admin__button admin__button--ghost admin__button--compact" disabled={triageBusyId === notification.id} onClick={() => void handleTriage(notification, "claim")}>
+                                                {t("adminAlertTriage.claim")}
+                                            </button>
+                                        )}
                                     </div>
                                 </article>
                             ))

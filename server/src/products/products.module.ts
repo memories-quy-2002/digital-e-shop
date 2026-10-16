@@ -9,11 +9,19 @@ import { InventoryModule } from "../inventory/inventory.module";
 import { ProductAttributesRepository } from "./product-attributes.repository";
 import { ProductAlertsModule } from "../product-alerts/product-alerts.module";
 import { BlobModule } from "../blob/blob.module";
+import { AuthGuard } from "../guards/auth.guard";
+import { RolesGuard } from "../guards/roles.guard";
 
 @Module({
     imports: [NestConfigModule, InventoryModule, ProductAlertsModule, BlobModule],
     controllers: [ProductsController],
-    providers: [NestProductsService, NestProductsRepository, ProductAttributesRepository],
+    providers: [
+        AuthGuard,
+        RolesGuard,
+        NestProductsService,
+        NestProductsRepository,
+        ProductAttributesRepository,
+    ],
     exports: [NestProductsRepository, NestProductsService, ProductAttributesRepository],
 })
 export class ProductsModule implements NestModule {

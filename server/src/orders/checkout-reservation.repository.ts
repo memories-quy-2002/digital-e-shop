@@ -133,8 +133,8 @@ export class CheckoutReservationRepository {
         return tx.query<InsertResult>(
             `INSERT INTO pending_checkouts
                 (reservation_token, user_id, guest_email, guest_name, guest_phone, guest_order_token_hash,
-                 cart_json, total_price, discount, shipping_address, status, expires_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '${CHECKOUT_RESERVATION_STATUS.PENDING}', ?)`,
+                 cart_json, total_price, discount, loyalty_points_redeemed, loyalty_discount, shipping_address, status, expires_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '${CHECKOUT_RESERVATION_STATUS.PENDING}', ?)`,
             [
                 input.reservationToken,
                 input.userId,
@@ -145,6 +145,8 @@ export class CheckoutReservationRepository {
                 input.cartJson,
                 input.totalPrice,
                 input.discount,
+                input.loyaltyPointsRedeemed ?? 0,
+                input.loyaltyDiscount ?? 0,
                 input.shippingAddress,
                 input.expiresAt,
             ],
@@ -191,7 +193,8 @@ export class CheckoutReservationRepository {
             `SELECT id, payment_provider, provider_reference, provider_order_code,
                     payment_amount, payment_currency, payment_fx_rate,
                     reservation_token, user_id, guest_email, guest_name, guest_phone,
-                    pricing_snapshot, delivery_snapshot, contact_snapshot, guest_order_token_hash, cart_json, total_price, discount, shipping_address, status, expires_at,
+                    pricing_snapshot, delivery_snapshot, contact_snapshot, guest_order_token_hash, cart_json, total_price, discount,
+                    loyalty_points_redeemed, loyalty_discount, shipping_address, status, expires_at,
                     discount_id, created_at, consumed_at
              FROM pending_checkouts
              WHERE payment_provider = ? AND provider_order_code = ?

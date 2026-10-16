@@ -37,6 +37,7 @@ import type { PaymentAttemptStatus } from "../types";
 import { useT } from "../../../hooks/useT";
 import { readGuestCart, replaceGuestCart } from "../guestCartStorage";
 import ShipmentTimeline from "../../shipping/components/ShipmentTimeline";
+import GuestOrderAccessCard from "../components/GuestOrderAccessCard";
 import { fetchCustomerShipment, fetchGuestShipment } from "../../shipping/api";
 import type { ShipmentSummary } from "../../shipping/types";
 import {
@@ -98,8 +99,6 @@ const CheckoutSuccessPage = () => {
         void fetchCart();
     }, [clearCart, fetchCart, loading, orderData, payOSOrderCode, paymentAttemptId, routeData]);
 
-    const [copyStatus, setCopyStatus] = useState("Copy access token");
-    const [showGuestToken, setShowGuestToken] = useState(false);
     const [shipment, setShipment] = useState<ShipmentSummary | null>(null);
     const [polledOrder, setPolledOrder] = useState<CheckoutSuccessData | null>(null);
     const [paymentAttempt, setPaymentAttempt] = useState<PaymentAttemptStatus | null>(null);
@@ -296,27 +295,20 @@ const CheckoutSuccessPage = () => {
     const isGuestOrder = Boolean(combinedData?.guestOrderToken || guestOrderToken);
     const paymentLabel =
         combinedData?.paymentMethod === PAYMENT_METHOD.CASH
-              ? "Cash on delivery"
+              ? t("checkout.cashOnDelivery")
               : combinedData?.paymentMethod === PAYMENT_METHOD.PAYOS
-                ? "PayOS (VND)"
-                : "Payment method pending";
+                ? t("checkout.payos")
+                : t("checkoutSuccess.paymentMethodPending");
     const summaryCards = [
-        { label: "Order ID", value: combinedData?.orderId || "Pending" },
-        { label: "Order total", value: formatMoney(combinedData?.totalPrice ?? 0, combinedData?.currency) },
-        { label: "Shipping", value: formatMoney(combinedData?.shippingFee ?? 0, combinedData?.currency) },
-        { label: "Discount", value: formatMoney(combinedData?.discount ?? 0, combinedData?.currency) },
-        { label: "Items", value: `${combinedData?.itemsCount ?? 0}` },
+        { label: t("checkoutSuccess.orderId"), value: combinedData?.orderId || t("checkoutSuccess.pending") },
+        {
+            label: t("checkoutSuccess.amountDue"),
+            value: formatMoney(Math.max((combinedData?.totalPrice ?? 0) - (combinedData?.discount ?? 0), 0), combinedData?.currency),
+        },
+        { label: t("checkoutSuccess.shipping"), value: formatMoney(combinedData?.shippingFee ?? 0, combinedData?.currency) },
+        { label: t("checkoutSuccess.discount"), value: formatMoney(combinedData?.discount ?? 0, combinedData?.currency) },
+        { label: t("checkoutSuccess.items"), value: `${combinedData?.itemsCount ?? 0}` },
     ];
-    const copyGuestToken = async () => {
-        if (!combinedData?.guestOrderToken) return;
-        try {
-            await navigator.clipboard.writeText(combinedData.guestOrderToken);
-            setCopyStatus("Copied");
-        } catch {
-            setCopyStatus("Copy failed");
-        }
-    };
-
     if (paymentAttemptId) {
         const confirmed = Boolean(paymentAttempt?.paymentState === "PAID" && paymentAttempt.orderState === "CREATED" && paymentAttempt.orderId);
         const titleKey = attemptError
@@ -455,10 +447,10 @@ const CheckoutSuccessPage = () => {
     return (
         <Layout>
             <Helmet>
-                <title>Order Confirmed | Digital-E</title>
+                <title>{t("checkoutSuccess.title")} | Digital-E</title>
                 <meta
                     name="description"
-                    content="Your order is confirmed. View shipping details and continue shopping on Digital-E."
+                    content={t("checkoutSuccess.description")}
                 />
             </Helmet>
             <main className="success app-page">
@@ -471,7 +463,7 @@ const CheckoutSuccessPage = () => {
                             <div>
                                 <h1>{payOSOrderCode && !combinedData ? t("attemptUnknownTitle") : t("attemptConfirmedTitle")}</h1>
                                 <p className="success__hero__greeting">
-                                    Thank you {userData && !loading ? userData.username : "there"}.
+                                    {t("checkoutSuccess.thankYou", userData && !loading ? userData.username : t("checkoutSuccess.there"))}
                                 </p>
                             </div>
                         </div>
@@ -480,20 +472,20 @@ const CheckoutSuccessPage = () => {
                     <div className="success__hero__meta">
                         <div>
                             <strong>{combinedData?.itemsCount ?? 0}</strong>
-                            <span>Items secured</span>
+                            <span>{t("checkoutSuccess.itemsSecured")}</span>
                         </div>
                         <div>
                             <strong>{paymentLabel}</strong>
-                            <span>Payment</span>
+                            <span>{t("checkoutSuccess.payment")}</span>
                         </div>
                         <div>
                             <strong>{combinedData?.placedAt ? formatUtcDateTime(combinedData.placedAt) : formatUtcDateTime()}</strong>
-                            <span>Placed at</span>
+                            <span>{t("checkoutSuccess.placedAt")}</span>
                         </div>
                     </div>
                 </article>
 
-                <section className="success__summary" aria-label="Order summary">
+                <section className="success__summary" aria-label={t("checkoutSuccess.orderSummary")}>
                     {summaryCards.map((card) => (
                         <article key={card.label}>
                             <span>{card.label}</span>
@@ -503,65 +495,34 @@ const CheckoutSuccessPage = () => {
                 </section>
 
                 {isGuestOrder && combinedData?.guestOrderToken ? (
-                    <section className="success__guest-access" aria-label="Guest order access">
-                        <div>
-                            <span className="success__guest-access__eyebrow">Guest order access</span>
-                            <h2>Save these details to track your order</h2>
-                            <p>Anyone with both values can view this order, so keep the access token private.</p>
-                        </div>
-                        <div className="success__guest-access__fields">
-                            <label>
-                                <span>Order ID</span>
-                                <input readOnly value={combinedData.orderId} aria-label="Order ID" />
-                            </label>
-                            <label>
-                                <span>Access token</span>
-                                <input
-                                    readOnly
-                                    type={showGuestToken ? "text" : "password"}
-                                    value={combinedData.guestOrderToken}
-                                    aria-label="Guest order access token"
-                                />
-                            </label>
-                            <div className="success__guest-access__actions">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowGuestToken((visible) => !visible)}
-                                    aria-pressed={showGuestToken}
-                                >
-                                    {showGuestToken ? "Hide token" : "Reveal token"}
-                                </button>
-                                <button type="button" onClick={() => void copyGuestToken()}>{copyStatus}</button>
-                            </div>
-                        </div>
-                    </section>
+                    <GuestOrderAccessCard orderId={combinedData.orderId} guestOrderToken={combinedData.guestOrderToken} />
                 ) : null}
 
-                <section className="success__workflow" aria-label="What happens next">
+                <section className="success__workflow" aria-label={t("checkoutSuccess.whatHappensNext")}>
                     <article>
                         <span>
                             <BoxSeamIcon size={18} />
                         </span>
-                        <strong>Order processing</strong>
-                        <p>Your items are queued for packing and shipment preparation.</p>
+                        <strong>{t("checkoutSuccess.orderProcessing")}</strong>
+                        <p>{t("checkoutSuccess.orderProcessingDescription")}</p>
                     </article>
                     <article>
                         <span>
                             <EnvelopeIcon size={18} />
                         </span>
-                        <strong>Confirmation details</strong>
+                        <strong>{t("checkoutSuccess.confirmationDetails")}</strong>
                         <p>
                             {isGuestOrder
-                                ? "Keep your order ID and access token below to check this order later."
-                                : `Order updates will be sent to ${combinedData?.email || userData?.email || "your email"}.`}
+                                ? t("checkoutSuccess.guestConfirmationDetails")
+                                : t("checkoutSuccess.orderUpdates", combinedData?.email || userData?.email || t("checkoutSuccess.emailFallback"))}
                         </p>
                     </article>
                     <article>
                         <span>
                             <ShieldIcon size={18} />
                         </span>
-                        <strong>Checkout verified</strong>
-                        <p>Stock, quantities, and pricing were validated before your order was placed.</p>
+                        <strong>{t("checkoutSuccess.checkoutVerified")}</strong>
+                        <p>{t("checkoutSuccess.checkoutVerifiedDescription")}</p>
                     </article>
                 </section>
 
@@ -574,25 +535,25 @@ const CheckoutSuccessPage = () => {
                                 <ClipboardListIcon size={18} />
                             </span>
                             <div>
-                                <h2>Shipping details</h2>
-                                <p>Delivery information captured for this order.</p>
+                                <h2>{t("checkoutSuccess.shippingDetails")}</h2>
+                                <p>{t("checkoutSuccess.shippingDetailsDescription")}</p>
                             </div>
                         </div>
                         <div className="success__detail-list">
                             <div>
-                                <span>Recipient</span>
+                                <span>{t("checkoutSuccess.recipient")}</span>
                                 <strong>{combinedData?.name || "-"}</strong>
                             </div>
                             <div>
-                                <span>Address</span>
+                                <span>{t("checkoutSuccess.address")}</span>
                                 <strong>{combinedData?.address || "-"}</strong>
                             </div>
                             <div>
-                                <span>Location</span>
+                                <span>{t("checkoutSuccess.location")}</span>
                                 <strong>{[combinedData?.city, combinedData?.country].filter(Boolean).join(", ") || "-"}</strong>
                             </div>
                             <div>
-                                <span>Phone</span>
+                                <span>{t("checkoutSuccess.phone")}</span>
                                 <strong>{combinedData?.phone || "-"}</strong>
                             </div>
                         </div>
@@ -604,31 +565,31 @@ const CheckoutSuccessPage = () => {
                                 <EnvelopeIcon size={18} />
                             </span>
                             <div>
-                                <h2>Contact and payment</h2>
-                                <p>Reference details for support and follow-up.</p>
+                                <h2>{t("checkoutSuccess.contactAndPayment")}</h2>
+                                <p>{t("checkoutSuccess.contactAndPaymentDescription")}</p>
                             </div>
                         </div>
                         <div className="success__detail-list">
                             <div>
-                                <span>Email</span>
+                                <span>{t("checkoutSuccess.email")}</span>
                                 <strong>{combinedData?.email || userData?.email || "-"}</strong>
                             </div>
                             <div>
-                                <span>Placed on</span>
+                                <span>{t("checkoutSuccess.placedOn")}</span>
                                 <strong>
                                     {combinedData?.placedAt ? formatUtcDateTime(combinedData.placedAt) : formatUtcDateTime()}
                                 </strong>
                             </div>
                             <div>
-                                <span>Payment method</span>
+                                <span>{t("checkoutSuccess.paymentMethod")}</span>
                                 <strong>{paymentLabel}</strong>
                             </div>
                             <div>
-                                <span>Subtotal</span>
+                                <span>{t("checkoutSuccess.subtotal")}</span>
                                 <strong>{formatMoney(combinedData?.subtotal ?? combinedData?.totalPrice ?? 0, combinedData?.currency)}</strong>
                             </div>
                             <div>
-                                <span>Shipping</span>
+                                <span>{t("checkoutSuccess.shipping")}</span>
                                 <strong>{formatMoney(combinedData?.shippingFee ?? 0, combinedData?.currency)}</strong>
                             </div>
                         </div>
@@ -637,10 +598,10 @@ const CheckoutSuccessPage = () => {
 
                 <div className="success__actions">
                     <Link to="/" className="success__action success__action--primary">
-                        Continue shopping <ArrowRightIcon size={18} />
+                        {t("checkoutSuccess.continueShopping")} <ArrowRightIcon size={18} />
                     </Link>
                     <Link to={isGuestOrder ? "/guest-order" : CUSTOMER_ROUTES.orders} className="success__action success__action--secondary">
-                        {isGuestOrder ? "Look up guest order" : "View order status"}
+                        {isGuestOrder ? t("checkoutSuccess.lookupGuestOrder") : t("checkoutSuccess.viewOrderStatus")}
                     </Link>
                 </div>
             </main>

@@ -23,6 +23,7 @@ describe("transactional promotion redemptions", () => {
     it("locks the discount and reserves one quota slot", async () => {
         const tx = { query: vi.fn() };
         tx.query
+            .mockResolvedValueOnce([])
             .mockResolvedValueOnce([promotion])
             .mockResolvedValueOnce([{ used: 0 }])
             .mockResolvedValueOnce({ affectedRows: 1 })
@@ -38,17 +39,18 @@ describe("transactional promotion redemptions", () => {
             100,
         )).resolves.toMatchObject({ discountId: 9, discount: 10 });
 
-        expect(tx.query).toHaveBeenNthCalledWith(1, expect.stringContaining("FOR UPDATE"), ["SAVE10"]);
-        expect(tx.query).toHaveBeenNthCalledWith(2, expect.stringContaining("status = 'CONSUMED'"), [9]);
-        expect(String(tx.query.mock.calls[1][0])).toContain("(status = 'RESERVED' AND expires_at > UTC_TIMESTAMP())");
-        expect(String(tx.query.mock.calls[1][0])).not.toContain("status = 'RELEASED'");
-        expect(tx.query).toHaveBeenNthCalledWith(3, expect.stringContaining("SET discount_id = ?, discount = ?"), [9, 10, 7]);
-        expect(tx.query).toHaveBeenNthCalledWith(4, expect.stringContaining("'RESERVED'"), [9, 7, "user-1", expect.any(Date)]);
+        expect(tx.query).toHaveBeenNthCalledWith(1, expect.stringContaining("FROM loyalty_vouchers"), ["SAVE10", "user-1"]);
+        expect(tx.query).toHaveBeenNthCalledWith(2, expect.stringContaining("WHERE discount_code = ? LIMIT 1 FOR UPDATE"), ["SAVE10"]);
+        expect(tx.query).toHaveBeenNthCalledWith(3, expect.stringContaining("status = 'CONSUMED'"), [9, 9, null]);
+        expect(String(tx.query.mock.calls[2][0])).toContain("(status = 'RESERVED' AND expires_at > UTC_TIMESTAMP())");
+        expect(String(tx.query.mock.calls[2][0])).not.toContain("status = 'RELEASED'");
+        expect(tx.query).toHaveBeenNthCalledWith(4, expect.stringContaining("SET discount_id = ?, discount = ?"), [9, 10, 7]);
+        expect(tx.query).toHaveBeenNthCalledWith(5, expect.stringContaining("'RESERVED'"), [9, 7, "user-1", expect.any(Date)]);
     });
 
     it("rejects a second active reservation when usage_limit is one", async () => {
         const tx = { query: vi.fn() };
-        tx.query.mockResolvedValueOnce([promotion]).mockResolvedValueOnce([{ used: 1 }]);
+        tx.query.mockResolvedValueOnce([]).mockResolvedValueOnce([promotion]).mockResolvedValueOnce([{ used: 1 }]);
         const repository = new PromotionsRepository();
 
         await expect(repository.reservePromotion(
@@ -59,7 +61,7 @@ describe("transactional promotion redemptions", () => {
             new Date("2099-01-01T00:00:00.000Z"),
             100,
         )).rejects.toMatchObject({ statusCode: 409 });
-        expect(tx.query).toHaveBeenCalledTimes(2);
+        expect(tx.query).toHaveBeenCalledTimes(3);
     });
 
     it("consumes and releases reservations with guarded status transitions", async () => {
@@ -69,7 +71,9 @@ describe("transactional promotion redemptions", () => {
         await expect(repository.consumePromotionReservation(tx, 7, 44)).resolves.toBe(1);
         await expect(repository.releasePromotionReservation(tx, 8)).resolves.toBe(1);
         expect(tx.query).toHaveBeenNthCalledWith(1, expect.stringContaining("SET status = 'CONSUMED'"), [44, 7]);
-        expect(tx.query).toHaveBeenNthCalledWith(2, expect.stringContaining("SET status = 'RELEASED'"), [8]);
+        expect(tx.query).toHaveBeenNthCalledWith(2, expect.stringContaining("SET status = 'REDEEMED'"), [44, 7]);
+        expect(tx.query).toHaveBeenNthCalledWith(3, expect.stringContaining("SET status = 'RELEASED'"), [8]);
+        expect(tx.query).toHaveBeenNthCalledWith(4, expect.stringContaining("SET status = 'AVAILABLE'"), [8]);
     });
 
     it.each(["RESERVED", "RELEASED"])("consumes the original paid reservation from %s without repricing", async (status) => {
@@ -115,6 +119,7 @@ describe("migration-owned promotion catalog queries", () => {
         expect(sql).toContain("starts_at");
         expect(sql).toContain("expires_at");
         expect(sql).toContain("usage_limit");
+        expect(sql).toContain("loyalty_points_cost");
         expect(sql).not.toMatch(/CREATE TABLE|ALTER TABLE|SHOW COLUMNS|information_schema/i);
     });
 
@@ -132,6 +137,7 @@ describe("migration-owned promotion catalog queries", () => {
             startsAt: null,
             expiresAt: null,
             usageLimit: 3,
+            loyaltyPointsCost: null,
         };
 
         repository.createPromotion(payload, vi.fn());
@@ -140,8 +146,8 @@ describe("migration-owned promotion catalog queries", () => {
 
         expect(pool.query).toHaveBeenNthCalledWith(
             1,
-            expect.stringContaining("(discount_code, discount_percent, active, min_order_value, starts_at, expires_at, usage_limit)"),
-            ["SAVE10", 10, 1, 25, null, null, 3],
+            expect.stringContaining("(discount_code, discount_percent, active, min_order_value, starts_at, expires_at, usage_limit, loyalty_points_cost)"),
+            ["SAVE10", 10, 1, 25, null, null, 3, null],
             expect.any(Function),
         );
         expect(pool.query.mock.calls[1][0]).toContain("SET discount_code = ?, discount_percent = ?, active = ?");

@@ -23,11 +23,12 @@ const getCreatedAtTime = (createdAt: string) => {
 };
 
 export function groupAdminAlerts(alerts: AdminAlert[], limit = 4): DashboardAlertGroup[] {
-    if (limit <= 0 || alerts.length === 0) {
+    const openAlerts = alerts.filter((alert) => alert.triageStatus !== "RESOLVED");
+    if (limit <= 0 || openAlerts.length === 0) {
         return [];
     }
 
-    const sortedAlerts = [...alerts].sort((left, right) => {
+    const sortedAlerts = [...openAlerts].sort((left, right) => {
         const priorityDifference = PRIORITY_WEIGHT[right.priority] - PRIORITY_WEIGHT[left.priority];
         if (priorityDifference !== 0) {
             return priorityDifference;

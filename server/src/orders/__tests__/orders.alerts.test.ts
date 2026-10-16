@@ -49,6 +49,7 @@ describe("order cancellation product alerts", () => {
             {} as never,
             {} as never,
             new NestOrdersCancellationService(repository, timeline as never, inventory as never, alerts as never),
+            { initializeOrderShipment: vi.fn() } as never,
             undefined,
         );
 

@@ -1,15 +1,17 @@
 import React from "react";
-import { ArrowLeftIcon, ArrowRightIcon, BoxSeamIcon, CartIcon, CashStackIcon, PersonIcon, SpeedometerIcon, TelephoneIcon } from "../common/Icons";
+import { ArrowLeftIcon, ArrowRightIcon, BellFillIcon, BoxSeamIcon, CartIcon, CashStackIcon, PersonIcon, SpeedometerIcon, TelephoneIcon } from "../common/Icons";
 import { NavLink } from "react-router-dom";
 import { useLocale } from "../../context/LocaleContext";
 
 const adminNavItems = [
     { label: "Dashboard", path: "/admin", match: "dashboard", icon: <SpeedometerIcon size={20} /> },
+    { label: "Notifications", path: "/admin/notifications", match: "notifications", icon: <BellFillIcon size={20} /> },
     { label: "Orders", path: "/admin/orders", match: "orders", icon: <CartIcon size={20} /> },
     { label: "Payment reconciliation", path: "/admin/payments/reconciliation", match: "payments", icon: <CashStackIcon size={20} /> },
     { label: "Products", path: "/admin/products", match: "products", icon: <BoxSeamIcon size={20} /> },
     { label: "Promotions", path: "/admin/promotions", match: "promotions", icon: <CashStackIcon size={20} /> },
     { label: "Accounts", path: "/admin/accounts", match: "accounts", icon: <PersonIcon size={20} /> },
+    { label: "Audit log", path: "/admin/audit", match: "audit", icon: <PersonIcon size={20} /> },
     { label: "Support", path: "/admin/support", match: "support", icon: <TelephoneIcon size={20} /> },
 ];
 
@@ -22,8 +24,16 @@ type AdminSidebarProps = {
 
 const AdminSidebar = ({ isOpen = false, isCollapsed = false, onClose, onToggleCollapsed }: AdminSidebarProps) => {
     const { locale } = useLocale();
-    const navigation = [...adminNavItems,
+    const navigation = [...adminNavItems.map((item) => ({
+        ...item,
+        label: locale === "vi"
+            ? item.match === "notifications" ? "Cảnh báo vận hành"
+                : item.match === "audit" ? "Nhật ký thay đổi"
+                    : item.label
+            : item.label,
+    })),
         { label: locale === "vi" ? "Xử lý giao hàng" : "Fulfillment", path: "/admin/fulfillment", match: "fulfillment", icon: <BoxSeamIcon size={20} /> },
+        { label: locale === "vi" ? "Cài đặt giao hàng" : "Delivery settings", path: "/admin/delivery/settings", match: "delivery-settings", icon: <BoxSeamIcon size={20} /> },
         { label: locale === "vi" ? "Đối soát COD" : "COD settlements", path: "/admin/payments/cod-settlements", match: "cod-settlements", icon: <CashStackIcon size={20} /> },
         { label: locale === "vi" ? "Email giao dịch" : "Email operations", path: "/admin/email-operations", match: "email-operations", icon: <TelephoneIcon size={20} /> },
     ];

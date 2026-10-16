@@ -44,7 +44,7 @@ describe("admin analytics reporting scope", () => {
 
 describe("overlapping analytics summaries", () => {
     const emptyRows = (): AnalyticsSummaryRows => ({
-        overviewRows: [{}], revenueTrendRows: [], categoryPerformanceRows: [], customerSegmentRows: [],
+        overviewRows: [{}], revenueTrendRows: [], categoryPerformanceRows: [], topProductRows: [], customerSegmentRows: [],
         inventoryRiskRows: [], paymentMethodRows: [], promotionCatalogRows: [], discountOrderRows: [],
         promotionPerformanceRows: [], guestCartAnalyticsRows: [],
     });

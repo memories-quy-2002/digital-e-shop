@@ -26,11 +26,18 @@ import { ProductAlertsModule } from "../product-alerts/product-alerts.module";
 import { ShippingModule } from "../shipping/shipping.module";
 import { CustomerShippingController } from "../shipping/customer-shipping.controller";
 import { TasksModule } from "../operations/tasks.module";
+import { AuthGuard } from "../guards/auth.guard";
+import { RolesGuard } from "../guards/roles.guard";
+import { VerifiedEmailGuard } from "../guards/verified-email.guard";
+import { LoyaltyModule } from "../loyalty/loyalty.module";
 
 @Module({
-    imports: [ShippingModule, NestConfigModule, CartModule, InventoryModule, NotificationsModule, PromotionsModule, ProductsModule, ProductAlertsModule, PaymentsModule, UsersModule, TasksModule],
+    imports: [ShippingModule, NestConfigModule, CartModule, InventoryModule, NotificationsModule, PromotionsModule, ProductsModule, ProductAlertsModule, PaymentsModule, UsersModule, TasksModule, LoyaltyModule],
     controllers: [OrdersController, GuestOrdersController, AdminPaymentsController, CustomerShippingController],
     providers: [
+        AuthGuard,
+        RolesGuard,
+        VerifiedEmailGuard,
         NestOrdersService,
         NestOrdersCancellationService,
         NestOrdersPayOSService,
