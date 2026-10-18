@@ -183,11 +183,11 @@ describe("Header navigation controls", () => {
         expect(screen.getByTestId("location")).toHaveTextContent("/cart");
     });
 
-    it("lets a guest open the cart from the mobile menu while keeping wishlist protected", () => {
+    it("lets a guest open the cart from the mobile menu while keeping wishlist protected", async () => {
         renderHeader();
 
         fireEvent.click(screen.getByRole("button", { name: "Toggle menu" }));
-        const mobileCart = screen.getAllByRole("button", { name: "Cart" }).at(-1);
+        const mobileCart = (await screen.findAllByRole("button", { name: "Cart" })).at(-1);
         expect(mobileCart).toBeDefined();
         fireEvent.click(mobileCart!);
         expect(screen.getByTestId("location")).toHaveTextContent("/cart");
@@ -195,7 +195,7 @@ describe("Header navigation controls", () => {
         cleanup();
         renderHeader();
         fireEvent.click(screen.getByRole("button", { name: "Toggle menu" }));
-        fireEvent.click(screen.getByRole("button", { name: "Wishlist" }));
+        fireEvent.click(await screen.findByRole("button", { name: "Wishlist" }));
         expect(screen.getByTestId("location")).toHaveTextContent("/");
         expect(mocks.toast.addToast).toHaveBeenCalledWith("Login required", "You need to login to use this feature");
     });
@@ -210,12 +210,12 @@ describe("Header navigation controls", () => {
         expect(screen.getByTestId("location")).toHaveTextContent("/admin");
     });
 
-    it("shows the same admin shortcut in the mobile menu and hides it for customers", () => {
+    it("shows the same admin shortcut in the mobile menu and hides it for customers", async () => {
         mocks.auth.userData = { id: "admin-1", role: "Admin", username: "demo_admin" };
         renderHeader();
 
         fireEvent.click(screen.getByRole("button", { name: "Toggle menu" }));
-        fireEvent.click(screen.getByRole("button", { name: "Back to Admin" }));
+        fireEvent.click(await screen.findByRole("button", { name: "Back to Admin" }));
         expect(screen.getByTestId("location")).toHaveTextContent("/admin");
 
         cleanup();
