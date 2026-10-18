@@ -47,7 +47,7 @@ const ProductCard = ({
     const productPath = `/product?id=${normalizedProduct.id}`;
     const availableStock = normalizedProduct.available_stock ?? normalizedProduct.stock;
     const discountPercent = hasSale ? Math.round(((normalizedProduct.price - activePrice) / normalizedProduct.price) * 100) : 0;
-    const stockLabel = availableStock > 0 ? t("product.stockIn", availableStock) : t("product.stockOut");
+    const stockLabel = availableStock > 0 ? null : t("product.stockOut");
     const wishlistLabel = isWishlist ? t("product.savedToWishlist") : t("product.saveToWishlist");
     const isComparisonSelected = isSelected(normalizedProduct.id);
     const comparisonLabel = isComparisonSelected ? t("comparison.removeFromCompare") : t("comparison.addToCompare");
@@ -71,15 +71,7 @@ const ProductCard = ({
                     <Badge variant="signal" className="product-card__badge">
                         {t("product.discountBadge", discountPercent)}
                     </Badge>
-                ) : availableStock > 0 ? (
-                    <Badge variant="default" className="product-card__badge">
-                        {t("product.stockBadge")}
-                    </Badge>
-                ) : (
-                    <Badge variant="danger" className="product-card__badge">
-                        {t("product.stockValueOut")}
-                    </Badge>
-                )}
+                ) : null}
 
                 <Button
                     type="button"
@@ -97,13 +89,14 @@ const ProductCard = ({
 
                 <Link
                     to={productPath}
-                    className="de-product-media de-product-media--catalog w-full max-w-none"
+                    className="de-product-media de-product-media--catalog product-card__image-frame w-full max-w-none"
                     data-testid="product-card-image"
+                    data-media-frame="product-card"
                     aria-label={`View ${normalizedProduct.name}`}
                 >
                     {loadImage(normalizeProductImageName(normalizedProduct.main_image), normalizedProduct.name, {
-                        width: "100%",
-                        height: "100%",
+                        width: "calc(100% - 1.5rem)",
+                        height: "calc(100% - 1.5rem)",
                         objectFit: "contain",
                         display: "block",
                     }, imageEager, "(min-width: 1280px) 20vw, (min-width: 1024px) 28vw, (min-width: 600px) 45vw, (min-width: 360px) 46vw, 92vw", imageFetchPriority)}
@@ -132,7 +125,7 @@ const ProductCard = ({
                         {ratingStar(normalizedProduct.rating, "var(--de-color-warning)", 15)}
                     </span>
                     <span className="product-card__rating-value">{normalizedProduct.rating.toFixed(1)}</span>
-                    <span className="product-card__reviews">{t("product.reviewsCount", normalizedProduct.reviews)}</span>
+                    <span className="product-card__reviews">({normalizedProduct.reviews})</span>
                 </div>
 
                 <div className="product-card__price" data-testid="product-card-price">
@@ -140,12 +133,14 @@ const ProductCard = ({
                     {hasSale ? <span className="product-card__price-original">{formatCurrency(normalizedProduct.price)}</span> : null}
                 </div>
 
-                <div
-                    className={`product-card__availability ${availableStock > 0 ? "product-card__availability--available" : "product-card__availability--unavailable"}`}
-                    data-testid="product-card-stock"
-                >
-                    <span>{stockLabel}</span>
-                </div>
+                {stockLabel ? (
+                    <div
+                        className="product-card__availability product-card__availability--unavailable"
+                        data-testid="product-card-stock"
+                    >
+                        <span>{stockLabel}</span>
+                    </div>
+                ) : null}
 
                 <Button
                     type="button"

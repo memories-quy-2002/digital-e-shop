@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { renderWithLocale } from '../../../test-utils/renderWithLocale';
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminSupportPage from "./AdminSupportPage";
 import { fetchSupportTickets } from "../../support/api";
@@ -15,7 +16,7 @@ describe("AdminSupportPage request states", () => {
 
     it("shows a retryable error instead of the filtered empty state", async () => {
         vi.mocked(fetchSupportTickets).mockRejectedValue({ response: { status: 403 } });
-        render(<AdminSupportPage />);
+        renderWithLocale(<AdminSupportPage />);
 
         await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Access denied"));
         expect(screen.queryByText("No support tickets match this filter.")).not.toBeInTheDocument();
@@ -23,7 +24,7 @@ describe("AdminSupportPage request states", () => {
 
     it("shows the fulfilled empty state", async () => {
         vi.mocked(fetchSupportTickets).mockResolvedValue([]);
-        render(<AdminSupportPage />);
+        renderWithLocale(<AdminSupportPage />);
 
         await waitFor(() => expect(screen.getByText("No support tickets match this filter")).toBeInTheDocument());
     });
@@ -52,7 +53,7 @@ describe("AdminSupportPage request states", () => {
             },
         ]);
 
-        render(<AdminSupportPage />);
+        renderWithLocale(<AdminSupportPage />);
 
         expect(await screen.findByText(/Payment issue/)).toBeInTheDocument();
         const search = screen.getByRole("searchbox", { name: "Search support tickets" });

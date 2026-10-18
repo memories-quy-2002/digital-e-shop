@@ -33,6 +33,8 @@ import { ORDER_STATUS } from "../../orders/orderStatus";
 import { PAYMENT_METHOD } from "../../orders/constants";
 import { LOW_STOCK_THRESHOLD } from "../../products/constants";
 import type { AdminAnalyticsSummary } from "../types";
+import { useAdminDashboardCopy } from "../../../hooks/useAdminDashboardCopy";
+import { useLocale } from "../../../context/LocaleContext";
 
 type TrendPoint = {
     name: string;
@@ -50,10 +52,8 @@ type ChartDatum = {
 
 const AdminDashboardCharts = React.lazy(() => import("../components/AdminDashboardCharts"));
 
-const formatReportDate = (date = new Date()) => formatUtcDateTime(date);
-
-const formatUtcDay = (date: Date) =>
-    new Intl.DateTimeFormat("en-US", {
+const formatUtcDay = (date: Date, locale = "en-US") =>
+    new Intl.DateTimeFormat(locale, {
         timeZone: "UTC",
         month: "short",
         day: "numeric",
@@ -177,6 +177,9 @@ const AdminDashboard = () => {
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [availability, setAvailability] = useState<DashboardAvailability>(initialDashboardAvailability);
     const { addToast } = useToast();
+    const tx = useAdminDashboardCopy();
+    const { locale } = useLocale();
+    const formatReportDate = (date = new Date()) => formatUtcDateTime(date, locale === "vi" ? "vi-VN" : "en-GB");
 
     useEffect(() => {
         if (shouldLoadCharts) return;
@@ -318,11 +321,11 @@ const AdminDashboard = () => {
     const analyticsTrend = useMemo(
         () =>
             (availability.analytics === "success" ? analyticsSummary?.charts?.revenueTrend || analyticsSummary?.revenueTrend || [] : []).map((point) => ({
-                name: formatUtcDay(new Date(`${point.date}T00:00:00Z`)),
+                name: formatUtcDay(new Date(`${point.date}T00:00:00Z`), locale === "vi" ? "vi-VN" : "en-US"),
                 revenue: Number(point.netRevenue ?? point.revenue) || 0,
                 orders: Number(point.orders) || 0,
             })),
-        [analyticsSummary, availability.analytics],
+        [analyticsSummary, availability.analytics, locale],
     );
     const monthlyTrends = useMemo<TrendPoint[]>(() => analyticsTrend.map((point) => ({
         name: point.name,
@@ -596,8 +599,8 @@ const AdminDashboard = () => {
     return (
         <AdminLayout>
             <Helmet>
-                <title>Admin Dashboard | Digital-E</title>
-                <meta name="description" content="Overview of store performance and key metrics." />
+                <title>{tx("Admin dashboard")} | Digital-E</title>
+                <meta name="description" content={tx("Overview of store performance and key metrics.")} />
             </Helmet>
             <main className="admin__page admin__page--dashboard">
                 <AdminDashboardHeader
@@ -605,7 +608,7 @@ const AdminDashboard = () => {
                     onRangeChange={handleRangeChange}
                     loading={loading}
                     updateLabel={getDashboardUpdateLabel(availability)}
-                    lastUpdated={lastUpdated ? lastUpdated.toLocaleTimeString("en-GB") : null}
+                    lastUpdated={lastUpdated ? lastUpdated.toLocaleTimeString(locale === "vi" ? "vi-VN" : "en-GB") : null}
                     onRefresh={() => fetchDashboardData(true)}
                     onDownloadReport={handleDownloadReport}
                 />

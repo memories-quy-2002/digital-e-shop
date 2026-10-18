@@ -18,6 +18,23 @@ export async function fetchDeliveryMapConfig(): Promise<DeliveryMapConfig | null
     return response.data.map ?? null;
 }
 
+export type DeliveryAddressSuggestion = {
+    label: string;
+    city?: string;
+    state?: string;
+    latitude: number;
+    longitude: number;
+};
+
+export async function findDeliveryAddressLocations(input: {
+    addressLine: string;
+    city?: string;
+    locale?: "en" | "vi";
+}): Promise<DeliveryAddressSuggestion[]> {
+    const response = await http.post("/api/shipping/address-locations", input);
+    return Array.isArray(response.data.suggestions) ? response.data.suggestions : [];
+}
+
 export async function requestInternalDeliveryQuote(input: {
     address: DeliveryAddress;
     locale?: "en" | "vi";
@@ -78,12 +95,12 @@ export async function updateDeliveryStaffAssignment(assignmentId: number, input:
 
 export async function fetchCustomerShipment(orderId: number): Promise<ShipmentSummary | null> {
     const response = await http.get(`/api/shipping/orders/${orderId}`);
-    return response.data.shipment ?? null;
+    return response.data.shipment ? { ...response.data.shipment, ...(response.data.delivery !== undefined ? { delivery: response.data.delivery } : {}) } : null;
 }
 
 export async function fetchGuestShipment(orderId: number, guestOrderToken: string): Promise<ShipmentSummary | null> {
     const response = await http.post("/api/shipping/guest/shipment", { orderId, guestOrderToken });
-    return response.data.shipment ?? null;
+    return response.data.shipment ? { ...response.data.shipment, ...(response.data.delivery !== undefined ? { delivery: response.data.delivery } : {}) } : null;
 }
 
 export async function fetchFulfillmentOrders(): Promise<FulfillmentOrder[]> {

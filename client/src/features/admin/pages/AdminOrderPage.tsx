@@ -23,6 +23,8 @@ import AdminTableScrollHint from "../components/AdminTableScrollHint";
 import { getAdminRequestError, type AdminRequestError } from "../utils/adminRequestError";
 import { formatShippingAddress } from "../../orders/shippingAddress";
 import { formatCurrency } from "../../../utils/currency";
+import { useAdminCopy } from "../../../hooks/useAdminCopy";
+import { useLocale } from "../../../context/LocaleContext";
 import { getOrderStatusKey, ORDER_STATUS } from "../../orders/orderStatus";
 import { HISTORICAL_PAYMENT_METHOD, PAYMENT_METHOD, type PaymentMethod } from "../../orders/constants";
 import { getApiErrorMessage } from "../../../lib/api-contract";
@@ -45,7 +47,7 @@ const getPaymentMethodLabel = (paymentMethod?: Order["payment_method"]) => {
     if (paymentMethod === PAYMENT_METHOD.CASH) return "Cash on delivery";
     if (paymentMethod === PAYMENT_METHOD.PAYOS) return "PayOS (VND)";
     if (paymentMethod === HISTORICAL_PAYMENT_METHOD.BANK_TRANSFER) return "Historical bank transfer";
-    if (paymentMethod === HISTORICAL_PAYMENT_METHOD.STRIPE || paymentMethod === HISTORICAL_PAYMENT_METHOD.CARD) return "Historical card payment";
+    if (paymentMethod === HISTORICAL_PAYMENT_METHOD.CARD) return "Historical card payment";
     return "Not recorded";
 };
 
@@ -75,6 +77,8 @@ const getShippingAddress = (value: string | null | undefined) => formatShippingA
 const getItemSubtotal = (price: number, quantity: number) => price * quantity;
 
 const AdminOrderPage = () => {
+    const tx = useAdminCopy();
+    const { locale } = useLocale();
     const [orders, setOrders] = useState<Order[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -311,99 +315,94 @@ const AdminOrderPage = () => {
     return (
         <AdminLayout>
             <Helmet>
-                <title>Admin Orders | Digital-E</title>
+                <title>{tx("Orders")} | Digital-E</title>
                 <meta name="description" content="Manage and view orders placed in the store." />
             </Helmet>
             <main className="admin__page admin__page--orders">
                 <header className="admin__page__header">
                     <div>
-                        <span className="admin__page__eyebrow">Operations</span>
-                        <h1 className="admin__page__title">Orders</h1>
+                        <span className="admin__page__eyebrow">{tx("Operations")}</span>
+                        <h1 className="admin__page__title">{tx("Orders")}</h1>
                         <p className="admin__page__subtitle">
-                            Monitor the full order pipeline, keep tabs on payment mix, and resolve pending deliveries.
+                            {tx("Monitor the full order pipeline, keep tabs on payment mix, and resolve pending deliveries.")}
                         </p>
                     </div>
                     <div className="admin__page__actions">
-                        <button type="button" className="admin__button admin__button--ghost" onClick={loadOrders}>Refresh</button>
+                        <button type="button" className="admin__button admin__button--ghost" onClick={loadOrders}>{tx("Refresh")}</button>
                         <button type="button" className="admin__button admin__button--primary" onClick={exportOrdersCsv}>
-                            Export current page CSV
+                            {tx("Export current page CSV")}
                         </button>
                     </div>
                 </header>
 
                 <section className="admin__summary">
                     <div className="admin__summary-card">
-                        <span>Total orders</span>
+                        <span>{tx("Total orders")}</span>
                         <strong>{orderStats.total}</strong>
-                        <p>Across every recorded purchase</p>
+                        <p>{tx("Across every recorded purchase")}</p>
                     </div>
                     <div className="admin__summary-card">
-                        <span>Pending</span>
+                        <span>{tx("Pending")}</span>
                         <strong>{orderStats.pending}</strong>
-                        <p>Still waiting for action</p>
+                        <p>{tx("Still waiting for action")}</p>
                     </div>
                     <div className="admin__summary-card">
-                        <span>Historical methods</span>
-                        <strong>{orderStats.historicalPaymentMethods}</strong>
-                        <p>Read-only legacy records</p>
-                    </div>
-                    <div className="admin__summary-card">
-                        <span>Completed</span>
+                        <span>{tx("Completed")}</span>
                         <strong>{orderStats.completed}</strong>
-                        <p>Successfully fulfilled</p>
+                        <p>{tx("Successfully fulfilled")}</p>
                     </div>
                     <div className="admin__summary-card">
-                        <span>Canceled</span>
+                        <span>{tx("Canceled")}</span>
                         <strong>{orderStats.canceled}</strong>
-                        <p>Closed without fulfillment</p>
+                        <p>{tx("Closed without fulfillment")}</p>
                     </div>
                     <div className="admin__summary-card">
-                        <span>Net revenue</span>
+                        <span>{tx("Net revenue")}</span>
                         <strong>{formatCurrency(orderStats.revenue)}</strong>
-                        <p>Total after discounts</p>
+                        <p>{tx("Total after discounts")}</p>
                     </div>
                 </section>
 
                 <section className="admin__card">
                     <div className="admin__card__header admin__card__header--stacked">
                         <div>
-                            <h3>Order list</h3>
-                            <span>{summary.total} matching orders</span>
+                            <h3>{tx("Order list")}</h3>
+                            <span>{summary.total} {tx("matching orders")}</span>
                         </div>
                         <div className="admin__list-toolbar">
                             <div className="admin__order-toolbar">
                                 <label className="admin__sr-only" htmlFor="order-search">
-                                    Search orders
+                                    {tx("Search orders")}
                                 </label>
                                 <input
                                     type="search"
                                     name="order-search"
                                     id="order-search"
-                                    placeholder="Search by order ID, customer, email, address, payment, or status…"
+                                    placeholder={tx("Search by order ID, customer, email, address, payment, or status…")}
                                     value={searchTerm}
                                     onChange={(event) => {
                                         setSearchTerm(event.target.value);
                                     }}
                                 />
                                 <select
-                                    aria-label="Filter by status"
+                                    aria-label={tx("Filter by status")}
                                     value={statusFilter}
                                     onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
                                 >
-                                    <option value="all">All statuses</option>
-                                    <option value="pending">Pending</option>
-                                    <option value="done">Done</option>
-                                    <option value="canceled">Canceled</option>
+                                    <option value="all">{tx("All statuses")}</option>
+                                    <option value="pending">{tx("Pending")}</option>
+                                    <option value="done">{tx("Done")}</option>
+                                    <option value="canceled">{tx("Canceled")}</option>
                                 </select>
                                 <select
-                                    aria-label="Filter by payment method"
+                                    aria-label={tx("Filter by payment method")}
                                     value={paymentFilter}
                                     onChange={(event) => setPaymentFilter(event.target.value as PaymentFilter)}
                                 >
-                                    <option value="all">All payments</option>
-                                    <option value={PAYMENT_METHOD.CASH}>Cash on delivery</option>
+                                    <option value="all">{tx("All payments")}</option>
+                                    <option value={PAYMENT_METHOD.CASH}>{tx("Cash on delivery")}</option>
                                     <option value={PAYMENT_METHOD.PAYOS}>PayOS (VND)</option>
-                                    <option value="none">No payment</option>
+                                    <option value="none">{tx("No payment")}</option>
                                 </select>
                                 <button
                                     type="button"
@@ -414,45 +413,45 @@ const AdminOrderPage = () => {
                                         setPaymentFilter("all");
                                     }}
                                 >
-                                    Clear
+                                    {tx("Clear")}
                                 </button>
                             </div>
                         </div>
                     </div>
                     {selectedIds.size > 0 ? (
-                        <div className="admin__bulk-bar" role="region" aria-label="Bulk actions">
+                        <div className="admin__bulk-bar" role="region" aria-label={tx("Bulk actions")}>
                             <span className="admin__bulk-bar__count">{selectedIds.size}</span>
-                            <span>order(s) selected on this page</span>
+                            <span>{tx("order(s) selected on this page")}</span>
                             <button
                                 type="button"
                                 className="admin__button admin__button--success admin__button--compact"
                                 onClick={() => requestBulk(1)}
                             >
-                                Mark selected done
+                                {tx("Mark selected done")}
                             </button>
                             <button
                                 type="button"
                                 className="admin__button admin__button--danger admin__button--compact"
                                 onClick={() => requestBulk(2)}
                             >
-                                Cancel selected
+                                {tx("Cancel selected")}
                             </button>
                             <button
                                 type="button"
                                 className="admin__button admin__button--ghost admin__button--compact"
                                 onClick={() => setSelectedIds(new Set())}
                             >
-                                Clear selection
+                                {tx("Clear selection")}
                             </button>
                         </div>
                     ) : null}
                     <div className="admin__card__body admin__list-shell">
                         {loadError && !hasLoaded ? <AdminStatusPanel variant="error" title={loadError.title} description={loadError.message} onRetry={loadOrders} /> : null}
-                        {isLoading && !hasLoaded ? <AdminStatusPanel variant="loading" title="Loading orders" description="Fetching the latest orders." /> : null}
-                        {loadError && hasLoaded ? <AdminStatusPanel variant="error" title="Refresh failed" description={loadError.message} onRetry={loadOrders} retryLabel="Retry refresh" /> : null}
-                        {!isLoading && !loadError && hasLoaded && filteredOrders.length === 0 ? <AdminStatusPanel variant="empty" title="No orders found" description="No orders match the current filters." /> : null}
+                        {isLoading && !hasLoaded ? <AdminStatusPanel variant="loading" title={tx("Loading orders")} description={tx("Fetching the latest orders.")} /> : null}
+                        {loadError && hasLoaded ? <AdminStatusPanel variant="error" title={tx("Refresh failed")} description={loadError.message} onRetry={loadOrders} retryLabel={tx("Retry refresh")} /> : null}
+                        {!isLoading && !loadError && hasLoaded && filteredOrders.length === 0 ? <AdminStatusPanel variant="empty" title={tx("No orders found")} description={tx("No orders match the current filters.")} /> : null}
                         {(!loadError || hasLoaded) && !(isLoading && !hasLoaded) && filteredOrders.length > 0 ? <>
-                        <AdminTableScrollHint label="Order list">
+                        <AdminTableScrollHint label={tx("Order list")}>
                         <Table responsive={false} hover borderless className="admin__table admin__table--orders">
                             <thead>
                                 <tr>
@@ -460,19 +459,19 @@ const AdminOrderPage = () => {
                                         <input
                                             type="checkbox"
                                             className="admin__order-checkbox"
-                                            aria-label="Select all pending orders on this page"
+                                            aria-label={tx("Select all pending orders on this page")}
                                             checked={pageAllPendingSelected}
                                             disabled={selectedPendingIds.length === 0}
                                             onChange={toggleSelectAllOnPage}
                                         />
                                     </th>
                                     <th>#</th>
-                                    <th>Order</th>
-                                    <th>Customer</th>
-                                    <th>Payment</th>
-                                    <th>Total</th>
-                                    <th>Status</th>
-                                    <th>Action</th>
+                                    <th>{tx("Order")}</th>
+                                    <th>{tx("Customer")}</th>
+                                    <th>{tx("Payment")}</th>
+                                    <th>{tx("Total")}</th>
+                                    <th>{tx("Status")}</th>
+                                    <th>{tx("Action")}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -487,7 +486,7 @@ const AdminOrderPage = () => {
                                             <input
                                                 type="checkbox"
                                                 className="admin__order-checkbox"
-                                                aria-label={`Select order ${order.id}`}
+                                                aria-label={`${tx("Select order")} ${order.id}`}
                                                 checked={isSelected}
                                                 disabled={order.status !== ORDER_STATUS.PENDING}
                                                 onChange={() => toggleSelection(order.id)}
@@ -497,12 +496,12 @@ const AdminOrderPage = () => {
                                         <td width="190px">
                                             <div className="admin__table__stack">
                                                 <strong>#{order.id}</strong>
-                                                <span>{formatUtcDate(order.date_added)}</span>
+                                                <span>{formatUtcDate(order.date_added, locale === "vi" ? "vi-VN" : "en-GB")}</span>
                                             </div>
                                         </td>
                                         <td width="260px">
                                             <div className="admin__table__stack">
-                                                <strong title={order.user_id || "Guest checkout"}>{getCustomerName(order)}</strong>
+                                                <strong title={order.user_id || tx("Guest checkout")}>{getCustomerName(order)}</strong>
                                                 <span>{getCustomerMeta(order)}</span>
                                                 <small>{getShippingAddress(order.shipping_address)}</small>
                                             </div>
@@ -517,13 +516,13 @@ const AdminOrderPage = () => {
                                                           : "admin__pill admin__pill--muted"
                                                 }
                                             >
-                                                {getPaymentMethodLabel(order.payment_method)}
+                                                {tx(getPaymentMethodLabel(order.payment_method))}
                                             </span>
                                         </td>
                                         <td width="160px">
                                             <div className="admin__table__stack">
                                                 <strong>{formatCurrency(getNetRevenue(order))}</strong>
-                                                <span>Discount {formatCurrency(order.discount)}</span>
+                                                <span>{tx("Discount")} {formatCurrency(order.discount)}</span>
                                             </div>
                                         </td>
                                         <td width="150px">
@@ -536,7 +535,7 @@ const AdminOrderPage = () => {
                                                           : "admin__pill admin__pill--danger"
                                                 }
                                             >
-                                                {getStatusLabel(order.status)}
+                                                {tx(getStatusLabel(order.status))}
                                             </span>
                                         </td>
                                         <td className="admin__table__actions-cell">
@@ -546,7 +545,7 @@ const AdminOrderPage = () => {
                                                     className="admin__button admin__button--ghost admin__button--compact admin__table__view-action"
                                                     onClick={() => handleOpenDetail(order.id)}
                                                 >
-                                                    View
+                                                    {tx("View")}
                                                 </button>
                                                 {order.status === ORDER_STATUS.PENDING ? (
                                                     <DropdownMenu>
@@ -621,55 +620,55 @@ const AdminOrderPage = () => {
                     contentClassName="admin__dialog__content"
                 >
                     <Modal.Header closeButton>
-                        <Modal.Title>Order detail</Modal.Title>
+                        <Modal.Title>{tx("Order detail")}</Modal.Title>
                     </Modal.Header>
                     <Modal.Body>
                         {selectedOrder ? (
                             <div className="admin__order-detail">
                                 <section className="admin__detail-section">
                                     <div className="admin__detail-section__header">
-                                        <h4>Order summary</h4>
-                                        <p>Core order, customer, payment, and pricing information.</p>
+                                        <h4>{tx("Order summary")}</h4>
+                                        <p>{tx("Core order, customer, payment, and pricing information.")}</p>
                                     </div>
                                     <div className="admin__order-detail__summary">
                                     <div>
-                                        <span>Order</span>
+                                        <span>{tx("Order")}</span>
                                         <strong>#{selectedOrder.id}</strong>
-                                        <small>{formatUtcDateTime(selectedOrder.date_added)}</small>
+                                        <small>{formatUtcDateTime(selectedOrder.date_added, locale === "vi" ? "vi-VN" : "en-GB")}</small>
                                     </div>
                                     <div>
-                                        <span>Customer</span>
+                                        <span>{tx("Customer")}</span>
                                         <strong>{getCustomerName(selectedOrder)}</strong>
                                         <small>{getCustomerMeta(selectedOrder)}</small>
                                     </div>
                                     <div>
-                                        <span>Status</span>
-                                        <strong>{getStatusLabel(selectedOrder.status)}</strong>
+                                        <span>{tx("Status")}</span>
+                                        <strong>{tx(getStatusLabel(selectedOrder.status))}</strong>
                                     </div>
                                     <div>
-                                        <span>Total</span>
+                                        <span>{tx("Total")}</span>
                                         <strong>{formatCurrency(getNetRevenue(selectedOrder))}</strong>
-                                        <small>Discount {formatCurrency(selectedOrder.discount)}</small>
+                                        <small>{tx("Discount")} {formatCurrency(selectedOrder.discount)}</small>
                                     </div>
                                     <div>
-                                        <span>Payment</span>
-                                        <strong>{getPaymentMethodLabel(selectedOrder.payment_method)}</strong>
+                                        <span>{tx("Payment")}</span>
+                                        <strong>{tx(getPaymentMethodLabel(selectedOrder.payment_method))}</strong>
                                     </div>
                                     </div>
                                 </section>
                                 <section className="admin__detail-section">
                                     <div className="admin__detail-section__header">
-                                        <h4>Timeline</h4>
-                                        <p>Important events recorded for this order.</p>
+                                        <h4>{tx("Timeline")}</h4>
+                                        <p>{tx("Important events recorded for this order.")}</p>
                                     </div>
                                     <div className="admin__order-detail__timeline">
                                     {(selectedOrder.timeline && selectedOrder.timeline.length > 0
                                         ? selectedOrder.timeline
-                                        : [{ id: 0, label: "Placed", note: "Order was placed.", created_at: String(selectedOrder.date_added), status: selectedOrder.status }]
+                                        : [{ id: 0, label: tx("Placed"), note: tx("Order was placed."), created_at: String(selectedOrder.date_added), status: selectedOrder.status }]
                                     ).map((event) => (
                                         <span key={`${event.id}-${event.label}`} className="is-done">
                                             <strong>{event.label}</strong>
-                                            <small>{event.created_at ? formatUtcDateTime(event.created_at) : ""}</small>
+                                            <small>{event.created_at ? formatUtcDateTime(event.created_at, locale === "vi" ? "vi-VN" : "en-GB") : ""}</small>
                                             {event.note ? <em>{event.note}</em> : null}
                                         </span>
                                     ))}
@@ -677,23 +676,23 @@ const AdminOrderPage = () => {
                                 </section>
                                 <section className="admin__detail-section">
                                     <div className="admin__detail-section__header">
-                                        <h4>Shipping</h4>
-                                        <p>Recorded delivery destination for this order.</p>
+                                        <h4>{tx("Shipping")}</h4>
+                                        <p>{tx("Recorded delivery destination for this order.")}</p>
                                     </div>
                                     <div className="admin__order-detail__address">
-                                    <span>Shipping address</span>
+                                    <span>{tx("Shipping address")}</span>
                                     <strong>{getShippingAddress(selectedOrder.shipping_address)}</strong>
                                     </div>
                                 </section>
                                 <section className="admin__detail-section">
                                     <div className="admin__detail-section__header">
-                                        <h4>Items ordered</h4>
-                                        <p>Line items included in the purchase.</p>
+                                        <h4>{tx("Items ordered")}</h4>
+                                        <p>{tx("Line items included in the purchase.")}</p>
                                     </div>
                                     <div className="admin__order-detail__items">
                                     <div className="admin__order-detail__items__header">
-                                        <span>Items ordered</span>
-                                        <strong>{selectedOrder.items.length} products</strong>
+                                        <span>{tx("Items ordered")}</span>
+                                        <strong>{selectedOrder.items.length} {tx("products")}</strong>
                                     </div>
                                     {selectedOrder.items.map((item) => (
                                         <div key={`${selectedOrder.id}-${item.productId}`} className="admin__order-detail__item-row">
@@ -702,7 +701,7 @@ const AdminOrderPage = () => {
                                                 <span>
                                                     {item.brand} | {item.category}
                                                 </span>
-                                                <small>Product #{item.productId}</small>
+                                                <small>{tx("Product")} #{item.productId}</small>
                                             </div>
                                             <div className="admin__order-detail__item-row__pricing">
                                                 <strong>{formatCurrency(getItemSubtotal(item.sale_price ?? item.price, item.quantity))}</strong>
@@ -719,7 +718,7 @@ const AdminOrderPage = () => {
                     </Modal.Body>
                     <Modal.Footer>
                         <Button variant="secondary" onClick={() => setShowDetail(false)}>
-                            Close
+                            {tx("Close")}
                         </Button>
                     </Modal.Footer>
                 </Modal>

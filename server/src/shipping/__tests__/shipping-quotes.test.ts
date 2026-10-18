@@ -30,16 +30,17 @@ const cart = [{ product_id: 7, quantity: 2, price: 100000, sale_price: null }] a
 
 function buildQuoteService() {
     const quotes = new Map<string, Record<string, unknown>>();
+    const mysqlCoordinate = (value: number) => Number(value.toFixed(7));
     const repository = {
         saveQuote: vi.fn(async (_tx, input) => {
             quotes.set(input.id, {
                 ...input,
                 provider: "INTERNAL",
                 owner_hash: input.ownerHash,
-                origin_latitude: input.origin.latitude,
-                origin_longitude: input.origin.longitude,
-                destination_latitude: input.destination.latitude,
-                destination_longitude: input.destination.longitude,
+                origin_latitude: mysqlCoordinate(input.origin.latitude),
+                origin_longitude: mysqlCoordinate(input.origin.longitude),
+                destination_latitude: mysqlCoordinate(input.destination.latitude),
+                destination_longitude: mysqlCoordinate(input.destination.longitude),
                 distance_meters: input.distanceMeters,
                 route_geometry: input.routeGeometry,
                 settings_version: input.settingsVersion,
@@ -153,6 +154,25 @@ describe("internal delivery quote orchestration", () => {
         expect(repository.consume).toHaveBeenCalledWith(tx, quote.id);
     });
 
+    it("validates map pins at the same precision MySQL stores", async () => {
+        const { service, routes } = buildQuoteService();
+        const identity = { kind: "guest" as const, guestCartId: "guest-a" };
+        const address = { ...internalAddress, latitude: 10.77691234, longitude: 106.70091234 };
+        const quote = await service.createQuote(identity, { address, cart, subtotal: 200000, discount: 10000 });
+
+        expect(routes.getRoute).toHaveBeenCalledWith(
+            { latitude: deliverySettings.storeLatitude, longitude: deliverySettings.storeLongitude },
+            { latitude: 10.7769123, longitude: 106.7009123 },
+            deliverySettings.routingEndpoint,
+        );
+        expect(quote.destination).toEqual({ latitude: 10.7769123, longitude: 106.7009123 });
+        await expect(service.validateQuote(tx as never, {
+            shippingQuoteId: quote.id,
+            deliveryAddress: quote.address,
+            quoteIdentity: identity,
+        }, cart, 200000, 10000)).resolves.toMatchObject({ delivery: { destination: quote.destination } });
+    });
+
     it("rejects historical provider quotes and quotes created against outdated settings", async () => {
         const { service, repository, settings, quotes } = buildQuoteService();
         const identity = { kind: "guest" as const, guestCartId: "guest-a" };
@@ -225,5 +245,18 @@ describe("owner-bound delivery quotes", () => {
         expect(() => assertQuoteMatches(row, "foreign", now)).toThrow();
         expect(() => assertQuoteMatches(row, "mine", row.expiresAt)).toThrow();
         expect(() => assertQuoteMatches({ ...row, consumed: true }, "mine", now)).toThrow();
+    });
+
+    it.each([
+        ["expired", { fingerprint: "mine", expiresAt: new Date("2026-10-14T00:00:00Z"), consumed: false }, "mine", "DELIVERY_QUOTE_EXPIRED"],
+        ["changed", { fingerprint: "mine", expiresAt: new Date("2026-10-14T00:00:01Z"), consumed: false }, "other", "DELIVERY_QUOTE_CHANGED"],
+        ["consumed", { fingerprint: "mine", expiresAt: new Date("2026-10-14T00:00:01Z"), consumed: true }, "mine", "DELIVERY_QUOTE_INVALID"],
+    ] as const)("returns a stable code for a %s quote", (_name, row, fingerprint, code) => {
+        try {
+            assertQuoteMatches(row, fingerprint, new Date("2026-10-14T00:00:00Z"));
+            throw new Error("Expected quote validation to fail");
+        } catch (error) {
+            expect((error as { getResponse?: () => unknown }).getResponse?.()).toMatchObject({ code });
+        }
     });
 });

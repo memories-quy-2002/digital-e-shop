@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { renderWithLocale } from '../../../test-utils/renderWithLocale';
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminEmailOperationsPage from "./AdminEmailOperationsPage";
 import { fetchEmailOperations, retryEmail, runOperations } from "../operations.api";
@@ -9,7 +10,6 @@ vi.mock("../operations.api", () => ({
     runOperations: vi.fn(),
 }));
 vi.mock("../../../components/layout/AdminLayout", () => ({ default: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
-vi.mock("../../../context/LocaleContext", () => ({ useLocale: () => ({ locale: "en" }) }));
 
 describe("AdminEmailOperationsPage", () => {
     beforeEach(() => {
@@ -26,7 +26,7 @@ describe("AdminEmailOperationsPage", () => {
     });
 
     it("labels accepted, delivered, failed, sandbox records and shows masked recipients and safe error codes", async () => {
-        render(<AdminEmailOperationsPage />);
+        renderWithLocale(<AdminEmailOperationsPage />);
         expect(await screen.findByText("Accepted by provider")).toBeInTheDocument();
         expect(screen.getByText("Delivered")).toBeInTheDocument();
         expect(screen.getByText("Sandbox delivery")).toBeInTheDocument();
@@ -39,7 +39,7 @@ describe("AdminEmailOperationsPage", () => {
             messages: [{ id: 4, eventType: "order_placed", recipientMasked: "m***@example.test", locale: "en", state: "review_required", providerMessageId: null, createdAt: "2026-10-14T10:00:00.000Z", updatedAt: "2026-10-14T10:00:01.000Z", lastErrorCode: "delivery_outcome_unknown" }],
             nextAfterId: null,
         });
-        render(<AdminEmailOperationsPage />);
+        renderWithLocale(<AdminEmailOperationsPage />);
         await screen.findByText("Review required");
         fireEvent.click(screen.getByRole("button", { name: "Retry email #4" }));
         expect(await screen.findByRole("dialog", { name: "Confirm resend" })).toBeInTheDocument();
@@ -50,15 +50,18 @@ describe("AdminEmailOperationsPage", () => {
 
     it("clamps the runner batch to its server bound", async () => {
         vi.mocked(runOperations).mockResolvedValue({ claimed: 0, succeeded: 0, retried: 0, failed: 0, reviewRequired: 0, elapsedMs: 1 });
-        render(<AdminEmailOperationsPage />);
+        renderWithLocale(<AdminEmailOperationsPage />);
         await screen.findByText("Accepted by provider");
         fireEvent.change(screen.getByLabelText("Runner batch size"), { target: { value: "500" } });
         fireEvent.click(screen.getByRole("button", { name: "Run operations" }));
         await waitFor(() => expect(runOperations).toHaveBeenCalledWith(100));
+        const summary = await screen.findByRole("status");
+        expect(summary).toHaveTextContent("No due operations were found.");
+        expect(summary.parentElement).not.toHaveClass("operations__runner");
     });
 
     it("pages through messages using the bounded cursor", async () => {
-        render(<AdminEmailOperationsPage />);
+        renderWithLocale(<AdminEmailOperationsPage />);
         await screen.findByText("Accepted by provider");
         fireEvent.click(screen.getByRole("button", { name: "Next messages" }));
         await waitFor(() => expect(fetchEmailOperations).toHaveBeenLastCalledWith({ limit: 25, afterId: 4 }));

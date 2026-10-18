@@ -1,17 +1,17 @@
 .not-found {
     min-height: calc(100vh - 180px);
-    max-width: 1180px;
+    width: min(100%, var(--de-max-width-content));
     margin: 0 auto;
-    padding: 2.5rem 1.5rem 4rem;
+    padding: 2.5rem clamp(1rem, 4vw, 1.5rem) 4rem;
     display: grid;
     gap: 1.25rem;
 
     &__hero,
     &__panel {
         border: 1px solid var(--de-color-border);
-        border-radius: 24px;
-        background: linear-gradient(180deg, var(--de-color-surface-strong), var(--de-color-surface));
-        box-shadow: var(--de-shadow-md);
+        border-radius: var(--de-radius-md);
+        background: var(--de-color-surface);
+        box-shadow: var(--de-shadow-sm);
     }
 
     &__hero {
@@ -21,11 +21,11 @@
     }
 
     &__eyebrow {
-        color: var(--de-color-electric);
-        font-size: 0.8rem;
-        font-weight: 900;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
+        color: var(--de-color-signal);
+        font-family: var(--de-font-family-mono);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
     }
 
     h1 {
@@ -39,7 +39,7 @@
     p {
         margin: 0;
         max-width: 42rem;
-        color: var(--de-color-text-soft);
+        color: var(--de-color-text-muted);
         line-height: 1.7;
     }
 
@@ -55,17 +55,18 @@
             justify-content: center;
             min-height: 46px;
             padding: 0.75rem 1.1rem;
-            border-radius: 999px;
-            background: var(--de-color-electric);
-            color: var(--de-color-on-strong);
+            border-radius: var(--de-radius-xs);
+            background: var(--de-color-signal);
+            color: var(--de-color-on-accent);
             font-weight: 900;
             text-decoration: none;
-            box-shadow: var(--de-shadow-info-soft);
+            box-shadow: none;
         }
 
         .ghost {
-            background: var(--de-color-info-soft);
-            color: var(--de-color-info-strong);
+            border: 1px solid var(--de-color-border-strong);
+            background: var(--de-color-surface-muted);
+            color: var(--de-color-text);
             box-shadow: none;
         }
     }
@@ -79,11 +80,11 @@
 
         &__hero {
             padding: 1.35rem;
-            border-radius: 20px;
+            border-radius: var(--de-radius-sm);
         }
 
         &__panel {
-            border-radius: 20px;
+            border-radius: var(--de-radius-sm);
             padding: 0.8rem;
         }
 
@@ -94,6 +95,70 @@
             a {
                 width: 100%;
             }
+        }
+    }
+}
+
+.forbidden {
+    min-height: calc(100vh - 180px);
+    display: grid;
+    place-items: center;
+    padding: 2.5rem clamp(1rem, 4vw, 1.5rem) 4rem;
+
+    &__panel {
+        width: min(100%, 42rem);
+        display: grid;
+        justify-items: center;
+        gap: 1rem;
+        border: 1px solid var(--de-color-border);
+        border-top: 3px solid var(--de-color-signal);
+        border-radius: var(--de-radius-md);
+        background: var(--de-color-surface);
+        padding: clamp(1.5rem, 5vw, 3rem);
+        text-align: center;
+        box-shadow: var(--de-shadow-sm);
+    }
+
+    &__code {
+        color: var(--de-color-signal);
+        font-family: var(--de-font-family-mono);
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+    }
+
+    h1 { font-size: clamp(2rem, 5vw, 3.25rem); }
+
+    p {
+        max-width: 36rem;
+        color: var(--de-color-text-muted);
+        line-height: 1.65;
+    }
+
+    &__actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.65rem;
+        margin-top: 0.5rem;
+
+        a {
+            display: inline-flex;
+            min-height: 2.75rem;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--de-color-signal);
+            border-radius: var(--de-radius-xs);
+            background: var(--de-color-signal);
+            padding: 0.65rem 0.95rem;
+            color: var(--de-color-on-accent);
+            font-weight: 800;
+        }
+
+        .ghost {
+            border-color: var(--de-color-border-strong);
+            background: var(--de-color-surface-muted);
+            color: var(--de-color-text);
         }
     }
 }

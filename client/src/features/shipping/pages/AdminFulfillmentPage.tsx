@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import AdminLayout from "../../../components/layout/AdminLayout";
 import { useT } from "../../../hooks/useT";
+import { useLocale } from "../../../context/LocaleContext";
 import { formatUtcDateTime } from "../../../utils/dateTime";
 import AdminStatusPanel from "../../admin/components/AdminStatusPanel";
 import { fetchFulfillmentOrder, fetchFulfillmentOrders, transitionFulfillment } from "../api";
@@ -15,6 +16,7 @@ const NEXT: Record<string, Array<"CONFIRMED" | "PICKING" | "PACKED" | "READY_TO_
 
 export default function AdminFulfillmentPage() {
     const t = useT();
+    const { locale } = useLocale();
     const [orders, setOrders] = useState<FulfillmentOrder[]>([]);
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const [detail, setDetail] = useState<ShipmentSummary | null>(null);
@@ -85,11 +87,11 @@ export default function AdminFulfillmentPage() {
                     <p>{t("shipping.currentState")}: <strong>{stateLabel(state)}</strong></p>
                     {detail?.trackingCode ? <p>{t("shipping.trackingCode")}: <strong>{detail.trackingCode}</strong></p> : null}
                     {detail?.sandbox ? <p className="shipping-admin__sandbox">{t("shipping.sandboxShipment")}</p> : null}
-                    {detail?.expectedDeliveryAt ? <p>{t("shipping.expectedDelivery")}: {formatUtcDateTime(detail.expectedDeliveryAt)}</p> : null}
+                    {detail?.expectedDeliveryAt ? <p>{t("shipping.expectedDelivery")}: {formatUtcDateTime(detail.expectedDeliveryAt, locale === "vi" ? "vi-VN" : "en-GB")}</p> : null}
                     <div className="shipping-admin__actions">
                         {nextStates.map((next) => <button key={next} type="button" disabled={busy} onClick={() => void act(() => transitionFulfillment(selectedOrder.orderId, next))}>{t(`shipping.state.${next}`)}</button>)}
                     </div>
-                    {detail?.timeline?.length ? <section aria-label={t("shipping.deliveryHistory")}><h3>{t("shipping.deliveryHistory")}</h3><ol>{detail.timeline.map((event, index) => <li key={event.id ?? index}><strong>{stateLabel(event.state)}</strong>{event.created_at || event.occurredAt ? <time dateTime={event.created_at || event.occurredAt || undefined}> {formatUtcDateTime(event.created_at || event.occurredAt || "")}</time> : null}{event.public_note || event.note ? <p>{event.public_note || event.note}</p> : null}</li>)}</ol></section> : null}
+                    {detail?.timeline?.length ? <section aria-label={t("shipping.deliveryHistory")}><h3>{t("shipping.deliveryHistory")}</h3><ol>{detail.timeline.map((event, index) => <li key={event.id ?? index}><strong>{stateLabel(event.state)}</strong>{event.created_at || event.occurredAt ? <time dateTime={event.created_at || event.occurredAt || undefined}> {formatUtcDateTime(event.created_at || event.occurredAt || "", locale === "vi" ? "vi-VN" : "en-GB")}</time> : null}{event.public_note || event.note ? <p>{event.public_note || event.note}</p> : null}</li>)}</ol></section> : null}
                 </section> : null}
             </div> : null}
         </main>

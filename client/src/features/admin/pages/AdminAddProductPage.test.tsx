@@ -1,6 +1,7 @@
+import { renderWithLocale } from '../../../test-utils/renderWithLocale';
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminAddProductPage from "./AdminAddProductPage";
 import { addProduct } from "../api";
@@ -40,7 +41,7 @@ describe("AdminAddProductPage validation", () => {
     });
 
     it("marks only the server-required controls as required", () => {
-        render(<AdminAddProductPage />);
+        renderWithLocale(<AdminAddProductPage />);
 
         expect(screen.getByLabelText(/Product Name/)).toBeRequired();
         expect(screen.getByLabelText(/Category/)).toBeRequired();
@@ -52,7 +53,7 @@ describe("AdminAddProductPage validation", () => {
     });
 
     it("blocks an empty submission before constructing a product request", () => {
-        render(<AdminAddProductPage />);
+        renderWithLocale(<AdminAddProductPage />);
 
         fireEvent.submit(screen.getByRole("button", { name: "Save Product" }).closest("form")!);
 
@@ -62,7 +63,7 @@ describe("AdminAddProductPage validation", () => {
     });
 
     it("accepts zero price and inventory without optional copy or image", async () => {
-        render(<AdminAddProductPage />);
+        renderWithLocale(<AdminAddProductPage />);
         fillRequiredFields();
 
         fireEvent.submit(screen.getByRole("button", { name: "Save Product" }).closest("form")!);
@@ -75,7 +76,7 @@ describe("AdminAddProductPage validation", () => {
     });
 
     it("does not render GHN parcel metadata fields", () => {
-        render(<AdminAddProductPage />);
+        renderWithLocale(<AdminAddProductPage />);
 
         expect(screen.queryByLabelText(/Parcel weight/)).not.toBeInTheDocument();
         expect(screen.queryByLabelText(/Length \(cm\)/)).not.toBeInTheDocument();
@@ -83,7 +84,7 @@ describe("AdminAddProductPage validation", () => {
 
     it("keeps the server mutation error path", async () => {
         vi.mocked(addProduct).mockRejectedValue(new Error("Duplicate SKU"));
-        render(<AdminAddProductPage />);
+        renderWithLocale(<AdminAddProductPage />);
         fillRequiredFields();
 
         fireEvent.submit(screen.getByRole("button", { name: "Save Product" }).closest("form")!);
@@ -92,7 +93,7 @@ describe("AdminAddProductPage validation", () => {
     });
 
     it("groups product fields semantically and associates every label with its control", () => {
-        render(<AdminAddProductPage />);
+        renderWithLocale(<AdminAddProductPage />);
 
         const identity = screen.getByRole("group", { name: "Product identity" });
         const pricing = screen.getByRole("group", { name: "Pricing and inventory" });

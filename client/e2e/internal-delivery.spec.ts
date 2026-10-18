@@ -157,7 +157,15 @@ test("admin assigns an internal order with Vietnam local schedule", async ({ pag
     });
 
     await page.goto("/admin/fulfillment");
-    await expect(page.getByRole("heading", { name: locale === "vi" ? "Phân công giao hàng" : "Delivery assignments" })).toBeVisible();
+    const assignmentPanel = page.locator(".delivery-assignments");
+    const themeColors = theme === "dark"
+        ? { surface: "rgb(28, 36, 41)", text: "rgb(242, 239, 232)", action: "rgb(228, 102, 61)", actionText: "rgb(17, 20, 22)" }
+        : { surface: "rgb(248, 246, 240)", text: "rgb(26, 33, 35)", action: "rgb(195, 75, 43)", actionText: "rgb(255, 255, 255)" };
+    await expect(assignmentPanel).toHaveCSS("background-color", themeColors.surface);
+    await expect(assignmentPanel).toHaveCSS("color", themeColors.text);
+    await expect(assignmentPanel.locator(".delivery-assignments__header button")).toHaveCSS("background-color", themeColors.action);
+    await expect(assignmentPanel.locator(".delivery-assignments__header button")).toHaveCSS("color", themeColors.actionText);
+    await expect(assignmentPanel.locator(".delivery-assignments__header").getByRole("heading", { name: locale === "vi" ? "Phân công giao hàng" : "Delivery assignments" })).toBeVisible();
     await expect(page.getByText("Graphics card")).toBeVisible();
     await page.getByLabel(locale === "vi" ? "Nhân viên giao hàng" : "Delivery staff").selectOption("driver-1");
     await page.getByLabel(locale === "vi" ? "Giờ bắt đầu" : "Scheduled start").fill("2099-10-16T10:00");

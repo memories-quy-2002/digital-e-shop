@@ -27,7 +27,7 @@ describe("OrdersController", () => {
         expect(ordersService.makePurchase).toHaveBeenCalledWith("user-1", expect.objectContaining({ discount: 10 }));
     });
 
-    it.each(["stripe", "card", "bank_transfer"])("rejects %s before persistence", async (paymentMethod) => {
+    it.each(["unsupported_provider", "card", "bank_transfer"])("rejects %s before persistence", async (paymentMethod) => {
         const { controller, ordersService } = buildController();
         await expect(controller.makePurchase("user-1", { totalPrice: 100_000, cart: [{ productId: 7, quantity: 1, price: 100_000 }], discount: 0, shippingAddress: "Test address", paymentMethod })).rejects.toMatchObject({ status: 400 });
         expect(ordersService.makePurchase).not.toHaveBeenCalled();
@@ -75,6 +75,20 @@ describe("OrdersController", () => {
             shippingQuoteId: "quote-1", deliveryAddress: {} as never, totalPrice: 100,
             cart: [{ productId: 1, quantity: 1, price: 100 }], discount: 0, shippingAddress: "address",
         })).resolves.toMatchObject({ attemptId: "11111111-1111-4111-8111-111111111111", sessionState: "CREATING" });
+    });
+
+    it("binds simulated PayOS confirmation to the supplied payment attempt", async () => {
+        const payosService = { confirmMockPayment: vi.fn().mockResolvedValue({ id: 827 }) };
+        const controller = new OrdersController({} as never, payosService as never);
+        const payload = {
+            paymentAttemptId: "11111111-1111-4111-8111-111111111111",
+            orderCode: 123456789,
+            paymentLinkId: "mock-link",
+            amount: 100,
+        };
+
+        await expect(controller.confirmMockPayOSPayment(payload)).resolves.toMatchObject({ orderId: 827 });
+        expect(payosService.confirmMockPayment).toHaveBeenCalledWith(payload.paymentAttemptId, payload.orderCode, payload.paymentLinkId, payload.amount);
     });
 
     it("rejects malformed authenticated PayOS idempotency keys before creating a session", async () => {

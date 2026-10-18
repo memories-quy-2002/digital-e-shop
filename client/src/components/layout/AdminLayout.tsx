@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import AdminHeader from "./AdminHeader";
 import AdminSidebar from "./AdminSidebar";
 import { useT } from "../../hooks/useT";
+import { useLocation } from "react-router-dom";
 import "../../styles/features/admin/_shell.scss";
 
 interface LayoutProps {
@@ -10,6 +11,7 @@ interface LayoutProps {
 
 function AdminLayout({ children }: LayoutProps) {
     const t = useT();
+    const location = useLocation();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);
@@ -43,14 +45,16 @@ function AdminLayout({ children }: LayoutProps) {
                     <button
                         type="button"
                         className="admin__layout__scrim"
-                        aria-label="Close admin navigation"
+                        aria-label={t("header.closeMenu")}
                         onClick={closeSidebar}
                     />
                 ) : null}
                 <div className="admin__layout__main">
                     <AdminHeader onOpenSidebar={openSidebar} isSidebarOpen={isSidebarOpen} />
                     <div id="admin-main-content" className="admin__layout__main__body" tabIndex={-1}>
-                        {children}
+                        <div className="admin__route-content" key={location.pathname}>
+                            {children}
+                        </div>
                     </div>
                 </div>
             </div>

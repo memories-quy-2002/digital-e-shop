@@ -35,6 +35,7 @@ import { CUSTOMER_ROUTES } from "../../../routes/customerRoutes";
 import type { GuestOrderDetail } from "../types";
 import type { PaymentAttemptStatus } from "../types";
 import { useT } from "../../../hooks/useT";
+import { useCustomerJourneyCopy } from "../../../hooks/useCustomerJourneyCopy";
 import { readGuestCart, replaceGuestCart } from "../guestCartStorage";
 import ShipmentTimeline from "../../shipping/components/ShipmentTimeline";
 import GuestOrderAccessCard from "../components/GuestOrderAccessCard";
@@ -43,7 +44,9 @@ import type { ShipmentSummary } from "../../shipping/types";
 import {
     clearPendingCheckout,
     readCheckoutSuccess,
+    readPendingCheckout,
     maskPhoneNumber,
+    writeCheckoutSuccess,
     type CheckoutSuccessData,
 } from "./checkoutSuccessStorage";
 
@@ -79,6 +82,7 @@ const CheckoutSuccessPage = () => {
     const { userData, loading } = useAuth();
     const { clearCart, fetchCart } = useCart();
     const t = useT();
+    const copy = useCustomerJourneyCopy();
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const payOSOrderCode = searchParams.get("payos_order_code");
@@ -87,7 +91,8 @@ const CheckoutSuccessPage = () => {
     const routeData = (location.state as { checkoutSuccess?: CheckoutSuccessData } | null)?.checkoutSuccess || null;
 
     const orderData = useMemo(() => readCheckoutSuccess(), []);
-    const guestOrderToken = orderData?.guestOrderToken;
+    const pendingCheckout = useMemo(() => readPendingCheckout(), []);
+    const guestOrderToken = orderData?.guestOrderToken || pendingCheckout?.guestOrderToken;
 
     useEffect(() => {
         if (paymentAttemptId || payOSOrderCode) return;
@@ -274,12 +279,42 @@ const CheckoutSuccessPage = () => {
                 });
                 replaceGuestCart(next);
                 await syncGuestCart(next);
+                if (guestOrderToken && paymentAttempt.orderId) {
+                    writeCheckoutSuccess({
+                        orderId: String(paymentAttempt.orderId),
+                        totalPrice: paymentAttempt.payableVnd,
+                        discount: paymentAttempt.discountVnd,
+                        subtotal: paymentAttempt.subtotalVnd,
+                        shippingFee: paymentAttempt.shippingVnd,
+                        itemsCount: paymentAttempt.items.reduce((sum, item) => sum + item.quantity, 0),
+                        currency: paymentAttempt.currency,
+                        paymentMethod: PAYMENT_METHOD.PAYOS,
+                        guestOrderToken,
+                    });
+                }
             }
             await fetchCart();
             clearPendingCheckout();
         };
         void updatePurchasedCart().catch(() => { cartAppliedAttemptRef.current = null; });
-    }, [fetchCart, loading, paymentAttempt, paymentAttemptId, userData?.id]);
+    }, [fetchCart, guestOrderToken, loading, paymentAttempt, paymentAttemptId, userData?.id]);
+
+    useEffect(() => {
+        if (!paymentAttemptId || !paymentAttempt || userData?.id || !guestOrderToken
+            || paymentAttempt.paymentState !== "PAID" || paymentAttempt.orderState !== "CREATED"
+            || !paymentAttempt.orderId) return;
+        let cancelled = false;
+        void lookupGuestOrder(paymentAttempt.orderId, guestOrderToken).then((order) => {
+            if (cancelled || !order?.id) return;
+            const success = guestOrderToCheckoutSuccess(order, guestOrderToken);
+            setPolledOrder(success);
+            writeCheckoutSuccess(success);
+            clearPendingCheckout();
+        }).catch(() => {
+            // Keep the attempt summary and the saved access card available if detail lookup is temporarily unavailable.
+        });
+        return () => { cancelled = true; };
+    }, [guestOrderToken, paymentAttempt, paymentAttemptId, userData?.id]);
 
     const combinedData = payOSOrderCode && !paymentAttemptId ? null : routeData || polledOrder || orderData;
     useEffect(() => {
@@ -312,45 +347,44 @@ const CheckoutSuccessPage = () => {
     if (paymentAttemptId) {
         const confirmed = Boolean(paymentAttempt?.paymentState === "PAID" && paymentAttempt.orderState === "CREATED" && paymentAttempt.orderId);
         const titleKey = attemptError
-            ? "attemptUnknownTitle"
+            ? "checkout.attemptUnknownTitle"
             : confirmed
-                ? "attemptConfirmedTitle"
+                ? "checkout.attemptPaymentSuccessTitle"
                 : paymentAttempt?.resolutionState === "REFUND_RECORDED"
-                    ? "attemptRefundedTitle"
+                    ? "checkout.attemptRefundedTitle"
                     : paymentAttempt?.paymentState === "PAID" && paymentAttempt.orderState === "FINALIZING"
-                        ? "attemptPaidFinalizingTitle"
+                        ? "checkout.attemptPaidFinalizingTitle"
                         : paymentAttempt?.paymentState === "PAID" && paymentAttempt.orderState === "REVIEW_REQUIRED"
-                            ? "attemptReviewTitle"
+                            ? "checkout.attemptReviewTitle"
                             : paymentAttempt?.paymentState === "PARTIAL"
-                                ? "attemptPartialTitle"
+                                ? "checkout.attemptPartialTitle"
                                 : paymentAttempt?.paymentState === "MISMATCH"
-                                    ? "attemptMismatchTitle"
+                                    ? "checkout.attemptMismatchTitle"
                                     : paymentAttempt?.paymentState === "CANCELLED"
-                                        ? "attemptCancelledTitle"
+                                        ? "checkout.attemptCancelledTitle"
                                         : paymentAttempt?.paymentState === "EXPIRED"
-                                            ? "attemptExpiredTitle"
+                                            ? "checkout.attemptExpiredTitle"
                                             : paymentAttempt?.paymentState === "PENDING"
-                                                ? "attemptPendingTitle"
-                                                : "attemptUnknownTitle";
-        const errorKey = attemptError ? `attemptError${attemptError[0].toUpperCase()}${attemptError.slice(1)}` : null;
+                                                ? "checkout.attemptPendingTitle"
+                                                : "checkout.attemptUnknownTitle";
+        const errorKey = attemptError ? `checkout.attemptError${attemptError[0].toUpperCase()}${attemptError.slice(1)}` : null;
         const bodyKey = confirmed
-            ? "attemptConfirmed"
+            ? "checkout.attemptConfirmed"
             : paymentAttempt?.resolutionState === "REFUND_RECORDED"
-                ? "attemptRefundedBody"
+                ? "checkout.attemptRefundedBody"
                 : paymentAttempt?.paymentState === "PAID" && paymentAttempt.orderState === "REVIEW_REQUIRED"
-                    ? "attemptPaidReviewBody"
+                    ? "checkout.attemptPaidReviewBody"
                     : paymentAttempt?.paymentState === "PAID" && paymentAttempt.orderState === "FINALIZING"
-                        ? "attemptPaidFinalizingBody"
+                        ? "checkout.attemptPaidFinalizingBody"
                         : paymentAttempt?.paymentState === "PARTIAL" || paymentAttempt?.paymentState === "MISMATCH"
-                            ? "attemptSupportBody"
+                            ? "checkout.attemptSupportBody"
                             : paymentAttempt?.paymentState === "CANCELLED"
-                                ? "attemptCancelledBody"
+                                ? "checkout.attemptCancelledBody"
                                 : paymentAttempt?.paymentState === "EXPIRED"
-                                    ? "attemptExpiredBody"
+                                    ? "checkout.attemptExpiredBody"
                                     : paymentAttempt?.paymentState === "PENDING"
-                                        ? "attemptPendingBody"
-                                        : "attemptUnknownBody";
-        const needsSupport = paymentAttempt && ["PARTIAL", "MISMATCH"].includes(paymentAttempt.paymentState);
+                                        ? "checkout.attemptPendingBody"
+                                        : "checkout.attemptUnknownBody";
         const checkAgain = async () => {
             attemptStartedAt.current = Date.now();
             setAttemptPollingStopped(false);
@@ -376,48 +410,91 @@ const CheckoutSuccessPage = () => {
                 await loadPaymentAttempt();
             }
         };
+        const statusMessage = attemptChecking
+            ? t("checkout.attemptChecking")
+            : errorKey
+                ? t(errorKey)
+                : attemptPollingStopped
+                    ? t("checkout.attemptRetryStopped")
+                    : !paymentAttempt
+                        ? t("checkout.attemptChecking")
+                        : "";
+        const resumeUrl = paymentAttempt?.resumeUrl && paymentAttempt.paymentState === "PENDING" ? paymentAttempt.resumeUrl : null;
+        const canResume = Boolean(resumeUrl);
+        const canCancel = paymentAttempt?.paymentState === "PENDING" && paymentAttempt.orderState !== "CREATED";
         return (
             <Layout>
-                <Helmet><title>{t(titleKey)} | Digital-E</title></Helmet>
-                <main className="success app-page">
-                    <section className="success__hero" aria-labelledby="payment-attempt-heading">
-                        <div className="success__hero__content">
-                            <div className="success__hero__title-row">
-                                {confirmed ? <span className="success__hero__icon"><CheckCircleIcon size={34} /></span> : null}
-                                <div>
-                                    <h1 id="payment-attempt-heading" ref={attemptHeadingRef} tabIndex={-1}>{t(titleKey)}</h1>
-                                    <p className="success__hero__greeting" role="status" aria-live="polite">{t(bodyKey)}</p>
-                                </div>
+                <Helmet>
+                    <title>{t(titleKey)} | Digital-E</title>
+                    <meta name="description" content={copy.checkoutSuccess.paymentAttemptDescription} />
+                </Helmet>
+                <main className="success success--attempt app-page" data-payment-state={paymentAttempt?.paymentState.toLowerCase() ?? "unknown"}>
+                    <section className="success__attempt-hero" aria-labelledby="payment-attempt-heading">
+                        <div className="success__attempt-status">
+                            <span className="success__attempt-icon" aria-hidden="true">
+                                {confirmed ? <CheckCircleIcon size={26} /> : <ShieldIcon size={24} />}
+                            </span>
+                            <div className="success__attempt-copy">
+                                <h1 id="payment-attempt-heading" ref={attemptHeadingRef} tabIndex={-1}>{t(titleKey)}</h1>
+                                <p>{t(bodyKey)}</p>
                             </div>
                         </div>
+                        {paymentAttempt ? (
+                            <div className="success__attempt-total">
+                                <span>{t("checkout.attemptTotal")}</span>
+                                <strong>{formatMoney(paymentAttempt.payableVnd, paymentAttempt.currency)}</strong>
+                            </div>
+                        ) : null}
                     </section>
-                    <p className="checkout__note" role="status" aria-live="polite">
-                        {attemptChecking ? t("attemptChecking") : errorKey ? t(errorKey) : attemptPollingStopped ? t("attemptRetryStopped") : !paymentAttempt ? t("attemptChecking") : ""}
-                    </p>
+                    {statusMessage ? <p className="success__attempt-message" role="status" aria-live="polite">{statusMessage}</p> : null}
                     {paymentAttempt ? (
-                        <>
-                        <section className="success__summary" aria-label={t("checkout.orderSummary")}>
-                            {confirmed ? <article><span>{t("attemptOrderId")}</span><strong>{paymentAttempt.orderId}</strong></article> : null}
-                            <article><span>{t("attemptItems")}</span><strong>{paymentAttempt.items.reduce((sum, item) => sum + item.quantity, 0)}</strong></article>
-                            <article><span>{t("attemptSubtotal")}</span><strong>{formatMoney(paymentAttempt.subtotalVnd, paymentAttempt.currency)}</strong></article>
-                            <article><span>{t("attemptDiscount")}</span><strong>{formatMoney(paymentAttempt.discountVnd, paymentAttempt.currency)}</strong></article>
-                            <article><span>{t("attemptShipping")}</span><strong>{formatMoney(paymentAttempt.shippingVnd, paymentAttempt.currency)}</strong></article>
-                            <article><span>{t("attemptTotal")}</span><strong>{formatMoney(paymentAttempt.payableVnd, paymentAttempt.currency)}</strong></article>
-                            <article><span>{t("attemptReference")}</span><strong>{paymentAttempt.supportReference}</strong></article>
-                            <article><span>{t("attemptExpires")}</span><strong>{formatUtcDateTime(paymentAttempt.expiresAt)}</strong></article>
-                        </section>
-                        <section className="success__summary" aria-label={t("attemptItems")}>
-                            {paymentAttempt.items.map((item, index) => <article key={`${item.productId}-${index}`}><span>{item.name} × {item.quantity}</span><strong>{formatMoney(item.unitPriceVnd, paymentAttempt.currency)}</strong></article>)}
-                        </section>
-                        </>
+                        <div className="success__attempt-content">
+                            <section className="success__attempt-panel" aria-label={t("checkout.orderSummary")}>
+                                <div className="success__attempt-panel-heading">
+                                    <h2>{t("checkout.orderSummary")}</h2>
+                                    <span>{t("checkout.attemptItems")}: {paymentAttempt.items.reduce((sum, item) => sum + item.quantity, 0)}</span>
+                                </div>
+                                <dl className="success__attempt-breakdown">
+                                    <div><dt>{t("checkout.attemptSubtotal")}</dt><dd>{formatMoney(paymentAttempt.subtotalVnd, paymentAttempt.currency)}</dd></div>
+                                    <div><dt>{t("checkout.attemptDiscount")}</dt><dd>{formatMoney(paymentAttempt.discountVnd, paymentAttempt.currency)}</dd></div>
+                                    <div><dt>{t("checkout.attemptShipping")}</dt><dd>{formatMoney(paymentAttempt.shippingVnd, paymentAttempt.currency)}</dd></div>
+                                </dl>
+                                <dl className="success__attempt-meta">
+                                    {confirmed ? <div><dt>{t("checkout.attemptOrderId")}</dt><dd>{paymentAttempt.orderId}</dd></div> : null}
+                                    <div><dt>{t("checkout.attemptReference")}</dt><dd>{paymentAttempt.supportReference}</dd></div>
+                                    <div><dt>{t("checkout.attemptExpires")}</dt><dd>{formatUtcDateTime(paymentAttempt.expiresAt)}</dd></div>
+                                </dl>
+                            </section>
+                            <section className="success__attempt-panel success__attempt-products" aria-label={t("checkout.attemptItems")}>
+                                <h2>{t("checkout.attemptItems")}</h2>
+                                <ul>
+                                    {paymentAttempt.items.map((item, index) => (
+                                        <li key={`${item.productId}-${index}`}>
+                                            <span>{item.name}<small>× {item.quantity}</small></span>
+                                            <strong>{formatMoney(item.unitPriceVnd * item.quantity, paymentAttempt.currency)}</strong>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </section>
+                        </div>
                     ) : null}
-                    {needsSupport ? <p role="status">{t("attemptReference")}: {paymentAttempt?.supportReference}</p> : null}
-                    {attemptCancelNotice === "orderExists" ? <p role="alert">{t("attemptCancelOrderExists")} <Link to={userData?.id ? CUSTOMER_ROUTES.orders : "/guest-order"}>{t("attemptOpenOrders")}</Link></p> : null}
-                    {attemptCancelNotice === "error" ? <p role="alert">{t("attemptCancelError")}</p> : null}
-                    <div className="success__actions">
-                        <button type="button" className="success__action success__action--primary" onClick={checkAgain} disabled={attemptChecking}>{attemptChecking ? t("attemptCheckingButton") : t("attemptCheckAgain")}</button>
-                        {paymentAttempt?.resumeUrl && paymentAttempt.paymentState === "PENDING" ? <a className="success__action success__action--secondary" href={paymentAttempt.resumeUrl} rel="noopener noreferrer">{t("attemptResume")}</a> : null}
-                        {paymentAttempt?.paymentState === "PENDING" && paymentAttempt.orderState !== "CREATED" ? <button type="button" className="success__action success__action--secondary" onClick={() => void cancelAttempt()}>{t("attemptCancel")}</button> : null}
+                    {confirmed && !userData?.id && paymentAttempt?.orderId && guestOrderToken ? (
+                        <GuestOrderAccessCard orderId={String(paymentAttempt.orderId)} guestOrderToken={guestOrderToken} />
+                    ) : null}
+                    {attemptCancelNotice === "orderExists" ? <p className="success__attempt-message" role="alert">{t("checkout.attemptCancelOrderExists")} <Link to={userData?.id ? CUSTOMER_ROUTES.orders : "/guest-order"}>{t("checkout.attemptOpenOrders")}</Link></p> : null}
+                    {attemptCancelNotice === "error" ? <p className="success__attempt-message" role="alert">{t("checkout.attemptCancelError")}</p> : null}
+                    <div className="success__attempt-actions">
+                        {confirmed && userData?.id && paymentAttempt?.orderId ? (
+                            <Link
+                                to={`${CUSTOMER_ROUTES.orders}?order=${encodeURIComponent(paymentAttempt.orderId)}`}
+                                className="success__attempt-action success__attempt-action--primary"
+                            >
+                                {t("checkout.attemptOrderDetail")}
+                            </Link>
+                        ) : null}
+                        {resumeUrl ? <a className="success__attempt-action success__attempt-action--primary" href={resumeUrl} rel="noopener noreferrer">{t("checkout.attemptResume")}</a> : null}
+                        <button type="button" className={`success__attempt-action ${canResume ? "success__attempt-action--secondary" : "success__attempt-action--primary"}`} onClick={checkAgain} disabled={attemptChecking}>{attemptChecking ? t("checkout.attemptCheckingButton") : t("checkout.attemptCheckAgain")}</button>
+                        {canCancel ? <button type="button" className="success__attempt-action success__attempt-action--danger" onClick={() => void cancelAttempt()}>{t("checkout.attemptCancel")}</button> : null}
                     </div>
                 </main>
             </Layout>
@@ -427,17 +504,23 @@ const CheckoutSuccessPage = () => {
     if (!combinedData) {
         return (
             <Layout>
-                <Helmet><title>{t("attemptUnknownTitle")} | Digital-E</title></Helmet>
-                <main className="success app-page">
-                    <section className="success__hero" aria-labelledby="checkout-result-heading">
-                        <div className="success__hero__content">
-                            <h1 id="checkout-result-heading" tabIndex={-1}>{t("attemptUnknownTitle")}</h1>
-                            <p>{payOSOrderCode ? t("attemptMissingReferenceBody") : t("attemptUnknownBody")}</p>
+                <Helmet>
+                    <title>{t("checkout.attemptUnknownTitle")} | Digital-E</title>
+                    <meta name="description" content={copy.checkoutSuccess.paymentAttemptDescription} />
+                </Helmet>
+                <main className="success success--attempt app-page">
+                    <section className="success__attempt-hero" aria-labelledby="checkout-result-heading">
+                        <div className="success__attempt-status">
+                            <span className="success__attempt-icon" aria-hidden="true"><ShieldIcon size={24} /></span>
+                            <div className="success__attempt-copy">
+                                <h1 id="checkout-result-heading" tabIndex={-1}>{t("checkout.attemptUnknownTitle")}</h1>
+                                <p>{payOSOrderCode ? t("checkout.attemptMissingReferenceBody") : t("checkout.attemptUnknownBody")}</p>
+                            </div>
                         </div>
                     </section>
-                    <div className="success__actions">
-                        <Link to={userData?.id ? CUSTOMER_ROUTES.orders : "/guest-order"} className="success__action success__action--primary">{t("attemptOpenOrders")}</Link>
-                        <Link to="/" className="success__action success__action--secondary">{t("continueShopping")}</Link>
+                    <div className="success__attempt-actions">
+                        <Link to={userData?.id ? CUSTOMER_ROUTES.orders : "/guest-order"} className="success__attempt-action success__attempt-action--primary">{t("checkout.attemptOpenOrders")}</Link>
+                        <Link to="/" className="success__attempt-action success__attempt-action--secondary">{t("continueShopping")}</Link>
                     </div>
                 </main>
             </Layout>
@@ -461,7 +544,7 @@ const CheckoutSuccessPage = () => {
                                 <CheckCircleIcon size={34} />
                             </span>
                             <div>
-                                <h1>{payOSOrderCode && !combinedData ? t("attemptUnknownTitle") : t("attemptConfirmedTitle")}</h1>
+                                <h1>{payOSOrderCode && !combinedData ? t("checkout.attemptUnknownTitle") : t("checkout.attemptConfirmedTitle")}</h1>
                                 <p className="success__hero__greeting">
                                     {t("checkoutSuccess.thankYou", userData && !loading ? userData.username : t("checkoutSuccess.there"))}
                                 </p>
@@ -478,10 +561,12 @@ const CheckoutSuccessPage = () => {
                             <strong>{paymentLabel}</strong>
                             <span>{t("checkoutSuccess.payment")}</span>
                         </div>
-                        <div>
-                            <strong>{combinedData?.placedAt ? formatUtcDateTime(combinedData.placedAt) : formatUtcDateTime()}</strong>
-                            <span>{t("checkoutSuccess.placedAt")}</span>
-                        </div>
+                        {combinedData?.placedAt ? (
+                            <div>
+                                <strong>{formatUtcDateTime(combinedData.placedAt)}</strong>
+                                <span>{t("checkoutSuccess.placedAt")}</span>
+                            </div>
+                        ) : null}
                     </div>
                 </article>
 

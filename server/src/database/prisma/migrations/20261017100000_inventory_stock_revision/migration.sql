@@ -1,0 +1,2 @@
+ALTER TABLE `products`
+    ADD COLUMN `stock_revision` BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER `stock`;

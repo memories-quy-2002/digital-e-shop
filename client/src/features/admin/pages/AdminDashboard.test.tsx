@@ -1,6 +1,7 @@
+import { renderWithLocale } from '../../../test-utils/renderWithLocale';
 // @vitest-environment jsdom
 
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AdminDashboard from "./AdminDashboard";
@@ -36,13 +37,13 @@ const LocationProbe = () => {
     return <output data-testid="location">{location.pathname}{location.search}</output>;
 };
 
-const renderDashboard = (initialEntries = ["/admin" as string]) => render(
+const renderDashboard = (initialEntries = ["/admin" as string]) => renderWithLocale(
     <MemoryRouter initialEntries={initialEntries}>
         <AdminDashboard />
     </MemoryRouter>,
 );
 
-const renderDashboardWithLocation = (initialEntries = ["/admin" as string]) => render(
+const renderDashboardWithLocation = (initialEntries = ["/admin" as string]) => renderWithLocale(
     <MemoryRouter initialEntries={initialEntries}>
         <AdminDashboard />
         <LocationProbe />
@@ -206,6 +207,8 @@ describe("AdminDashboard mixed request results", () => {
 
         renderDashboard();
         await waitFor(() => expect(screen.getByText(/Updated/)).toBeTruthy());
+        expect(screen.queryByRole("heading", { name: "Executive analytics" })).toBeNull();
+        expect(screen.queryByRole("heading", { name: "Promotion performance" })).toBeNull();
 
         const createObjectURL = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:success-report");
         vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);

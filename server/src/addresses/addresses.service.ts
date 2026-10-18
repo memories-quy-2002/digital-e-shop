@@ -74,6 +74,15 @@ export class NestAddressesService {
         return { id: Number(addressId), user_id: uid, ...address };
     }
 
+    async updateAddressLocation(uid: string, addressId: number | string, latitude: number, longitude: number) {
+        const numericId = Number(addressId);
+        const result = await this.addressesRepository.updateAddressLocation(uid, numericId, latitude, longitude);
+        if (result.affectedRows === 0 && !(await this.addressesRepository.addressBelongsToUser(uid, numericId))) {
+            throw createHttpError("Address not found", HTTP_STATUS.NOT_FOUND);
+        }
+        return { id: numericId, latitude, longitude };
+    }
+
     async deleteAddress(uid: string, addressId: number | string) {
         const result = await this.addressesRepository.deleteAddress(uid, Number(addressId));
         if (result.affectedRows === 0) throw createHttpError("Address not found", HTTP_STATUS.NOT_FOUND);

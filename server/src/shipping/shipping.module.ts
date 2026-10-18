@@ -19,6 +19,8 @@ import { AdminDeliveryController } from "./admin-delivery.controller";
 import { DeliveryStaffController } from "./delivery-staff.controller";
 import { DeliveryAssignmentRepository } from "./delivery-assignment.repository";
 import { DeliveryAssignmentService } from "./delivery-assignment.service";
+import { AddressGeocodingService } from "./address-geocoding.service";
+import { env } from "#src/config/env.config";
 
 @Module({
     imports: [CartModule, UsersModule, forwardRef(() => FinancialOperationsModule), LoyaltyModule],
@@ -32,6 +34,8 @@ import { DeliveryAssignmentService } from "./delivery-assignment.service";
         DeliverySettingsService,
         DeliveryAssignmentRepository,
         DeliveryAssignmentService,
+        { provide: "GEOCODING_ENDPOINT", useValue: env.geocodingEndpoint },
+        AddressGeocodingService,
         RoadRouteService,
         ShippingRepository,
         FulfillmentService,

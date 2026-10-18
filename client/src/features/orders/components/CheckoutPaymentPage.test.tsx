@@ -37,7 +37,7 @@ vi.mock("../api", () => ({
 vi.mock("../../users/api", () => ({ fetchCustomerAddresses: mocks.fetchCustomerAddresses }));
 vi.mock("../../loyalty/api", () => ({ fetchLoyaltyOverview: mocks.fetchLoyaltyOverview }));
 vi.mock("../../../lib/http", () => ({ default: { get: mocks.httpGet, post: mocks.httpPost } }));
-vi.mock("../../shipping/components/DeliveryQuoteForm", () => ({ default: ({ onQuoteChange, addressPrefill }: { onQuoteChange: (address: unknown, quote: unknown) => void; addressPrefill?: unknown }) => <><button type="button" onClick={() => onQuoteChange({ recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", city: "HCMC", latitude: 10.78, longitude: 106.7, country: "VN" }, { id: "quote-1", expiresAt: new Date(Date.now() + 60000).toISOString(), pricing: { itemsSubtotal: 160, merchandiseDiscount: 0, shippingFee: 20000, payableTotal: 20160, currency: "VND" }, address: { latitude: 10.78, longitude: 106.7 }, distanceMeters: 5000, origin: { latitude: 10.77, longitude: 106.7 }, destination: { latitude: 10.78, longitude: 106.7 }, routeGeometry: [[106.7, 10.77], [106.7, 10.78]], settingsVersion: 1, tileUrl: "https://tiles.example.test/{z}/{x}/{y}.png", tileAttribution: "Map contributors" })}>Request test quote</button><output data-testid="address-prefill">{addressPrefill ? JSON.stringify(addressPrefill) : ""}</output></> }));
+vi.mock("../../shipping/components/DeliveryQuoteForm", () => ({ default: ({ onQuoteChange, addressPrefill, invalidateQuoteKey }: { onQuoteChange: (address: unknown, quote: unknown) => void; addressPrefill?: unknown; invalidateQuoteKey?: number }) => <><button type="button" onClick={() => onQuoteChange({ recipientName: "Guest Buyer", recipientPhone: "0901234567", addressLine: "1 Main Street", city: "HCMC", latitude: 10.78, longitude: 106.7, country: "VN" }, { id: "quote-1", expiresAt: new Date(Date.now() + 60000).toISOString(), pricing: { itemsSubtotal: 160, merchandiseDiscount: 0, shippingFee: 20000, payableTotal: 20160, currency: "VND" }, address: { latitude: 10.78, longitude: 106.7 }, distanceMeters: 5000, origin: { latitude: 10.77, longitude: 106.7 }, destination: { latitude: 10.78, longitude: 106.7 }, routeGeometry: [[106.7, 10.77], [106.7, 10.78]], settingsVersion: 1, tileUrl: "https://tiles.example.test/{z}/{x}/{y}.png", tileAttribution: "Map contributors" })}>Request test quote</button><output data-testid="address-prefill">{addressPrefill ? JSON.stringify(addressPrefill) : ""}</output><output data-testid="quote-invalidation-key">{invalidateQuoteKey}</output></> }));
 vi.mock("react-helmet-async", () => ({ Helmet: () => null }));
 
 const cart = [{
@@ -100,7 +100,7 @@ describe("CheckoutPaymentPage guest checkout", () => {
         expect(screen.getByRole("radio", { name: /PayOS/i })).toBeVisible();
         expect(screen.getByRole("radio", { name: /cash on delivery/i })).toBeVisible();
         expect(screen.queryByRole("radio", { name: /bank transfer/i })).not.toBeInTheDocument();
-        expect(screen.queryByRole("radio", { name: /card|stripe/i })).not.toBeInTheDocument();
+        expect(screen.queryByRole("radio", { name: /card/i })).not.toBeInTheDocument();
     });
 
     it("shows authenticated account email as read-only and omits the inactive marketing option", () => {
@@ -132,6 +132,19 @@ describe("CheckoutPaymentPage guest checkout", () => {
         }));
         expect(mocks.guestPurchase.mock.calls[0][0]).not.toHaveProperty("totalPrice");
         expect(mocks.guestPurchase.mock.calls[0][0]).not.toHaveProperty("cart[0].price");
+    });
+
+    it("invalidates an expired server quote and blocks checkout while preserving the delivery form", async () => {
+        const quoteError = { response: { status: 409, data: { code: "DELIVERY_QUOTE_EXPIRED" } } };
+        mocks.guestPurchase.mockRejectedValueOnce(quoteError);
+        renderCheckout();
+        fillRequiredFields();
+        fireEvent.click(screen.getByDisplayValue("cash"));
+        fireEvent.click(screen.getByRole("button", { name: /^Place order/ }));
+
+        await waitFor(() => expect(screen.getByTestId("quote-invalidation-key")).toHaveTextContent("1"));
+        expect(screen.getByText("The delivery fee needs to be recalculated. Your delivery details are still saved.")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /^Place order/ })).toBeDisabled();
     });
 
     it("redirects guest PayOS checkout through a server-created VND payment link", async () => {
@@ -166,6 +179,17 @@ describe("CheckoutPaymentPage guest checkout", () => {
             cartSnapshot: [{ productId: 10, quantity: 2 }],
         });
         expect(mocks.navigate).toHaveBeenCalledWith("/checkout-success?payment_attempt_id=123e4567-e89b-42d3-a456-426614174000");
+    });
+
+    it("shows the server's actionable reason for a checkout conflict", async () => {
+        const conflictMessage = "The requested quantity is no longer available.";
+        mocks.guestPayOSSession.mockRejectedValue({ response: { status: 409, data: { msg: conflictMessage } } });
+        renderCheckout();
+        fillRequiredFields();
+        fireEvent.click(screen.getByRole("button", { name: "Continue to PayOS" }));
+
+        expect(await screen.findByText(conflictMessage)).toBeVisible();
+        expect(screen.queryByText("Your checkout changed after this payment attempt began. Review your cart and submit again.")).not.toBeInTheDocument();
     });
 
     it("passes guest contact and shipping details through route state without persisting PII", async () => {
@@ -332,14 +356,17 @@ describe("CheckoutPaymentPage guest checkout", () => {
         }]);
         renderCheckout();
 
-        fireEvent.change(await screen.findByLabelText("Saved address"), { target: { value: "3" } });
+        const deliveryAddressSelect = await screen.findByLabelText("Delivery address");
+        expect(screen.getByRole("group", { name: "Saved address" })).toBeInTheDocument();
+        expect(screen.getByRole("group", { name: "Recent order address" })).toBeInTheDocument();
+        fireEvent.change(deliveryAddressSelect, { target: { value: "saved:3" } });
         await waitFor(() => expect(screen.getByTestId("address-prefill")).toHaveTextContent('"recipientName":"Saved Buyer"'));
         expect(screen.getByTestId("address-prefill")).toHaveTextContent('"addressLine":"9 Saved Road"');
         expect(screen.getByTestId("address-prefill")).toHaveTextContent('"city":"Old City"');
         expect(screen.getByTestId("address-prefill")).toHaveTextContent('"latitude":10.7769');
         expect(screen.getByTestId("address-prefill")).toHaveTextContent('"longitude":106.7009');
 
-        fireEvent.change(screen.getByLabelText("Recent order address"), { target: { value: "22" } });
+        fireEvent.change(deliveryAddressSelect, { target: { value: "recent:22" } });
         await waitFor(() => expect(screen.getByTestId("address-prefill")).toHaveTextContent('"addressLine":"4 Previous Street"'));
         expect(screen.getByTestId("address-prefill")).toHaveTextContent('"city":"Old District"');
         expect(screen.getByTestId("address-prefill")).not.toHaveTextContent("latitude");

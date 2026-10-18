@@ -27,7 +27,12 @@ rotates it when the request payload changes. It clears the key after success.
 ## Eligibility and quantity
 
 The order must be Done (`status = 1`) and have `delivered_at`. Returns are
-eligible through the inclusive UTC date seven calendar days after delivery.
+eligible through 23:59:59.999 UTC on the seventh UTC calendar day after
+delivery, inclusive. Customer and guest order detail return the exact
+`return_eligible_until` timestamp for the UI; the service enforces the same
+deadline using its UTC clock. Recovered guest order access rotates the token
+hash on matching after-sales requests in the same transaction as the order
+token, preserving their lookup capability under the new token.
 Warranty requests use the immutable `warranty_months_snapshot` on each order
 item. Active requests reserve quantities until they are rejected or closed;
 overlapping requests receive a meaningful `QUANTITY_UNAVAILABLE` conflict.

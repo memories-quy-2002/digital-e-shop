@@ -16,14 +16,18 @@ const pageSources = {
 describe("informational full-bleed Hero contract", () => {
     it("defines one compact tokenized Hero image system", () => {
         expect(sharedStyles).toContain("&__hero {");
-        expect(sharedStyles).toContain("--info-hero-height: clamp(340px, 36vw, 440px);");
-           expect(sharedStyles).toContain("object-fit: cover;");
-           expect(sharedStyles).toContain("align-content: end;");
-           expect(sharedStyles).toContain("border-radius: var(--de-radius-lg);");
-           expect(sharedStyles).toContain("backdrop-filter: blur(14px);");
-           expect(sharedStyles).toContain("color-mix(in srgb, var(--info-hero) 96%, transparent)");
-           expect(sharedStyles).toContain("grid-template-columns: repeat(2, minmax(0, 1fr));");
-           expect(sharedStyles).not.toMatch(/min-height:\s*(470|520)px/);
+        expect(sharedStyles).toContain("--info-hero-height: 440px;");
+        expect(sharedStyles).toContain("height: var(--info-hero-height);");
+        expect(sharedStyles).toContain("min-height: var(--info-hero-height);");
+        expect(sharedStyles).toContain("align-content: space-between;");
+        expect(sharedStyles).toContain("object-fit: cover;");
+        expect(sharedStyles).toContain("border-radius: var(--de-radius-lg);");
+        expect(sharedStyles).toContain("color-mix(in srgb, var(--info-hero) 96%, transparent)");
+        expect(sharedStyles).toContain("@media (max-width: 979px)");
+        expect(sharedStyles).toContain("--info-hero-height: 480px;");
+        expect(sharedStyles).toContain("@media (max-width: 640px)");
+        expect(sharedStyles).toContain("--info-hero-height: 520px;");
+        expect(sharedStyles).toContain("grid-template-columns: repeat(2, minmax(0, 1fr));");
     });
 
     it("connects each page to the shared Hero and selected asset", () => {
@@ -33,7 +37,8 @@ describe("informational full-bleed Hero contract", () => {
         expect(pageSources.support).toContain('className="support__hero info-page__hero"');
         expect(pageSources.about).toContain('className="info-page__hero__image"');
         expect(pageSources.news).toContain('className="info-page__hero__image"');
-        expect(pageSources.contact).toContain("background_form.jpg");
+        expect(pageSources.contact).toContain('import { contactHeroImage } from "../assets/images/editorialHeroImages";');
+        expect(pageSources.contact).toContain("getResponsiveImageSource(contactHeroImage");
         expect(pageSources.support).toContain('className="info-page__hero__image"');
     });
 });

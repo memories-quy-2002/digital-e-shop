@@ -1,6 +1,7 @@
 import { Injectable, Optional } from "@nestjs/common";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
 import { ORDER_STATUS } from "#src/shared/constants/order-status";
+import { getReturnDeadline } from "../after-sales/after-sales.policy";
 import { CHECKOUT_RESERVATION_STATUS } from "#src/shared/constants/checkout-reservation";
 import { CURRENCY_CODE } from "#src/shared/constants/currency";
 import { env } from "#src/config/env.config";
@@ -794,6 +795,8 @@ export class NestOrdersService {
             payment_amount: order.payment_amount,
             payment_currency: order.payment_currency,
             payment_simulated: order.payment_simulated,
+            delivered_at: order.delivered_at || null,
+            return_eligible_until: order.return_eligible_until || null,
             items: order.items.map((item) => ({
                 orderItemId: item.id,
                 productId: item.productId,
@@ -1255,6 +1258,7 @@ export class NestOrdersService {
                     id: first.id,
                     date_added: first.date_added,
                     delivered_at: first.delivered_at || null,
+                    return_eligible_until: first.delivered_at ? getReturnDeadline(first.delivered_at) : null,
                     user_id: first.user_id,
                     guest_email: first.guest_email || null,
                     guest_name: first.guest_name || null,

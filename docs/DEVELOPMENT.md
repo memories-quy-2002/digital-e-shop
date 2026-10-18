@@ -107,6 +107,18 @@ explicit local database allowlist, Firebase Auth Emulator, and provider modes
 before it runs. See [retail P0 acceptance](./backlog/README.md) and
 [testing](./TESTING.md#retail-p0-sandbox).
 
+For local checkout work, `pnpm --dir server seed:delivery:local` seeds an
+idempotent demo pickup point and sample VND delivery fees only into the loopback
+`digital_e_shop_local` database. It refuses to overwrite existing settings.
+The public OSRM demo is for reasonable non-commercial testing only and has no
+uptime guarantee; configure a suitable routing provider and tile service for
+production. The local seed command requires the OSRM and HTTPS tile endpoints
+to be present in the server allowlists first.
+Checkout address lookup uses Photon in local development. `GEOCODING_ENDPOINT`
+can point to an HTTPS Photon-compatible service; it is disabled by default
+outside development. The lookup sends only street address and city, and the
+customer confirms a suggested result before its coordinates are saved.
+
 Resend credentials are server-only and use `RESEND_API_KEY`,
 `RESEND_WEBHOOK_SECRET`, and
 `TRANSACTIONAL_EMAIL_FROM`. Configure these only after provider staging
@@ -128,8 +140,12 @@ confirmation. The mock confirmation endpoint is disabled in production. Use
 creates the order; the browser return URL is not a payment confirmation.
 The guarded admin reconciliation workspace can run at most 100 candidates per
 request, retry PayOS records, confirm COD collection, and inspect webhook
-history. Run `pnpm --dir server seed:demo` after changing the demo seed so local
-products, discount thresholds, and demo orders are materialized in VND.
+history. Run `pnpm --dir server seed:demo` after changing the demo seed so the
+local catalog, discount thresholds, and demo orders are materialized in VND.
+The current seed contains 120 products across eight categories and sixteen
+brands. All four seeded accounts (three customers and one admin) have at least
+25 completed/canceled orders, and every product has an image, a completed
+customer purchase, a customer review, and a wishlist link.
 
 PayOS checkout persists an owner-scoped attempt before requesting a payment
 link. In mock mode the local simulator can confirm that attempt without moving
@@ -185,13 +201,19 @@ pnpm --dir server dev
 pnpm --dir client dev
 ```
 
+The local demo login password is `DemoPass123!`. Seeded customer emails are
+`demo.alice@digital-e.local`, `demo.bob@digital-e.local`, and
+`demo.carol@digital-e.local`; the admin email is `demo.admin@digital-e.local`.
+The Firebase Auth Emulator seeder provisions matching accounts for local sign-in.
+
 The firebase:emulator script persists the local Auth state in the ignored
 .firebase/emulator-data directory, so restarting the emulator preserves user
 UIDs. The guarded Firebase seeder updates only the four deterministic demo users and
 refuses production, remote emulator hosts, or the production Firebase project.
-Restart both apps after changing `.env` files. The local demo DB starts those
-users with `email_verified_at = NULL`; completing an Emulator UI action link
-and signing in again synchronizes the verified Firebase claim.
+Restart both apps after changing `.env` files. The database and Auth Emulator
+seed the demo accounts as email-verified so they can use seeded order history
+and continue through checkout and review flows. Use temporary accounts when
+testing email-verification onboarding.
 
 Environment ownership is intentionally separated:
 

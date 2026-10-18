@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import PaginatedItems from "../PaginatedItems";
@@ -191,7 +191,7 @@ describe("shop and product detail surfaces", () => {
         expect(screen.getByRole("button", { name: "Page-1" })).toHaveClass("shops__pagination__link");
     });
 
-    it("keeps quantity availability and reviews in explicit layout regions", async () => {
+    it("keeps quantity availability and reviews visible in explicit layout regions", async () => {
         render(
             <MemoryRouter initialEntries={["/product?id=1"]}>
                 <LocaleProvider>
@@ -203,14 +203,54 @@ describe("shop and product detail surfaces", () => {
         expect(await screen.findByTestId("product-quantity-field")).toHaveClass("product-page__quantity-field");
         expect(screen.getByTestId("product-availability")).toHaveClass("product-page__availability");
 
-        fireEvent.click(screen.getByRole("button", { name: /Reviews/ }));
-
+        expect(screen.queryByTestId("product-tabs")).not.toBeInTheDocument();
+        expect(screen.getByTestId("product-reviews-section")).toBeVisible();
         expect(screen.getByTestId("product-reviews-card")).toHaveClass("product-page__reviews-card");
         expect(screen.getByTestId("product-reviews-summary")).toHaveClass("product-page__reviews-summary");
         expect(screen.getByTestId("product-reviews-list")).toHaveClass("product-page__reviews-list");
     });
 
-    it("places product detail tabs before recommendations", async () => {
+    it("uses the primary purchase action after selecting quantity", async () => {
+        let finishAdding: ((result: boolean) => void) | undefined;
+        cartMocks.addItem.mockReturnValueOnce(new Promise<boolean>((resolve) => {
+            finishAdding = resolve;
+        }));
+
+        render(
+            <MemoryRouter initialEntries={["/product?id=1"]}>
+                <LocaleProvider><ProductPage /></LocaleProvider>
+            </MemoryRouter>,
+        );
+
+        const purchaseButton = await screen.findByTestId("product-purchase-button");
+        const quantityField = screen.getByTestId("product-quantity-field");
+        expect(quantityField.compareDocumentPosition(purchaseButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(purchaseButton).toBeEnabled();
+        fireEvent.click(screen.getByRole("button", { name: "Increase quantity" }));
+        expect(screen.getByRole("spinbutton", { name: "Quantity" })).toHaveValue(2);
+        fireEvent.click(purchaseButton);
+
+        await waitFor(() => expect(purchaseButton).toBeDisabled());
+        expect(purchaseButton).toHaveAttribute("aria-busy", "true");
+        expect(cartMocks.addItem).toHaveBeenCalledWith(product.id, 2);
+
+        finishAdding?.(true);
+        await waitFor(() => expect(purchaseButton).toBeEnabled());
+    });
+
+    it("keeps the mobile purchase action disabled when the API reports no stock", async () => {
+        apiMocks.fetchProduct.mockResolvedValueOnce({ ...product, stock: 0, available_stock: 0 });
+
+        render(
+            <MemoryRouter initialEntries={["/product?id=1"]}>
+                <LocaleProvider><ProductPage /></LocaleProvider>
+            </MemoryRouter>,
+        );
+
+        expect(await screen.findByTestId("product-purchase-button")).toBeDisabled();
+    });
+
+    it("places product details and reviews before recommendations", async () => {
         render(
             <MemoryRouter initialEntries={["/product?id=1"]}>
                 <LocaleProvider>
@@ -220,9 +260,12 @@ describe("shop and product detail surfaces", () => {
         );
 
         const recommendations = await screen.findByTestId("product-recommendations-shell");
-        const tabs = screen.getByTestId("product-tabs");
+        const details = screen.getByTestId("product-details-section");
+        const reviews = screen.getByTestId("product-reviews-section");
 
-        expect(tabs.compareDocumentPosition(recommendations) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(details.compareDocumentPosition(reviews) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(reviews.compareDocumentPosition(recommendations) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(screen.queryByTestId("product-tabs")).not.toBeInTheDocument();
         expect(screen.getByTestId("product-gallery-main")).toHaveClass("product-page__gallery-main--fixed");
     });
 

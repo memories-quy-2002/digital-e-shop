@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { renderWithLocale } from '../../../test-utils/renderWithLocale';
+import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import AdminDashboardHeader from "./AdminDashboardHeader";
 
@@ -14,7 +15,7 @@ const props = {
 
 describe("AdminDashboardHeader", () => {
     it("renders a labelled range selector and both actions", () => {
-        render(<AdminDashboardHeader {...props} />);
+        renderWithLocale(<AdminDashboardHeader {...props} />);
 
         expect(screen.getByLabelText("Analytics range")).toBeTruthy();
         expect(screen.getByRole("button", { name: "Refresh" })).toBeTruthy();
@@ -22,7 +23,7 @@ describe("AdminDashboardHeader", () => {
     });
 
     it("disables refresh while the dashboard is loading", () => {
-        render(<AdminDashboardHeader {...props} loading />);
+        renderWithLocale(<AdminDashboardHeader {...props} loading />);
 
         expect(screen.getByRole("button", { name: "Refreshing…" })).toBeDisabled();
     });

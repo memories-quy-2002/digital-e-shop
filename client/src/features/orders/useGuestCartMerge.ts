@@ -1,6 +1,7 @@
 import { useCallback, useRef } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import { addItemsToCustomerCart, syncGuestCart } from "./api";
+import { mergeGuestCartIntoCustomer, syncGuestCart } from "./api";
+import { clearCartMergeOperation, getOrCreateCartMergeOperation } from "./cartMergeStorage";
 import { readGuestCart, replaceGuestCart, type GuestCartStorageItem } from "./guestCartStorage";
 
 export type GuestCartMergeStatus = "idle" | "loading" | "complete" | "partial" | "error";
@@ -26,6 +27,15 @@ type Options = {
     fetchCart: () => Promise<boolean>;
 };
 
+const subtractAccepted = (current: GuestCartStorageItem[], accepted: GuestCartStorageItem[]) => {
+    const acceptedById = new Map(accepted.map(({ productId, quantity }) => [productId, quantity]));
+    return current.flatMap((item) => {
+        const remaining = Math.max(0, item.quantity - (acceptedById.get(item.productId) || 0));
+        acceptedById.delete(item.productId);
+        return remaining > 0 ? [{ ...item, quantity: remaining }] : [];
+    });
+};
+
 export function useGuestCartMerge({
     sourceRef,
     isCurrentSource,
@@ -41,59 +51,47 @@ export function useGuestCartMerge({
         const currentMerge = mergePromiseRef.current;
         if (currentMerge?.generation === expectedSource.generation) return currentMerge.promise;
 
-        const pendingItems = readGuestCart();
-        if (!expectedSource.uid || pendingItems.length === 0) {
-            return { accepted: [], rejected: pendingItems, complete: pendingItems.length === 0 };
+        const currentItems = readGuestCart();
+        if (!expectedSource.uid || currentItems.length === 0) {
+            return { accepted: [], rejected: currentItems, complete: currentItems.length === 0 };
         }
 
+        const operation = getOrCreateCartMergeOperation(currentItems);
         const runMerge = async (): Promise<CartMergeResult> => {
-            const accepted: GuestCartStorageItem[] = [];
-            const rejected: GuestCartStorageItem[] = [];
             try {
-                if (!isCurrentSource(expectedSource)) return { accepted, rejected: pendingItems, complete: false };
+                if (!isCurrentSource(expectedSource)) return { accepted: [], rejected: currentItems, complete: false };
                 setMergeStatus("loading");
-                for (const item of pendingItems) {
-                    if (!isCurrentSource(expectedSource)) return { accepted, rejected, complete: false };
-                    try {
-                        await addItemsToCustomerCart(expectedSource.uid as string, [{ ...item, stock: item.quantity }]);
-                        if (!isCurrentSource(expectedSource)) return { accepted, rejected, complete: false };
-                        accepted.push(item);
-                    } catch {
-                        if (!isCurrentSource(expectedSource)) return { accepted, rejected, complete: false };
-                        rejected.push(item);
-                    }
-                }
+                const response = await mergeGuestCartIntoCustomer(expectedSource.uid as string, operation.operationId, operation.items);
+                if (!isCurrentSource(expectedSource)) return { accepted: [], rejected: currentItems, complete: false };
 
-                if (!isCurrentSource(expectedSource)) return { accepted, rejected, complete: false };
-                const remainingItems = readGuestCart().filter((currentItem) =>
-                    !accepted.some((acceptedItem) =>
-                        acceptedItem.productId === currentItem.productId && acceptedItem.quantity === currentItem.quantity,
-                    ),
-                );
+                const accepted = response.accepted.map(({ productId, quantity }) => ({ productId, quantity }));
+                const remainingItems = subtractAccepted(readGuestCart(), accepted);
                 replaceGuestCart(remainingItems);
                 setGuestItems(remainingItems);
+                clearCartMergeOperation();
                 try {
                     await syncGuestCart(remainingItems);
                 } catch {
-                    // Keep rejected guest items locally when server persistence is unavailable.
+                    // Preserve rejected guest items locally when server persistence is unavailable.
                 }
 
-                if (rejected.length === 0) {
+                if (remainingItems.length === 0) {
                     setMergeStatus("complete");
                     setError(null);
                 } else {
                     setMergeStatus("partial");
                 }
                 await fetchCart();
-                if (!isCurrentSource(expectedSource)) return { accepted, rejected, complete: false };
-                if (rejected.length > 0) setError("Some guest cart items could not be merged. Retry to continue.");
-                return { accepted, rejected, complete: rejected.length === 0 };
+                if (!isCurrentSource(expectedSource)) return { accepted, rejected: remainingItems, complete: false };
+                if (remainingItems.length > 0) setError("Some guest cart items could not be merged. Retry to continue.");
+                return { accepted, rejected: remainingItems, complete: remainingItems.length === 0 };
             } catch {
                 if (isCurrentSource(expectedSource)) {
                     setMergeStatus("error");
                     setError("Unable to merge guest cart right now.");
                 }
-                return { accepted, rejected, complete: false };
+                // Keep both the local cart and immutable operation snapshot so a retry is idempotent.
+                return { accepted: [], rejected: readGuestCart(), complete: false };
             }
         };
 

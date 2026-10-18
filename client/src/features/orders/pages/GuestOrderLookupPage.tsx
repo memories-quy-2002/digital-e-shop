@@ -5,12 +5,13 @@ import { Link, useSearchParams } from "react-router-dom";
 import Layout from "../../../components/layout/Layout";
 import { ArrowRightIcon, SearchIcon } from "../../../components/common/Icons";
 import { formatUtcDateTime } from "../../../utils/dateTime";
-import { lookupGuestOrder } from "../api";
+import { lookupGuestOrder, requestGuestOrderAccessRecovery, verifyGuestOrderAccessRecovery } from "../api";
 import type { GuestOrderDetail } from "../types";
 import { maskPhoneNumber } from "./checkoutSuccessStorage";
 import { parseShippingAddress } from "../shippingAddress";
 import "../../../styles/features/orders/_guest-order.scss";
 import { useT } from "../../../hooks/useT";
+import { useCustomerJourneyCopy } from "../../../hooks/useCustomerJourneyCopy";
 import { formatMoney } from "../../../utils/currency";
 import { getOrderStatusKey } from "../orderStatus";
 import GuestAfterSalesPanel from "../../after-sales/components/GuestAfterSalesPanel";
@@ -19,6 +20,7 @@ import { CURRENCY_CODE } from "../../../constants/currency";
 import ShipmentTimeline from "../../shipping/components/ShipmentTimeline";
 import { fetchGuestShipment } from "../../shipping/api";
 import type { ShipmentSummary } from "../../shipping/types";
+import GuestOrderAccessCard from "../components/GuestOrderAccessCard";
 
 const getErrorMessage = (error: unknown, fallback: string) => {
     return getApiErrorMessage(error, fallback);
@@ -28,23 +30,31 @@ const getStatusLabel = (status: number, labels: { pending: string; done: string;
     return labels[getOrderStatusKey(status)];
 };
 
-const getPaymentLabel = (paymentMethod?: string | null) => {
-    if (paymentMethod === HISTORICAL_PAYMENT_METHOD.BANK_TRANSFER) return "Historical bank transfer";
-    if (paymentMethod === PAYMENT_METHOD.CASH) return "Cash on delivery";
-    if (paymentMethod === PAYMENT_METHOD.PAYOS) return "PayOS (VND)";
-    if (paymentMethod === HISTORICAL_PAYMENT_METHOD.CARD || paymentMethod === HISTORICAL_PAYMENT_METHOD.STRIPE) return "Historical card payment";
-    return "Payment method pending";
-};
-
 const GuestOrderLookupPage = () => {
     const t = useT();
+    const copy = useCustomerJourneyCopy();
     const [searchParams] = useSearchParams();
     const [orderId, setOrderId] = useState(searchParams.get("orderId") || "");
     const [guestOrderToken, setGuestOrderToken] = useState("");
     const [order, setOrder] = useState<GuestOrderDetail | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [invalidField, setInvalidField] = useState<"orderId" | "token" | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [shipment, setShipment] = useState<ShipmentSummary | null>(null);
+    const [recoveryOpen, setRecoveryOpen] = useState(false);
+    const [recoveryRequested, setRecoveryRequested] = useState(false);
+    const [recoveryEmail, setRecoveryEmail] = useState("");
+    const [recoveryCode, setRecoveryCode] = useState("");
+    const [recoveryBusy, setRecoveryBusy] = useState(false);
+    const [recoveryError, setRecoveryError] = useState<string | null>(null);
+    const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
+    const getPaymentLabel = (paymentMethod?: string | null) => {
+        if (paymentMethod === HISTORICAL_PAYMENT_METHOD.BANK_TRANSFER) return copy.guestOrder.historicalBankTransfer;
+        if (paymentMethod === PAYMENT_METHOD.CASH) return t("checkout.cashOnDelivery");
+        if (paymentMethod === PAYMENT_METHOD.PAYOS) return t("checkout.payos");
+        if (paymentMethod === HISTORICAL_PAYMENT_METHOD.CARD) return copy.guestOrder.historicalCardPayment;
+        return t("orders.paymentMethodPending");
+    };
 
     useEffect(() => {
         const queryOrderId = searchParams.get("orderId");
@@ -54,17 +64,18 @@ const GuestOrderLookupPage = () => {
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         setError(null);
+        setInvalidField(null);
         setOrder(null);
         setShipment(null);
 
         const numericOrderId = Number(orderId.trim());
         if (!Number.isSafeInteger(numericOrderId) || numericOrderId <= 0) {
-            setError(t("guestOrder.validOrderId"));
+            setInvalidField("orderId");
             return;
         }
         const normalizedToken = guestOrderToken.trim();
         if (!normalizedToken) {
-            setError(t("guestOrder.tokenRequired"));
+            setInvalidField("token");
             return;
         }
 
@@ -80,13 +91,72 @@ const GuestOrderLookupPage = () => {
         }
     };
 
+    const getRecoveryOrderId = () => {
+        const numericOrderId = Number(orderId.trim());
+        if (!Number.isSafeInteger(numericOrderId) || numericOrderId <= 0) {
+            setRecoveryError(t("guestOrder.recoveryRequestError"));
+            return null;
+        }
+        return numericOrderId;
+    };
+
+    const handleRecoveryRequest = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        setRecoveryError(null);
+        setRecoveryMessage(null);
+        const numericOrderId = getRecoveryOrderId();
+        if (!numericOrderId || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoveryEmail.trim())) {
+            setRecoveryError(t("guestOrder.recoveryRequestError"));
+            return;
+        }
+        setRecoveryBusy(true);
+        try {
+            await requestGuestOrderAccessRecovery(numericOrderId, recoveryEmail.trim());
+        } catch {
+            // The same response is shown for unknown orders and transient request failures.
+        } finally {
+            setRecoveryRequested(true);
+            setRecoveryMessage(t("guestOrder.recoveryRequestGeneric"));
+            setRecoveryBusy(false);
+        }
+    };
+
+    const handleRecoveryVerify = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        setRecoveryError(null);
+        const numericOrderId = getRecoveryOrderId();
+        if (!numericOrderId || !/^\d{6}$/.test(recoveryCode)) {
+            setRecoveryError(t("guestOrder.recoveryVerifyError"));
+            return;
+        }
+        setRecoveryBusy(true);
+        try {
+            const { guestOrderToken: recoveredToken } = await verifyGuestOrderAccessRecovery(
+                numericOrderId,
+                recoveryEmail.trim(),
+                recoveryCode,
+            );
+            setGuestOrderToken(recoveredToken);
+            setRecoveryOpen(false);
+            setRecoveryMessage(null);
+            setError(null);
+            const result = await lookupGuestOrder(numericOrderId, recoveredToken);
+            setOrder(result);
+            try { setShipment(await fetchGuestShipment(numericOrderId, recoveredToken)); } catch { setShipment(null); }
+        } catch {
+            setRecoveryError(t("guestOrder.recoveryVerifyError"));
+        } finally {
+            setRecoveryBusy(false);
+        }
+    };
+
     const shipping = order ? parseShippingAddress(order.shipping_address) : null;
 
     return (
         <Layout>
             <Helmet>
-                <title>Guest Order Lookup | Digital-E</title>
-                <meta name="description" content="Look up a Digital-E guest order with its order ID and access token." />
+                <title>{copy.guestOrder.metaTitle}</title>
+                <meta name="description" content={copy.guestOrder.metaDescription} />
             </Helmet>
             <main className="guest-order app-page">
                 <section className="guest-order__hero">
@@ -95,28 +165,51 @@ const GuestOrderLookupPage = () => {
                     <p>{t("guestOrder.description")}</p>
                 </section>
 
-                <section className="guest-order__lookup" aria-label="Guest order lookup form">
+                <section className="guest-order__lookup" aria-label={copy.guestOrder.formAriaLabel}>
                     <form onSubmit={handleSubmit} noValidate>
                         <label>
                             <span>{t("guestOrder.orderId")}</span>
                             <input
                                 type="text"
+                                name="orderId"
                                 inputMode="numeric"
                                 value={orderId}
-                                onChange={(event) => setOrderId(event.target.value)}
+                                aria-invalid={invalidField === "orderId"}
+                                aria-describedby={invalidField === "orderId" ? "guest-order-id-error" : undefined}
+                                onChange={(event) => {
+                                    setOrderId(event.target.value);
+                                    if (invalidField === "orderId") setInvalidField(null);
+                                }}
                                 autoComplete="off"
                                 required
                             />
+                            {invalidField === "orderId" ? (
+                                <span id="guest-order-id-error" className="guest-order__field-error" role="alert">
+                                    {t("guestOrder.validOrderId")}
+                                </span>
+                            ) : null}
                         </label>
                         <label>
                             <span>{t("guestOrder.accessToken")}</span>
                             <input
                                 type="password"
+                                name="guestOrderToken"
                                 value={guestOrderToken}
-                                onChange={(event) => setGuestOrderToken(event.target.value)}
+                                aria-invalid={invalidField === "token"}
+                                aria-describedby={invalidField === "token" ? "guest-order-token-error" : undefined}
+                                onChange={(event) => {
+                                    setGuestOrderToken(event.target.value);
+                                    if (invalidField === "token") setInvalidField(null);
+                                }}
                                 autoComplete="off"
+                                spellCheck={false}
                                 required
                             />
+                            {invalidField === "token" ? (
+                                <span id="guest-order-token-error" className="guest-order__field-error" role="alert">
+                                    {t("guestOrder.tokenRequired")}
+                                </span>
+                            ) : null}
                         </label>
                         {error ? <div className="guest-order__error" role="alert">{error}</div> : null}
                         <button type="submit" disabled={isLoading}>
@@ -124,6 +217,54 @@ const GuestOrderLookupPage = () => {
                             {isLoading ? t("guestOrder.loading") : t("guestOrder.submit")}
                         </button>
                     </form>
+                    <button
+                        type="button"
+                        className="guest-order__recovery-toggle"
+                        aria-expanded={recoveryOpen}
+                        onClick={() => {
+                            setRecoveryOpen((open) => !open);
+                            setRecoveryError(null);
+                            setRecoveryMessage(null);
+                        }}
+                    >
+                        {t("guestOrder.recoverAccess")}
+                    </button>
+                    {recoveryOpen ? (
+                        <div className="guest-order__recovery">
+                            <form onSubmit={handleRecoveryRequest}>
+                                <label>
+                                    <span>{t("guestOrder.recoveryEmail")}</span>
+                                    <input
+                                        type="email"
+                                        autoComplete="email"
+                                        value={recoveryEmail}
+                                        onChange={(event) => setRecoveryEmail(event.target.value)}
+                                        required
+                                    />
+                                </label>
+                                <button type="submit" disabled={recoveryBusy}>{t("guestOrder.sendRecoveryCode")}</button>
+                            </form>
+                            {recoveryRequested ? (
+                                <form onSubmit={handleRecoveryVerify}>
+                                    <label>
+                                        <span>{t("guestOrder.recoveryCode")}</span>
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            autoComplete="one-time-code"
+                                            maxLength={6}
+                                            value={recoveryCode}
+                                            onChange={(event) => setRecoveryCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                                            required
+                                        />
+                                    </label>
+                                    <button type="submit" disabled={recoveryBusy}>{t("guestOrder.verifyRecoveryCode")}</button>
+                                </form>
+                            ) : null}
+                        </div>
+                    ) : null}
+                    {recoveryMessage ? <p role="status" aria-live="polite">{recoveryMessage}</p> : null}
+                    {recoveryError ? <p className="guest-order__error" role="alert">{recoveryError}</p> : null}
                 </section>
 
                 {order && shipping ? (
@@ -169,9 +310,11 @@ const GuestOrderLookupPage = () => {
                             </article>
                         </div>
                         <ShipmentTimeline shipment={shipment} />
-                        <GuestAfterSalesPanel orderId={order.id} guestOrderToken={guestOrderToken} currency={order.currency} items={order.items} />
+                        <GuestAfterSalesPanel orderId={order.id} guestOrderToken={guestOrderToken} currency={order.currency} items={order.items} returnEligibleUntil={order.return_eligible_until} />
                     </section>
                 ) : null}
+
+                {order && guestOrderToken ? <GuestOrderAccessCard orderId={String(order.id)} guestOrderToken={guestOrderToken} /> : null}
 
                 <Link to="/" className="guest-order__back">
                     {t("guestOrder.continueShopping")} <ArrowRightIcon size={18} />

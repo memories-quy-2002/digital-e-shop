@@ -1,18 +1,21 @@
 .after-sales-admin {
     &__layout { display: grid; grid-template-columns: minmax(280px, .8fr) minmax(0, 1.2fr); gap: 20px; }
     &__list { display: grid; }
-    &__row { display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; padding: 16px 0; border: 0; border-top: 1px solid #e6e9f0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
-    &__row.is-active { color: #574db2; }
-    &__row small { display: block; max-width: 270px; margin-top: 5px; overflow: hidden; color: #798399; text-overflow: ellipsis; white-space: nowrap; }
-    &__row em, &__status { border-radius: 999px; padding: 6px 9px; color: #574db2; background: #efedff; font-size: .7rem; font-style: normal; font-weight: 800; text-transform: capitalize; white-space: nowrap; }
+    &__row { display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; min-height: 3.75rem; padding: 12px 10px; border: 0; border-top: 1px solid var(--de-color-border); background: transparent; color: var(--de-color-text); text-align: left; cursor: pointer; }
+    &__row:hover, &__row.is-active { background: var(--de-color-surface-hover); color: var(--de-color-text); }
+    &__row:focus-visible { position: relative; z-index: 1; outline: 3px solid var(--de-color-focus); outline-offset: 2px; }
+    &__row > span { min-width: 0; }
+    &__row small { display: block; max-width: 270px; margin-top: 5px; overflow: hidden; color: var(--de-color-text-muted); text-overflow: ellipsis; white-space: nowrap; }
+    &__row em, &__status { flex: 0 0 auto; border: 1px solid var(--de-color-border); border-radius: 999px; padding: 6px 9px; color: var(--de-color-info-strong); background: var(--de-color-info-soft); font-size: .7rem; font-style: normal; font-weight: 800; text-transform: capitalize; white-space: nowrap; }
     &__items, &__timeline { display: grid; gap: 9px; margin: 20px 0; }
-    &__items div, &__timeline div { display: flex; justify-content: space-between; gap: 14px; padding: 10px 0; border-top: 1px solid #e6e9f0; }
-    &__items strong, &__timeline span { color: #798399; }
+    &__items div, &__timeline div { display: flex; justify-content: space-between; gap: 14px; padding: 10px 0; border-top: 1px solid var(--de-color-border); }
+    &__items strong, &__timeline span { color: var(--de-color-text-muted); }
     &__actions { display: flex; flex-wrap: wrap; gap: 8px; }
-    &__refund { margin-top: 24px; padding-top: 20px; border-top: 1px solid #e6e9f0; }
+    &__refund { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--de-color-border); }
     &__refund h4, &__timeline h4 { margin: 0 0 12px; }
     &__refund > div { display: flex; gap: 8px; }
-    &__refund input, &__refund select { min-width: 0; flex: 1; border: 1px solid #e0e4ec; border-radius: 9px; padding: 10px; }
+    &__refund input, &__refund select { min-width: 0; flex: 1; border: 1px solid var(--de-color-border-strong); border-radius: var(--de-radius-sm); padding: 10px; background: var(--de-color-surface); color: var(--de-color-text); }
+    &__refund input:focus-visible, &__refund select:focus-visible { outline: 3px solid var(--de-color-focus); outline-offset: 2px; }
     @media (max-width: 900px) { &__layout { grid-template-columns: 1fr; } }
     @media (max-width: 560px) { &__refund > div { flex-direction: column; } }
 }

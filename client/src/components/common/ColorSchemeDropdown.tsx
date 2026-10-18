@@ -53,7 +53,7 @@ const ColorSchemeDropdown: React.FC<{ align?: "left" | "right" }> = ({ align = "
                 onClick={() => setOpen((prev) => !prev)}
                 aria-haspopup="listbox"
                 aria-expanded={open}
-                aria-label={t("colorScheme.system")}
+                aria-label={currentLabel}
                 data-resolved={resolved}
                 title={currentLabel}
             >

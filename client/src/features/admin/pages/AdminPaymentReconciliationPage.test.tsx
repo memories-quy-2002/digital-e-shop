@@ -1,5 +1,6 @@
+import { renderWithLocale } from '../../../test-utils/renderWithLocale';
 import React from "react";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminPaymentReconciliationPage from "./AdminPaymentReconciliationPage";
 import {
@@ -91,7 +92,7 @@ describe("AdminPaymentReconciliationPage", () => {
 
     it("shows a retryable error instead of an empty reconciliation queue", async () => {
         vi.mocked(fetchPaymentReconciliationCandidates).mockRejectedValueOnce(new Error("network"));
-        render(<AdminPaymentReconciliationPage />);
+        renderWithLocale(<AdminPaymentReconciliationPage />);
 
         expect(await screen.findByRole("alert")).toHaveTextContent("Reconciliation unavailable");
         expect(screen.getByRole("button", { name: "Retry" })).toBeVisible();
@@ -103,7 +104,7 @@ describe("AdminPaymentReconciliationPage", () => {
             candidates: [],
             pagination: { page: 1, limit: 50, total: 0, totalPages: 0 },
         });
-        render(<AdminPaymentReconciliationPage />);
+        renderWithLocale(<AdminPaymentReconciliationPage />);
 
         expect(await screen.findByText("Reconciliation queue is clear")).toBeInTheDocument();
     });
@@ -128,7 +129,7 @@ describe("AdminPaymentReconciliationPage", () => {
             createdAt: null,
             updatedAt: null,
         }]);
-        render(<AdminPaymentReconciliationPage />);
+        renderWithLocale(<AdminPaymentReconciliationPage />);
 
         const payosRow = await screen.findByText("Order #42").then((target) => target.closest("tr"));
         expect(payosRow).not.toBeNull();
@@ -147,7 +148,7 @@ describe("AdminPaymentReconciliationPage", () => {
     });
 
     it("passes provider and status filters to the API", async () => {
-        render(<AdminPaymentReconciliationPage />);
+        renderWithLocale(<AdminPaymentReconciliationPage />);
         await screen.findByText("Order #42");
 
         fireEvent.change(screen.getByRole("combobox", { name: "Filter by provider" }), { target: { value: "payos" } });
@@ -163,19 +164,19 @@ describe("AdminPaymentReconciliationPage", () => {
 
     it("shows queue loading, retryable errors, and empty state explicitly", async () => {
         vi.mocked(fetchPaymentAttemptExceptions).mockImplementationOnce(() => new Promise(() => {}));
-        render(<AdminPaymentReconciliationPage />);
+        renderWithLocale(<AdminPaymentReconciliationPage />);
         expect(screen.getByText("Loading payment exceptions")).toBeInTheDocument();
     });
 
     it("shows an exception load error separately from the empty result", async () => {
         vi.mocked(fetchPaymentAttemptExceptions).mockRejectedValueOnce(new Error("offline"));
-        render(<AdminPaymentReconciliationPage />);
+        renderWithLocale(<AdminPaymentReconciliationPage />);
         expect(await screen.findByRole("alert")).toBeInTheDocument();
         expect(screen.queryByText("No paid payment exceptions")).not.toBeInTheDocument();
     });
 
     it("shows the resolved empty exception state", async () => {
-        render(<AdminPaymentReconciliationPage />);
+        renderWithLocale(<AdminPaymentReconciliationPage />);
         expect(await screen.findByText("No paid payment exceptions")).toBeInTheDocument();
     });
 
@@ -186,7 +187,7 @@ describe("AdminPaymentReconciliationPage", () => {
             pendingCheckoutId: 5, createdAt: "2026-10-15T00:00:00.000Z", updatedAt: "2026-10-15T00:00:00.000Z",
         };
         vi.mocked(fetchPaymentAttemptExceptions).mockResolvedValue({ items: [item], pagination: { page: 1, limit: 25, total: 1, totalPages: 1 }, msg: "ok", requestId: "req" });
-        render(<AdminPaymentReconciliationPage />);
+        renderWithLocale(<AdminPaymentReconciliationPage />);
         fireEvent.click(await screen.findByRole("button", { name: "Review" }));
         expect(await screen.findByText("Safe snapshot product × 1")).toBeInTheDocument();
         expect(screen.queryByText(/customer|email|phone/i)).not.toBeInTheDocument();
@@ -224,7 +225,7 @@ describe("AdminPaymentReconciliationPage", () => {
             createdAt: item.createdAt, updatedAt: item.updatedAt, currency: "VND", items: [], subtotalVnd: 0, discountVnd: 0,
             shippingVnd: 0, payableVnd: 0, refunds: [],
         });
-        render(<AdminPaymentReconciliationPage />);
+        renderWithLocale(<AdminPaymentReconciliationPage />);
         fireEvent.click(await screen.findByRole("button", { name: "Review" }));
         expect(await screen.findByText("No refundable balance remains.")).toBeInTheDocument();
         expect(screen.queryByRole("button", { name: "Record transfer refund" })).not.toBeInTheDocument();

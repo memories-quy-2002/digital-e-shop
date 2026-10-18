@@ -262,6 +262,9 @@
         flex-wrap: wrap;
         align-items: baseline;
         gap: 0.5rem;
+        padding: 0.55rem 0.65rem;
+        border-left: 3px solid var(--de-color-signal);
+        background: var(--de-color-bg-muted);
 
         strong {
             color: var(--de-color-text);

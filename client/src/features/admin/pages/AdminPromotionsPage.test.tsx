@@ -34,6 +34,21 @@ describe("AdminPromotionsPage loyalty reward cost", () => {
         mocks.createPromotion.mockResolvedValue(undefined);
     });
 
+    it("groups promotion fields by discount, redemption rules, and schedule", async () => {
+        render(<LocaleProvider><AdminPromotionsPage /></LocaleProvider>);
+
+        const discountGroup = await screen.findByRole("group", { name: "Discount setup" });
+        const rewardsGroup = screen.getByRole("group", { name: "Usage and rewards" });
+        const scheduleGroup = screen.getByRole("group", { name: "Promotion schedule" });
+
+        expect(discountGroup).toContainElement(screen.getByLabelText(/code/i));
+        expect(discountGroup).toContainElement(screen.getByLabelText(/discount %/i));
+        expect(rewardsGroup).toContainElement(screen.getByLabelText(/usage limit/i));
+        expect(rewardsGroup).toContainElement(screen.getByRole("spinbutton", { name: /loyalty points cost/i }));
+        expect(scheduleGroup).toContainElement(screen.getByLabelText(/starts at/i));
+        expect(scheduleGroup).toContainElement(screen.getByLabelText(/expires at/i));
+    });
+
     it("saves a positive integer point cost with the promotion", async () => {
         render(<LocaleProvider><AdminPromotionsPage /></LocaleProvider>);
 

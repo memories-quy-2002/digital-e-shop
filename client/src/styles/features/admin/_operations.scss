@@ -25,9 +25,9 @@
     .operations__notice { color: var(--de-color-success-strong); background: var(--de-color-success-soft); }
     .operations__alert { color: var(--de-color-danger-strong); background: var(--de-color-danger-soft); }
     .operations__pagination { display: flex; justify-content: space-between; gap: 0.75rem; margin-top: 1rem; }
-    .operations__runner { display: flex; align-items: end; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1rem; padding: 1rem; }
+    .operations__runner { display: flex; width: fit-content; max-width: 100%; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1rem; padding: 1rem; }
     .operations__runner > label { width: min(100%, 18rem); }
-    .operations__runner > .operations__notice { flex-basis: 100%; margin: 0; }
+    .operations__runner-summary { width: fit-content; max-width: 100%; margin: 0 0 1rem; overflow-wrap: anywhere; line-height: 1.5; }
     .operations__table-wrap { max-width: 100%; overflow-x: auto; border: 1px solid var(--de-color-border); border-radius: var(--de-radius-sm); background: var(--de-color-surface); }
     .operations__table { width: 100%; min-width: 760px; border-collapse: collapse; text-align: left; }
     .operations__table th, .operations__table td { padding: 0.8rem; border-bottom: 1px solid var(--de-color-border); vertical-align: middle; }
@@ -49,7 +49,7 @@
         .operations__money-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .operations__form { grid-template-columns: minmax(0, 1fr); }
         .operations__form > .admin__button { width: 100%; }
-        .operations__runner { align-items: stretch; flex-direction: column; }
+        .operations__runner { width: 100%; align-items: stretch; flex-direction: column; }
         .operations__runner > label { width: 100%; }
         .operations__pagination { flex-direction: column; }
         .operations__pagination > .admin__button { width: 100%; }

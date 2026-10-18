@@ -42,6 +42,15 @@ export async function updateCustomerAddress(
     return response.data.address;
 }
 
+export async function updateCustomerAddressLocation(
+    uid: string,
+    addressId: number,
+    latitude: number,
+    longitude: number,
+): Promise<void> {
+    await http.patch(`/api/users/${uid}/addresses/${addressId}/location`, { latitude, longitude });
+}
+
 export async function deleteCustomerAddress(uid: string, addressId: number): Promise<void> {
     await http.delete(`/api/users/${uid}/addresses/${addressId}`);
 }

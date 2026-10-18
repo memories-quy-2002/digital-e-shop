@@ -6,6 +6,7 @@ type ConfirmActionModalProps = {
     message: string;
     confirmLabel?: string;
     cancelLabel?: string;
+    processingLabel?: string;
     confirmVariant?: string;
     isConfirming?: boolean;
     onCancel: () => void;
@@ -18,6 +19,7 @@ const ConfirmActionModal = ({
     message,
     confirmLabel = "Confirm",
     cancelLabel = "Cancel",
+    processingLabel = "Processing...",
     confirmVariant = "danger",
     isConfirming = false,
     onCancel,
@@ -34,7 +36,7 @@ const ConfirmActionModal = ({
                     {cancelLabel}
                 </Button>
                 <Button variant={confirmVariant} onClick={onConfirm} disabled={isConfirming}>
-                    {isConfirming ? "Processing..." : confirmLabel}
+                    {isConfirming ? processingLabel : confirmLabel}
                 </Button>
             </Modal.Footer>
         </Modal>

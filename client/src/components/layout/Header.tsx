@@ -1,4 +1,4 @@
-import React, { JSX, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import React, { JSX, Suspense, lazy, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { BoxSeamIcon, CartIcon, BellIcon, CheckCircleIcon, HeartIcon, PersonIcon, SearchIcon, SpeedometerIcon } from "../common/Icons";
 import ColorSchemeDropdown from "../common/ColorSchemeDropdown";
 import LanguageDropdown from "../common/LanguageDropdown";
@@ -23,6 +23,8 @@ import { formatCurrency } from "../../utils/currency";
 import { getApiSuccessMessage } from "../../lib/api-contract";
 import { CUSTOMER_ROUTES } from "../../routes/customerRoutes";
 import { searchProducts } from "../../features/products/api";
+
+const MiniCartDrawer = lazy(() => import("../common/MiniCartDrawer"));
 
 const RECENT_SEARCH_KEY = "digital-e:recent-searches:v1";
 const MAX_RECENT_SEARCHES = 5;
@@ -54,6 +56,8 @@ export const Header = (): JSX.Element => {
     const { items: cartItems } = useCart();
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+    const [isCartPreviewOpen, setIsCartPreviewOpen] = useState(false);
+    const [hasOpenedCartPreview, setHasOpenedCartPreview] = useState(false);
     const { userData, loading, setUserData } = useAuth();
     const desktopSearchId = "header_search";
     const mobileSearchId = "header_mobile_search";
@@ -467,12 +471,23 @@ export const Header = (): JSX.Element => {
                         <button
                             type="button"
                             className="header__action header__action--badge"
-                            onClick={handleCartNavigation}
-                            aria-label={t("common.cart")}
+                            onClick={() => {
+                                setHasOpenedCartPreview(true);
+                                setIsCartPreviewOpen(true);
+                            }}
+                            aria-label={t("cart.openPreview")}
+                            aria-haspopup="dialog"
+                            aria-expanded={isCartPreviewOpen}
+                            aria-controls="mini-cart-drawer"
                         >
                             <CartIcon size={20} />
                             {cartItems.length > 0 ? <span>{Math.min(cartItems.length, 99)}</span> : null}
                         </button>
+                        {hasOpenedCartPreview ? (
+                            <Suspense fallback={null}>
+                                <MiniCartDrawer open={isCartPreviewOpen} onOpenChange={setIsCartPreviewOpen} />
+                            </Suspense>
+                        ) : null}
                         <div className="header__notifications" ref={notificationMenuRef}>
                             <button
                                 type="button"
@@ -628,7 +643,7 @@ export const Header = (): JSX.Element => {
             </div>
 
             <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-                <SheetContent side="right" className="header__mobile is-open" id={mobileMenuId} closeLabel={t("header.closeMenu")}>
+                <SheetContent side="right" motion className="header__mobile is-open" id={mobileMenuId} closeLabel={t("header.closeMenu")}>
                 <div className="header__mobile__search" role="search">
                     <label className="header__sr-only" htmlFor={mobileSearchId}>
                         {t("common.search")}

@@ -256,7 +256,8 @@ application has not been converted to Prisma.
   references, expected/settled amount and currency, reconciliation state,
   idempotency information, and refund state. PayOS receives VND amounts
   unchanged; local mock provider modes do not call external APIs. Historical
-  USD rows and legacy provider identifiers remain readable for compatibility.
+  USD rows remain readable; retired checkout-provider identifier columns are
+  removed by a forward migration.
 - Customer reviews require a completed order containing the reviewed product.
   Support tickets are database-backed and ownership-scoped. Admin analytics
   and operational alerts query bounded operational data rather than rebuilding

@@ -47,12 +47,42 @@ vi.mock("../components/common/LoadingScreen", () => ({
 }));
 
 vi.mock("../components/common/EmptyState", () => ({
-    default: () => <div>Empty wishlist</div>,
+    default: ({ title, description, actionLabel }: { title: string; description?: string; actionLabel?: string }) => (
+        <div>
+            <h2>{title}</h2>
+            {description ? <p>{description}</p> : null}
+            {actionLabel ? <span>{actionLabel}</span> : null}
+        </div>
+    ),
 }));
 
 vi.mock("../components/common/ConfirmActionModal", () => ({
-    default: ({ show, onConfirm }: { show: boolean; onConfirm: () => void }) =>
-        show ? <button type="button" onClick={onConfirm}>Confirm remove</button> : null,
+    default: ({
+        show,
+        title,
+        message,
+        confirmLabel,
+        cancelLabel,
+        processingLabel,
+        onConfirm,
+        onCancel,
+    }: {
+        show: boolean;
+        title: string;
+        message: string;
+        confirmLabel: string;
+        cancelLabel: string;
+        processingLabel: string;
+        onConfirm: () => void;
+        onCancel: () => void;
+    }) => show ? (
+        <div role="dialog" aria-label={title} data-processing-label={processingLabel}>
+            <h2>{title}</h2>
+            <p>{message}</p>
+            <button type="button" onClick={onConfirm}>{confirmLabel}</button>
+            <button type="button" onClick={onCancel}>{cancelLabel}</button>
+        </div>
+    ) : null,
 }));
 
 vi.mock("../components/common/WishlistItem", () => ({
@@ -106,6 +136,7 @@ const wishlist = [
 describe("Wishlist alert controls", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        window.localStorage.clear();
         mocks.productsApi.fetchWishlist.mockResolvedValue(wishlist);
         mocks.productsApi.removeFromWishlist.mockResolvedValue(undefined);
         mocks.productsApi.removeWishlistItems.mockResolvedValue(undefined);
@@ -120,13 +151,80 @@ describe("Wishlist alert controls", () => {
         }));
     });
 
-    const renderWishlist = () => render(
-        <MemoryRouter>
-            <LocaleProvider>
-                <WishlistPage />
-            </LocaleProvider>
-        </MemoryRouter>,
-    );
+    const renderWishlist = (locale: "en" | "vi" = "en") => {
+        window.localStorage.setItem("digital-e:locale:v1", JSON.stringify(locale));
+        return render(
+            <MemoryRouter>
+                <LocaleProvider>
+                    <WishlistPage />
+                </LocaleProvider>
+            </MemoryRouter>,
+        );
+    };
+
+    it.each([
+        { locale: "en" as const, title: "Wishlist", saved: "Saved", selected: "Selected", available: "Available", bulkActions: "Wishlist bulk actions", select: "Select all", move: "Move selected", remove: "Remove selected" },
+        { locale: "vi" as const, title: "Danh sách yêu thích", saved: "Đã lưu", selected: "Đã chọn", available: "Còn hàng", bulkActions: "Thao tác hàng loạt trong danh sách yêu thích", select: "Chọn tất cả", move: "Chuyển sản phẩm đã chọn", remove: "Xóa sản phẩm đã chọn" },
+    ])("localizes the wishlist page and bulk actions in $locale", async ({ locale, title, saved, selected, available, bulkActions, select, move, remove }) => {
+        renderWishlist(locale);
+
+        expect(await screen.findByRole("heading", { level: 1, name: title })).toBeInTheDocument();
+        expect(screen.getByText(saved)).toBeInTheDocument();
+        expect(screen.getByText(selected)).toBeInTheDocument();
+        expect(screen.getByText(available)).toBeInTheDocument();
+        expect(screen.getByRole("region", { name: bulkActions })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: select })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: move })).toBeDisabled();
+        expect(screen.getByRole("button", { name: remove })).toBeDisabled();
+    });
+
+    it("localizes the empty state and singular removal confirmation in Vietnamese", async () => {
+        mocks.productsApi.fetchWishlist.mockResolvedValueOnce([]);
+        renderWishlist("vi");
+
+        expect(await screen.findByRole("heading", { name: "Danh sách yêu thích đang trống" })).toBeInTheDocument();
+        expect(screen.getByText("Lưu sản phẩm bạn đang cân nhắc và quay lại khi sẵn sàng lựa chọn.")).toBeInTheDocument();
+        expect(screen.getByText("Xem sản phẩm")).toBeInTheDocument();
+
+        mocks.productsApi.fetchWishlist.mockResolvedValueOnce([wishlist[0]]);
+        renderWishlist("vi");
+        fireEvent.click(await screen.findByRole("button", { name: "Remove GPU One" }));
+
+        expect(screen.getByRole("dialog", { name: "Xóa sản phẩm khỏi danh sách yêu thích" })).toHaveTextContent(
+            'Xóa "GPU One" khỏi danh sách yêu thích?',
+        );
+    });
+
+    it.each([
+        { locale: "en" as const, items: wishlist, selectAll: "Select all", removeSelected: "Remove selected", dialog: "Remove selected items", message: "Remove 2 selected items from your wishlist?", processing: "Processing..." },
+        { locale: "en" as const, items: [wishlist[0]], selectAll: "Select all", removeSelected: "Remove selected", dialog: "Remove selected items", message: "Remove 1 selected item from your wishlist?", processing: "Processing..." },
+        { locale: "vi" as const, items: wishlist, selectAll: "Chọn tất cả", removeSelected: "Xóa sản phẩm đã chọn", dialog: "Xóa sản phẩm đã chọn", message: "Xóa 2 sản phẩm đã chọn khỏi danh sách yêu thích?", processing: "Đang xử lý..." },
+        { locale: "vi" as const, items: [wishlist[0]], selectAll: "Chọn tất cả", removeSelected: "Xóa sản phẩm đã chọn", dialog: "Xóa sản phẩm đã chọn", message: "Xóa 1 sản phẩm đã chọn khỏi danh sách yêu thích?", processing: "Đang xử lý..." },
+    ])("localizes singular and plural bulk-removal confirmation in $locale", async ({ locale, items, selectAll, removeSelected, dialog, message, processing }) => {
+        mocks.productsApi.fetchWishlist.mockResolvedValueOnce(items);
+        renderWishlist(locale);
+        await screen.findByTestId("wishlist-1");
+
+        fireEvent.click(screen.getByRole("button", { name: selectAll }));
+        fireEvent.click(screen.getByRole("button", { name: removeSelected }));
+
+        expect(screen.getByRole("dialog", { name: dialog })).toHaveTextContent(message);
+        expect(screen.getByRole("dialog", { name: dialog })).toHaveAttribute("data-processing-label", processing);
+    });
+
+    it.each([
+        { locale: "en" as const, message: "Unable to load wishlist." },
+        { locale: "vi" as const, message: "Không thể tải danh sách yêu thích." },
+    ])("localizes wishlist loading feedback in $locale", async ({ locale, message }) => {
+        mocks.productsApi.fetchWishlist.mockRejectedValueOnce(new Error("unavailable"));
+        renderWishlist(locale);
+
+        await waitFor(() => expect(mocks.toast.addToast).toHaveBeenCalledWith(
+            locale === "en" ? "Wishlist" : "Danh sách yêu thích",
+            message,
+            "error",
+        ));
+    });
 
     it("loads alert preferences once and maps them to each wishlist row", async () => {
         renderWishlist();
@@ -157,12 +255,13 @@ describe("Wishlist alert controls", () => {
         renderWishlist();
 
         fireEvent.click(await screen.findByRole("button", { name: "Remove GPU One" }));
-        fireEvent.click(screen.getByRole("button", { name: "Confirm remove" }));
+        fireEvent.click(screen.getByRole("button", { name: "Remove" }));
 
         await waitFor(() => expect(screen.queryByTestId("wishlist-1")).not.toBeInTheDocument());
         expect(mocks.alerts.fetchProductAlerts).toHaveBeenCalledTimes(1);
         expect(screen.getByTestId("wishlist-2")).toBeInTheDocument();
         expect(screen.getByRole("switch", { name: "Back in stock" })).toHaveAttribute("aria-checked", "true");
+        expect(mocks.toast.addToast).toHaveBeenCalledWith("Wishlist", "Item removed from wishlist.", "success");
     });
 
     it("shows an alert loading error and retries without blocking the wishlist", async () => {

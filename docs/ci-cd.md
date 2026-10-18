@@ -24,7 +24,7 @@ client matrix in Vercel as described in the
 
 ### Server job
 
-The server job starts a disposable MySQL 8.4 service. It installs from `server/pnpm-lock.yaml`, verifies connectivity, loads the checked-in legacy SQL baseline and historical Stripe SQL, records the metadata-only Prisma `0_init` baseline, and deploys forward migrations.
+The server job starts a disposable MySQL 8.4 service. It installs from `server/pnpm-lock.yaml`, verifies connectivity, loads the checked-in legacy SQL baseline and historical checkout SQL, records the metadata-only Prisma `0_init` baseline, and deploys forward migrations.
 
 It then runs server typecheck, lint, unit tests, MySQL integration tests, a disposable demo reset and seed verification, the compiled server build, the Vercel function build, and an HTTP smoke check against `/api/health`.
 
@@ -97,7 +97,7 @@ Before a production migration:
 
 1. Create and verify a recoverable database backup
 2. Confirm the target host and database
-3. Check for duplicate Stripe Checkout Session IDs and an existing unique key when the migration affects that boundary
+3. Review migration-specific schema changes and confirm the backup is recoverable before deploying cleanup migrations
 4. Confirm the legacy `0_init` baseline is reconciled
 5. Run `prisma:migrate:status`, then `prisma:migrate:deploy`, then status again
 6. Verify the API health endpoint and a normal checkout or payment webhook flow
@@ -114,4 +114,4 @@ The workflow requires:
 - The exact confirmation `RESET_DEMO_DATABASE`
 - `DATABASE_URL`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, and optional `DB_SSL` in the protected Environment
 
-After approval, it drops the selected database's base tables, reloads the committed legacy baseline and historical Stripe SQL, records `0_init`, deploys forward Prisma migrations, runs `prisma:seed`, verifies the demo graph, and checks final migration status. Treat this as destructive production work, not as an application startup step.
+After approval, it drops the selected database's base tables, reloads the committed legacy baseline and historical checkout SQL, records `0_init`, deploys forward Prisma migrations, runs `prisma:seed`, verifies the demo graph, and checks final migration status. Treat this as destructive production work, not as an application startup step.

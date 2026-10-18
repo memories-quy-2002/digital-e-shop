@@ -14,6 +14,8 @@ import { formatCurrency } from "../../../utils/currency";
 import { getOrderStatusKey } from "../../orders/orderStatus";
 import { getApiErrorMessage } from "../../../lib/api-contract";
 import { useT } from "../../../hooks/useT";
+import { useLocale } from "../../../context/LocaleContext";
+import { useAdminCopy } from "../../../hooks/useAdminCopy";
 
 const ITEMS_PER_PAGE = 8;
 const emptyPagination: AdminListPagination = { page: 1, limit: ITEMS_PER_PAGE, total: 0, totalPages: 0 };
@@ -49,6 +51,8 @@ const AdminAccountPage = () => {
     const requestSequence = useRef(0);
     const { addToast } = useToast();
     const t = useT();
+    const tx = useAdminCopy();
+    const { locale } = useLocale();
     const deferredSearchTerm = useDeferredValue(searchTerm);
 
     const loadUsers = React.useCallback(async () => {
@@ -166,60 +170,60 @@ const AdminAccountPage = () => {
     return (
         <AdminLayout>
             <Helmet>
-                <title>Admin Accounts | Digital-E</title>
+                <title>{tx("Accounts")} | Digital-E</title>
                 <meta name="description" content="Manage user accounts and roles." />
             </Helmet>
             <main className="admin__page admin__page--accounts">
                 <header className="admin__page__header">
                     <div>
-                        <span className="admin__page__eyebrow">Users</span>
-                        <h1 className="admin__page__title">Accounts</h1>
+                        <span className="admin__page__eyebrow">{tx("Users")}</span>
+                        <h1 className="admin__page__title">{tx("Accounts")}</h1>
                         <p className="admin__page__subtitle">
-                            Search every customer, review order counts, and adjust access status.
+                            {tx("Search every customer, review order counts, and adjust access status.")}
                         </p>
                     </div>
                     <div className="admin__page__actions">
-                        <button type="button" className="admin__button admin__button--ghost" onClick={loadUsers}>Refresh</button>
+                        <button type="button" className="admin__button admin__button--ghost" onClick={loadUsers}>{tx("Refresh")}</button>
                         <button type="button" className="admin__button admin__button--primary" onClick={exportAccountsCsv}>
-                            Export loaded page CSV
+                            {tx("Export loaded page CSV")}
                         </button>
                     </div>
                 </header>
 
                 <section className="admin__summary">
                     <div className="admin__summary-card">
-                        <span>Total accounts</span>
+                        <span>{tx("Total accounts")}</span>
                         <strong>{accountSummary.total}</strong>
-                        <p>All users</p>
+                        <p>{tx("All users")}</p>
                     </div>
                     <div className="admin__summary-card">
-                        <span>Customers</span>
+                        <span>{tx("Customers")}</span>
                         <strong>{accountSummary.customers}</strong>
-                        <p>Buyer accounts</p>
+                        <p>{tx("Buyer accounts")}</p>
                     </div>
                     <div className="admin__summary-card">
-                        <span>Suspended</span>
+                        <span>{tx("Suspended")}</span>
                         <strong>{accountSummary.suspended}</strong>
-                        <p>Limited access</p>
+                        <p>{tx("Limited access")}</p>
                     </div>
                 </section>
 
                 <section className="admin__card">
                     <div className="admin__card__header admin__card__header--stacked">
                         <div>
-                            <h3>Account list</h3>
-                            <span>{pagination.total} results</span>
+                            <h3>{tx("Account list")}</h3>
+                            <span>{pagination.total} {tx("results")}</span>
                         </div>
                         <div className="admin__list-toolbar">
                             <div className="admin__filters">
                                 <label className="admin__sr-only" htmlFor="account-search">
-                                    Search accounts
+                                    {tx("Search accounts")}
                                 </label>
                                 <input
                                     type="search"
                                     name="account-search"
                                     id="account-search"
-                                    placeholder="Search all users by name, email, role, or status…"
+                                    placeholder={tx("Search all users by name, email, role, or status…")}
                                     value={searchTerm}
                                     onChange={(event) => {
                                         setSearchTerm(event.target.value);
@@ -234,28 +238,28 @@ const AdminAccountPage = () => {
                                         setCurrentPage(1);
                                     }}
                                 >
-                                    Clear
+                                    {tx("Clear")}
                                 </button>
                             </div>
                         </div>
                     </div>
                     <div className="admin__card__body admin__list-shell">
                         {loadError && !hasLoaded ? <AdminStatusPanel variant="error" title={loadError.title} description={loadError.message} onRetry={loadUsers} /> : null}
-                        {isLoading && !hasLoaded ? <AdminStatusPanel variant="loading" title="Loading accounts" description="Fetching the latest customer accounts." /> : null}
-                        {loadError && hasLoaded ? <AdminStatusPanel variant="error" title="Refresh failed" description={loadError.message} onRetry={loadUsers} retryLabel="Retry refresh" /> : null}
-                        {!isLoading && !loadError && hasLoaded && filteredAccounts.length === 0 ? <AdminStatusPanel variant="empty" title="No accounts found" description="No accounts match the current search." /> : null}
+                        {isLoading && !hasLoaded ? <AdminStatusPanel variant="loading" title={tx("Loading accounts")} description={tx("Fetching the latest customer accounts.")} /> : null}
+                        {loadError && hasLoaded ? <AdminStatusPanel variant="error" title={tx("Refresh failed")} description={loadError.message} onRetry={loadUsers} retryLabel={tx("Retry refresh")} /> : null}
+                        {!isLoading && !loadError && hasLoaded && filteredAccounts.length === 0 ? <AdminStatusPanel variant="empty" title={tx("No accounts found")} description={tx("No accounts match the current search.")} /> : null}
                         {(!loadError || hasLoaded) && !(isLoading && !hasLoaded) && filteredAccounts.length > 0 ? <>
-                        <AdminTableScrollHint label="Account list">
+                        <AdminTableScrollHint label={tx("Account list")}>
                         <Table responsive={false} hover borderless className="admin__table admin__table--accounts">
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>Account</th>
-                                    <th>Orders</th>
-                                    <th>Role</th>
-                                    <th>Status</th>
-                                    <th>Date created</th>
-                                    <th>Action</th>
+                                    <th>{tx("Account")}</th>
+                                    <th>{tx("Orders")}</th>
+                                    <th>{tx("Role")}</th>
+                                    <th>{tx("Status")}</th>
+                                    <th>{tx("Date created")}</th>
+                                    <th>{tx("Action")}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -280,8 +284,8 @@ const AdminAccountPage = () => {
                                                     requestAccountChange(account, event.target.value as Role, account.status || "Active")
                                                 }
                                             >
-                                                <option value={Role.Customer}>Customer</option>
-                                                <option value={Role.Admin}>Admin</option>
+                                                <option value={Role.Customer}>{tx("Customer")}</option>
+                                                <option value={Role.Admin}>{tx("Admin")}</option>
                                                 <option value={Role.DeliveryStaff}>{t("shipping.deliveryStaffRole")}</option>
                                             </select>
                                         </td>
@@ -297,13 +301,13 @@ const AdminAccountPage = () => {
                                                     )
                                                 }
                                             >
-                                                <option value="Active">Active</option>
-                                                <option value="Suspended">Suspended</option>
+                                                <option value="Active">{tx("Active")}</option>
+                                                <option value="Suspended">{tx("Suspended")}</option>
                                             </select>
                                         </td>
                                         <td className="admin__table__date">
                                             <span className="admin__table__value">
-                                                {new Date(account.created_at).toLocaleDateString("en-GB")}
+                                                {new Date(account.created_at).toLocaleDateString(locale === "vi" ? "vi-VN" : "en-GB")}
                                             </span>
                                         </td>
                                         <td className="admin__table__account-action" data-label="Actions">
@@ -312,7 +316,7 @@ const AdminAccountPage = () => {
                                                 className="admin__button admin__button--ghost admin__button--compact"
                                                 onClick={() => handleOpenProfile(account)}
                                             >
-                                                Profile
+                                                {tx("Profile")}
                                             </button>
                                         </td>
                                     </tr>
@@ -331,11 +335,11 @@ const AdminAccountPage = () => {
                                 activeClassName="selected"
                                 disabledClassName="disabled"
                                 breakLabel="…"
-                                nextLabel="Next"
+                                nextLabel={tx("Next")}
                                 onPageChange={(event) => setCurrentPage(event.selected + 1)}
                                 pageRangeDisplayed={5}
                                 pageCount={pageCount}
-                                previousLabel="Previous"
+                                previousLabel={tx("Previous")}
                                 forcePage={Math.max(currentPage - 1, 0)}
                                 renderOnZeroPageCount={null}
                             />
@@ -352,11 +356,11 @@ const AdminAccountPage = () => {
                     contentClassName="admin__dialog__content"
                 >
                     <Modal.Header closeButton={!isSavingChange}>
-                        <Modal.Title>Confirm account access change</Modal.Title>
+                        <Modal.Title>{tx("Confirm account access change")}</Modal.Title>
                     </Modal.Header>
                     <Modal.Body>
-                        <p>This changes access to customer or admin tools. Add a reason to the audit history.</p>
-                        <label htmlFor="account-change-reason">Reason (at least 8 characters)</label>
+                        <p>{tx("This changes access to customer or admin tools. Add a reason to the audit history.")}</p>
+                        <label htmlFor="account-change-reason">{tx("Reason (at least 8 characters)")}</label>
                         <textarea
                             id="account-change-reason"
                             className="admin__table__input"
@@ -368,9 +372,9 @@ const AdminAccountPage = () => {
                         />
                     </Modal.Body>
                     <Modal.Footer>
-                        <Button variant="secondary" disabled={isSavingChange} onClick={() => setPendingChange(null)}>Cancel</Button>
+                        <Button variant="secondary" disabled={isSavingChange} onClick={() => setPendingChange(null)}>{tx("Cancel")}</Button>
                         <Button variant="primary" disabled={isSavingChange || changeReason.trim().length < 8} onClick={handleUpdateAccount}>
-                            {isSavingChange ? "Saving…" : "Confirm change"}
+                            {isSavingChange ? tx("Saving…") : tx("Confirm change")}
                         </Button>
                     </Modal.Footer>
                 </Modal>
@@ -384,14 +388,14 @@ const AdminAccountPage = () => {
                     contentClassName="admin__dialog__content"
                 >
                     <Modal.Header closeButton>
-                        <Modal.Title>Customer profile</Modal.Title>
+                        <Modal.Title>{tx("Customer profile")}</Modal.Title>
                     </Modal.Header>
                     <Modal.Body>
                         {selectedProfile ? (
                             <div className="admin__customer-profile">
                                 <section className="admin__customer-profile__hero">
                                     <div className="admin__customer-profile__hero-copy">
-                                        <span>Customer</span>
+                                        <span>{tx("Customer")}</span>
                                         <strong>{getDisplayName(selectedProfile)}</strong>
                                         <small>@{selectedProfile.username}</small>
                                         <p>{selectedProfile.email}</p>
@@ -403,47 +407,47 @@ const AdminAccountPage = () => {
                                                 : "admin__pill admin__pill--success"
                                         }
                                     >
-                                        {selectedProfile.status || "Active"}
+                                        {tx(selectedProfile.status || "Active")}
                                     </span>
                                 </section>
                                 <div className="admin__detail-section__header">
-                                    <h4>Account health</h4>
-                                    <p>Spending, wishlist activity, and current access status for this customer.</p>
+                                    <h4>{tx("Account health")}</h4>
+                                    <p>{tx("Spending, wishlist activity, and current access status for this customer.")}</p>
                                 </div>
                                 <section className="admin__customer-profile__stats">
                                     <div>
-                                        <span>Orders</span>
+                                        <span>{tx("Orders")}</span>
                                         <strong>{selectedProfile.order_count || 0}</strong>
                                     </div>
                                     <div>
-                                        <span>Total spent</span>
+                                        <span>{tx("Total spent")}</span>
                                         <strong>{formatCurrency(selectedProfile.total_spent)}</strong>
                                     </div>
                                     <div>
-                                        <span>Wishlist</span>
+                                        <span>{tx("Wishlist")}</span>
                                         <strong>{selectedProfile.wishlist_count}</strong>
                                     </div>
                                     <div>
-                                        <span>Role</span>
+                                        <span>{tx("Role")}</span>
                                         <strong>{selectedProfile.role}</strong>
                                     </div>
                                 </section>
                                 <section className="admin__customer-profile__orders">
                                     <div className="admin__detail-section__header">
-                                        <h4>Recent orders</h4>
-                                        <p>Latest purchase activity associated with this account.</p>
+                                        <h4>{tx("Recent orders")}</h4>
+                                        <p>{tx("Latest purchase activity associated with this account.")}</p>
                                     </div>
                                     {selectedProfile.recent_orders.length > 0 ? (
                                         selectedProfile.recent_orders.map((order) => (
                                             <div key={order.id}>
                                                 <strong>#{order.id}</strong>
-                                                <span>{getStatusLabel(Number(order.status))}</span>
+                                                <span>{tx(getStatusLabel(Number(order.status)))}</span>
                                                 <span>{formatCurrency(Number(order.total_price) - Number(order.discount))}</span>
-                                                <small>{new Date(order.date_added).toLocaleString()}</small>
+                                                <small>{new Date(order.date_added).toLocaleString(locale === "vi" ? "vi-VN" : "en-GB")}</small>
                                             </div>
                                         ))
                                     ) : (
-                                        <p className="admin__customer-profile__empty">No orders yet.</p>
+                                        <p className="admin__customer-profile__empty">{tx("No orders yet.")}</p>
                                     )}
                                 </section>
                             </div>

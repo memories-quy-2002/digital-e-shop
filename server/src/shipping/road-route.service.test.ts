@@ -40,7 +40,7 @@ describe("RoadRouteService", () => {
         expect(calculateDeliveryFee(route.distanceMeters, { fee5To20Vnd: 25000, feeOver20Vnd: 50000 })).toBe(25000);
         expect(get).toHaveBeenCalledWith(
             "https://router.example.test/route/v1/driving/106.7,10.7;106.8,10.8?overview=full&geometries=geojson&steps=false",
-            { timeout: 5000, maxRedirects: 0 },
+            { timeout: 5000, maxRedirects: 0, headers: { "User-Agent": "Digital-E/1.0" } },
         );
     });
 

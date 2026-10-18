@@ -24,6 +24,7 @@ import {
 import { clearGuestCart } from "../guestCartStorage";
 import {
     clearPendingCheckout,
+    fingerprintPayOSRequest,
     getOrCreatePayOSSubmission,
     maskPhoneNumber,
     writeCheckoutSuccess,
@@ -37,7 +38,7 @@ import { useT } from "../../../hooks/useT";
 import { useLocale } from "../../../context/LocaleContext";
 import type { DeliveryAddress, InternalDeliveryQuote } from "../../shipping/types";
 import CheckoutDeliverySection, { type DeliveryAddressPrefill } from "./CheckoutDeliverySection";
-import { fetchCustomerAddresses } from "../../users/api";
+import { fetchCustomerAddresses, updateCustomerAddressLocation } from "../../users/api";
 import type { CustomerAddress } from "../../users/types";
 import { fetchLoyaltyOverview } from "../../loyalty/api";
 import type { LoyaltyOverview } from "../../loyalty/types";
@@ -113,6 +114,7 @@ const CheckoutPaymentPage = ({
     const [savedAddressPrefill, setSavedAddressPrefill] = useState<DeliveryAddressPrefill | null>(null);
     const [recentAddressPrefill, setRecentAddressPrefill] = useState<DeliveryAddressPrefill | null>(null);
     const [quoteResetKey, setQuoteResetKey] = useState(0);
+    const [quoteInvalidationKey, setQuoteInvalidationKey] = useState(0);
     const [loyalty, setLoyalty] = useState<LoyaltyOverview | null>(null);
     const [loyaltyLoadFailed, setLoyaltyLoadFailed] = useState(false);
     const [loyaltyPointsInput, setLoyaltyPointsInput] = useState("0");
@@ -247,7 +249,7 @@ const CheckoutPaymentPage = ({
     };
 
     const handleShippingQuote = useCallback((address: DeliveryAddress | null, quote: InternalDeliveryQuote | null) => {
-        setDeliveryAddress(address);
+        if (address) setDeliveryAddress(address);
         setShippingQuote(quote);
         if (address) {
             const [firstName = "", ...lastName] = address.recipientName.split(" ");
@@ -255,25 +257,42 @@ const CheckoutPaymentPage = ({
         }
     }, []);
 
-    const chooseSavedAddress = (event: React.ChangeEvent<HTMLSelectElement>) => {
-        const address = savedAddresses.find((item) => String(item.id) === event.target.value);
-        setRecentAddressPrefill(null);
-        setSavedAddressPrefill(address ? {
-            key: `saved:${address.id}`,
-            recipientName: address.recipient_name || undefined,
-            recipientPhone: address.phone_number || undefined,
-            addressLine: address.address_line,
-            city: address.city || address.province_name || undefined,
-            latitude: address.latitude,
-            longitude: address.longitude,
-        } : null);
-    };
+    const chooseAddress = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        const [source, id] = event.target.value.split(":", 2);
+        if (source === "saved") {
+            const address = savedAddresses.find((item) => String(item.id) === id);
+            setRecentAddressPrefill(null);
+            setSavedAddressPrefill(address ? {
+                key: `saved:${address.id}`,
+                recipientName: address.recipient_name || undefined,
+                recipientPhone: address.phone_number || undefined,
+                addressLine: address.address_line,
+                city: address.city || address.province_name || undefined,
+                latitude: address.latitude,
+                longitude: address.longitude,
+            } : null);
+            return;
+        }
 
-    const chooseRecentAddress = (event: React.ChangeEvent<HTMLSelectElement>) => {
-        const address = recentAddresses.find((item) => String(item.orderId) === event.target.value);
+        const address = source === "recent" ? recentAddresses.find((item) => String(item.orderId) === id) : undefined;
         setSavedAddressPrefill(null);
         setRecentAddressPrefill(address ? { key: `recent:${address.orderId}`, addressLine: address.address, city: address.city } : null);
     };
+
+    const persistConfirmedAddressLocation = useCallback(async (point: { latitude: number; longitude: number }, addressLine: string, city: string): Promise<boolean> => {
+        const selected = savedAddressPrefill?.key.startsWith("saved:")
+            ? savedAddresses.find((address) => String(address.id) === savedAddressPrefill.key.slice("saved:".length))
+            : undefined;
+        if (!uid || !selected) return false;
+        const sameAddress = selected.address_line.trim().toLocaleLowerCase() === addressLine.trim().toLocaleLowerCase()
+            && (selected.city || selected.province_name || "").trim().toLocaleLowerCase() === city.trim().toLocaleLowerCase();
+        if (!sameAddress) return false;
+        await updateCustomerAddressLocation(uid, selected.id, point.latitude, point.longitude);
+        setSavedAddresses((current) => current.map((address) => address.id === selected.id
+            ? { ...address, latitude: point.latitude, longitude: point.longitude }
+            : address));
+        return true;
+    }, [uid, savedAddressPrefill, savedAddresses]);
 
     const quoteIsValid = Boolean(shippingQuote && deliveryAddress && Date.parse(shippingQuote.expiresAt) > Date.now());
     const loyaltyPointsNumber = Number(loyaltyPointsInput);
@@ -293,16 +312,11 @@ const CheckoutPaymentPage = ({
 
     const submitPayOSCheckout = async (submission: CheckoutSubmissionContext) => {
         const cartSnapshot = submission.latestCart.map(({ productId, quantity }) => ({ productId, quantity }));
-        const requestFingerprint = JSON.stringify({
-            cart: cartSnapshot,
-            shippingQuoteId: shippingQuote!.id,
-            discountCode: discountCode || "",
-            loyaltyPoints: appliedLoyaltyPoints,
-            currency: "VND",
-        });
-        const pendingCheckout = getOrCreatePayOSSubmission(requestFingerprint, cartSnapshot);
-        const sessionResponse = uid
-            ? await createPayOSCheckoutSession(uid, {
+        let pendingCheckout: ReturnType<typeof getOrCreatePayOSSubmission>;
+        let sessionResponse: { attemptId: string; orderCode: number; url: string | null; guestOrderToken?: string };
+
+        if (uid) {
+            const request = {
                 cart: submission.latestCart,
                 totalPrice: submission.latestTotalPrice,
                 discount,
@@ -312,8 +326,11 @@ const CheckoutPaymentPage = ({
                 shippingQuoteId: shippingQuote!.id,
                 deliveryAddress: deliveryAddress!,
                 locale,
-            }, pendingCheckout.idempotencyKey)
-            : await createGuestPayOSCheckoutSession({
+            };
+            pendingCheckout = getOrCreatePayOSSubmission(await fingerprintPayOSRequest(request), cartSnapshot);
+            sessionResponse = await createPayOSCheckoutSession(uid, request, pendingCheckout.idempotencyKey);
+        } else {
+            const request = {
                 cart: submission.guestCart,
                 contact: submission.guestContact,
                 shipping: submission.guestShipping,
@@ -322,12 +339,16 @@ const CheckoutPaymentPage = ({
                 shippingQuoteId: shippingQuote!.id,
                 deliveryAddress: deliveryAddress!,
                 locale,
-            }, pendingCheckout.idempotencyKey);
+            };
+            pendingCheckout = getOrCreatePayOSSubmission(await fingerprintPayOSRequest(request), cartSnapshot);
+            sessionResponse = await createGuestPayOSCheckoutSession(request, pendingCheckout.idempotencyKey);
+        }
 
         writePendingCheckout({
             ...pendingCheckout,
             attemptId: sessionResponse.attemptId,
             providerOrderCode: String(sessionResponse.orderCode),
+            ...(!uid && sessionResponse.guestOrderToken ? { guestOrderToken: sessionResponse.guestOrderToken } : {}),
         });
         if (sessionResponse.url) {
             window.location.href = sessionResponse.url;
@@ -423,6 +444,14 @@ const CheckoutPaymentPage = ({
         if (err && typeof err === "object" && "response" in err) {
             const payload = getApiErrorPayload(err);
             const status = (err as { response?: { status?: number } }).response?.status;
+            if (["DELIVERY_QUOTE_EXPIRED", "DELIVERY_QUOTE_CHANGED", "DELIVERY_QUOTE_INVALID", "DELIVERY_SETTINGS_CHANGED"].includes(String(payload?.code || ""))) {
+                setShippingQuote(null);
+                setQuoteInvalidationKey((current) => current + 1);
+                const message = t("shipping.quoteInvalidated");
+                setErrors([message]);
+                addToast(t("checkout.title"), message);
+                return;
+            }
             if (status === HTTP_STATUS.CONFLICT) clearPendingCheckout();
             const requiresVerification = payload?.code === "EMAIL_VERIFICATION_REQUIRED";
             const authoritativeCart = Array.isArray(payload?.authoritativeCart)
@@ -435,11 +464,12 @@ const CheckoutPaymentPage = ({
                 issues: Array.isArray(payload?.issues) ? payload.issues as CartValidationIssue[] : undefined,
                 cartItems: authoritativeCart,
             });
-            const message = status === HTTP_STATUS.CONFLICT
-                ? t("checkout.checkoutDraftChanged")
-                : requiresVerification
+            const message = requiresVerification
                 ? t("checkout.verificationRequired")
-                : getApiErrorMessage(err, t("checkout.checkoutError"));
+                : getApiErrorMessage(
+                    err,
+                    status === HTTP_STATUS.CONFLICT ? t("checkout.checkoutDraftChanged") : t("checkout.checkoutError"),
+                );
             setErrors([message]);
             addToast(t("checkout.title"), message);
             return;
@@ -594,9 +624,10 @@ const CheckoutPaymentPage = ({
                         savedAddressPrefill={savedAddressPrefill}
                         recentAddressPrefill={recentAddressPrefill}
                         resetKey={quoteResetKey}
-                        onSavedAddressChange={chooseSavedAddress}
-                        onRecentAddressChange={chooseRecentAddress}
+                        invalidateQuoteKey={quoteInvalidationKey}
+                        onAddressChange={chooseAddress}
                         onQuoteChange={handleShippingQuote}
+                        onCoordinatesConfirmed={persistConfirmedAddressLocation}
                     />
 
                     {uid ? (

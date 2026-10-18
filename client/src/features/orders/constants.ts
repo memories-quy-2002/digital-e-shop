@@ -10,7 +10,6 @@ export const PAYMENT_STATUS = {
 
 export const HISTORICAL_PAYMENT_METHOD = {
     BANK_TRANSFER: "bank_transfer",
-    STRIPE: "stripe",
     CARD: "card",
 } as const;
 

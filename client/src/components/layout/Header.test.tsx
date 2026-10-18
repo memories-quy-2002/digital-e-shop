@@ -11,7 +11,15 @@ const mocks = vi.hoisted(() => ({
         loading: false,
         setUserData: vi.fn(),
     },
-    cart: { items: [] as unknown[] },
+    cart: {
+        items: [] as unknown[],
+        totalPrice: 0,
+        discount: 0,
+        subtotal: 0,
+        isLoading: false,
+        error: null as string | null,
+        fetchCart: vi.fn(),
+    },
     toast: { addToast: vi.fn() },
     notifications: { fetchCustomerNotifications: vi.fn(), logoutCurrentCustomer: vi.fn() },
     products: { searchProducts: vi.fn() },
@@ -48,8 +56,11 @@ vi.mock("../../hooks/useKeyboardShortcut", () => ({
 vi.mock("../ui/sheet", () => ({
     Sheet: ({ open, children }: { open: boolean; children: React.ReactNode }) => open ? <>{children}</> : null,
     SheetContent: ({ children, ...props }: { children: React.ReactNode; [key: string]: unknown }) => (
-        <div {...props}>{children}</div>
+        <div role="dialog" {...props}>{children}</div>
     ),
+    SheetHeader: ({ children, ...props }: { children: React.ReactNode; [key: string]: unknown }) => <div {...props}>{children}</div>,
+    SheetTitle: ({ children, ...props }: { children: React.ReactNode; [key: string]: unknown }) => <h2 {...props}>{children}</h2>,
+    SheetDescription: ({ children, ...props }: { children: React.ReactNode; [key: string]: unknown }) => <p {...props}>{children}</p>,
 }));
 
 const LocationProbe = () => {
@@ -72,6 +83,11 @@ describe("Header navigation controls", () => {
         mocks.auth.userData = null;
         mocks.auth.loading = false;
         mocks.cart.items = [];
+        mocks.cart.totalPrice = 0;
+        mocks.cart.discount = 0;
+        mocks.cart.subtotal = 0;
+        mocks.cart.isLoading = false;
+        mocks.cart.error = null;
         mocks.products.searchProducts.mockResolvedValue([]);
         mocks.notifications.fetchCustomerNotifications.mockResolvedValue({ notifications: [], unread: 0 });
     });
@@ -114,13 +130,43 @@ describe("Header navigation controls", () => {
         expect(screen.getByTestId("location")).toHaveTextContent("/account/notifications");
     });
 
-    it("lets a guest open the cart from the desktop control", () => {
+    it("opens a quick cart preview and lets a guest continue to the full cart", async () => {
         renderHeader();
 
-        fireEvent.click(screen.getByRole("button", { name: "Cart" }));
+        fireEvent.click(screen.getByRole("button", { name: "Open cart preview" }));
 
+        expect(await screen.findByRole("dialog", { name: "Your cart" })).toBeInTheDocument();
+        expect(await screen.findByText("Your cart is empty")).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("link", { name: "View full cart" }));
         expect(screen.getByTestId("location")).toHaveTextContent("/cart");
         expect(mocks.toast.addToast).not.toHaveBeenCalledWith("Login required", expect.anything());
+    });
+
+    it("shows cart items and closes the preview when opening a product", async () => {
+        mocks.cart.items = [{
+            cartItemId: 1,
+            productId: 42,
+            productName: "Noise Cancelling Headphones",
+            category: "Audio",
+            brand: "Bose",
+            price: 180000,
+            sale_price: null,
+            main_image: "headphones.jpg",
+            quantity: 2,
+            stock: 5,
+        }];
+        mocks.cart.totalPrice = 360000;
+        mocks.cart.subtotal = 360000;
+        renderHeader();
+
+        fireEvent.click(screen.getByRole("button", { name: "Open cart preview" }));
+
+        expect(await screen.findByText("Noise Cancelling Headphones")).toBeInTheDocument();
+        expect(screen.getByText("Qty: 2")).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("link", { name: "Noise Cancelling Headphones" }));
+
+        expect(screen.getByTestId("location")).toHaveTextContent("/product?id=42");
+        expect(screen.queryByRole("dialog", { name: "Your cart" })).not.toBeInTheDocument();
     });
 
     it("lets a guest open the cart from the profile menu", () => {

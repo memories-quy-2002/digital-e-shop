@@ -74,7 +74,7 @@ export const adminOrdersQuerySchema = z.object({
     limit: z.coerce.number().int().positive().max(100).default(25),
     search: z.string().trim().max(120).default(""),
     status: z.coerce.number().int().min(0).max(2).optional(),
-    paymentMethod: z.enum(["cash", "payos", "bank_transfer", "stripe", "card", "none"]).optional(),
+    paymentMethod: z.enum(["cash", "payos", "bank_transfer", "card", "none"]).optional(),
     sort: z.enum(["newest", "oldest"]).default("newest"),
 });
 
@@ -150,6 +150,7 @@ export const guestPayOSOrderLookupSchema = z.object({
 }).strict();
 
 export const mockPayOSConfirmSchema = z.object({
+    paymentAttemptId: z.string().uuid(),
     orderCode: guestPositiveInt("PayOS order code"),
     paymentLinkId: z.string().trim().min(1, "PayOS payment link id is required").max(255, "PayOS payment link id is too long"),
     amount: guestPositiveInt("Payment amount"),

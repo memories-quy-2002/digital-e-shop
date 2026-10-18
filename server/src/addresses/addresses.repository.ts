@@ -118,6 +118,27 @@ export class AddressesRepository {
         });
     }
 
+    updateAddressLocation(uid: string, addressId: number, latitude: number, longitude: number): Promise<UpdateResult> {
+        return new Promise((resolve, reject) => {
+            this.query("UPDATE customer_addresses SET latitude = ?, longitude = ? WHERE id = ? AND user_id = ?", [latitude, longitude, addressId, uid],
+                (queryErr: Error | null, result: UpdateResult) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve(result);
+                });
+        });
+    }
+
+    async addressBelongsToUser(uid: string, addressId: number): Promise<boolean> {
+        const rows = await new Promise<Array<{ id: number }>>((resolve, reject) => {
+            this.query("SELECT id FROM customer_addresses WHERE id = ? AND user_id = ? LIMIT 1", [addressId, uid],
+                (queryErr: Error | null, result: Array<{ id: number }>) => {
+                    if (queryErr) return reject(queryErr);
+                    resolve(result);
+                });
+        });
+        return rows.length > 0;
+    }
+
     deleteAddress(uid: string, addressId: number): Promise<UpdateResult> {
         return new Promise((resolve, reject) => {
             this.query(

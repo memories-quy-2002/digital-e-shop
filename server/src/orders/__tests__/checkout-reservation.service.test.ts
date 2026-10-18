@@ -341,7 +341,7 @@ describe("CheckoutReservationService", () => {
         const service = new CheckoutReservationService(repository as never, promotionsRepository as never, quoteService as never);
         const reservation = await service.reserveInventory(reservationInput("user-a"));
 
-        await expect(service.releaseReservation(reservation.reservationToken, "stripe_session_creation_failed")).resolves.toBeUndefined();
+        await expect(service.releaseReservation(reservation.reservationToken, "provider_session_creation_failed")).resolves.toBeUndefined();
         await expect(service.releaseReservation(reservation.reservationToken, "repeated_delivery")).resolves.toBeUndefined();
         expect(repository.releaseReservation).toHaveBeenCalledTimes(2);
         expect(repository.releaseReservation).toHaveBeenLastCalledWith(

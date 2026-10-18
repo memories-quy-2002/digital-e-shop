@@ -6,6 +6,7 @@ const LazyLoadingImage = ({
     style,
     eager = false,
     onError,
+    onLoad,
     srcSet,
     avifSrcSet,
     sizes,
@@ -19,6 +20,7 @@ const LazyLoadingImage = ({
     style?: CSSProperties;
     eager?: boolean;
     onError?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
+    onLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
     srcSet?: string;
     avifSrcSet?: string;
     sizes?: string;
@@ -93,6 +95,7 @@ const LazyLoadingImage = ({
             height={height}
             style={style}
             onError={onError}
+            onLoad={onLoad}
         />
     );
 

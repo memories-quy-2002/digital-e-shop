@@ -1,5 +1,6 @@
+import { renderWithLocale } from '../../test-utils/renderWithLocale';
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminHeader from "./AdminHeader";
@@ -23,7 +24,7 @@ vi.mock("react-router-dom", async () => ({
     useNavigate: () => mocks.navigate,
 }));
 
-const renderHeader = () => render(
+const renderHeader = () => renderWithLocale(
     <MemoryRouter>
         <AdminHeader />
     </MemoryRouter>,
@@ -47,6 +48,32 @@ describe("AdminHeader activity feed request states", () => {
         vi.mocked(acknowledgeAdminAlerts).mockResolvedValue(undefined);
         mocks.logoutCurrentCustomer.mockResolvedValue({});
         window.localStorage.clear();
+        document.documentElement.removeAttribute("data-theme");
+        document.documentElement.style.colorScheme = "";
+    });
+
+    it("switches the admin interface between English and Vietnamese", async () => {
+        vi.mocked(fetchAdminAlerts).mockResolvedValue({ alerts: [], unread: 0 });
+        renderHeader();
+
+        fireEvent.click(screen.getByRole("button", { name: "English / Tiếng Việt" }));
+        fireEvent.click(screen.getByRole("option", { name: /Tiếng Việt/ }));
+
+        const search = await screen.findByRole("textbox", { name: "Đi đến một mục quản trị" });
+        expect(search).toHaveAttribute("placeholder", "Đi đến Sản phẩm, Đơn hàng hoặc Tài khoản…");
+        expect(document.documentElement).toHaveAttribute("lang", "vi");
+    });
+
+    it("switches the admin interface to dark theme", async () => {
+        vi.mocked(fetchAdminAlerts).mockResolvedValue({ alerts: [], unread: 0 });
+        renderHeader();
+
+        fireEvent.click(screen.getByRole("button", { name: "System theme" }));
+        fireEvent.click(screen.getByRole("option", { name: "Dark mode" }));
+
+        await waitFor(() => expect(document.documentElement).toHaveAttribute("data-theme", "dark"));
+        expect(window.localStorage.getItem("digital-e:color-scheme:v1")).toBe(JSON.stringify("dark"));
+        expect(screen.getByRole("button", { name: "Dark mode" })).toBeInTheDocument();
     });
 
     it("shows a retryable error instead of the empty copy on initial failure", async () => {

@@ -120,6 +120,13 @@ describe('ProductComparisonPage', () => {
     expect(screen.getByText(/18\.000\.000/)).toBeInTheDocument();
     expect(screen.getByText(/22\.000\.000/)).toBeInTheDocument();
     expect(screen.getAllByText(/12 customer reviews/)).toHaveLength(2);
+    const firstSummary = screen.getByRole('heading', { name: 'Laptop A' }).closest('.comparison-product');
+    const firstPrice = firstSummary?.querySelector('.comparison-product__pricing');
+    const firstReviews = firstSummary?.querySelector('.comparison-product__reviews');
+    if (!firstPrice || !firstReviews) {
+      throw new Error('Comparison summary should show price and reviews.');
+    }
+    expect(firstPrice.compareDocumentPosition(firstReviews) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole('checkbox', { name: 'Show differences only' })).toBeInTheDocument();
     expect(screen.getByRole('table', { name: 'Specifications' })).toBeInTheDocument();
     expect(screen.getByRole('row', { name: /Memory/ })).toBeInTheDocument();

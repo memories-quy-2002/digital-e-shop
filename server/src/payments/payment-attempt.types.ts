@@ -87,7 +87,7 @@ export type PaymentAttemptProjection = {
 
 export type PaymentAttemptObservationInput = {
     attemptId: string;
-    source: "WEBHOOK" | "LOOKUP";
+    source: "WEBHOOK" | "LOOKUP" | "SIMULATOR";
     sourceKey: string;
     payload: unknown;
     providerOrderCode?: string | null;

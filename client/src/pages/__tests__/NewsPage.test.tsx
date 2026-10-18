@@ -1,10 +1,10 @@
 import React, { useEffect } from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import NewsArticlePage from "../NewsArticlePage";
 import NewsPage from "../NewsPage";
-import { formatNewsDate, NEWS_ARTICLES } from "../newsData";
+import { formatNewsDate, getRelatedNewsArticles, NEWS_ARTICLES } from "../newsData";
 import { LocaleProvider, useLocale } from "../../context/LocaleContext";
 import type { Locale } from "../../i18n";
 
@@ -41,7 +41,7 @@ describe("NewsPage", () => {
         process.env.TZ = "America/Los_Angeles";
 
         try {
-            expect(formatNewsDate("2026-05-10", "en")).toBe("10/05/2026");
+            expect(formatNewsDate("2026-10-15", "en")).toBe("15/10/2026");
         } finally {
             if (previousTimezone === undefined) delete process.env.TZ;
             else process.env.TZ = previousTimezone;
@@ -63,7 +63,7 @@ describe("NewsPage", () => {
             renderNews();
             expect(screen.getAllByRole("link", { name: "Read the guide" })[0]).toHaveAttribute(
                 "href",
-                "/news/faster-order-tracking",
+                "/news/galaxy-s26-ultra-time-best-inventions-2026",
             );
         } finally {
             NEWS_ARTICLES.splice(0, NEWS_ARTICLES.length, ...originalArticles);
@@ -73,14 +73,29 @@ describe("NewsPage", () => {
     it("links the featured story and every article to its stable detail slug", () => {
         renderNews();
 
-        expect(screen.getAllByRole("link", { name: "Read the guide" })).toHaveLength(5);
+        expect(screen.getAllByRole("link", { name: "Read the guide" })).toHaveLength(10);
+        const sourceLinks = screen.getAllByRole("link", { name: /^Source:/ });
+        expect(sourceLinks).toHaveLength(10);
+        expect(sourceLinks[0].closest(".news__featured__meta")).toBeNull();
+        expect(sourceLinks[0].previousElementSibling).toHaveClass("news__featured__meta");
         expect(screen.getAllByRole("link", { name: "Read the guide" }).map((link) => link.getAttribute("href"))).toEqual([
-            "/news/faster-order-tracking",
-            "/news/laptops-for-creators-students-and-hybrid-teams",
-            "/news/checkout-and-payment-experience",
-            "/news/choosing-the-right-audio-setup",
-            "/news/inventory-signals-before-stockouts",
+            "/news/galaxy-s26-ultra-time-best-inventions-2026",
+            "/news/galaxy-ai-language-support-vietnamese-bixby",
+            "/news/samsung-health-sleep-coaching-update",
+            "/news/lg-sound-suite-dtsx-update",
+            "/news/apple-homepod-mini-2-announced",
+            "/news/google-fitbit-edge-launch",
+            "/news/windows-hybrid-intelligence-ai-pcs",
+            "/news/samsung-smartthings-now-update",
+            "/news/galaxy-tab-s12-now-available",
+            "/news/apple-creator-studio-september-updates",
         ]);
+    });
+
+    it("keeps the news list in newest-first date order", () => {
+        expect(NEWS_ARTICLES.map((article) => article.date)).toEqual(
+            [...NEWS_ARTICLES.map((article) => article.date)].sort((left, right) => right.localeCompare(left)),
+        );
     });
 
     it("formats dates with the active locale", async () => {
@@ -88,8 +103,8 @@ describe("NewsPage", () => {
 
         await waitFor(() => {
             const dateOptions = { timeZone: "UTC" };
-            expect(screen.getByText(new Intl.DateTimeFormat("vi-VN", dateOptions).format(new Date("2026-05-10T00:00:00Z")))).toBeVisible();
-            expect(screen.getByText(new Intl.DateTimeFormat("vi-VN", dateOptions).format(new Date("2026-05-06T00:00:00Z")))).toBeVisible();
+            expect(screen.getByText(new Intl.DateTimeFormat("vi-VN", dateOptions).format(new Date("2026-10-15T00:00:00Z")))).toBeVisible();
+            expect(screen.getAllByText(new Intl.DateTimeFormat("vi-VN", dateOptions).format(new Date("2026-10-14T00:00:00Z")))).toHaveLength(3);
         });
     });
 });
@@ -109,12 +124,51 @@ describe("NewsArticlePage", () => {
         );
 
     it("renders the requested article and a back-to-news action", () => {
-        renderArticle("checkout-and-payment-experience");
+        renderArticle("galaxy-tab-s12-now-available");
 
         expect(
-            screen.getByRole("heading", { name: "What to check before you place an electronics order" }),
+            screen.getByRole("heading", { name: "Galaxy Tab S12 series reaches availability" }),
         ).toBeVisible();
-        expect(screen.getAllByRole("link", { name: /Back to News/ })).toHaveLength(2);
+        expect(screen.getByRole("link", { name: "Source: Samsung Global Newsroom" })).toHaveAttribute(
+            "href",
+            "https://news.samsung.com/global/samsung-introduces-galaxy-tab-s12-series-the-ultimate-productivity-powerhouse-built-for-growth",
+        );
+        expect(screen.getByRole("link", { name: "Read article" })).toHaveAttribute("href", "#news-article-body");
+        expect(screen.getByRole("button", { name: "Share article" })).toBeVisible();
+        expect(screen.getByRole("link", { name: "Source: Samsung Global Newsroom" }).parentElement).toHaveClass("news-article__utility");
+        const breadcrumb = screen.getByRole("navigation", { name: "Article breadcrumb" });
+        expect(breadcrumb.parentElement).toHaveClass("news-article__content");
+        expect(breadcrumb.querySelector("a")).toHaveAttribute("href", "/news");
+        expect(screen.getAllByRole("link", { name: /Back to News/ })).toHaveLength(1);
+    });
+
+    it("shows three curated related stories after the current article", () => {
+        const currentArticle = NEWS_ARTICLES.find((article) => article.slug === "galaxy-tab-s12-now-available");
+        expect(currentArticle).toBeDefined();
+        expect(getRelatedNewsArticles(currentArticle!)).toHaveLength(3);
+
+        renderArticle("galaxy-tab-s12-now-available");
+
+        expect(screen.getByRole("heading", { name: "Related stories" })).toBeVisible();
+        expect(screen.getAllByRole("link", { name: "Read the guide" }).map((link) => link.getAttribute("href"))).toEqual([
+            "/news/galaxy-s26-ultra-time-best-inventions-2026",
+            "/news/windows-hybrid-intelligence-ai-pcs",
+            "/news/apple-creator-studio-september-updates",
+        ]);
+    });
+
+    it("copies the article URL when native sharing is unavailable", async () => {
+        const writeText = vi.fn().mockResolvedValue(undefined);
+        Object.defineProperty(navigator, "clipboard", {
+            configurable: true,
+            value: { writeText },
+        });
+        renderArticle("galaxy-tab-s12-now-available");
+
+        fireEvent.click(screen.getByRole("button", { name: "Share article" }));
+
+        await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Article link copied."));
+        expect(writeText).toHaveBeenCalledWith(window.location.href);
     });
 
     it("renders NotFoundPage for an unknown slug instead of the first article", () => {
@@ -135,14 +189,14 @@ describe("NewsArticlePage", () => {
             const navigate = useNavigate();
 
             useEffect(() => {
-                navigate("/news/choosing-the-right-audio-setup");
+                navigate("/news/google-fitbit-edge-launch");
             }, [navigate]);
 
             return null;
         };
 
         render(
-            <MemoryRouter initialEntries={["/news/checkout-and-payment-experience"]}>
+            <MemoryRouter initialEntries={["/news/galaxy-tab-s12-now-available"]}>
                 <LocaleProvider>
                     <Routes>
                         <Route
@@ -159,7 +213,7 @@ describe("NewsArticlePage", () => {
             </MemoryRouter>,
         );
 
-        await waitFor(() => expect(screen.getByRole("heading", { name: "Build an audio setup around the way you listen" })).toBeVisible());
+        await waitFor(() => expect(screen.getByRole("heading", { name: "Google introduces Fitbit Edge with up to seven days of battery life" })).toBeVisible());
         expect(scrollTo).toHaveBeenCalledWith(0, 0);
 
         scrollTo.mockRestore();

@@ -2,11 +2,17 @@ import { describe, expect, it } from "vitest";
 
 const {
     assertLocalFirebaseEmulatorEnvironment,
+    DEMO_FIREBASE_USERS,
     LOCAL_FIREBASE_AUTH_EMULATOR_HOST,
     LOCAL_FIREBASE_PROJECT_ID,
 } = require("./seed-firebase-emulator-users");
 
 describe("Firebase Auth Emulator seeder guard", () => {
+    it("marks seeded demo users as verified to match the database fixtures", () => {
+        expect(DEMO_FIREBASE_USERS).toHaveLength(4);
+        expect(DEMO_FIREBASE_USERS.every((user: { emailVerified: boolean }) => user.emailVerified)).toBe(true);
+    });
+
     it("accepts the documented local emulator environment", () => {
         expect(() => assertLocalFirebaseEmulatorEnvironment({
             NODE_ENV: "development",

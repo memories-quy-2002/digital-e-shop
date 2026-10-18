@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "../../../context/LocaleContext";
@@ -100,6 +100,8 @@ const renderPage = () => render(
 describe("public cart states", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        window.localStorage.removeItem("digital-e:locale:v1");
+        mocks.cart.mergeGuestCart.mockResolvedValue({ complete: true, accepted: [], rejected: [] });
         mocks.cart.items = [];
         mocks.cart.totalPrice = 0;
         mocks.cart.discount = 0;
@@ -114,12 +116,15 @@ describe("public cart states", () => {
         mocks.cart.mergeStatus = "idle";
     });
 
-    it("uses a page-level heading and gives an empty cart a useful next step", () => {
+    it("gives an empty cart a focused state and a clear next step", () => {
         renderPage();
 
         expect(screen.getByRole("heading", { name: "Your cart", level: 1 })).toBeInTheDocument();
-        expect(screen.getAllByText("Find the next useful piece for your setup.")).toHaveLength(2);
+        expect(screen.getByRole("heading", { name: "Your cart is empty", level: 2 })).toBeInTheDocument();
+        expect(screen.getAllByText("Find the next useful piece for your setup.")).toHaveLength(1);
         expect(screen.getByRole("link", { name: "Shop now" })).toHaveAttribute("href", "/shops");
+        expect(screen.queryByRole("heading", { name: "0 items", level: 3 })).not.toBeInTheDocument();
+        expect(screen.queryByLabelText("Order summary")).not.toBeInTheDocument();
     });
 
     it("renders a recoverable preview error instead of an empty cart", () => {
@@ -162,6 +167,29 @@ describe("public cart states", () => {
         expect(screen.getByText("unavailable")).toBeInTheDocument();
     });
 
+    it("keeps the continue-shopping action in the item-list header when the cart has items", () => {
+        mocks.cart.items = [{
+            cartItemId: 1,
+            productId: 1,
+            productName: "Cart test item",
+            category: "Components",
+            brand: "Digital-E",
+            price: 100,
+            sale_price: null,
+            main_image: "",
+            quantity: 1,
+            stock: 5,
+            available_stock: 5,
+        }];
+        mocks.cart.status = "ready";
+
+        renderPage();
+
+        const listHeader = screen.getByRole("heading", { name: "1 item", level: 3 }).parentElement;
+        expect(listHeader).toContainElement(screen.getByRole("button", { name: /continue shopping/i }));
+        expect(screen.queryByText("Delivery fee is calculated at checkout")).not.toBeInTheDocument();
+    });
+
     it("surfaces a merge action when a signed-in user still has guest cart items", () => {
         mocks.cart.isGuest = false;
         mocks.cart.hasGuestItems = true;
@@ -170,5 +198,20 @@ describe("public cart states", () => {
 
         expect(screen.getByRole("region", { name: /guest cart/i })).toHaveTextContent(/guest cart/i);
         expect(screen.getByRole("button", { name: /merge guest cart/i })).toBeInTheDocument();
+    });
+
+    it("uses the selected locale for guest-cart merge feedback", async () => {
+        window.localStorage.setItem("digital-e:locale:v1", JSON.stringify("vi"));
+        mocks.cart.isGuest = false;
+        mocks.cart.hasGuestItems = true;
+
+        renderPage();
+
+        fireEvent.click(screen.getByRole("button", { name: "Gộp giỏ hàng khách" }));
+
+        await waitFor(() => expect(mocks.addToast).toHaveBeenCalledWith(
+            "Giỏ hàng khách",
+            "Các sản phẩm trong giỏ khách đã được gộp thành công.",
+        ));
     });
 });

@@ -1,0 +1,253 @@
+.admin__page--audit {
+    .admin__audit__header {
+        display: grid;
+        grid-template-columns: minmax(14rem, 0.8fr) minmax(0, 1.5fr);
+        align-items: center;
+        gap: 1.5rem;
+        padding: 1.45rem 1.5rem;
+    }
+
+    .admin__audit__summary {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .admin__audit__summary-icon,
+    .admin__audit__empty-icon {
+        display: grid;
+        width: 3.25rem;
+        height: 3.25rem;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 1px solid var(--de-color-signal-soft);
+        border-radius: var(--de-radius-md);
+        background: var(--de-color-signal-soft);
+        color: var(--de-color-signal);
+    }
+
+    .admin__audit__summary-icon svg,
+    .admin__audit__empty-icon svg {
+        width: 1.5rem;
+        height: 1.5rem;
+    }
+
+    .admin__audit__summary-copy,
+    .admin__audit__title-row {
+        min-width: 0;
+    }
+
+    .admin__audit__title-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.7rem;
+    }
+
+    .admin__audit__title-row h2 {
+        margin: 0;
+        color: var(--de-color-text);
+        font-family: var(--de-font-family-display);
+        font-size: 1.25rem;
+        letter-spacing: -0.025em;
+        line-height: 1.2;
+    }
+
+    .admin__audit__count {
+        display: inline-flex;
+        min-height: 1.7rem;
+        align-items: center;
+        gap: 0.35rem;
+        margin: 0 !important;
+        padding: 0.2rem 0.6rem;
+        border: 1px solid var(--de-color-border-strong);
+        border-radius: var(--de-radius-pill);
+        background: var(--de-color-surface-muted);
+        color: var(--de-color-text-muted) !important;
+        font-family: var(--de-font-family-mono);
+        font-size: 0.7rem;
+        font-weight: 700;
+        line-height: 1;
+        white-space: nowrap;
+    }
+
+    .admin__audit__count > span {
+        display: inline;
+        margin: 0;
+    }
+
+    .admin__audit__count strong {
+        color: var(--de-color-text) !important;
+        font-size: 0.8rem;
+    }
+
+    .admin__audit__filters {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(13rem, 0.42fr);
+        align-items: end;
+        gap: 0.9rem;
+    }
+
+    .admin__audit__field {
+        display: grid;
+        min-width: 0;
+        gap: 0.45rem;
+        margin: 0;
+        color: var(--de-color-text-soft);
+        font-size: 0.74rem;
+        font-weight: 800;
+        letter-spacing: 0.035em;
+    }
+
+    .admin__audit__search-control {
+        position: relative;
+        min-width: 0;
+    }
+
+    .admin__audit__search-control > svg {
+        position: absolute;
+        top: 50%;
+        left: 0.85rem;
+        width: 1.05rem;
+        height: 1.05rem;
+        color: var(--de-color-text-muted);
+        pointer-events: none;
+        transform: translateY(-50%);
+    }
+
+    .admin__audit__control {
+        width: 100%;
+        min-width: 0;
+        min-height: 2.85rem;
+        padding: 0.65rem 0.8rem;
+        border: 1px solid var(--de-color-border-strong);
+        border-radius: var(--de-radius-sm);
+        background: var(--de-color-surface-strong);
+        color: var(--de-color-text);
+        font: inherit;
+        font-size: 0.86rem;
+        letter-spacing: normal;
+    }
+
+    .admin__audit__search-control .admin__audit__control {
+        padding-left: 2.6rem;
+    }
+
+    .admin__audit__control::placeholder {
+        color: var(--de-color-text-muted);
+        opacity: 1;
+    }
+
+    .admin__audit__control:focus-visible {
+        border-color: var(--de-color-electric);
+        outline: 2px solid var(--de-color-electric);
+        outline-offset: 2px;
+        box-shadow: var(--de-shadow-focus);
+    }
+
+    .admin__audit__content {
+        display: grid;
+        min-width: 0;
+        gap: 1rem;
+        padding: 1.25rem 1.5rem 1.5rem;
+    }
+
+    .admin__audit__content > .admin__status-panel {
+        margin: 0;
+        border-radius: var(--de-radius-md);
+    }
+
+    .admin__audit__empty {
+        display: grid;
+        min-height: 9.5rem;
+        grid-template-columns: 3.25rem minmax(0, 1fr);
+        align-items: center;
+        gap: 1.15rem;
+        padding: 1.4rem 1.5rem;
+        border: 1px solid var(--de-color-border);
+        border-left: 3px solid var(--de-color-signal);
+        border-radius: var(--de-radius-md);
+        background: var(--de-color-surface-muted);
+    }
+
+    .admin__audit__empty-copy {
+        min-width: 0;
+    }
+
+    .admin__audit__empty-copy strong {
+        display: block;
+        color: var(--de-color-text);
+        font-size: 1rem;
+        font-weight: 800;
+        line-height: 1.35;
+    }
+
+    .admin__audit__empty-copy p {
+        max-width: 48rem;
+        margin: 0.35rem 0 0;
+        color: var(--de-color-text-muted);
+        line-height: 1.55;
+    }
+
+    .admin__table--audit {
+        min-width: 860px;
+    }
+
+    .admin__table--audit details summary {
+        color: var(--de-color-electric);
+        cursor: pointer;
+        font-weight: 750;
+    }
+
+    .admin__table--audit pre {
+        max-width: 36rem;
+        margin: 0.6rem 0 0;
+        padding: 0.75rem;
+        overflow: auto;
+        border: 1px solid var(--de-color-border);
+        border-radius: var(--de-radius-sm);
+        background: var(--de-color-bg-muted);
+        color: var(--de-color-text-soft);
+        font-size: 0.75rem;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+}
+
+@media (max-width: 900px) {
+    .admin__page--audit .admin__audit__header {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 1.15rem;
+    }
+}
+
+@media (max-width: 560px) {
+    .admin__page--audit {
+        .admin__audit__header {
+            padding: 1rem;
+        }
+
+        .admin__audit__filters {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 0.8rem;
+        }
+
+        .admin__audit__content {
+            padding: 1rem;
+        }
+
+        .admin__audit__empty {
+            min-height: 0;
+            grid-template-columns: minmax(0, 1fr);
+            justify-items: start;
+            gap: 0.9rem;
+            padding: 1rem;
+        }
+
+        .admin__audit__empty-icon {
+            width: 2.8rem;
+            height: 2.8rem;
+        }
+    }
+}

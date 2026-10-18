@@ -157,6 +157,14 @@
     min-width: 0;
     min-height: 0;
     width: 100%;
+    background: var(--de-color-bg-elevated);
+}
+
+.admin__layout__main__header button:focus-visible,
+.admin__layout__sidebar a:focus-visible,
+.admin__layout__sidebar button:focus-visible {
+    outline: 3px solid var(--de-color-focus);
+    outline-offset: 3px;
 }
 
 .admin__layout__main__header {

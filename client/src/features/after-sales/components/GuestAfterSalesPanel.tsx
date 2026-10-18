@@ -1,5 +1,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { useT } from "../../../hooks/useT";
+import { useLocale } from "../../../context/LocaleContext";
+import { formatUtcDateTime } from "../../../utils/dateTime";
 import { getApiErrorMessage } from "../../../lib/api-contract";
 import { CURRENCY_CODE } from "../../../constants/currency";
 import { formatMoney } from "../../../utils/currency";
@@ -9,10 +11,11 @@ import { createGuestAfterSalesRequest, fetchGuestAfterSalesRequests } from "../a
 import { getStableIdempotencyKey, type StableIdempotencyKey } from "../idempotency";
 import { AFTER_SALES_KIND, type AfterSalesKind, type AfterSalesRequest } from "../types";
 
-type Props = { orderId: number; guestOrderToken: string; currency?: string | null; items: GuestOrderItem[] };
+type Props = { orderId: number; guestOrderToken: string; currency?: string | null; items: GuestOrderItem[]; returnEligibleUntil?: string | null };
 
-const GuestAfterSalesPanel = ({ orderId, guestOrderToken, currency, items }: Props) => {
+const GuestAfterSalesPanel = ({ orderId, guestOrderToken, currency, items, returnEligibleUntil }: Props) => {
     const t = useT();
+    const { locale } = useLocale();
     const [kind, setKind] = useState<AfterSalesKind>(AFTER_SALES_KIND.RETURN);
     const [reason, setReason] = useState("");
     const [quantities, setQuantities] = useState<Record<number, number>>({});
@@ -77,6 +80,10 @@ const GuestAfterSalesPanel = ({ orderId, guestOrderToken, currency, items }: Pro
                     {expanded ? t("afterSales.refreshRequests") : t("afterSales.viewRequests")}
                 </button>
             </div>
+
+            {kind === AFTER_SALES_KIND.RETURN && returnEligibleUntil ? (
+                <p role="note">{t(Date.parse(returnEligibleUntil) < Date.now() ? "afterSales.returnWindowEnded" : "afterSales.returnDeadline", formatUtcDateTime(returnEligibleUntil, locale === "vi" ? "vi-VN" : "en-GB"))}</p>
+            ) : null}
 
             {expanded ? (
                 <>

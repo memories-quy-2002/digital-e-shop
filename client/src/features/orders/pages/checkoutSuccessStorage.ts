@@ -8,7 +8,7 @@ export type CheckoutSuccessData = {
     subtotal: number;
     shippingFee?: number;
     itemsCount: number;
-    placedAt: string;
+    placedAt?: string;
     currency?: CurrencyCode;
     paymentMethod?: PaymentMethod;
     email?: string;
@@ -29,6 +29,7 @@ export type PendingCheckoutData = {
     requestFingerprint: string;
     attemptId?: string;
     providerOrderCode?: string;
+    guestOrderToken?: string;
     cartSnapshot: PurchasedCartSnapshotItem[];
 };
 
@@ -42,6 +43,7 @@ const isPendingCheckout = (value: unknown): value is PendingCheckoutData => {
         && typeof record.requestFingerprint === "string" && record.requestFingerprint.length > 0
         && (record.attemptId === undefined || (typeof record.attemptId === "string" && UUID_PATTERN.test(record.attemptId)))
         && (record.providerOrderCode === undefined || /^\d{1,20}$/.test(record.providerOrderCode))
+        && (record.guestOrderToken === undefined || (typeof record.guestOrderToken === "string" && record.guestOrderToken.length >= 32 && record.guestOrderToken.length <= 128))
         && Array.isArray(record.cartSnapshot)
         && record.cartSnapshot.every((item) => Boolean(item && typeof item === "object")
             && Number.isSafeInteger(item.productId) && item.productId > 0
@@ -113,6 +115,7 @@ export function writePendingCheckout(data: PendingCheckoutData) {
         requestFingerprint: data.requestFingerprint,
         ...(data.attemptId ? { attemptId: data.attemptId } : {}),
         ...(data.providerOrderCode ? { providerOrderCode: data.providerOrderCode } : {}),
+        ...(data.guestOrderToken ? { guestOrderToken: data.guestOrderToken } : {}),
         cartSnapshot: data.cartSnapshot.map(({ productId, quantity }) => ({ productId, quantity })),
     };
     sessionStorage.setItem("checkoutPending", JSON.stringify(safeData));
@@ -129,6 +132,25 @@ export function getOrCreatePayOSSubmission(requestFingerprint: string, cartSnaps
     };
     writePendingCheckout(next);
     return next;
+}
+
+function canonicalizeCheckoutRequest(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map(canonicalizeCheckoutRequest);
+    if (value && typeof value === "object") {
+        return Object.fromEntries(
+            Object.entries(value as Record<string, unknown>)
+                .filter(([, nested]) => nested !== undefined)
+                .sort(([left], [right]) => left.localeCompare(right))
+                .map(([key, nested]) => [key, canonicalizeCheckoutRequest(nested)]),
+        );
+    }
+    return value;
+}
+
+export async function fingerprintPayOSRequest(request: unknown): Promise<string> {
+    const canonicalJson = JSON.stringify(canonicalizeCheckoutRequest(request));
+    const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonicalJson));
+    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export function clearPendingCheckout() {

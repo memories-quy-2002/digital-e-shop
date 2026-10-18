@@ -98,6 +98,7 @@ document at `/api/openapi.json` defines this shared error schema.
 | POST | /api/cart/guest/preview | Preview authoritative prices and stock |
 | POST | /api/cart/guest/sync | Synchronize the anonymous cart |
 | POST | /api/cart/guest/clear | Clear the anonymous cart |
+| POST | /api/cart/merge | Idempotently merge a guest cart for the signed-in owner |
 
 GET /api/products accepts pagination, term, category, brand, price, sort, and
 JSON-encoded typed attribute filters. The server bounds pagination and
@@ -118,6 +119,14 @@ Guest cart synchronization accepts
 HttpOnly digitalEGuestCartId cookie and stores only product IDs and quantities.
 The cookie expires after 30 days. Sending { "converted": true } to the clear
 route also records the cart as converted for aggregate admin analytics.
+
+On sign-in, `POST /api/cart/merge` accepts an `operationId` UUID and immutable
+product/quantity snapshot. The server stores accepted/rejected results in the
+same transaction as accepted cart increments. A retry with the same ID and
+snapshot returns that result without incrementing again; reusing the ID with a
+different snapshot returns `CART_MERGE_IDEMPOTENCY_CONFLICT`. After a partial
+result, the client keeps rejected quantities and uses a new ID for the next
+snapshot.
 
 ### Authentication
 
@@ -262,6 +271,8 @@ totals:
 | POST | /api/orders/guest/payment-attempts/:attemptId/cancel | Request cancellation of an unpaid guest attempt |
 | POST | /api/orders/guest/lookup | Read a guest order with its token |
 | POST | /api/orders/guest/by-payos-order-code | Read a guest PayOS order with its token |
+| POST | /api/orders/guest/access-recovery/request | Request a guest-order email OTP |
+| POST | /api/orders/guest/access-recovery/verify | Verify OTP and rotate guest access |
 | POST | /api/orders/mock-payos/confirm | Confirm a local mock PayOS payment |
 
 The guest purchase shape is:
@@ -291,7 +302,15 @@ The guest purchase shape is:
 The server validates contact and shipping fields, rechecks stock and
 promotions, and creates a one-time guest order token. The database stores only
 the token hash. Public lookup requires the order ID or PayOS order code
-together with that token.
+together with that token. PayOS checkout stores the guest token in
+`sessionStorage` on the pending payment attempt before redirecting; the token
+never appears in a URL. If the browser session is lost, email recovery uses
+the order ID and guest email. The request route always returns a generic
+response. Codes are six digits, expire after ten minutes, allow five failed
+attempts, enforce a 60-second resend wait and three requests per hour per
+order/email. Successful verification returns a new token once and atomically
+rotates the order and guest after-sales token hashes. Guest order details
+include `delivered_at` and the exact inclusive UTC `return_eligible_until`.
 
 Guest after-sales uses the same capability token but keeps it in POST bodies:
 
@@ -300,6 +319,9 @@ Guest after-sales uses the same capability token but keeps it in POST bodies:
 | POST | /api/orders/guest/after-sales/requests | Create a guest return/warranty request |
 | POST | /api/orders/guest/after-sales/requests/lookup | List guest requests |
 | POST | /api/orders/guest/after-sales/requests/:id/lookup | Read one guest request |
+
+Return requests are accepted through 23:59:59.999 UTC on the seventh UTC
+calendar day after delivery. Warranty limits remain based on the item snapshot.
 
 The admin after-sales queue is available at
 `/api/admin/after-sales/requests`. Admin status transitions use
@@ -375,9 +397,8 @@ existing soft-delete behavior.
 
 The active payment providers are PayOS and cash on delivery. All new catalog,
 checkout, order, and payment-ledger records use exact whole-number VND amounts.
-There is no active Stripe or bank_transfer checkout path, and no foreign
-exchange conversion is applied. Historical USD orders remain readable for
-database compatibility.
+Checkout supports PayOS and cash on delivery. No foreign exchange conversion
+is applied. Historical USD orders remain readable for database compatibility.
 
 PayOS checkout returns a payment URL, provider order code, payment-link ID,
 amount, and currency. Return URLs only resume status polling. They never prove
@@ -467,6 +488,12 @@ bank remittance. Manual refund requests carry no amount; the server allocates
 net merchandise value and requires private evidence. Email acceptance is
 distinct from provider delivery. The runner is bounded and must be invoked by
 an external scheduler; this repository does not enable a hosted schedule.
+
+Checkout returns stable quote errors so the client can discard stale pricing:
+`DELIVERY_QUOTE_EXPIRED`, `DELIVERY_QUOTE_CHANGED`,
+`DELIVERY_QUOTE_INVALID`, and `DELIVERY_SETTINGS_CHANGED`. The client keeps the
+entered delivery address and map pin, asks for a fresh quote, and blocks order
+submission until that quote is confirmed.
 
 ### Support, returns, warranty, and refunds
 

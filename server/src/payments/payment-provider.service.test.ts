@@ -18,7 +18,7 @@ describe("PaymentProviderService", () => {
     it("rejects legacy providers before a payment is created", async () => {
         const service = new PaymentProviderService(config("mock") as never, {} as never);
 
-        await expect(service.createPayment({ provider: "stripe", orderId: 12, amount: 10, currency: "USD" } as never))
+        await expect(service.createPayment({ provider: "unsupported_provider", orderId: 12, amount: 10, currency: "USD" } as never))
             .rejects.toThrow("Unsupported payment method");
         await expect(service.createPayment({ provider: "card", orderId: 12, amount: 10, currency: "USD" } as never))
             .rejects.toThrow("Unsupported payment method");

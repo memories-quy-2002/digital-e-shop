@@ -14,7 +14,7 @@ const { resolveDemoDatabaseSsl } = require("./database-ssl.js");
 
 const BASELINE_FILES = [
     path.resolve(__dirname, "..", "migrations", "defaultdb_2026-06-01_142319.sql"),
-    path.resolve(__dirname, "..", "migrations", "2026-07-07-add-stripe-payment-support.sql"),
+    path.resolve(__dirname, "..", "migrations", "2026-07-07-legacy-checkout-schema.sql"),
 ];
 
 const quoteIdentifier = (identifier) => {

@@ -5,17 +5,19 @@ require("dotenv").config({
 });
 
 const mysql = require("mysql2/promise");
+const { ORDER_STATUS, USER_ROLE } = require("./constants.js");
 const {
     assertExplicitDemoSeedTarget,
     assertLocalDatabaseTarget,
     DESTRUCTIVE_DEMO_SEED_MODE,
 } = require("../../config/database-target");
 const { resolveDemoDatabaseSsl } = require("./database-ssl.js");
-const { DEMO_SEED_PLAN, validateDemoSeedPlan } = require("./demo-seed-data");
+const { DEMO_SEED_PLAN, DEMO_SEED_MIN_PRICE_VND, validateDemoSeedPlan } = require("./demo-seed-data");
 
 const DEMO_ORDER_EVENT_NOTE_PREFIX = "Digital-E demo seed order%";
 const DEMO_NOTIFICATION_PREFIX = "Demo";
 const DEMO_MOVEMENT_PREFIX = "Digital-E demo seed";
+const MIN_ACCOUNT_ORDER_COUNT = 25;
 
 const isDemoVerificationMatch = (actual, expected) => Object.entries(expected).every(([key, expectedValue]) => {
     const actualValue = actual[key];
@@ -51,16 +53,21 @@ const verify = async (connection) => {
     validateDemoSeedPlan(DEMO_SEED_PLAN);
 
     const userIds = DEMO_SEED_PLAN.users.map((user) => user.id);
+    const customerIds = DEMO_SEED_PLAN.users.filter((user) => user.role === USER_ROLE.CUSTOMER).map((user) => user.id);
     const productNames = DEMO_SEED_PLAN.products.map((product) => product.name);
     const productIds = (await query(connection, "SELECT id FROM products WHERE name IN (?)", [productNames])).map((row) => Number(row.id));
-    const [users, verifiedUsers, categories, brands, products, productImages, legacyProducts, carts, cartItems, orders, orderItems, reviews, wishlists, addresses, notifications, sessions, discounts, inventoryMovements, statusEvents] = await Promise.all([
+    const [users, verifiedUsers, categories, brands, products, productImages, invalidCatalogProducts, carts, cartItems, orders, orderItems, reviews, wishlists, addresses, notifications, sessions, discounts, inventoryMovements, statusEvents, customerOrderCounts] = await Promise.all([
         query(connection, "SELECT COUNT(*) AS count FROM users WHERE id IN (?)", [userIds]),
         query(connection, "SELECT COUNT(*) AS count FROM users WHERE id IN (?) AND email_verified_at IS NOT NULL", [userIds]),
         query(connection, "SELECT COUNT(DISTINCT c.name) AS count FROM categories c WHERE c.name IN (?)", [DEMO_SEED_PLAN.categories]),
         query(connection, "SELECT COUNT(DISTINCT b.name) AS count FROM brands b WHERE b.name IN (?)", [DEMO_SEED_PLAN.brands]),
         query(connection, "SELECT COUNT(*) AS count FROM products WHERE name IN (?)", [productNames]),
         query(connection, "SELECT COUNT(*) AS count FROM products WHERE name IN (?) AND main_image IS NOT NULL AND main_image <> ''", [productNames]),
-        query(connection, "SELECT COUNT(*) AS count FROM products WHERE LOWER(name) LIKE ? OR LOWER(name) LIKE ?", ["%e2e%", "%demo%"]),
+        query(
+            connection,
+            "SELECT COUNT(*) AS count FROM products WHERE LOWER(name) LIKE ? OR LOWER(name) LIKE ? OR price < ? OR (sale_price IS NOT NULL AND sale_price < ?)",
+            ["%e2e%", "%demo%", DEMO_SEED_MIN_PRICE_VND, DEMO_SEED_MIN_PRICE_VND],
+        ),
         query(connection, "SELECT COUNT(*) AS count FROM carts WHERE user_id IN (?)", [userIds]),
         query(
             connection,
@@ -88,6 +95,18 @@ const verify = async (connection) => {
             connection,
             "SELECT COUNT(*) AS count FROM order_status_events ose JOIN orders o ON o.id = ose.order_id WHERE o.user_id IN (?) AND ose.note LIKE ?",
             [userIds, DEMO_ORDER_EVENT_NOTE_PREFIX],
+        ),
+        query(
+            connection,
+            `SELECT o.user_id,
+                    COUNT(DISTINCT o.id) AS order_count,
+                    COUNT(DISTINCT CASE WHEN o.status = ? THEN o.id END) AS completed_count,
+                    COUNT(DISTINCT CASE WHEN o.status = ? THEN o.id END) AS canceled_count
+             FROM orders o
+             JOIN order_status_events ose ON ose.order_id = o.id
+             WHERE o.user_id IN (?) AND ose.note LIKE ?
+             GROUP BY o.user_id`,
+            [ORDER_STATUS.DONE, ORDER_STATUS.CANCELED, userIds, DEMO_ORDER_EVENT_NOTE_PREFIX],
         ),
     ]);
 
@@ -192,12 +211,13 @@ const verify = async (connection) => {
                   JOIN orders o ON o.id = oi.order_id
                   WHERE oi.product_id = p.id
                     AND o.user_id IN (?)
+                    AND o.status = ?
                     AND EXISTS (
                         SELECT 1 FROM order_status_events ose
                         WHERE ose.order_id = o.id AND ose.note LIKE ?
                     )
               )`,
-            [productNames, userIds, DEMO_ORDER_EVENT_NOTE_PREFIX],
+            [productNames, customerIds, ORDER_STATUS.DONE, DEMO_ORDER_EVENT_NOTE_PREFIX],
         ),
         query(
             connection,
@@ -207,11 +227,19 @@ const verify = async (connection) => {
               AND NOT EXISTS (
                   SELECT 1
                   FROM reviews r
+                  JOIN users u ON u.id = r.user_id
+                  JOIN order_items oi ON oi.product_id = r.product_id
+                  JOIN orders o ON o.id = oi.order_id AND o.user_id = r.user_id
                   WHERE r.product_id = p.id
-                    AND r.user_id IN (?)
+                    AND u.role = ?
+                    AND o.status = ?
                     AND r.review_text LIKE ?
+                    AND EXISTS (
+                        SELECT 1 FROM order_status_events ose
+                        WHERE ose.order_id = o.id AND ose.note LIKE ?
+                    )
               )`,
-            [productNames, userIds, "Digital-E demo review:%"],
+            [productNames, USER_ROLE.CUSTOMER, ORDER_STATUS.DONE, "Digital-E demo review:%", DEMO_ORDER_EVENT_NOTE_PREFIX],
         ),
         query(
             connection,
@@ -235,7 +263,7 @@ const verify = async (connection) => {
         brands: firstCount(brands),
         products: firstCount(products),
         productImages: firstCount(productImages),
-        legacyProducts: firstCount(legacyProducts),
+        invalidCatalogProducts: firstCount(invalidCatalogProducts),
         carts: firstCount(carts),
         cartItems: firstCount(cartItems),
         orders: firstCount(orders),
@@ -259,28 +287,39 @@ const verify = async (connection) => {
         productOrderGaps: firstCount(productOrderGaps),
         productReviewGaps: firstCount(productReviewGaps),
         productWishlistGaps: firstCount(productWishlistGaps),
+        accountsMeetingOrderMinimum: customerOrderCounts.filter((row) => Number(row.order_count) >= MIN_ACCOUNT_ORDER_COUNT).length,
+        accountsWithCompletedAndCanceledOrders: customerOrderCounts.filter(
+            (row) => Number(row.completed_count) > 0 && Number(row.canceled_count) > 0,
+        ).length,
     };
 
+    const summary = validateDemoSeedPlan(DEMO_SEED_PLAN);
+    const accountCount = DEMO_SEED_PLAN.users.length;
+    const itemCount = (ordersToCount) => ordersToCount.reduce((total, order) => total + order.items.length, 0);
     const expected = {
-        users: 4,
-        verifiedUsers: 4,
-        categories: 8,
-        brands: 16,
-        products: 28,
-        productImages: 28,
-        legacyProducts: 0,
-        carts: 4,
-        cartItems: 13,
-        orders: 8,
-        orderItems: 31,
-        reviews: 36,
-        wishlists: 32,
-        addresses: 4,
-        notifications: 8,
-        sessions: 8,
-        discounts: 2,
-        inventoryMovements: 22,
-        statusEvents: 14,
+        users: summary.users,
+        verifiedUsers: summary.users,
+        categories: summary.categories,
+        brands: summary.brands,
+        products: summary.products,
+        productImages: summary.products,
+        invalidCatalogProducts: 0,
+        carts: summary.carts,
+        cartItems: DEMO_SEED_PLAN.carts.reduce((total, cart) => total + cart.items.length, 0),
+        orders: summary.orders,
+        orderItems: itemCount(DEMO_SEED_PLAN.orders),
+        reviews: summary.reviews,
+        wishlists: summary.wishlists,
+        addresses: summary.addresses,
+        notifications: summary.notifications,
+        sessions: summary.sessions,
+        discounts: summary.discounts,
+        inventoryMovements: DEMO_SEED_PLAN.orders
+            .filter((order) => order.status === ORDER_STATUS.DONE)
+            .reduce((total, order) => total + order.items.length, 0),
+        statusEvents: DEMO_SEED_PLAN.orders.reduce((total, order) => total + (order.status === ORDER_STATUS.PENDING ? 1 : 2), 0),
+        accountsMeetingOrderMinimum: accountCount,
+        accountsWithCompletedAndCanceledOrders: accountCount,
         productOrphans: 0,
         cartOrphans: 0,
         orderOrphans: 0,

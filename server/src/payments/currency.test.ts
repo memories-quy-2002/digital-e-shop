@@ -18,7 +18,7 @@ describe("payment currency", () => {
     });
 
     it("rejects legacy providers before a payment is created", () => {
-        expect(() => assertNewPaymentProvider("stripe")).toThrow("Unsupported payment method");
+        expect(() => assertNewPaymentProvider("unsupported_provider")).toThrow("Unsupported payment method");
         expect(() => assertNewPaymentProvider("card")).toThrow("Unsupported payment method");
         expect(() => assertNewPaymentProvider("bank_transfer")).toThrow("Unsupported payment method");
     });

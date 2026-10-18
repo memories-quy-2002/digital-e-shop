@@ -40,6 +40,7 @@ export type GuestPayOSOrderLookupPayload = {
 };
 
 export type MockPayOSConfirmPayload = {
+    paymentAttemptId: string;
     orderCode: number;
     paymentLinkId: string;
     amount: number;

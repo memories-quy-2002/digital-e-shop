@@ -8,6 +8,7 @@ import Layout from "../components/layout/Layout";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useT } from "../hooks/useT";
+import { useWishlistCopy } from "../hooks/useWishlistCopy";
 import { HeartFillIcon } from "../components/common/Icons";
 import "../styles/pages/_wishlist.scss";
 import { Product } from "../utils/interface";
@@ -35,6 +36,7 @@ const WishlistPage = () => {
     const uid = userData?.id || "";
     const { addToast } = useToast();
     const t = useT();
+    const copy = useWishlistCopy();
 
     const loadAlertPreferences = useCallback(async () => {
         if (!uid) {
@@ -72,13 +74,13 @@ const WishlistPage = () => {
                 setIsLoadingWishlist(true);
                 setWishlist(await fetchUserWishlist(uid));
             } catch {
-                addToast("Wishlist", "Unable to load wishlist.");
+                addToast(copy.toastTitle, copy.loadError, "error");
             } finally {
                 setIsLoadingWishlist(false);
             }
         };
         fetchWishlist();
-    }, [addToast, uid]);
+    }, [addToast, copy, t, uid]);
 
     useEffect(() => {
         void loadAlertPreferences();
@@ -105,10 +107,10 @@ const WishlistPage = () => {
             await removeFromWishlist(uid, productId);
             setWishlist((currentWishlist) => currentWishlist.filter((item) => item.product.id !== productId));
             setSelectedIds((currentIds) => currentIds.filter((id) => id !== productId));
-            addToast("Wishlist", "Item removed from wishlist.");
+            addToast(copy.toastTitle, copy.removed, "success");
             setPendingRemoveProductId(null);
         } catch {
-            addToast("Wishlist", "Unable to remove wishlist item.");
+            addToast(copy.toastTitle, copy.removeError, "error");
         } finally {
             setIsRemoving(false);
         }
@@ -154,7 +156,7 @@ const WishlistPage = () => {
 
     const handleBulkRemove = async () => {
         if (selectedIds.length === 0) {
-            addToast("Wishlist", "Select at least one wishlist item.");
+            addToast(copy.toastTitle, copy.selectAtLeastOne, "info");
             return;
         }
 
@@ -163,10 +165,10 @@ const WishlistPage = () => {
             await removeWishlistItems(uid, selectedIds);
             setWishlist((currentWishlist) => currentWishlist.filter((item) => !selectedIds.includes(item.product.id)));
             setSelectedIds([]);
-            addToast("Wishlist", "Selected wishlist items were removed.");
+            addToast(copy.toastTitle, copy.removedSelected, "success");
             setShowBulkRemoveConfirm(false);
         } catch {
-            addToast("Wishlist", "Unable to remove selected items.");
+            addToast(copy.toastTitle, copy.removeSelectedError, "error");
         } finally {
             setIsRemoving(false);
         }
@@ -174,23 +176,23 @@ const WishlistPage = () => {
 
     const handleMoveToCart = async (product: Product) => {
         if (product.stock <= 0) {
-            addToast("Wishlist", "This product is out of stock.");
+            addToast(copy.toastTitle, copy.productOutOfStock, "info");
             return;
         }
 
         try {
             await addItemsToCustomerCart(uid, [{ productId: product.id, quantity: 1, stock: product.stock }]);
             setSelectedIds((currentIds) => currentIds.filter((id) => id !== product.id));
-            addToast("Wishlist", "Product added to cart.");
+            addToast(copy.toastTitle, copy.productAddedToCart, "success");
         } catch {
-            addToast("Wishlist", "Unable to move product to cart.");
+            addToast(copy.toastTitle, copy.moveToCartError, "error");
         }
     };
 
     const handleMoveSelectedToCart = async () => {
         const availableSelected = selectedProducts.filter((item) => item.product.stock > 0);
         if (availableSelected.length === 0) {
-            addToast("Wishlist", "Selected products are out of stock.");
+            addToast(copy.toastTitle, copy.selectedOutOfStock, "info");
             return;
         }
 
@@ -202,9 +204,9 @@ const WishlistPage = () => {
             })));
             const movedIds = availableSelected.map((item) => item.product.id);
             setSelectedIds((currentIds) => currentIds.filter((id) => !movedIds.includes(id)));
-            addToast("Wishlist", "Available selected products added to cart.");
+            addToast(copy.toastTitle, copy.selectedAddedToCart, "success");
         } catch {
-            addToast("Wishlist", "Unable to move selected products to cart.");
+            addToast(copy.toastTitle, copy.moveSelectedError, "error");
         }
     };
 
@@ -219,44 +221,44 @@ const WishlistPage = () => {
     return (
         <Layout>
             <Helmet>
-                <title>Your Wishlist | Digital-E</title>
+                <title>{`${copy.title} | Digital-E`}</title>
                 <meta
                     name="description"
-                    content="Save products you love and quickly add them to your cart when you're ready."
+                    content={copy.metaDescription}
                 />
             </Helmet>
             <main className="wishlist app-page">
                 <header className="wishlist__header">
                     <div>
-                        <h1>Wishlist</h1>
+                        <h1>{copy.title}</h1>
                     </div>
                     <div className="wishlist__summary app-card">
                         <article>
-                            <span>Saved</span>
+                            <span>{copy.saved}</span>
                             <strong>{wishlist.length}</strong>
                         </article>
                         <article>
-                            <span>Selected</span>
+                            <span>{copy.selected}</span>
                             <strong>{selectedIds.length}</strong>
                         </article>
                         <article>
-                            <span>Available</span>
+                            <span>{copy.available}</span>
                             <strong>{wishlist.filter((item) => item.product.stock > 0).length}</strong>
                         </article>
                     </div>
                 </header>
 
                 {wishlist.length > 0 ? (
-                    <section className="wishlist__toolbar app-card" aria-label="Wishlist bulk actions">
+                    <section className="wishlist__toolbar app-card" aria-label={copy.bulkActions}>
                         <div className="wishlist__toolbar__copy">
-                            <strong>{wishlist.length} saved</strong>
+                            <strong>{copy.savedCount(wishlist.length)}</strong>
                         </div>
                         <div className="wishlist__actions">
                             <button type="button" onClick={handleSelectAll}>
-                                {selectedIds.length === wishlist.length ? "Clear selection" : "Select all"}
+                                {selectedIds.length === wishlist.length ? copy.clearSelection : copy.selectAll}
                             </button>
                             <button type="button" onClick={handleMoveSelectedToCart} disabled={selectedIds.length === 0}>
-                                Move selected
+                                {copy.moveSelected}
                             </button>
                             <button
                                 type="button"
@@ -264,7 +266,7 @@ const WishlistPage = () => {
                                 onClick={() => setShowBulkRemoveConfirm(true)}
                                 disabled={selectedIds.length === 0}
                             >
-                                Remove selected
+                                {copy.removeSelected}
                             </button>
                         </div>
                     </section>
@@ -283,8 +285,9 @@ const WishlistPage = () => {
                     <EmptyState
                         className="wishlist__empty"
                         icon={<HeartFillIcon size={20} />}
-                        title="Your wishlist is empty"
-                        actionLabel="Browse products"
+                        title={copy.emptyTitle}
+                        description={copy.emptyDescription}
+                        actionLabel={copy.browseProducts}
                         actionTo="/shops"
                     />
                 ) : (
@@ -310,11 +313,11 @@ const WishlistPage = () => {
                 )}
                 <ConfirmActionModal
                     show={pendingRemoveProductId !== null}
-                    title="Remove wishlist item"
-                    message={`Remove "${
-                        wishlist.find((item) => item.product.id === pendingRemoveProductId)?.product.name || "this product"
-                    }" from your wishlist?`}
-                    confirmLabel="Remove"
+                    title={copy.removeItemTitle}
+                    message={copy.removeItemMessage(wishlist.find((item) => item.product.id === pendingRemoveProductId)?.product.name || copy.unknownProduct)}
+                    confirmLabel={copy.remove}
+                    cancelLabel={copy.cancel}
+                    processingLabel={copy.processing}
                     isConfirming={isRemoving}
                     onCancel={() => setPendingRemoveProductId(null)}
                     onConfirm={() => {
@@ -325,9 +328,11 @@ const WishlistPage = () => {
                 />
                 <ConfirmActionModal
                     show={showBulkRemoveConfirm}
-                    title="Remove selected items"
-                    message={`Remove ${selectedIds.length} selected item${selectedIds.length === 1 ? "" : "s"} from your wishlist?`}
-                    confirmLabel="Remove selected"
+                    title={copy.removeSelectedTitle}
+                    message={copy.removeSelectedMessage(selectedIds.length)}
+                    confirmLabel={copy.removeSelected}
+                    cancelLabel={copy.cancel}
+                    processingLabel={copy.processing}
                     isConfirming={isRemoving}
                     onCancel={() => setShowBulkRemoveConfirm(false)}
                     onConfirm={() => {

@@ -63,4 +63,27 @@ describe("CustomerLoyaltyPage", () => {
         await waitFor(() => expect(screen.getByRole("button", { name: "Claim for 250 points" })).toBeDisabled());
         expect(mocks.claimLoyaltyReward).toHaveBeenCalledWith(7);
     });
+
+    it("keeps a long voucher code available as a readable token", async () => {
+        const code = "LOYALTY-VOUCHER-CODE-0123456789-ABCDEFGHIJKLMNOP";
+        mocks.fetchLoyaltyOverview.mockResolvedValueOnce({
+            balancePoints: 500,
+            history: [],
+            vouchers: [{
+                id: 31,
+                code,
+                status: "AVAILABLE",
+                pointsCost: 250,
+                discountPercent: 15,
+                minOrderValue: 100_000,
+                expiresAt: null,
+                createdAt: "2026-10-16T00:00:00.000Z",
+            }],
+            rewards: [],
+        });
+
+        render(<LocaleProvider><CustomerLoyaltyPage /></LocaleProvider>);
+
+        expect(await screen.findByText(code)).toHaveAttribute("translate", "no");
+    });
 });

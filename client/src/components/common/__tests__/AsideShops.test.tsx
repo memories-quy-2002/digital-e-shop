@@ -7,7 +7,16 @@ import AsideShops from "../AsideShops";
 const defaultProps = {
   products: [],
   filteredCount: 28,
-  categories: ["Camera", "Graphics Card", "Laptop"],
+  categories: [
+    "Camera",
+    "Graphics Card",
+    "Laptop",
+    "Monitor",
+    "PC",
+    "Smartphone",
+    "Console",
+    "Headphones",
+  ],
   brands: [
     "AMD",
     "Apple",
@@ -59,27 +68,29 @@ describe("AsideShops", () => {
     );
   });
 
-  it("searches brands and lets users reveal the full list", () => {
+  it("shows a short category list and lets users reveal the remaining filters", () => {
     renderAside();
 
     const brandSection = screen.getByTestId("shops__aside__brand");
+    expect(
+      screen.queryByRole("checkbox", { name: "Console" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show 2 more" }));
+    expect(
+      screen.getByRole("checkbox", { name: "Console" }),
+    ).toBeInTheDocument();
+
+    expect(
+      within(brandSection).queryByRole("searchbox"),
+    ).not.toBeInTheDocument();
     expect(within(brandSection).queryByText("Sony")).not.toBeInTheDocument();
     fireEvent.click(
       within(brandSection).getByRole("button", { name: "Show 3 more" }),
     );
     expect(within(brandSection).getByText("Sony")).toBeInTheDocument();
-
-    fireEvent.change(
-      within(brandSection).getByRole("searchbox", { name: "Search brands" }),
-      {
-        target: { value: "sony" },
-      },
-    );
-    expect(within(brandSection).getByText("Sony")).toBeInTheDocument();
-    expect(within(brandSection).queryByText("AMD")).not.toBeInTheDocument();
   });
 
-  it("supports exact prices and quick ranges", () => {
+  it("supports exact minimum and maximum prices", () => {
     renderAside();
 
     fireEvent.change(
@@ -93,9 +104,13 @@ describe("AsideShops", () => {
       2_500_000, 50_000_000,
     ]);
 
-    fireEvent.click(screen.getByRole("button", { name: "₫1M–₫5M" }));
+    fireEvent.change(
+      screen.getByRole("spinbutton", { name: "Maximum price" }),
+      { target: { value: "10000000" } },
+    );
+    fireEvent.blur(screen.getByRole("spinbutton", { name: "Maximum price" }));
     expect(defaultProps.onPriceRangeChange).toHaveBeenLastCalledWith([
-      1_000_000, 5_000_000,
+      2_500_000, 10_000_000,
     ]);
   });
 });

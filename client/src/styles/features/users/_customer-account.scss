@@ -288,7 +288,7 @@
 
             > button {
                 flex: 0 0 auto;
-                min-height: 34px;
+                min-height: 44px;
                 padding: 0.45rem 0.7rem;
                 border: 1px solid var(--de-color-border-strong);
                 border-radius: var(--de-radius-sm);
@@ -394,7 +394,7 @@
 
     &__notification-mark-read {
         flex: 0 0 auto;
-        min-height: 32px;
+        min-height: 44px;
         padding: 0.4rem 0.6rem;
         border: 1px solid var(--de-color-border-strong);
         border-radius: var(--de-radius-sm);
@@ -617,7 +617,7 @@
             inset: 0;
             transform: translateX(-100%);
             background: linear-gradient(90deg, transparent, var(--de-color-border-strong), transparent);
-            animation: customer-account-skeleton 1.35s ease-in-out infinite;
+            animation: customer-account-skeleton var(--de-duration-skeleton) ease-in-out infinite;
         }
 
         &--badge { width: 9rem; height: 1.7rem; }

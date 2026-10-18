@@ -2,6 +2,17 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import React from "react";
 import ToastProvider, { useToast } from "../ToastContext";
+import { LocaleProvider } from "../LocaleContext";
+
+const errorExamples: Array<[string, string]> = [
+    ["Request failed", "Please retry"],
+    ["Error", "Something happened"],
+    ["Invalid input", "Please check the value"],
+    ["Unable to process", "Please retry"],
+    ["Session expired", "Please sign in"],
+    ["Missing resource", "Resource not found"],
+];
+const successExamples = ["success", "successfully", "added", "created", "updated"];
 
 const Probe: React.FC = () => {
     const { toasts, addToast, removeToast } = useToast();
@@ -12,17 +23,29 @@ const Probe: React.FC = () => {
             <button onClick={() => addToast("Success", "Product successfully created")}>add-success</button>
             <button onClick={() => addToast("Failed", "Something went wrong")}>add-error</button>
             <button onClick={() => addToast("Heads up", "Just so you know")}>add-info</button>
+            <button onClick={() => addToast("Đã thêm", "Thêm vào giỏ hàng thành công", "success")}>add-explicit-success</button>
+            <button onClick={() => addToast("Không thể tải", "Vui lòng thử lại", "error")}>add-explicit-error</button>
+            {errorExamples.map(([title, body], index) => (
+                <button key={`error-${index}`} onClick={() => addToast(title, body)}>error-example-{index}</button>
+            ))}
+            {successExamples.map((keyword) => (
+                <button key={keyword} onClick={() => addToast(keyword, "Outcome recorded")}>success-example-{keyword}</button>
+            ))}
             <button onClick={() => toasts[0] && removeToast(toasts[0].id)}>remove-first</button>
         </div>
     );
 };
 
-const renderWithProvider = () =>
-    render(
+const renderWithProvider = (locale: "en" | "vi" = "en") => {
+    window.localStorage.setItem("digital-e:locale:v1", JSON.stringify(locale));
+    return render(
+        <LocaleProvider>
         <ToastProvider>
             <Probe />
         </ToastProvider>
+        </LocaleProvider>,
     );
+};
 
 describe("ToastContext", () => {
     it("throws when useToast is used outside the provider", () => {
@@ -63,34 +86,23 @@ describe("ToastContext", () => {
 
     it("matches on common error keywords", () => {
         renderWithProvider();
-        const variants: Array<[string, string]> = [
-            ["err", "Something happened"],
-            ["invalid", "Your input is invalid"],
-            ["unable", "Unable to process"],
-            ["expired", "Session expired"],
-            ["not found", "Resource not found"],
-        ];
-        for (const [title, body] of variants) {
+        for (const index of errorExamples.map((_, currentIndex) => currentIndex)) {
             act(() => {
-                screen.getByText("add-error").click();
+                screen.getByText(`error-example-${index}`).click();
             });
             const tones = screen.getByTestId("tones").textContent?.split(",") ?? [];
             expect(tones[tones.length - 1]).toBe("error");
-            void title;
-            void body;
         }
     });
 
     it("matches on common success keywords", () => {
         renderWithProvider();
-        const variants = ["success", "successfully", "added", "created", "updated"];
-        for (const keyword of variants) {
+        for (const keyword of successExamples) {
             act(() => {
-                screen.getByText("add-success").click();
+                screen.getByText(`success-example-${keyword}`).click();
             });
             const tones = screen.getByTestId("tones").textContent?.split(",") ?? [];
             expect(tones[tones.length - 1]).toBe("success");
-            void keyword;
         }
     });
 
@@ -120,6 +132,20 @@ describe("ToastContext", () => {
         expect(rails[0].querySelectorAll("[data-toast]")).toHaveLength(3);
         expect(screen.getByText("Information")).toBeInTheDocument();
         expect(screen.getByText("Action needed")).toBeInTheDocument();
+    });
+
+    it("uses explicit outcome tones and localized labels for non-English messages", () => {
+        renderWithProvider("vi");
+        act(() => {
+            screen.getByText("add-explicit-success").click();
+            screen.getByText("add-explicit-error").click();
+        });
+
+        expect(screen.getByTestId("tones")).toHaveTextContent("success,error");
+        expect(document.querySelector(".app-toast__item--success")).toBeInTheDocument();
+        expect(document.querySelector(".app-toast__item--error")).toBeInTheDocument();
+        expect(screen.getByText("Thành công")).toBeInTheDocument();
+        expect(screen.getByText("Cần chú ý")).toBeInTheDocument();
     });
 
     it("caps the visible notification queue at three toasts", () => {

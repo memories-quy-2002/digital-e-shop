@@ -6,7 +6,7 @@ import { DeliverySettingsService } from "./delivery-settings.service";
 import { calculateDeliveryFee } from "./delivery.policy";
 import { RoadRouteService } from "./road-route.service";
 import { ShippingQuoteRepository } from "./shipping-quote.repository";
-import { assertQuoteMatches, calculatePricing, quoteFingerprint, type QuoteIdentity } from "./shipping-quote.policy";
+import { assertQuoteMatches, calculatePricing, deliveryQuoteConflict, quoteFingerprint, type QuoteIdentity } from "./shipping-quote.policy";
 import { deliveryAddressSchema } from "./shipping.validator";
 import type { DeliverySettings, InternalDeliveryAddress, InternalDeliveryQuote, RoadPoint, RoadRoute } from "./shipping.types";
 import { parseJson } from "./shipping-json";
@@ -47,6 +47,13 @@ const cartFacts = (cart: CartItemRow[]) => {
     return facts;
 };
 
+const DELIVERY_COORDINATE_DECIMAL_PLACES = 7;
+const normalizeDeliveryAddress = (address: InternalDeliveryAddress): InternalDeliveryAddress => ({
+    ...address,
+    latitude: Number(address.latitude.toFixed(DELIVERY_COORDINATE_DECIMAL_PLACES)),
+    longitude: Number(address.longitude.toFixed(DELIVERY_COORDINATE_DECIMAL_PLACES)),
+});
+
 const settingsOrigin = (settings: DeliverySettings): RoadPoint => ({
     latitude: settings.storeLatitude,
     longitude: settings.storeLongitude,
@@ -74,7 +81,7 @@ export class ShippingQuoteService {
         identity: QuoteIdentity,
         input: { address: InternalDeliveryAddress; cart: CartItemRow[]; subtotal: number; discount: number },
     ): Promise<InternalDeliveryQuote> {
-        const address = deliveryAddressSchema.parse(input.address);
+        const address = normalizeDeliveryAddress(deliveryAddressSchema.parse(input.address));
         const fingerprintedCart = cartFacts(input.cart);
         const initialPricing = calculatePricing(input.subtotal, Math.round(input.discount), 0);
         const settings = requireSettings(await this.settingsService.get());
@@ -99,7 +106,7 @@ export class ShippingQuoteService {
         await withTransaction(async (tx) => {
             const currentSettings = requireSettings(await this.settingsService.getForQuote(tx));
             if (currentSettings.version !== settings.version) {
-                throw new ConflictException("Delivery settings changed. Request a new quote.");
+                throw deliveryQuoteConflict("DELIVERY_SETTINGS_CHANGED", "Delivery settings changed. Request a new quote.");
             }
             await this.repository.saveQuote(tx, {
                 id,
@@ -135,23 +142,23 @@ export class ShippingQuoteService {
         if (!checkout?.shippingQuoteId || !checkout.quoteIdentity) throw new ConflictException("A delivery quote is required");
         const row = await this.repository.findForUpdate(tx, checkout.shippingQuoteId);
         if (!row || row.provider !== "INTERNAL" || row.owner_hash !== quoteFingerprint(checkout.quoteIdentity)) {
-            throw new ConflictException("Delivery quote is unavailable");
+            throw deliveryQuoteConflict("DELIVERY_QUOTE_INVALID", "Delivery quote is unavailable. Request a new quote.");
         }
 
         const currentSettings = requireSettings(await this.settingsService.getForQuote(tx));
         if (Number(row.settings_version) !== currentSettings.version) {
-            throw new ConflictException("Delivery settings changed. Request a new quote.");
+            throw deliveryQuoteConflict("DELIVERY_SETTINGS_CHANGED", "Delivery settings changed. Request a new quote.");
         }
 
-        const address = deliveryAddressSchema.parse(checkout.deliveryAddress);
+        const address = normalizeDeliveryAddress(deliveryAddressSchema.parse(checkout.deliveryAddress));
         const origin = { latitude: Number(row.origin_latitude), longitude: Number(row.origin_longitude) };
         const destination = { latitude: Number(row.destination_latitude), longitude: Number(row.destination_longitude) };
         if (!isRoadPoint(origin) || !isRoadPoint(destination)
             || destination.latitude !== address.latitude || destination.longitude !== address.longitude) {
-            throw new ConflictException("Delivery quote is invalid");
+            throw deliveryQuoteConflict("DELIVERY_QUOTE_INVALID", "Delivery quote is invalid. Request a new quote.");
         }
         const distanceMeters = Number(row.distance_meters);
-        if (!Number.isSafeInteger(distanceMeters) || distanceMeters < 0) throw new ConflictException("Delivery quote is invalid");
+        if (!Number.isSafeInteger(distanceMeters) || distanceMeters < 0) throw deliveryQuoteConflict("DELIVERY_QUOTE_INVALID", "Delivery quote is invalid. Request a new quote.");
         const routeGeometry = parseJson<RoadRoute["geometry"]>(row.route_geometry);
         const storedPricing = parseJson<{ shippingFee: number }>(row.pricing);
         const pricing = calculatePricing(subtotal, Math.round(discount), storedPricing.shippingFee);

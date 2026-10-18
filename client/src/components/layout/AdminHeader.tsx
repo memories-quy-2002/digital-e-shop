@@ -10,16 +10,19 @@ import { useAuth } from "../../context/AuthContext";
 import { formatUtcDateTime } from "../../utils/dateTime";
 import { acknowledgeAdminAlerts, fetchAdminAlerts, type AdminAlert } from "../../features/admin/api";
 import AdminStatusPanel from "../../features/admin/components/AdminStatusPanel";
+import ColorSchemeDropdown from "../common/ColorSchemeDropdown";
+import LanguageDropdown from "../common/LanguageDropdown";
 import { getAdminRequestError, type AdminRequestError } from "../../features/admin/utils/adminRequestError";
 import { getApiSuccessMessage } from "../../lib/api-contract";
 import { logoutCurrentCustomer } from "../../features/users/api";
+import { useAdminDashboardCopy } from "../../hooks/useAdminDashboardCopy";
 
 const cookies = new Cookies();
 const POLL_INTERVAL = 60000;
 
 const getDisplayName = (username?: string, firstName?: string | null, lastName?: string | null) => {
     const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
-    return fullName || username || "Admin";
+    return fullName || username || "";
 };
 
 const getInitials = (displayName: string) =>
@@ -65,6 +68,7 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
     const { addToast } = useToast();
     const navigate = useNavigate();
     const { userData, loading } = useAuth();
+    const tx = useAdminDashboardCopy();
     const [showLogout, setShowLogout] = useState<boolean>(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [showNotifications, setShowNotifications] = useState(false);
@@ -91,11 +95,11 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
                 setActivityError(getAdminRequestError(error));
                 setActivityStatus("error");
                 if (!isInitialLoad) {
-                    addToast("Admin notifications", "Activity sync failed. Showing the latest saved feed.");
+                    addToast(tx("Notifications"), tx("Activity sync failed. Showing the latest saved feed."));
                 }
             }
         },
-        [addToast],
+        [addToast, tx],
     );
 
     useEffect(() => {
@@ -116,7 +120,7 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
         const route = getSearchRoute(searchTerm);
         navigate(route);
         if (searchTerm.trim() && route === "/admin") {
-            addToast("Admin navigation", "Choose Products, Orders, or Accounts from the section search.");
+            addToast(tx("Admin navigation"), tx("Choose Products, Orders, or Accounts from the section search."));
         }
     };
 
@@ -147,7 +151,7 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
         if (!activity.unread) return;
         void acknowledgeAdminAlerts([activity.id])
             .then(() => setActivities((current) => current.map((item) => item.id === activity.id ? { ...item, unread: false } : item)))
-            .catch(() => addToast("Admin activity", "Unable to mark alert as read."));
+            .catch(() => addToast(tx("Activity feed"), tx("Unable to mark alert as read.")));
     };
 
     const handleMarkAllRead = async () => {
@@ -157,9 +161,9 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
             await acknowledgeAdminAlerts(unreadIds);
             const readIds = new Set(unreadIds);
             setActivities((current) => current.map((activity) => readIds.has(activity.id) ? { ...activity, unread: false } : activity));
-            addToast("Admin activity", `${unreadIds.length} alert${unreadIds.length === 1 ? "" : "s"} marked as read.`);
+            addToast(tx("Activity feed"), `${unreadIds.length} ${tx(unreadIds.length === 1 ? "alert marked as read." : "alerts marked as read.")}`);
         } catch {
-            addToast("Admin activity", "Unable to mark alerts as read.");
+            addToast(tx("Activity feed"), tx("Unable to mark alerts as read."));
         }
     };
 
@@ -169,9 +173,9 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
             sessionStorage.removeItem("rememberMe");
             cookies.remove("rememberMe");
             await signOutFirebaseUser();
-            addToast("Logout successfully", getApiSuccessMessage(response, "Logged out"));
+            addToast(tx("Logout successfully"), getApiSuccessMessage(response, tx("Logged out")));
         } catch {
-            addToast("Logout", "You have been logged out.");
+            addToast(tx("Logout"), tx("You have been logged out."));
         } finally {
             navigate("/login");
         }
@@ -180,15 +184,15 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
     return (
         <header className="admin__layout__main__header">
             <Helmet>
-                <title>Digital-E - Admin</title>
-                <meta name="description" content="Admin Dashboard for Digital-E" />
+                <title>{tx("Digital-E - Admin")}</title>
+                <meta name="description" content={tx("Admin Dashboard for Digital-E")} />
             </Helmet>
 
             <div className="admin__layout__main__header__left">
                 <button
                     type="button"
                     className="admin__layout__main__header__menu"
-                    aria-label="Open admin navigation"
+                    aria-label={tx("Open admin navigation")}
                     aria-controls="admin-navigation"
                     aria-expanded={isSidebarOpen}
                     onClick={onOpenSidebar}
@@ -198,31 +202,33 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
                 <button
                     type="button"
                     className="admin__layout__main__header__home"
-                    aria-label="Open storefront"
+                    aria-label={tx("Open storefront")}
                     onClick={() => navigate("/")}
                 >
                     <HouseIcon />
-                    <span>Storefront</span>
+                    <span>{tx("Storefront")}</span>
                 </button>
 
                 <form className="admin__layout__main__header__search" onSubmit={handleSearchSubmit}>
                     <label className="admin__sr-only" htmlFor="admin-search">
-                        Jump to an Admin section
+                        {tx("Jump to an Admin section")}
                     </label>
                     <input
                         id="admin-search"
                         type="text"
-                        placeholder="Jump to Products, Orders, or Accounts…"
+                        placeholder={tx("Jump to Products, Orders, or Accounts…")}
                         value={searchTerm}
                         onChange={(event) => setSearchTerm(event.target.value)}
                     />
-                    <button type="submit" aria-label="Jump to Admin section">
+                    <button type="submit" aria-label={tx("Jump to Admin section")}>
                         <SearchIcon size={20} />
                     </button>
                 </form>
             </div>
 
             <div className="admin__layout__main__header__right">
+                <LanguageDropdown align="right" />
+                <ColorSchemeDropdown align="right" />
                 <div className="admin__layout__main__header__notifications">
                     <button
                         type="button"
@@ -231,7 +237,7 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
                         ref={notificationsTriggerRef}
                         aria-expanded={showNotifications}
                         aria-controls="admin-notifications-popover"
-                        aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
+                        aria-label={`${tx("Notifications")}${unreadCount > 0 ? `, ${unreadCount} ${tx("unread")}` : ""}`}
                     >
                         <BellIcon className="admin__layout__main__header__notifications__icon" size={24} />
                         {unreadCount > 0 && (
@@ -248,8 +254,8 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
                         >
                             <div className="admin__layout__main__header__notifications__panel-header">
                                 <div>
-                                    <strong id="admin-notifications-title">Activity feed</strong>
-                                    <span>Latest store events for admin review</span>
+                                    <strong id="admin-notifications-title">{tx("Activity feed")}</strong>
+                                    <span>{tx("Latest store events for admin review")}</span>
                                 </div>
                                 <div className="admin__layout__main__header__notifications__panel-actions">
                                     <button
@@ -258,14 +264,14 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
                                         onClick={handleMarkAllRead}
                                         disabled={unreadCount === 0 || activityStatus === "loading"}
                                     >
-                                        Mark all as read
+                                        {tx("Mark all as read")}
                                     </button>
                                     <button
                                         type="button"
                                         className="admin__layout__main__header__notifications__refresh"
                                         onClick={() => syncActivityFeed(false)}
                                     >
-                                        Refresh
+                                        {tx("Refresh")}
                                     </button>
                                 </div>
                             </div>
@@ -273,22 +279,22 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
                                 {activityStatus === "error" && activities.length === 0 ? (
                                     <AdminStatusPanel
                                         variant="error"
-                                        title={activityError?.title || "Activity feed unavailable"}
-                                        description={activityError?.message || "Try again to load the activity feed."}
+                                        title={activityError?.title || tx("Activity feed unavailable")}
+                                        description={activityError?.message || tx("Try again to load the activity feed.")}
                                         onRetry={() => syncActivityFeed(false)}
-                                        retryLabel="Retry activity feed"
+                                        retryLabel={tx("Retry activity feed")}
                                     />
                                 ) : activityStatus === "loading" && activities.length === 0 ? (
-                                    <AdminStatusPanel variant="loading" title="Loading activity feed" description="Fetching the latest store events." />
+                                    <AdminStatusPanel variant="loading" title={tx("Loading activity feed")} description={tx("Fetching the latest store events.")} />
                                 ) : (
                                     <>
                                         {activityStatus === "error" ? (
                                             <AdminStatusPanel
                                                 variant="error"
-                                                title="Activity refresh failed"
-                                                description={activityError?.message || "Try again to refresh the activity feed."}
+                                                title={tx("Activity refresh failed")}
+                                                description={activityError?.message || tx("Try again to refresh the activity feed.")}
                                                 onRetry={() => syncActivityFeed(false)}
-                                                retryLabel="Retry activity feed"
+                                                retryLabel={tx("Retry activity feed")}
                                             />
                                         ) : null}
                                         {activities.length > 0 ? (
@@ -333,36 +339,36 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
                     )}
                 </div>
 
-                <div className="admin__layout__main__header__profile" aria-label="Admin profile">
+                <div className="admin__layout__main__header__profile" aria-label={tx("Admin profile")}>
                     <div className="admin__layout__main__header__profile-avatar">{initials}</div>
                     <div className="admin__layout__main__header__profile-copy">
-                        <strong>{loading ? "Loading..." : displayName}</strong>
-                        <span>{userData?.role === "Admin" ? "Administrator" : "Team member"}</span>
+                        <strong>{loading ? tx("Loading...") : displayName || tx("Admin")}</strong>
+                        <span>{userData?.role === "Admin" ? tx("Administrator") : tx("Team member")}</span>
                     </div>
                 </div>
 
                 <button
                     type="button"
                     className="admin__layout__main__header__logout"
-                    aria-label="Log out"
+                    aria-label={tx("Log out")}
                     onClick={() => setShowLogout(true)}
                 >
-                    <span>Logout</span>
+                    <span>{tx("Logout")}</span>
                     <BoxArrowRightIcon size={20} />
                 </button>
             </div>
 
             <Modal show={showLogout} onHide={() => setShowLogout(false)} animation={false}>
                 <Modal.Header closeButton>
-                    <Modal.Title>Logout</Modal.Title>
+                    <Modal.Title>{tx("Logout")}</Modal.Title>
                 </Modal.Header>
-                <Modal.Body>Are you sure you want to logout?</Modal.Body>
+                <Modal.Body>{tx("Are you sure you want to logout?")}</Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowLogout(false)}>
-                        Cancel
+                        {tx("Cancel")}
                     </Button>
                     <Button variant="primary" onClick={handleLogout}>
-                        Logout
+                        {tx("Logout")}
                     </Button>
                 </Modal.Footer>
             </Modal>

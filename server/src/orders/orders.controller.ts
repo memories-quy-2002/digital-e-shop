@@ -242,7 +242,7 @@ export class OrdersController {
     ) {
         try {
             if (!this.ordersPayOSService) throw new HttpException({ msg: "PayOS checkout is not configured" }, HTTP_STATUS.SERVICE_UNAVAILABLE);
-            const order = await this.ordersPayOSService.confirmMockPayment(body.orderCode, body.paymentLinkId, body.amount);
+            const order = await this.ordersPayOSService.confirmMockPayment(body.paymentAttemptId, body.orderCode, body.paymentLinkId, body.amount);
             return { orderId: order.id, order, msg: "Mock PayOS payment confirmed" };
         } catch (err) {
             if (err instanceof HttpException) throw err;

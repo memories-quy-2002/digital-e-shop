@@ -12,6 +12,25 @@ describe("after-sales policy", () => {
         })).toMatchObject({ eligible: true });
     });
 
+    it("uses the end of the seventh UTC calendar day after delivery as the inclusive deadline", () => {
+        const context = {
+            kind: "RETURN" as const,
+            orderStatus: 1,
+            deliveredAt: "2026-09-01T15:42:18.000Z",
+            warrantyMonths: null,
+        };
+
+        expect(evaluateEligibility({ ...context, now: "2026-09-08T23:59:59.999Z" })).toMatchObject({
+            eligible: true,
+            eligibleUntil: "2026-09-08T23:59:59.999Z",
+        });
+        expect(evaluateEligibility({ ...context, now: "2026-09-09T00:00:00.000Z" })).toMatchObject({
+            eligible: false,
+            code: "RETURN_WINDOW_EXPIRED",
+            eligibleUntil: "2026-09-08T23:59:59.999Z",
+        });
+    });
+
     it("rejects canceled, undelivered, and expired return orders", () => {
         expect(evaluateEligibility({
             kind: "RETURN",

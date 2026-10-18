@@ -2,7 +2,7 @@ import React from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import featureImage from "../assets/images/news_1.jpg";
-import heroImage from "../assets/images/news_2.jpg";
+import { newsHeroImage } from "../assets/images/editorialHeroImages";
 import Layout from "../components/layout/Layout";
 import { useLocale } from "../context/LocaleContext";
 import { HERO_IMAGE_WIDTHS, PAGE_IMAGE_WIDTHS, getResponsiveImageSource } from "../utils/images";
@@ -13,7 +13,7 @@ import "../styles/pages/_news.scss";
 const NewsPage: React.FC = () => {
     const t = useT();
     const { locale } = useLocale();
-    const heroImageSource = getResponsiveImageSource(heroImage, {
+    const heroImageSource = getResponsiveImageSource(newsHeroImage, {
         widths: HERO_IMAGE_WIDTHS,
         sizes: "100vw",
         fit: "fill",
@@ -100,6 +100,9 @@ const NewsPage: React.FC = () => {
                             <span>{formatNewsDate(featuredArticle.date, locale)}</span>
                             <span>{t("news.readTimeMinutes", featuredArticle.readMinutes)}</span>
                         </div>
+                        <a className="news__source-link" href={featuredArticle.sourceUrl} target="_blank" rel="noreferrer">
+                            {t("news.originalSource")}: {featuredArticle.sourceName}
+                        </a>
                         <div className="info-page__actions">
                             <Link to={`/news/${featuredArticle.slug}`}>{t("news.readArticle")}</Link>
                         </div>
@@ -124,6 +127,9 @@ const NewsPage: React.FC = () => {
                                     <span>{article.author}</span>
                                     <span>{formatNewsDate(article.date, locale)}</span>
                                 </div>
+                                <a className="news__source-link" href={article.sourceUrl} target="_blank" rel="noreferrer">
+                                    {t("news.originalSource")}: {article.sourceName}
+                                </a>
                                 <Link className="news__card__link" to={`/news/${article.slug}`}>
                                     {t("news.readArticle")}
                                 </Link>

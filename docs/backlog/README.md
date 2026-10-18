@@ -1,6 +1,6 @@
 # Retail operations roadmap
 
-Last updated: 2026-10-14
+Last updated: 2026-10-16
 
 Digital-E targets one electronics retailer. The requested release contains all
 three P0 capabilities; P1 remains deferred until P0 is accepted.
@@ -11,9 +11,11 @@ three P0 capabilities; P1 remains deferred until P0 is accepted.
 
 ## P0 acceptance tracker
 
-The owner selected internal delivery and local sandbox acceptance. Historical
-GHN data remains read-only; local email and payment fixtures must not be
-described as successful provider staging or production tests.
+The owner selected internal delivery and local sandbox acceptance
+([decision](../../Wiki/decisions/0007-internal-delivery-only.md)). No external
+carrier integration or GHN staging is required. Historical GHN data remains
+read-only; local email and payment fixtures must not be described as successful
+provider staging or production tests.
 
 | ID | Capability | Implementation | Acceptance evidence |
 | --- | --- | --- | --- |
@@ -35,8 +37,8 @@ described as successful provider staging or production tests.
   browser evidence includes English/Vietnamese, both themes, mobile/desktop,
   and keyboard operation.
 - Maintained API/environment guides and Wiki reflect the implemented behavior.
-- Provider staging/live verification remains explicitly pending until accounts,
-  verified sender/domain, secrets and scheduler infrastructure are provisioned.
+- Live routing/map configuration, Resend/PayOS verification, and scheduler
+  infrastructure remain separate operational gates. GHN is out of scope.
 
 Internal delivery and local sandbox acceptance are complete. Email, payment
 and transfer fixtures are local simulation evidence only. Resend staging, live

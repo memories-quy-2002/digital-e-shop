@@ -1,12 +1,11 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { Button, Container, Modal } from "../../../components/ui/legacy";
 import { Helmet } from "react-helmet-async";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import AsideCart from "../../../components/common/AsideCart";
 import CartItem from "../../../components/common/CartItem";
 import ConfirmActionModal from "../../../components/common/ConfirmActionModal";
 import { ArrowLeftIcon, ArrowRightIcon, CartIcon } from "../../../components/common/Icons";
-import EmptyState from "../../../components/common/EmptyState";
 import LoadingScreen from "../../../components/common/LoadingScreen";
 import Layout from "../../../components/layout/Layout";
 import { useToast } from "../../../context/ToastContext";
@@ -16,12 +15,14 @@ import { getCartValidationMessage } from "../types";
 import "../../../styles/features/orders/_cart.scss";
 import CheckoutPaymentPage from "../components/CheckoutPaymentPage";
 import { useT } from "../../../hooks/useT";
+import { useCustomerJourneyCopy } from "../../../hooks/useCustomerJourneyCopy";
 import { formatCurrency } from "../../../utils/currency";
 
 const CartPage = () => {
     const navigate = useNavigate();
     const { addToast } = useToast();
     const t = useT();
+    const copy = useCustomerJourneyCopy();
     const {
         items: cart,
         totalPrice,
@@ -171,11 +172,11 @@ const CartPage = () => {
     const handleMergeGuestCart = useCallback(async () => {
         const result = await mergeGuestCart();
         if (result.complete) {
-            addToast("Guest cart", "Guest cart items were merged successfully.");
+            addToast(t("cart.guestCart"), copy.cart.guestCartMergeSuccess);
         } else if (result.accepted.length > 0) {
-            addToast("Guest cart", "Some guest cart items could not be merged.");
+            addToast(t("cart.guestCart"), t("cart.guestCartMergePartial"));
         }
-    }, [addToast, mergeGuestCart]);
+    }, [addToast, copy, mergeGuestCart, t]);
 
     if (isCartLoading && cart.length === 0) {
         return (
@@ -205,7 +206,7 @@ const CartPage = () => {
         <Layout>
             <Helmet>
                 <title>{`${t("cart.title")} | Digital-E`}</title>
-                <meta name="description" content="Review your items, update quantities, and proceed to checkout." />
+                <meta name="description" content={copy.cart.metaDescription} />
             </Helmet>
             <Container fluid className="cart app-page">
                 {cartStatus === "error" ? (
@@ -232,40 +233,38 @@ const CartPage = () => {
                     <>
                         <header className="cart__header">
                             <div className="cart__header__copy">
-                                <span className="cart__header__eyebrow">{t("cart.summaryEyebrow")}</span>
+                                {cart.length > 0 ? (
+                                    <span className="cart__header__eyebrow">{t("cart.summaryEyebrow")}</span>
+                                ) : null}
                                 <h1>{t("cart.title")}</h1>
-                                <p>{cart.length > 0 ? t("cart.description") : t("cart.emptyDescription")}</p>
-                            </div>
-                            <div className="cart__header__summary" aria-label={t("cart.orderSummary")}>
-                                <div>
-                                    <strong>{cart.length}</strong>
-                                    <span>{t("cart.itemsLabel")}</span>
-                                </div>
-                                <div>
-                                    <strong>{formatCurrency(subtotal)}</strong>
-                                    <span>{t("shipping.merchandiseTotal")}</span>
-                                </div>
+                                {cart.length > 0 ? <p>{t("cart.description")}</p> : null}
                             </div>
                         </header>
 
-                        <div className="cart__layout">
+                        <div className={cart.length === 0 ? "cart__layout cart__layout--empty" : "cart__layout"}>
                             <section className={cart.length === 0 && isGuest && !hasGuestItems && activeValidationIssues.length === 0 ? "cart__main cart__main--empty" : "cart__main"}>
-                                <div className="cart__list-card">
-                                    <div className="cart__list-header">
-                                        <h3>{t("cart.itemsCount", cart.length)}</h3>
-                                    </div>
-                                    <div className="cart__list">
-                                        {cart.length === 0 ? (
-                                            <EmptyState
-                                                className="cart__empty"
-                                                icon={<CartIcon size={24} />}
-                                                title={t("cart.empty")}
-                                                description={t("cart.emptyDescription")}
-                                                actionLabel={t("common.shopNow")}
-                                                actionTo="/shops"
-                                            />
-                                        ) : (
-                                            cart.map((item) => (
+                                {cart.length === 0 ? (
+                                    <section className="cart__empty" aria-labelledby="cart-empty-title">
+                                        <span className="cart__empty-icon" aria-hidden="true">
+                                            <CartIcon size={26} />
+                                        </span>
+                                        <h2 id="cart-empty-title">{t("cart.empty")}</h2>
+                                        <p>{t("cart.emptyDescription")}</p>
+                                        <Link to="/shops" className="cart__empty-action">
+                                            {t("common.shopNow")}
+                                            <ArrowRightIcon />
+                                        </Link>
+                                    </section>
+                                ) : (
+                                    <div className="cart__list-card">
+                                        <div className="cart__list-header">
+                                            <h3>{t("cart.itemsCount", cart.length)}</h3>
+                                            <button type="button" className="cart__continue-shopping" onClick={() => navigate("/shops")}>
+                                                <ArrowLeftIcon /> {t("cart.continueShopping")}
+                                            </button>
+                                        </div>
+                                        <div className="cart__list">
+                                            {cart.map((item) => (
                                                 <CartItem
                                                     key={item.cartItemId}
                                                     item={item}
@@ -274,42 +273,38 @@ const CartPage = () => {
                                                     handleRemoveCartItem={handleRemoveCartItem}
                                                     translate={cartStockMessage}
                                                 />
-                                            ))
-                                        )}
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
-                                <div className="cart__actions">
-                                    <button type="button" className="cart__action cart__action--ghost" onClick={() => navigate("/shops")}>
-                                        <ArrowLeftIcon /> {t("cart.continueShopping")}
-                                    </button>
-                                </div>
-                                <div className="cart__support">
-                                    {!isGuest && hasGuestItems ? (
-                                        <div className="cart__warning" role="region" aria-label={t("cart.guestCart")}>
-                                            <strong>{t("cart.guestCartTitle")}</strong>
-                                            <span>{t("cart.guestCartDescription")}</span>
-                                            <button
-                                                type="button"
-                                                onClick={() => void handleMergeGuestCart()}
-                                                disabled={mergeStatus === "loading"}
-                                            >
-                                                {mergeStatus === "loading" ? t("cart.mergingGuestCart") : t("cart.mergeGuestCart")}
-                                            </button>
-                                            {mergeStatus === "partial" ? <small>{t("cart.guestCartMergePartial")}</small> : null}
-                                        </div>
-                                    ) : null}
-                                    {activeValidationIssues.length > 0 ? (
-                                        <div className="cart__warning">
-                                            <strong>{t("cart.checkoutNeedsUpdates")}</strong>
-                                            <span>{getCartValidationMessage(activeValidationIssues)}</span>
-                                            {activeValidationIssues.length > 1 ? (
-                                                <small>{t("cart.itemsNeedAttention", activeValidationIssues.length)}</small>
-                                            ) : null}
-                                        </div>
-                                    ) : null}
-                                    <div className="cart__note">{t("shipping.quoteAtCheckout")}</div>
-                                </div>
+                                {((!isGuest && hasGuestItems) || activeValidationIssues.length > 0) ? (
+                                    <div className="cart__support">
+                                        {!isGuest && hasGuestItems ? (
+                                            <div className="cart__warning" role="region" aria-label={t("cart.guestCart")}>
+                                                <strong>{t("cart.guestCartTitle")}</strong>
+                                                <span>{t("cart.guestCartDescription")}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => void handleMergeGuestCart()}
+                                                    disabled={mergeStatus === "loading"}
+                                                >
+                                                    {mergeStatus === "loading" ? t("cart.mergingGuestCart") : t("cart.mergeGuestCart")}
+                                                </button>
+                                                {mergeStatus === "partial" ? <small>{t("cart.guestCartMergePartial")}</small> : null}
+                                            </div>
+                                        ) : null}
+                                        {activeValidationIssues.length > 0 ? (
+                                            <div className="cart__warning">
+                                                <strong>{t("cart.checkoutNeedsUpdates")}</strong>
+                                                <span>{getCartValidationMessage(activeValidationIssues)}</span>
+                                                {activeValidationIssues.length > 1 ? (
+                                                    <small>{t("cart.itemsNeedAttention", activeValidationIssues.length)}</small>
+                                                ) : null}
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                ) : null}
                             </section>
 
                             {cart.length > 0 ? (

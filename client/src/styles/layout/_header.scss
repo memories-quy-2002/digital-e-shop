@@ -229,6 +229,11 @@
     font-size: 0.9rem;
 }
 
+.header__search__bar:focus-visible {
+    outline: 0;
+    box-shadow: none;
+}
+
 .header__search__bar::placeholder { color: var(--de-color-chrome-muted); }
 
 .header__search__submit {
@@ -244,6 +249,11 @@
     cursor: pointer;
     touch-action: manipulation;
     transition: background-color var(--de-transition-fast), transform var(--de-transition-fast);
+}
+
+.header__search__submit:focus-visible {
+    outline: 0;
+    box-shadow: none;
 }
 
 .header__search__submit:hover {
@@ -660,8 +670,8 @@
 
 @media (max-width: 780px) {
     .header__signalbar { display: none; }
-    .header__shell { padding: 0.75rem 1rem; }
-    .header__main { grid-template-columns: minmax(0, 1fr) auto; }
+    .header__shell { padding: 0.5rem 1rem; }
+    .header__main { grid-template-columns: minmax(0, 1fr) auto; row-gap: 0.5rem; }
     .header__profile,
     .header__actions > .header__action,
     .header__notifications,
@@ -671,7 +681,7 @@
         display: flex;
         grid-column: 1 / -1;
         grid-row: 2;
-        min-height: 46px;
+        min-height: 44px;
         border-radius: var(--de-radius-md);
         box-shadow: none;
     }
@@ -682,6 +692,11 @@
 }
 
 @media (max-width: 520px) {
+    .header__shell { padding: 0.4rem 0.75rem; }
+    .header__brand__logo { min-height: 44px; }
+    .header__brand__mark { width: 38px; height: 38px; }
+    .header__brand__mark-core { font-size: 1.1rem; }
+
     .header__mobile__search,
     .header__mobile__links,
     .header__mobile__actions {

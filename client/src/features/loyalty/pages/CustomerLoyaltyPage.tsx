@@ -144,7 +144,7 @@ const CustomerLoyaltyPage = () => {
                                 <ul className="loyalty-page__voucher-list">
                                     {overview.vouchers.map((voucher) => (
                                         <li key={voucher.id}>
-                                            <strong>{voucher.code}</strong>
+                                            <strong translate="no">{voucher.code}</strong>
                                             <span>{t("loyalty.voucherDescription", voucher.discountPercent, voucher.pointsCost)}</span>
                                             <span>{voucher.status === "RESERVED" ? t("loyalty.voucherReserved") : t("loyalty.voucherAvailable")}</span>
                                             {voucher.expiresAt ? <span>{t("loyalty.expires", formatDate(voucher.expiresAt, locale))}</span> : null}

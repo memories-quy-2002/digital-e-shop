@@ -27,7 +27,6 @@
     &__filter-option { display: flex; align-items: center; gap: 0.5rem; min-height: 32px; color: var(--de-color-text-muted); font-size: 0.8rem; cursor: pointer; input { accent-color: var(--de-color-signal); } &:hover { color: var(--de-color-text); } }
     &__filter-checkmark { display: none; }
     &__price-summary { display: flex; justify-content: space-between; gap: 0.5rem; div { display: grid; gap: 0.1rem; } span { color: var(--de-color-text-muted); font-family: var(--de-font-family-mono); font-size: 0.6rem; text-transform: uppercase; } strong { color: var(--de-color-text); font-family: var(--de-font-family-mono); font-size: 0.75rem; } }
-    &__price-slider { padding: 0.7rem 0.3rem; .horizontal-slider { position: relative; height: 5px; margin: 1rem 0; background: var(--de-color-border-strong); } .example-track { height: 5px; background: var(--de-color-signal); } .example-thumb { position: relative; top: -7px; width: 18px; height: 18px; border: 2px solid var(--de-color-signal); border-radius: 50%; background: var(--de-color-bg); cursor: grab; span { position: absolute; top: 20px; left: 50%; color: var(--de-color-text-muted); font-family: var(--de-font-family-mono); font-size: 0.55rem; transform: translateX(-50%); white-space: nowrap; } } }
     &__filters-button { min-height: 42px; border: 0; border-radius: 4px; background: var(--de-color-circuit); color: var(--de-color-on-accent); font-weight: 900; cursor: pointer; &:hover { background: var(--de-color-circuit-hover); } }
     &__empty { border: 1px solid var(--de-color-border); background: var(--de-color-surface); }
 
@@ -293,28 +292,6 @@
     }
 }
 
-.shops__brand-search input {
-    width: 100%;
-    min-height: 40px;
-    padding: 0 0.7rem;
-    border: 1px solid var(--de-color-border-strong);
-    border-radius: 4px;
-    background: var(--de-color-bg-muted);
-    color: var(--de-color-text);
-
-    &:focus-visible {
-        border-color: var(--de-color-electric);
-        outline: 2px solid color-mix(in srgb, var(--de-color-electric) 38%, transparent);
-        outline-offset: 1px;
-    }
-}
-
-.shops__brand-empty {
-    margin: 0;
-    color: var(--de-color-text-muted);
-    font-size: 0.78rem;
-}
-
 .shops__filter-options {
     max-height: none;
     overflow: visible;
@@ -347,40 +324,6 @@
             border-color: var(--de-color-electric);
             outline: 2px solid color-mix(in srgb, var(--de-color-electric) 38%, transparent);
             outline-offset: 1px;
-        }
-    }
-}
-
-.shops__price-presets {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-
-    button {
-        min-height: 2rem;
-        padding: 0.25rem 0.6rem;
-        border: 1px solid var(--de-color-border);
-        border-radius: 999px;
-        background: var(--de-color-bg-muted);
-        color: var(--de-color-text-soft);
-        font-size: 0.68rem;
-        cursor: pointer;
-
-        &:hover,
-        &:focus-visible,
-        &[aria-pressed="true"] {
-            border-color: var(--de-color-signal);
-            color: var(--de-color-signal);
-        }
-
-        &:focus-visible {
-            outline: 2px solid var(--de-color-electric);
-            outline-offset: 2px;
-        }
-
-        &:disabled {
-            opacity: 0.45;
-            cursor: not-allowed;
         }
     }
 }
@@ -595,13 +538,18 @@
         border-radius: 0;
         background: transparent;
         small {
-            display: none;
+            display: block;
+            margin-bottom: 0.3rem;
+            color: var(--de-color-signal);
+            font-family: var(--de-font-family-mono);
+            font-size: 0.66rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
         }
         strong {
-            font-size: 1rem;
-        }
-        span {
-            font-size: 0.78rem;
+            display: block;
+            color: var(--de-color-text);
+            font-size: clamp(1.05rem, 2vw, 1.25rem);
         }
     }
     &__list,

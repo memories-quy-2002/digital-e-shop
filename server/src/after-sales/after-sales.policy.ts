@@ -12,10 +12,20 @@ const parseDate = (value: string | Date): Date => {
 };
 
 const addUtcDays = (value: Date, days: number): Date => {
-    const result = new Date(value.getTime());
-    result.setUTCDate(result.getUTCDate() + days);
-    return result;
+    return new Date(Date.UTC(
+        value.getUTCFullYear(),
+        value.getUTCMonth(),
+        value.getUTCDate() + days,
+        23,
+        59,
+        59,
+        999,
+    ));
 };
+
+export function getReturnDeadline(deliveredAt: string | Date): string {
+    return addUtcDays(parseDate(deliveredAt), AFTER_SALES_RETURN_WINDOW_DAYS).toISOString();
+}
 
 const addUtcMonths = (value: Date, months: number): Date => {
     const result = new Date(value.getTime());
@@ -40,7 +50,7 @@ export function evaluateEligibility(
     const deliveredAt = parseDate(input.deliveredAt);
     const now = parseDate(input.now || new Date());
     const eligibleUntil = input.kind === AFTER_SALES_KIND.RETURN
-        ? addUtcDays(deliveredAt, AFTER_SALES_RETURN_WINDOW_DAYS)
+        ? new Date(getReturnDeadline(deliveredAt))
         : input.warrantyMonths && input.warrantyMonths > 0
             ? addUtcMonths(deliveredAt, input.warrantyMonths)
             : null;

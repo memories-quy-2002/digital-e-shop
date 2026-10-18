@@ -1,9 +1,13 @@
 # Shipping and fulfillment
 
 New checkout quotes use internal delivery pricing. The server routes between
-the configured store pin and the customer's manually selected address pin via
-an operator-allowlisted OSRM-compatible endpoint. `< 5 km` is free, `5–20 km`
-uses the configured middle band, and `> 20 km` uses the higher band.
+the configured store pin and the customer's confirmed address pin via an
+operator-allowlisted OSRM-compatible endpoint. When an address has no saved
+coordinates, checkout can search the street and city with the configured
+geocoding endpoint; the customer confirms a result before use. Recipient name
+and phone are not sent to the geocoder. A map remains available for manual
+adjustment. `< 5 km` is free, `5–20 km` uses the configured middle band, and
+`> 20 km` uses the higher band.
 
 A short-lived quote binds customer or guest-cart identity, cart facts, the
 structured address and coordinates, route, fee, and delivery-settings version.
@@ -11,7 +15,11 @@ Checkout locks and consumes that quote once, rechecks its identity, address,
 cart, expiry, and settings version, then copies the fee and route into the
 order's immutable delivery snapshot. A missing route or unavailable
 configuration fails checkout quote creation; the server does not estimate a
-straight-line distance or guess a price.
+straight-line distance or guess a price. Quote consumption returns stable
+errors: `DELIVERY_QUOTE_EXPIRED`, `DELIVERY_QUOTE_CHANGED`,
+`DELIVERY_QUOTE_INVALID`, and `DELIVERY_SETTINGS_CHANGED`. The storefront
+clears the stale quote while keeping the entered address and destination pin,
+then requires a replacement quote before order submission.
 
 Saved customer addresses may retain optional coordinates. A pin must include
 both latitude and longitude and pass coordinate bounds. The feature does not
@@ -22,6 +30,11 @@ map can show both endpoints without a privileged settings read.
 Checkout and saved-address maps fetch the same minimal configuration from a
 public endpoint. It exposes the store pin and operator-allowlisted tile URL and
 attribution only; fee bands and the routing endpoint remain server-side.
+`GEOCODING_ENDPOINT` configures the address lookup provider. Local development
+defaults to the Photon demo endpoint; other environments leave lookup disabled
+until an endpoint is configured. Address search is explicit, returns at most
+five results and is throttled to one provider request per second per API
+instance. Confirmed coordinates are saved only to the selected owned address.
 
 ## Internal assignments
 
@@ -63,8 +76,9 @@ completes the order through the shared payment guards, awards eligible loyalty
 points and queues the payment-confirmation and delivery-status emails in the
 same transaction. Assignment row locks and stable event keys make repeated
 status requests no-ops. Internal completion requires the shipment to remain
-`READY_TO_SHIP` and a matching delivered assignment; legacy carrier completion
-still requires its shipment state to be verified as `DELIVERED`.
+`READY_TO_SHIP` and a matching delivered assignment. Historical carrier
+shipments are read-only and cannot complete or advance an order through the
+active delivery workflow.
 
 Admin routes are `GET/PUT /api/admin/delivery/settings`,
 `GET /api/admin/delivery/assignable-orders`, `GET /api/admin/delivery/staff`,
@@ -83,4 +97,4 @@ or parcel data. See the [approved delivery design](../../docs/superpowers/specs/
 for the full workflow and acceptance criteria.
 
 Related: [[order]], [[payment]], [[durable-operations]],
-[[transactional-email-operations]].
+[[transactional-email-operations]], and [[0007-internal-delivery-only]].

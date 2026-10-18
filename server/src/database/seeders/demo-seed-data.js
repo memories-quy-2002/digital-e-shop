@@ -1,6 +1,7 @@
 const { ORDER_STATUS, USER_ROLE, PAYMENT_METHOD, CURRENCY_CODE } = require("./constants.js");
 
 const DEMO_PASSWORD = "DemoPass123!";
+const DEMO_SEED_MIN_PRICE_VND = 100_000;
 
 const DEMO_SEED_PLAN = {
     currency: CURRENCY_CODE.VND,
@@ -597,6 +598,15 @@ const DEMO_SEED_PLAN = {
     ],
     addresses: [
         {
+            userKey: "admin",
+            label: "Office",
+            recipientName: "Minh Nguyen",
+            phoneNumber: "0901000000",
+            addressLine: "1 Nguyen Hue Street, District 1",
+            city: "Ho Chi Minh City",
+            country: "Vietnam",
+        },
+        {
             userKey: "alice",
             label: "Home",
             recipientName: "Ngoc Anh Nguyen",
@@ -659,16 +669,178 @@ const DEMO_SEED_PLAN = {
     ],
 };
 
+// Keep the hand-authored products readable, then fill the catalog with stable
+// category/brand combinations for realistic local storefront coverage.
+const DEMO_PRODUCT_TARGET = 120;
+const demoCategoryProfiles = {
+    Laptop: [
+        { brand: "Dell", line: "Latitude" },
+        { brand: "Dell", line: "XPS" },
+        { brand: "Apple", line: "MacBook" },
+        { brand: "Asus", line: "ZenBook" },
+        { brand: "Microsoft", line: "Surface Laptop" },
+        { brand: "HP", line: "Spectre" },
+    ],
+    Smartphone: [
+        { brand: "Samsung", line: "Galaxy" },
+        { brand: "Apple", line: "iPhone" },
+        { brand: "Google", line: "Pixel" },
+    ],
+    PC: [
+        { brand: "Intel", line: "NUC" },
+        { brand: "AMD", line: "Ryzen" },
+        { brand: "HP", line: "Omen" },
+        { brand: "Asus", line: "ROG" },
+    ],
+    Monitor: [
+        { brand: "Dell", line: "UltraSharp" },
+        { brand: "Apple", line: "Studio Display" },
+        { brand: "Samsung", line: "Odyssey" },
+        { brand: "LG", line: "UltraFine" },
+        { brand: "Asus", line: "ProArt" },
+    ],
+    Headphone: [
+        { brand: "Sony", line: "WH" },
+        { brand: "Bose", line: "QuietComfort" },
+        { brand: "JBL", line: "Live" },
+        { brand: "Logitech", line: "G Pro X" },
+    ],
+    "Graphics Card": [
+        { brand: "Nvidia", line: "GeForce" },
+        { brand: "AMD", line: "Radeon" },
+        { brand: "Asus", line: "TUF GeForce" },
+    ],
+    Console: [
+        { brand: "Sony", line: "PlayStation" },
+        { brand: "Microsoft", line: "Xbox" },
+    ],
+    Camera: [
+        { brand: "Canon", line: "EOS" },
+        { brand: "Sony", line: "Alpha" },
+    ],
+};
+const demoImagePoolsByCategory = new Map();
+DEMO_SEED_PLAN.products.forEach((product) => {
+    const imagePool = demoImagePoolsByCategory.get(product.categoryName) || [];
+    if (!imagePool.includes(product.mainImage)) imagePool.push(product.mainImage);
+    demoImagePoolsByCategory.set(product.categoryName, imagePool);
+});
+const demoImageCursorByCategory = new Map();
+for (let index = DEMO_SEED_PLAN.products.length; index < DEMO_PRODUCT_TARGET; index += 1) {
+    const categoryName = DEMO_SEED_PLAN.categories[index % DEMO_SEED_PLAN.categories.length];
+    const profiles = demoCategoryProfiles[categoryName];
+    const profileIndex = Math.floor((index - DEMO_SEED_PLAN.products.length) / DEMO_SEED_PLAN.categories.length) % profiles.length;
+    const { brand: brandName, line: productLine } = profiles[profileIndex];
+    const imagePool = demoImagePoolsByCategory.get(categoryName);
+    const imageCursor = demoImageCursorByCategory.get(categoryName) || 0;
+    const basePrice = 20 + (index % 80) * 10;
+    DEMO_SEED_PLAN.products.push({
+        name: `${brandName} ${productLine} ${String(index + 1).padStart(3, "0")}`,
+        description: `A dependable ${categoryName.toLowerCase()} from ${brandName}, selected for the Digital-E demo catalog.`,
+        categoryName,
+        brandName,
+        price: basePrice,
+        salePrice: basePrice,
+        stock: 20 + (index % 30),
+        mainImage: imagePool[imageCursor % imagePool.length],
+        specifications: `${brandName} ${productLine}, demo catalog specification ${index + 1}`,
+    });
+    demoImageCursorByCategory.set(categoryName, imageCursor + 1);
+}
+
+const demoUserKeys = DEMO_SEED_PLAN.users
+    .map((user) => user.key);
+const demoCustomerKeys = DEMO_SEED_PLAN.users
+    .filter((user) => user.role === USER_ROLE.CUSTOMER)
+    .map((user) => user.key);
+const appendedOrdersByUser = new Map(demoUserKeys.map((userKey) => [userKey, []]));
+const existingOrderCounts = new Map(demoUserKeys.map((userKey) => [
+    userKey,
+    DEMO_SEED_PLAN.orders.filter((order) => order.userKey === userKey).length,
+]));
+for (const userKey of demoUserKeys) {
+    const count = Math.max(0, 25 - existingOrderCounts.get(userKey));
+    for (let index = 0; index < count; index += 1) {
+        const order = {
+            key: `${userKey}-demo-order-${String(index + 1).padStart(2, "0")}`,
+            userKey,
+            status: index === 1 ? ORDER_STATUS.CANCELED : index % 4 === 3 ? ORDER_STATUS.PENDING : ORDER_STATUS.DONE,
+            paymentMethod: index % 2 === 0 ? PAYMENT_METHOD.PAYOS : PAYMENT_METHOD.CASH,
+            discountRate: 0,
+            items: [],
+        };
+        DEMO_SEED_PLAN.orders.push(order);
+        appendedOrdersByUser.get(userKey).push(order);
+    }
+}
+
+const appendedCompletedCustomerOrders = demoCustomerKeys
+    .flatMap((userKey) => appendedOrdersByUser.get(userKey))
+    .filter((order) => order.status === ORDER_STATUS.DONE);
+const customerOrderByProduct = new Map();
+DEMO_SEED_PLAN.products.forEach((product, index) => {
+    const order = appendedCompletedCustomerOrders[index % appendedCompletedCustomerOrders.length];
+    order.items.push({ productName: product.name, quantity: 1 });
+    customerOrderByProduct.set(product.name, order);
+});
+DEMO_SEED_PLAN.orders
+    .filter((order) => appendedOrdersByUser.has(order.userKey) && order.items.length === 0)
+    .forEach((order, index) => {
+        const product = DEMO_SEED_PLAN.products[index % DEMO_SEED_PLAN.products.length];
+        order.items.push({ productName: product.name, quantity: 1 });
+    });
+
+const reviewDetailsByCategory = {
+    Laptop: ["screen brightness", "keyboard comfort", "battery life", "fan noise"],
+    Smartphone: ["camera focus", "screen readability", "charging speed", "signal stability"],
+    PC: ["boot time", "upgrade access", "cooling noise", "multitasking speed"],
+    Monitor: ["text sharpness", "color consistency", "stand adjustment", "motion clarity"],
+    Headphone: ["fit over long sessions", "noise isolation", "call microphone", "Bluetooth stability"],
+    "Graphics Card": ["frame pacing", "fan noise", "power draw", "driver stability"],
+    Console: ["loading time", "controller comfort", "game performance", "storage capacity"],
+    Camera: ["autofocus", "low-light detail", "menu controls", "battery endurance"],
+};
+const reviewTextByRating = {
+    1: ["has been frustrating: {detail} is poor, and I would not recommend it.", "disappointed after a week; {detail} failed to meet even basic expectations."],
+    2: ["has real potential, but {detail} is a recurring annoyance and the value feels weak.", "left me underwhelmed; {detail} needs improvement before this is an easy recommendation."],
+    3: ["is acceptable overall: {detail} works as expected, though there are clear trade-offs.", "lands in the middle for me; {detail} is fine, while the rest feels fairly ordinary."],
+    4: ["has been a good choice; {detail} works well and the few compromises are manageable.", "has impressed me so far, especially {detail}; I would gladly recommend it."],
+    5: ["has been excellent; {detail} is a standout and it has made daily use much better.", "is an easy five stars from me: {detail} is reliable and the overall experience is excellent."],
+};
+const reviewRatings = [5, 4, 3, 2, 1, 5, 4, 3, 5, 2];
+DEMO_SEED_PLAN.reviews = DEMO_SEED_PLAN.products.map((product, index) => {
+    const order = customerOrderByProduct.get(product.name);
+    const rating = reviewRatings[index % reviewRatings.length];
+    const details = reviewDetailsByCategory[product.categoryName];
+    const detail = details[index % details.length];
+    const templates = reviewTextByRating[rating];
+    const text = `${product.name}: ${templates[Math.floor(index / details.length) % templates.length].replace("{detail}", detail)}`;
+    return { userKey: order.userKey, productName: product.name, rating, text };
+});
+
+const wishlistPairs = new Set(DEMO_SEED_PLAN.wishlists.map((wishlist) => `${wishlist.userKey}:${wishlist.productName}`));
+DEMO_SEED_PLAN.products.forEach((product, index) => {
+    const userKey = demoCustomerKeys[index % demoCustomerKeys.length];
+    const pair = `${userKey}:${product.name}`;
+    if (!wishlistPairs.has(pair)) {
+        DEMO_SEED_PLAN.wishlists.push({ userKey, productName: product.name });
+        wishlistPairs.add(pair);
+    }
+});
+
 // The catalog fixture values above are kept readable as USD-like reference
 // prices, then materialized as whole-number VND for the Vietnam-first demo.
 const DEMO_SEED_USD_TO_VND_RATE = 25_000;
 const DEMO_SEED_VND_ROUNDING_INCREMENT = 1_000;
 const toDemoVnd = (value) => Math.round((Number(value) * DEMO_SEED_USD_TO_VND_RATE) / DEMO_SEED_VND_ROUNDING_INCREMENT) * DEMO_SEED_VND_ROUNDING_INCREMENT;
+const demoSalePercentages = [5, 8, 10, 12, 15, 18, 20, 25];
 
-DEMO_SEED_PLAN.products = DEMO_SEED_PLAN.products.map((product) => ({
+DEMO_SEED_PLAN.products = DEMO_SEED_PLAN.products.map((product, index) => ({
     ...product,
     price: toDemoVnd(product.price),
-    salePrice: toDemoVnd(product.salePrice),
+    salePrice: index % 4 === 0
+        ? null
+        : toDemoVnd(product.price * (1 - demoSalePercentages[index % demoSalePercentages.length] / 100)),
 }));
 DEMO_SEED_PLAN.discounts = DEMO_SEED_PLAN.discounts.map((discount) => ({
     ...discount,
@@ -712,6 +884,10 @@ const validateDemoSeedPlan = (plan = DEMO_SEED_PLAN) => {
     const categories = new Set(plan.categories);
     const brands = new Set(plan.brands);
 
+    if (plan.products.length < DEMO_PRODUCT_TARGET) {
+        throw new Error(`Demo seed plan requires at least ${DEMO_PRODUCT_TARGET} products`);
+    }
+
     plan.products.forEach((product) => {
         if (/\b(?:e2e|demo)\b/i.test(product.name)) {
             throw new Error(`Demo seed plan contains a reserved fixture label in product name: ${product.name}`);
@@ -722,13 +898,32 @@ const validateDemoSeedPlan = (plan = DEMO_SEED_PLAN) => {
         if (!brands.has(product.brandName)) {
             throw new Error(`Demo seed plan references an unknown brand: ${product.brandName}`);
         }
-        if (typeof product.mainImage !== "string" || product.mainImage.trim() === "") {
+        let imageUrl;
+        try {
+            imageUrl = new URL(product.mainImage);
+        } catch {
             throw new Error(`Demo seed plan is missing a main image: ${product.name}`);
         }
-        if (!Number.isInteger(product.price) || !Number.isInteger(product.salePrice) || product.price <= product.salePrice) {
+        if (imageUrl.protocol !== "https:") {
+            throw new Error(`Demo seed plan requires an HTTPS main image: ${product.name}`);
+        }
+        if (!Number.isInteger(product.price) || (product.salePrice !== null && (!Number.isInteger(product.salePrice) || product.price <= product.salePrice))) {
             throw new Error(`Demo seed plan requires whole-number VND prices: ${product.name}`);
         }
+        if (product.price < DEMO_SEED_MIN_PRICE_VND || (product.salePrice !== null && product.salePrice < DEMO_SEED_MIN_PRICE_VND)) {
+            throw new Error(`Demo seed plan requires catalog prices of at least ${DEMO_SEED_MIN_PRICE_VND} VND: ${product.name}`);
+        }
     });
+
+    for (const category of categories) {
+        if (!plan.products.some((product) => product.categoryName === category)) {
+            throw new Error(`Demo seed plan leaves a category without products: ${category}`);
+        }
+    }
+
+    if (new Set(plan.products.map((product) => product.brandName)).size < 2) {
+        throw new Error("Demo seed plan must use multiple brands");
+    }
 
     plan.carts.forEach((cart) => {
         if (!users.has(cart.userKey)) {
@@ -750,12 +945,23 @@ const validateDemoSeedPlan = (plan = DEMO_SEED_PLAN) => {
     });
 
     const orderedProductNames = new Set();
+    const ordersByUser = new Map();
+    const completedCustomerOrderItems = new Map();
     plan.orders.forEach((order) => {
         if (!users.has(order.userKey)) {
             throw new Error(`Demo seed plan references an unknown order user: ${order.userKey}`);
         }
         if (!Object.values(ORDER_STATUS).includes(order.status)) {
             throw new Error(`Demo seed plan contains an invalid order status: ${order.status}`);
+        }
+        const user = plan.users.find((candidate) => candidate.key === order.userKey);
+        const userOrders = ordersByUser.get(order.userKey) || [];
+        userOrders.push(order);
+        ordersByUser.set(order.userKey, userOrders);
+        if (user.role === USER_ROLE.CUSTOMER && order.status === ORDER_STATUS.DONE) {
+                order.items.forEach((item) => {
+                    completedCustomerOrderItems.set(`${order.userKey}:${item.productName}`, true);
+                });
         }
         const orderProducts = new Set();
         if (order.items.length === 0) {
@@ -776,7 +982,22 @@ const validateDemoSeedPlan = (plan = DEMO_SEED_PLAN) => {
         });
     });
 
+    for (const user of plan.users) {
+        const orders = ordersByUser.get(user.key) || [];
+        if (orders.length < 25) {
+            throw new Error(`Demo seed plan requires at least 25 orders for account: ${user.key}`);
+        }
+        if (!orders.some((order) => order.status === ORDER_STATUS.DONE)) {
+            throw new Error(`Demo seed plan requires a completed order for account: ${user.key}`);
+        }
+        if (!orders.some((order) => order.status === ORDER_STATUS.CANCELED)) {
+            throw new Error(`Demo seed plan requires a canceled order for account: ${user.key}`);
+        }
+    }
+
     const reviewedProductNames = new Set();
+    const reviewPairs = new Set();
+    const reviewTexts = new Set();
     plan.reviews.forEach((review) => {
         if (!users.has(review.userKey)) {
             throw new Error(`Demo seed plan references an unknown review user: ${review.userKey}`);
@@ -787,6 +1008,22 @@ const validateDemoSeedPlan = (plan = DEMO_SEED_PLAN) => {
         if (!Number.isInteger(review.rating) || review.rating < 1 || review.rating > 5) {
             throw new Error(`Demo seed plan contains an invalid review rating: ${review.rating}`);
         }
+        const reviewer = plan.users.find((user) => user.key === review.userKey);
+        if (reviewer.role !== USER_ROLE.CUSTOMER) {
+            throw new Error(`Demo seed plan requires customer-written reviews: ${review.userKey}`);
+        }
+        if (typeof review.text !== "string" || review.text.trim().length < 20) {
+            throw new Error(`Demo seed plan contains an empty or too-short review for ${review.productName}`);
+        }
+        const pair = `${review.userKey}:${review.productName}`;
+        if (reviewPairs.has(pair)) {
+            throw new Error(`Demo seed plan contains a duplicate review pair: ${pair}`);
+        }
+        if (reviewTexts.has(review.text)) {
+            throw new Error(`Demo seed plan contains duplicate review text: ${review.productName}`);
+        }
+        reviewPairs.add(pair);
+        reviewTexts.add(review.text);
         reviewedProductNames.add(review.productName);
     });
 
@@ -816,6 +1053,14 @@ const validateDemoSeedPlan = (plan = DEMO_SEED_PLAN) => {
         }
         if (!wishlistedProductNames.has(productName)) {
             throw new Error(`Demo seed plan leaves a product without a wishlist link: ${productName}`);
+        }
+        if (![...completedCustomerOrderItems.keys()].some((link) => link.endsWith(`:${productName}`))) {
+            throw new Error(`Demo seed plan leaves a product without a completed customer order: ${productName}`);
+        }
+        if (!plan.reviews.some((review) => review.productName === productName
+            && plan.users.some((user) => user.key === review.userKey && user.role === USER_ROLE.CUSTOMER)
+            && completedCustomerOrderItems.has(`${review.userKey}:${productName}`))) {
+            throw new Error(`Demo seed plan leaves a product without a qualifying customer review: ${productName}`);
         }
     }
 
@@ -873,5 +1118,6 @@ const validateDemoSeedPlan = (plan = DEMO_SEED_PLAN) => {
 module.exports = {
     DEMO_PASSWORD,
     DEMO_SEED_PLAN,
+    DEMO_SEED_MIN_PRICE_VND,
     validateDemoSeedPlan,
 };

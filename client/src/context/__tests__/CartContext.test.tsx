@@ -2,6 +2,7 @@ import React from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { addGuestCartItem, clearGuestCart, readGuestCart } from "../../features/orders/guestCartStorage";
+import { clearCartMergeOperation, readCartMergeOperation } from "../../features/orders/cartMergeStorage";
 import type { CheckoutCartItem, GuestCartPreview } from "../../features/orders/types";
 import { CartProvider, useCart } from "../CartContext";
 
@@ -15,6 +16,7 @@ const mocks = vi.hoisted(() => ({
     applyCustomerDiscount: vi.fn(),
     previewGuestCart: vi.fn(),
     addItemsToCustomerCart: vi.fn(),
+    mergeGuestCartIntoCustomer: vi.fn(),
     fetchGuestCart: vi.fn(),
     syncGuestCart: vi.fn(),
     clearGuestCartServer: vi.fn(),
@@ -36,6 +38,7 @@ vi.mock("../../features/orders/api", () => ({
     applyCustomerDiscount: mocks.applyCustomerDiscount,
     previewGuestCart: mocks.previewGuestCart,
     addItemsToCustomerCart: mocks.addItemsToCustomerCart,
+    mergeGuestCartIntoCustomer: mocks.mergeGuestCartIntoCustomer,
     fetchGuestCart: mocks.fetchGuestCart,
     syncGuestCart: mocks.syncGuestCart,
     clearGuestCartServer: mocks.clearGuestCartServer,
@@ -135,6 +138,7 @@ const AddResultProbe = () => {
 describe("CartContext dual-source state", () => {
     beforeEach(() => {
         clearGuestCart();
+        clearCartMergeOperation();
         mocks.auth.userData = null;
         mocks.auth.loading = false;
         mocks.addToast.mockReset();
@@ -145,6 +149,7 @@ describe("CartContext dual-source state", () => {
         mocks.applyCustomerDiscount.mockReset();
         mocks.previewGuestCart.mockReset();
         mocks.addItemsToCustomerCart.mockReset();
+        mocks.mergeGuestCartIntoCustomer.mockReset();
         mocks.fetchGuestCart.mockReset();
         mocks.syncGuestCart.mockReset();
         mocks.clearGuestCartServer.mockReset();
@@ -155,6 +160,7 @@ describe("CartContext dual-source state", () => {
         mocks.validateCustomerCart.mockResolvedValue({ valid: true, cartItems: [], issues: [] });
         mocks.applyCustomerDiscount.mockResolvedValue({ newPrice: 180 });
         mocks.addItemsToCustomerCart.mockResolvedValue(undefined);
+        mocks.mergeGuestCartIntoCustomer.mockImplementation(async (_uid, _operationId, items) => ({ accepted: items, rejected: [] }));
         mocks.fetchGuestCart.mockResolvedValue([]);
         mocks.syncGuestCart.mockImplementation(async (items) => items);
         mocks.clearGuestCartServer.mockResolvedValue(undefined);
@@ -375,9 +381,12 @@ describe("CartContext dual-source state", () => {
         mocks.auth.userData = { id: "user-1" };
         addGuestCartItem({ productId: 10, quantity: 2 });
         addGuestCartItem({ productId: 11, quantity: 1 });
-        mocks.addItemsToCustomerCart
-            .mockResolvedValueOnce(undefined)
-            .mockRejectedValueOnce(new Error("out of stock"));
+        mocks.mergeGuestCartIntoCustomer
+            .mockResolvedValueOnce({
+                accepted: [{ productId: 10, quantity: 2 }],
+                rejected: [{ productId: 11, quantity: 1, reason: "out_of_stock" }],
+            })
+            .mockResolvedValueOnce({ accepted: [{ productId: 11, quantity: 1 }], rejected: [] });
 
         renderCart();
         await waitFor(() => expect(screen.getByTestId("merge-available")).toHaveTextContent("true"));
@@ -385,16 +394,20 @@ describe("CartContext dual-source state", () => {
         fireEvent.click(screen.getByText("merge"));
         await waitFor(() => expect(readGuestCart()).toEqual([{ productId: 11, quantity: 1 }]));
         expect(screen.getByTestId("error")).toHaveTextContent("Some guest cart items could not be merged.");
-        expect(mocks.addItemsToCustomerCart).toHaveBeenNthCalledWith(1, "user-1", [
-            { productId: 10, quantity: 2, stock: 2 },
+        expect(mocks.mergeGuestCartIntoCustomer).toHaveBeenCalledTimes(1);
+        expect(mocks.mergeGuestCartIntoCustomer.mock.calls[0][0]).toBe("user-1");
+        expect(mocks.mergeGuestCartIntoCustomer.mock.calls[0][2]).toEqual([
+            { productId: 10, quantity: 2 },
+            { productId: 11, quantity: 1 },
         ]);
-        expect(mocks.addItemsToCustomerCart).toHaveBeenNthCalledWith(2, "user-1", [
-            { productId: 11, quantity: 1, stock: 1 },
-        ]);
+        const firstOperationId = mocks.mergeGuestCartIntoCustomer.mock.calls[0][1];
+        expect(readCartMergeOperation()).toBeNull();
 
-        mocks.addItemsToCustomerCart.mockResolvedValueOnce(undefined);
         fireEvent.click(screen.getByText("merge"));
         await waitFor(() => expect(readGuestCart()).toEqual([]));
+        expect(mocks.mergeGuestCartIntoCustomer).toHaveBeenCalledTimes(2);
+        expect(mocks.mergeGuestCartIntoCustomer.mock.calls[1][1]).not.toBe(firstOperationId);
+        expect(mocks.mergeGuestCartIntoCustomer.mock.calls[1][2]).toEqual([{ productId: 11, quantity: 1 }]);
     });
 
     it("does not copy an authenticated cart into guest storage across logout", async () => {
@@ -444,23 +457,23 @@ describe("CartContext dual-source state", () => {
         mocks.auth.userData = { id: "user-a" };
         addGuestCartItem({ productId: 10, quantity: 1 });
         addGuestCartItem({ productId: 11, quantity: 1 });
-        const firstWrite = deferred<void>();
-        mocks.addItemsToCustomerCart.mockReturnValueOnce(firstWrite.promise);
+        const firstWrite = deferred<{ accepted: Array<{ productId: number; quantity: number }>; rejected: Array<{ productId: number; quantity: number; reason: string }> }>();
+        mocks.mergeGuestCartIntoCustomer.mockReturnValueOnce(firstWrite.promise);
         const view = renderCart();
         await waitFor(() => expect(screen.getByTestId("merge-available")).toHaveTextContent("true"));
 
         fireEvent.click(screen.getByText("merge"));
-        await waitFor(() => expect(mocks.addItemsToCustomerCart).toHaveBeenCalledTimes(1));
+        await waitFor(() => expect(mocks.mergeGuestCartIntoCustomer).toHaveBeenCalledTimes(1));
         act(() => {
             mocks.auth.userData = null;
             view.rerender(<CartProvider><Probe /></CartProvider>);
         });
         await act(async () => {
-            firstWrite.resolve();
+            firstWrite.resolve({ accepted: [{ productId: 10, quantity: 1 }, { productId: 11, quantity: 1 }], rejected: [] });
             await firstWrite.promise;
         });
 
-        expect(mocks.addItemsToCustomerCart).toHaveBeenCalledTimes(1);
+        expect(mocks.mergeGuestCartIntoCustomer).toHaveBeenCalledTimes(1);
         expect(readGuestCart()).toEqual([
             { productId: 10, quantity: 1 },
             { productId: 11, quantity: 1 },
@@ -471,18 +484,19 @@ describe("CartContext dual-source state", () => {
         mocks.auth.userData = { id: "user-a" };
         addGuestCartItem({ productId: 10, quantity: 1 });
         addGuestCartItem({ productId: 11, quantity: 1 });
-        const firstWrite = deferred<void>();
-        mocks.addItemsToCustomerCart
-            .mockReturnValueOnce(firstWrite.promise)
-            .mockRejectedValueOnce(new Error("out of stock"));
+        const firstWrite = deferred<{ accepted: Array<{ productId: number; quantity: number }>; rejected: Array<{ productId: number; quantity: number; reason: string }> }>();
+        mocks.mergeGuestCartIntoCustomer.mockReturnValueOnce(firstWrite.promise).mockResolvedValueOnce({
+            accepted: [{ productId: 10, quantity: 1 }],
+            rejected: [{ productId: 11, quantity: 1, reason: "out_of_stock" }],
+        });
         renderCart();
         await waitFor(() => expect(screen.getByTestId("merge-available")).toHaveTextContent("true"));
 
         fireEvent.click(screen.getByText("merge"));
-        await waitFor(() => expect(mocks.addItemsToCustomerCart).toHaveBeenCalledTimes(1));
+        await waitFor(() => expect(mocks.mergeGuestCartIntoCustomer).toHaveBeenCalledTimes(1));
         addGuestCartItem({ productId: 12, quantity: 2 });
         await act(async () => {
-            firstWrite.resolve();
+            firstWrite.resolve({ accepted: [{ productId: 10, quantity: 1 }], rejected: [{ productId: 11, quantity: 1, reason: "out_of_stock" }] });
             await firstWrite.promise;
         });
 
@@ -496,21 +510,48 @@ describe("CartContext dual-source state", () => {
     it("serializes concurrent merge requests against one guest snapshot", async () => {
         mocks.auth.userData = { id: "user-a" };
         addGuestCartItem({ productId: 10, quantity: 1 });
-        const firstWrite = deferred<void>();
-        mocks.addItemsToCustomerCart.mockReturnValueOnce(firstWrite.promise);
+        const firstWrite = deferred<{ accepted: Array<{ productId: number; quantity: number }>; rejected: Array<{ productId: number; quantity: number; reason: string }> }>();
+        mocks.mergeGuestCartIntoCustomer.mockReturnValueOnce(firstWrite.promise);
         renderCart();
         await waitFor(() => expect(screen.getByTestId("merge-available")).toHaveTextContent("true"));
 
         fireEvent.click(screen.getByText("merge"));
         fireEvent.click(screen.getByText("merge"));
-        await waitFor(() => expect(mocks.addItemsToCustomerCart).toHaveBeenCalledTimes(1));
+        await waitFor(() => expect(mocks.mergeGuestCartIntoCustomer).toHaveBeenCalledTimes(1));
         await act(async () => {
-            firstWrite.resolve();
+            firstWrite.resolve({ accepted: [{ productId: 10, quantity: 1 }], rejected: [] });
             await firstWrite.promise;
         });
 
         await waitFor(() => expect(screen.getByTestId("merge-status")).toHaveTextContent("complete"));
-        expect(mocks.addItemsToCustomerCart).toHaveBeenCalledTimes(1);
+        expect(mocks.mergeGuestCartIntoCustomer).toHaveBeenCalledTimes(1);
+    });
+
+    it("retries a committed merge with the same id and immutable snapshot after a lost response", async () => {
+        mocks.auth.userData = { id: "user-1" };
+        addGuestCartItem({ productId: 10, quantity: 2 });
+        let serverCommitted = false;
+        mocks.mergeGuestCartIntoCustomer.mockImplementation(async (_uid, _operationId, items) => {
+            if (!serverCommitted) {
+                serverCommitted = true;
+                throw new Error("response lost after commit");
+            }
+            return { accepted: items, rejected: [] };
+        });
+        renderCart();
+        await waitFor(() => expect(screen.getByTestId("merge-available")).toHaveTextContent("true"));
+
+        fireEvent.click(screen.getByText("merge"));
+        await waitFor(() => expect(screen.getByTestId("merge-status")).toHaveTextContent("error"));
+        const pending = readCartMergeOperation();
+        expect(pending).not.toBeNull();
+        expect(readGuestCart()).toEqual([{ productId: 10, quantity: 2 }]);
+
+        fireEvent.click(screen.getByText("merge"));
+        await waitFor(() => expect(readGuestCart()).toEqual([]));
+        expect(mocks.mergeGuestCartIntoCustomer).toHaveBeenCalledTimes(2);
+        expect(mocks.mergeGuestCartIntoCustomer.mock.calls[0]).toEqual(mocks.mergeGuestCartIntoCustomer.mock.calls[1]);
+        expect(serverCommitted).toBe(true);
     });
 
     it("invalidates an old guest preview when removal makes storage empty", async () => {

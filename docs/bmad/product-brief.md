@@ -86,7 +86,7 @@ Refunds remain manual ledger operations until a separate workflow is approved.
 
 - Full Prisma ownership of the legacy database
 - Replacing cookie-based authentication or Firebase identity verification
-- Stripe and `bank_transfer` as new checkout choices
+- Additional payment methods beyond PayOS and cash on delivery
 - Automated refunds without approved evidence, authorization, and ledger rules
 - Guest accounts or a second persistent guest-cart database
 - Guest returns, warranty, or refund requests until the token-bound workflow is

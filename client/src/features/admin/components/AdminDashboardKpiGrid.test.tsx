@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { renderWithLocale } from '../../../test-utils/renderWithLocale';
+import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import AdminDashboardKpiGrid, { type AdminDashboardKpi } from "./AdminDashboardKpiGrid";
 
@@ -11,14 +12,14 @@ const kpis: AdminDashboardKpi[] = [
 
 describe("AdminDashboardKpiGrid", () => {
     it("renders exactly four primary KPI articles", () => {
-        render(<AdminDashboardKpiGrid kpis={kpis} />);
+        renderWithLocale(<AdminDashboardKpiGrid kpis={kpis} />);
 
         expect(screen.getAllByRole("article")).toHaveLength(4);
         expect(screen.queryByText("Top product")).toBeNull();
     });
 
     it("keeps failed metrics truthful", () => {
-        render(<AdminDashboardKpiGrid kpis={kpis.map((kpi) => ({ ...kpi, status: kpi.label === "Orders" ? "error" : kpi.status }))} />);
+        renderWithLocale(<AdminDashboardKpiGrid kpis={kpis.map((kpi) => ({ ...kpi, status: kpi.label === "Orders" ? "error" : kpi.status }))} />);
 
         expect(screen.getByText("Unavailable")).toBeTruthy();
     });

@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import { downloadFinancialEvidence, uploadFinancialEvidence } from "../operations.api";
 import type { FinancialEvidence } from "../operations.types";
+import { useAdminCopy } from "../../../hooks/useAdminCopy";
 
 const MAX_BYTES = 2 * 1024 * 1024;
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "application/pdf"]);
@@ -12,6 +13,7 @@ type PrivateEvidenceUploadProps = {
 };
 
 const PrivateEvidenceUpload = ({ label, evidence, onChange }: PrivateEvidenceUploadProps) => {
+    const tx = useAdminCopy();
     const inputId = useId();
     const helpId = `${inputId}-help`;
     const errorId = `${inputId}-error`;
@@ -24,7 +26,7 @@ const PrivateEvidenceUpload = ({ label, evidence, onChange }: PrivateEvidenceUpl
         if (!file) return;
         if (!ACCEPTED_TYPES.has(file.type) || file.size < 1 || file.size > MAX_BYTES) {
             onChange(null);
-            setError("Choose a PNG, JPEG, or PDF no larger than 2 MiB.");
+            setError(tx("Choose a PNG, JPEG, or PDF no larger than 2 MiB."));
             return;
         }
         onChange(null);
@@ -32,7 +34,7 @@ const PrivateEvidenceUpload = ({ label, evidence, onChange }: PrivateEvidenceUpl
         try {
             onChange(await uploadFinancialEvidence(file));
         } catch {
-            setError("Evidence could not be uploaded. Check your admin session and try again.");
+            setError(tx("Evidence could not be uploaded. Check your admin session and try again."));
         } finally {
             setUploading(false);
         }
@@ -54,7 +56,7 @@ const PrivateEvidenceUpload = ({ label, evidence, onChange }: PrivateEvidenceUpl
             anchor.click();
             anchor.remove();
         } catch {
-            setError("Private evidence is unavailable to this admin session. Upload it again if needed.");
+            setError(tx("Private evidence is unavailable to this admin session. Upload it again if needed."));
         } finally {
             if (objectUrl) window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
             setDownloading(false);
@@ -64,9 +66,9 @@ const PrivateEvidenceUpload = ({ label, evidence, onChange }: PrivateEvidenceUpl
     return <div className="operations__evidence">
         <label htmlFor={inputId}>{label}</label>
         <input id={inputId} name="evidence" type="file" accept="image/png,image/jpeg,application/pdf" onChange={(event) => void upload(event.currentTarget.files?.[0])} disabled={uploading} aria-describedby={`${helpId} ${errorId}`} />
-        <small id={helpId}>PNG, JPEG, or PDF · maximum 2 MiB · private admin access</small>
-        {uploading ? <span role="status" aria-live="polite">Uploading evidence…</span> : null}
-        {evidence ? <div className="operations__evidence-file"><span>{evidence.originalFilename}</span><button type="button" className="admin__button admin__button--ghost admin__button--compact" onClick={() => void download()} disabled={downloading}>{downloading ? "Opening…" : "Download private file"}</button></div> : null}
+        <small id={helpId}>{tx("PNG, JPEG, or PDF · maximum 2 MiB · private admin access")}</small>
+        {uploading ? <span role="status" aria-live="polite">{tx("Uploading evidence…")}</span> : null}
+        {evidence ? <div className="operations__evidence-file"><span>{evidence.originalFilename}</span><button type="button" className="admin__button admin__button--ghost admin__button--compact" onClick={() => void download()} disabled={downloading}>{downloading ? tx("Opening…") : tx("Download private file")}</button></div> : null}
         {error ? <p id={errorId} className="operations__field-error" role="alert">{error}</p> : <span id={errorId} className="operations__sr-only" />}
     </div>;
 };

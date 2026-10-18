@@ -1,7 +1,7 @@
 import type { ChangeEvent } from "react";
 import { useT } from "../../../hooks/useT";
 import DeliveryQuoteForm from "../../shipping/components/DeliveryQuoteForm";
-import type { DeliveryAddress, InternalDeliveryQuote } from "../../shipping/types";
+import type { DeliveryAddress, InternalDeliveryQuote, RoadPoint } from "../../shipping/types";
 import type { CustomerAddress } from "../../users/types";
 import type { RecentOrderAddress } from "../shippingAddress";
 import type { CheckoutCartItem } from "../types";
@@ -27,9 +27,10 @@ type Props = {
     savedAddressPrefill: DeliveryAddressPrefill | null;
     recentAddressPrefill: DeliveryAddressPrefill | null;
     resetKey: number;
-    onSavedAddressChange: (event: ChangeEvent<HTMLSelectElement>) => void;
-    onRecentAddressChange: (event: ChangeEvent<HTMLSelectElement>) => void;
+    invalidateQuoteKey: number;
+    onAddressChange: (event: ChangeEvent<HTMLSelectElement>) => void;
     onQuoteChange: (address: DeliveryAddress | null, quote: InternalDeliveryQuote | null) => void;
+    onCoordinatesConfirmed?: (point: RoadPoint, addressLine: string, city: string) => Promise<boolean>;
 };
 
 const CheckoutDeliverySection = ({
@@ -43,9 +44,10 @@ const CheckoutDeliverySection = ({
     savedAddressPrefill,
     recentAddressPrefill,
     resetKey,
-    onSavedAddressChange,
-    onRecentAddressChange,
+    invalidateQuoteKey,
+    onAddressChange,
     onQuoteChange,
+    onCoordinatesConfirmed,
 }: Props) => {
     const t = useT();
 
@@ -55,35 +57,37 @@ const CheckoutDeliverySection = ({
                 <h2><span>02</span>{t("checkout.shipping")}</h2>
                 <p>{t("checkout.shippingDescription")}</p>
             </div>
-            {uid && (savedAddresses.length > 0 || savedAddressesError) ? (
-                <label className="checkout__address-reuse">
-                    {t("checkout.savedAddressLabel")}
-                    <select
-                        aria-label={t("checkout.savedAddressLabel")}
-                        value={savedAddressPrefill?.key.startsWith("saved:") ? savedAddressPrefill.key.slice("saved:".length) : ""}
-                        onChange={onSavedAddressChange}
-                    >
-                        <option value="">{t("checkout.savedAddressPlaceholder")}</option>
-                        {savedAddresses.map((address) => (
-                            <option key={address.id} value={address.id}>{address.label}: {address.address_line}</option>
-                        ))}
-                    </select>
-                </label>
-            ) : null}
-            {uid && (recentAddresses.length > 0 || recentAddressesError) ? (
-                <label className="checkout__address-reuse">
-                    {t("checkout.recentAddressLabel")}
-                    <select
-                        aria-label={t("checkout.recentAddressLabel")}
-                        value={recentAddressPrefill?.key.startsWith("recent:") ? recentAddressPrefill.key.slice("recent:".length) : ""}
-                        onChange={onRecentAddressChange}
-                    >
-                        <option value="">{t("checkout.recentAddressPlaceholder")}</option>
-                        {recentAddresses.map((address) => (
-                            <option key={address.orderId} value={address.orderId}>#{address.orderId}: {address.address}</option>
-                        ))}
-                    </select>
-                </label>
+            {uid && (savedAddresses.length > 0 || savedAddressesError || recentAddresses.length > 0 || recentAddressesError) ? (
+                <div className="checkout__address-reuse-grid">
+                    <label className="checkout__address-reuse">
+                        {t("checkout.deliveryAddressLabel")}
+                        <select
+                            aria-label={t("checkout.deliveryAddressLabel")}
+                            value={savedAddressPrefill?.key.startsWith("saved:")
+                                ? `saved:${savedAddressPrefill.key.slice("saved:".length)}`
+                                : recentAddressPrefill?.key.startsWith("recent:")
+                                    ? `recent:${recentAddressPrefill.key.slice("recent:".length)}`
+                                    : ""}
+                            onChange={onAddressChange}
+                        >
+                            <option value="">{t("checkout.deliveryAddressPlaceholder")}</option>
+                            {savedAddresses.length ? (
+                                <optgroup label={t("checkout.savedAddressLabel")}>
+                                    {savedAddresses.map((address) => (
+                                        <option key={`saved:${address.id}`} value={`saved:${address.id}`}>{address.label}: {address.address_line}</option>
+                                    ))}
+                                </optgroup>
+                            ) : null}
+                            {recentAddresses.length ? (
+                                <optgroup label={t("checkout.recentAddressLabel")}>
+                                    {recentAddresses.map((address) => (
+                                        <option key={`recent:${address.orderId}`} value={`recent:${address.orderId}`}>#{address.orderId}: {address.address}</option>
+                                    ))}
+                                </optgroup>
+                            ) : null}
+                        </select>
+                    </label>
+                </div>
             ) : null}
             {savedAddressesError ? <p role="status" aria-live="polite">{t("checkout.savedAddressesError")}</p> : null}
             {recentAddressesError ? <p role="status" aria-live="polite">{t("checkout.recentAddressesError")}</p> : null}
@@ -98,7 +102,9 @@ const CheckoutDeliverySection = ({
                 guest={!uid}
                 addressPrefill={savedAddressPrefill || recentAddressPrefill}
                 resetKey={resetKey}
+                invalidateQuoteKey={invalidateQuoteKey}
                 onQuoteChange={onQuoteChange}
+                onCoordinatesConfirmed={onCoordinatesConfirmed}
             />
         </section>
     );

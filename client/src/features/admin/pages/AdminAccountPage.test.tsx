@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { renderWithLocale } from '../../../test-utils/renderWithLocale';
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminAccountPage from "./AdminAccountPage";
@@ -26,7 +27,7 @@ describe("AdminAccountPage delivery role management", () => {
     });
 
     it("grants the DeliveryStaff role only after an audited reason is confirmed", async () => {
-        render(<AdminAccountPage />);
+        renderWithLocale(<AdminAccountPage />);
         const row = await screen.findByRole("row", { name: /customer@example.test/i });
         const roleSelect = within(row).getAllByRole("combobox")[0];
         expect(within(roleSelect).getByRole("option", { name: "shipping.deliveryStaffRole" })).toHaveValue("DeliveryStaff");

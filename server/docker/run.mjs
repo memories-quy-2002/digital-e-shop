@@ -50,7 +50,7 @@ export function buildDockerPlan(operation, env, root = serverRoot) {
             const args = [...compose, "exec", "-T", "-e", "MYSQL_PWD", "mysql", "mysql", `-u${env.DB_USER}`, env.DB_NAME];
             return [
                 { command: "docker", args, inputFile: path.join(root, "src/database/migrations/defaultdb_2026-06-01_142319.sql"), stripGtid: true },
-                { command: "docker", args, inputFile: path.join(root, "src/database/migrations/2026-07-07-add-stripe-payment-support.sql") },
+                { command: "docker", args, inputFile: path.join(root, "src/database/migrations/2026-07-07-legacy-checkout-schema.sql") },
             ];
         }
         case "migrate":

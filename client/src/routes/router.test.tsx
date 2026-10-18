@@ -4,6 +4,7 @@ import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AppRouter from "./router";
 import { Role, type UserData } from "../types/user";
+import { LocaleProvider } from "../context/LocaleContext";
 
 const authState = vi.hoisted(() => ({
     value: { loading: false, userData: null as UserData },
@@ -243,7 +244,14 @@ describe("delivery staff routing", () => {
     it("denies DeliveryStaff from admin settings", async () => {
         authState.value = { loading: false, userData: buildUser(Role.DeliveryStaff) };
         authState.value.userData!.status = "Active";
-        render(<MemoryRouter initialEntries={["/admin/delivery/settings"]}><AppRouter /><RouteLocationProbe /></MemoryRouter>);
+        render(
+            <LocaleProvider>
+                <MemoryRouter initialEntries={["/admin/delivery/settings"]}>
+                    <AppRouter />
+                    <RouteLocationProbe />
+                </MemoryRouter>
+            </LocaleProvider>,
+        );
         expect(await screen.findByTestId("route-location")).toHaveTextContent("/403");
     });
 });
@@ -264,9 +272,11 @@ describe("admin routing", () => {
     it("blocks a Customer from Admin pages", async () => {
         authState.value = { loading: false, userData: buildUser(Role.Customer) };
         render(
-            <MemoryRouter initialEntries={["/admin/orders"]}>
-                <AppRouter />
-            </MemoryRouter>,
+            <LocaleProvider>
+                <MemoryRouter initialEntries={["/admin/orders"]}>
+                    <AppRouter />
+                </MemoryRouter>
+            </LocaleProvider>,
         );
 
         expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
@@ -285,9 +295,11 @@ describe("admin routing", () => {
 
     it("keeps the forbidden route public", async () => {
         render(
-            <MemoryRouter initialEntries={["/403"]}>
-                <AppRouter />
-            </MemoryRouter>,
+            <LocaleProvider>
+                <MemoryRouter initialEntries={["/403"]}>
+                    <AppRouter />
+                </MemoryRouter>
+            </LocaleProvider>,
         );
 
         expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();

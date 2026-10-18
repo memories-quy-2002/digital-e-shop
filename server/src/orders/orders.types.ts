@@ -96,6 +96,7 @@ export type OrderDetail = {
     id: number;
     date_added: string;
     delivered_at?: string | null;
+    return_eligible_until?: string | null;
     user_id: string | null;
     guest_email?: string | null;
     guest_name?: string | null;

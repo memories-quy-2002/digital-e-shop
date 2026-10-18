@@ -172,6 +172,7 @@ model User {
   loyaltyLedger             LoyaltyLedger[]
   loyaltyVouchers           LoyaltyVoucher[]
   deliverySettingsUpdates    DeliverySettings[] @relation("DeliverySettingsAdmin")
+  cartMergeOperations       CartMergeOperation[]
   deliveryAssignments        DeliveryAssignment[] @relation("DeliveryAssignmentEmployee")
   deliveryAssignmentsCreated DeliveryAssignment[] @relation("DeliveryAssignmentAdmin")
   deliveryEvents             DeliveryEvent[] @relation("DeliveryEventActor")
@@ -443,6 +444,21 @@ model CartItem {
   @@map("cart_items")
 }
 
+model CartMergeOperation {
+  id          Int      @id @default(autoincrement())
+  userId      String   @map("user_id") @db.VarChar(255)
+  operationId String   @map("operation_id") @db.Char(36)
+  payloadHash String   @map("payload_hash") @db.Char(64)
+  resultJson  Json     @map("result_json")
+  createdAt   DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, operationId], map: "uq_cart_merge_user_operation")
+  @@index([userId, createdAt], map: "idx_cart_merge_user_created")
+  @@map("cart_merge_operations")
+}
+
 model GuestCart {
   id          String    @id @db.Char(36)
   createdAt   DateTime  @default(now()) @map("created_at") @db.DateTime(0)
@@ -551,8 +567,6 @@ model Order {
   loyaltyDiscount         Decimal   @default(0) @map("loyalty_discount") @db.Decimal(11, 2)
   shippingAddress         String    @map("shipping_address") @db.Text
   paymentMethod           String    @default("cash") @map("payment_method") @db.VarChar(32)
-  stripeCheckoutSessionId String?   @unique(map: "uq_orders_stripe_checkout_session") @map("stripe_checkout_session_id") @db.VarChar(255)
-  stripePaymentIntentId   String?   @map("stripe_payment_intent_id") @db.VarChar(255)
   dateAdded               DateTime  @default(now()) @map("date_added") @db.DateTime(0)
   deliveredAt             DateTime? @map("delivered_at") @db.DateTime(0)
   status                  Int       @default(0)
@@ -567,6 +581,7 @@ model Order {
   paymentAttempt       PaymentAttempt?
   supportTickets      SupportTicket[]
   afterSalesRequests  AfterSalesRequest[]
+  guestAccessRecoveryChallenges GuestOrderAccessRecoveryChallenge[]
   loyaltyLedger       LoyaltyLedger[]
   loyaltyVoucher      LoyaltyVoucher?
   deliveryAssignments DeliveryAssignment[]
@@ -577,12 +592,29 @@ model Order {
   @@map("orders")
 }
 
+model GuestOrderAccessRecoveryChallenge {
+  id           String    @id @db.Char(36)
+  orderId      Int       @map("order_id")
+  emailHash    String    @map("email_hash") @db.Char(64)
+  otpHash      String    @map("otp_hash") @db.Char(64)
+  attemptCount Int       @default(0) @map("attempt_count") @db.UnsignedSmallInt
+  expiresAt    DateTime  @map("expires_at") @db.DateTime(3)
+  resendAfter  DateTime  @map("resend_after") @db.DateTime(3)
+  usedAt       DateTime? @map("used_at") @db.DateTime(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([orderId, emailHash, createdAt], map: "idx_guest_order_recovery_rate")
+  @@index([orderId, emailHash, usedAt, expiresAt], map: "idx_guest_order_recovery_active")
+  @@map("guest_order_access_recovery_challenges")
+}
+
 model PendingCheckout {
   contactSnapshot Json? @map("contact_snapshot")
   pricingSnapshot        Json? @map("pricing_snapshot")
   deliverySnapshot       Json? @map("delivery_snapshot")
   id                  Int       @id @default(autoincrement())
-  stripeSessionId     String?   @unique(map: "uq_pending_checkouts_session") @map("stripe_session_id") @db.VarChar(255)
   paymentProvider     String?   @map("payment_provider") @db.VarChar(32)
   providerReference   String?   @map("provider_reference") @db.VarChar(255)
   providerOrderCode   BigInt?   @map("provider_order_code")

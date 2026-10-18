@@ -128,7 +128,7 @@ describe("guest checkout contracts", () => {
         }).success).toBe(false);
         expect(guestPurchaseSchema.safeParse({
             ...guestPayload(),
-            paymentMethod: "stripe",
+            paymentMethod: "unsupported_provider",
         }).success).toBe(false);
         expect(guestPurchaseSchema.safeParse({
             ...guestPayload(),
@@ -414,6 +414,8 @@ describe("guest purchase transaction", () => {
             guest_email: "buyer@example.com",
             guest_name: "Buyer Name",
             guest_phone: "+84123456789",
+            delivered_at: "2026-09-01T12:00:00.000Z",
+            return_eligible_until: "2026-09-08T23:59:59.999Z",
             status: 0,
             total_price: 16,
             discount: 0,
@@ -427,6 +429,8 @@ describe("guest purchase transaction", () => {
         await expect(service.lookupGuestOrder(91, "raw-token")).resolves.toEqual(expect.objectContaining({
             id: 91,
             guest_email: "buyer@example.com",
+            delivered_at: "2026-09-01T12:00:00.000Z",
+            return_eligible_until: "2026-09-08T23:59:59.999Z",
         }));
         const safe = await service.lookupGuestOrder(91, "raw-token");
         expect(safe).not.toHaveProperty("user_id");

@@ -43,9 +43,9 @@ currency is `VND`, represented as exact whole-number amounts for new catalog,
 checkout, order, and payment-ledger records.
 
 PayOS receives the VND amount unchanged. The local mock mode simulates the
-PayOS link and confirmation without an external request. Legacy Stripe fields
-and historical USD rows remain readable for database compatibility, but they do
-not represent active checkout choices.
+PayOS link and confirmation without an external request. Retired provider
+identifier columns are removed from the current schema by a forward migration;
+historical USD order amounts remain readable.
 
 ## Payment lifecycle
 

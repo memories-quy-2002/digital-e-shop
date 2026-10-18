@@ -134,6 +134,7 @@
 
     &__history-list li > div { display: grid; gap: 0.2rem; min-width: 0; }
     &__history-list li > div strong { overflow-wrap: anywhere; }
+    &__voucher-list li > strong { min-width: 0; overflow-wrap: anywhere; }
     &__history-list .is-earned { color: var(--de-color-success-strong); }
     &__history-list .is-spent { color: var(--de-color-text-muted); }
 

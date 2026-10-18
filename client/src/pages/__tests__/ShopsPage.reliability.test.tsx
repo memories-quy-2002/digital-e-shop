@@ -141,7 +141,7 @@ describe("catalog request reliability", () => {
     expect(await screen.findByText("Newest laptop")).toBeInTheDocument();
     await act(async () => older.resolve(response("Stale laptop", 99)));
     expect(screen.queryByText("Stale laptop")).not.toBeInTheDocument();
-    expect(screen.getByText("1 matching products")).toBeInTheDocument();
+    expect(screen.queryByText("1 matching products")).not.toBeInTheDocument();
   });
 
   it("does not stop loading or show an error when an obsolete request fails", async () => {
@@ -162,7 +162,7 @@ describe("catalog request reliability", () => {
     );
     await waitFor(() => expect(newestRequested).toBe(true));
     await act(async () => older.reject(new Error("obsolete failure")));
-    expect(screen.getByText("Loading products...")).toBeInTheDocument();
+    expect(screen.getByTestId("shops__container").querySelector(".shops__loading")).toBeInTheDocument();
     expect(mocks.addToast).not.toHaveBeenCalled();
     await act(async () => newer.resolve(response("Newest laptop")));
     expect(await screen.findByText("Newest laptop")).toBeInTheDocument();

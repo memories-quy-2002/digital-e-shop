@@ -1,0 +1,62 @@
+CREATE TABLE `suppliers` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `code` VARCHAR(64) NOT NULL,
+    `normalized_code` VARCHAR(64) NOT NULL,
+    `name` VARCHAR(160) NOT NULL,
+    `contact_name` VARCHAR(120) NULL,
+    `email` VARCHAR(254) NULL,
+    `phone` VARCHAR(40) NULL,
+    `address` VARCHAR(500) NULL,
+    `notes` VARCHAR(2000) NULL,
+    `active` TINYINT NOT NULL DEFAULT 1,
+    `version` INT UNSIGNED NOT NULL DEFAULT 1,
+    `created_by_id` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+    `updated_by_id` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_suppliers_normalized_code` (`normalized_code`),
+    KEY `idx_suppliers_active_name` (`active`, `name`, `id`),
+    CONSTRAINT `fk_suppliers_created_by` FOREIGN KEY (`created_by_id`) REFERENCES `users` (`id`) ON UPDATE CASCADE,
+    CONSTRAINT `fk_suppliers_updated_by` FOREIGN KEY (`updated_by_id`) REFERENCES `users` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `purchase_orders` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `supplier_id` INT NOT NULL,
+    `supplier_code` VARCHAR(64) NULL,
+    `supplier_name` VARCHAR(160) NULL,
+    `status` VARCHAR(24) NOT NULL DEFAULT 'DRAFT',
+    `version` INT UNSIGNED NOT NULL DEFAULT 1,
+    `note` VARCHAR(2000) NULL,
+    `confirmed_at` DATETIME(3) NULL,
+    `closed_at` DATETIME(3) NULL,
+    `closed_reason` VARCHAR(500) NULL,
+    `canceled_at` DATETIME(3) NULL,
+    `canceled_reason` VARCHAR(500) NULL,
+    `created_by_id` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (`id`),
+    KEY `idx_purchase_orders_supplier_status` (`supplier_id`, `status`, `id`),
+    KEY `idx_purchase_orders_status_id` (`status`, `id`),
+    CONSTRAINT `fk_purchase_orders_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `suppliers` (`id`),
+    CONSTRAINT `fk_purchase_orders_created_by` FOREIGN KEY (`created_by_id`) REFERENCES `users` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `purchase_order_items` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `purchase_order_id` INT NOT NULL,
+    `product_id` INT NOT NULL,
+    `product_sku` VARCHAR(64) NULL,
+    `product_name` VARCHAR(255) NULL,
+    `ordered_quantity` INT NOT NULL,
+    `accepted_quantity` INT NOT NULL DEFAULT 0,
+    `unit_cost_vnd` DECIMAL(20, 0) NOT NULL,
+    `note` VARCHAR(500) NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_purchase_order_items_order_product` (`purchase_order_id`, `product_id`),
+    KEY `idx_purchase_order_items_product_order` (`product_id`, `purchase_order_id`),
+    CONSTRAINT `fk_purchase_order_items_order` FOREIGN KEY (`purchase_order_id`) REFERENCES `purchase_orders` (`id`),
+    CONSTRAINT `fk_purchase_order_items_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

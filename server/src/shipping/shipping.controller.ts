@@ -8,14 +8,24 @@ import { ZodValidationPipe } from "../pipes/zod-validation.pipe";
 import { deliveryAddressSchema } from "./shipping.validator";
 import { ShippingQuoteService } from "./shipping-quote.service";
 import { DeliverySettingsService } from "./delivery-settings.service";
+import { AddressGeocodingService } from "./address-geocoding.service";
 
 const quoteInput = z.object({ address: deliveryAddressSchema, discountCode: z.string().max(50).optional(), locale: z.enum(["en", "vi"]).optional() });
 const guestQuoteInput = quoteInput.extend({ cart: z.array(z.object({ productId: z.number().int().positive(), quantity: z.number().int().min(1).max(99) })).min(1).max(50) });
+const addressLocationInput = z.object({
+    addressLine: z.string().trim().min(3).max(255),
+    city: z.string().trim().min(2).max(120).optional(),
+    locale: z.enum(["en", "vi"]).optional(),
+}).strict();
 
 @Controller("shipping")
 export class ShippingController {
-    constructor(private readonly quotes: ShippingQuoteService, private readonly cart: NestCartService, private readonly deliverySettings: DeliverySettingsService) {}
+    constructor(private readonly quotes: ShippingQuoteService, private readonly cart: NestCartService, private readonly deliverySettings: DeliverySettingsService, private readonly geocoding: AddressGeocodingService) {}
     @Get("delivery/map-config") async deliveryMapConfig() { return { map: await this.deliverySettings.getMapConfig() }; }
+    @Post("address-locations")
+    async addressLocations(@Body(new ZodValidationPipe(addressLocationInput)) body: z.infer<typeof addressLocationInput>) {
+        return { suggestions: await this.geocoding.find(body) };
+    }
     @Post("quotes") @UseGuards(AuthGuard)
     async create(@Req() req: Request, @Body(new ZodValidationPipe(quoteInput)) body: z.infer<typeof quoteInput>) {
         const userId = String(req.user?.id || "");

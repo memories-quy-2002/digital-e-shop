@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { renderWithLocale } from '../../../test-utils/renderWithLocale';
+import { screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminProductPage from "./AdminProductPage";
 import { fetchAdminProductsPage, fetchInventoryMovements } from "../api";
@@ -29,7 +30,7 @@ describe("AdminProductPage inventory movement request state", () => {
 
     it("shows an inventory error instead of an empty movement log when the movement request fails", async () => {
         vi.mocked(fetchInventoryMovements).mockRejectedValue({ request: {} });
-        render(<AdminProductPage />);
+        renderWithLocale(<AdminProductPage />);
 
         await waitFor(() => expect(screen.getByText("Inventory movements unavailable")).toBeInTheDocument());
         expect(screen.queryByText("No inventory movements recorded yet.")).not.toBeInTheDocument();

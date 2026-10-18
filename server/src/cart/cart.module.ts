@@ -3,6 +3,8 @@ import type { MiddlewareConsumer, NestModule } from "@nestjs/common";
 import { CartController } from "./cart.controller";
 import { NestCartService } from "./cart.service";
 import { CartRepository } from "./cart.repository";
+import { CartMergeRepository } from "./cart-merge.repository";
+import { CartMergeService } from "./cart-merge.service";
 import { GuestCartRepository } from "./guest-cart.repository";
 import { createRateLimitMiddleware } from "../middleware/rate-limit.middleware";
 import { NestConfigModule } from "../config/nest-config.module";
@@ -14,7 +16,7 @@ import { RolesGuard } from "../guards/roles.guard";
 @Module({
     imports: [NestConfigModule, ProductsModule, PromotionsModule],
     controllers: [CartController],
-    providers: [AuthGuard, RolesGuard, NestCartService, CartRepository, GuestCartRepository],
+    providers: [AuthGuard, RolesGuard, NestCartService, CartRepository, GuestCartRepository, CartMergeRepository, CartMergeService],
     exports: [NestCartService],
 })
 export class CartModule implements NestModule {

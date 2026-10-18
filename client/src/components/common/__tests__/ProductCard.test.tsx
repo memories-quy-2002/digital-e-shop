@@ -73,6 +73,8 @@ describe("ProductCard", () => {
         const media = screen.getByTestId("product-card-image");
 
         expect(media).toHaveClass("w-full", "max-w-none");
+        expect(media).toHaveClass("product-card__image-frame");
+        expect(media).toHaveAttribute("data-media-frame", "product-card");
         expect(media).not.toHaveClass("group-hover:border-electric");
     });
 
@@ -93,8 +95,51 @@ describe("ProductCard", () => {
 
         expect(screen.getByTestId("product-card-price")).toHaveTextContent("419");
         expect(screen.getByTestId("product-card-rating")).toHaveTextContent("4.0");
-        expect(screen.getByTestId("product-card-stock")).toHaveTextContent("39");
+        expect(screen.queryByTestId("product-card-stock")).not.toBeInTheDocument();
+        expect(screen.getByTestId("product-card-rating")).toHaveTextContent("(2)");
         expect(screen.getByText("-7%")).toBeInTheDocument();
+    });
+
+    it("shows no image-corner badge for an in-stock product without a sale", () => {
+        render(
+            <LocaleProvider>
+                <ComparisonProvider><MemoryRouter>
+                    <ProductCard
+                        product={{ ...product, sale_price: null }}
+                        uid=""
+                        isWishlist={false}
+                        onToggleWishlist={vi.fn()}
+                        onAddingCart={vi.fn()}
+                    />
+                </MemoryRouter></ComparisonProvider>
+            </LocaleProvider>,
+        );
+
+        expect(screen.queryByText("In stock")).not.toBeInTheDocument();
+        expect(screen.queryByText(/^-\d+%$/)).not.toBeInTheDocument();
+        expect(screen.queryByTestId("product-card-stock")).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /Add to cart/i })).toBeEnabled();
+    });
+
+    it("keeps the below-price unavailable message and disables cart when out of stock without a sale", () => {
+        render(
+            <LocaleProvider>
+                <ComparisonProvider><MemoryRouter>
+                    <ProductCard
+                        product={{ ...product, sale_price: null, stock: 0 }}
+                        uid=""
+                        isWishlist={false}
+                        onToggleWishlist={vi.fn()}
+                        onAddingCart={vi.fn()}
+                    />
+                </MemoryRouter></ComparisonProvider>
+            </LocaleProvider>,
+        );
+
+        expect(screen.queryByText("Out of stock")).not.toBeInTheDocument();
+        expect(screen.queryByText(/^-\d+%$/)).not.toBeInTheDocument();
+        expect(screen.getByTestId("product-card-stock")).toHaveTextContent("This item is currently unavailable");
+        expect(screen.getByRole("button", { name: /Add to cart/i })).toBeDisabled();
     });
 
     it("toggles comparison selection with an accessible pressed state", () => {

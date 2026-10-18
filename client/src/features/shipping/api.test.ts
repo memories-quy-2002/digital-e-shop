@@ -30,6 +30,24 @@ describe("shipping API", () => {
         await expect(fetchCustomerShipment(7)).resolves.toBeNull();
     });
 
+    it("preserves internal delivery status and public events in customer shipment summaries", async () => {
+        const shipment = { orderId: 7, state: "READY_TO_SHIP" };
+        const delivery = {
+            id: 3,
+            orderId: 7,
+            employeeName: "Delivery teammate",
+            scheduledStartAt: "2026-10-18T11:29:00.000Z",
+            scheduledEndAt: "2026-10-18T13:29:00.000Z",
+            status: "DELIVERED",
+            events: [{ id: 9, status: "DELIVERED", publicNote: "Order was delivered", createdAt: "2026-10-18T10:30:00.000Z" }],
+        };
+        vi.mocked(http.post).mockResolvedValueOnce({ data: { shipment, delivery } } as never);
+        await expect(fetchGuestShipment(7, "private-token")).resolves.toEqual({ ...shipment, delivery });
+
+        vi.mocked(http.get).mockResolvedValueOnce({ data: { shipment, delivery } } as never);
+        await expect(fetchCustomerShipment(7)).resolves.toEqual({ ...shipment, delivery });
+    });
+
     it("loads public map configuration and requests an internal guest route quote", async () => {
         const map = { origin: { latitude: 10.78, longitude: 106.7 }, tileUrl: "https://tiles.example.test/{z}/{x}/{y}.png", tileAttribution: "Map contributors", storeAddress: "Store" };
         vi.mocked(http.get).mockResolvedValue({ data: { map } } as never);

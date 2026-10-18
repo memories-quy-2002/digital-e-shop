@@ -2,7 +2,7 @@ import type { TransactionContext } from "../database/transaction";
 import type { TaskLease, TaskResult } from "../operations/tasks.types";
 
 export type EmailLocale = "en" | "vi";
-export type EmailEventType = "account_welcome" | "order_placed" | "payment_confirmed" | "shipment_update" | "order_cancelled" | "after_sales_decision" | "refund_confirmation";
+export type EmailEventType = "account_welcome" | "order_placed" | "payment_confirmed" | "shipment_update" | "order_cancelled" | "after_sales_decision" | "refund_confirmation" | "guest_order_access_recovery";
 export type EmailItemSnapshot = { name: string; quantity: number };
 type EmailEventBase = { eventKey: string; recipient: string; locale: EmailLocale };
 export type EmailBusinessEvent =
@@ -12,7 +12,8 @@ export type EmailBusinessEvent =
     | (EmailEventBase & { type: "shipment_update"; snapshot: { orderNumber: string; customerName: string; status: string; trackingCode?: string; expectedDelivery?: string } })
     | (EmailEventBase & { type: "order_cancelled"; snapshot: { orderNumber: string; customerName: string; reason: string } })
     | (EmailEventBase & { type: "after_sales_decision"; snapshot: { orderNumber: string; customerName: string; decision: "approved" | "rejected"; publicMessage: string } })
-    | (EmailEventBase & { type: "refund_confirmation"; snapshot: { orderNumber: string; customerName: string; refundAmount: number; currency: "VND" } });
+    | (EmailEventBase & { type: "refund_confirmation"; snapshot: { orderNumber: string; customerName: string; refundAmount: number; currency: "VND" } })
+    | (EmailEventBase & { type: "guest_order_access_recovery"; snapshot: { customerName: string; orderId: number; code: string; expiresMinutes: number } });
 export type EmailSnapshot = EmailBusinessEvent["snapshot"];
 
 export type EmailMessage = {

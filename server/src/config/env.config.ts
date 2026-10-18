@@ -171,6 +171,8 @@ export const env = {
         .split(",")
         .map((url) => url.trim())
         .filter(Boolean),
+    geocodingEndpoint: process.env.GEOCODING_ENDPOINT?.trim()
+        || (mode === "development" ? "https://photon.komoot.io/api/" : ""),
     storeCurrency: CURRENCY_CODE.VND,
     paymentProviderMode: configuredPaymentProviderMode === "live" ? "live" : "mock",
     redisUrl: process.env.REDIS_URL || "",

@@ -56,7 +56,11 @@ export class RoadRouteService {
         const url = `${normalizedEndpoint}/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`;
 
         try {
-            const response = await axios.get<unknown>(url, { timeout: 5000, maxRedirects: 0 });
+            const response = await axios.get<unknown>(url, {
+                timeout: 5000,
+                maxRedirects: 0,
+                headers: { "User-Agent": "Digital-E/1.0" },
+            });
             return parseRouteResponse(response.data);
         } catch {
             throw new ServiceUnavailableException(ROUTE_UNAVAILABLE_MESSAGE);
