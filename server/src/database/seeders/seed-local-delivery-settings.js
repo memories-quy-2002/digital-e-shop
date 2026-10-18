@@ -20,6 +20,28 @@ const DEMO_SETTINGS = {
 const isLoopback = (host) => ["localhost", "127.0.0.1", "::1"].includes(String(host || "").trim().toLowerCase());
 const parseAllowlist = (value) => String(value || "").split(",").map((entry) => entry.trim()).filter(Boolean);
 
+/**
+ * Parse allowlisted URLs and compare their structured authority and path.
+ * A hostname that merely contains a trusted name, credentials, query strings,
+ * fragments and path suffixes must not match a trusted endpoint.
+ */
+const isAllowedEndpoint = (configured, expectedText) => {
+    const expected = new URL(expectedText);
+    return parseAllowlist(configured).some((entry) => {
+        try {
+            const candidate = new URL(entry);
+            return candidate.protocol === expected.protocol
+                && candidate.hostname === expected.hostname
+                && candidate.port === expected.port
+                && candidate.pathname === expected.pathname
+                && !candidate.username && !candidate.password
+                && !candidate.search && !candidate.hash;
+        } catch {
+            return false;
+        }
+    });
+};
+
 async function main() {
     if (process.env.NODE_ENV !== "development" || process.env.DB_NAME !== "digital_e_shop_local"
         || !isLoopback(process.env.DB_HOST)) {
@@ -27,8 +49,8 @@ async function main() {
     }
     assertLocalDatabaseTarget({ dbHost: process.env.DB_HOST, databaseUrl: process.env.DATABASE_URL });
 
-    if (!parseAllowlist(process.env.DELIVERY_ROUTING_ENDPOINT_ALLOWLIST).includes(ROUTING_ENDPOINT)
-        || !parseAllowlist(process.env.DELIVERY_TILE_URL_ALLOWLIST).includes(TILE_URL)) {
+    if (!isAllowedEndpoint(process.env.DELIVERY_ROUTING_ENDPOINT_ALLOWLIST, ROUTING_ENDPOINT)
+        || !isAllowedEndpoint(process.env.DELIVERY_TILE_URL_ALLOWLIST, TILE_URL)) {
         throw new Error("Add the local demo routing endpoint and HTTPS tile URL to the server allowlists before seeding.");
     }
 
@@ -102,4 +124,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { main, DEMO_SETTINGS };
+module.exports = { main, DEMO_SETTINGS, isAllowedEndpoint };

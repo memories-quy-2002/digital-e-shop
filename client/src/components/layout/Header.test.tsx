@@ -53,6 +53,10 @@ vi.mock("../../hooks/useKeyboardShortcut", () => ({
     useKeyboardShortcut: vi.fn(),
 }));
 
+vi.mock("./HeaderMobileSheet", () => ({
+    default: ({ open, children }: { open: boolean; children: React.ReactNode }) => open ? <>{children}</> : null,
+}));
+
 vi.mock("../ui/sheet", () => ({
     Sheet: ({ open, children }: { open: boolean; children: React.ReactNode }) => open ? <>{children}</> : null,
     SheetContent: ({ children, ...props }: { children: React.ReactNode; [key: string]: unknown }) => (

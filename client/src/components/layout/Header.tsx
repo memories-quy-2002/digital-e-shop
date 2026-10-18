@@ -12,7 +12,6 @@ import { fetchCustomerNotifications, logoutCurrentCustomer } from "../../feature
 import type { CustomerNotification } from "../../features/users/api";
 import { signOutFirebaseUser } from "../../services/firebase";
 import { Product } from "../../utils/interface";
-import { Sheet, SheetContent } from "../ui/sheet";
 import { useKeyboardShortcut } from "../../hooks/useKeyboardShortcut";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { getProductImageUrl, normalizeProductImageName } from "../../utils/images";
@@ -25,6 +24,7 @@ import { CUSTOMER_ROUTES } from "../../routes/customerRoutes";
 import { searchProducts } from "../../features/products/api";
 
 const MiniCartDrawer = lazy(() => import("../common/MiniCartDrawer"));
+const HeaderMobileSheet = lazy(() => import("./HeaderMobileSheet"));
 
 const RECENT_SEARCH_KEY = "digital-e:recent-searches:v1";
 const MAX_RECENT_SEARCHES = 5;
@@ -47,6 +47,7 @@ export const Header = (): JSX.Element => {
     const t = useT();
     const [searchTerm, setSearchTerm] = useState<string>("");
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [hasOpenedMenu, setHasOpenedMenu] = useState(false);
     const [searchResults, setSearchResults] = useState<Product[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -108,6 +109,7 @@ export const Header = (): JSX.Element => {
         "/",
         () => {
             if (window.matchMedia("(max-width: 780px)").matches) {
+                setHasOpenedMenu(true);
                 setIsMenuOpen(true);
                 window.setTimeout(() => mobileSearchInputRef.current?.focus(), 0);
                 return;
@@ -629,7 +631,10 @@ export const Header = (): JSX.Element => {
                         <button
                             className="header__burger"
                             type="button"
-                            onClick={() => setIsMenuOpen((prev) => !prev)}
+                            onClick={() => {
+                                setHasOpenedMenu(true);
+                                setIsMenuOpen((prev) => !prev);
+                            }}
                             aria-label={t("header.toggleMenu")}
                             aria-expanded={isMenuOpen}
                             aria-controls={mobileMenuId}
@@ -642,8 +647,9 @@ export const Header = (): JSX.Element => {
                 </div>
             </div>
 
-            <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-                <SheetContent side="right" motion className="header__mobile is-open" id={mobileMenuId} closeLabel={t("header.closeMenu")}>
+            {hasOpenedMenu ? (
+                <Suspense fallback={null}>
+                    <HeaderMobileSheet open={isMenuOpen} onOpenChange={setIsMenuOpen} id={mobileMenuId} closeLabel={t("header.closeMenu")}>
                 <div className="header__mobile__search" role="search">
                     <label className="header__sr-only" htmlFor={mobileSearchId}>
                         {t("common.search")}
@@ -747,8 +753,9 @@ export const Header = (): JSX.Element => {
                         </button>
                     ) : null}
                 </div>
-                </SheetContent>
-            </Sheet>
+                    </HeaderMobileSheet>
+                </Suspense>
+            ) : null}
         </header>
     );
 };
