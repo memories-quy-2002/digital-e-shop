@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Modal } from "../ui/legacy";
 import { BellIcon, BoxArrowRightIcon, HouseIcon, MenuIcon, SearchIcon } from "../common/Icons";
-import Cookies from "universal-cookie";
 import { useToast } from "../../context/ToastContext";
 import { Helmet } from "react-helmet-async";
 import { Link, useNavigate } from "react-router-dom";
@@ -17,7 +16,6 @@ import { getApiSuccessMessage } from "../../lib/api-contract";
 import { logoutCurrentCustomer } from "../../features/users/api";
 import { useAdminDashboardCopy } from "../../hooks/useAdminDashboardCopy";
 
-const cookies = new Cookies();
 const POLL_INTERVAL = 60000;
 
 const getDisplayName = (username?: string, firstName?: string | null, lastName?: string | null) => {
@@ -171,7 +169,9 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
         try {
             const response = await logoutCurrentCustomer();
             sessionStorage.removeItem("rememberMe");
-            cookies.remove("rememberMe");
+            // Load cookie manipulation only when signing out; it is not needed on dashboard paint.
+            const { default: Cookies } = await import("universal-cookie");
+            new Cookies().remove("rememberMe");
             await signOutFirebaseUser();
             addToast(tx("Logout successfully"), getApiSuccessMessage(response, tx("Logged out")));
         } catch {
