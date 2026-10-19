@@ -32,7 +32,7 @@ export class SupportTicketService {
         });
     }
 
-    updateTicket(id: number, input: UpdateSupportTicketInput): Promise<SupportTicket> {
+    updateTicket(id: string | number, input: UpdateSupportTicketInput): Promise<SupportTicket> {
         return new Promise((resolve, reject) => {
             this.repository.update(id, input, (error: DbError | null, result: UpdateResult) => {
                 if (error) return reject(error);

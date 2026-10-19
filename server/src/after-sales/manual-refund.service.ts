@@ -1,6 +1,7 @@
 import { Injectable, Optional } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import { HTTP_STATUS } from "#src/shared/constants/http-status";
+import { parseResourceId } from "#src/shared/utils/public-id";
 import { EvidenceService } from "../operations/evidence.service";
 import { EmailService } from "../transactional-email/email.service";
 import type { EmailBusinessEvent } from "../transactional-email/email.types";
@@ -43,16 +44,19 @@ export class ManualRefundService {
         @Optional() private readonly emails?: EmailService,
     ) {}
 
-    async confirm(requestId: number, actorId: string, input: ManualRefundInput): Promise<ManualRefundRequest> {
-        if (!Number.isSafeInteger(requestId) || requestId < 1 || !actorId) throw refundError("A valid request and admin actor are required.", HTTP_STATUS.BAD_REQUEST);
+    async confirm(requestReference: string | number, actorId: string, input: ManualRefundInput): Promise<ManualRefundRequest> {
+        let requestId: string | number;
+        try { requestId = parseResourceId(requestReference); } catch { throw refundError("A valid request and admin actor are required.", HTTP_STATUS.BAD_REQUEST); }
+        if (!actorId) throw refundError("A valid request and admin actor are required.", HTTP_STATUS.BAD_REQUEST);
         const evidence = await this.evidence.readForAdmin(input.evidenceId, actorId);
         try {
             return await this.repository.withTransaction(async (tx) => {
                 const context = await this.repository.getContextForUpdate(tx, requestId);
                 if (!context) throw refundError("After-sales request not found.", HTTP_STATUS.NOT_FOUND);
+                const canonicalRequestId = context.request.id;
                 const existing = await this.repository.findOperationByKey(tx, input.idempotencyKey);
                 if (existing) {
-                    const replay = existing.requestId === requestId && existing.actorId === actorId
+                    const replay = existing.requestId === canonicalRequestId && existing.actorId === actorId
                         && existing.transferReference === input.transferReference && existing.transferDate === input.transferDate
                         && existing.reviewedReason === input.reviewedReason && existing.evidenceId === evidence.id && existing.currency === input.currency;
                     if (!replay) throw refundError("Idempotency key already identifies a different refund operation.", HTTP_STATUS.CONFLICT);
@@ -91,16 +95,16 @@ export class ManualRefundService {
                 const amountVnd = units.reduce((sum, unit) => sum + unit.netVnd, 0);
                 if (!Number.isSafeInteger(amountVnd) || amountVnd < 1) throw refundError("Refund amount must be a positive safe integer VND amount.", HTTP_STATUS.CONFLICT);
                 if (amountVnd > context.payment.amount - context.payment.refundedAmount) throw refundError("Refund exceeds the remaining actually paid balance.", HTTP_STATUS.CONFLICT);
-                const operation = { ...input, requestId, orderPaymentId: context.payment.id, actorId, amountVnd };
+                const operation = { ...input, requestId: canonicalRequestId, orderPaymentId: context.payment.id, actorId, amountVnd };
                 await this.repository.insertOperation(tx, operation, units);
                 const result = await this.repository.completeRefund(tx, {
-                    ...input, amountVnd, requestId, orderId: context.request.orderId, requestReason: context.request.reason || "",
+                    ...input, amountVnd, requestId: canonicalRequestId, orderId: context.request.orderId, requestReason: context.request.reason || "",
                     paymentId: context.payment.id, actorId, fromStatus: context.request.status,
                 });
                 if (this.emails && context.order.contactEmail) {
                     const event: EmailBusinessEvent = {
                         type: "refund_confirmation",
-                        eventKey: `refund-${requestId}-${createHash("sha256").update(input.idempotencyKey).digest("hex").slice(0, 32)}`,
+                        eventKey: `refund-${canonicalRequestId}-${createHash("sha256").update(input.idempotencyKey).digest("hex").slice(0, 32)}`,
                         recipient: context.order.contactEmail,
                         locale: context.order.contactLocale || "en",
                         snapshot: {

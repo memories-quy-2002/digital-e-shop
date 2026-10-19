@@ -354,8 +354,9 @@
     }
 
     &__item {
-        display: flex;
-        justify-content: space-between;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
         gap: 1rem;
         min-width: 0;
         padding-top: 0.75rem;
@@ -382,6 +383,16 @@
         color: var(--de-color-text-soft);
         text-align: right;
         overflow-wrap: anywhere;
+    }
+
+    &__review-link {
+        grid-column: 1 / -1;
+        justify-self: start;
+        color: var(--de-color-primary-emphasis);
+        font-size: 0.875rem;
+        font-weight: 800;
+        text-decoration: underline;
+        text-underline-offset: 0.18em;
     }
 
     &__detail-loading {

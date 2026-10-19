@@ -169,6 +169,11 @@
     min-height: 2.75rem;
 }
 
+.admin__page.admin__page--promotions .admin__table--promotions .admin__promotion-code,
+.admin__page.admin__page--promotions .admin__table--promotions .admin__promotion-code strong {
+    white-space: nowrap;
+}
+
 @media (max-width: 900px) {
     .admin__page.admin__page--promotions .admin__promotion-form__fields--discount,
     .admin__page.admin__page--promotions .admin__promotion-form__fields--two-column {

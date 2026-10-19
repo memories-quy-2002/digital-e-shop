@@ -27,6 +27,12 @@ intent before calling PayOS; if payment is later verified, its receipt remains
 immutable and enters exception review. Reconciliation work uses the existing
 durable operations runner with bounded retries.
 
+In the local mock checkout, canceling first cancels the payment attempt and
+returns to the cart while restoring the in-memory contact and delivery form
+draft. The draft is not written to persistent browser storage, and the
+single-use delivery quote is intentionally recalculated. A zero-payable order
+cannot start a PayOS attempt; customers must choose COD.
+
 Admins can inspect a sanitized checkout snapshot, retry an eligible paid
 attempt, or record an offline transfer already completed. Retry requires an
 exact paid amount and no order, cancellation intent, refund, or closed

@@ -33,4 +33,17 @@ describe("after-sales validators", () => {
             idempotencyKey: "refund-2",
         })).toThrow();
     });
+
+    it("accepts UUID v7 order references and rejects other UUID versions", () => {
+        const orderId = "019a2b3c-4d5e-7f80-8123-456789abcdef";
+        const request = {
+            orderId,
+            kind: "RETURN",
+            reason: "The item arrived damaged.",
+            items: [{ orderItemId: 7, quantity: 1 }],
+            idempotencyKey: "return-public-id",
+        };
+        expect(afterSalesCreateSchema.parse(request).orderId).toBe(orderId);
+        expect(() => afterSalesCreateSchema.parse({ ...request, orderId: "019a2b3c-4d5e-4f80-8123-456789abcdef" })).toThrow();
+    });
 });

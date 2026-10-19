@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import http from "../../lib/http";
-import { createGuestAfterSalesRequest, fetchGuestAfterSalesRequests, fetchCustomerAfterSalesRequests, transitionAdminAfterSalesRequest } from "./api";
+import { createGuestAfterSalesRequest, fetchGuestAfterSalesRequests, fetchCustomerAfterSalesRequests, fetchAdminAfterSalesRequest, transitionAdminAfterSalesRequest } from "./api";
 
 vi.mock("../../lib/http", () => ({ default: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
 
@@ -26,5 +26,15 @@ describe("after-sales api", () => {
         await transitionAdminAfterSalesRequest(7, "APPROVED");
         expect(http.post).toHaveBeenCalledWith("/api/orders/guest/after-sales/requests", expect.objectContaining({ guestOrderToken: "secret" }));
         expect(http.patch).toHaveBeenCalledWith("/api/admin/after-sales/requests/7/status", { status: "APPROVED" });
+    });
+
+    it("uses public after-sales identifiers for admin operations", async () => {
+        const publicId = "019a0000-0000-7000-8000-000000000002";
+        vi.mocked(http.get).mockResolvedValue({ data: { request: { id: 7, publicId } } } as never);
+        vi.mocked(http.patch).mockResolvedValue({ data: { request: { id: 7, publicId, status: "APPROVED" } } } as never);
+        await fetchAdminAfterSalesRequest(publicId);
+        await transitionAdminAfterSalesRequest(publicId, "APPROVED");
+        expect(http.get).toHaveBeenCalledWith(`/api/admin/after-sales/requests/${publicId}`);
+        expect(http.patch).toHaveBeenCalledWith(`/api/admin/after-sales/requests/${publicId}/status`, { status: "APPROVED" });
     });
 });

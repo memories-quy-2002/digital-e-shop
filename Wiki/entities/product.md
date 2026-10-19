@@ -45,9 +45,18 @@ The server owns price and stock validation during guest preview and checkout.
 The client may display a local cart value, but checkout recalculates the
 authoritative amount.
 
+`sale_price = 0` is a valid promotional price and means the product line is
+free; only `NULL` means no sale price. Cart, catalog, order snapshots, and
+payment display snapshots must preserve zero instead of falling back to the
+base price. PayOS still requires a positive payable total, so zero-total
+checkouts must use COD.
+
 Checkout reserves inventory before payment completion. A successful order
 creates inventory movements, while a pending-order cancellation restores
-inventory once. Product deletion keeps the existing soft-delete behavior.
+inventory once. Admin stock changes cannot reduce physical stock below the sum
+of unexpired reservations belonging to pending checkouts. This keeps paid or
+in-flight checkouts fulfillable until the reservation is consumed, canceled,
+or expires. Product deletion keeps the existing soft-delete behavior.
 
 `OrderItem` snapshots preserve SKU, product name, image, unit price, brand,
 category, warranty, specifications, and quantity. See [[order]] for the

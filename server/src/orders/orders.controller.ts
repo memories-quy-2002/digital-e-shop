@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Get, Headers, HttpCode, HttpException, Optional, Param, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
 import type { Request, Response } from "express";
+import { parseResourceId } from "#src/shared/utils/public-id";
 import { AuthGuard } from "../guards/auth.guard";
 import { OwnerParam, Roles, RolesGuard } from "../guards/roles.guard";
 import { RequireVerifiedEmail, VerifiedEmailGuard } from "../guards/verified-email.guard";
@@ -181,7 +182,7 @@ export class OrdersController {
     @UseGuards(AuthGuard)
     async getOrderDetail(@Param("oid") oid: string, @Req() req: AuthenticatedRequest) {
         try {
-            const order = await this.ordersService.getOrderDetail(Number(oid));
+            const order = await this.ordersService.getOrderDetail(parseResourceId(oid));
             if (!order || !canAccessOrder(req, order.user_id)) {
                 throw new HttpException({ msg: "Order not found" }, HTTP_STATUS.NOT_FOUND);
             }
@@ -202,7 +203,7 @@ export class OrdersController {
         @Body(new ZodValidationPipe(orderStatusSchema)) body: { status: number },
     ) {
         try {
-            const order = await this.ordersService.changeOrderStatus(Number(oid), body.status, String(req.user?.id || ""));
+            const order = await this.ordersService.changeOrderStatus(parseResourceId(oid), body.status, String(req.user?.id || ""));
             if (!order) {
                 throw new HttpException({ msg: "Order not found" }, HTTP_STATUS.NOT_FOUND);
             }
@@ -227,7 +228,7 @@ export class OrdersController {
         try {
             const actorId = String(req.user?.id || "");
             const admin = String(req.user?.role || "").toLowerCase() === "admin";
-            const order = await this.ordersService.cancelOrder(Number(oid), actorId, admin, body.reason);
+            const order = await this.ordersService.cancelOrder(parseResourceId(oid), actorId, admin, body.reason);
             return { order, msg: "Order has been canceled successfully" };
         } catch (err) {
             if (err instanceof HttpException) throw err;

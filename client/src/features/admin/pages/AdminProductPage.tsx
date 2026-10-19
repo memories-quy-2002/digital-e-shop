@@ -42,6 +42,7 @@ import ProductForm, {
     type ProductFormValues,
 } from "../components/ProductForm";
 import { validateProductEdit } from "../utils/validateProductEdit";
+import "../../../styles/features/admin/_products.scss";
 
 const ITEMS_PER_PAGE = 8;
 const STOCK_FILTERS = ["all", "low", "out"] as const;
@@ -72,7 +73,7 @@ const normalizeProduct = (product: ProductWithAttributes): ProductWithAttributes
         ...normalized,
         attributes: product.attributes,
         price: Number(normalized.price) || 0,
-        sale_price: normalized.sale_price === null ? null : Number(normalized.sale_price) || null,
+        sale_price: normalized.sale_price === null ? null : Number(normalized.sale_price),
         stock: Number(normalized.stock) || 0,
     };
 };
@@ -443,160 +444,14 @@ const AdminProductPage = () => {
                     </div>
                 </section>
 
-                <section className="admin__card admin__card--secondary admin__card--inventory-log">
-                    <div className="admin__card__header">
-                        <div>
-                            <h3>{tx("Recent inventory activity")}</h3>
-                            <span>{inventoryMovements.length} {tx("recent adjustments")}</span>
-                        </div>
-                    </div>
-                    <details className="admin__disclosure admin__card--inventory-log__disclosure">
-                        <summary>{tx("View activity")}</summary>
-                        <div className="admin__card__body admin__list-shell admin__card--inventory-log__body">
-                        {inventoryMovementsError && !movementsLoaded ? <AdminStatusPanel variant="error" title={tx("Inventory movements unavailable")} description={inventoryMovementsError.message} onRetry={loadMovements} /> : null}
-                        {!inventoryMovementsError && !movementsLoaded ? <AdminStatusPanel variant="loading" title={tx("Loading inventory movements")} description={tx("Fetching recent stock adjustments.")} /> : null}
-                        {inventoryMovementsError && movementsLoaded ? <AdminStatusPanel variant="error" title={tx("Inventory movement refresh failed")} description={inventoryMovementsError.message} onRetry={loadMovements} retryLabel={tx("Retry refresh")} /> : null}
-                        {(!inventoryMovementsError || movementsLoaded) ? <AdminTableScrollHint label={tx("Inventory movement log")}>
-                        <Table responsive={false} hover borderless className="admin__table admin__table--inventory-movements">
-                            <thead>
-                                <tr>
-                                    <th>{tx("Time")}</th>
-                                    <th>{tx("Product")}</th>
-                                    <th>{tx("Type")}</th>
-                                    <th>{tx("Change")}</th>
-                                    <th>{tx("Stock")}</th>
-                                    <th>{tx("Note")}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {inventoryMovements.length > 0 ? (
-                                    inventoryMovements.map((movement) => (
-                                        <tr key={movement.id}>
-                                            <td width="180px">{new Date(movement.created_at).toLocaleString(locale === "vi" ? "vi-VN" : "en-GB")}</td>
-                                            <td width="260px">
-                                                <div className="admin__table__stack">
-                                                    <strong>{movement.product_name || `Product #${movement.product_id}`}</strong>
-                                                    {movement.order_id ? <span>{tx("Order")} #{movement.order_id}</span> : null}
-                                                </div>
-                                            </td>
-                                            <td width="160px">{tx(movement.movement_type.replace(/_/g, " "))}</td>
-                                            <td width="120px">
-                                                <span className={movement.quantity_change < 0 ? "admin__pill admin__pill--danger" : "admin__pill admin__pill--success"}>
-                                                    {movement.quantity_change > 0 ? "+" : ""}{movement.quantity_change}
-                                                </span>
-                                            </td>
-                                            <td width="140px">
-                                                {movement.stock_before ?? "-"} {"->"} {movement.stock_after ?? "-"}
-                                            </td>
-                                            <td>{movement.note || "-"}</td>
-                                        </tr>
-                                    ))
-                                ) : !inventoryMovementsError && movementsLoaded ? (
-                                    <tr>
-                                        <td colSpan={6}>{tx("No inventory movements recorded yet.")}</td>
-                                    </tr>
-                                ) : null}
-                            </tbody>
-                        </Table>
-                        </AdminTableScrollHint> : null}
-                        </div>
-                    </details>
-                </section>
-
-                {inventoryWatch.length > 0 ? <section className="admin__card">
-                    <div className="admin__card__header">
-                        <div>
-                            <h3>{tx("Inventory management")}</h3>
-                            <span>{tx("Restock the products that are closest to selling out.")}</span>
-                        </div>
-                    </div>
-                    <div className="admin__card__body admin__list-shell">
-                        <AdminTableScrollHint label={tx("Inventory restock table")}>
-                        <Table responsive={false} hover borderless className="admin__table admin__table--inventory">
-                            <thead>
-                                <tr>
-                                    <th>{tx("Product")}</th>
-                                    <th>{tx("Category")}</th>
-                                    <th>{tx("Current stock")}</th>
-                                    <th>{tx("New stock")}</th>
-                                    <th>{tx("Reason")}</th>
-                                    <th>{tx("Action")}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {inventoryWatch.map((product) => (
-                                        <tr key={`inventory-${product.id}`}>
-                                            <td width="320px">
-                                                <div className="admin__table__stack">
-                                                    <strong>{product.name}</strong>
-                                                    <span>{product.brand}</span>
-                                                </div>
-                                            </td>
-                                            <td width="180px">{product.category}</td>
-                                            <td width="160px">
-                                                <span
-                                                    className={
-                                                        product.stock <= 0
-                                                            ? "admin__pill admin__pill--danger"
-                                                            : "admin__pill admin__pill--warning"
-                                                    }
-                                                >
-                                                    {product.stock <= 0 ? tx("Out of stock") : `${product.stock} ${tx("left")}`}
-                                                </span>
-                                            </td>
-                                            <td width="160px">
-                                                <input
-                                                    className="admin__table__input"
-                                                    type="number"
-                                                    min="0"
-                                                    step="1"
-                                                    value={restockValues[product.id] ?? ""}
-                                                    onChange={(event) =>
-                                                        setRestockValues((current) => ({
-                                                            ...current,
-                                                            [product.id]: event.target.value,
-                                                        }))
-                                                    }
-                                                    placeholder={String(Math.max(product.stock, 0))}
-                                                />
-                                            </td>
-                                            <td width="220px">
-                                                <label className="admin__sr-only" htmlFor={`restock-reason-${product.id}`}>{tx("Reason for stock change")}</label>
-                                                <input
-                                                    id={`restock-reason-${product.id}`}
-                                                    className="admin__table__input"
-                                                    type="text"
-                                                    maxLength={255}
-                                                    value={restockReasons[product.id] ?? ""}
-                                                    onChange={(event) => setRestockReasons((current) => ({ ...current, [product.id]: event.target.value }))}
-                                                    placeholder={tx("Count, delivery, correction…")}
-                                                />
-                                            </td>
-                                            <td width="160px">
-                                                <button
-                                                    type="button"
-                                                    className="admin__button admin__button--primary"
-                                                    onClick={() => handleQuickRestock(product)}
-                                                >
-                                                    {tx("Update stock")}
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                            </tbody>
-                        </Table>
-                        </AdminTableScrollHint>
-                    </div>
-                </section> : null}
-
-                <section className="admin__card">
-                    <div className="admin__card__header admin__card__header--stacked">
+                <section className="admin__card admin__product-list">
+                    <div className="admin__card__header admin__card__header--stacked admin__product-list__header">
                         <div>
                             <h3>{tx("Product list")}</h3>
-                            <span>{matchingProductTotal} {tx("results")}</span>
+                            <span className="admin__product-list__count">{matchingProductTotal} {tx("results")}</span>
                         </div>
-                        <div className="admin__list-toolbar">
-                            <div className="admin__filters">
+                        <div className="admin__list-toolbar admin__product-list__toolbar">
+                            <div className="admin__filters admin__product-list__filters">
                                 <label className="admin__sr-only" htmlFor="product">
                                     {tx("Search products")}
                                 </label>
@@ -757,6 +612,154 @@ const AdminProductPage = () => {
                         />
                     </div>
                 </section>
+
+                <section className="admin__card admin__card--secondary admin__card--inventory-log">
+                    <div className="admin__card__header">
+                        <div>
+                            <h3>{tx("Recent inventory activity")}</h3>
+                            <span>{inventoryMovements.length} {tx("recent adjustments")}</span>
+                        </div>
+                    </div>
+                    <details className="admin__disclosure admin__card--inventory-log__disclosure">
+                        <summary>{tx("View activity")}</summary>
+                        <div className="admin__card__body admin__list-shell admin__card--inventory-log__body">
+                        {inventoryMovementsError && !movementsLoaded ? <AdminStatusPanel variant="error" title={tx("Inventory movements unavailable")} description={inventoryMovementsError.message} onRetry={loadMovements} /> : null}
+                        {!inventoryMovementsError && !movementsLoaded ? <AdminStatusPanel variant="loading" title={tx("Loading inventory movements")} description={tx("Fetching recent stock adjustments.")} /> : null}
+                        {inventoryMovementsError && movementsLoaded ? <AdminStatusPanel variant="error" title={tx("Inventory movement refresh failed")} description={inventoryMovementsError.message} onRetry={loadMovements} retryLabel={tx("Retry refresh")} /> : null}
+                        {(!inventoryMovementsError || movementsLoaded) ? <AdminTableScrollHint label={tx("Inventory movement log")}>
+                        <Table responsive={false} hover borderless className="admin__table admin__table--inventory-movements">
+                            <thead>
+                                <tr>
+                                    <th>{tx("Time")}</th>
+                                    <th>{tx("Product")}</th>
+                                    <th>{tx("Type")}</th>
+                                    <th>{tx("Change")}</th>
+                                    <th>{tx("Stock")}</th>
+                                    <th>{tx("Note")}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {inventoryMovements.length > 0 ? (
+                                    inventoryMovements.map((movement) => (
+                                        <tr key={movement.id}>
+                                            <td width="180px">{new Date(movement.created_at).toLocaleString(locale === "vi" ? "vi-VN" : "en-GB")}</td>
+                                            <td width="260px">
+                                                <div className="admin__table__stack">
+                                                    <strong>{movement.product_name || `Product #${movement.product_id}`}</strong>
+                                                    {movement.order_id ? <span>{tx("Order")} #{movement.order_id}</span> : null}
+                                                </div>
+                                            </td>
+                                            <td width="160px">{tx(movement.movement_type.replace(/_/g, " "))}</td>
+                                            <td width="120px">
+                                                <span className={movement.quantity_change < 0 ? "admin__pill admin__pill--danger" : "admin__pill admin__pill--success"}>
+                                                    {movement.quantity_change > 0 ? "+" : ""}{movement.quantity_change}
+                                                </span>
+                                            </td>
+                                            <td width="140px">
+                                                {movement.stock_before ?? "-"} {"->"} {movement.stock_after ?? "-"}
+                                            </td>
+                                            <td>{movement.note || "-"}</td>
+                                        </tr>
+                                    ))
+                                ) : !inventoryMovementsError && movementsLoaded ? (
+                                    <tr>
+                                        <td colSpan={6}>{tx("No inventory movements recorded yet.")}</td>
+                                    </tr>
+                                ) : null}
+                            </tbody>
+                        </Table>
+                        </AdminTableScrollHint> : null}
+                        </div>
+                    </details>
+                </section>
+
+                {inventoryWatch.length > 0 ? <section className="admin__card">
+                    <div className="admin__card__header">
+                        <div>
+                            <h3>{tx("Inventory management")}</h3>
+                            <span>{tx("Restock the products that are closest to selling out.")}</span>
+                        </div>
+                    </div>
+                    <div className="admin__card__body admin__list-shell">
+                        <AdminTableScrollHint label={tx("Inventory restock table")}>
+                        <Table responsive={false} hover borderless className="admin__table admin__table--inventory">
+                            <thead>
+                                <tr>
+                                    <th>{tx("Product")}</th>
+                                    <th>{tx("Category")}</th>
+                                    <th>{tx("Current stock")}</th>
+                                    <th>{tx("New stock")}</th>
+                                    <th>{tx("Reason")}</th>
+                                    <th>{tx("Action")}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {inventoryWatch.map((product) => (
+                                        <tr key={`inventory-${product.id}`}>
+                                            <td width="320px">
+                                                <div className="admin__table__stack">
+                                                    <strong>{product.name}</strong>
+                                                    <span>{product.brand}</span>
+                                                </div>
+                                            </td>
+                                            <td width="180px">{product.category}</td>
+                                            <td width="160px">
+                                                <span
+                                                    className={
+                                                        product.stock <= 0
+                                                            ? "admin__pill admin__pill--danger"
+                                                            : "admin__pill admin__pill--warning"
+                                                    }
+                                                >
+                                                    {product.stock <= 0 ? tx("Out of stock") : `${product.stock} ${tx("left")}`}
+                                                </span>
+                                            </td>
+                                            <td width="160px">
+                                                <input
+                                                    className="admin__table__input"
+                                                    type="number"
+                                                    min="0"
+                                                    step="1"
+                                                    value={restockValues[product.id] ?? ""}
+                                                    onChange={(event) =>
+                                                        setRestockValues((current) => ({
+                                                            ...current,
+                                                            [product.id]: event.target.value,
+                                                        }))
+                                                    }
+                                                    placeholder={String(Math.max(product.stock, 0))}
+                                                />
+                                            </td>
+                                            <td width="220px">
+                                                <label className="admin__sr-only" htmlFor={`restock-reason-${product.id}`}>{tx("Reason for stock change")}</label>
+                                                <input
+                                                    id={`restock-reason-${product.id}`}
+                                                    className="admin__table__input"
+                                                    type="text"
+                                                    maxLength={255}
+                                                    value={restockReasons[product.id] ?? ""}
+                                                    onChange={(event) => setRestockReasons((current) => ({ ...current, [product.id]: event.target.value }))}
+                                                    placeholder={tx("Count, delivery, correction…")}
+                                                />
+                                            </td>
+                                            <td width="160px">
+                                                <button
+                                                    type="button"
+                                                    className="admin__button admin__button--primary"
+                                                    onClick={() => handleQuickRestock(product)}
+                                                >
+                                                    {tx("Update stock")}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                            </tbody>
+                        </Table>
+                        </AdminTableScrollHint>
+                    </div>
+                </section> : null}
+
+
             </main>
         </AdminLayout>
     );

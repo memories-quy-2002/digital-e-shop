@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LocaleProvider } from "../../../context/LocaleContext";
 import AdminPromotionsPage from "./AdminPromotionsPage";
@@ -55,7 +55,7 @@ describe("AdminPromotionsPage loyalty reward cost", () => {
         fireEvent.change(await screen.findByLabelText(/code/i), { target: { value: "MEMBER20" } });
         fireEvent.change(screen.getByLabelText(/discount %/i), { target: { value: "20" } });
         fireEvent.change(screen.getByRole("spinbutton", { name: /loyalty points cost/i }), { target: { value: "250" } });
-        fireEvent.click(screen.getByRole("button", { name: "Create promotion" }));
+        fireEvent.click(within(document.querySelector<HTMLFormElement>(".admin__promotion-form")!).getByRole("button", { name: "Create promotion" }));
 
         await waitFor(() => expect(mocks.createPromotion).toHaveBeenCalledWith(expect.objectContaining({
             discountCode: "MEMBER20",

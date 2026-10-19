@@ -78,7 +78,7 @@ describe("AdminDashboard mixed request results", () => {
 
         await waitFor(() => expect(screen.getByText(/Partially updated/)).toBeTruthy());
 
-        expect(screen.getByText("No low-stock products")).toBeTruthy();
+        expect(await screen.findByText("No low-stock products")).toBeTruthy();
         const lazyChartQueryOptions = { timeout: 15000 };
         expect(await screen.findByText("Analytics unavailable", {}, lazyChartQueryOptions)).toBeTruthy();
         expect(await screen.findByText("Recent activity unavailable", {}, lazyChartQueryOptions)).toBeTruthy();
@@ -154,7 +154,7 @@ describe("AdminDashboard mixed request results", () => {
 
         await waitFor(() => expect(screen.getByText(/Partially updated/)).toBeTruthy());
 
-        expect(screen.getByText("Orders needing action unavailable")).toBeTruthy();
+        expect(await screen.findByText("Orders needing action unavailable")).toBeTruthy();
         expect(screen.getAllByText("Inventory risk unavailable").length).toBeGreaterThan(0);
 
         const createObjectURL = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:dashboard-report");

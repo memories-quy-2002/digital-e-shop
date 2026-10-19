@@ -213,6 +213,13 @@ const AdminPromotionsPage = () => {
                         </p>
                     </div>
                     <div className="admin__page__actions">
+                        <button
+                            type="button"
+                            className="admin__button admin__button--primary"
+                            onClick={() => document.getElementById("promotion-code")?.focus()}
+                        >
+                            {tx("Create promotion")}
+                        </button>
                         <button type="button" className="admin__button admin__button--ghost" onClick={loadPromotions}>{tx("Refresh")}</button>
                     </div>
                 </header>
@@ -235,6 +242,97 @@ const AdminPromotionsPage = () => {
                     </div>
                 </section>
 
+                <section className="admin__card">
+                    <div className="admin__card__header admin__card__header--stacked">
+                        <div>
+                            <h3>{tx("Promotion list")}</h3>
+                            <span>{filteredPromotions.length} {tx("matching rules")}</span>
+                        </div>
+                        <div className="admin__list-toolbar">
+                            <div className="admin__filters">
+                                <label className="admin__sr-only" htmlFor="promotion-search">
+                                    {tx("Search promotions")}
+                                </label>
+                                <input
+                                    type="search"
+                                    id="promotion-search"
+                                    name="promotion-search"
+                                    value={searchTerm}
+                                    onChange={(event) => setSearchTerm(event.target.value)}
+                                    placeholder={tx("Search promotion code…")}
+                                />
+                                <button type="button" className="admin__button admin__button--ghost" onClick={() => setSearchTerm("")}>
+                                    {tx("Clear")}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="admin__card__body admin__list-shell">
+                        {loadError && !hasLoaded ? <AdminStatusPanel variant="error" title={loadError.title} description={loadError.message} onRetry={loadPromotions} /> : null}
+                        {isLoading && !hasLoaded ? <AdminStatusPanel variant="loading" title={tx("Loading promotions")} description={tx("Fetching the latest discount rules.")} /> : null}
+                        {loadError && hasLoaded ? <AdminStatusPanel variant="error" title={tx("Refresh failed")} description={loadError.message} onRetry={loadPromotions} retryLabel={tx("Retry refresh")} /> : null}
+                        {!isLoading && !loadError && hasLoaded && filteredPromotions.length === 0 ? <AdminStatusPanel variant="empty" title={tx("No promotions found")} description={tx("No promotion codes match the current search.")} /> : null}
+                        {(!loadError || hasLoaded) && !(isLoading && !hasLoaded) && filteredPromotions.length > 0 ? <>
+                        <AdminTableScrollHint label={tx("Promotion list")}>
+                        <Table responsive={false} hover borderless className="admin__table admin__table--promotions">
+                            <thead>
+                                <tr>
+                                    <th>{tx("Code")}</th>
+                                    <th>{tx("Discount")}</th>
+                                    <th>{t("adminPromotions.loyaltyPointsCost")}</th>
+                                    <th>{tx("Minimum")}</th>
+                                    <th>{tx("Schedule")}</th>
+                                    <th>{tx("Usage")}</th>
+                                    <th>{tx("Status")}</th>
+                                    <th>{tx("Action")}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredPromotions.map((promotion) => (
+                                    <tr key={promotion.id}>
+                                        <td className="admin__promotion-code" width="180px">
+                                            <strong>{promotion.discount_code}</strong>
+                                        </td>
+                                        <td width="120px">{promotion.discount_percent}%</td>
+                                        <td width="170px">{promotion.loyalty_points_cost ? t("adminPromotions.loyaltyPointsReward", promotion.loyalty_points_cost) : t("adminPromotions.noLoyaltyCost")}</td>
+                                        <td width="140px">{formatCurrency(promotion.min_order_value)}</td>
+                                        <td width="260px">
+                                            <div className="admin__table__stack">
+                                                <span>{promotion.starts_at ? new Date(promotion.starts_at).toLocaleString(locale === "vi" ? "vi-VN" : "en-GB") : tx("Starts now")}</span>
+                                                <span>{promotion.expires_at ? new Date(promotion.expires_at).toLocaleString(locale === "vi" ? "vi-VN" : "en-GB") : tx("No expiry")}</span>
+                                            </div>
+                                        </td>
+                                        <td width="130px">
+                                            {promotion.usage_count || 0} {tx("used")}{promotion.usage_limit === null ? "" : ` / ${promotion.usage_limit}`}
+                                            {promotion.remaining_uses === null ? null : <small>{promotion.remaining_uses} {tx("remaining")}</small>}
+                                        </td>
+                                        <td width="120px">
+                                            <span className={promotion.active ? "admin__pill admin__pill--success" : "admin__pill admin__pill--muted"}>
+                                                {tx(promotion.active ? "Active" : "Inactive")}
+                                            </span>
+                                        </td>
+                                        <td width="180px">
+                                            <div className="admin__table__actions">
+                                                <button type="button" className="admin__button admin__button--ghost" onClick={() => handleEdit(promotion)}>
+                                                    {tx("Edit")}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="admin__button admin__button--danger"
+                                                    onClick={() => setPendingDeactivatePromotion(promotion)}
+                                                >
+                                                    {tx("Deactivate")}
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </Table>
+                        </AdminTableScrollHint>
+                        </> : null}
+                    </div>
+                </section>
                 <section className="admin__card admin__card--promotion-editor">
                     <div className="admin__card__header admin__card__header--stacked">
                         <div>
@@ -393,97 +491,6 @@ const AdminPromotionsPage = () => {
                     </form>
                 </section>
 
-                <section className="admin__card">
-                    <div className="admin__card__header admin__card__header--stacked">
-                        <div>
-                            <h3>{tx("Promotion list")}</h3>
-                            <span>{filteredPromotions.length} {tx("matching rules")}</span>
-                        </div>
-                        <div className="admin__list-toolbar">
-                            <div className="admin__filters">
-                                <label className="admin__sr-only" htmlFor="promotion-search">
-                                    {tx("Search promotions")}
-                                </label>
-                                <input
-                                    type="search"
-                                    id="promotion-search"
-                                    name="promotion-search"
-                                    value={searchTerm}
-                                    onChange={(event) => setSearchTerm(event.target.value)}
-                                    placeholder={tx("Search promotion code…")}
-                                />
-                                <button type="button" className="admin__button admin__button--ghost" onClick={() => setSearchTerm("")}>
-                                    {tx("Clear")}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="admin__card__body admin__list-shell">
-                        {loadError && !hasLoaded ? <AdminStatusPanel variant="error" title={loadError.title} description={loadError.message} onRetry={loadPromotions} /> : null}
-                        {isLoading && !hasLoaded ? <AdminStatusPanel variant="loading" title={tx("Loading promotions")} description={tx("Fetching the latest discount rules.")} /> : null}
-                        {loadError && hasLoaded ? <AdminStatusPanel variant="error" title={tx("Refresh failed")} description={loadError.message} onRetry={loadPromotions} retryLabel={tx("Retry refresh")} /> : null}
-                        {!isLoading && !loadError && hasLoaded && filteredPromotions.length === 0 ? <AdminStatusPanel variant="empty" title={tx("No promotions found")} description={tx("No promotion codes match the current search.")} /> : null}
-                        {(!loadError || hasLoaded) && !(isLoading && !hasLoaded) && filteredPromotions.length > 0 ? <>
-                        <AdminTableScrollHint label={tx("Promotion list")}>
-                        <Table responsive={false} hover borderless className="admin__table admin__table--promotions">
-                            <thead>
-                                <tr>
-                                    <th>{tx("Code")}</th>
-                                    <th>{tx("Discount")}</th>
-                                    <th>{t("adminPromotions.loyaltyPointsCost")}</th>
-                                    <th>{tx("Minimum")}</th>
-                                    <th>{tx("Schedule")}</th>
-                                    <th>{tx("Usage")}</th>
-                                    <th>{tx("Status")}</th>
-                                    <th>{tx("Action")}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredPromotions.map((promotion) => (
-                                    <tr key={promotion.id}>
-                                        <td width="180px">
-                                            <strong>{promotion.discount_code}</strong>
-                                        </td>
-                                        <td width="120px">{promotion.discount_percent}%</td>
-                                        <td width="170px">{promotion.loyalty_points_cost ? t("adminPromotions.loyaltyPointsReward", promotion.loyalty_points_cost) : t("adminPromotions.noLoyaltyCost")}</td>
-                                        <td width="140px">{formatCurrency(promotion.min_order_value)}</td>
-                                        <td width="260px">
-                                            <div className="admin__table__stack">
-                                                <span>{promotion.starts_at ? new Date(promotion.starts_at).toLocaleString(locale === "vi" ? "vi-VN" : "en-GB") : tx("Starts now")}</span>
-                                                <span>{promotion.expires_at ? new Date(promotion.expires_at).toLocaleString(locale === "vi" ? "vi-VN" : "en-GB") : tx("No expiry")}</span>
-                                            </div>
-                                        </td>
-                                        <td width="130px">
-                                            {promotion.usage_count || 0} {tx("used")}{promotion.usage_limit === null ? "" : ` / ${promotion.usage_limit}`}
-                                            {promotion.remaining_uses === null ? null : <small>{promotion.remaining_uses} {tx("remaining")}</small>}
-                                        </td>
-                                        <td width="120px">
-                                            <span className={promotion.active ? "admin__pill admin__pill--success" : "admin__pill admin__pill--muted"}>
-                                                {tx(promotion.active ? "Active" : "Inactive")}
-                                            </span>
-                                        </td>
-                                        <td width="180px">
-                                            <div className="admin__table__actions">
-                                                <button type="button" className="admin__button admin__button--ghost" onClick={() => handleEdit(promotion)}>
-                                                    {tx("Edit")}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="admin__button admin__button--danger"
-                                                    onClick={() => setPendingDeactivatePromotion(promotion)}
-                                                >
-                                                    {tx("Deactivate")}
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </Table>
-                        </AdminTableScrollHint>
-                        </> : null}
-                    </div>
-                </section>
                 <ConfirmActionModal
                     show={pendingDeactivatePromotion !== null}
                     title={tx("Deactivate promotion")}

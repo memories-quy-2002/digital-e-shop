@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { withTransaction, type TransactionContext } from "#src/database/transaction";
+import { resourceIdColumn } from "#src/shared/utils/public-id";
 
 export type ManualRefundRequest = {
     id: number; orderId: number; status: string; reason?: string; refundAmount?: number | null;
@@ -25,7 +26,7 @@ export type RefundableAllocation = RefundedUnit & { netVnd: number };
 
 export type ManualRefundRepositoryPort = {
     withTransaction<T>(work: (tx: TransactionContext) => Promise<T>): Promise<T>;
-    getContextForUpdate(tx: TransactionContext, requestId: number): Promise<ManualRefundContext | null>;
+    getContextForUpdate(tx: TransactionContext, requestId: string | number): Promise<ManualRefundContext | null>;
     findOperationByKey(tx: TransactionContext, key: string): Promise<ManualRefundOperation | null>;
     findOperationByReference(tx: TransactionContext, reference: string): Promise<ManualRefundOperation | null>;
     insertOperation(tx: TransactionContext, input: ManualRefundInputRecord & { requestId: number; orderPaymentId: number; actorId: string }, units: RefundableAllocation[]): Promise<void>;
@@ -48,9 +49,11 @@ const parseVnd = (value: unknown): number => {
 export class ManualRefundRepository implements ManualRefundRepositoryPort {
     withTransaction<T>(work: (tx: TransactionContext) => Promise<T>): Promise<T> { return withTransaction(work); }
 
-    async getContextForUpdate(tx: TransactionContext, requestId: number): Promise<ManualRefundContext | null> {
-        const requestRows = await tx.query<RawRow[]>(`SELECT id, order_id FROM after_sales_requests WHERE id = ? LIMIT 1`, [requestId]);
+    async getContextForUpdate(tx: TransactionContext, requestReference: string | number): Promise<ManualRefundContext | null> {
+        const idColumn = resourceIdColumn(requestReference);
+        const requestRows = await tx.query<RawRow[]>(`SELECT id, order_id FROM after_sales_requests WHERE ${idColumn} = ? LIMIT 1`, [requestReference]);
         if (!requestRows[0]) return null;
+        const requestId = Number(requestRows[0].id);
         const orderId = Number(requestRows[0].order_id);
         // Lock order before request, payment and allocated units to match order lifecycle locking.
         const orderRows = await tx.query<RawRow[]>(`SELECT o.id, o.currency, o.discount, o.pricing_snapshot, o.contact_snapshot, o.guest_email, o.guest_name,

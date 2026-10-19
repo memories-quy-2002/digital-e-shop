@@ -141,7 +141,6 @@ const valueProps = [
 const getActivePrice = (product: Product) => {
     const hasSale =
         product.sale_price !== null &&
-        product.sale_price > 0 &&
         product.sale_price < product.price;
     return hasSale ? (product.sale_price ?? product.price) : product.price;
 };
@@ -513,7 +512,6 @@ const HomePage = () => {
     const heroHasSale = Boolean(
         heroProduct &&
         heroProduct.sale_price !== null &&
-        heroProduct.sale_price > 0 &&
         heroProduct.sale_price < heroProduct.price,
     );
     const heroDiscount =

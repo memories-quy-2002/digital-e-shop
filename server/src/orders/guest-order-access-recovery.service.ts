@@ -23,7 +23,7 @@ const parseLocale = (value: string | object | null): "en" | "vi" => {
     }
 };
 
-export type GuestRecoveryRequestInput = { orderId: number; email: string };
+export type GuestRecoveryRequestInput = { orderId: string | number; email: string };
 export type GuestRecoveryVerifyInput = GuestRecoveryRequestInput & { code: string };
 
 @Injectable()
@@ -44,14 +44,14 @@ export class GuestOrderAccessRecoveryService {
             const order = await this.repository.findOrderForRequest(tx, input.orderId);
             if (!order || normalizeGuestRecoveryEmail(order.guest_email) !== email) return;
 
-            const latest = await this.repository.findLatestChallenge(tx, input.orderId, emailHash);
+            const latest = await this.repository.findLatestChallenge(tx, order.id, emailHash);
             if (latest && new Date(latest.resend_after).getTime() > Date.now()) return;
-            if (await this.repository.countRecentChallenges(tx, input.orderId, emailHash) >= GUEST_ORDER_ACCESS_RECOVERY_REQUESTS_PER_HOUR) return;
+            if (await this.repository.countRecentChallenges(tx, order.id, emailHash) >= GUEST_ORDER_ACCESS_RECOVERY_REQUESTS_PER_HOUR) return;
 
-            await this.repository.invalidateChallenges(tx, input.orderId, emailHash);
+            await this.repository.invalidateChallenges(tx, order.id, emailHash);
             await this.repository.insertChallenge(tx, {
                 id: challengeId,
-                orderId: input.orderId,
+                orderId: order.id,
                 emailHash,
                 otpHash: hashGuestOrderAccessRecoveryCode(challengeId, code),
             });
@@ -60,7 +60,7 @@ export class GuestOrderAccessRecoveryService {
                 type: "guest_order_access_recovery",
                 recipient: order.guest_email,
                 locale: parseLocale(order.contact_snapshot),
-                snapshot: { customerName: order.guest_name || "Customer", orderId: input.orderId, code, expiresMinutes: 10 },
+                snapshot: { customerName: order.guest_name || "Customer", orderId: order.id, code, expiresMinutes: 10 },
             });
         });
     }
@@ -79,7 +79,7 @@ export class GuestOrderAccessRecoveryService {
             }
 
             const rotated = await this.repository.rotateOrderToken(tx, {
-                orderId: input.orderId,
+                orderId: challenge.order_id,
                 email,
                 tokenHash: hashGuestOrderToken(guestOrderToken),
             });

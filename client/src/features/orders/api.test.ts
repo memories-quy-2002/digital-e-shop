@@ -9,6 +9,7 @@ import {
     createPayOSCheckoutSession,
     fetchGuestCart,
     fetchGuestOrderByPayOSOrderCode,
+    fetchCustomerOrderDetail,
     getPaymentAttempt,
     getGuestPaymentAttempt,
     reconcilePaymentAttempt,
@@ -52,6 +53,23 @@ describe("orders API", () => {
         await cancelCustomerOrder(42);
 
         expect(http.post).toHaveBeenCalledWith("/api/orders/42/cancel", {});
+    });
+
+    it("uses a public order reference for detail and cancellation requests", async () => {
+        const publicId = "019a0000-0000-7000-8000-000000000001";
+        vi.mocked(http.get).mockResolvedValueOnce({ data: { order: { id: 42, public_id: publicId, items: [] } } } as never);
+
+        await expect(fetchCustomerOrderDetail(publicId)).resolves.toMatchObject({ id: 42, public_id: publicId });
+        await cancelCustomerOrder(publicId);
+
+        expect(http.get).toHaveBeenCalledWith(`/api/orders/${publicId}`);
+        expect(http.post).toHaveBeenCalledWith(`/api/orders/${publicId}/cancel`, {});
+    });
+
+    it("keeps a public guest order reference in the token protected lookup body", async () => {
+        const publicId = "019a0000-0000-7000-8000-000000000001";
+        await lookupGuestOrder(publicId, "lookup-token");
+        expect(http.post).toHaveBeenCalledWith("/api/orders/guest/lookup", { orderId: publicId, guestOrderToken: "lookup-token" });
     });
 
     it("uses the shared HTTP client for an authoritative guest cart preview", async () => {

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { LocaleProvider } from "../../context/LocaleContext";
 import AdminLayout from "./AdminLayout";
@@ -14,6 +14,21 @@ vi.mock("./AdminHeader", () => ({
 vi.mock("./AdminSidebar", () => ({ default: () => <nav /> }));
 
 describe("AdminLayout", () => {
+    beforeEach(() => {
+        vi.stubGlobal("matchMedia", vi.fn().mockImplementation((query: string) => ({
+            matches: query === "(max-width: 1024px)",
+            media: query,
+            onchange: null,
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+            dispatchEvent: vi.fn(),
+        })));
+    });
+
+    afterEach(() => vi.unstubAllGlobals());
+
     it("provides a keyboard skip link to the admin page content", () => {
         render(
             <MemoryRouter>

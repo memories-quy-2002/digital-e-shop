@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { mapToHttpException } from "#src/core/errors/http-exception-mapper";
+import { parseResourceId } from "#src/shared/utils/public-id";
 import type { Request } from "express";
 import { AuthGuard } from "../guards/auth.guard";
 import { Roles, RolesGuard } from "../guards/roles.guard";
@@ -21,7 +22,7 @@ export class SupportController {
     @Roles("customer", "admin")
     async createTicket(
         @Req() req: AuthenticatedRequest,
-        @Body(new ZodValidationPipe(supportTicketCreateSchema)) body: { subject: string; message: string; category?: string; orderId?: number },
+        @Body(new ZodValidationPipe(supportTicketCreateSchema)) body: { subject: string; message: string; category?: string; orderId?: string | number },
     ) {
         try {
             const ticket = await this.service.createTicket(userIdFrom(req), body);
@@ -52,7 +53,7 @@ export class SupportController {
         @Body(new ZodValidationPipe(supportTicketUpdateSchema)) body: UpdateSupportTicketInput,
     ) {
         try {
-            const ticket = await this.service.updateTicket(Number(id), body);
+            const ticket = await this.service.updateTicket(parseResourceId(id), body);
             return { ticket, msg: "Support ticket updated successfully" };
         } catch (error) {
             throw mapToHttpException(error, "Unable to update support ticket");

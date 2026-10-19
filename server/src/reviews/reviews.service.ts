@@ -29,30 +29,17 @@ export class NestReviewsService {
             throw Object.assign(new Error("You can review this product after a completed order."), { statusCode: HTTP_STATUS.FORBIDDEN });
         }
 
-        return new Promise((resolve, reject) => {
-            this.reviewsRepository.getReviewByUserAndProduct(uid, pid, (findErr: DbError | null, existingRows: ReviewRow[]) => {
-                if (findErr) return reject(findErr);
-
-                const saveCallback = (saveErr: DbError | null) => {
-                    if (saveErr) return reject(saveErr);
-
-                    this.reviewsRepository.getRatingSummary(pid, (summaryErr: DbError | null, summaryRows: RatingSummaryRow[]) => {
-                        if (summaryErr) return reject(summaryErr);
-                        resolve({
-                            summary: normalizeSummary(summaryRows[0]),
-                            msg: existingRows.length > 0 ? "Review updated successfully" : "Review added successfully",
-                        });
-                    });
-                };
-
-                if (existingRows.length > 0) {
-                    this.reviewsRepository.updateReviewByUserAndProduct(uid, pid, safeRating, safeComment, saveCallback);
-                    return;
-                }
-
-                this.reviewsRepository.addReviewByUserId(uid, pid, safeRating, safeComment, saveCallback);
+        const inserted = await this.reviewsRepository.saveReviewForUser(uid, pid, safeRating, safeComment);
+        const summary = await new Promise<RatingSummaryRow[]>((resolve, reject) => {
+            this.reviewsRepository.getRatingSummary(pid, (error: DbError | null, rows: RatingSummaryRow[]) => {
+                if (error) return reject(error);
+                resolve(rows);
             });
         });
+        return {
+            summary: normalizeSummary(summary[0]),
+            msg: inserted ? "Review added successfully" : "Review updated successfully",
+        };
     }
 
     getReviews(pid: number): Promise<Array<ReviewRow & { verified_purchase: boolean }>> {

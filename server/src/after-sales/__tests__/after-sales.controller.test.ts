@@ -66,4 +66,28 @@ describe("after-sales controllers", () => {
         await expect(controller.detail("99")).rejects.toBeInstanceOf(HttpException);
         await expect(controller.detail("99")).rejects.toMatchObject({ status: 404 });
     });
+
+    it("accepts UUID v7 request references on customer, guest, and admin detail routes", async () => {
+        const publicId = "019a2b3c-4d5e-7f80-8123-456789abcdef";
+        const customerService = { getCustomerRequest: vi.fn().mockResolvedValue({ id: 1, publicId }) };
+        await expect(new AfterSalesController(customerService as never).detail(publicId, request("customer"))).resolves.toHaveProperty("request.publicId", publicId);
+        expect(customerService.getCustomerRequest).toHaveBeenCalledWith("user-1", publicId);
+
+        const guestService = { getGuestRequest: vi.fn().mockResolvedValue({ id: 2, publicId }) };
+        await expect(new AfterSalesGuestController(guestService as never).detail(publicId, { orderId: 9, guestOrderToken: "secret" } as never)).resolves.toHaveProperty("request.publicId", publicId);
+        expect(guestService.getGuestRequest).toHaveBeenCalledWith(9, "secret", publicId);
+
+        const adminService = { getAdminRequest: vi.fn().mockResolvedValue({ id: 3, publicId }) };
+        await expect(new AdminAfterSalesController(adminService as never).detail(publicId)).resolves.toHaveProperty("request.publicId", publicId);
+        expect(adminService.getAdminRequest).toHaveBeenCalledWith(publicId);
+    });
+
+    it("rejects an unsupported UUID version before calling the request service", async () => {
+        const service = { getAdminRequest: vi.fn() };
+        const controller = new AdminAfterSalesController(service as never);
+
+        await expect(controller.detail("019a2b3c-4d5e-4f80-8123-456789abcdef"))
+            .rejects.toMatchObject({ status: 400 });
+        expect(service.getAdminRequest).not.toHaveBeenCalled();
+    });
 });

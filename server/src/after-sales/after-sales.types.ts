@@ -64,7 +64,7 @@ export type AfterSalesItemInput = {
 };
 
 export type AfterSalesCreateInput = {
-    orderId: number;
+    orderId: string | number;
     kind: AfterSalesKind;
     reason: string;
     items: AfterSalesItemInput[];
@@ -145,6 +145,7 @@ export type AfterSalesOrderItem = {
 
 export type AfterSalesRequest = {
     id: number;
+    publicId: string;
     orderId: number;
     userId: string | null;
     kind: AfterSalesKind;

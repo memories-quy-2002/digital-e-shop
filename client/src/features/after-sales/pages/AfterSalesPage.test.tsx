@@ -87,4 +87,23 @@ describe("AfterSalesPage request history", () => {
         expect(screen.getByRole("note")).toHaveTextContent("2026");
         expect(screen.getByRole("note")).toHaveTextContent("UTC");
     });
+
+    it("loads customer order details from a UUIDv7 public reference", async () => {
+        const publicId = "019a0000-0000-7000-8000-000000000001";
+        vi.mocked(fetchCustomerOrderDetail).mockResolvedValue({
+            id: 42,
+            public_id: publicId,
+            date_added: "2026-09-01T10:00:00.000Z",
+            status: 1,
+            total_price: 100,
+            discount: 0,
+            shipping_address: "",
+            items: [],
+        });
+
+        render(<LocaleProvider><MemoryRouter initialEntries={[`/account/after-sales?order=${publicId}`]}><AfterSalesPage /></MemoryRouter></LocaleProvider>);
+        fireEvent.click(screen.getByRole("button", { name: "Load order items" }));
+
+        await waitFor(() => expect(fetchCustomerOrderDetail).toHaveBeenCalledWith(publicId));
+    });
 });

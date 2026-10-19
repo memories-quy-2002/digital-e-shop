@@ -54,6 +54,9 @@ jobs:
       DB_USER: ci_user
       DB_PASSWORD: ci_password
       DB_NAME: retail_p0_test
+      # CI-only disposable MySQL container; root may create and drop random
+      # databases for the public UUID migration backfill test.
+      PUBLIC_ID_MIGRATION_TEST_URL: "mysql://root:root@127.0.0.1:3306/"
       # This database lives only in the disposable MySQL Actions service.
       # Retail P0 integration suites deliberately reject all other DB names.
       SHIPPING_PROVIDER_MODE: sandbox

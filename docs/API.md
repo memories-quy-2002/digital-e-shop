@@ -29,6 +29,14 @@ origin.
 
 ## Request conventions
 
+Orders and support tickets include `public_id`; after-sales requests include
+`publicId`. Use these UUID v7 references for resource URLs and operations. The
+affected order/support/after-sales endpoints also accept legacy positive numeric
+IDs; existing numeric `id` and relationship fields remain in responses. Guest
+lookup/recovery and support/after-sales creation also accept public order IDs.
+Public references do not replace ownership checks or guest tokens. See
+[the identifier decision](../Wiki/decisions/0007-public-resource-identifiers.md).
+
 Send JSON with Content-Type: application/json unless the endpoint accepts
 multipart form data. Include cookies on authenticated requests. The client HTTP
 layer already sends credentials automatically.
@@ -86,6 +94,8 @@ document at `/api/openapi.json` defines this shared error schema.
 | --- | --- | --- |
 | GET | / | Root service status |
 | GET | /api/health | API health check |
+| GET | /api/health/live | Liveness probe; confirms the API process responds |
+| GET | /api/health/ready | Readiness probe; checks required database connectivity and returns 503 when unavailable |
 | GET | /api/blob/health | Blob storage health check |
 | GET | /api/products | Browse the catalog |
 | GET | /api/products/:id | Read one product |
@@ -103,6 +113,13 @@ document at `/api/openapi.json` defines this shared error schema.
 GET /api/products accepts pagination, term, category, brand, price, sort, and
 JSON-encoded typed attribute filters. The server bounds pagination and
 recalculates the catalog query from the request.
+
+`/api/health` remains available for existing monitors. Use `/api/health/live`
+for process liveness and `/api/health/ready` to check whether MySQL is
+reachable. The readiness response is bounded and reports dependency status
+without exposing database errors. On serverless deployments these endpoints
+provide monitoring signals; the platform determines whether they affect
+traffic routing or instance lifecycle.
 
 ### GET /api/products/compare?ids=12,18,24
 

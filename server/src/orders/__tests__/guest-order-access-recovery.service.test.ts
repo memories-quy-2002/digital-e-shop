@@ -22,7 +22,7 @@ describe("guest order access recovery", () => {
         await moduleRef.close();
     });
 
-    let challenge: { id: string; email_hash: string; otp_hash: string; attempt_count: number; guest_email: string } | null;
+    let challenge: { id: string; order_id: number; email_hash: string; otp_hash: string; attempt_count: number; guest_email: string } | null;
     let tx: object;
     let repository: Record<string, ReturnType<typeof vi.fn>>;
     let emails: { enqueue: ReturnType<typeof vi.fn> };
@@ -39,6 +39,7 @@ describe("guest order access recovery", () => {
             invalidateChallenges: vi.fn().mockResolvedValue(undefined),
             insertChallenge: vi.fn(async (_tx, value) => { challenge = {
                 id: value.id,
+                order_id: value.orderId,
                 email_hash: value.emailHash,
                 otp_hash: value.otpHash,
                 attempt_count: 0,
@@ -108,6 +109,17 @@ describe("guest order access recovery", () => {
         expect(repository.recordFailedAttempt).toHaveBeenCalledTimes(5);
         await expect(service.verify({ orderId: 42, email: order.guest_email, code: "999999" })).resolves.toBeNull();
         expect(repository.recordFailedAttempt).toHaveBeenCalledTimes(5);
+    });
+
+    it("keeps challenges and token rotation bound to the numeric order when using a public reference", async () => {
+        const publicId = "0199fbb1-1234-7123-8123-123456789abc";
+        await service.request({ orderId: publicId, email: order.guest_email });
+        expect(repository.findOrderForRequest).toHaveBeenCalledWith(tx, publicId);
+        expect(repository.insertChallenge).toHaveBeenCalledWith(tx, expect.objectContaining({ orderId: 42 }));
+        const code = emails.enqueue.mock.calls[0][1].snapshot.code as string;
+        await service.verify({ orderId: publicId, email: order.guest_email, code });
+        expect(repository.findChallengeForVerification).toHaveBeenCalledWith(tx, publicId, expect.any(String));
+        expect(repository.rotateOrderToken).toHaveBeenCalledWith(tx, expect.objectContaining({ orderId: 42 }));
     });
 
     it("returns the same request response for an unknown order", async () => {

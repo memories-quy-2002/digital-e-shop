@@ -41,6 +41,16 @@ describe("ManualRefundService", () => {
         expect(repo.completeRefund).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ amountVnd: 80_000 }));
     });
 
+    it("resolves a UUID v7 request reference while keeping refund records on the numeric key", async () => {
+        const repo = makeRepository();
+        const service = new ManualRefundService(repo, makeEvidence());
+        const publicId = "019a2b3c-4d5e-7f80-8123-456789abcdef";
+
+        await expect(service.confirm(publicId, "admin-1", input)).resolves.toMatchObject({ id: 5, status: "REFUNDED" });
+        expect(repo.getContextForUpdate).toHaveBeenCalledWith(expect.anything(), publicId);
+        expect(repo.insertOperation).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ requestId: 5 }), expect.any(Array));
+    });
+
     it("rejects missing or unowned evidence and does not write", async () => {
         const repo = makeRepository();
         const proof = makeEvidence();

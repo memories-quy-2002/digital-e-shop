@@ -36,7 +36,7 @@ export type CreateSupportTicketInput = {
     subject: string;
     message: string;
     category?: string;
-    orderId?: number;
+    orderId?: string | number;
 };
 
 export type UpdateSupportTicketInput = {
@@ -47,6 +47,7 @@ export type UpdateSupportTicketInput = {
 
 export type SupportTicket = {
     id: number;
+    public_id: string;
     user_id: string;
     order_id: number | null;
     category: string;

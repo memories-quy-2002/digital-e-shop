@@ -296,6 +296,11 @@ application has not been converted to Prisma.
 
 ## Observability
 
+- Health probes are exposed at `/api/health/live` (process response only) and
+  `/api/health/ready` (bounded MySQL `SELECT 1`, with 503 on database failure).
+  The legacy `/api/health` response stays available for existing monitors.
+  Serverless platforms may use these as monitoring signals without providing
+  instance-level restart or traffic-removal semantics.
 - `server/src/observability/telemetry.ts` starts OpenTelemetry before Nest and
   Express modules load. It exports HTTP traces/metrics and Express/MySQL2 spans
   to an OTLP/HTTP collector when `OTEL_ENABLED=true`.

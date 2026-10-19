@@ -1,5 +1,6 @@
 import { Body, Controller, Get, GoneException, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { mapToHttpException } from "#src/core/errors/http-exception-mapper";
+import { parseResourceId } from "#src/shared/utils/public-id";
 import type { Request } from "express";
 import { AuthGuard } from "../guards/auth.guard";
 import { Roles, RolesGuard } from "../guards/roles.guard";
@@ -20,8 +21,9 @@ export class AdminAfterSalesController {
     @Post(":id/manual-refund")
     async manualRefund(@Param("id") id: string, @Req() req: AuthenticatedRequest, @Body(new ZodValidationPipe(manualRefundInputSchema)) body: ManualRefundInput) {
         try {
-            await this.manualRefunds.confirm(Number(id), String(req.user?.id || ""), body);
-            const request = await this.service.getAdminRequest(Number(id));
+            const requestId = parseResourceId(id);
+            await this.manualRefunds.confirm(requestId, String(req.user?.id || ""), body);
+            const request = await this.service.getAdminRequest(requestId);
             return { request, msg: "Manual refund transfer recorded" };
         } catch (error) { throw mapToHttpException(error, "Unable to record manual refund"); }
     }
@@ -38,7 +40,7 @@ export class AdminAfterSalesController {
     @Get(":id")
     async detail(@Param("id") id: string) {
         try {
-            const request = await this.service.getAdminRequest(Number(id));
+            const request = await this.service.getAdminRequest(parseResourceId(id));
             return { request, msg: "After-sales request retrieved successfully" };
         } catch (error) {
             throw mapToHttpException(error, "Unable to retrieve after-sales request");
@@ -52,7 +54,7 @@ export class AdminAfterSalesController {
         @Body(new ZodValidationPipe(afterSalesStatusSchema)) body: AfterSalesStatusTransition,
     ) {
         try {
-            const request = await this.service.transitionRequest(Number(id), String(req.user?.id || ""), body);
+            const request = await this.service.transitionRequest(parseResourceId(id), String(req.user?.id || ""), body);
             return { request, msg: "After-sales request status updated successfully" };
         } catch (error) {
             throw mapToHttpException(error, "Unable to update after-sales request status");

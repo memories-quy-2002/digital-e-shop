@@ -44,6 +44,7 @@ const AdminAccountPage = () => {
     const [isSavingChange, setIsSavingChange] = useState(false);
     const [selectedProfile, setSelectedProfile] = useState<CustomerProfile | null>(null);
     const [showProfile, setShowProfile] = useState(false);
+    const profileRequestSequence = useRef(0);
     const [isLoading, setIsLoading] = useState(true);
     const [hasLoaded, setHasLoaded] = useState(false);
     const [loadError, setLoadError] = useState<AdminRequestError | null>(null);
@@ -149,9 +150,12 @@ const AdminAccountPage = () => {
     };
 
     const handleOpenProfile = async (account: Account) => {
+        const requestSequence = ++profileRequestSequence.current;
+        setShowProfile(false);
+        setSelectedProfile(null);
         try {
             const profile = await fetchCustomerProfile(account.id);
-            if (profile) {
+            if (requestSequence === profileRequestSequence.current && profile) {
                 setSelectedProfile({
                     ...profile,
                     created_at: new Date(profile.created_at),
@@ -163,8 +167,15 @@ const AdminAccountPage = () => {
                 setShowProfile(true);
             }
         } catch {
-            addToast("Customer profile", "Unable to load customer profile.");
+            if (requestSequence === profileRequestSequence.current) {
+                addToast("Customer profile", "Unable to load customer profile.");
+            }
         }
+    };
+
+    const closeCustomerProfile = () => {
+        profileRequestSequence.current += 1;
+        setShowProfile(false);
     };
 
     return (
@@ -381,7 +392,7 @@ const AdminAccountPage = () => {
 
                 <Modal
                     show={showProfile}
-                    onHide={() => setShowProfile(false)}
+                    onHide={closeCustomerProfile}
                     centered
                     size="lg"
                     dialogClassName="admin__dialog"
@@ -454,7 +465,7 @@ const AdminAccountPage = () => {
                         ) : null}
                     </Modal.Body>
                     <Modal.Footer>
-                        <Button variant="secondary" onClick={() => setShowProfile(false)}>
+                        <Button variant="secondary" onClick={closeCustomerProfile}>
                             Close
                         </Button>
                     </Modal.Footer>

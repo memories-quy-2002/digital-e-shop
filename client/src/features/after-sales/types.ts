@@ -1,3 +1,5 @@
+import type { PublicIdentifier } from "../../types/publicIdentifier";
+
 export const AFTER_SALES_KIND = {
     RETURN: "RETURN",
     WARRANTY: "WARRANTY",
@@ -46,6 +48,7 @@ export type AfterSalesEvent = {
 
 export type AfterSalesRequest = {
     id: number;
+    publicId?: string;
     orderId: number;
     userId: string | null;
     kind: AfterSalesKind;
@@ -78,7 +81,7 @@ export type AfterSalesListPage = {
 };
 
 export type AfterSalesCreateInput = {
-    orderId: number;
+    orderId: PublicIdentifier;
     kind: AfterSalesKind;
     reason: string;
     items: Array<{ orderItemId: number; quantity: number; reason?: string }>;

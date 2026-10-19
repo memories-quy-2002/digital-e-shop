@@ -4,6 +4,7 @@ import type { AdminAccount, AdminOrder, AdminOrderDetail, AdminOrderItem, AdminC
 import type { DashboardRange } from "./utils/dashboardRange";
 import type { AdminAnalyticsSummary, AdminInventoryMovement, AdminPromotion } from "./types";
 import type { PaymentMethod } from "../orders/constants";
+import type { PublicIdentifier } from "../../types/publicIdentifier";
 import {
     PAYMENT_RECONCILIATION_LIMIT,
     PAYMENT_RECONCILIATION_STATUS,
@@ -200,13 +201,13 @@ export async function addProduct(formData: FormData): Promise<void> {
     });
 }
 
-export async function fetchOrderDetail(orderId: number): Promise<AdminOrderDetail | null> {
-    const response = await http.get(`/api/orders/${orderId}`);
+export async function fetchOrderDetail(orderId: PublicIdentifier): Promise<AdminOrderDetail | null> {
+    const response = await http.get(`/api/orders/${encodeURIComponent(orderId)}`);
     return response.data.order || null;
 }
 
-export async function updateOrderStatus(orderId: number, status: number): Promise<AdminOrder> {
-    const response = await http.post(`/api/orders/status/${orderId}`, { status });
+export async function updateOrderStatus(orderId: PublicIdentifier, status: number): Promise<AdminOrder> {
+    const response = await http.post(`/api/orders/status/${encodeURIComponent(orderId)}`, { status });
     return response.data.order;
 }
 

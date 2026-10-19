@@ -3,6 +3,8 @@ import type { CurrencyCode } from "../../../constants/currency";
 
 export type CheckoutSuccessData = {
     orderId: string;
+    /** Numeric ID retained only for shipment APIs that still use database keys. */
+    internalOrderId?: number;
     totalPrice: number;
     discount: number;
     subtotal: number;

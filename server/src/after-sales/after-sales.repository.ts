@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import pool from "#src/config/database.config";
+import { createPublicId, resourceIdColumn } from "#src/shared/utils/public-id";
 import { withTransaction, type TransactionContext } from "#src/database/transaction";
 import {
     AFTER_SALES_STATUS,
@@ -24,7 +25,7 @@ const query = <T>(sql: string, values: unknown[] = []): Promise<T> => new Promis
     (pool as unknown as Queryable).query(sql, values, (error, rows) => error ? reject(error) : resolve(rows as T));
 });
 
-const requestColumns = `r.id, r.order_id, r.user_id, r.kind, r.status, r.reason, r.admin_note,
+const requestColumns = `r.id, r.public_id, r.order_id, r.user_id, r.kind, r.status, r.reason, r.admin_note,
     r.refund_amount, r.refund_currency, r.refund_reference,
     DATE_FORMAT(r.created_at, '%Y-%m-%dT%H:%i:%s.000Z') AS created_at,
     DATE_FORMAT(r.updated_at, '%Y-%m-%dT%H:%i:%s.000Z') AS updated_at,
@@ -35,6 +36,7 @@ const requestColumns = `r.id, r.order_id, r.user_id, r.kind, r.status, r.reason,
 
 const normalizeRequest = (row: Record<string, unknown>): AfterSalesRequest => ({
     id: Number(row.id),
+    publicId: String(row.public_id),
     orderId: Number(row.order_id),
     userId: row.user_id ? String(row.user_id) : null,
     kind: String(row.kind) as AfterSalesRequest["kind"],
@@ -79,20 +81,20 @@ const normalizeItem = (row: Record<string, unknown>): AfterSalesOrderItem => ({
 export type AfterSalesRepositoryPort = {
     withTransaction<T>(work: (tx: TransactionContext) => Promise<T>): Promise<T>;
     findByIdempotencyKey(tx: TransactionContext, key: string): Promise<AfterSalesRequest | null>;
-    findOrderForIdentity(tx: TransactionContext, identity: { orderId: number; userId?: string; guestOrderTokenHash?: string }): Promise<AfterSalesOrderContext | null>;
+    findOrderForIdentity(tx: TransactionContext, identity: { orderId: string | number; userId?: string; guestOrderTokenHash?: string }): Promise<AfterSalesOrderContext | null>;
     findOrderItemsForUpdate(tx: TransactionContext, orderId: number, itemIds: number[]): Promise<AfterSalesOrderItem[]>;
     getActiveRequestedQuantities(tx: TransactionContext, itemIds: number[]): Promise<Map<number, number>>;
     insertRequest(tx: TransactionContext, identity: { userId?: string; guestOrderTokenHash?: string }, input: AfterSalesCreateInput, items: AfterSalesOrderItem[]): Promise<AfterSalesRequest>;
     listCustomerRequests(userId: string, query: AfterSalesListQuery): Promise<AfterSalesListPage>;
     listGuestRequests(orderId: number, guestOrderTokenHash: string, query: AfterSalesListQuery): Promise<AfterSalesListPage>;
     listAdminRequests(query: AfterSalesListQuery): Promise<AfterSalesListPage>;
-    getCustomerRequest(userId: string, id: number): Promise<AfterSalesRequest | null>;
-    getGuestRequest(orderId: number, guestOrderTokenHash: string, id: number): Promise<AfterSalesRequest | null>;
-    getAdminRequest(id: number): Promise<AfterSalesRequest | null>;
-    getAdminRequestForUpdate(tx: TransactionContext, id: number): Promise<AfterSalesRequest | null>;
-    getRefundContextForUpdate(tx: TransactionContext, id: number): Promise<AfterSalesRefundContext | null>;
-    transitionRequest(tx: TransactionContext, id: number, status: AfterSalesStatusTransition, actorId: string): Promise<AfterSalesRequest | null>;
-    confirmRefund(tx: TransactionContext, id: number, input: RefundConfirmationInput, actorId: string, paymentId: number, amount: number, providerResult: PaymentProviderResult): Promise<AfterSalesRequest | null>;
+    getCustomerRequest(userId: string, id: string | number): Promise<AfterSalesRequest | null>;
+    getGuestRequest(orderId: number, guestOrderTokenHash: string, id: string | number): Promise<AfterSalesRequest | null>;
+    getAdminRequest(id: string | number): Promise<AfterSalesRequest | null>;
+    getAdminRequestForUpdate(tx: TransactionContext, id: string | number): Promise<AfterSalesRequest | null>;
+    getRefundContextForUpdate(tx: TransactionContext, id: string | number): Promise<AfterSalesRefundContext | null>;
+    transitionRequest(tx: TransactionContext, id: string | number, status: AfterSalesStatusTransition, actorId: string): Promise<AfterSalesRequest | null>;
+    confirmRefund(tx: TransactionContext, id: string | number, input: RefundConfirmationInput, actorId: string, paymentId: number, amount: number, providerResult: PaymentProviderResult): Promise<AfterSalesRequest | null>;
 };
 
 @Injectable()
@@ -111,13 +113,14 @@ export class AfterSalesRepository implements AfterSalesRepositoryPort {
         return request;
     }
 
-    async findOrderForIdentity(tx: TransactionContext, identity: { orderId: number; userId?: string; guestOrderTokenHash?: string }): Promise<AfterSalesOrderContext | null> {
+    async findOrderForIdentity(tx: TransactionContext, identity: { orderId: string | number; userId?: string; guestOrderTokenHash?: string }): Promise<AfterSalesOrderContext | null> {
+        const orderIdColumn = resourceIdColumn(identity.orderId);
         const ownerClause = identity.userId ? "user_id = ?" : "guest_order_token_hash = ?";
         const owner = identity.userId || identity.guestOrderTokenHash;
         const rows = await tx.query<Record<string, unknown>[]>(
             `SELECT id, status, DATE_FORMAT(delivered_at, '%Y-%m-%dT%H:%i:%s.000Z') AS delivered_at,
                     currency, payment_method, guest_email, guest_name, guest_phone
-             FROM orders WHERE id = ? AND ${ownerClause} LIMIT 1 FOR UPDATE`,
+             FROM orders WHERE ${orderIdColumn} = ? AND ${ownerClause} LIMIT 1 FOR UPDATE`,
             [identity.orderId, owner],
         );
         return rows[0] ? normalizeOrder(rows[0]) : null;
@@ -154,11 +157,12 @@ export class AfterSalesRepository implements AfterSalesRepositoryPort {
     }
 
     async insertRequest(tx: TransactionContext, identity: { userId?: string; guestOrderTokenHash?: string }, input: AfterSalesCreateInput, items: AfterSalesOrderItem[]): Promise<AfterSalesRequest> {
+        const publicId = createPublicId();
         const result = await tx.query<QueryResult<Record<string, never>>>(
             `INSERT INTO after_sales_requests
-                (order_id, user_id, guest_order_token_hash, kind, status, reason, request_idempotency_key, created_at, updated_at)
-             VALUES (?, ?, ?, ?, '${AFTER_SALES_STATUS.REQUESTED}', ?, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP())`,
-            [input.orderId, identity.userId || null, identity.guestOrderTokenHash || null, input.kind, input.reason, input.idempotencyKey],
+                (public_id, order_id, user_id, guest_order_token_hash, kind, status, reason, request_idempotency_key, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, '${AFTER_SALES_STATUS.REQUESTED}', ?, ?, UTC_TIMESTAMP(), UTC_TIMESTAMP())`,
+            [publicId, input.orderId, identity.userId || null, identity.guestOrderTokenHash || null, input.kind, input.reason, input.idempotencyKey],
         );
         const requestId = Number(result.insertId);
         if (!requestId) throw new Error("After-sales request was not created");
@@ -231,27 +235,28 @@ export class AfterSalesRepository implements AfterSalesRepositoryPort {
         return request;
     }
 
-    getCustomerRequest(userId: string, id: number): Promise<AfterSalesRequest | null> {
-        return this.getRequest("r.id = ? AND r.user_id = ?", [id, userId]);
+    getCustomerRequest(userId: string, id: string | number): Promise<AfterSalesRequest | null> {
+        return this.getRequest(`r.${resourceIdColumn(id)} = ? AND r.user_id = ?`, [id, userId]);
     }
 
-    getGuestRequest(orderId: number, guestOrderTokenHash: string, id: number): Promise<AfterSalesRequest | null> {
-        return this.getRequest("r.id = ? AND r.order_id = ? AND r.guest_order_token_hash = ?", [id, orderId, guestOrderTokenHash]);
+    getGuestRequest(orderId: number, guestOrderTokenHash: string, id: string | number): Promise<AfterSalesRequest | null> {
+        return this.getRequest(`r.${resourceIdColumn(id)} = ? AND r.order_id = ? AND r.guest_order_token_hash = ?`, [id, orderId, guestOrderTokenHash]);
     }
 
-    getAdminRequest(id: number): Promise<AfterSalesRequest | null> {
-        return this.getRequest("r.id = ?", [id]);
+    getAdminRequest(id: string | number): Promise<AfterSalesRequest | null> {
+        return this.getRequest(`r.${resourceIdColumn(id)} = ?`, [id]);
     }
 
-    async getAdminRequestForUpdate(tx: TransactionContext, id: number): Promise<AfterSalesRequest | null> {
+    async getAdminRequestForUpdate(tx: TransactionContext, id: string | number): Promise<AfterSalesRequest | null> {
+        const idColumn = resourceIdColumn(id);
         const rows = await tx.query<Record<string, unknown>[]>(
-            `SELECT ${requestColumns} FROM after_sales_requests r WHERE r.id = ? LIMIT 1 FOR UPDATE`,
+            `SELECT ${requestColumns} FROM after_sales_requests r WHERE r.${idColumn} = ? LIMIT 1 FOR UPDATE`,
             [id],
         );
         return rows[0] ? normalizeRequest(rows[0]) : null;
     }
 
-    async getRefundContextForUpdate(tx: TransactionContext, id: number): Promise<AfterSalesRefundContext | null> {
+    async getRefundContextForUpdate(tx: TransactionContext, id: string | number): Promise<AfterSalesRefundContext | null> {
         const request = await this.getAdminRequestForUpdate(tx, id);
         if (!request) return null;
         const paymentRows = await tx.query<Record<string, unknown>[]>(
@@ -265,7 +270,7 @@ export class AfterSalesRepository implements AfterSalesRepositoryPort {
              FROM after_sales_items asi
              JOIN order_items oi ON oi.id = asi.order_item_id
              WHERE asi.request_id = ?`,
-            [id],
+            [request.id],
         );
         const payment = paymentRows[0];
         return {
@@ -285,18 +290,18 @@ export class AfterSalesRepository implements AfterSalesRepositoryPort {
         };
     }
 
-    async transitionRequest(tx: TransactionContext, id: number, transition: AfterSalesStatusTransition, actorId: string): Promise<AfterSalesRequest | null> {
+    async transitionRequest(tx: TransactionContext, id: string | number, transition: AfterSalesStatusTransition, actorId: string): Promise<AfterSalesRequest | null> {
         const current = await this.getAdminRequestForUpdate(tx, id);
         if (!current) return null;
         const timestampColumn = transition.status === AFTER_SALES_STATUS.APPROVED ? "approved_at" : transition.status === AFTER_SALES_STATUS.RECEIVED ? "received_at" : transition.status === AFTER_SALES_STATUS.CLOSED ? "closed_at" : null;
         const timestampUpdate = timestampColumn ? `, ${timestampColumn} = COALESCE(${timestampColumn}, UTC_TIMESTAMP())` : "";
-        await tx.query(`UPDATE after_sales_requests SET status = ?, admin_note = COALESCE(?, admin_note), updated_at = UTC_TIMESTAMP()${timestampUpdate} WHERE id = ?`, [transition.status, transition.note || null, id]);
-        await tx.query(`INSERT INTO after_sales_events (request_id, from_status, to_status, actor_user_id, note, created_at) VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP())`, [id, current.status, transition.status, actorId, transition.note || null]);
-        const updated = await tx.query<Record<string, unknown>[]>(`SELECT ${requestColumns} FROM after_sales_requests r WHERE r.id = ? LIMIT 1`, [id]);
+        await tx.query(`UPDATE after_sales_requests SET status = ?, admin_note = COALESCE(?, admin_note), updated_at = UTC_TIMESTAMP()${timestampUpdate} WHERE id = ?`, [transition.status, transition.note || null, current.id]);
+        await tx.query(`INSERT INTO after_sales_events (request_id, from_status, to_status, actor_user_id, note, created_at) VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP())`, [current.id, current.status, transition.status, actorId, transition.note || null]);
+        const updated = await tx.query<Record<string, unknown>[]>(`SELECT ${requestColumns} FROM after_sales_requests r WHERE r.id = ? LIMIT 1`, [current.id]);
         return updated[0] ? normalizeRequest(updated[0]) : null;
     }
 
-    async confirmRefund(tx: TransactionContext, id: number, input: RefundConfirmationInput, actorId: string, paymentId: number, amount: number, providerResult: PaymentProviderResult): Promise<AfterSalesRequest | null> {
+    async confirmRefund(tx: TransactionContext, id: string | number, input: RefundConfirmationInput, actorId: string, paymentId: number, amount: number, providerResult: PaymentProviderResult): Promise<AfterSalesRequest | null> {
         const current = await this.getAdminRequestForUpdate(tx, id);
         if (!current) return null;
         const providerRefundReference = providerResult.refundReference || input.refundReference;
@@ -305,7 +310,7 @@ export class AfterSalesRepository implements AfterSalesRepositoryPort {
              SET status = '${AFTER_SALES_STATUS.REFUNDED}', refund_amount = ?, refund_reference = ?, refund_currency = ?, refunded_at = COALESCE(refunded_at, UTC_TIMESTAMP()),
                  admin_note = COALESCE(?, admin_note), updated_at = UTC_TIMESTAMP()
              WHERE id = ?`,
-            [amount, input.refundReference, input.currency, input.note || null, id],
+            [amount, input.refundReference, input.currency, input.note || null, current.id],
         );
         const paymentUpdate = await tx.query<{ affectedRows?: number }>(
             `UPDATE order_payments
@@ -316,8 +321,8 @@ export class AfterSalesRepository implements AfterSalesRepositoryPort {
             [amount, amount, providerRefundReference, paymentId, amount],
         );
         if (paymentUpdate.affectedRows !== 1) throw new Error("Refund payment ledger update failed");
-        await tx.query(`INSERT INTO after_sales_events (request_id, from_status, to_status, actor_user_id, note, created_at) VALUES (?, ?, '${AFTER_SALES_STATUS.REFUNDED}', ?, ?, UTC_TIMESTAMP())`, [id, current.status, actorId, input.note || input.refundReference]);
-        const updated = await tx.query<Record<string, unknown>[]>(`SELECT ${requestColumns} FROM after_sales_requests r WHERE r.id = ? LIMIT 1`, [id]);
+        await tx.query(`INSERT INTO after_sales_events (request_id, from_status, to_status, actor_user_id, note, created_at) VALUES (?, ?, '${AFTER_SALES_STATUS.REFUNDED}', ?, ?, UTC_TIMESTAMP())`, [current.id, current.status, actorId, input.note || input.refundReference]);
+        const updated = await tx.query<Record<string, unknown>[]>(`SELECT ${requestColumns} FROM after_sales_requests r WHERE r.id = ? LIMIT 1`, [current.id]);
         return updated[0] ? normalizeRequest(updated[0]) : null;
     }
 }

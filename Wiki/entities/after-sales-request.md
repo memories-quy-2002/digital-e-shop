@@ -1,5 +1,9 @@
 # After-sales request
 
+`after_sales_requests.id` and all related foreign keys remain numeric. The
+unique UUID v7 `public_id` is returned as `publicId` and accepted for request
+detail/status/refund operations. See [[0007-public-resource-identifiers]].
+
 Back to [[index]]. Related: [[order]], [[payment]], [[support-ticket]], [[order-lifecycle-and-support]].
 
 ## Purpose

@@ -26,7 +26,8 @@ const CartItem = ({
 }: CartItemProps) => {
     const t = useT();
     const imageUrl = item.main_image ? item.main_image.replace(".jpg", "") : null;
-    const productPrice = item.sale_price || item.price;
+    const productPrice = item.sale_price ?? item.price;
+    const hasSale = item.sale_price !== null && item.sale_price < item.price;
     const stockCap = Math.max(Number(item.available_stock ?? item.stock) || 0, 1);
     const isUnavailable = validationIssue?.reason === "unavailable" || validationIssue?.reason === "out_of_stock";
     const productPath = `/product?id=${item.productId}`;
@@ -116,7 +117,7 @@ const CartItem = ({
             <div className="cart-item__price">
                 <strong>{formatCurrency(productPrice * item.quantity)}</strong>
                 <p>
-                    {item.sale_price ? <del>{formatCurrency(item.price)}</del> : null}{" "}
+                    {hasSale ? <del>{formatCurrency(item.price)}</del> : null}{" "}
                     {formatCurrency(productPrice)} {t("cart.each")}
                 </p>
             </div>

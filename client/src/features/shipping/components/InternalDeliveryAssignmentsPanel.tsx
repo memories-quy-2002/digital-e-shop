@@ -8,7 +8,11 @@ import { assignDeliveryOrder, fetchAssignableDeliveryOrders, fetchDeliveryAssign
 import type { AssignableDeliveryOrder, DeliveryAssignment, DeliveryStaffMember } from "../types";
 import { formatVietnamDateTime, getDefaultVietnamSchedule, toVietnamDateTimeInput } from "../deliveryTime";
 
-const InternalDeliveryAssignmentsPanel = () => {
+type InternalDeliveryAssignmentsPanelProps = {
+    onQueueCountChange?: (count: number) => void;
+};
+
+const InternalDeliveryAssignmentsPanel = ({ onQueueCountChange }: InternalDeliveryAssignmentsPanelProps) => {
     const t = useT();
     const { locale } = useLocale();
     const [orders, setOrders] = useState<AssignableDeliveryOrder[]>([]);
@@ -29,6 +33,7 @@ const InternalDeliveryAssignmentsPanel = () => {
         try {
             const [nextOrders, nextStaff] = await Promise.all([fetchAssignableDeliveryOrders(), fetchDeliveryStaff()]);
             setOrders(nextOrders);
+            onQueueCountChange?.(nextOrders.length);
             setStaff(nextStaff);
             setSelectedOrderId((current) => current && nextOrders.some((order) => order.orderId === current)
                 ? current
@@ -38,7 +43,7 @@ const InternalDeliveryAssignmentsPanel = () => {
         } finally {
             setLoading(false);
         }
-    }, [t]);
+    }, [onQueueCountChange, t]);
 
     useEffect(() => { void load(); }, [load]);
 

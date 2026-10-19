@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseResourceId } from "#src/shared/utils/public-id";
 import { AFTER_SALES_KINDS, AFTER_SALES_STATUSES } from "./after-sales.types";
 import { AFTER_SALES_PAGINATION, AFTER_SALES_VALIDATION_LIMITS } from "./after-sales.constants";
 
@@ -6,6 +7,15 @@ const positiveInt = (field: string) => z.coerce.number({ error: `${field} must b
     .int(`${field} must be a whole number`)
     .positive(`${field} must be greater than zero`)
     .refine(Number.isSafeInteger, `${field} must be a safe integer`);
+
+const resourceId = (field: string) => z.union([z.string(), z.number()]).transform((value, context) => {
+    try {
+        return parseResourceId(value);
+    } catch {
+        context.addIssue({ code: "custom", message: `${field} must be a valid public ID or positive integer ID` });
+        return z.NEVER;
+    }
+});
 
 const text = (field: string, max: number) => z.string({ error: `${field} is required` }).trim().min(1, `${field} is required`).max(max, `${field} is too long`);
 
@@ -16,7 +26,7 @@ const itemSchema = z.object({
 }).strict();
 
 const createBaseSchema = z.object({
-    orderId: positiveInt("Order id"),
+    orderId: resourceId("Order id"),
     kind: z.enum(AFTER_SALES_KINDS),
     reason: text("Reason", AFTER_SALES_VALIDATION_LIMITS.REQUEST_REASON_LENGTH),
     items: z.array(itemSchema).min(1, "At least one item is required").max(AFTER_SALES_VALIDATION_LIMITS.ITEMS_PER_REQUEST, "Too many items requested"),
@@ -37,7 +47,7 @@ export const afterSalesListQuerySchema = z.object({
 }).strict();
 
 export const afterSalesGuestLookupSchema = z.object({
-    orderId: positiveInt("Order id"),
+    orderId: resourceId("Order id"),
     guestOrderToken: text("Guest order token", AFTER_SALES_VALIDATION_LIMITS.GUEST_ORDER_TOKEN_LENGTH),
     page: z.coerce.number().int().min(AFTER_SALES_PAGINATION.FIRST_PAGE).default(AFTER_SALES_PAGINATION.FIRST_PAGE),
     limit: z.coerce.number().int().min(AFTER_SALES_PAGINATION.MIN_PAGE_SIZE).transform((value) => Math.min(value, AFTER_SALES_PAGINATION.MAX_PAGE_SIZE)).default(AFTER_SALES_PAGINATION.DEFAULT_PAGE_SIZE),

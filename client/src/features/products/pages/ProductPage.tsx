@@ -40,6 +40,7 @@ import {
     removeFromWishlist,
 } from "../api";
 import { useRecentlyViewed } from "../../../hooks/useRecentlyViewed";
+import { getApiErrorCode, getApiErrorMessage } from "../../../lib/api-contract";
 import { useT } from "../../../hooks/useT";
 import ProductAlertControls from "../../productAlerts/components/ProductAlertControls";
 import { fetchProductAlert, updateProductAlert } from "../../productAlerts/api";
@@ -201,11 +202,20 @@ const ProductPage = () => {
                     summary: updatedReviews.summary,
                     product: updatedProduct || undefined,
                 };
-            } catch {
+            } catch (error: unknown) {
+                const errorCode = getApiErrorCode(error);
+                const status = error && typeof error === "object" && "response" in error
+                    ? (error as { response?: { status?: number } }).response?.status
+                    : undefined;
+                const message = errorCode === "EMAIL_VERIFICATION_REQUIRED"
+                    ? t("checkout.verificationRequired")
+                    : status === 403
+                        ? t("product.reviewRequiresPurchase")
+                        : getApiErrorMessage(error, t("product.reviewSubmitError"));
                 return {
                     status: "error",
                     title: "Submit review",
-                    message: "Unable to submit review.",
+                    message,
                 };
             }
         },
@@ -602,7 +612,6 @@ const ProductPage = () => {
     const ratingDistribution = [5, 4, 3, 2, 1] as const;
     const activePrice =
         productDetail.sale_price !== null &&
-        productDetail.sale_price > 0 &&
         productDetail.sale_price < productDetail.price
             ? productDetail.sale_price
             : productDetail.price;

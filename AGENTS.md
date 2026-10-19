@@ -633,7 +633,7 @@ These are directly observable from the current repo:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **digital-e-shop** (76088 symbols, 93720 relationships, 532 execution flows).
+This project is indexed by GitNexus as **digital-e-shop** (64901 symbols, 82142 relationships, 530 execution flows).
 
 > Index stale? Run `node .gitnexus/run.cjs analyze --index-only` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? Bootstrap with `npx`, `bunx`, or `pnpm dlx` — e.g. `bunx gitnexus@latest analyze` (npm 11 npx crash; #1939).
 

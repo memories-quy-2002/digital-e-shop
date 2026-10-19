@@ -19,7 +19,7 @@ const sanitizeEntry = (product: Product | RecentlyViewedEntry): RecentlyViewedEn
     sale_price:
         product.sale_price === null || product.sale_price === undefined
             ? null
-            : Number(product.sale_price) || null,
+            : Number(product.sale_price),
     main_image: product.main_image ?? null,
     stock: Number(product.stock) || 0,
     rating: Number(product.rating) || 0,

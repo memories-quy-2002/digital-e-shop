@@ -122,6 +122,7 @@ export type InventoryMovementRow = {
 };
 
 export type OrderSummaryRow = {
+    public_id?: string;
     id: number;
     user_id: string;
     status: number;
@@ -149,6 +150,7 @@ export type OrderDetailRow = OrderSummaryRow & {
 };
 
 export type OrderDetail = {
+    public_id?: string;
     id: number;
     date_added: string;
     user_id: string;

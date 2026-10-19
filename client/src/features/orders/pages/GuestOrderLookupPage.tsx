@@ -21,6 +21,7 @@ import ShipmentTimeline from "../../shipping/components/ShipmentTimeline";
 import { fetchGuestShipment } from "../../shipping/api";
 import type { ShipmentSummary } from "../../shipping/types";
 import GuestOrderAccessCard from "../components/GuestOrderAccessCard";
+import { parseOrderIdentifier } from "../identifiers";
 
 const getErrorMessage = (error: unknown, fallback: string) => {
     return getApiErrorMessage(error, fallback);
@@ -68,8 +69,8 @@ const GuestOrderLookupPage = () => {
         setOrder(null);
         setShipment(null);
 
-        const numericOrderId = Number(orderId.trim());
-        if (!Number.isSafeInteger(numericOrderId) || numericOrderId <= 0) {
+        const orderReference = parseOrderIdentifier(orderId);
+        if (orderReference === null) {
             setInvalidField("orderId");
             return;
         }
@@ -81,9 +82,9 @@ const GuestOrderLookupPage = () => {
 
         setIsLoading(true);
         try {
-            const result = await lookupGuestOrder(numericOrderId, normalizedToken);
+            const result = await lookupGuestOrder(orderReference, normalizedToken);
             setOrder(result);
-            try { setShipment(await fetchGuestShipment(numericOrderId, normalizedToken)); } catch { setShipment(null); }
+            try { setShipment(await fetchGuestShipment(result.id, normalizedToken)); } catch { setShipment(null); }
         } catch (lookupError) {
             setError(getErrorMessage(lookupError, t("guestOrder.notFound")));
         } finally {
@@ -92,26 +93,26 @@ const GuestOrderLookupPage = () => {
     };
 
     const getRecoveryOrderId = () => {
-        const numericOrderId = Number(orderId.trim());
-        if (!Number.isSafeInteger(numericOrderId) || numericOrderId <= 0) {
+        const orderReference = parseOrderIdentifier(orderId);
+        if (orderReference === null) {
             setRecoveryError(t("guestOrder.recoveryRequestError"));
             return null;
         }
-        return numericOrderId;
+        return orderReference;
     };
 
     const handleRecoveryRequest = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         setRecoveryError(null);
         setRecoveryMessage(null);
-        const numericOrderId = getRecoveryOrderId();
-        if (!numericOrderId || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoveryEmail.trim())) {
+        const orderReference = getRecoveryOrderId();
+        if (orderReference === null || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoveryEmail.trim())) {
             setRecoveryError(t("guestOrder.recoveryRequestError"));
             return;
         }
         setRecoveryBusy(true);
         try {
-            await requestGuestOrderAccessRecovery(numericOrderId, recoveryEmail.trim());
+            await requestGuestOrderAccessRecovery(orderReference, recoveryEmail.trim());
         } catch {
             // The same response is shown for unknown orders and transient request failures.
         } finally {
@@ -124,15 +125,15 @@ const GuestOrderLookupPage = () => {
     const handleRecoveryVerify = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         setRecoveryError(null);
-        const numericOrderId = getRecoveryOrderId();
-        if (!numericOrderId || !/^\d{6}$/.test(recoveryCode)) {
+        const orderReference = getRecoveryOrderId();
+        if (orderReference === null || !/^\d{6}$/.test(recoveryCode)) {
             setRecoveryError(t("guestOrder.recoveryVerifyError"));
             return;
         }
         setRecoveryBusy(true);
         try {
             const { guestOrderToken: recoveredToken } = await verifyGuestOrderAccessRecovery(
-                numericOrderId,
+                orderReference,
                 recoveryEmail.trim(),
                 recoveryCode,
             );
@@ -140,9 +141,9 @@ const GuestOrderLookupPage = () => {
             setRecoveryOpen(false);
             setRecoveryMessage(null);
             setError(null);
-            const result = await lookupGuestOrder(numericOrderId, recoveredToken);
+            const result = await lookupGuestOrder(orderReference, recoveredToken);
             setOrder(result);
-            try { setShipment(await fetchGuestShipment(numericOrderId, recoveredToken)); } catch { setShipment(null); }
+            try { setShipment(await fetchGuestShipment(result.id, recoveredToken)); } catch { setShipment(null); }
         } catch {
             setRecoveryError(t("guestOrder.recoveryVerifyError"));
         } finally {
@@ -172,7 +173,6 @@ const GuestOrderLookupPage = () => {
                             <input
                                 type="text"
                                 name="orderId"
-                                inputMode="numeric"
                                 value={orderId}
                                 aria-invalid={invalidField === "orderId"}
                                 aria-describedby={invalidField === "orderId" ? "guest-order-id-error" : undefined}
@@ -310,11 +310,11 @@ const GuestOrderLookupPage = () => {
                             </article>
                         </div>
                         <ShipmentTimeline shipment={shipment} />
-                        <GuestAfterSalesPanel orderId={order.id} guestOrderToken={guestOrderToken} currency={order.currency} items={order.items} returnEligibleUntil={order.return_eligible_until} />
+                        <GuestAfterSalesPanel orderId={order.public_id ?? order.id} guestOrderToken={guestOrderToken} currency={order.currency} items={order.items} returnEligibleUntil={order.return_eligible_until} />
                     </section>
                 ) : null}
 
-                {order && guestOrderToken ? <GuestOrderAccessCard orderId={String(order.id)} guestOrderToken={guestOrderToken} /> : null}
+                {order && guestOrderToken ? <GuestOrderAccessCard orderId={order.public_id ?? String(order.id)} guestOrderToken={guestOrderToken} /> : null}
 
                 <Link to="/" className="guest-order__back">
                     {t("guestOrder.continueShopping")} <ArrowRightIcon size={18} />

@@ -70,7 +70,7 @@ function buildService(status: string = "PENDING") {
         if (sql.includes("JOIN order_payments")) return [];
         if (sql.startsWith("INSERT INTO orders")) return { insertId: 42 };
         if (sql.startsWith("UPDATE products")) return { affectedRows: 1 };
-        if (sql.includes("SELECT id, DATE_FORMAT(date_added")) return [{ id: 42, date_added: "2026-09-06T01:00:00.000Z" }];
+        if (sql.includes("SELECT id, public_id, DATE_FORMAT(date_added")) return [{ id: 42, public_id: "0199fbb1-1234-7123-8123-123456789abc", date_added: "2026-09-06T01:00:00.000Z" }];
         return [];
     });
     withTransaction.mockImplementation(async (work: (transaction: typeof tx) => Promise<unknown>) => work(tx));
@@ -104,6 +104,7 @@ describe("PayOS reserved checkout finalization", () => {
 
         await expect(service.finalizePayOSCheckout(1_757_450_400_007, "link-123", 450_000)).resolves.toEqual({
             id: 42,
+            public_id: "0199fbb1-1234-7123-8123-123456789abc",
             date_added: "2026-09-06T01:00:00.000Z",
         });
 
@@ -121,7 +122,7 @@ describe("PayOS reserved checkout finalization", () => {
         ]));
         const orderInsert = tx.query.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO orders"));
         expect(orderInsert?.[0]).toContain("payment_method, currency, date_added");
-        expect(orderInsert?.[0]).toContain("VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())");
+        expect(orderInsert?.[1]?.at(-1)).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
         expect(orderInsert?.[1]).toEqual(expect.arrayContaining(["payos", "VND"]));
         expect(reservationRepository.consumeReservation).toHaveBeenCalledWith(tx, 7);
         expect(inventoryService.createMovementsInTransaction).toHaveBeenCalledTimes(1);

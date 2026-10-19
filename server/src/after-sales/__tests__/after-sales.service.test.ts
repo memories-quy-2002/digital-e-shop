@@ -56,12 +56,34 @@ describe("AfterSalesService", () => {
         expect(repo.insertRequest).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ userId: "customer-1" }), input, [item]);
     });
 
+    it("resolves a UUID v7 order reference before existing numeric transaction operations", async () => {
+        const repo = repository();
+        const service = new AfterSalesService(repo);
+        const orderId = "019a2b3c-4d5e-7f80-8123-456789abcdef";
+
+        await expect(service.createCustomerRequest("customer-1", { ...input, orderId })).resolves.toMatchObject({ id: 9 });
+        expect(repo.findOrderForIdentity).toHaveBeenCalledWith(expect.anything(), { orderId, userId: "customer-1" });
+        expect(repo.findOrderItemsForUpdate).toHaveBeenCalledWith(expect.anything(), 42, [7]);
+        expect(repo.insertRequest).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ userId: "customer-1" }), { ...input, orderId: 42 }, [item]);
+    });
+
     it("returns the idempotent existing request without inserting twice", async () => {
         const repo = repository();
         vi.mocked(repo.findByIdempotencyKey).mockResolvedValue({ id: 11, orderId: 42, userId: "customer-1", status: "REQUESTED" } as never);
         const service = new AfterSalesService(repo);
 
         await expect(service.createCustomerRequest("customer-1", input)).resolves.toMatchObject({ id: 11 });
+        expect(repo.insertRequest).not.toHaveBeenCalled();
+    });
+
+    it("replays an idempotent request when the same order is referenced by UUID v7", async () => {
+        const repo = repository();
+        const orderId = "019a2b3c-4d5e-7f80-8123-456789abcdef";
+        vi.mocked(repo.findByIdempotencyKey).mockResolvedValue({ id: 11, orderId: 42, userId: "customer-1", status: "REQUESTED" } as never);
+        const service = new AfterSalesService(repo);
+
+        await expect(service.createCustomerRequest("customer-1", { ...input, orderId })).resolves.toMatchObject({ id: 11 });
+        expect(repo.findOrderForIdentity).toHaveBeenCalledWith(expect.anything(), { orderId, userId: "customer-1" });
         expect(repo.insertRequest).not.toHaveBeenCalled();
     });
 
@@ -102,5 +124,15 @@ describe("AfterSalesService", () => {
 
         await expect(service.listGuestRequests(42, "wrong-token", { page: 1, limit: 50 })).rejects.toMatchObject({ statusCode: 404, code: "ORDER_NOT_FOUND" });
         expect(repo.listGuestRequests).not.toHaveBeenCalled();
+    });
+
+    it("does not expose a guest request when the UUID order reference and token do not match", async () => {
+        const repo = repository();
+        vi.mocked(repo.findOrderForIdentity).mockResolvedValue(null);
+        const service = new AfterSalesService(repo);
+
+        await expect(service.getGuestRequest("019a2b3c-4d5e-7f80-8123-456789abcdef", "wrong-token", 71))
+            .rejects.toMatchObject({ statusCode: 404 });
+        expect(repo.getGuestRequest).not.toHaveBeenCalled();
     });
 });

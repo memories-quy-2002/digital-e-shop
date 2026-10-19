@@ -140,7 +140,7 @@ export const guestPayOSCheckoutSchema = guestCheckoutBaseSchema.extend({
 }).superRefine(validateGuestCartQuantities);
 
 export const guestOrderLookupSchema = z.object({
-    orderId: guestPositiveInt("Order id"),
+    orderId: z.union([guestPositiveInt("Order id"), z.uuidv7()]),
     guestOrderToken: z.string().trim().min(1, "Guest order token is required").max(256, "Guest order token is too long"),
 }).strict();
 

@@ -15,6 +15,7 @@ import { AFTER_SALES_PAGINATION, AFTER_SALES_REQUEST_REASON_MAX_LENGTH, AFTER_SA
 import { AFTER_SALES_KIND, type AfterSalesKind, type AfterSalesRequest } from "../types";
 import { getStableIdempotencyKey, type StableIdempotencyKey } from "../idempotency";
 import { getApiErrorMessage } from "../../../lib/api-contract";
+import { parseOrderIdentifier } from "../../orders/identifiers";
 import "../../../styles/features/after-sales/_after-sales.scss";
 
 const errorMessage = (error: unknown, fallback: string) => {
@@ -64,8 +65,8 @@ const AfterSalesPage = () => {
     useEffect(() => { void loadRequests(); }, [loadRequests]);
 
     const loadOrder = async () => {
-        const parsed = Number(orderId);
-        if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+        const parsed = parseOrderIdentifier(orderId);
+        if (parsed === null) {
             setError(t("afterSales.invalidOrderId"));
             return;
         }
@@ -99,7 +100,7 @@ const AfterSalesPage = () => {
             setIsSubmitting(true);
             setError(null);
             setSuccess(null);
-            const payload = { orderId: orderDetail.id, kind, reason: reason.trim(), items: selectedItems };
+            const payload = { orderId: orderDetail.public_id ?? orderDetail.id, kind, reason: reason.trim(), items: selectedItems };
             const idempotencyRequest = getStableIdempotencyKey(payload, idempotencyKeyRef.current);
             idempotencyKeyRef.current = idempotencyRequest;
             await createCustomerAfterSalesRequest({ ...payload, idempotencyKey: idempotencyRequest.key });
@@ -126,7 +127,7 @@ const AfterSalesPage = () => {
                 <section className="after-sales__layout">
                     <form className="after-sales__card" onSubmit={submit}>
                         <div className="after-sales__card-header"><div><span className="after-sales__eyebrow">{t("afterSales.newRequestEyebrow")}</span><h2>{t("afterSales.newRequestTitle")}</h2></div></div>
-                        <label>{t("afterSales.orderId")}<input value={orderId} onChange={(event) => setOrderId(event.target.value)} inputMode="numeric" placeholder={t("afterSales.orderIdPlaceholder")} /></label>
+                        <label>{t("afterSales.orderId")}<input value={orderId} onChange={(event) => setOrderId(event.target.value)} placeholder={t("afterSales.orderIdPlaceholder")} /></label>
                         <button type="button" className="after-sales__secondary" onClick={() => void loadOrder()} disabled={isLoadingOrder}>{isLoadingOrder ? t("afterSales.loadingItems") : t("afterSales.loadOrder")}</button>
                         <label>{t("afterSales.requestType")}<select value={kind} onChange={(event) => setKind(event.target.value as AfterSalesKind)}><option value={AFTER_SALES_KIND.RETURN}>{t("afterSales.return")}</option><option value={AFTER_SALES_KIND.WARRANTY}>{t("afterSales.warranty")}</option></select></label>
                         {kind === AFTER_SALES_KIND.RETURN && orderDetail?.return_eligible_until ? <p role="note">{t(Date.parse(orderDetail.return_eligible_until) < Date.now() ? "afterSales.returnWindowEnded" : "afterSales.returnDeadline", formatUtcDateTime(orderDetail.return_eligible_until, locale === "vi" ? "vi-VN" : "en-GB"))}</p> : null}

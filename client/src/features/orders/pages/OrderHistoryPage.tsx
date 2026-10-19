@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { CartIcon } from "../../../components/common/Icons";
 import EmptyState from "../../../components/common/EmptyState";
 import LoadingScreen from "../../../components/common/LoadingScreen";
@@ -13,6 +13,7 @@ import { formatUtcDate, formatUtcDateTime } from "../../../utils/dateTime";
 import CustomerAccountShell from "../../users/components/CustomerAccountShell";
 import { addItemsToCustomerCart, cancelCustomerOrder, fetchCustomerOrderDetail, fetchCustomerOrders } from "../api";
 import type { CustomerOrder, CustomerOrderDetail, CustomerOrderTimelineEvent } from "../types";
+import type { PublicIdentifier } from "../../../types/publicIdentifier";
 import { formatShippingAddress } from "../shippingAddress";
 import { formatCurrency } from "../../../utils/currency";
 import { getOrderStatusKey, ORDER_STATUS } from "../orderStatus";
@@ -55,8 +56,9 @@ const OrderHistoryPage = () => {
     const t = useT();
     const [orders, setOrders] = useState<CustomerOrder[]>([]);
     const [isLoadingOrders, setIsLoadingOrders] = useState(true);
-    const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+    const [selectedOrderId, setSelectedOrderId] = useState<PublicIdentifier | null>(null);
     const [orderDetail, setOrderDetail] = useState<CustomerOrderDetail | null>(null);
+    const detailRequestSequence = useRef(0);
     const [loadingDetail, setLoadingDetail] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [isCanceling, setIsCanceling] = useState(false);
@@ -84,37 +86,46 @@ const OrderHistoryPage = () => {
     }, [addToast, t, uid]);
 
     useEffect(() => {
+        const requestSequence = ++detailRequestSequence.current;
         const fetchDetail = async () => {
             if (!selectedOrderId) {
                 setOrderDetail(null);
+                setLoadingDetail(false);
                 return;
             }
 
             try {
                 setLoadingDetail(true);
-                setOrderDetail(await fetchCustomerOrderDetail(selectedOrderId));
+                setOrderDetail(null);
+                const result = await fetchCustomerOrderDetail(selectedOrderId);
+                if (requestSequence === detailRequestSequence.current) setOrderDetail(result);
             } catch {
-                addToast(t("orders.listTitle"), t("orders.detailError"));
+                if (requestSequence === detailRequestSequence.current) {
+                    addToast(t("orders.listTitle"), t("orders.detailError"));
+                }
             } finally {
-                setLoadingDetail(false);
+                if (requestSequence === detailRequestSequence.current) setLoadingDetail(false);
             }
         };
 
         fetchDetail();
+        return () => {
+            if (requestSequence === detailRequestSequence.current) detailRequestSequence.current += 1;
+        };
     }, [addToast, selectedOrderId, t]);
+
+    const selectedOrder = useMemo(
+        () => orders.find((order) => order.id === selectedOrderId || order.public_id === selectedOrderId) || orders[0] || null,
+        [orders, selectedOrderId],
+    );
 
     useEffect(() => {
         let active = true;
-        if (!selectedOrderId) { setShipment(null); return () => { active = false; }; }
+        if (!selectedOrder?.id) { setShipment(null); return () => { active = false; }; }
         setShipmentLoading(true);
-        void fetchCustomerShipment(selectedOrderId).then((result) => { if (active) setShipment(result); }).catch(() => { if (active) setShipment(null); }).finally(() => { if (active) setShipmentLoading(false); });
+        void fetchCustomerShipment(selectedOrder.id).then((result) => { if (active) setShipment(result); }).catch(() => { if (active) setShipment(null); }).finally(() => { if (active) setShipmentLoading(false); });
         return () => { active = false; };
-    }, [selectedOrderId]);
-
-    const selectedOrder = useMemo(
-        () => orders.find((order) => order.id === selectedOrderId) || orders[0] || null,
-        [orders, selectedOrderId],
-    );
+    }, [selectedOrder?.id]);
 
     const totalPages = Math.max(1, Math.ceil(orders.length / ORDER_PAGE_SIZE));
 
@@ -125,10 +136,10 @@ const OrderHistoryPage = () => {
 
     useEffect(() => {
         if (!selectedOrderId && orders.length > 0) {
-            const requestedOrderId = Number(searchParams.get("order"));
-            const requestedOrder = orders.find((order) => order.id === requestedOrderId);
+            const requestedOrderId = searchParams.get("order");
+            const requestedOrder = orders.find((order) => order.public_id === requestedOrderId || String(order.id) === requestedOrderId);
             const initialOrder = requestedOrder || orders[0];
-            setSelectedOrderId(initialOrder.id);
+            setSelectedOrderId(initialOrder.public_id ?? initialOrder.id);
             const initialOrderIndex = orders.findIndex((order) => order.id === initialOrder.id);
             setCurrentPage(Math.floor(initialOrderIndex / ORDER_PAGE_SIZE) + 1);
         }
@@ -137,9 +148,9 @@ const OrderHistoryPage = () => {
     useEffect(() => {
         if (visibleOrders.length === 0 || selectedOrderId === null) return;
 
-        const selectedOrderIsVisible = visibleOrders.some((order) => order.id === selectedOrderId);
+        const selectedOrderIsVisible = visibleOrders.some((order) => (order.public_id ?? order.id) === selectedOrderId);
         if (!selectedOrderIsVisible) {
-            setSelectedOrderId(visibleOrders[0].id);
+            setSelectedOrderId(visibleOrders[0].public_id ?? visibleOrders[0].id);
         }
     }, [selectedOrderId, visibleOrders]);
 
@@ -178,10 +189,11 @@ const OrderHistoryPage = () => {
 
         try {
             setIsCanceling(true);
-            const canceledOrder = await cancelCustomerOrder(orderDetail.id);
+            const orderReference = orderDetail.public_id ?? orderDetail.id;
+            const canceledOrder = await cancelCustomerOrder(orderReference);
             if (canceledOrder) {
                 setOrders((current) => current.map((order) => order.id === canceledOrder.id ? { ...order, ...canceledOrder } : order));
-                setOrderDetail(await fetchCustomerOrderDetail(orderDetail.id));
+                setOrderDetail(await fetchCustomerOrderDetail(orderReference));
             }
             addToast(t("orders.cancelSuccessTitle"), t("orders.cancelSuccess"));
         } catch (error: unknown) {
@@ -260,9 +272,9 @@ const OrderHistoryPage = () => {
                                         key={order.id}
                                         type="button"
                                         className={`order-history__order-button${
-                                            selectedOrder?.id === order.id ? " order-history__order-button--active" : ""
+                                            (selectedOrder?.public_id ?? selectedOrder?.id) === (order.public_id ?? order.id) ? " order-history__order-button--active" : ""
                                         }`}
-                                        onClick={() => setSelectedOrderId(order.id)}
+                                        onClick={() => setSelectedOrderId(order.public_id ?? order.id)}
                                     >
                                         <strong>{t("orders.orderLabel", order.id)}</strong>
                                         <span>{formatUtcDate(order.date_added)}</span>
@@ -399,6 +411,11 @@ const OrderHistoryPage = () => {
                                                 <span className="order-history__item-price">
                                                     {item.quantity} x {formatCurrency(item.sale_price ?? item.price)}
                                                 </span>
+                                                {orderDetail.status === ORDER_STATUS.DONE ? (
+                                                    <Link className="order-history__review-link" to={`/product?id=${encodeURIComponent(item.productId)}`}>
+                                                        {t("product.writeReview")}
+                                                    </Link>
+                                                ) : null}
                                             </div>
                                         ))}
                                     </div>

@@ -14,6 +14,10 @@ TL;DR: An order records a committed purchase for an authenticated customer or a 
 
 ## Order identity
 
+`orders.id` remains the numeric primary key for internal relationships;
+`orders.public_id` is a unique UUID v7 for public references. API responses keep
+both during the compatibility period. See [[0007-public-resource-identifiers]].
+
 An authenticated order stores `user_id`. A guest order keeps `user_id` null and
 stores a contact snapshot with guest email, name, phone, and a SHA-256 hash of
 the one-time guest order token.

@@ -259,6 +259,19 @@ export class NestProductsRepository {
         return row ?? null;
     }
 
+    async getActiveReservationQuantity(tx: TransactionContext, pid: number): Promise<number> {
+        const [row] = await tx.query<Array<{ reserved_quantity?: number | string | null }>>(
+            `SELECT COALESCE(SUM(ir.quantity), 0) AS reserved_quantity
+             FROM inventory_reservations ir
+             JOIN pending_checkouts pc ON pc.id = ir.pending_checkout_id
+             WHERE ir.product_id = ?
+               AND pc.status = '${CHECKOUT_RESERVATION_STATUS.PENDING}'
+               AND pc.expires_at > UTC_TIMESTAMP()`,
+            [pid],
+        );
+        return Number(row?.reserved_quantity) || 0;
+    }
+
     updateProductInTransaction(tx: TransactionContext, pid: number, product: ProductUpdateRecord): Promise<UpdateResult> {
         return tx.query<UpdateResult>(
             `UPDATE products

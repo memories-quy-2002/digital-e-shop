@@ -24,7 +24,6 @@ import {
 } from "../utils/dashboardAvailability";
 import AdminDashboardHeader from "../components/AdminDashboardHeader";
 import AdminDashboardKpiGrid, { type AdminDashboardKpi } from "../components/AdminDashboardKpiGrid";
-import AdminDashboardOperations from "../components/AdminDashboardOperations";
 import { groupAdminAlerts } from "../utils/dashboardAlerts";
 import { getDashboardRangeLabel, parseDashboardRange, type DashboardRange } from "../utils/dashboardRange";
 import { formatCurrency } from "../../../utils/currency";
@@ -51,6 +50,9 @@ type ChartDatum = {
 };
 
 const AdminDashboardCharts = React.lazy(() => import("../components/AdminDashboardCharts"));
+// Keep the operational queues out of the initial dashboard route bundle while
+// preserving their normal loading, error, and retry behavior once mounted.
+const AdminDashboardOperations = React.lazy(() => import("../components/AdminDashboardOperations"));
 
 const formatUtcDay = (date: Date, locale = "en-US") =>
     new Intl.DateTimeFormat(locale, {
@@ -619,15 +621,17 @@ const AdminDashboard = () => {
                     onOpenAlerts={markAlertGroupRead}
                 />
                 <AdminDashboardKpiGrid kpis={primaryKpis} />
-                <AdminDashboardOperations
-                    pendingOrders={pendingQueue}
-                    lowStockProducts={dashboardStats.lowStockProducts}
-                    ordersStatus={availability.orders}
-                    productsStatus={availability.products}
-                    formatCurrency={formatCurrency}
-                    formatReportDate={formatReportDate}
-                    onRetry={() => fetchDashboardData(true)}
-                />
+                <Suspense fallback={<div className="admin__dashboard__operations" role="status" aria-busy="true">{tx("Loading pending orders")}</div>}>
+                    <AdminDashboardOperations
+                        pendingOrders={pendingQueue}
+                        lowStockProducts={dashboardStats.lowStockProducts}
+                        ordersStatus={availability.orders}
+                        productsStatus={availability.products}
+                        formatCurrency={formatCurrency}
+                        formatReportDate={formatReportDate}
+                        onRetry={() => fetchDashboardData(true)}
+                    />
+                </Suspense>
 
                 <div ref={chartsContainerRef}>
                     {shouldLoadCharts ? (
