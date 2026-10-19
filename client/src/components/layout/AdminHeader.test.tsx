@@ -215,7 +215,7 @@ describe("AdminHeader activity feed request states", () => {
 
         expect(profile).toHaveAttribute("aria-expanded", "true");
         fireEvent.click(screen.getByRole("button", { name: "Log out" }));
-        expect(screen.getByText("Are you sure you want to logout?")).toBeInTheDocument();
+        expect(await screen.findByText("Are you sure you want to logout?")).toBeInTheDocument();
 
         fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
         expect(screen.queryByText("Are you sure you want to logout?")).not.toBeInTheDocument();

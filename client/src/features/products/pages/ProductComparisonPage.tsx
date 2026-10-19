@@ -94,7 +94,7 @@ const ProductSummary = ({
 }) => {
     const t = useT();
     const availableStock = availableStockFor(product);
-    const hasSale = product.sale_price !== null && product.sale_price < product.price;
+    const hasSale = typeof product.sale_price === "number" && product.sale_price > 0 && product.sale_price < product.price;
     const activePrice = hasSale ? product.sale_price : product.price;
     const imageSource = getResponsiveImageSource(getProductImageUrl(product.main_image), {
         sizes: "(min-width: 1024px) 18rem, (min-width: 640px) 30vw, 90vw",

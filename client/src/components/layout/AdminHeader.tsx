@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Modal } from "../ui/legacy";
 import { ArrowDownIcon, BellIcon, BoxArrowRightIcon, MenuIcon, SearchIcon } from "../common/Icons";
 import { useToast } from "../../context/ToastContext";
 import { Helmet } from "react-helmet-async";
@@ -16,6 +15,8 @@ import { getApiSuccessMessage } from "../../lib/api-contract";
 import { logoutCurrentCustomer } from "../../features/users/api";
 import { useAdminDashboardCopy } from "../../hooks/useAdminDashboardCopy";
 import { adminNavItems, findAdminNavigationItem } from "./adminNavigation";
+
+const AdminLogoutConfirm = React.lazy(() => import("./AdminLogoutConfirm"));
 
 const POLL_INTERVAL = 60000;
 
@@ -384,20 +385,15 @@ const AdminHeader = ({ onOpenSidebar, isSidebarOpen = false }: AdminHeaderProps)
                 </div>
             </div>
 
-            <Modal show={showLogout} onHide={() => setShowLogout(false)} animation={false}>
-                <Modal.Header closeButton>
-                    <Modal.Title>{tx("Logout")}</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>{tx("Are you sure you want to logout?")}</Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowLogout(false)}>
-                        {tx("Cancel")}
-                    </Button>
-                    <Button variant="primary" onClick={handleLogout}>
-                        {tx("Logout")}
-                    </Button>
-                </Modal.Footer>
-            </Modal>
+            {showLogout ? (
+                <React.Suspense fallback={null}>
+                    <AdminLogoutConfirm
+                        onHide={() => setShowLogout(false)}
+                        onConfirm={handleLogout}
+                        tx={tx}
+                    />
+                </React.Suspense>
+            ) : null}
         </header>
     );
 };
